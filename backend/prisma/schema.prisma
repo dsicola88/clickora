@@ -1,0 +1,305 @@
+// ===========================================
+// Clickora Backend — Prisma Schema
+// Compatible with frontend src/types/api.ts
+// ===========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================
+// Enums
+// ========================
+
+enum AppRole {
+  super_admin
+  admin
+  moderator
+  user
+}
+
+enum PlanType {
+  free_trial
+  monthly
+  quarterly
+  annual
+}
+
+enum PresellStatus {
+  draft
+  published
+  paused
+  archived
+}
+
+enum EventType {
+  click
+  impression
+  conversion
+  lead
+  sale
+  pageview
+}
+
+enum SubscriptionStatus {
+  active
+  canceled
+  expired
+  suspended
+}
+
+// ========================
+// Models
+// ========================
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String   // bcrypt hash
+  fullName    String?  @map("full_name")
+  /** Google OAuth `sub` — opcional; login Google usa o mesmo e-mail da conta. */
+  googleId    String?  @unique @map("google_id")
+  avatarUrl   String?  @map("avatar_url")
+  /** E-mail opcional para alertas de venda (postback de afiliados). Se vazio, usa `email`. */
+  saleNotifyEmail String? @map("sale_notify_email")
+  /** OAuth refresh token da conta Google Ads (opcional se usar só variáveis de ambiente globais). */
+  googleAdsRefreshToken String?  @map("google_ads_refresh_token") @db.Text
+  googleAdsEnabled           Boolean  @default(false) @map("google_ads_enabled")
+  /** Customer ID numérico (sem hífenes), ex. 1234567890 */
+  googleAdsCustomerId        String?  @map("google_ads_customer_id")
+  /** ID da ação de conversão em Ferramentas → Conversões (número). */
+  googleAdsConversionActionId String? @map("google_ads_conversion_action_id")
+  /** Conta gestora (MCC) se aplicável, só dígitos. */
+  googleAdsLoginCustomerId   String?  @map("google_ads_login_customer_id")
+  /** Bot Telegram (@BotFather). Não expor em APIs públicas. */
+  telegramBotToken String? @map("telegram_bot_token") @db.Text
+  telegramChatId   String? @map("telegram_chat_id")
+  telegramNotifySale Boolean @default(true) @map("telegram_notify_sale")
+  telegramNotifyPostbackError Boolean @default(true) @map("telegram_notify_postback_error")
+  telegramNotifyClick         Boolean @default(false) @map("telegram_notify_click")
+  workspaceId String   @default(uuid()) @map("workspace_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  roles          UserRole[]
+  presellPages   PresellPage[]
+  trackingEvents TrackingEvent[]
+  postbackLogs   PostbackLog[]
+  subscription   Subscription?
+  conversions    Conversion[]
+
+  @@map("users")
+}
+
+model UserRole {
+  id     String  @id @default(uuid())
+  userId String  @map("user_id")
+  role   AppRole @default(user)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+/** Catálogo global de planos (sem tenant — partilhado por todas as contas). */
+model Plan {
+  id               String   @id @default(uuid())
+  name             String
+  type             PlanType
+  priceCents       Int      @default(0) @map("price_cents")
+  maxPresellPages  Int?     @map("max_presell_pages")
+  maxClicksPerMonth Int?    @map("max_clicks_per_month")
+  hasBranding      Boolean  @default(true) @map("has_branding")
+  features         Json     @default("[]")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        String             @id @default(uuid())
+  userId    String             @unique @map("user_id")
+  planId    String             @map("plan_id")
+  status    SubscriptionStatus @default(active)
+  startsAt  DateTime           @default(now()) @map("starts_at")
+  endsAt    DateTime?          @map("ends_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model PresellPage {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  title       String
+  slug        String
+  type        String        @default("cookies")
+  category    String?
+  language    String?       @default("pt")
+  content     Json?
+  videoUrl    String?       @map("video_url")
+  settings    Json?
+  tracking    Json?
+  status      PresellStatus @default(draft)
+  clicks      Int           @default(0)
+  impressions Int           @default(0)
+  conversions Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackingEvents TrackingEvent[]
+  postbackLogs PostbackLog[]
+  linkedConversions Conversion[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+  @@map("presell_pages")
+}
+
+model PostbackLog {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  presellPageId String?  @map("presell_page_id")
+  platform     String
+  status       String
+  message      String?
+  payload      Json?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presellPage PresellPage? @relation(fields: [presellPageId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([platform, createdAt])
+  @@map("postback_logs")
+}
+
+model TrackingEvent {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  presellPageId String?   @map("presell_page_id")
+  eventType     EventType @map("event_type")
+  source        String?
+  medium        String?
+  campaign      String?
+  referrer      String?
+  country       String?
+  device        String?
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presellPage PresellPage? @relation(fields: [presellPageId], references: [id], onDelete: SetNull)
+  conversion  Conversion?
+
+  @@index([userId])
+  @@index([presellPageId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([userId, eventType, createdAt])
+  @@map("tracking_events")
+}
+
+/** Conversão ligada a um clique (ex.: postback de afiliado com clickora_click_id). */
+model Conversion {
+  id        String   @id @default(uuid())
+  clickId   String   @unique @map("click_id")
+  userId    String   @map("user_id")
+  presellId String   @map("presell_id")
+  campaign  String?
+  amount    Decimal? @db.Decimal(14, 4)
+  currency  String?  @default("USD")
+  status    String   @default("approved")
+  metadata  Json?
+  /** sent | failed | skipped_no_gclid | skipped_disabled | skipped_no_config | skipped_pending */
+  googleAdsSync       String?   @map("google_ads_sync")
+  googleAdsSyncedAt   DateTime? @map("google_ads_synced_at")
+  googleAdsSyncDetail Json?     @map("google_ads_sync_detail")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  click TrackingEvent @relation(fields: [clickId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell PresellPage   @relation(fields: [presellId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([presellId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("conversions")
+}
+
+model BlacklistedIp {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  ipAddress String   @map("ip_address")
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, ipAddress])
+  @@index([userId])
+  @@map("blacklisted_ips")
+}
+
+/** Marca global da instalação (ex.: favicon). Uma linha id "default"; não é por assinante. */
+model SiteBranding {
+  id          String   @id @default("default")
+  faviconExt  String?  @map("favicon_ext")
+  faviconMime String?  @map("favicon_mime")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("site_branding")
+}
+
+/** Conteúdo da landing pública /plans (hero, textos, imagem) — uma linha id "default". */
+model PlansLandingConfig {
+  id            String   @id @default("default")
+  badgeText     String?  @map("badge_text")
+  heroTitle     String   @default("Escolha seu plano") @map("hero_title")
+  heroSubtitle  String?  @map("hero_subtitle") @db.Text
+  heroImageExt  String?  @map("hero_image_ext")
+  heroImageMime String?  @map("hero_image_mime")
+  introText     String?  @map("intro_text") @db.Text
+  footerText    String?  @map("footer_text") @db.Text
+
+  /// sans | serif | mono
+  heroFont         String @default("sans") @map("hero_font")
+  /// left | center | right
+  heroTextAlign    String @default("left") @map("hero_text_align")
+  /// sm … 5xl (título do hero)
+  heroTitleSize    String @default("3xl") @map("hero_title_size")
+  /// normal | medium | semibold | bold | extrabold
+  heroTitleWeight  String @default("bold") @map("hero_title_weight")
+  /// xs | sm | base | lg | xl (subtítulo)
+  heroSubtitleSize String @default("base") @map("hero_subtitle_size")
+
+  introFont       String @default("sans") @map("intro_font")
+  introTextAlign  String @default("left") @map("intro_text_align")
+  introTextSize   String @default("base") @map("intro_text_size")
+
+  footerFont      String @default("sans") @map("footer_font")
+  footerTextAlign String @default("center") @map("footer_text_align")
+  footerTextSize  String @default("sm") @map("footer_text_size")
+
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("plans_landing_config")
+}

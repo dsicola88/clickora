@@ -1,0 +1,898 @@
+import { randomUUID } from "node:crypto";
+import { Request, Response } from "express";
+import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import prisma, { systemPrisma } from "../lib/prisma";
+import { evaluateSubscriptionAccess } from "../lib/subscription";
+import { createPostbackToken, verifyPostbackToken } from "../lib/postbackToken";
+import { publicApiBaseFromRequest } from "../lib/publicApiBase";
+import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
+import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
+import { notifyTelegramClick } from "../lib/telegramNotifications";
+
+const clickSchema = z.object({
+  presell_id: z.string().min(1),
+  source: z.string().optional(),
+  medium: z.string().optional(),
+  campaign: z.string().optional(),
+  referrer: z.string().optional(),
+  utm_source: z.string().optional(),
+  gclid: z.string().optional(),
+  gbraid: z.string().optional(),
+  wbraid: z.string().optional(),
+  fbclid: z.string().optional(),
+  ttclid: z.string().optional(),
+  utm_term: z.string().optional(),
+  utm_content: z.string().optional(),
+  msclkid: z.string().optional(),
+});
+
+const impressionSchema = z.object({
+  presell_id: z.string().min(1),
+  referrer: z.string().optional(),
+});
+
+const eventSchema = z.object({
+  presell_id: z.string().min(1),
+  event_type: z.enum(["click", "impression", "conversion", "lead", "sale", "pageview"]),
+  metadata: z.record(z.unknown()).optional(),
+  value: z.number().nonnegative().optional(),
+  currency: z.string().min(3).max(3).optional(),
+  transaction_id: z.string().optional(),
+  gclid: z.string().optional(),
+  fbclid: z.string().optional(),
+  ttclid: z.string().optional(),
+  msclkid: z.string().optional(),
+  source: z.string().optional(),
+  medium: z.string().optional(),
+  campaign: z.string().optional(),
+  referrer: z.string().optional(),
+});
+
+const redirectSchema = z.object({
+  to: z.string().url(),
+  source: z.string().optional(),
+  medium: z.string().optional(),
+  campaign: z.string().optional(),
+  referrer: z.string().optional(),
+  utm_source: z.string().optional(),
+  gclid: z.string().optional(),
+  gbraid: z.string().optional(),
+  wbraid: z.string().optional(),
+  fbclid: z.string().optional(),
+  ttclid: z.string().optional(),
+  utm_term: z.string().optional(),
+  utm_content: z.string().optional(),
+  msclkid: z.string().optional(),
+});
+
+/** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id. */
+const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};if(userId)payload.metadata={clickora_user_id:userId};try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
+
+export const trackController = {
+  async redirect(req: Request, res: Response) {
+    const presellId = req.params.presellId;
+    const parsed = redirectSchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
+    const {
+      to,
+      source,
+      medium,
+      campaign,
+      referrer,
+      gclid,
+      gbraid,
+      wbraid,
+      fbclid,
+      ttclid,
+      utm_term,
+      utm_content,
+      msclkid,
+      utm_source,
+    } = parsed.data;
+
+    const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    const accessCheck = await validateOwnerCanTrack(page.userId);
+    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+
+    const ip = extractClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
+      where: { userId_ipAddress: { userId: page.userId, ipAddress: ip } },
+    });
+    if (blacklisted) return res.status(403).json({ error: "IP bloqueado" });
+
+    const click = await systemPrisma.$transaction(async (tx) => {
+      const ev = await tx.trackingEvent.create({
+        data: {
+          userId: page.userId,
+          presellPageId: page.id,
+          eventType: "click",
+          source,
+          medium,
+          campaign,
+          referrer,
+          ipAddress: ip,
+          userAgent,
+          device: detectDevice(userAgent),
+          metadata: {
+            gclid,
+            gbraid,
+            wbraid,
+            fbclid,
+            ttclid,
+            msclkid,
+            utm_term,
+            utm_content,
+            utm_source: utm_source ?? source,
+            source,
+            medium,
+            campaign,
+            redirect_to: to,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      await tx.presellPage.update({
+        where: { id: page.id },
+        data: { clicks: { increment: 1 } },
+      });
+      return ev;
+    });
+
+    notifyTelegramClick(page.userId, {
+      presellTitle: page.title,
+      clickId: click.id,
+      campaign,
+    });
+
+    const redirectTo = appendClickIdToAffiliateUrl(to, click.id);
+    return res.redirect(302, redirectTo);
+  },
+
+  async pixel(req: Request, res: Response) {
+    const presellId = req.params.presellId;
+    const referrer = req.query.referrer?.toString();
+    const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
+    if (!page || page.status !== "published") return res.status(404).end();
+    const accessCheck = await validateOwnerCanTrack(page.userId);
+    if (!accessCheck.ok) return res.status(accessCheck.status).end();
+
+    const ip = extractClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+    await systemPrisma.$transaction([
+      systemPrisma.trackingEvent.create({
+        data: {
+          userId: page.userId,
+          presellPageId: page.id,
+          eventType: "impression",
+          referrer,
+          ipAddress: ip,
+          userAgent,
+          device: detectDevice(userAgent),
+        },
+      }),
+      systemPrisma.presellPage.update({
+        where: { id: page.id },
+        data: { impressions: { increment: 1 } },
+      }),
+    ]);
+
+    const pixelBase64 = "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+    const buffer = Buffer.from(pixelBase64, "base64");
+    res.setHeader("Content-Type", "image/gif");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    return res.status(200).send(buffer);
+  },
+
+  async trackClick(req: Request, res: Response) {
+    const parsed = clickSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    const {
+      presell_id,
+      source,
+      medium,
+      campaign,
+      referrer,
+      gclid,
+      gbraid,
+      wbraid,
+      fbclid,
+      ttclid,
+      utm_term,
+      utm_content,
+      msclkid,
+      utm_source,
+    } = parsed.data;
+
+    // Get page owner
+    const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    const accessCheck = await validateOwnerCanTrack(page.userId);
+    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+
+    const ip = extractClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+
+    // Check blacklist
+    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
+      where: { userId_ipAddress: { userId: page.userId, ipAddress: ip } },
+    });
+    if (blacklisted) return res.status(403).json({ error: "IP bloqueado" });
+
+    const click = await systemPrisma.$transaction(async (tx) => {
+      const ev = await tx.trackingEvent.create({
+        data: {
+          userId: page.userId,
+          presellPageId: presell_id,
+          eventType: "click",
+          source, medium, campaign, referrer,
+          ipAddress: ip,
+          userAgent,
+          device: detectDevice(userAgent),
+          metadata: {
+            gclid,
+            gbraid,
+            wbraid,
+            fbclid,
+            ttclid,
+            msclkid,
+            utm_term,
+            utm_content,
+            utm_source: utm_source ?? source,
+            source,
+            medium,
+            campaign,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      await tx.presellPage.update({
+        where: { id: presell_id },
+        data: { clicks: { increment: 1 } },
+      });
+      return ev;
+    });
+
+    notifyTelegramClick(page.userId, {
+      presellTitle: page.title,
+      clickId: click.id,
+      campaign,
+    });
+
+    res.json({ tracked: true, click_id: click.id });
+  },
+
+  async trackImpression(req: Request, res: Response) {
+    const parsed = impressionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    const { presell_id, referrer } = parsed.data;
+
+    const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    const accessCheck = await validateOwnerCanTrack(page.userId);
+    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+
+    const ip = extractClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+
+    await systemPrisma.$transaction([
+      systemPrisma.trackingEvent.create({
+        data: {
+          userId: page.userId,
+          presellPageId: presell_id,
+          eventType: "impression",
+          referrer,
+          ipAddress: ip,
+          userAgent,
+          device: detectDevice(userAgent),
+        },
+      }),
+      systemPrisma.presellPage.update({
+        where: { id: presell_id },
+        data: { impressions: { increment: 1 } },
+      }),
+    ]);
+
+    res.json({ tracked: true });
+  },
+
+  async trackEvent(req: Request, res: Response) {
+    const parsed = eventSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    const { presell_id, event_type, metadata, value, currency, transaction_id, gclid, fbclid, ttclid, msclkid, source, medium, campaign, referrer } = parsed.data;
+
+    const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    const accessCheck = await validateOwnerCanTrack(page.userId);
+    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+
+    if (transaction_id) {
+      const existing = await systemPrisma.trackingEvent.findFirst({
+        where: {
+          userId: page.userId,
+          presellPageId: presell_id,
+          eventType: event_type,
+          metadata: { path: ["transaction_id"], equals: transaction_id },
+        },
+      });
+      if (existing) return res.json({ tracked: true, duplicate: true });
+    }
+
+    await systemPrisma.trackingEvent.create({
+      data: {
+        userId: page.userId,
+        presellPageId: presell_id,
+        eventType: event_type,
+        source,
+        medium,
+        campaign,
+        referrer,
+        metadata: ({
+          ...(metadata || {}),
+          value,
+          currency: currency?.toUpperCase(),
+          transaction_id,
+          gclid,
+          fbclid,
+          ttclid,
+          msclkid,
+        }) as Prisma.InputJsonValue,
+        ipAddress: extractClientIp(req),
+        userAgent: req.headers["user-agent"] || "",
+      },
+    });
+
+    // Increment conversions if applicable
+    if (["conversion", "sale"].includes(event_type)) {
+      await systemPrisma.presellPage.update({
+        where: { id: presell_id },
+        data: { conversions: { increment: 1 } },
+      });
+    }
+
+    res.json({ tracked: true });
+  },
+
+  async postbackGoogleAds(req: Request, res: Response) {
+    const expectedToken = process.env.GOOGLE_POSTBACK_TOKEN;
+    let tokenUserId: string | undefined;
+    if (expectedToken) {
+      const incoming = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
+      if (!incoming || incoming !== expectedToken) {
+        return res.status(401).json({ error: "Token de postback inválido" });
+      }
+    } else {
+      const token = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
+      if (!token) return res.status(401).json({ error: "Token de postback obrigatório" });
+      const decoded = verifyPostbackToken(token);
+      if (!decoded) return res.status(401).json({ error: "Token de postback inválido" });
+      tokenUserId = decoded.userId;
+    }
+
+    const parsed = z.object({
+      presell_id: z.string().optional(),
+      presell_slug: z.string().optional(),
+      gclid: z.string().min(1),
+      conversion_name: z.string().optional(),
+      value: z.coerce.number().nonnegative().default(0),
+      currency: z.string().min(3).max(3).default("USD"),
+      transaction_id: z.string().optional(),
+      source: z.string().optional(),
+      medium: z.string().optional(),
+      campaign: z.string().optional(),
+    }).refine((data) => !!data.presell_id || !!data.presell_slug, {
+      message: "presell_id ou presell_slug é obrigatório",
+      path: ["presell_id"],
+    }).safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    }
+
+    const data = parsed.data;
+    const page = await systemPrisma.presellPage.findFirst({
+      where: data.presell_id ? { id: data.presell_id } : { slug: data.presell_slug },
+    });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (tokenUserId && page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
+
+    if (data.transaction_id) {
+      const existing = await systemPrisma.trackingEvent.findFirst({
+        where: {
+          userId: page.userId,
+          presellPageId: page.id,
+          eventType: "conversion",
+          metadata: { path: ["transaction_id"], equals: data.transaction_id },
+        },
+      });
+      if (existing) {
+        await logPostback({
+          userId: page.userId,
+          presellPageId: page.id,
+          platform: "google_ads",
+          status: "duplicate",
+          message: "Evento duplicado por transaction_id",
+          payload: req.body,
+        });
+        return res.json({ tracked: true, duplicate: true });
+      }
+    }
+
+    await systemPrisma.$transaction([
+      systemPrisma.trackingEvent.create({
+        data: {
+          userId: page.userId,
+          presellPageId: page.id,
+          eventType: "conversion",
+          source: data.source || "google_ads",
+          medium: data.medium || "cpc",
+          campaign: data.campaign,
+          metadata: {
+            gclid: data.gclid,
+            conversion_name: data.conversion_name,
+            value: data.value,
+            currency: data.currency.toUpperCase(),
+            transaction_id: data.transaction_id,
+            postback_origin: "google_ads",
+          } as Prisma.InputJsonValue,
+        },
+      }),
+      systemPrisma.presellPage.update({
+        where: { id: page.id },
+        data: { conversions: { increment: 1 } },
+      }),
+    ]);
+
+    const orderIdForGoogle = (data.transaction_id && data.transaction_id.trim()) || randomUUID();
+    void syncDirectGclidConversionToGoogleAds({
+      userId: page.userId,
+      presellPageId: page.id,
+      gclid: data.gclid,
+      conversionValue: data.value,
+      currencyCode: data.currency.toUpperCase(),
+      orderId: orderIdForGoogle,
+      conversionDateTime: new Date(),
+    }).catch((err) => console.error("[syncDirectGclidConversionToGoogleAds]", err));
+
+    await logPostback({
+      userId: page.userId,
+      presellPageId: page.id,
+      platform: "google_ads",
+      status: "success",
+      message: "Postback processado com sucesso",
+      payload: req.body,
+    });
+
+    return res.json({ tracked: true, google_ads_upload_attempted: true });
+  },
+
+  async postbackMicrosoftAds(req: Request, res: Response) {
+    const expectedToken = process.env.MICROSOFT_POSTBACK_TOKEN || process.env.GOOGLE_POSTBACK_TOKEN;
+    let tokenUserId: string | undefined;
+    if (expectedToken) {
+      const incoming = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
+      if (!incoming || incoming !== expectedToken) {
+        return res.status(401).json({ error: "Token de postback inválido" });
+      }
+    } else {
+      const token = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
+      if (!token) return res.status(401).json({ error: "Token de postback obrigatório" });
+      const decoded = verifyPostbackToken(token);
+      if (!decoded) return res.status(401).json({ error: "Token de postback inválido" });
+      tokenUserId = decoded.userId;
+    }
+
+    const parsed = z.object({
+      presell_id: z.string().optional(),
+      presell_slug: z.string().optional(),
+      msclkid: z.string().min(1),
+      conversion_name: z.string().optional(),
+      value: z.coerce.number().nonnegative().default(0),
+      currency: z.string().min(3).max(3).default("USD"),
+      transaction_id: z.string().optional(),
+      source: z.string().optional(),
+      medium: z.string().optional(),
+      campaign: z.string().optional(),
+    }).refine((data) => !!data.presell_id || !!data.presell_slug, {
+      message: "presell_id ou presell_slug é obrigatório",
+      path: ["presell_id"],
+    }).safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    }
+
+    const data = parsed.data;
+    const page = await systemPrisma.presellPage.findFirst({
+      where: data.presell_id ? { id: data.presell_id } : { slug: data.presell_slug },
+    });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (tokenUserId && page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
+
+    if (data.transaction_id) {
+      const existing = await systemPrisma.trackingEvent.findFirst({
+        where: {
+          userId: page.userId,
+          presellPageId: page.id,
+          eventType: "conversion",
+          metadata: { path: ["transaction_id"], equals: data.transaction_id },
+        },
+      });
+      if (existing) {
+        await logPostback({
+          userId: page.userId,
+          presellPageId: page.id,
+          platform: "microsoft_ads",
+          status: "duplicate",
+          message: "Evento duplicado por transaction_id",
+          payload: req.body,
+        });
+        return res.json({ tracked: true, duplicate: true });
+      }
+    }
+
+    await systemPrisma.$transaction([
+      systemPrisma.trackingEvent.create({
+        data: {
+          userId: page.userId,
+          presellPageId: page.id,
+          eventType: "conversion",
+          source: data.source || "microsoft_ads",
+          medium: data.medium || "cpc",
+          campaign: data.campaign,
+          metadata: {
+            msclkid: data.msclkid,
+            conversion_name: data.conversion_name,
+            value: data.value,
+            currency: data.currency.toUpperCase(),
+            transaction_id: data.transaction_id,
+            postback_origin: "microsoft_ads",
+          } as Prisma.InputJsonValue,
+        },
+      }),
+      systemPrisma.presellPage.update({
+        where: { id: page.id },
+        data: { conversions: { increment: 1 } },
+      }),
+    ]);
+
+    await logPostback({
+      userId: page.userId,
+      presellPageId: page.id,
+      platform: "microsoft_ads",
+      status: "success",
+      message: "Postback processado com sucesso",
+      payload: req.body,
+    });
+
+    return res.json({ tracked: true });
+  },
+
+  async lookupGclid(req: Request, res: Response) {
+    const gclid = req.params.gclid;
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Não autenticado" });
+
+    const event = await prisma.trackingEvent.findFirst({
+      where: {
+        userId,
+        metadata: { path: ["gclid"], equals: gclid },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        campaign: true,
+        source: true,
+        medium: true,
+        createdAt: true,
+        metadata: true,
+      },
+    });
+
+    if (!event) return res.status(404).json({ error: "GCLID não encontrado" });
+
+    const metadata = (event.metadata || {}) as Record<string, unknown>;
+    return res.json({
+      id: event.id,
+      campaign: event.campaign,
+      source: event.source,
+      medium: event.medium,
+      created_at: event.createdAt.toISOString(),
+      gclid,
+      utm_term: metadata.utm_term || null,
+      utm_content: metadata.utm_content || null,
+    });
+  },
+
+  /** Script leve para pageview em presells hospedadas em `/p/{uuid}`. */
+  serveClickoraEmbed(_req: Request, res: Response) {
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.send(CLICKORA_EMBED_JS);
+  },
+
+  /**
+   * Importa conversões a partir de CSV (ex.: Google Ads offline).
+   * Corpo: texto CSV. Coluna de GCLID detectada pelo cabeçalho ou primeira coluna.
+   */
+  async conversionsCsv(req: Request, res: Response) {
+    const token = req.query.token?.toString();
+    const decoded = token ? verifyPostbackToken(token) : null;
+    if (!decoded) return res.status(401).json({ error: "Token inválido ou ausente" });
+
+    const userId = decoded.userId;
+    const raw = typeof req.body === "string" ? req.body : "";
+    if (!raw.trim()) return res.status(400).json({ error: "Corpo CSV vazio" });
+
+    const rows = parseCsvSimple(raw);
+    if (rows.length === 0) return res.status(400).json({ error: "Nenhuma linha no CSV" });
+
+    const header = rows[0].map((c) => c.toLowerCase().replace(/"/g, "").trim());
+    const hasHeader = header.some((h) => /gclid|google click id|click id/.test(h));
+    let gclidCol = header.findIndex((h) => h === "gclid" || h.includes("google click id") || h === "click id");
+    if (gclidCol < 0) gclidCol = 0;
+
+    let valueCol = header.findIndex((h) =>
+      /conversion value|conv\. value|value|valor/.test(h),
+    );
+    if (valueCol < 0) valueCol = 1;
+
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    let imported = 0;
+    let skipped = 0;
+
+    for (const row of dataRows) {
+      const gclid = (row[gclidCol] || "").replace(/^"|"$/g, "").trim();
+      if (!gclid) {
+        skipped++;
+        continue;
+      }
+
+      const click = await systemPrisma.trackingEvent.findFirst({
+        where: {
+          userId,
+          eventType: "click",
+          metadata: { path: ["gclid"], equals: gclid },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!click?.presellPageId) {
+        skipped++;
+        continue;
+      }
+
+      const page = await systemPrisma.presellPage.findUnique({ where: { id: click.presellPageId } });
+      if (!page || page.status !== "published") {
+        skipped++;
+        continue;
+      }
+
+      const accessCheck = await validateOwnerCanTrack(page.userId);
+      if (!accessCheck.ok) {
+        skipped++;
+        continue;
+      }
+
+      const transaction_id = `csv_gclid:${gclid}`;
+      const existing = await systemPrisma.trackingEvent.findFirst({
+        where: {
+          userId,
+          presellPageId: click.presellPageId,
+          eventType: "conversion",
+          metadata: { path: ["transaction_id"], equals: transaction_id },
+        },
+      });
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const rawVal = row[valueCol]?.replace(/^"|"$/g, "").trim() ?? "";
+      const value = Number.parseFloat(rawVal.replace(",", "."));
+      const numVal = Number.isFinite(value) ? value : 0;
+
+      await systemPrisma.$transaction([
+        systemPrisma.trackingEvent.create({
+          data: {
+            userId,
+            presellPageId: click.presellPageId,
+            eventType: "conversion",
+            source: "google_ads",
+            medium: "offline_csv",
+            campaign: click.campaign,
+            referrer: click.referrer,
+            ipAddress: extractClientIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            device: detectDevice(req.headers["user-agent"] || ""),
+            metadata: {
+              gclid,
+              value: numVal,
+              currency: "USD",
+              transaction_id,
+              postback_origin: "offline_csv",
+            } as Prisma.InputJsonValue,
+          },
+        }),
+        systemPrisma.presellPage.update({
+          where: { id: click.presellPageId },
+          data: { conversions: { increment: 1 } },
+        }),
+      ]);
+
+      await logPostback({
+        userId,
+        presellPageId: click.presellPageId,
+        platform: "google_ads_csv",
+        status: "success",
+        message: "Conversão importada do CSV",
+        payload: { gclid, value: numVal },
+      });
+
+      imported++;
+    }
+
+    return res.json({ ok: true, imported, skipped });
+  },
+
+  async getPostbackTemplates(req: Request, res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Não autenticado" });
+
+    const token = createPostbackToken(userId);
+    const apiBase = publicApiBaseFromRequest(req);
+
+    res.json({
+      token,
+      endpoints: {
+        google_ads: `${apiBase}/track/postback/google-ads?token=${encodeURIComponent(token)}`,
+        microsoft_ads: `${apiBase}/track/postback/microsoft-ads?token=${encodeURIComponent(token)}`,
+      },
+      examples: {
+        google_ads: {
+          method: "POST",
+          body: {
+            presell_id: "<presell_id>",
+            gclid: "<gclid>",
+            value: 49.9,
+            currency: "USD",
+            transaction_id: "<tx_id_unico>",
+          },
+        },
+        microsoft_ads: {
+          method: "POST",
+          body: {
+            presell_id: "<presell_id>",
+            msclkid: "<msclkid>",
+            value: 49.9,
+            currency: "USD",
+            transaction_id: "<tx_id_unico>",
+          },
+        },
+      },
+    });
+  },
+
+  async getPostbackAudit(req: Request, res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Não autenticado" });
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const platform = req.query.platform?.toString();
+
+    const logs = await prisma.postbackLog.findMany({
+      where: {
+        userId,
+        ...(platform ? { platform } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        platform: true,
+        status: true,
+        message: true,
+        createdAt: true,
+        presellPageId: true,
+      },
+    });
+
+    return res.json(logs.map((l) => ({
+      id: l.id,
+      platform: l.platform,
+      status: l.status,
+      message: l.message,
+      created_at: l.createdAt.toISOString(),
+      presell_id: l.presellPageId,
+    })));
+  },
+};
+
+function parseCsvSimple(text: string): string[][] {
+  const rows: string[][] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    rows.push(
+      t.split(",").map((cell) => cell.replace(/^"|"$/g, "").trim()),
+    );
+  }
+  return rows;
+}
+
+function detectDevice(ua: string): string {
+  if (/mobile|android|iphone|ipad/i.test(ua)) return "mobile";
+  if (/tablet/i.test(ua)) return "tablet";
+  return "desktop";
+}
+
+function extractClientIp(req: Request): string {
+  const forwarded = req.headers["x-forwarded-for"]?.toString();
+  if (forwarded) {
+    const [first] = forwarded.split(",");
+    if (first) return first.trim();
+  }
+  return req.socket.remoteAddress || "";
+}
+
+async function validateOwnerCanTrack(userId: string): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const owner = await systemPrisma.user.findUnique({
+    where: { id: userId },
+    include: { subscription: { include: { plan: true } } },
+  });
+
+  if (!owner) return { ok: false, status: 404, message: "Usuário proprietário não encontrado" };
+  const access = evaluateSubscriptionAccess(owner.subscription);
+
+  if (access.shouldMarkExpired && owner.subscription && owner.subscription.status !== "expired") {
+    await systemPrisma.subscription.update({
+      where: { id: owner.subscription.id },
+      data: { status: "expired" },
+    });
+  }
+
+  if (!access.allowed) {
+    return { ok: false, status: 403, message: "Assinatura do proprietário está inativa." };
+  }
+
+  if (owner.subscription?.plan.maxClicksPerMonth) {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const clicksThisMonth = await systemPrisma.trackingEvent.count({
+      where: {
+        userId,
+        eventType: "click",
+        createdAt: { gte: startOfMonth },
+      },
+    });
+    if (clicksThisMonth >= owner.subscription.plan.maxClicksPerMonth) {
+      return { ok: false, status: 429, message: "Limite mensal de cliques do plano atingido." };
+    }
+  }
+
+  return { ok: true };
+}
+
+async function logPostback(params: {
+  userId: string;
+  presellPageId?: string;
+  platform: string;
+  status: string;
+  message?: string;
+  payload?: unknown;
+}) {
+  await systemPrisma.postbackLog.create({
+    data: {
+      userId: params.userId,
+      presellPageId: params.presellPageId,
+      platform: params.platform,
+      status: params.status,
+      message: params.message,
+      payload: (params.payload || {}) as Prisma.InputJsonValue,
+    },
+  });
+}

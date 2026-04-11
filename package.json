@@ -1,0 +1,23 @@
+{
+  "name": "dclickora",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:all": "concurrently -n API,WEB -c cyan,magenta \"npm run api:dev\" \"npm run web:dev\"",
+    "web:dev": "npm --prefix frontend run dev",
+    "web:build": "npm --prefix frontend run build",
+    "web:lint": "npm --prefix frontend run lint",
+    "api:dev": "npm --prefix backend run dev",
+    "api:build": "npm --prefix backend run build",
+    "api:start": "npm --prefix backend run start",
+    "api:db:generate": "npm --prefix backend run db:generate",
+    "api:db:migrate": "npm --prefix backend run db:migrate",
+    "api:db:seed": "npm --prefix backend run db:seed",
+    "build": "npm run api:build && npm run web:build",
+    "lint": "npm run web:lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

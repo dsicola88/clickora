@@ -1,0 +1,156 @@
+// ============================
+// Data models expected from API
+// ============================
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  plan: UserPlan | null;
+  workspace_id: string;
+  role: "super_admin" | "admin" | "moderator" | "user";
+  avatar_url?: string;
+  created_at: string;
+  /** E-mail para alertas de venda (postback de afiliados). Vazio = usa `email`. */
+  sale_notify_email?: string;
+}
+
+export interface UserPlan {
+  plan_name: string;
+  plan_type: "free_trial" | "monthly" | "quarterly" | "annual";
+  max_pages: number | null;
+  max_clicks: number | null;
+  has_branding: boolean;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  type: "free_trial" | "monthly" | "quarterly" | "annual";
+  price_cents: number;
+  max_presell_pages: number | null;
+  max_clicks_per_month: number | null;
+  has_branding: boolean;
+  features: string[];
+}
+
+export interface Presell {
+  id: string;
+  title: string;
+  content: Record<string, unknown>;
+  slug: string;
+  type: string;
+  category: string;
+  language: string;
+  status: "draft" | "published" | "paused" | "archived";
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  video_url?: string;
+  settings: Record<string, unknown>;
+  tracking: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnalyticsSummary {
+  presell_id: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  conversions: number;
+  revenue: number;
+}
+
+export interface TrackingEvent {
+  id: string;
+  presell_id: string;
+  event_type: "click" | "impression" | "conversion" | "lead" | "sale" | "pageview";
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  referrer?: string;
+  country?: string;
+  device?: string;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+  utm_source?: string | null;
+}
+
+export interface AdminUser {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  plan_name: string | null;
+  plan_type: string | null;
+  plan_id: string | null;
+  sub_status: string | null;
+  sub_starts_at: string | null;
+  sub_ends_at: string | null;
+  /** Data de fim já ultrapassada (servidor). */
+  ends_at_passed?: boolean;
+  pages_count: number;
+  events_count: number;
+  conversions_count: number;
+  created_at: string;
+}
+
+export interface AdminPlanRow {
+  id: string;
+  name: string;
+  type: string;
+  price_cents: number;
+  max_presell_pages: number | null;
+  max_clicks_per_month: number | null;
+  has_branding: boolean;
+}
+
+export interface AdminOverview {
+  total_users: number;
+  active_users: number;
+  total_presells: number;
+  total_events: number;
+  total_conversions: number;
+  subscriptions_expiring_14d: number;
+  signups_by_day: { date: string; count: number }[];
+  conversions_by_day: { date: string; count: number }[];
+}
+
+/** Configuração da página pública /planos (hero, textos, imagem, tipografia). */
+export interface PlansLandingPublic {
+  badge_text: string | null;
+  hero_title: string;
+  hero_subtitle: string | null;
+  has_hero_image: boolean;
+  intro_text: string | null;
+  footer_text: string | null;
+  hero_font: string;
+  hero_text_align: string;
+  hero_title_size: string;
+  hero_title_weight: string;
+  hero_subtitle_size: string;
+  intro_font: string;
+  intro_text_align: string;
+  intro_text_size: string;
+  footer_font: string;
+  footer_text_align: string;
+  footer_text_size: string;
+  updated_at: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  full_name: string;
+}
