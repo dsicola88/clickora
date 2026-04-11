@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../src/lib/prisma";
 
 const prisma = systemPrisma;
@@ -137,16 +138,26 @@ async function main() {
     }),
   ]);
 
-  await prisma.plansLandingConfig.upsert({
-    where: { id: "default" },
-    update: {},
-    create: {
-      id: "default",
-      heroTitle: "Escolha seu plano",
-      heroSubtitle:
-        "Cada cartão mostra os limites de presells e de cliques por mês; abaixo, o que mais está incluído. Comece grátis e faça upgrade quando precisar.",
-    },
-  });
+  try {
+    await prisma.plansLandingConfig.upsert({
+      where: { id: "default" },
+      update: {},
+      create: {
+        id: "default",
+        heroTitle: "Escolha seu plano",
+        heroSubtitle:
+          "Cada cartão mostra os limites de presells e de cliques por mês; abaixo, o que mais está incluído. Comece grátis e faça upgrade quando precisar.",
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2021") {
+      console.warn(
+        "⚠️ Tabela plans_landing_config ainda não existe (migração não aplicada). A aplicar migrate deploy com 20260411140000_add_plans_landing_config. A continuar o seed (planos e utilizadores).",
+      );
+    } else {
+      throw e;
+    }
+  }
 
   const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
   const planAnnual = plans.find((p) => p.id === "plan_annual")!;
