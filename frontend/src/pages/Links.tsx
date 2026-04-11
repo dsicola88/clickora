@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { getApiBaseUrl } from "@/lib/apiOrigin";
 
 interface TrackingLink {
   id: string;
@@ -49,7 +50,7 @@ export default function Links() {
     },
   });
 
-  const apiBase = useMemo(() => (import.meta.env.VITE_API_URL || "http://localhost:3001/api"), []);
+  const apiBase = useMemo(() => getApiBaseUrl(), []);
   const publishedPresells = presells.filter((p) => p.status === "published");
 
   const handleCopy = (url: string, id: string) => {

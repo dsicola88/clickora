@@ -19,6 +19,7 @@ import {
   isVideoPresellType,
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
+import { getApiBaseUrl } from "@/lib/apiOrigin";
 import {
   DiscountPresellOverlay,
   discountSocialFallback,
@@ -177,7 +178,7 @@ export default function PublicPresell() {
   });
 
   const search = useMemo(() => new URLSearchParams(window.location.search), []);
-  const apiBase = useMemo(() => (import.meta.env.VITE_API_URL || "http://localhost:3001/api"), []);
+  const apiBase = useMemo(() => getApiBaseUrl(), []);
 
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
   const [cookieDismissed, setCookieDismissed] = useState(false);

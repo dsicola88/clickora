@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { integrationsService } from "@/services/integrationsService";
 import { Switch } from "@/components/ui/switch";
+import { getApiBaseUrl } from "@/lib/apiOrigin";
 
 function formatDateInput(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -78,7 +79,7 @@ function CopyFieldRow({
 export default function TrackingDashboard() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  const apiBase = getApiBaseUrl();
   const initialRange = useMemo(() => defaultDateRange(), []);
   const [startDate, setStartDate] = useState(initialRange.start);
   const [endDate, setEndDate] = useState(initialRange.end);

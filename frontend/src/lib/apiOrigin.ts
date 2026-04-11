@@ -1,10 +1,25 @@
+const LOCAL_DEFAULT = "http://localhost:3001/api";
+
+/**
+ * Garante URL absoluta. Se `VITE_API_URL` vier sem `https://` (ex.: só o host da Railway),
+ * o browser trata como caminho relativo e o pedido vai para o domínio do site — erro 405 no Vercel.
+ */
+export function normalizeApiBaseUrl(raw: string | undefined): string {
+  if (raw === undefined || raw === null || !String(raw).trim()) return LOCAL_DEFAULT;
+  let s = String(raw).trim();
+  if (!/^https?:\/\//i.test(s)) {
+    s = `https://${s}`;
+  }
+  return s.replace(/\/+$/, "");
+}
+
 /** Origem do servidor API (sem sufixo `/api`). */
 export function getApiOrigin(): string {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  const base = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
   return base.replace(/\/api\/?$/, "");
 }
 
 /** Base com `/api` para fetch JSON autenticado (igual ao apiClient). */
 export function getApiBaseUrl(): string {
-  return import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  return normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 }

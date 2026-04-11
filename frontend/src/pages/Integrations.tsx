@@ -23,6 +23,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
 import { cn } from "@/lib/utils";
+import { getApiBaseUrl } from "@/lib/apiOrigin";
 
 function SectionShell({
   accent,
@@ -54,7 +55,7 @@ function SectionShell({
 
 export default function Integrations() {
   const queryClient = useQueryClient();
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  const apiBase = getApiBaseUrl();
 
   const [copiedCsv, setCopiedCsv] = useState(false);
   const [telegramTokenDraft, setTelegramTokenDraft] = useState("");
