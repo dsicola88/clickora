@@ -16,10 +16,15 @@ if ! npx prisma migrate deploy; then
   exit 1
 fi
 
-echo "=== prisma db seed ==="
-if ! npx prisma db seed; then
-  echo "ERROR: prisma db seed failed (migrations may have applied; fix seed or prisma/seed.ts)."
-  exit 1
+if [ "${SKIP_DB_SEED:-}" = "1" ] || [ "${SKIP_DB_SEED:-}" = "true" ]; then
+  echo "=== SKIP prisma db seed (SKIP_DB_SEED) ==="
+else
+  echo "=== prisma db seed ==="
+  if ! npx prisma db seed; then
+    echo "ERROR: prisma db seed failed (migrations may have applied; fix seed or prisma/seed.ts)."
+    echo "Para arrancar sem seed (emergência): define SKIP_DB_SEED=true no Railway."
+    exit 1
+  fi
 fi
 
 echo "=== node dist/server.js ==="

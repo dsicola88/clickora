@@ -47,13 +47,25 @@ function expandFrontendOriginsFromEnv(): string[] {
   return [...out];
 }
 
+/** Origens explícitas (ex.: https://www.dclickora.com) — útil se FRONTEND_URL estiver mal formatado. */
+function corsAllowedOriginsFromEnv(): string[] {
+  return (process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function allAllowedOrigins(): string[] {
+  return [...new Set([...expandFrontendOriginsFromEnv(), ...corsAllowedOriginsFromEnv()])];
+}
+
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   if (isDev) {
     // Vite pode usar 8080, 8081, 5173, etc. se a porta padrão estiver ocupada
     if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return true;
   }
-  const fromEnv = expandFrontendOriginsFromEnv();
+  const fromEnv = allAllowedOrigins();
   if (fromEnv.length > 0) return fromEnv.includes(origin);
   return ["http://localhost:8080", "http://localhost:5173"].includes(origin);
 }
