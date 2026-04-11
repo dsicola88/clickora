@@ -17,7 +17,11 @@ const PORT = process.env.PORT || 3001;
 
 const isDev = process.env.NODE_ENV !== "production";
 
-/** Inclui par www/apex para o mesmo domínio (evita CORS quando só falta um dos dois em FRONTEND_URL). */
+/**
+ * Origens permitidas para CORS a partir de FRONTEND_URL.
+ * - Usa só o origin (protocolo + host + porta), sem path — o header Origin do browser nunca inclui `/auth` etc.
+ * - Inclui par www/apex para o mesmo domínio.
+ */
 function expandFrontendOriginsFromEnv(): string[] {
   const raw = (process.env.FRONTEND_URL || "")
     .split(",")
@@ -25,9 +29,10 @@ function expandFrontendOriginsFromEnv(): string[] {
     .filter(Boolean);
   const out = new Set<string>();
   for (const u of raw) {
-    out.add(u);
     try {
       const parsed = new URL(u);
+      const base = parsed.origin;
+      out.add(base);
       if (!parsed.hostname || parsed.hostname === "localhost") continue;
       if (parsed.hostname.startsWith("www.")) {
         const apex = `${parsed.protocol}//${parsed.hostname.slice(4)}${parsed.port ? `:${parsed.port}` : ""}`;
