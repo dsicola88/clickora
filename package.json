@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "start": "npm run api:start",
     "dev": "npm run dev:all",
     "dev:all": "concurrently -n API,WEB -c cyan,magenta \"npm run api:dev\" \"npm run web:dev\"",
     "web:dev": "npm --prefix frontend run dev",
