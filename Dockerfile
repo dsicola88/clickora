@@ -7,11 +7,13 @@ RUN cd backend && npm ci
 
 COPY backend ./backend
 
+RUN chmod +x /app/backend/scripts/start-production.sh
+
 RUN cd backend && npm run build
 
 ENV NODE_ENV=production
 WORKDIR /app/backend
 EXPOSE 3001
 
-# Migrações + seed (utilizadores base) em cada arranque; depois a API.
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && exec node dist/server.js"]
+# Migrações + seed em cada arranque; logs em start-production.sh
+CMD ["sh", "/app/backend/scripts/start-production.sh"]
