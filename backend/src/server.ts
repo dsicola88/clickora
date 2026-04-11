@@ -17,16 +17,38 @@ const PORT = process.env.PORT || 3001;
 
 const isDev = process.env.NODE_ENV !== "production";
 
+/** Inclui par www/apex para o mesmo domínio (evita CORS quando só falta um dos dois em FRONTEND_URL). */
+function expandFrontendOriginsFromEnv(): string[] {
+  const raw = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const out = new Set<string>();
+  for (const u of raw) {
+    out.add(u);
+    try {
+      const parsed = new URL(u);
+      if (!parsed.hostname || parsed.hostname === "localhost") continue;
+      if (parsed.hostname.startsWith("www.")) {
+        const apex = `${parsed.protocol}//${parsed.hostname.slice(4)}${parsed.port ? `:${parsed.port}` : ""}`;
+        out.add(apex);
+      } else {
+        out.add(`${parsed.protocol}//www.${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`);
+      }
+    } catch {
+      // ignore invalid URL
+    }
+  }
+  return [...out];
+}
+
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   if (isDev) {
     // Vite pode usar 8080, 8081, 5173, etc. se a porta padrão estiver ocupada
     if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return true;
   }
-  const fromEnv = (process.env.FRONTEND_URL || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const fromEnv = expandFrontendOriginsFromEnv();
   if (fromEnv.length > 0) return fromEnv.includes(origin);
   return ["http://localhost:8080", "http://localhost:5173"].includes(origin);
 }
@@ -40,7 +62,8 @@ app.use(
       if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS: origem não permitida: ${origin}`));
+        console.warn(`[CORS] origin not allowed: ${origin}`);
+        callback(null, false);
       }
     },
     credentials: true,
