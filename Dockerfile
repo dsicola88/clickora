@@ -17,5 +17,5 @@ ENV NODE_ENV=production
 WORKDIR /app/backend
 EXPOSE 3001
 
-# Migrações + seed em cada arranque; logs em start-production.sh
+# Migrações em cada arranque; seed só com RUN_SEED_ON_START=true (ver start-production.sh)
 CMD ["sh", "/app/backend/scripts/start-production.sh"]

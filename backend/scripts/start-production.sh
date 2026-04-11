@@ -20,12 +20,20 @@ if ! npx prisma migrate deploy; then
 fi
 echo "=== prisma migrate deploy OK ==="
 
+# Seed no arranque é opt-in: correr em todo o deploy bloqueava/hang e causava 502 na Railway.
+# Primeiro deploy ou quando precisares de dados iniciais: RUN_SEED_ON_START=true (uma vez) ou `railway run npx prisma db seed`.
+run_seed=false
 if [ "${SKIP_DB_SEED:-}" = "1" ] || [ "${SKIP_DB_SEED:-}" = "true" ]; then
   echo "=== SKIP prisma db seed (SKIP_DB_SEED) ==="
+elif [ "${RUN_SEED_ON_START:-}" = "1" ] || [ "${RUN_SEED_ON_START:-}" = "true" ]; then
+  run_seed=true
 else
-  echo "=== prisma db seed (max 180s; se falhar ou exceder tempo, o servidor arranca na mesma) ==="
+  echo "=== SKIP prisma db seed (defeito — evita 502 por seed no arranque). Dados iniciais: RUN_SEED_ON_START=true uma vez ou prisma db seed manual ==="
+fi
+
+if [ "$run_seed" = "true" ]; then
+  echo "=== prisma db seed (RUN_SEED_ON_START, max 180s; falha não bloqueia o servidor) ==="
   set +e
-  # timeout(1) existe na imagem Debian slim; evita seed a bloquear o arranque indefinidamente (502).
   if command -v timeout >/dev/null 2>&1; then
     timeout 180 npx prisma db seed
     SEED_EXIT=$?
@@ -35,7 +43,9 @@ else
   fi
   set -e
   if [ "$SEED_EXIT" != 0 ]; then
-    echo "WARN: prisma db seed exit $SEED_EXIT (erro ou timeout). API vai arrancar na mesma. Corrige o seed ou usa SKIP_DB_SEED=true."
+    echo "WARN: prisma db seed exit $SEED_EXIT (erro ou timeout). API arranca na mesma."
+  else
+    echo "=== prisma db seed OK ==="
   fi
 fi
 
