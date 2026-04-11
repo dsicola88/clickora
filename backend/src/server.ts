@@ -92,6 +92,15 @@ app.use(express.json({ limit: "1mb" }));
 // ========================
 // Routes
 // ========================
+// Raiz: evita "Cannot GET /" no browser ao abrir o URL da Railway (só API; o site está no Vercel).
+app.get("/", (_req, res) => {
+  res.json({
+    service: "dclickora API",
+    hint: "Frontend (site) é servido na Vercel; este host só expõe rotas em /api/*.",
+    health: "/api/health",
+  });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/presells", presellRouter);
 app.use("/api/analytics", analyticsRouter);
