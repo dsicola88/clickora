@@ -4,6 +4,27 @@ import { systemPrisma } from "../src/lib/prisma";
 
 const prisma = systemPrisma;
 
+/** Mesmo SQL que migrations/repair — se migrate deploy falhar ou imagem antiga, o seed não rebenta com P2022. */
+const USERS_INTEGRATION_COLUMNS_SQL = [
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sale_notify_email" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_refresh_token" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_enabled" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_customer_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_conversion_action_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_login_customer_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_bot_token" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_chat_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_sale" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_postback_error" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_click" BOOLEAN NOT NULL DEFAULT false`,
+] as const;
+
+async function ensureUsersIntegrationColumns() {
+  for (const sql of USERS_INTEGRATION_COLUMNS_SQL) {
+    await prisma.$executeRawUnsafe(sql);
+  }
+}
+
 async function upsertUserWithRoleAndPlan(args: {
   email: string;
   passwordPlain: string;
@@ -48,6 +69,7 @@ async function upsertUserWithRoleAndPlan(args: {
 
 async function main() {
   console.log("🌱 Seeding database...");
+  await ensureUsersIntegrationColumns();
 
   const plans = await Promise.all([
     prisma.plan.upsert({
