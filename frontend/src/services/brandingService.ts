@@ -6,12 +6,17 @@ export type PublicBrandingMeta = {
 };
 
 export const brandingService = {
+  /** Nunca lança: rede/CORS/502 não devem bloquear a app nem a página de login. */
   async getPublicMeta(): Promise<PublicBrandingMeta> {
-    const r = await fetch(`${getApiBaseUrl()}/public/branding`);
-    if (!r.ok) {
+    try {
+      const r = await fetch(`${getApiBaseUrl()}/public/branding`);
+      if (!r.ok) {
+        return { has_favicon: false };
+      }
+      return r.json();
+    } catch {
       return { has_favicon: false };
     }
-    return r.json();
   },
 
   faviconHref(updatedAt?: string): string {

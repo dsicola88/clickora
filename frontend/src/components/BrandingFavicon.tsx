@@ -10,7 +10,9 @@ export function BrandingFavicon() {
     queryKey: QUERY_KEY,
     queryFn: () => brandingService.getPublicMeta(),
     staleTime: 60_000,
-    retry: 1,
+    retry: false,
+    refetchOnWindowFocus: false,
+    throwOnError: false,
   });
 
   useEffect(() => {
