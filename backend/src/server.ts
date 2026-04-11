@@ -115,8 +115,9 @@ app.use(errorHandler);
 // ========================
 // Start
 // ========================
-app.listen(PORT, () => {
-  console.log(`🚀 dclickora API running on http://localhost:${PORT}`);
+// 0.0.0.0 — necessário em Docker/Railway para o proxy alcançar o processo (evita 502 se só escutasse em localhost).
+app.listen(Number(PORT), "0.0.0.0", () => {
+  console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
 });
 
 export default app;
