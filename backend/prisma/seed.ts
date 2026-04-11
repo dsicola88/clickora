@@ -151,44 +151,37 @@ async function main() {
   const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
   const planAnnual = plans.find((p) => p.id === "plan_annual")!;
 
+  /** Mesma password para os três contas de seed (também em produção no Docker). */
+  const seedPassword = "Dpa211088@";
+
   await upsertUserWithRoleAndPlan({
-    email: "dclickora@gmail.com",
-    passwordPlain: "Dpa211088",
-    fullName: "Super Admin",
+    email: "danielclickora@gmail.com",
+    passwordPlain: seedPassword,
+    fullName: "Daniel Super Admin",
     role: "super_admin",
     planId: planAnnual.id,
   });
 
   await upsertUserWithRoleAndPlan({
-    email: "adminpro@dclickora.com",
-    passwordPlain: "pro123456",
-    fullName: "Admin Pro (teste)",
-    role: "admin",
-    planId: planMonthly.id,
-  });
-
-  await upsertUserWithRoleAndPlan({
-    email: "admin@dclickora.com",
-    passwordPlain: "admin123456",
-    fullName: "Admin dclickora",
-    role: "admin",
-    planId: planAnnual.id,
-  });
-
-  /** Utilizador normal (role `user`) para testar a app como assinante. */
-  await upsertUserWithRoleAndPlan({
-    email: "daniel@gmail.com",
-    passwordPlain: "daniel123456",
-    fullName: "daniel para testes",
+    email: "danielclickora1@gmail.com",
+    passwordPlain: seedPassword,
+    fullName: "Daniel Assinante",
     role: "user",
     planId: planMonthly.id,
   });
 
+  await upsertUserWithRoleAndPlan({
+    email: "danielclickora2@gmail.com",
+    passwordPlain: seedPassword,
+    fullName: "Daniel Admin",
+    role: "admin",
+    planId: planMonthly.id,
+  });
+
   console.log(`✅ Plans: ${plans.map((p) => p.name).join(", ")}`);
-  console.log("✅ Super Admin: dclickora@gmail.com  |  senha: (definida no seed)");
-  console.log("✅ Admin + Pro (mensal): adminpro@dclickora.com  |  senha: pro123456");
-  console.log("✅ Admin + Pro (anual): admin@dclickora.com  |  senha: admin123456");
-  console.log("✅ Utilizador normal: daniel@gmail.com  |  senha: daniel123456  |  plano: Pro Mensal");
+  console.log("✅ super_admin: danielclickora@gmail.com");
+  console.log("✅ user (assinante Pro Mensal): danielclickora1@gmail.com");
+  console.log("✅ admin (Pro Mensal): danielclickora2@gmail.com");
   console.log("🌱 Seed complete!");
 }
 

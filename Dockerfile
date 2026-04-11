@@ -13,5 +13,5 @@ ENV NODE_ENV=production
 WORKDIR /app/backend
 EXPOSE 3001
 
-# Migrações na base em cada arranque (Railway já tem DATABASE_URL). Sem passo manual.
-CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/server.js"]
+# Migrações + seed (utilizadores base) em cada arranque; depois a API.
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && exec node dist/server.js"]
