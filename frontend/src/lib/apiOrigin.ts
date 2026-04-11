@@ -9,8 +9,8 @@ const PROD_RELATIVE_DEFAULT = "/api";
  * Garante sufixo `/api`: o Express monta rotas em `/api/*`; sem isto, `...railway.app` + `/auth/login`
  * bate em `/auth/login` (proxy 502/sem CORS) em vez de `/api/auth/login`.
  *
- * Em produção no Vercel: usa `VITE_API_URL=/api` (ou deixa vazio → default `/api`) e rewrite `/api/*` → Railway
- * para pedidos same-origin (sem CORS no browser). Evita `https://…railway.app` no build.
+ * Em produção no Vercel: pedidos a `/api/*` são reescritos para a Railway (vercel.json). Se o build tiver
+ * ainda `https://…railway.app` em VITE_API_URL, forçamos `/api` para same-origin (evita CORS no browser).
  */
 export function normalizeApiBaseUrl(raw: string | undefined): string {
   if (raw === undefined || raw === null || !String(raw).trim()) {
@@ -18,9 +18,10 @@ export function normalizeApiBaseUrl(raw: string | undefined): string {
   }
   let s = String(raw).trim();
   if (import.meta.env.PROD && /railway\.app/i.test(s)) {
-    console.warn(
-      "[clickora] VITE_API_URL aponta para *.railway.app — o browser faz pedidos cross-origin (CORS). No Vercel: apaga a variável ou define VITE_API_URL=/api para usar o proxy em vercel.json.",
+    console.info(
+      "[clickora] VITE_API_URL apontava para *.railway.app — a usar /api (proxy Vercel → Railway). Opcional: remove VITE_API_URL no dashboard da Vercel.",
     );
+    return PROD_RELATIVE_DEFAULT;
   }
   if (s.startsWith("/")) {
     s = s.replace(/\/+$/, "");
