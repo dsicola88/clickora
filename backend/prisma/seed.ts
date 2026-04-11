@@ -150,13 +150,11 @@ async function main() {
       },
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2021") {
-      console.warn(
-        "⚠️ Tabela plans_landing_config ainda não existe (migração não aplicada). A aplicar migrate deploy com 20260411140000_add_plans_landing_config. A continuar o seed (planos e utilizadores).",
-      );
-    } else {
-      throw e;
-    }
+    const msg = e instanceof Error ? e.message : String(e);
+    const code = e instanceof Prisma.PrismaClientKnownRequestError ? e.code : "";
+    console.warn(
+      `⚠️ Seed plans_landing_config ignorado (${code || "erro"}): ${msg}. Continua com planos/utilizadores — confirma \`prisma migrate deploy\` na Railway.`,
+    );
   }
 
   const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
