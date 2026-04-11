@@ -43,8 +43,19 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.message || errorData.error || `Erro ${response.status}`;
+        const errorData = (await response.json().catch(() => ({}))) as {
+          message?: string;
+          error?: string;
+          details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+        };
+        let message = errorData.message || errorData.error || `Erro ${response.status}`;
+        const fe = errorData.details?.fieldErrors;
+        if (fe && typeof fe === "object") {
+          const parts = Object.entries(fe).flatMap(([key, msgs]) =>
+            Array.isArray(msgs) ? msgs.map((m) => `${key}: ${m}`) : [],
+          );
+          if (parts.length) message = `${message} (${parts.join("; ")})`;
+        }
 
         if (response.status === 401) {
           localStorage.removeItem("clickora_token");

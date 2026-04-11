@@ -8,7 +8,7 @@ import { z } from "zod";
 import { AVATAR_LOCAL_MARKER, removeUserAvatarFiles } from "../lib/avatarUpload";
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().min(1).email(),
   password: z.string().min(6),
 });
 
@@ -17,9 +17,9 @@ const googleLoginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().min(1).email(),
   password: z.string().min(6),
-  full_name: z.string().min(2),
+  full_name: z.string().trim().min(2),
 });
 
 function publicAvatarUrl(req: Request, user: { id: string; avatarUrl: string | null; updatedAt: Date }): string | null {
