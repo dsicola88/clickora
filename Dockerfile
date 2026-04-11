@@ -1,5 +1,7 @@
 # API Clickora (backend) — Railway usa este ficheiro quando existe na raiz do repo.
 FROM node:22-bookworm-slim AS base
+# Prisma precisa de OpenSSL detetável (evita aviso libssl e falhas intermitentes na slim)
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY backend/package.json backend/package-lock.json ./backend/
