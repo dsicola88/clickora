@@ -179,10 +179,9 @@ async function main() {
     );
   }
 
-  const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
   const planAnnual = plans.find((p) => p.id === "plan_annual")!;
 
-  /** Mesma password para os três contas de seed (também em produção no Docker). */
+  /** Mesma password para as contas de seed (também em produção no Docker). Todas com Pro Anual para testes sem limites de presell/cliques. */
   const seedPassword = "Dpa211088@";
 
   await upsertUserWithRoleAndPlan({
@@ -198,7 +197,7 @@ async function main() {
     passwordPlain: seedPassword,
     fullName: "Daniel Assinante",
     role: "user",
-    planId: planMonthly.id,
+    planId: planAnnual.id,
   });
 
   await upsertUserWithRoleAndPlan({
@@ -206,13 +205,13 @@ async function main() {
     passwordPlain: seedPassword,
     fullName: "Daniel Admin",
     role: "admin",
-    planId: planMonthly.id,
+    planId: planAnnual.id,
   });
 
   console.log(`✅ Plans: ${plans.map((p) => p.name).join(", ")}`);
-  console.log("✅ super_admin: danielclickora@gmail.com");
-  console.log("✅ user (assinante Pro Mensal): danielclickora1@gmail.com");
-  console.log("✅ admin (Pro Mensal): danielclickora2@gmail.com");
+  console.log("✅ super_admin (Pro Anual): danielclickora@gmail.com");
+  console.log("✅ user (Pro Anual): danielclickora1@gmail.com");
+  console.log("✅ admin (Pro Anual): danielclickora2@gmail.com");
   console.log("🌱 Seed complete!");
 }
 
