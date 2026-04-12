@@ -45,6 +45,13 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        if (response.status === 502 || response.status === 504) {
+          return {
+            data: null,
+            error:
+              "O servidor não respondeu a tempo (proxy/gateway). Tente de novo ou confirme o deploy na Railway e o URL em vercel.json.",
+          };
+        }
         const errorData = (await response.json().catch(() => ({}))) as {
           message?: string;
           error?: string;
