@@ -11,6 +11,7 @@ import { webhookRouter } from "./routes/webhook.routes";
 import { publicRouter } from "./routes/public.routes";
 import { integrationsRouter } from "./routes/integrations.routes";
 import { errorHandler } from "./middleware/errorHandler";
+import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -124,9 +125,22 @@ app.use(errorHandler);
 // ========================
 // Start
 // ========================
-// 0.0.0.0 — necessário em Docker/Railway para o proxy alcançar o processo (evita 502 se só escutasse em localhost).
-app.listen(Number(PORT), "0.0.0.0", () => {
-  console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
+async function start() {
+  try {
+    await repairPlanSchemaColumns();
+  } catch (e) {
+    console.error("schemaRepair (plans / plans_landing):", e);
+    throw e;
+  }
+  // 0.0.0.0 — necessário em Docker/Railway para o proxy alcançar o processo (evita 502 se só escutasse em localhost).
+  app.listen(Number(PORT), "0.0.0.0", () => {
+    console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
 
 export default app;

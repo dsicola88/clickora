@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../src/lib/prisma";
+import { repairPlanSchemaColumns } from "../src/lib/schemaRepair";
 
 const prisma = systemPrisma;
 
@@ -70,6 +71,7 @@ async function upsertUserWithRoleAndPlan(args: {
 async function main() {
   console.log("🌱 Seeding database...");
   await ensureUsersIntegrationColumns();
+  await repairPlanSchemaColumns();
 
   const plans = await Promise.all([
     prisma.plan.upsert({
