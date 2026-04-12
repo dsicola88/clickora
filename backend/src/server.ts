@@ -16,8 +16,6 @@ import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const isDev = process.env.NODE_ENV !== "production";
-
 /**
  * Origens permitidas para CORS a partir de FRONTEND_URL.
  * - Usa só o origin (protocolo + host + porta), sem path — o header Origin do browser nunca inclui `/auth` etc.
@@ -80,13 +78,22 @@ function isDclickoraSiteOrigin(origin: string): boolean {
   return /^https:\/\/(www\.)?dclickora\.com$/i.test(origin.trim());
 }
 
+/** Origem do browser em máquina local — independente de NODE_ENV (muitos .env locais usam production por engano). */
+function isLocalMachineOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin.trim());
+    const h = u.hostname.toLowerCase();
+    if (h !== "localhost" && h !== "127.0.0.1") return false;
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   if (isDclickoraSiteOrigin(origin)) return true;
-  if (isDev) {
-    // Vite pode usar 8080, 8081, 5173, etc. se a porta padrão estiver ocupada
-    if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return true;
-  }
+  if (isLocalMachineOrigin(origin)) return true;
   const fromEnv = allAllowedOrigins();
   if (fromEnv.length > 0) return fromEnv.includes(origin);
   return ["http://localhost:8080", "http://localhost:5173"].includes(origin);

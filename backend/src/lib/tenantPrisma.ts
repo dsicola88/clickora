@@ -35,6 +35,26 @@ function mergeWhereUserId(args: Record<string, unknown>, tenantId: string): Reco
   return { ...args, where: { AND: [w as object, { userId: tenantId }] } };
 }
 
+/**
+ * `subscription` tem `findUnique` só por `id` ou `userId` — não aceita `AND` no `where`.
+ * Isto alinha com `prisma.subscription.findUnique({ where: { userId } })` nos controladores.
+ */
+function mergeSubscriptionFindUnique(args: Record<string, unknown>, tenantId: string): Record<string, unknown> {
+  const w = args.where as Record<string, unknown> | undefined | null;
+  if (w === undefined || w === null) {
+    return { ...args, where: { userId: tenantId } };
+  }
+  if (typeof w === "object" && w !== null && Object.keys(w).length === 1 && "userId" in w) {
+    const uid = w.userId;
+    if (typeof uid === "string" && uid !== tenantId) {
+      logCrossTenantBlocked({ model: "Subscription", tenantId, attemptedResource: uid });
+      throw new TenantIsolationError("Acesso negado: recurso de outro tenant.");
+    }
+    return { ...args, where: { userId: tenantId } };
+  }
+  return mergeWhereUserId(args, tenantId);
+}
+
 function mergeWhereUserIdEqualsId(args: Record<string, unknown>, tenantId: string): Record<string, unknown> {
   const w = args.where;
   if (w === undefined || w === null) {
@@ -94,7 +114,15 @@ function mergeUpsertUserId(args: Record<string, unknown>, tenantId: string): Rec
   return mergedWhere;
 }
 
-function applyUserIdTenant(operation: string, args: Record<string, unknown>, tenantId: string): Record<string, unknown> {
+function applyUserIdTenant(
+  operation: string,
+  args: Record<string, unknown>,
+  tenantId: string,
+  modelKey?: (typeof USER_ID_MODELS)[number],
+): Record<string, unknown> {
+  if (modelKey === "subscription" && operation === "findUnique") {
+    return mergeSubscriptionFindUnique(args, tenantId);
+  }
   switch (operation) {
     case "findUnique":
     case "findFirst":
@@ -200,7 +228,7 @@ export const blockRawQueriesExtension = {
   },
 };
 
-function buildUserIdModelExtension() {
+function buildUserIdModelExtension(modelKey: (typeof USER_ID_MODELS)[number]) {
   return {
     async $allOperations({
       operation,
@@ -212,7 +240,7 @@ function buildUserIdModelExtension() {
       query: (a: unknown) => Promise<unknown>;
     }) {
       const tenantId = requireTenantId();
-      const next = applyUserIdTenant(operation, (args ?? {}) as Record<string, unknown>, tenantId);
+      const next = applyUserIdTenant(operation, (args ?? {}) as Record<string, unknown>, tenantId, modelKey);
       return query(next);
     },
   };
@@ -281,7 +309,7 @@ export function applyTenantSafeExtension(base: PrismaClient): PrismaClient {
   };
 
   for (const m of USER_ID_MODELS) {
-    query[m] = buildUserIdModelExtension();
+    query[m] = buildUserIdModelExtension(m);
   }
 
   const extension = { query };
