@@ -56,8 +56,23 @@ function corsAllowedOriginsFromEnv(): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Origens mínimas em produção se o env falhar — evita CORS vazio (só localhost) e login impossível desde o site.
+ * FRONTEND_URL na Railway deve mesmo listar o site; isto é rede de segurança.
+ */
+function defaultProductionCorsOrigins(): string[] {
+  if (process.env.NODE_ENV !== "production") return [];
+  return ["https://www.dclickora.com", "https://dclickora.com"];
+}
+
 function allAllowedOrigins(): string[] {
-  return [...new Set([...expandFrontendOriginsFromEnv(), ...corsAllowedOriginsFromEnv()])];
+  return [
+    ...new Set([
+      ...defaultProductionCorsOrigins(),
+      ...expandFrontendOriginsFromEnv(),
+      ...corsAllowedOriginsFromEnv(),
+    ]),
+  ];
 }
 
 function isAllowedOrigin(origin: string | undefined): boolean {
