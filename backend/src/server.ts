@@ -75,8 +75,14 @@ function allAllowedOrigins(): string[] {
   ];
 }
 
+/** Domínio de produção do site — sempre permitir (evita CORS quebrado se FRONTEND_URL/NODE_ENV falharem no deploy). */
+function isDclickoraSiteOrigin(origin: string): boolean {
+  return /^https:\/\/(www\.)?dclickora\.com$/i.test(origin.trim());
+}
+
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
+  if (isDclickoraSiteOrigin(origin)) return true;
   if (isDev) {
     // Vite pode usar 8080, 8081, 5173, etc. se a porta padrão estiver ocupada
     if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return true;
@@ -100,6 +106,7 @@ app.use(
       }
     },
     credentials: true,
+    optionsSuccessStatus: 204,
   }),
 );
 /** Presells após import podem ter JSON > 1MB (texto + imagens); 1MB fazia falhar o POST com 502 no proxy. */
