@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { type Request } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { authRouter } from "./routes/auth.routes";
 import { presellRouter } from "./routes/presell.routes";
@@ -109,6 +109,30 @@ app.use(
     optionsSuccessStatus: 204,
   }),
 );
+
+/**
+ * Garante `Access-Control-Allow-Origin` em respostas JSON/handlers onde o pacote `cors`
+ * por vezes não aplica (ex.: alguns caminhos de erro). Se a Railway devolver 502 antes do Node,
+ * não há cabeçalhos — aí o problema é upstream/timeout.
+ */
+function ensureCorsHeadersOnResponseEnd(req: Request, res: Response, next: NextFunction) {
+  const origin = req.headers.origin;
+  if (!origin || !isAllowedOrigin(origin)) {
+    return next();
+  }
+  const origEnd = res.end.bind(res);
+  res.end = function (chunk?: unknown, encoding?: unknown, cb?: unknown) {
+    if (!res.getHeader("Access-Control-Allow-Origin")) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
+    }
+    return origEnd(chunk as never, encoding as never, cb as never);
+  };
+  next();
+}
+app.use(ensureCorsHeadersOnResponseEnd);
+
 /** Presells após import podem ter JSON > 1MB (texto + imagens); 1MB fazia falhar o POST com 502 no proxy. */
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 app.use(
