@@ -85,10 +85,15 @@ export default function Plans() {
     const { data, error } = await plansService.subscribe(plan.id);
     if (error) { toast.error(error); return; }
     if (data?.checkout_url) {
+      if (data.message) toast.info(data.message);
       window.location.href = data.checkout_url;
-    } else {
-      toast.success("Plano atualizado com sucesso!");
+      return;
     }
+    if (data?.checkout_mode === "unconfigured" && data.message) {
+      toast.error(data.message);
+      return;
+    }
+    toast.success("Plano atualizado com sucesso!");
   };
 
   if (isLoading) return <LoadingState message="Carregando planos..." />;

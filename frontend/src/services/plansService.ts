@@ -7,7 +7,11 @@ export const plansService = {
   },
 
   async subscribe(planId: string) {
-    return apiClient.post<{ checkout_url?: string }>("/plans/subscribe", { plan_id: planId });
+    return apiClient.post<{
+      checkout_url?: string | null;
+      checkout_mode?: "external" | "unconfigured";
+      message?: string;
+    }>("/plans/subscribe", { plan_id: planId });
   },
 
   async cancel() {

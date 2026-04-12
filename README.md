@@ -74,6 +74,8 @@ Configure no `backend/.env`:
 - `PORT`
 - `FRONTEND_URL`
 
+Vendas com **Hotmart** (ex.: Angola, sem Stripe): `docs/PAGAMENTOS-ANGOLA.md` e variáveis `HOTMART_*` no `backend/.env.example`.
+
 ## Rodando localmente
 
 ### Instalar dependencias

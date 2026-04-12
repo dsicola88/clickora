@@ -1,6 +1,25 @@
 import { Request, Response } from "express";
 import prisma, { systemPrisma } from "../lib/prisma";
 
+/** Checkout externo (Hotmart, etc.) — Stripe muitas vezes indisponível para Angola; ver docs/PAGAMENTOS-ANGOLA.md */
+function resolveExternalCheckoutUrl(planId: string): string | null {
+  const perPlan = process.env.HOTMART_PLAN_CHECKOUT_URLS?.trim();
+  if (perPlan) {
+    try {
+      const map = JSON.parse(perPlan) as Record<string, string>;
+      const u = map[planId];
+      if (typeof u === "string" && u.trim()) return u.trim();
+    } catch {
+      // ignore invalid JSON
+    }
+  }
+  const single =
+    process.env.HOTMART_PRODUCT_URL?.trim() ||
+    process.env.PUBLIC_CHECKOUT_URL?.trim() ||
+    "";
+  return single || null;
+}
+
 export const plansController = {
   async getAll(_req: Request, res: Response) {
     const plans = await systemPrisma.plan.findMany({
@@ -26,11 +45,23 @@ export const plansController = {
     const plan = await systemPrisma.plan.findUnique({ where: { id: plan_id } });
     if (!plan) return res.status(404).json({ error: "Plano não encontrado" });
 
-    // For paid plans, integrate with Stripe here
+    // Planos pagos: checkout na Hotmart (ou URL configurada) — webhook ativa a assinatura
     if (plan.priceCents > 0) {
-      // TODO: Create Stripe checkout session
-      // return res.json({ checkout_url: stripeSession.url });
-      return res.json({ checkout_url: null, message: "Integração de pagamento pendente" });
+      const checkout_url = resolveExternalCheckoutUrl(plan_id);
+      if (checkout_url) {
+        return res.json({
+          checkout_url,
+          checkout_mode: "external",
+          message:
+            "Será redirecionado para a página de compra. Após o pagamento aprovado, o acesso é ativado automaticamente (webhook Hotmart). Use o mesmo e-mail na compra e na conta Clickora.",
+        });
+      }
+      return res.json({
+        checkout_url: null,
+        checkout_mode: "unconfigured",
+        message:
+          "Configure HOTMART_PRODUCT_URL ou HOTMART_PLAN_CHECKOUT_URLS no servidor (checkout Hotmart). Pagamento com cartão dentro da app (ex. Stripe) não está disponível nesta região — ver docs/PAGAMENTOS-ANGOLA.md",
+      });
     }
 
     // Free plan — update directly
