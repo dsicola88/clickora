@@ -185,7 +185,7 @@ export const analyticsController = {
             0::double precision
           ) AS revenue_tracking
         FROM tracking_events
-        WHERE user_id = ${userId}::uuid
+        WHERE user_id = ${userId}
           AND created_at >= ${rangeStart}
           AND created_at <= ${rangeEnd}
       `),
@@ -194,7 +194,7 @@ export const analyticsController = {
           COUNT(*)::bigint AS cnt,
           COALESCE(SUM(amount), 0) AS revenue_sum
         FROM conversions
-        WHERE user_id = ${userId}::uuid
+        WHERE user_id = ${userId}
           AND status = 'approved'
           AND created_at >= ${rangeStart}
           AND created_at <= ${rangeEnd}
@@ -204,7 +204,7 @@ export const analyticsController = {
                event_type::text AS event_type,
                COUNT(*)::bigint AS ct
         FROM tracking_events
-        WHERE user_id = ${userId}::uuid
+        WHERE user_id = ${userId}
           AND created_at >= ${rangeStart}
           AND created_at <= ${rangeEnd}
           AND event_type::text IN ('click', 'impression')
