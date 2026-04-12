@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, MapPin, Key, Copy, Check, Globe } from "lucide-react";
+import { Search, MapPin, Key, Copy, Check, Globe, Loader2, Smartphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,28 @@ import { toast } from "sonner";
 import { trackingService } from "@/services/trackingService";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { countryDisplayLabel, countryFlagEmoji } from "@/lib/countryDisplay";
 
 export default function Tracking() {
   const [ip, setIp] = useState("");
   const [gclidInput, setGclidInput] = useState("");
-  /** Echo do IP após "Rastrear" (a geolocalização por país nos eventos é feita no servidor e aparece no dashboard). */
-  const [trackedIp, setTrackedIp] = useState<string | null>(null);
+  const [ipLoading, setIpLoading] = useState(false);
+  const [ipLookup, setIpLookup] = useState<{
+    ip: string;
+    found: boolean;
+    message?: string;
+    geo?: {
+      country_code: string;
+      region: string;
+      city: string;
+      timezone: string;
+      latitude: number | null;
+      longitude: number | null;
+      eu: boolean;
+      metro: number;
+      area_km: number;
+    };
+  } | null>(null);
   const [gclidResult, setGclidResult] = useState<null | { campaignId: string; adGroupId: string; keyword: string; network: string }>(null);
   const [loadingGclid, setLoadingGclid] = useState(false);
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -31,14 +47,36 @@ export default function Tracking() {
     presell_id?: string | null;
   }>>([]);
 
-  const handleTrackIp = () => {
+  const handleTrackIp = async () => {
     const v = ip.trim();
     if (!v) {
       toast.error("Insira um IP.");
       return;
     }
-    setTrackedIp(v);
-    toast.info("País por IP está no painel Tracking (cliques). Cidade/ISP aqui ainda não.");
+    setIpLoading(true);
+    setIpLookup(null);
+    try {
+      const { data, error } = await trackingService.lookupIp(v);
+      if (error) throw new Error(error);
+      if (!data || !data.ok) throw new Error("Resposta inválida");
+      setIpLookup({
+        ip: data.ip,
+        found: data.found,
+        message: data.message,
+        geo: data.geo,
+      });
+      if (data.found) {
+        toast.success("Localização obtida (base GeoLite2).");
+      } else {
+        toast.info(data.message || "Sem dados para este IP.");
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Falha ao consultar IP";
+      toast.error(msg);
+      setIpLookup(null);
+    } finally {
+      setIpLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -97,27 +135,97 @@ export default function Tracking() {
 
         <TabsContent value="ip" className="mt-6">
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Consulta aproximada via <span className="text-foreground/90">GeoLite2</span> no servidor (cidade, país,
+              fuso horário). Para testar, usa um IP público (ex.: <span className="font-mono text-xs">8.8.8.8</span>).
+            </p>
             <div className="flex flex-col sm:flex-row items-end gap-4">
               <div className="space-y-2 flex-1">
                 <Label>Endereço IP</Label>
-                <Input placeholder="Ex: 192.168.1.1" value={ip} onChange={(e) => setIp(e.target.value)} />
+                <Input
+                  placeholder="Ex: 8.8.8.8"
+                  value={ip}
+                  onChange={(e) => setIp(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleTrackIp()}
+                />
               </div>
-              <Button onClick={handleTrackIp} className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
-                <Search className="h-4 w-4" /> Rastrear
+              <Button
+                type="button"
+                onClick={handleTrackIp}
+                disabled={ipLoading}
+                className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+              >
+                {ipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                {ipLoading ? "A consultar…" : "Rastrear"}
               </Button>
             </div>
 
-            {trackedIp && (
-              <div className="bg-muted/30 rounded-xl p-5 space-y-2 border border-border/50">
-                <h3 className="font-semibold text-card-foreground flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-primary" /> IP indicado
-                </h3>
-                <p className="font-mono text-sm font-medium text-card-foreground">{trackedIp}</p>
-                <p className="text-xs text-muted-foreground">
-                  O país dos visitantes é inferido no servidor e mostrado em Tracking → resumo (cliques por país). Esta aba só confirma o IP que introduziste.
-                </p>
+            {ipLookup ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border/50 bg-muted/30 p-5 space-y-1">
+                  <h3 className="font-semibold text-card-foreground flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-primary" /> IP consultado
+                  </h3>
+                  <p className="font-mono text-sm font-medium text-card-foreground">{ipLookup.ip}</p>
+                </div>
+
+                {!ipLookup.found ? (
+                  <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-3">
+                    {ipLookup.message ??
+                      "Sem dados de localização (rede privada, localhost ou IP sem entrada na base GeoLite)."}
+                  </p>
+                ) : ipLookup.geo ? (
+                  <div className="rounded-xl border border-border/50 p-5 space-y-4 bg-card">
+                    <div className="flex flex-wrap items-start gap-3">
+                      <span
+                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-2xl leading-none"
+                        aria-hidden
+                      >
+                        {countryFlagEmoji(ipLookup.geo.country_code)}
+                      </span>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">País</p>
+                        <p className="text-lg font-semibold text-foreground">
+                          {countryDisplayLabel(ipLookup.geo.country_code)}{" "}
+                          <span className="text-sm font-mono font-normal text-muted-foreground">
+                            ({ipLookup.geo.country_code})
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      {[
+                        { label: "Cidade", value: ipLookup.geo.city || "—" },
+                        { label: "Região / estado (código)", value: ipLookup.geo.region || "—" },
+                        { label: "Fuso horário", value: ipLookup.geo.timezone || "—" },
+                        {
+                          label: "Coordenadas (aprox.)",
+                          value:
+                            ipLookup.geo.latitude != null && ipLookup.geo.longitude != null
+                              ? `${ipLookup.geo.latitude.toFixed(4)}, ${ipLookup.geo.longitude.toFixed(4)}`
+                              : "—",
+                        },
+                        { label: "União Europeia", value: ipLookup.geo.eu ? "Sim" : "Não" },
+                        { label: "Raio aprox. (km)", value: String(ipLookup.geo.area_km ?? "—") },
+                      ].map((row) => (
+                        <div key={row.label} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+                          <p className="text-xs text-muted-foreground">{row.label}</p>
+                          <p className="font-medium text-foreground">{row.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+                      <Smartphone className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
+                      <p>
+                        <span className="font-medium text-foreground/90">Dispositivo:</span> não dá para saber só pelo IP
+                        (móvel, tablet ou desktop). Esse dado vem do navegador nos{" "}
+                        <span className="text-foreground/90">relatórios de cliques</span> quando há user-agent.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            )}
+            ) : null}
           </div>
         </TabsContent>
 

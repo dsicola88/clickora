@@ -111,4 +111,25 @@ export const trackingService = {
       utm_content?: string | null;
     }>(`/track/gclid/${encodeURIComponent(gclid)}`);
   },
+
+  /** GeoLite2: cidade, país, timezone (IP público com entrada na base). */
+  async lookupIp(ip: string) {
+    return apiClient.get<{
+      ok: boolean;
+      ip: string;
+      found: boolean;
+      message?: string;
+      geo?: {
+        country_code: string;
+        region: string;
+        city: string;
+        timezone: string;
+        latitude: number | null;
+        longitude: number | null;
+        eu: boolean;
+        metro: number;
+        area_km: number;
+      };
+    }>(`/track/tools/ip-lookup?q=${encodeURIComponent(ip.trim())}`);
+  },
 };

@@ -23,3 +23,4 @@ trackRouter.post("/postback/microsoft-ads", trackController.postbackMicrosoftAds
 trackRouter.get("/postbacks/templates", authenticate, tenantIsolation, trackController.getPostbackTemplates);
 trackRouter.get("/postbacks/audit", authenticate, tenantIsolation, trackController.getPostbackAudit);
 trackRouter.get("/gclid/:gclid", authenticate, tenantIsolation, trackController.lookupGclid);
+trackRouter.get("/tools/ip-lookup", authenticate, tenantIsolation, trackController.lookupIp);

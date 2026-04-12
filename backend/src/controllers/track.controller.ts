@@ -9,7 +9,7 @@ import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
-import { countryIsoFromIp } from "../lib/countryFromIp";
+import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
 import { detectBot } from "../lib/detectBot";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 
@@ -880,6 +880,26 @@ export const trackController = {
         },
       },
     });
+  },
+
+  /** GET /track/tools/ip-lookup?q= — GeoLite2 (cidade, país, timezone); só IP público com entrada na base. */
+  async lookupIp(req: Request, res: Response) {
+    if (!req.user?.userId) return res.status(401).json({ error: "Não autenticado" });
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (!q) {
+      return res.status(400).json({ error: "Indica um endereço IP (parâmetro q)." });
+    }
+    const geo = geoLookupFromIp(q);
+    if (!geo) {
+      return res.json({
+        ok: true,
+        ip: q,
+        found: false,
+        message:
+          "Sem dados de localização para este IP (rede privada, localhost ou a base GeoLite não tem entrada). Experimenta um IP público (ex.: 8.8.8.8).",
+      });
+    }
+    return res.json({ ok: true, ip: q, found: true, geo });
   },
 
   async getPostbackAudit(req: Request, res: Response) {
