@@ -250,7 +250,7 @@ export const analyticsController = {
     }
 
     try {
-    const [aggRow, linkedRow, chartRows, geoRows] = await Promise.all([
+    const [aggRow, linkedRow, platformDistRow, chartRows, geoRows] = await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
         Array<{
@@ -290,6 +290,16 @@ export const analyticsController = {
           AND status = 'approved'
           AND created_at >= ${rangeStart}
           AND created_at <= ${rangeEnd}
+      `),
+      systemPrisma.$queryRaw<Array<{ cnt: bigint }>>(Prisma.sql`
+        SELECT COUNT(DISTINCT LOWER(TRIM(metadata->>'platform')))::bigint AS cnt
+        FROM conversions
+        WHERE user_id = ${userId}
+          AND status = 'approved'
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND metadata IS NOT NULL
+          AND TRIM(COALESCE(metadata->>'platform', '')) <> ''
       `),
       systemPrisma.$queryRaw<Array<{ day: Date; event_type: string; ct: bigint }>>(Prisma.sql`
         SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
@@ -355,6 +365,7 @@ export const analyticsController = {
     const linkedConvCount = Number(l?.cnt ?? 0);
     const revenueLinked = l?.revenue_sum != null ? Number(l.revenue_sum) : 0;
     const revenue = revenueTracking + revenueLinked;
+    const affiliatePlatformsCount = Number(platformDistRow[0]?.cnt ?? 0);
     const conversions = trackingConversions + linkedConvCount;
 
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
@@ -414,6 +425,10 @@ export const analyticsController = {
       total_conversions: conversions,
       ctr: Math.round(ctr * 100) / 100,
       revenue: Math.round(revenue * 100) / 100,
+      /** Vendas aprovadas ligadas a postbacks (tabela conversions). */
+      approved_sales_count: linkedConvCount,
+      /** Plataformas de afiliado distintas (metadata.platform) com pelo menos uma venda no período. */
+      affiliate_platforms_count: affiliatePlatformsCount,
       chart_data,
       period: {
         from: rangeStart.toISOString().split("T")[0],

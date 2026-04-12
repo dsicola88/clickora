@@ -16,6 +16,7 @@ import {
   Link2,
   Info,
   Globe,
+  Building2,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -245,21 +246,21 @@ function DashboardHeroMetrics({
   const canGoogle = dashboard?.tracking_pipeline?.google_ads_metrics_available;
   const showGoogleRow = g != null || err || canGoogle;
 
-  const imps = dashboard?.total_impressions ?? 0;
-  const clicks = dashboard?.total_clicks ?? 0;
-  const convs = dashboard?.total_conversions ?? 0;
-  const ctr = dashboard?.ctr ?? 0;
+  const salesCount = dashboard?.approved_sales_count ?? 0;
+  const platformsCount = dashboard?.affiliate_platforms_count ?? 0;
 
-  const statClass = "rounded-xl border border-border/60 bg-background/80 px-4 py-3";
+  const statClass = "rounded-xl border border-border/60 bg-background/80 px-4 py-4 sm:px-5";
   const statLabel = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
-  const statValue = "mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl";
+  const statValue = "mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-3xl";
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7" aria-label="Resumo do período">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{greeting}</h1>
-          <p className="text-sm text-muted-foreground">Conversões em valor e totais do rastreamento (presell e rede de afiliados).</p>
+          <p className="text-sm text-muted-foreground">
+            Valor convertido, total de vendas nas redes e quantas plataformas de afiliado geraram conversão no período.
+          </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:max-w-xl">
           <div className="grid flex-1 grid-cols-2 gap-2 sm:max-w-md">
@@ -299,24 +300,32 @@ function DashboardHeroMetrics({
         </div>
       </div>
 
-      <div className="mt-8 space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Plataforma (presell e afiliados)</p>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className={statClass}>
-            <p className={statLabel}>Impressões</p>
-            <p className={statValue}>{imps.toLocaleString()}</p>
+      <div className="mt-8 space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Afiliados</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className={cn(statClass, "flex items-start justify-between gap-3")}>
+            <div>
+              <p className={statLabel}>Total de vendas</p>
+              <p className={statValue}>{salesCount.toLocaleString()}</p>
+              <p className="mt-2 text-xs text-muted-foreground leading-snug">
+                Conversões aprovadas registadas via postback das redes (mesmo período).
+              </p>
+            </div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ShoppingCart className="h-5 w-5" />
+            </div>
           </div>
-          <div className={statClass}>
-            <p className={statLabel}>Cliques</p>
-            <p className={statValue}>{clicks.toLocaleString()}</p>
-          </div>
-          <div className={statClass}>
-            <p className={statLabel}>Conversões</p>
-            <p className={statValue}>{convs.toLocaleString()}</p>
-          </div>
-          <div className={statClass}>
-            <p className={statLabel}>CTR</p>
-            <p className={statValue}>{ctr.toFixed(1)}%</p>
+          <div className={cn(statClass, "flex items-start justify-between gap-3")}>
+            <div>
+              <p className={statLabel}>Plataformas com conversão</p>
+              <p className={statValue}>{platformsCount.toLocaleString()}</p>
+              <p className="mt-2 text-xs text-muted-foreground leading-snug">
+                Redes de afiliado distintas que converteram (pelo menos uma venda).
+              </p>
+            </div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-700 dark:text-violet-300">
+              <Building2 className="h-5 w-5" />
+            </div>
           </div>
         </div>
       </div>

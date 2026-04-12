@@ -85,6 +85,10 @@ export const analyticsService = {
       total_conversions: number;
       ctr: number;
       revenue: number;
+      /** Vendas aprovadas (postbacks / tabela conversions). */
+      approved_sales_count?: number;
+      /** Plataformas distintas em metadata com pelo menos uma venda. */
+      affiliate_platforms_count?: number;
       chart_data: Array<{ date: string; clicks: number; impressions: number }>;
       period?: { from: string; to: string };
       tracking_install?: {
