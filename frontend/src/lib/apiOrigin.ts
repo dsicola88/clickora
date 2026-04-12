@@ -24,3 +24,20 @@ export function getApiOrigin(): string {
 export function getApiBaseUrl(): string {
   return getResolvedPublicApiBaseUrl();
 }
+
+/**
+ * Constrói um `URL` para um endpoint sob a base da API.
+ * Quando a base é relativa (ex.: `/api` em produção no mesmo domínio), o `URL` precisa de `window.location.origin`.
+ */
+export function resolveApiUrl(apiBase: string, pathname: string): URL {
+  const base = apiBase.replace(/\/$/, "");
+  const p = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const full = `${base}${p}`;
+  if (/^https?:\/\//i.test(full)) {
+    return new URL(full);
+  }
+  if (typeof window === "undefined") {
+    throw new Error("resolveApiUrl requires a browser when apiBase is a same-origin path");
+  }
+  return new URL(full, window.location.origin);
+}

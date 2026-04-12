@@ -19,7 +19,7 @@ import {
   isVideoPresellType,
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
-import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { getApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
 import {
   DiscountPresellOverlay,
   discountSocialFallback,
@@ -41,7 +41,7 @@ function makeTrackClickUrl(
   search: URLSearchParams,
 ): string {
   const toUrl = affiliateLink.trim();
-  const clickUrl = new URL(`${apiBase}/track/r/${pageId}`);
+  const clickUrl = resolveApiUrl(apiBase, `/track/r/${pageId}`);
   clickUrl.searchParams.set("to", toUrl);
   clickUrl.searchParams.set("source", queryParam(search, "utm_source") || "direct");
   clickUrl.searchParams.set("medium", queryParam(search, "utm_medium") || "none");
