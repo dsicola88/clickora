@@ -23,7 +23,7 @@ O Stripe **restringe** contas de comerciante por país. Muitos criadores em **An
 | Variável | Função |
 |----------|--------|
 | `HOTMART_WEBHOOK_TOKEN` | Mesmo segredo que configurares no webhook Hotmart (header `x-hotmart-hottok`). |
-| `HOTMART_PLAN_MAP` | JSON: códigos de **produto/oferta** Hotmart → `free_trial` \| `monthly` \| `quarterly` \| `annual` (tipos dos planos na tua BD). |
+| `HOTMART_PLAN_MAP` | JSON: códigos de **produto/oferta** Hotmart → `free_trial` \| `monthly` \| `annual` (tipos dos planos na tua BD). |
 | `HOTMART_DEFAULT_PLAN_TYPE` | Plano usado se o mapa não tiver o código (ex. `monthly`). |
 | `HOTMART_PRODUCT_URL` ou `PUBLIC_CHECKOUT_URL` | URL da **página de vendas** Hotmart — usada no botão “Subscrever” na app quando o plano é pago (checkout externo). |
 | `HOTMART_PLAN_CHECKOUT_URLS` | (Opcional) JSON `{"plan_monthly":"https://...","plan_annual":"https://..."}` se tiveres **uma página por plano**. |

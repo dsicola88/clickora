@@ -28,14 +28,12 @@ import {
 const planIcons: Record<string, React.ReactNode> = {
   free_trial: <Zap className="h-6 w-6" />,
   monthly: <Star className="h-6 w-6" />,
-  quarterly: <Crown className="h-6 w-6" />,
   annual: <Rocket className="h-6 w-6" />,
 };
 
 const planColors: Record<string, string> = {
   free_trial: "border-border",
   monthly: "border-primary",
-  quarterly: "border-accent",
   annual: "border-primary ring-2 ring-primary/20",
 };
 
@@ -65,7 +63,6 @@ export default function Plans() {
   const getPriceLabel = (type: string) => {
     switch (type) {
       case "monthly": return "/mês";
-      case "quarterly": return "/trimestre";
       case "annual": return "/ano";
       default: return "";
     }
@@ -194,16 +191,21 @@ export default function Plans() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
           const isCurrent = plan.type === userPlan?.plan_type;
           const isPopular = plan.type === "annual";
 
           return (
-            <div key={plan.id} className={`relative flex min-h-[480px] flex-col rounded-2xl border-2 bg-card p-6 transition-all hover:shadow-card-hover ${planColors[plan.type] || "border-border"}`}>
+            <div
+              key={plan.id}
+              className={`relative flex min-h-[480px] flex-col rounded-2xl border-2 bg-card p-6 transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`}
+            >
               {isPopular && <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">Mais popular</Badge>}
               <div className="mb-4 flex items-center gap-3">
-                <div className={`rounded-xl p-2 ${plan.type === "free_trial" ? "bg-muted" : "bg-primary/10"}`}>{planIcons[plan.type]}</div>
+                <div className={`rounded-xl p-2 ${plan.type === "free_trial" ? "bg-muted" : "bg-primary/10"}`}>
+                  {planIcons[plan.type] ?? <Star className="h-6 w-6" />}
+                </div>
                 <div>
                   <h3 className="font-bold text-foreground">{plan.name}</h3>
                   {isCurrent && <Badge variant="secondary" className="text-xs">Atual</Badge>}

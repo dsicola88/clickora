@@ -114,28 +114,6 @@ async function main() {
       },
     }),
     prisma.plan.upsert({
-      where: { id: "plan_quarterly" },
-      update: {},
-      create: {
-        id: "plan_quarterly",
-        name: "Trimestral",
-        type: "quarterly",
-        priceCents: 11700,
-        maxPresellPages: 100,
-        maxClicksPerMonth: 200000,
-        hasBranding: false,
-        features: JSON.parse(JSON.stringify([
-          "Até 100 presell pages",
-          "200.000 cliques/mês",
-          "Todos os templates",
-          "Analytics avançado",
-          "Sem branding",
-          "Suporte prioritário",
-          "API access",
-        ])),
-      },
-    }),
-    prisma.plan.upsert({
       where: { id: "plan_annual" },
       update: { name: "Pro Anual" },
       create: {
@@ -154,11 +132,19 @@ async function main() {
           "Sem branding",
           "Suporte VIP",
           "API access",
-          "White label",
         ])),
       },
     }),
   ]);
+
+  const migrated = await prisma.subscription.updateMany({
+    where: { planId: "plan_quarterly" },
+    data: { planId: "plan_monthly" },
+  });
+  if (migrated.count > 0) {
+    console.log(`ℹ️ ${migrated.count} assinatura(s) migradas de trimestral → Pro Mensal.`);
+  }
+  await prisma.plan.deleteMany({ where: { id: "plan_quarterly" } });
 
   try {
     await prisma.plansLandingConfig.upsert({

@@ -34,7 +34,7 @@ Ideal para quem já promove ofertas digitais e quer **profissionalizar o rastrei
 
 - **Presell pages** — crie e publique páginas de aquecimento alinhadas com a sua oferta  
 - **Tracking & analytics** — cliques, impressões, eventos e visão por presell  
-- **Planos flexíveis** — desde trial a Pro, com limites claros (páginas e cliques conforme o plano)  
+- **Planos simples** — Free Trial, Pro Mensal e Pro Anual, com limites claros (páginas e cliques conforme o plano)  
 - **Integrações** — fluxos para afiliados, postbacks e canais de alerta (ex.: Telegram)  
 - **Painel web** — aceda de qualquer lugar, sem instalar programas no computador  
 - **Atualizações** — melhorias contínuas na plataforma durante a sua subscrição ativa  
