@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import type { EventType, Prisma } from "@prisma/client";
-import prisma from "../lib/prisma";
+import { Prisma, type EventType } from "@prisma/client";
+import prisma, { systemPrisma } from "../lib/prisma";
 import { createPostbackToken } from "../lib/postbackToken";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import {
@@ -159,7 +159,7 @@ export const analyticsController = {
 
     const createdAt = { gte: rangeStart, lte: rangeEnd };
 
-    const [clicks, impressions, trackingConversions, conversionEvents, linkedConvCount, linkedRevenueAgg, recentEvents] =
+    const [clicks, impressions, trackingConversions, conversionEvents, linkedConvCount, linkedRevenueAgg, chartRows] =
       await Promise.all([
         prisma.trackingEvent.count({ where: { userId, eventType: "click", createdAt } }),
         prisma.trackingEvent.count({ where: { userId, eventType: "impression", createdAt } }),
@@ -173,11 +173,21 @@ export const analyticsController = {
           where: { userId, status: "approved", createdAt },
           _sum: { amount: true },
         }),
-        prisma.trackingEvent.findMany({
-          where: { userId, createdAt },
-          select: { eventType: true, createdAt: true },
-          orderBy: { createdAt: "asc" },
-        }),
+        // Agregação em SQL: carregar todas as linhas do período fazia timeout (502) no proxy Vercel → Railway.
+        systemPrisma.$queryRaw<Array<{ day: Date; event_type: string; ct: bigint }>>(
+          Prisma.sql`
+            SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+                   event_type::text AS event_type,
+                   COUNT(*)::bigint AS ct
+            FROM tracking_events
+            WHERE user_id = ${userId}::uuid
+              AND created_at >= ${rangeStart}
+              AND created_at <= ${rangeEnd}
+              AND event_type IN ('click', 'impression')
+            GROUP BY 1, 2
+            ORDER BY 1 ASC
+          `,
+        ),
       ]);
     const revenueTracking = conversionEvents.reduce((sum, e) => {
       const metadata = (e.metadata || {}) as Record<string, unknown>;
@@ -191,11 +201,13 @@ export const analyticsController = {
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
 
     const chartMap: Record<string, { clicks: number; impressions: number }> = {};
-    for (const e of recentEvents) {
-      const date = e.createdAt.toISOString().split("T")[0];
+    for (const row of chartRows) {
+      const date =
+        row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
       if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0 };
-      if (e.eventType === "click") chartMap[date].clicks++;
-      if (e.eventType === "impression") chartMap[date].impressions++;
+      const n = Number(row.ct);
+      if (row.event_type === "click") chartMap[date].clicks = n;
+      if (row.event_type === "impression") chartMap[date].impressions = n;
     }
 
     const chart_data = Object.entries(chartMap)

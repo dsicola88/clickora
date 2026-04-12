@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import type { AppRole, PlanType, SubscriptionStatus } from "@prisma/client";
+import { Prisma, type AppRole, type PlanType, type SubscriptionStatus } from "@prisma/client";
 import { z } from "zod";
 import { prismaAdmin } from "../lib/prisma";
 
@@ -32,11 +32,12 @@ const setPasswordSchema = z.object({
   new_password: z.string().min(6).max(128),
 });
 
-function seriesLast30Days(rows: { createdAt: Date }[]): { date: string; count: number }[] {
+/** Contagens por dia (SQL agregado) — evita carregar milhões de linhas para o gráfico dos últimos 30 dias. */
+function seriesLast30DaysFromAggregate(rows: { day: Date; c: bigint }[]): { date: string; count: number }[] {
   const map = new Map<string, number>();
   for (const r of rows) {
-    const key = r.createdAt.toISOString().slice(0, 10);
-    map.set(key, (map.get(key) ?? 0) + 1);
+    const key = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
+    map.set(key, Number(r.c));
   }
   const out: { date: string; count: number }[] = [];
   for (let i = 29; i >= 0; i--) {
@@ -87,7 +88,39 @@ export const adminController = {
   },
 
   async getPlans(_req: Request, res: Response) {
-    const plans = await prismaAdmin.plan.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] });
+    let plans: Array<{
+      id: string;
+      name: string;
+      type: PlanType;
+      priceCents: number;
+      maxPresellPages: number | null;
+      maxClicksPerMonth: number | null;
+      hasBranding: boolean;
+      features: unknown;
+      ctaLabel?: string | null;
+    }>;
+    try {
+      plans = await prismaAdmin.plan.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+        plans = await prismaAdmin.plan.findMany({
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            priceCents: true,
+            maxPresellPages: true,
+            maxClicksPerMonth: true,
+            hasBranding: true,
+            features: true,
+            createdAt: true,
+          },
+          orderBy: [{ type: "asc" }, { name: "asc" }],
+        });
+      } else {
+        throw e;
+      }
+    }
     res.json(
       plans.map((p) => ({
         id: p.id,
@@ -98,7 +131,7 @@ export const adminController = {
         max_clicks_per_month: p.maxClicksPerMonth,
         has_branding: p.hasBranding,
         features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
-        cta_label: p.ctaLabel ?? null,
+        cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
       })),
     );
   },
@@ -108,21 +141,29 @@ export const adminController = {
     since.setUTCDate(since.getUTCDate() - 29);
     since.setUTCHours(0, 0, 0, 0);
 
-    const [totalUsers, activeSubs, totalPresells, totalEvents, totalConversions, recentUsers, recentConversions] =
+    const [totalUsers, activeSubs, totalPresells, totalEvents, totalConversions, signupRows, conversionRows] =
       await Promise.all([
         prismaAdmin.user.count(),
         prismaAdmin.subscription.count({ where: { status: "active" } }),
         prismaAdmin.presellPage.count(),
         prismaAdmin.trackingEvent.count(),
         prismaAdmin.conversion.count(),
-        prismaAdmin.user.findMany({
-          where: { createdAt: { gte: since } },
-          select: { createdAt: true },
-        }),
-        prismaAdmin.conversion.findMany({
-          where: { createdAt: { gte: since } },
-          select: { createdAt: true },
-        }),
+        prismaAdmin.$queryRaw<Array<{ day: Date; c: bigint }>>(
+          Prisma.sql`
+            SELECT (created_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::bigint AS c
+            FROM users
+            WHERE created_at >= ${since}
+            GROUP BY 1
+          `,
+        ),
+        prismaAdmin.$queryRaw<Array<{ day: Date; c: bigint }>>(
+          Prisma.sql`
+            SELECT (created_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::bigint AS c
+            FROM conversions
+            WHERE created_at >= ${since}
+            GROUP BY 1
+          `,
+        ),
       ]);
 
     const now = new Date();
@@ -141,8 +182,8 @@ export const adminController = {
       total_events: totalEvents,
       total_conversions: totalConversions,
       subscriptions_expiring_14d: expiringSoon,
-      signups_by_day: seriesLast30Days(recentUsers),
-      conversions_by_day: seriesLast30Days(recentConversions),
+      signups_by_day: seriesLast30DaysFromAggregate(signupRows),
+      conversions_by_day: seriesLast30DaysFromAggregate(conversionRows),
     });
   },
 
