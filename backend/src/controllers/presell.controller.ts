@@ -40,9 +40,13 @@ const createSchema = z.object({
 });
 
 const importFromUrlSchema = z.object({
-  product_url: z.string().url(),
+  product_url: z.preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().url()),
   language: z.string().optional(),
-  affiliate_link: z.string().url().optional(),
+  /** `""` do cliente não pode falhar `.url().optional()`. */
+  affiliate_link: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.string().url().optional(),
+  ),
 });
 
 export const presellController = {

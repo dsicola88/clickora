@@ -698,17 +698,32 @@ function htmlLooksLikeWrongProduct(html: string, pageUrl: string): boolean {
   return false;
 }
 
+const IMPORT_FETCH_MS = 14_000;
+
 export async function importPresellFromProductUrl(input: ImportPresellInput): Promise<ImportPresellResult> {
   assertExternalProductUrl(input.productUrl);
 
-  const response = await fetch(input.productUrl, {
-    method: "GET",
-    redirect: "follow",
-    headers: {
-      "user-agent": DEFAULT_UA,
-      accept: "text/html,application/xhtml+xml",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(input.productUrl, {
+      method: "GET",
+      redirect: "follow",
+      signal: AbortSignal.timeout(IMPORT_FETCH_MS),
+      headers: {
+        "user-agent": DEFAULT_UA,
+        accept: "text/html,application/xhtml+xml",
+      },
+    });
+  } catch (e) {
+    const name = e instanceof Error ? e.name : "";
+    const msg = e instanceof Error ? e.message : String(e);
+    if (name === "AbortError" || /aborted|timeout/i.test(msg)) {
+      throw new Error(
+        `Timeout ao ler a página do produto (${Math.round(IMPORT_FETCH_MS / 1000)}s). Tente outro link ou confirme que o site responde rápido — pedidos lentos falham atrás do proxy.`,
+      );
+    }
+    throw e;
+  }
 
   if (!response.ok) {
     throw new Error(`Não foi possível ler a página do produto (${response.status}).`);
