@@ -35,8 +35,12 @@ import { integrationsService } from "@/services/integrationsService";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 
+/** Data local (YYYY-MM-DD) — evita deslocar o dia/ano vs UTC em <input type="date">. */
 function formatDateInput(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function defaultDateRange(): { start: string; end: string } {
