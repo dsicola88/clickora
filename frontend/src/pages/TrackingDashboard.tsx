@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  MousePointerClick,
-  Eye,
-  TrendingUp,
   ShoppingCart,
   Copy,
   Check,
@@ -20,7 +17,6 @@ import {
   Info,
   Globe,
 } from "lucide-react";
-import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,12 +71,19 @@ type DashboardGoogleGeoInput = {
   tracking_pipeline?: { google_ads_metrics_available?: boolean };
 };
 
-function DashboardGoogleGeoSection({ dashboard }: { dashboard: DashboardGoogleGeoInput | null | undefined }) {
+function DashboardGoogleGeoSection({
+  dashboard,
+  hideGoogleAdsBlock = false,
+}: {
+  dashboard: DashboardGoogleGeoInput | null | undefined;
+  /** Quando true, o bloco Google Ads não é repetido (já mostrado no topo). */
+  hideGoogleAdsBlock?: boolean;
+}) {
   const g = dashboard?.google_ads_metrics;
   const err = dashboard?.google_ads_metrics_error;
   const countries = dashboard?.clicks_by_country ?? [];
   const canGoogle = dashboard?.tracking_pipeline?.google_ads_metrics_available;
-  const showGoogleBlock = g != null || err || canGoogle;
+  const showGoogleBlock = !hideGoogleAdsBlock && (g != null || err || canGoogle);
   const showGeo = countries.length > 0;
   if (!showGoogleBlock && !showGeo) return null;
 
@@ -201,6 +204,170 @@ function CopyFieldRow({
         {copied ? "Copiado" : "Copiar"}
       </Button>
     </div>
+  );
+}
+
+type DashboardHeroInput = {
+  total_clicks?: number;
+  total_impressions?: number;
+  total_conversions?: number;
+  ctr?: number;
+  google_ads_metrics?: DashboardGoogleGeoInput["google_ads_metrics"];
+  google_ads_metrics_error?: string | null;
+  tracking_pipeline?: { google_ads_metrics_available?: boolean };
+};
+
+function DashboardHeroMetrics({
+  dashboard,
+  revenue,
+  periodLabel,
+  startDate,
+  endDate,
+  onStartChange,
+  onEndChange,
+  onReset30,
+  greeting,
+  adminExtras,
+}: {
+  dashboard: DashboardHeroInput | null | undefined;
+  revenue: number;
+  periodLabel: string | null;
+  startDate: string;
+  endDate: string;
+  onStartChange: (v: string) => void;
+  onEndChange: (v: string) => void;
+  onReset30: () => void;
+  greeting: string;
+  adminExtras?: ReactNode;
+}) {
+  const g = dashboard?.google_ads_metrics;
+  const err = dashboard?.google_ads_metrics_error;
+  const canGoogle = dashboard?.tracking_pipeline?.google_ads_metrics_available;
+  const showGoogleRow = g != null || err || canGoogle;
+
+  const imps = dashboard?.total_impressions ?? 0;
+  const clicks = dashboard?.total_clicks ?? 0;
+  const convs = dashboard?.total_conversions ?? 0;
+  const ctr = dashboard?.ctr ?? 0;
+
+  const statClass = "rounded-xl border border-border/60 bg-background/80 px-4 py-3";
+  const statLabel = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
+  const statValue = "mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl";
+
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7" aria-label="Resumo do período">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{greeting}</h1>
+          <p className="text-sm text-muted-foreground">Conversões em valor e totais do rastreamento (presell e rede de afiliados).</p>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:max-w-xl">
+          <div className="grid flex-1 grid-cols-2 gap-2 sm:max-w-md">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">De</Label>
+              <Input type="date" value={startDate} onChange={(e) => onStartChange(e.target.value)} className="h-10" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Até</Label>
+              <Input type="date" value={endDate} onChange={(e) => onEndChange(e.target.value)} className="h-10" />
+            </div>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="h-10 w-full shrink-0 sm:w-auto" onClick={onReset30}>
+            Últimos 30 dias
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-8 border-t border-border/50 pt-8">
+        <p className={statLabel}>Conversões (valor registado)</p>
+        <p className="mt-2 text-4xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 md:text-5xl">
+          $ {revenue.toFixed(2)}
+          <span className="text-xl font-normal text-muted-foreground md:text-2xl"> USD</span>
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {periodLabel ? (
+            <Badge variant="secondary" className="font-normal">
+              {periodLabel}
+            </Badge>
+          ) : null}
+          <Button size="sm" className="gap-1.5 rounded-lg" asChild>
+            <Link to="/tracking/analytics">
+              Analytics
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-8 space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Plataforma (presell e afiliados)</p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className={statClass}>
+            <p className={statLabel}>Impressões</p>
+            <p className={statValue}>{imps.toLocaleString()}</p>
+          </div>
+          <div className={statClass}>
+            <p className={statLabel}>Cliques</p>
+            <p className={statValue}>{clicks.toLocaleString()}</p>
+          </div>
+          <div className={statClass}>
+            <p className={statLabel}>Conversões</p>
+            <p className={statValue}>{convs.toLocaleString()}</p>
+          </div>
+          <div className={statClass}>
+            <p className={statLabel}>CTR</p>
+            <p className={statValue}>{ctr.toFixed(1)}%</p>
+          </div>
+        </div>
+      </div>
+
+      {showGoogleRow ? (
+        <div className="mt-8 space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 md:p-5">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
+              <Target className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Google Ads (conta)</p>
+              <p className="text-[11px] text-muted-foreground">Métricas da rede no mesmo período (API Google).</p>
+            </div>
+          </div>
+          {err ? (
+            <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">{err}</p>
+          ) : null}
+          {g ? (
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
+              <div>
+                <dt className="text-muted-foreground text-xs">Impressões</dt>
+                <dd className="font-semibold tabular-nums text-base">{g.impressions.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Cliques</dt>
+                <dd className="font-semibold tabular-nums text-base">{g.clicks.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Conversões</dt>
+                <dd className="font-semibold tabular-nums text-base">
+                  {Number(g.conversions).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Custo (conta)</dt>
+                <dd className="font-semibold tabular-nums text-base">{(g.cost_micros / 1_000_000).toFixed(2)}</dd>
+              </div>
+            </dl>
+          ) : !err && !canGoogle ? (
+            <p className="text-xs text-muted-foreground">
+              Configura Customer ID e OAuth em Tracking → Integrações → Google Ads para ver métricas da rede.
+            </p>
+          ) : !err && canGoogle && !g ? (
+            <p className="text-xs text-muted-foreground">Sem dados da API Google para este período.</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {adminExtras ? <div className="mt-8 border-t border-border/50 pt-8">{adminExtras}</div> : null}
+    </section>
   );
 }
 
@@ -394,13 +561,26 @@ export default function TrackingDashboard() {
 
   /** Vista simples para assinantes: sem scripts, CSV, Google Ads nem avisos de servidor. */
   if (!isAdmin) {
+    const hasGeoRows = (dashboard?.clicks_by_country?.length ?? 0) > 0;
+    const showDetailSection = chartData.length > 0 || hasGeoRows;
+
     return (
       <div className={cn(APP_PAGE_SHELL, "space-y-8")}>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-            {firstName ? `Olá, ${firstName}` : "Bem-vindo"}
-          </h1>
-        </div>
+        <DashboardHeroMetrics
+          dashboard={dashboard}
+          revenue={revenue}
+          periodLabel={periodLabel}
+          startDate={startDate}
+          endDate={endDate}
+          onStartChange={handleStartDateChange}
+          onEndChange={handleEndDateChange}
+          onReset30={() => {
+            const r = defaultDateRange();
+            setStartDate(r.start);
+            setEndDate(r.end);
+          }}
+          greeting={firstName ? `Olá, ${firstName}` : "Bem-vindo"}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(
@@ -432,116 +612,119 @@ export default function TrackingDashboard() {
           ))}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_min(320px,100%)] lg:items-stretch">
-          <Card className="border-border/80 shadow-sm">
-            <CardContent className="space-y-4 p-6">
-              <h3 className="text-sm font-semibold text-foreground">Período</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">De</Label>
-                  <Input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} className="h-11" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Até</Label>
-                  <Input type="date" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} className="h-11" />
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  const r = defaultDateRange();
-                  setStartDate(r.start);
-                  setEndDate(r.end);
-                }}
-              >
-                Últimos 30 dias
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/80 bg-gradient-to-br from-emerald-500/[0.07] to-card shadow-sm">
-            <CardContent className="space-y-3 p-6">
-              <p className="text-sm text-muted-foreground">Conversões (valor registado)</p>
-              <p className="text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                $ {revenue.toFixed(2)}
-                <span className="text-lg font-normal text-muted-foreground"> USD</span>
-              </p>
-              {periodLabel ? (
-                <Badge variant="secondary" className="font-normal">
-                  {periodLabel}
-                </Badge>
-              ) : null}
-              <Button className="w-full gap-2 rounded-xl" asChild>
-                <Link to="/tracking/analytics">
-                  Analytics
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <section
-          aria-labelledby="tracking-metrics-heading"
-          className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
-        >
-          <div className="space-y-1.5 border-b border-border/50 pb-5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Desempenho</p>
-            <h2 id="tracking-metrics-heading" className="text-lg font-semibold tracking-tight text-foreground">
-              Métricas do período
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-              Totais de cliques e conversões, dados da conta Google Ads e cliques por país, mais a evolução no gráfico.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard title="Cliques" value={dashboard?.total_clicks?.toLocaleString() ?? "0"} change="" changeType="positive" icon={MousePointerClick} />
-            <MetricCard title="Impressões" value={dashboard?.total_impressions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={Eye} />
-            <MetricCard title="CTR" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
-            <MetricCard title="Conversões" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
-          </div>
-
-          <DashboardGoogleGeoSection dashboard={dashboard} />
-
-          {chartData.length > 0 && (
-            <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm md:p-6">
-              <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões</h3>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="subCliques" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="subImps" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
-                    <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
-                    <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
-                    <Legend />
-                    <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#subImps)" strokeWidth={2} name="Impressões" />
-                    <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#subCliques)" strokeWidth={2} name="Cliques" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+        {showDetailSection ? (
+          <section
+            className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
+            aria-labelledby="tracking-detail-heading"
+          >
+            <div className="space-y-1 border-b border-border/50 pb-4">
+              <h2 id="tracking-detail-heading" className="text-lg font-semibold tracking-tight text-foreground">
+                Evolução e geografia
+              </h2>
+              <p className="text-sm text-muted-foreground">Tendência diária e cliques por país no período selecionado.</p>
             </div>
-          )}
-        </section>
+            <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock />
+            {chartData.length > 0 ? (
+              <div className="rounded-xl border border-border/60 bg-background/50 p-5 shadow-sm md:p-6">
+                <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões</h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="subCliques" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="subImps" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
+                      <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
+                      <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
+                      <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
+                      <Legend />
+                      <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#subImps)" strokeWidth={2} name="Impressões" />
+                      <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#subCliques)" strokeWidth={2} name="Cliques" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
       </div>
     );
   }
 
+  const hasGeoRowsAdmin = (dashboard?.clicks_by_country?.length ?? 0) > 0;
+  const showDetailSectionAdmin = chartData.length > 0 || hasGeoRowsAdmin;
+
   return (
     <div className={cn(APP_PAGE_SHELL, "space-y-8")}>
+      <DashboardHeroMetrics
+        dashboard={dashboard}
+        revenue={revenue}
+        periodLabel={periodLabel}
+        startDate={startDate}
+        endDate={endDate}
+        onStartChange={handleStartDateChange}
+        onEndChange={handleEndDateChange}
+        onReset30={() => {
+          const r = defaultDateRange();
+          setStartDate(r.start);
+          setEndDate(r.end);
+        }}
+        greeting={firstName ? `Bem-vindo, ${firstName}` : "Bem-vindo ao rastreamento"}
+        adminExtras={
+          <>
+            {dashboard?.tracking_pipeline ? (
+              <div className="rounded-xl border border-border/60 bg-background/60 px-3 py-3 sm:px-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Estado</p>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      { ok: dashboard.tracking_pipeline.click_tracking, label: "Rastreamento de clique" },
+                      { ok: dashboard.tracking_pipeline.campaign_tracking, label: "Rastreamento de campanha" },
+                      { ok: dashboard.tracking_pipeline.sale_tracking, label: "Rastreamento de venda" },
+                      { ok: dashboard.tracking_pipeline.google_ads_integration, label: "Integração Google Ads" },
+                    ] as const
+                  ).map((row) => (
+                    <li key={row.label} className="flex items-center gap-2 text-xs text-foreground">
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                          row.ok ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground",
+                        )}
+                        aria-hidden
+                      >
+                        {row.ok ? <Check className="h-3 w-3" strokeWidth={3} /> : "—"}
+                      </span>
+                      {row.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/presell/dashboard">Presell</Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/tracking/links">Links</Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/tracking/analytics">Analytics</Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/tracking/tools">Tools</Link>
+              </Button>
+            </div>
+          </>
+        }
+      />
+
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Guia — instalação na presell</h2>
@@ -776,189 +959,48 @@ export default function TrackingDashboard() {
         </div>
       </section>
 
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.08] via-background to-violet-500/[0.07] shadow-sm">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative grid gap-8 p-6 md:p-8 lg:grid-cols-[1fr_min(340px,100%)] lg:items-center lg:gap-10">
-          <div className="min-w-0 space-y-4">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-[2rem] lg:leading-tight">
-              {firstName ? `Bem-vindo, ${firstName}` : "Bem-vindo ao rastreamento"}
-            </h1>
-            {dashboard?.tracking_pipeline ? (
-              <div className="rounded-xl border border-border/60 bg-background/60 px-3 py-3 sm:px-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Estado</p>
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {(
-                    [
-                      { ok: dashboard.tracking_pipeline.click_tracking, label: "Rastreamento de clique" },
-                      { ok: dashboard.tracking_pipeline.campaign_tracking, label: "Rastreamento de campanha" },
-                      { ok: dashboard.tracking_pipeline.sale_tracking, label: "Rastreamento de venda" },
-                      { ok: dashboard.tracking_pipeline.google_ads_integration, label: "Integração Google Ads" },
-                    ] as const
-                  ).map((row) => (
-                    <li key={row.label} className="flex items-center gap-2 text-xs text-foreground">
-                      <span
-                        className={cn(
-                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                          row.ok ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground",
-                        )}
-                        aria-hidden
-                      >
-                        {row.ok ? <Check className="h-3 w-3" strokeWidth={3} /> : "—"}
-                      </span>
-                      {row.label}
-                    </li>
-                  ))}
-                </ul>
+      {showDetailSectionAdmin ? (
+        <section
+          className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
+          aria-labelledby="tracking-detail-heading-admin"
+        >
+          <div className="space-y-1 border-b border-border/50 pb-4">
+            <h2 id="tracking-detail-heading-admin" className="text-lg font-semibold tracking-tight text-foreground">
+              Evolução e geografia
+            </h2>
+            <p className="text-sm text-muted-foreground">Tendência diária e cliques por país no período selecionado.</p>
+          </div>
+          <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock />
+          {chartData.length > 0 ? (
+            <div className="rounded-xl border border-border/60 bg-background/50 p-5 shadow-sm md:p-6">
+              <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões no período</h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="cCliques" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="cImps" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
+                    <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
+                    <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
+                    <Legend />
+                    <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#cImps)" strokeWidth={2} name="Impressões" />
+                    <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#cCliques)" strokeWidth={2} name="Cliques" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/presell/dashboard">Presell</Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/tracking/links">Links</Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/tracking/analytics">Analytics</Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/tracking/tools">Tools</Link>
-              </Button>
             </div>
-          </div>
-
-          <Card className="border-border/80 bg-card/90 shadow-lg shadow-primary/5 backdrop-blur-sm">
-            <CardContent className="space-y-4 p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Neste período você converteu</p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 md:text-4xl">
-                    $ {revenue.toFixed(2)}
-                    <span className="text-lg font-normal text-muted-foreground md:text-xl"> USD</span>
-                  </p>
-                </div>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <LayoutDashboard className="h-5 w-5" />
-                </div>
-              </div>
-              {periodLabel ? (
-                <Badge variant="secondary" className="font-normal text-muted-foreground">
-                  {periodLabel}
-                </Badge>
-              ) : null}
-              <Button className="w-full gap-2 rounded-xl" asChild>
-                <Link to="/tracking/analytics">
-                  Analytics
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Resumo do período</h2>
-        <ol className="mt-2 list-decimal list-outside space-y-1 pl-5 text-sm text-muted-foreground marker:font-semibold marker:text-foreground max-w-xl">
-          <li>Define <strong className="text-foreground/90">data inicial</strong> e <strong className="text-foreground/90">final</strong> (ou &quot;Últimos 30 dias&quot;).</li>
-          <li>Consulta os <strong className="text-foreground/90">números</strong> e o gráfico abaixo.</li>
-          <li>Para mais detalhe, abre <strong className="text-foreground/90">Analytics</strong> no cartão acima ou no menu.</li>
-        </ol>
-      </div>
-
-      <Card className="border-border/70 shadow-sm">
-        <CardContent className="space-y-4 p-5 md:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Período</h3>
-              {periodLabel ? <p className="text-xs text-muted-foreground mt-0.5">{periodLabel}</p> : null}
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto shrink-0"
-              onClick={() => {
-                const r = defaultDateRange();
-                setStartDate(r.start);
-                setEndDate(r.end);
-              }}
-            >
-              Últimos 30 dias
-            </Button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data inicial</Label>
-              <Input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} className="h-10" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data final</Label>
-              <Input type="date" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} className="h-10" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <section
-        aria-labelledby="tracking-metrics-heading-admin"
-        className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
-      >
-        <div className="space-y-1.5 border-b border-border/50 pb-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Desempenho</p>
-          <h2 id="tracking-metrics-heading-admin" className="text-lg font-semibold tracking-tight text-foreground">
-            Métricas do período
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-            Totais de cliques e conversões, dados da conta Google Ads e cliques por país, mais a evolução no gráfico.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard title="Cliques (período)" value={dashboard?.total_clicks?.toLocaleString() ?? "0"} change="" changeType="positive" icon={MousePointerClick} />
-          <MetricCard title="Impressões (período)" value={dashboard?.total_impressions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={Eye} />
-          <MetricCard title="CTR (período)" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
-          <MetricCard title="Conversões (período)" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
-        </div>
-
-        <DashboardGoogleGeoSection dashboard={dashboard} />
-
-        {chartData.length > 0 && (
-          <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm md:p-6">
-            <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões no período</h3>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="cCliques" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="cImps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
-                  <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
-                  <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
-                  <Legend />
-                  <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#cImps)" strokeWidth={2} name="Impressões" />
-                  <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#cCliques)" strokeWidth={2} name="Cliques" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-      </section>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }
