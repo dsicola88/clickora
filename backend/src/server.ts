@@ -132,22 +132,12 @@ app.use(errorHandler);
 // ========================
 // Start
 // ========================
-async function start() {
-  try {
-    await repairPlanSchemaColumns();
-  } catch (e) {
-    console.error("schemaRepair (plans / plans_landing):", e);
-    throw e;
-  }
-  // 0.0.0.0 — necessário em Docker/Railway para o proxy alcançar o processo (evita 502 se só escutasse em localhost).
-  app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
-  });
-}
-
-start().catch((err) => {
-  console.error(err);
-  process.exit(1);
+// Escutar **antes** do repair: se ALTER falhar ou a BD estiver lenta, o processo ainda responde
+// (health + rotas com fallback P2022). Esperar repair antes de listen causava process.exit(1) → 502 no Railway/Vercel.
+app.listen(Number(PORT), "0.0.0.0", () => {
+  console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
 });
+
+void repairPlanSchemaColumns();
 
 export default app;

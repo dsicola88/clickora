@@ -11,9 +11,17 @@ const PLANS_LANDING_COLUMNS_SQL = [
 
 export async function repairPlanSchemaColumns(): Promise<void> {
   for (const sql of PLAN_COLUMNS_SQL) {
-    await systemPrisma.$executeRawUnsafe(sql);
+    try {
+      await systemPrisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[schemaRepair] plans (ignorado, usa fallback P2022 se necessário):", e);
+    }
   }
   for (const sql of PLANS_LANDING_COLUMNS_SQL) {
-    await systemPrisma.$executeRawUnsafe(sql);
+    try {
+      await systemPrisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[schemaRepair] plans_landing_config (ignorado):", e);
+    }
   }
 }
