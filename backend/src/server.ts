@@ -110,6 +110,16 @@ app.get("/", (_req, res) => {
   });
 });
 
+// Evita "Cannot GET /api" ao abrir a base da API no browser — não há lista de rotas em GET /api.
+app.get("/api", (_req, res) => {
+  res.json({
+    service: "dclickora API",
+    message: "Base /api — rotas sob /api/auth, /api/plans, /api/health, etc.",
+    health: "/api/health",
+    root: "/",
+  });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/presells", presellRouter);
 app.use("/api/analytics", analyticsRouter);
