@@ -6,13 +6,27 @@
  * - `VITE_API_URL` — legado, mesmo efeito se o anterior estiver vazio
  *
  * Comportamento:
- * - **Produção sem URL:** `/api` (same-origin; requer `vercel.json` a apontar para a Railway).
+ * - **Produção sem URL em `www`/`dclickora.com`:** URL Railway em `PRODUCTION_PUBLIC_API_FALLBACK` (evita 502 do proxy Vercel).
+ * - **Produção sem URL (outros hosts):** `/api` (same-origin; requer `vercel.json`).
  * - **Produção com URL:** pedidos diretos à API (recomendado para evitar 502 no proxy) — a API deve permitir CORS para o domínio do site (`FRONTEND_URL` na Railway).
  * - **Desenvolvimento sem URL:** `http://localhost:3001/api`
  */
 
 const LOCAL_DEFAULT = "http://localhost:3001/api";
 const PROD_SAME_ORIGIN = "/api";
+
+/**
+ * Se `VITE_PUBLIC_API_URL` não estiver no bundle (build Vercel sem env visível ao Vite),
+ * o fallback era `/api` → proxy Vercel → 502/504. Para o domínio de produção, usar API direta.
+ * Sobrescreve sempre com `VITE_PUBLIC_API_URL` se mudares o host na Railway.
+ */
+const PRODUCTION_PUBLIC_API_FALLBACK = "https://clickora-production.up.railway.app/api";
+
+function isDclickoraProductionHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h === "www.dclickora.com" || h === "dclickora.com";
+}
 
 function readEnvApiUrl(): string {
   const a = import.meta.env.VITE_PUBLIC_API_URL?.trim();
@@ -47,6 +61,9 @@ export function getResolvedPublicApiBaseUrl(): string {
   }
 
   if (!raw) {
+    if (isDclickoraProductionHost()) {
+      return PRODUCTION_PUBLIC_API_FALLBACK;
+    }
     return PROD_SAME_ORIGIN;
   }
 
