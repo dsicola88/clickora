@@ -24,13 +24,10 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
+import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 
-const platforms = [
-  "AdCombo", "Google Ads", "Facebook Ads", "TikTok Ads", "Bing Ads",
-  "Taboola", "Outbrain", "Pinterest Ads", "Kwai Ads", "Twitter Ads",
-  "ClickBank", "Hotmart", "Monetizze", "Eduzz", "Kiwify", "Braip",
-  "Digistore24", "MaxWeb", "Personalizado",
-];
+/** Plataformas (Integrações) + redes de tráfego + Personalizado — ver `marketingPlatforms.ts`. */
+const URL_BUILDER_PLATFORMS = getUrlBuilderPlatformList();
 
 /** Marcador que vai para o URL (valor técnico) + nome legível + texto para pesquisa. */
 type TokenPick = { token: string; label: string; search: string };
@@ -296,6 +293,13 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
 
 type ParamRow = { key: string; value: string; highlight?: boolean };
 
+/** Presets específicos em falta: sub + UUID do clique (o servidor aceita `subid1`/`clickora_click_id` como UUID). */
+const GENERIC_AFFILIATE_PARAM_DEFAULTS: ParamRow[] = [
+  { key: "sub1", value: "" },
+  { key: "sub2", value: "" },
+  { key: "subid1", value: "", highlight: true },
+];
+
 export default function UrlBuilder() {
   const [platform, setPlatform] = useState("");
   const [platformOpen, setPlatformOpen] = useState(false);
@@ -306,7 +310,16 @@ export default function UrlBuilder() {
 
   const handlePlatformChange = (val: string) => {
     setPlatform(val);
-    setParams([...(defaultParams[val] || [])]);
+    const preset = defaultParams[val];
+    if (preset) {
+      setParams([...preset]);
+      return;
+    }
+    if (val === "Personalizado") {
+      setParams([]);
+      return;
+    }
+    setParams([...GENERIC_AFFILIATE_PARAM_DEFAULTS]);
   };
 
   const updateParam = (index: number, field: "key" | "value", val: string) => {
@@ -353,15 +366,13 @@ export default function UrlBuilder() {
   const tokenSectionsOrdered = useMemo(() => orderedTokenSections(platform), [platform]);
 
   const flowSteps = [
-    "Construtor de URL gera o link com UTMs + gclid (e opcionalmente gbraid/wbraid).",
-    "O utilizador clica no anúncio; o Google substitui as macros pelo clique real.",
-    "A presell dclickora recebe o URL com parâmetros — o tracking captura gclid, UTMs, etc.",
-    "No clique para a oferta, o dclickora cria o click_id interno (UUID) e associa ao evento.",
-    "Redireciona para a oferta com clickora_click_id no URL do produto.",
-    "Quando há venda, o postback da rede devolve o mesmo click_id.",
-    "O dclickora encontra o clique e lê o gclid (ou gbraid/wbraid) guardado no metadata.",
-    "Regista a conversão aprovada (1 clique = 1 conversão).",
-    "Envia a conversão para o Google Ads (Conversion Upload API), se estiver ativo no painel Tracking.",
+    "Construtor de URL: defines o link da presell com UTMs e IDs de clique (ex.: gclid, fbclid, ttclid) conforme a plataforma escolhida.",
+    "O visitante clica no anúncio; a rede substitui as macros pelos valores reais.",
+    "A presell carrega com esses parâmetros — o tracking regista clique/impressão e guarda IDs no evento.",
+    "No redirect para a oferta, o dclickora acrescenta clickora_click_id (UUID) ao URL do produto (ver também Integrações → Plataformas).",
+    "Em venda aprovada, o postback HTTP (webhook em Integrações) envia o mesmo identificador de clique (UUID em clickora_click_id / subid1 / aliases).",
+    "A API valida o clique, cria a conversão em conversions e atualiza a presell.",
+    "Com Google Ads ativo no Tracking, o gclid (ou gbraid/wbraid) guardado no clique pode ser enviado à API de conversões.",
   ];
 
   return (
@@ -369,11 +380,11 @@ export default function UrlBuilder() {
       <PageHeader
         centered
         title="Construtor de URL"
-        description="Monta o URL final do anúncio (presell + UTMs + gclid). Este é o fluxo que liga campanha → presell → oferta → postback → Google Ads."
+        description="Monta o URL da presell com parâmetros da rede (UTMs, gclid, etc.). Alinha com Integrações → Plataformas e o webhook de postback de afiliados."
       />
 
       <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5">
-        <p className="text-sm font-semibold text-foreground mb-2">Fluxo dclickora (Google Ads)</p>
+        <p className="text-sm font-semibold text-foreground mb-2">Fluxo: tracking → oferta → postback</p>
         <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
           {flowSteps.map((s, i) => (
             <li key={i} className="pl-1 marker:text-primary marker:font-medium">
@@ -415,7 +426,7 @@ export default function UrlBuilder() {
                   <CommandList>
                     <CommandEmpty>Nenhuma plataforma encontrada.</CommandEmpty>
                     <CommandGroup>
-                      {platforms.map((p) => (
+                      {URL_BUILDER_PLATFORMS.map((p) => (
                         <CommandItem
                           key={p}
                           value={p}

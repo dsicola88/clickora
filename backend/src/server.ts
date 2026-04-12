@@ -14,6 +14,8 @@ import { errorHandler } from "./middleware/errorHandler";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 
 const app = express();
+/** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3001;
 
 /**

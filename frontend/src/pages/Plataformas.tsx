@@ -11,6 +11,7 @@ import {
   AlertCircle,
   ExternalLink,
   Loader2,
+  ListOrdered,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,65 +23,18 @@ import { integrationsService } from "@/services/integrationsService";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
-
-const platforms = [
-  "AdCombo",
-  "Adexico",
-  "Affbay",
-  "Ambalaya",
-  "Awin",
-  "BlitzAds",
-  "BuyGoods",
-  "ClickBank",
-  "ClickDealer",
-  "ClickFlow",
-  "ClickHunts",
-  "ClicksAdv",
-  "CPAGetti",
-  "CPAHouse",
-  "CJ Affiliate",
-  "Digistore24",
-  "DrCash",
-  "EverAd",
-  "EverFlow",
-  "Gasmobi",
-  "Giantmobi",
-  "Gurumedia",
-  "HealthTrader",
-  "Hotmart",
-  "Impact",
-  "JVZoo",
-  "Keitaro",
-  "LeadBit",
-  "LeadReaktor",
-  "LemonAd",
-  "MaxBounty",
-  "MaxWeb",
-  "Mediascalers",
-  "Monetizer",
-  "MoreNiche",
-  "Netvork",
-  "NutriProfits",
-  "ProfitPay",
-  "Rakuten",
-  "SellHealth",
-  "ShareASale",
-  "ShakesPro",
-  "SmartAdv",
-  "TerraLeads",
-  "TradeDoubler",
-  "TrafficLight",
-  "UpPromote",
-  "WarriorPlus",
-  "Webgains",
-  "Webvork",
-];
+import {
+  AFFILIATE_PLATFORMS,
+  buildAffiliatePostbackExampleUrl,
+  getAffiliatePostbackPreset,
+} from "@/lib/marketingPlatforms";
+import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
 
 export default function Plataformas() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("");
-  const [selected, setSelected] = useState("ClickBank");
+  const [selected, setSelected] = useState("BuyGoods");
   const [emailField, setEmailField] = useState("");
   const [copied, setCopied] = useState(false);
   const [copiedExample, setCopiedExample] = useState(false);
@@ -142,22 +96,29 @@ export default function Plataformas() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const filteredPlatforms = platforms.filter((p) => p.toLowerCase().includes(filter.toLowerCase()));
+  const filteredPlatforms = AFFILIATE_PLATFORMS.filter((p) => p.toLowerCase().includes(filter.toLowerCase()));
+
+  /** Base do webhook com HTTPS garantido no browser (produção). */
+  const displayHookUrl = useMemo(
+    () => (info?.hook_url ? ensureHttpsWebhookUrl(info.hook_url) : ""),
+    [info?.hook_url],
+  );
 
   const handleCopyHook = useCallback(() => {
-    if (!info?.hook_url) return;
-    navigator.clipboard.writeText(info.hook_url);
+    if (!displayHookUrl) return;
+    navigator.clipboard.writeText(displayHookUrl);
     setCopied(true);
     toast.success("URL do webhook copiada!");
     setTimeout(() => setCopied(false), 2000);
-  }, [info?.hook_url]);
+  }, [displayHookUrl]);
 
-  /** Exemplo no estilo BuyGoods / IPN: a rede substitui {ORDERID}, {SUBID}, etc. Ajuste aos macros oficiais da rede. */
+  /** Exemplo alinhado à plataforma escolhida (macros + parâmetros que o servidor lê). */
   const examplePostbackUrl = useMemo(() => {
-    if (!info?.hook_url) return "";
-    const joiner = info.hook_url.includes("?") ? "&" : "?";
-    return `${info.hook_url}${joiner}platform=${encodeURIComponent(selected)}&orderid={ORDERID}&amount={COMMISSION_AMOUNT}&cy=USD&status=approved&clickora_click_id={SUBID}&product={PRODUCT_CODENAME}&subid1={SUBID}&subid2={SUBID2}&subid3={SUBID3}&subid4={SUBID4}&subid5={SUBID5}`;
-  }, [info?.hook_url, selected]);
+    if (!displayHookUrl) return "";
+    return buildAffiliatePostbackExampleUrl(displayHookUrl, selected);
+  }, [displayHookUrl, selected]);
+
+  const postbackPresetHint = useMemo(() => getAffiliatePostbackPreset(selected).hint, [selected]);
 
   const handleCopyExample = useCallback(() => {
     if (!examplePostbackUrl) return;
@@ -183,8 +144,42 @@ export default function Plataformas() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Plataformas"
-        description="Cole o URL do webhook no campo Postback / IPN da rede de afiliados — igual à ideia de URLs com macros ({ORDERID}, etc.), mas usando o teu domínio da API dclickora."
+        description="Sincronize vendas da sua rede de afiliados com o dclickora: escolha a plataforma, configure o e-mail, copie o postback para a rede e teste. Depois disso, notificações e conversões ficam ligadas automaticamente."
       />
+
+      <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.07] via-card to-violet-500/[0.05] p-5 sm:p-6 shadow-sm mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <ListOrdered className="h-5 w-5 text-primary shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">Como configurar (fluxo do afiliado)</h2>
+        </div>
+        <ol className="list-decimal list-inside space-y-2.5 text-sm text-muted-foreground leading-relaxed [&>li]:pl-1">
+          <li>
+            Em <strong className="text-foreground/90">Meu rastreamento → Plataformas</strong>, escolha a rede onde é afiliado (ex.:{" "}
+            <strong className="text-foreground/90">BuyGoods</strong>).
+          </li>
+          <li>
+            Indique o <strong className="text-foreground/90">e-mail</strong> onde quer ser notificado das vendas e clique em{" "}
+            <strong className="text-foreground/90">Guardar e-mail</strong>.
+          </li>
+          <li>
+            Copie a <strong className="text-foreground/90">URL do postback com macros</strong> (botão &quot;Copiar com macros&quot; abaixo) — é esta
+            linha que deve colar no painel da rede.
+          </li>
+          <li>
+            Na plataforma de afiliados (BuyGoods, ClickBank, etc.), abra <strong className="text-foreground/90">Postback / IPN / Webhook</strong>,
+            cole o URL, guarde nas definições da rede.
+          </li>
+          <li>
+            Volte ao dclickora e use <strong className="text-foreground/90">Testar e-mail</strong> para confirmar que recebe uma mensagem no endereço
+            cadastrado (requer SMTP no servidor).
+          </li>
+          <li>
+            A partir daí, quando houver <strong className="text-foreground/90">venda aprovada</strong>, a rede notifica o dclickora e o fluxo fica{" "}
+            <strong className="text-foreground/90">sincronizado</strong> com a plataforma que escolheu — pode repetir o processo para outra rede
+            selecionando-a na lista.
+          </li>
+        </ol>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <div className="rounded-xl border border-border/50 bg-card shadow-card overflow-hidden">
@@ -228,8 +223,9 @@ export default function Plataformas() {
                 {selected}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Na conta {selected}, abra Postback / Webhook / IPN e cole a <strong className="text-foreground/90">URL abaixo</strong>. Quando
-                houver conversão, a rede faz pedido a essa URL e o dclickora envia um e-mail com o corpo do pedido.
+                Siga os passos do cartão <strong className="text-foreground/90">Como configurar</strong> acima. Na conta{" "}
+                <strong className="text-foreground/90">{selected}</strong>, use o postback completo (com macros). Quando houver conversão, a rede
+                chama o dclickora e recebe um e-mail com o resumo do pedido.
               </p>
             </div>
 
@@ -261,12 +257,13 @@ export default function Plataformas() {
             <div className="space-y-2">
               <Label className="font-semibold">URL do webhook (Postback)</Label>
               <p className="text-xs text-muted-foreground">
-                Já inclui <span className="font-mono">?token=…</span> (segredo). Parâmetros extra usam{" "}
-                <span className="font-mono">&amp;</span>, por exemplo{" "}
-                <span className="font-mono">&amp;platform=BuyGoods&amp;orderid=&#123;ORDERID&#125;</span>.
+                Em produção deve ser <strong className="text-foreground/90">https://</strong>. Já inclui{" "}
+                <span className="font-mono">?token=…</span> (segredo). Parâmetros extra usam{" "}
+                <span className="font-mono">&amp;</span>. Na API, defina <span className="font-mono">API_PUBLIC_URL=https://www.dclickora.com/api</span>{" "}
+                (ou o domínio público da API) para o URL gerado ser sempre correto.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Input readOnly value={info.hook_url} className="font-mono text-xs bg-muted/30 h-11 sm:h-10" />
+                <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10" />
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title="Copiar URL">
                     {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
@@ -310,6 +307,9 @@ export default function Plataformas() {
                 com a <strong>documentação oficial da rede</strong> (BuyGoods, Digistore24, ClickBank…); este bloco é um modelo que podes editar
                 antes de guardar na rede. O parâmetro <span className="font-mono">clickora_click_id</span> deve repetir o mesmo UUID que o link de
                 oferta envia no URL (ou num subid que a rede devolva no postback) — assim a venda fica ligada ao clique no presell.
+              </p>
+              <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-muted/40 border border-border/50 px-3 py-2">
+                <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                 <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background/80 h-auto min-h-[3rem] py-2" />

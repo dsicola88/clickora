@@ -48,7 +48,9 @@ export function extractClickIdFromPayload(flat: Record<string, string>): string 
 /** Redes usam vários valores; só criamos conversão com estes (venda aprovada). */
 export function isApprovedSaleStatus(status: string | undefined): boolean {
   if (!status) return false;
-  const t = status.toLowerCase().trim();
+  const raw = String(status).trim();
+  const t = raw.toLowerCase();
+  if (["1", "yes", "y", "true"].includes(t)) return true;
   return ["approved", "completed", "paid", "sale", "success", "complete"].includes(t);
 }
 
