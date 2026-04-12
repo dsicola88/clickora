@@ -64,48 +64,60 @@ export default function Relatorios() {
 
   const impressionsQuery = useQuery({
     queryKey: ["relatorios", "events", "impression", applied.from, applied.to],
-    queryFn: () =>
-      analyticsService.getEvents({
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getEvents({
         event_type: "impression",
         from: applied.from,
         to: applied.to,
         limit: 500,
-      }),
+      });
+      if (error) throw new Error(error);
+      return Array.isArray(data) ? data : [];
+    },
     enabled: tab === "acessos",
   });
 
   const clicksQuery = useQuery({
     queryKey: ["relatorios", "events", "click", applied.from, applied.to],
-    queryFn: () =>
-      analyticsService.getEvents({
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getEvents({
         event_type: "click",
         from: applied.from,
         to: applied.to,
         limit: 500,
-      }),
+      });
+      if (error) throw new Error(error);
+      return Array.isArray(data) ? data : [];
+    },
     enabled: tab === "cliques",
   });
 
   const conversionsQuery = useQuery({
     queryKey: ["relatorios", "conversions", applied.from, applied.to],
-    queryFn: () =>
-      analyticsService.getConversions({
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getConversions({
         from: applied.from,
         to: applied.to,
         limit: 500,
-      }),
+      });
+      if (error) throw new Error(error);
+      return Array.isArray(data) ? data : [];
+    },
     enabled: tab === "conversoes",
   });
 
   const noGclidQuery = useQuery({
     queryKey: ["relatorios", "conversions", "no-gclid", applied.from, applied.to],
-    queryFn: () =>
-      analyticsService.getConversions({
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getConversions({
         from: applied.from,
         to: applied.to,
         missing_gclid: true,
         limit: 2000,
-      }),
+      });
+      if (error) throw new Error(error);
+      return Array.isArray(data) ? data : [];
+    },
     enabled: tab === "sem-gclid",
   });
 
@@ -154,7 +166,7 @@ export default function Relatorios() {
   }, [tab]);
 
   const impressionRows = useMemo(() => {
-    const raw = impressionsQuery.data ?? [];
+    const raw = Array.isArray(impressionsQuery.data) ? impressionsQuery.data : [];
     return raw.map((e) => {
       const meta = e.metadata || {};
       const keyword =
@@ -177,7 +189,7 @@ export default function Relatorios() {
   }, [impressionsQuery.data]);
 
   const clickRows = useMemo(() => {
-    const raw = clicksQuery.data ?? [];
+    const raw = Array.isArray(clicksQuery.data) ? clicksQuery.data : [];
     return raw.map((e) => {
       const meta = e.metadata || {};
       const keyword =
@@ -200,7 +212,7 @@ export default function Relatorios() {
   }, [clicksQuery.data]);
 
   const conversionRowsFiltered = useMemo(() => {
-    let rows = conversionsQuery.data ?? [];
+    let rows = Array.isArray(conversionsQuery.data) ? conversionsQuery.data : [];
     rows = rows.filter((r) => platformMatches(r.platform, platform));
     const g = gclidFilter.trim().toLowerCase();
     if (g) {
@@ -215,7 +227,7 @@ export default function Relatorios() {
   }, [conversionsQuery.data, platform, gclidFilter]);
 
   const noGclidRowsFiltered = useMemo(() => {
-    let rows = noGclidQuery.data ?? [];
+    let rows = Array.isArray(noGclidQuery.data) ? noGclidQuery.data : [];
     rows = rows.filter((r) => platformMatches(r.platform, platform));
     const g = gclidFilter.trim().toLowerCase();
     if (g) {
