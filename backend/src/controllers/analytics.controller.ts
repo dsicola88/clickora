@@ -158,7 +158,7 @@ export const analyticsController = {
     }
 
     try {
-    const [aggRow, linkedRow, chartRows, pipelineUser] = await Promise.all([
+    const [aggRow, linkedRow, chartRows] = await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
         Array<{
@@ -211,7 +211,19 @@ export const analyticsController = {
         GROUP BY 1, 2
         ORDER BY 1 ASC
       `),
-      prisma.user.findUnique({
+    ]);
+
+    /** Colunas Google Ads em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
+    type PipelineUser = {
+      googleAdsEnabled: boolean;
+      googleAdsCustomerId: string | null;
+      googleAdsConversionActionId: string | null;
+      googleAdsLoginCustomerId: string | null;
+      googleAdsRefreshToken: string | null;
+    };
+    let pipelineUser: PipelineUser | null = null;
+    try {
+      pipelineUser = await systemPrisma.user.findUnique({
         where: { id: userId },
         select: {
           googleAdsEnabled: true,
@@ -220,8 +232,14 @@ export const analyticsController = {
           googleAdsLoginCustomerId: true,
           googleAdsRefreshToken: true,
         },
-      }),
-    ]);
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+        console.warn("[analytics.getDashboard] users.* integration columns missing (P2022); pipeline flags off");
+      } else {
+        throw e;
+      }
+    }
 
     const a = aggRow[0];
     const clicks = Number(a?.clicks ?? 0);
