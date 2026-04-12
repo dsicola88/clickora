@@ -213,6 +213,8 @@ type DashboardHeroInput = {
   total_impressions?: number;
   total_conversions?: number;
   ctr?: number;
+  approved_sales_count?: number;
+  affiliate_platforms_count?: number;
   google_ads_metrics?: DashboardGoogleGeoInput["google_ads_metrics"];
   google_ads_metrics_error?: string | null;
   tracking_pipeline?: { google_ads_metrics_available?: boolean };
@@ -249,9 +251,23 @@ function DashboardHeroMetrics({
   const salesCount = dashboard?.approved_sales_count ?? 0;
   const platformsCount = dashboard?.affiliate_platforms_count ?? 0;
 
+  const imps = dashboard?.total_impressions ?? 0;
+  const clicks = dashboard?.total_clicks ?? 0;
+  const convs = dashboard?.total_conversions ?? 0;
+  const ctr = dashboard?.ctr ?? 0;
+
+  const googleCost = g != null ? g.cost_micros / 1_000_000 : 0;
+  const googleCpc = g != null && g.clicks > 0 ? googleCost / g.clicks : null;
+  const googleConvN = g != null ? Number(g.conversions) : 0;
+  const googleCostPerConv = g != null && googleConvN > 0 ? googleCost / googleConvN : null;
+
   const statClass = "rounded-xl border border-border/60 bg-background/80 px-4 py-4 sm:px-5";
   const statLabel = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
   const statValue = "mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-3xl";
+  const statGridClass =
+    "rounded-xl border border-border/60 bg-background/80 px-3 py-3 sm:px-4";
+  const statGridLabel = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
+  const statGridValue = "mt-0.5 text-lg font-semibold tabular-nums text-foreground sm:text-xl";
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7" aria-label="Resumo do período">
@@ -259,7 +275,8 @@ function DashboardHeroMetrics({
         <div className="min-w-0 space-y-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{greeting}</h1>
           <p className="text-sm text-muted-foreground">
-            Valor convertido, total de vendas nas redes e quantas plataformas de afiliado geraram conversão no período.
+            Valor convertido, vendas e plataformas afiliadas, totais de rastreamento na presell e métricas Google Ads no
+            período.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:max-w-xl">
@@ -330,6 +347,31 @@ function DashboardHeroMetrics({
         </div>
       </div>
 
+      <div className="mt-8 space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Rastreamento (presell)</p>
+        <p className="text-xs text-muted-foreground pb-1">
+          Impressões, cliques e conversões registados pelo script Clickora no mesmo período.
+        </p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className={statGridClass}>
+            <p className={statGridLabel}>Impressões</p>
+            <p className={statGridValue}>{imps.toLocaleString()}</p>
+          </div>
+          <div className={statGridClass}>
+            <p className={statGridLabel}>Cliques</p>
+            <p className={statGridValue}>{clicks.toLocaleString()}</p>
+          </div>
+          <div className={statGridClass}>
+            <p className={statGridLabel}>Conversões</p>
+            <p className={statGridValue}>{convs.toLocaleString()}</p>
+          </div>
+          <div className={statGridClass}>
+            <p className={statGridLabel}>CTR</p>
+            <p className={statGridValue}>{ctr.toFixed(1)}%</p>
+          </div>
+        </div>
+      </div>
+
       {showGoogleRow ? (
         <div className="mt-8 space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 md:p-5">
           <div className="flex items-center gap-2">
@@ -338,14 +380,16 @@ function DashboardHeroMetrics({
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Google Ads (conta)</p>
-              <p className="text-[11px] text-muted-foreground">Métricas da rede no mesmo período (API Google).</p>
+              <p className="text-[11px] text-muted-foreground">
+                Métricas oficiais da conta no período (API Google), incluindo custos e médias.
+              </p>
             </div>
           </div>
           {err ? (
             <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">{err}</p>
           ) : null}
           {g ? (
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 text-sm">
               <div>
                 <dt className="text-muted-foreground text-xs">Impressões</dt>
                 <dd className="font-semibold tabular-nums text-base">{g.impressions.toLocaleString()}</dd>
@@ -357,12 +401,24 @@ function DashboardHeroMetrics({
               <div>
                 <dt className="text-muted-foreground text-xs">Conversões</dt>
                 <dd className="font-semibold tabular-nums text-base">
-                  {Number(g.conversions).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  {googleConvN.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground text-xs">Custo (conta)</dt>
-                <dd className="font-semibold tabular-nums text-base">{(g.cost_micros / 1_000_000).toFixed(2)}</dd>
+                <dt className="text-muted-foreground text-xs">Custo total</dt>
+                <dd className="font-semibold tabular-nums text-base">{googleCost.toFixed(2)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Custo médio (CPC)</dt>
+                <dd className="font-semibold tabular-nums text-base">
+                  {googleCpc != null ? googleCpc.toFixed(4) : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Custo / conversão</dt>
+                <dd className="font-semibold tabular-nums text-base">
+                  {googleCostPerConv != null ? googleCostPerConv.toFixed(4) : "—"}
+                </dd>
               </div>
             </dl>
           ) : !err && !canGoogle ? (

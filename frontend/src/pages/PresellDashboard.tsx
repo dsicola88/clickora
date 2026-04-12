@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -30,6 +30,7 @@ import { FieldError } from "@/components/FieldError";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
+import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
 
@@ -77,15 +78,24 @@ const languages = [
 ];
 
 export default function PresellDashboard() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [showCreator, setShowCreator] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
+
+  /** Mesmo padrão do Tracking → dashboard: script a colar no &lt;head&gt; da presell. */
+  const trackingEmbedScript = useMemo(() => {
+    const uid = user?.id;
+    if (!uid) return "";
+    const base = getApiBaseUrl().replace(/\/$/, "");
+    return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
+  }, [user?.id]);
 
   const { data: pages = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["presells"],
@@ -735,22 +745,71 @@ export default function PresellDashboard() {
                   <div>
                     <p className="text-sm font-medium text-card-foreground">Scripts na página pública</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Cole o HTML exatamente como no site do produtor ou da ferramenta (ex. SmartClick). Os{" "}
-                      <span className="text-foreground/90">&lt;script&gt;</span> são executados na presell aberta pelo
-                      visitante — cabeçalho vai para o <span className="text-foreground/90">head</span>, início do corpo e
-                      rodapé para o fim do <span className="text-foreground/90">documento</span>.
+                      O rastreamento Clickora deve ir no <span className="text-foreground/90">head</span>, junto de outros
+                      scripts que colares (ex. SmartClick). Os <span className="text-foreground/90">&lt;script&gt;</span>{" "}
+                      executam na presell — cabeçalho no <span className="text-foreground/90">head</span>, início do corpo e
+                      rodapé no fim do <span className="text-foreground/90">documento</span>.
                     </p>
                   </div>
-                  <div className="space-y-2 min-w-0">
-                    <Label htmlFor="headerCode">Código no &lt;head&gt;</Label>
-                    <Textarea
-                      id="headerCode"
-                      rows={3}
-                      placeholder={`<script src="https://cdn.jsdelivr.net/gh/casmar76/SmartClick/smc_ultra.js" data-origin-url="https://seu-dominio.com"></script>`}
-                      value={configSettings.headerCode}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, headerCode: e.target.value }))}
-                      className="font-mono text-xs min-h-[4.5rem]"
-                    />
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+                    <div className="space-y-2 min-w-0">
+                      <Label className="text-sm">Script Clickora (rastreamento)</Label>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Cola este <span className="font-mono text-[11px]">&lt;script&gt;</span> no campo{" "}
+                        <span className="font-medium text-foreground/90">Código no &lt;head&gt;</span> ao lado. Serve para
+                        contar impressões, cliques e conversões na tua conta Clickora (<span className="font-mono text-[11px]">data-id</span>{" "}
+                        = o teu utilizador).
+                      </p>
+                      {trackingEmbedScript ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            readOnly
+                            rows={3}
+                            value={trackingEmbedScript}
+                            className="font-mono text-xs min-h-[4.5rem] bg-muted/30 border-border/80"
+                            aria-label="Script de rastreamento Clickora"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => {
+                              navigator.clipboard.writeText(trackingEmbedScript);
+                              setCopiedTrackingScript(true);
+                              setTimeout(() => setCopiedTrackingScript(false), 2000);
+                              toast.success("Script copiado — cola em Código no head.");
+                            }}
+                          >
+                            {copiedTrackingScript ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copiedTrackingScript ? "Copiado" : "Copiar script"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2">
+                          Inicia sessão para gerar o teu script de rastreamento.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 min-w-0 lg:border-l lg:border-border/50 lg:pl-8">
+                      <Label htmlFor="headerCode" className="text-sm">
+                        Código no &lt;head&gt;
+                      </Label>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Cola aqui o script Clickora (bloco à esquerda) e, se precisares, outros scripts do produtor ou
+                        ferramentas (pixels, SmartClick, etc.).
+                      </p>
+                      <Textarea
+                        id="headerCode"
+                        rows={3}
+                        placeholder={`<script src="…/track/v2/clickora.min.js" data-id="…"></script>`}
+                        value={configSettings.headerCode}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, headerCode: e.target.value }))}
+                        className="font-mono text-xs min-h-[4.5rem]"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 min-w-0">
                     <Label htmlFor="bodyCode">Código no início do conteúdo</Label>
