@@ -2,7 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
-  /** Se "true", em produção usa o URL *.railway.app em VITE_API_URL diretamente (sem proxy /api na Vercel). Requer CORS na API. */
+  /** Legado: em dclickora.com a API já é direta. Só usar "true" para forçar proxy /api na Vercel. */
+  readonly VITE_API_USE_VERCEL_PROXY?: string;
   readonly VITE_API_DIRECT_RAILWAY?: string;
   readonly VITE_PUBLIC_APP_URL?: string;
   /** OAuth Web client ID (Google Cloud Console) — igual a GOOGLE_OAUTH_CLIENT_ID na API */
