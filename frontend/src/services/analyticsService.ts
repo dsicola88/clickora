@@ -46,7 +46,16 @@ export const analyticsService = {
         sale_tracking: boolean;
         google_ads_integration: boolean;
         google_ads_api_env_configured: boolean;
+        google_ads_metrics_available?: boolean;
       };
+      google_ads_metrics?: {
+        impressions: number;
+        clicks: number;
+        conversions: number;
+        cost_micros: number;
+      } | null;
+      google_ads_metrics_error?: string | null;
+      clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
     }>(`/analytics/dashboard${qs ? `?${qs}` : ""}`);
   },
 };

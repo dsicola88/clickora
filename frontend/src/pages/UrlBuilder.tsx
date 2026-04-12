@@ -205,6 +205,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
     { key: "utm_source", value: "bing" },
     { key: "utm_medium", value: "cpc" },
     { key: "utm_campaign", value: "{CampaignId}" },
+    { key: "utm_content", value: "{AdId}" },
     { key: "utm_term", value: "{keyword}" },
     { key: "msclkid", value: "{msclkid}", highlight: true },
   ],
@@ -372,7 +373,8 @@ export default function UrlBuilder() {
     "No redirect para a oferta, o dclickora acrescenta clickora_click_id (UUID) ao URL do produto (ver também Integrações → Plataformas).",
     "Em venda aprovada, o postback HTTP (webhook em Integrações) envia o mesmo identificador de clique (UUID em clickora_click_id / subid1 / aliases).",
     "A API valida o clique, cria a conversão em conversions e atualiza a presell.",
-    "Com Google Ads ativo no Tracking, o gclid (ou gbraid/wbraid) guardado no clique pode ser enviado à API de conversões.",
+    "Com Google Ads ativo no Tracking, o gclid (ou gbraid/wbraid) guardado no clique pode ser enviado à API de conversões do Google.",
+    "Com Microsoft/Bing, o msclkid fica no evento de clique; conversões por postback usam o webhook em Integrações (Microsoft Ads) com o mesmo msclkid quando a rede o enviar.",
   ];
 
   return (

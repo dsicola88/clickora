@@ -12,7 +12,7 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 export default function Tracking() {
   const [ip, setIp] = useState("");
   const [gclidInput, setGclidInput] = useState("");
-  /** Echo do IP após "Rastrear"; geolocalização real ainda não está ligada ao backend. */
+  /** Echo do IP após "Rastrear" (a geolocalização por país nos eventos é feita no servidor e aparece no dashboard). */
   const [trackedIp, setTrackedIp] = useState<string | null>(null);
   const [gclidResult, setGclidResult] = useState<null | { campaignId: string; adGroupId: string; keyword: string; network: string }>(null);
   const [loadingGclid, setLoadingGclid] = useState(false);
@@ -38,7 +38,7 @@ export default function Tracking() {
       return;
     }
     setTrackedIp(v);
-    toast.info("Geolocalização (país, cidade, ISP) ainda não está disponível nesta versão.");
+    toast.info("País por IP está no painel Tracking (cliques). Cidade/ISP aqui ainda não.");
   };
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function Tracking() {
                 </h3>
                 <p className="font-mono text-sm font-medium text-card-foreground">{trackedIp}</p>
                 <p className="text-xs text-muted-foreground">
-                  Quando a integração de geolocalização estiver ativa, país, cidade e ISP aparecerão aqui.
+                  O país dos visitantes é inferido no servidor e mostrado em Tracking → resumo (cliques por país). Esta aba só confirma o IP que introduziste.
                 </p>
               </div>
             )}

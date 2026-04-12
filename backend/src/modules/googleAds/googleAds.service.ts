@@ -92,6 +92,99 @@ export function isGoogleAdsClickUploadReadyForUser(user: GoogleAdsUserSettings):
   return true;
 }
 
+/** GAQL: datas como YYYYMMDD (UTC alinhado ao intervalo do dashboard). */
+function formatGaqlDate(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+
+/**
+ * Métricas da conta (relatórios) — não exige `googleAdsEnabled` nem ação de conversão;
+ * só customer ID + OAuth + credenciais API no servidor.
+ */
+export function isGoogleAdsMetricsReadyForUser(user: GoogleAdsUserSettings): boolean {
+  if (!getGoogleAdsApiClientConfigFromEnv()) return false;
+  if (!resolveUserGoogleAdsRefreshToken(user)) return false;
+  const cid = onlyDigits(user.googleAdsCustomerId);
+  return Boolean(cid && DIGITS_ONLY.test(cid));
+}
+
+export type GoogleAdsAccountMetrics = {
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  cost_micros: number;
+};
+
+export async function fetchGoogleAdsAccountMetrics(input: {
+  user: GoogleAdsUserSettings;
+  from: Date;
+  to: Date;
+}): Promise<{ ok: true; metrics: GoogleAdsAccountMetrics } | { ok: false; error: string }> {
+  if (!isGoogleAdsMetricsReadyForUser(input.user)) {
+    return { ok: false, error: "Customer ID OAuth/API em falta." };
+  }
+  const creds = buildGoogleAdsCredentialsForUser(input.user);
+  if (!creds) return { ok: false, error: "Credenciais OAuth em falta." };
+
+  const customerId = onlyDigits(input.user.googleAdsCustomerId)!;
+  const login = onlyDigits(input.user.googleAdsLoginCustomerId);
+
+  const fromStr = formatGaqlDate(input.from);
+  const toStr = formatGaqlDate(input.to);
+
+  const client = new GoogleAdsApi({
+    client_id: creds.clientId,
+    client_secret: creds.clientSecret,
+    developer_token: creds.developerToken,
+  });
+
+  const customer = client.Customer({
+    customer_id: customerId,
+    refresh_token: creds.refreshToken,
+    ...(login ? { login_customer_id: login } : {}),
+  });
+
+  const gaql = `
+    SELECT
+      segments.date,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.conversions,
+      metrics.cost_micros
+    FROM customer
+    WHERE segments.date BETWEEN '${fromStr}' AND '${toStr}'
+  `;
+
+  try {
+    const rows = await customer.query(gaql);
+    let impressions = 0;
+    let clicks = 0;
+    let conversions = 0;
+    let cost_micros = 0;
+    const list = Array.isArray(rows) ? rows : [];
+    for (const row of list) {
+      const m = row.metrics as
+        | { impressions?: unknown; clicks?: unknown; conversions?: unknown; cost_micros?: unknown }
+        | undefined;
+      if (!m) continue;
+      impressions += Number(m.impressions ?? 0);
+      clicks += Number(m.clicks ?? 0);
+      conversions += Number(m.conversions ?? 0);
+      cost_micros += Number(m.cost_micros ?? 0);
+    }
+    return {
+      ok: true,
+      metrics: { impressions, clicks, conversions, cost_micros },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg.slice(0, 500) };
+  }
+}
+
 /**
  * Pós-processamento de `POST /track/postback/google-ads`: já tem gclid no corpo, envia à API sem linha em `conversions`.
  */
@@ -228,10 +321,12 @@ export async function uploadClickConversionToGoogleAds(
   });
 
   const refresh = creds.refreshToken;
+  // Só MCC definido no perfil do utilizador. Não usar GOOGLE_ADS_LOGIN_CUSTOMER_ID aqui — em SaaS
+  // misturava gestor com contas diretas e quebrava o upload para quem não usa MCC.
   const customer = client.Customer({
     customer_id: customerId,
     refresh_token: refresh,
-    login_customer_id: login || creds.loginCustomerId,
+    ...(login ? { login_customer_id: login } : {}),
   });
 
   const conversion_action = ResourceNames.conversionAction(customerId, actionId);

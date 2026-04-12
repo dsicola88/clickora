@@ -4,8 +4,10 @@ import prisma, { systemPrisma } from "../lib/prisma";
 import { createPostbackToken } from "../lib/postbackToken";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import {
+  fetchGoogleAdsAccountMetrics,
   getGoogleAdsApiClientConfigFromEnv,
   isGoogleAdsClickUploadReadyForUser,
+  isGoogleAdsMetricsReadyForUser,
 } from "../modules/googleAds/googleAds.service";
 
 type AnalyticsSummaryItem = {
@@ -121,6 +123,7 @@ export const analyticsController = {
           campaign: e.campaign,
           referrer: e.referrer,
           country: e.country,
+          ip_address: e.ipAddress,
           device: e.device,
           created_at: e.createdAt.toISOString(),
           metadata: e.metadata ?? {},
@@ -158,7 +161,7 @@ export const analyticsController = {
     }
 
     try {
-    const [aggRow, linkedRow, chartRows] = await Promise.all([
+    const [aggRow, linkedRow, chartRows, geoRows] = await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
         Array<{
@@ -210,6 +213,18 @@ export const analyticsController = {
           AND event_type::text IN ('click', 'impression')
         GROUP BY 1, 2
         ORDER BY 1 ASC
+      `),
+      systemPrisma.$queryRaw<Array<{ country: string | null; ct: bigint }>>(Prisma.sql`
+        SELECT country,
+               COUNT(*)::bigint AS ct
+        FROM tracking_events
+        WHERE user_id = ${userId}
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND event_type::text = 'click'
+        GROUP BY country
+        ORDER BY ct DESC
+        LIMIT 25
       `),
     ]);
 
@@ -278,6 +293,32 @@ export const analyticsController = {
 
     const googleAdsLive = pipelineUser ? isGoogleAdsClickUploadReadyForUser(pipelineUser) : false;
 
+    let google_ads_metrics: {
+      impressions: number;
+      clicks: number;
+      conversions: number;
+      cost_micros: number;
+    } | null = null;
+    let google_ads_metrics_error: string | null = null;
+
+    if (pipelineUser && isGoogleAdsMetricsReadyForUser(pipelineUser)) {
+      const g = await fetchGoogleAdsAccountMetrics({
+        user: pipelineUser,
+        from: rangeStart,
+        to: rangeEnd,
+      });
+      if (g.ok) {
+        google_ads_metrics = g.metrics;
+      } else {
+        google_ads_metrics_error = g.error;
+      }
+    }
+
+    const clicks_by_country = geoRows.map((row) => ({
+      country_code: row.country && row.country.trim() ? row.country.trim() : null,
+      clicks: Number(row.ct),
+    }));
+
     res.json({
       total_clicks: clicks,
       total_impressions: impressions,
@@ -302,7 +343,11 @@ export const analyticsController = {
         sale_tracking: true,
         google_ads_integration: googleAdsLive,
         google_ads_api_env_configured: Boolean(getGoogleAdsApiClientConfigFromEnv()),
+        google_ads_metrics_available: pipelineUser ? isGoogleAdsMetricsReadyForUser(pipelineUser) : false,
       },
+      google_ads_metrics,
+      google_ads_metrics_error,
+      clicks_by_country,
     });
     } catch (e) {
       console.error("[analytics.getDashboard]", e);

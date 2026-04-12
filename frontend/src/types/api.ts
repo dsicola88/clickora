@@ -73,6 +73,8 @@ export interface TrackingEvent {
   campaign?: string;
   referrer?: string;
   country?: string;
+  /** IP do cliente no evento (painel autenticado). */
+  ip_address?: string | null;
   device?: string;
   created_at: string;
   metadata?: Record<string, unknown>;

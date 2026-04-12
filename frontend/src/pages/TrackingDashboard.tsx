@@ -17,6 +17,8 @@ import {
   Loader2,
   BarChart3,
   Link2,
+  Info,
+  Globe,
 } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -30,6 +32,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { integrationsService } from "@/services/integrationsService";
 import { Switch } from "@/components/ui/switch";
@@ -48,6 +51,127 @@ function defaultDateRange(): { start: string; end: string } {
   const start = new Date(end);
   start.setDate(start.getDate() - 14);
   return { start: formatDateInput(start), end: formatDateInput(end) };
+}
+
+/** Nome do país (ISO 3166-1 alpha-2) para o painel. */
+function countryDisplayName(code: string | null): string {
+  if (!code) return "Desconhecido";
+  try {
+    return new Intl.DisplayNames(["pt-PT"], { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+type DashboardGoogleGeoInput = {
+  google_ads_metrics?: {
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    cost_micros: number;
+  } | null;
+  google_ads_metrics_error?: string | null;
+  clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
+  tracking_pipeline?: { google_ads_metrics_available?: boolean };
+};
+
+function DashboardGoogleGeoSection({ dashboard }: { dashboard: DashboardGoogleGeoInput | null | undefined }) {
+  const g = dashboard?.google_ads_metrics;
+  const err = dashboard?.google_ads_metrics_error;
+  const countries = dashboard?.clicks_by_country ?? [];
+  const canGoogle = dashboard?.tracking_pipeline?.google_ads_metrics_available;
+  const showGoogleBlock = g != null || err || canGoogle;
+  const showGeo = countries.length > 0;
+  if (!showGoogleBlock && !showGeo) return null;
+
+  return (
+    <div className="space-y-4">
+      {showGoogleBlock ? (
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
+              <Target className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 space-y-0.5">
+              <h3 className="font-semibold text-card-foreground">Google Ads (conta)</h3>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Métricas oficiais da conta Google Ads no mesmo período (API de relatórios).
+              </p>
+            </div>
+          </div>
+          {err ? (
+            <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">{err}</p>
+          ) : null}
+          {g ? (
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground text-xs">Impressões</dt>
+                <dd className="font-semibold tabular-nums">{g.impressions.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Cliques</dt>
+                <dd className="font-semibold tabular-nums">{g.clicks.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Conversões</dt>
+                <dd className="font-semibold tabular-nums">{Number(g.conversions).toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Custo (conta)</dt>
+                <dd className="font-semibold tabular-nums">{(g.cost_micros / 1_000_000).toFixed(2)}</dd>
+              </div>
+            </dl>
+          ) : !err && !canGoogle ? (
+            <p className="text-xs text-muted-foreground">
+              Define Customer ID e OAuth em Tracking → Google Ads para carregar métricas da rede.
+            </p>
+          ) : !err && canGoogle && !g ? (
+            <p className="text-xs text-muted-foreground">Sem dados da API para este período.</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showGeo ? (
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+              <Globe className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 space-y-0.5">
+              <h3 className="font-semibold text-card-foreground">Cliques por país</h3>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Derivado do IP em cada clique (base GeoLite2 no servidor). IPs locais ou desconhecidos aparecem como Desconhecido.
+              </p>
+            </div>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-border/60">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/60 bg-muted/30 text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">País</th>
+                  <th className="px-3 py-2 font-medium text-right">Cliques</th>
+                </tr>
+              </thead>
+              <tbody>
+                {countries.map((row, i) => (
+                  <tr key={`${row.country_code ?? "x"}-${i}`} className="border-b border-border/40 last:border-0">
+                    <td className="px-3 py-2">{countryDisplayName(row.country_code)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">{row.clicks.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : showGoogleBlock ? (
+        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-5 md:p-6">
+          <p className="text-sm text-muted-foreground">
+            Ainda não há cliques com país neste período. Os novos eventos passam a guardar o país automaticamente.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function CopyFieldRow({
@@ -366,6 +490,8 @@ export default function TrackingDashboard() {
           <MetricCard title="Conversões" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
         </div>
 
+        <DashboardGoogleGeoSection dashboard={dashboard} />
+
         {chartData.length > 0 && (
           <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
             <h2 className="text-lg font-semibold text-card-foreground mb-4">Cliques e impressões</h2>
@@ -547,12 +673,60 @@ export default function TrackingDashboard() {
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <h3 className="font-semibold text-card-foreground">Google Ads</h3>
-              <p className="text-xs text-muted-foreground">Envio de conversões após venda (requer credenciais no servidor).</p>
+              <p className="text-xs text-muted-foreground">
+                Envio automático de conversões offline (API de upload de cliques) após venda aprovada no webhook de afiliados.
+              </p>
             </div>
           </div>
+
+          <Alert className="border-blue-500/25 bg-blue-500/[0.06] px-3 py-3">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertTitle className="text-sm text-foreground">Como é feito</AlertTitle>
+            <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+              <ol className="list-decimal list-inside space-y-1.5 mt-2">
+                <li>
+                  O tráfego pago traz <span className="font-mono text-[11px]">gclid</span> (ou <span className="font-mono text-[11px]">gbraid</span>/
+                  <span className="font-mono text-[11px]">wbraid</span>) até à presell e o clique no CTA regista esse ID no servidor.
+                </li>
+                <li>
+                  A rede de afiliados devolve o postback com o mesmo UUID de clique (<span className="font-mono text-[11px]">clickora_click_id</span> / subids).
+                </li>
+                <li>
+                  O dclickora valida o clique, cria a conversão e chama a <strong className="text-foreground/90">Google Ads API</strong>{" "}
+                  (<span className="font-mono text-[11px]">uploadClickConversions</span>) com o ID de clique do Google e o valor da venda.
+                </li>
+                <li>
+                  O estado fica registado na conversão (enviado ou falha); erros parciais da API são tratados e guardados para diagnóstico.
+                </li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+
+          <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-3 space-y-2 text-xs text-muted-foreground">
+            <p className="font-semibold text-foreground text-sm">Conta simples vs conta gestora (MCC)</p>
+            <ul className="space-y-2 leading-relaxed list-disc list-inside">
+              <li>
+                <strong className="text-foreground/90">Conta simples:</strong> em <strong className="text-foreground/90">Customer ID</strong> cola o ID da
+                própria conta Google Ads (10 dígitos). Deixa <strong className="text-foreground/90">Login customer ID</strong> vazio. O OAuth (refresh token)
+                deve ser da mesma conta.
+              </li>
+              <li>
+                <strong className="text-foreground/90">Via MCC:</strong> <strong className="text-foreground/90">Customer ID</strong> é sempre o da{" "}
+                <em>conta cliente</em> onde está a campanha e a ação de conversão. Em <strong className="text-foreground/90">Login customer ID</strong> cola o
+                ID da <em>conta gestora</em> com que o OAuth entra. O refresh token deve ter acesso a essa gestão.
+              </li>
+            </ul>
+            <p className="text-[11px] pt-1 border-t border-border/50">
+              <strong className="text-foreground/90">Importante:</strong> o MCC deve ser configurado aqui por perfil — não depender de variáveis globais no
+              servidor para contas mistas, para o envio não falhar em contas diretas.
+            </p>
+          </div>
+
           {!googleAds?.api_env_configured && (
             <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
-              Variáveis <span className="font-mono">GOOGLE_ADS_*</span> em falta no servidor.
+              Variáveis <span className="font-mono">GOOGLE_ADS_DEVELOPER_TOKEN</span>, <span className="font-mono">CLIENT_ID</span> e{" "}
+              <span className="font-mono">CLIENT_SECRET</span> são obrigatórias no servidor; o refresh pode vir do utilizador abaixo ou de{" "}
+              <span className="font-mono">GOOGLE_ADS_REFRESH_TOKEN</span> no ambiente.
             </p>
           )}
           <div className="flex items-center gap-3">
@@ -562,8 +736,11 @@ export default function TrackingDashboard() {
             </Label>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Customer ID</Label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Conta Google Ads onde criaste a ação de conversão (10 dígitos, só números). Em MCC: conta <em>cliente</em>, não a gestora.
+              </p>
               <Input
                 value={gaCustomerId}
                 onChange={(e) => setGaCustomerId(e.target.value)}
@@ -571,8 +748,11 @@ export default function TrackingDashboard() {
                 className="font-mono text-xs"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">ID da ação de conversão</Label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                ID numérico da ação (Ferramentas → Conversões). Deve ser compatível com <strong className="text-foreground/90">conversões offline / importação por clique</strong> (gclid).
+              </p>
               <Input
                 value={gaActionId}
                 onChange={(e) => setGaActionId(e.target.value)}
@@ -582,20 +762,26 @@ export default function TrackingDashboard() {
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Login customer ID (MCC, opcional)</Label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Só se o acesso à API for através de uma conta gestora. Vazio = OAuth da própria conta em Customer ID.
+              </p>
               <Input
                 value={gaLoginMcc}
                 onChange={(e) => setGaLoginMcc(e.target.value)}
-                placeholder="só se usares conta gestora"
+                placeholder="ID da conta gestora (10 dígitos) ou vazio"
                 className="font-mono text-xs"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Refresh token OAuth (opcional)</Label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Credencial OAuth com âmbito Google Ads. Em branco mantém o token já guardado; preenche para ligar ou atualizar esta conta.
+              </p>
               <Input
                 type="password"
                 value={gaRefresh}
                 onChange={(e) => setGaRefresh(e.target.value)}
-                placeholder="vazio = não alterar; ou cola o token desta conta Google Ads"
+                placeholder="vazio = não alterar; cola o token OAuth desta conta"
                 className="font-mono text-xs"
               />
             </div>
@@ -620,6 +806,10 @@ export default function TrackingDashboard() {
               </Badge>
             ) : null}
           </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            O estado <strong className="text-foreground/90">Pronto para enviar</strong> exige integração ativa, customer e ação de conversão, refresh token
+            (utilizador ou servidor) e credenciais API no backend.
+          </p>
         </div>
       </section>
 
@@ -663,6 +853,8 @@ export default function TrackingDashboard() {
         <MetricCard title="CTR (período)" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
         <MetricCard title="Conversões (período)" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
       </div>
+
+      <DashboardGoogleGeoSection dashboard={dashboard} />
 
       {chartData.length > 0 && (
         <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-6">

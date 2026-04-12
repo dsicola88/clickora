@@ -9,6 +9,7 @@ import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
+import { countryIsoFromIp } from "../lib/countryFromIp";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -114,6 +115,7 @@ export const trackController = {
           medium,
           campaign,
           referrer,
+          country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
           device: detectDevice(userAgent),
@@ -168,6 +170,7 @@ export const trackController = {
           presellPageId: page.id,
           eventType: "impression",
           referrer,
+          country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
           device: detectDevice(userAgent),
@@ -229,6 +232,7 @@ export const trackController = {
           presellPageId: presell_id,
           eventType: "click",
           source, medium, campaign, referrer,
+          country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
           device: detectDevice(userAgent),
@@ -285,6 +289,7 @@ export const trackController = {
           presellPageId: presell_id,
           eventType: "impression",
           referrer,
+          country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
           device: detectDevice(userAgent),
@@ -322,6 +327,8 @@ export const trackController = {
       if (existing) return res.json({ tracked: true, duplicate: true });
     }
 
+    const evIp = extractClientIp(req);
+    const evUa = req.headers["user-agent"] || "";
     await systemPrisma.trackingEvent.create({
       data: {
         userId: page.userId,
@@ -331,6 +338,8 @@ export const trackController = {
         medium,
         campaign,
         referrer,
+        country: countryIsoFromIp(evIp) ?? undefined,
+        device: detectDevice(evUa),
         metadata: ({
           ...(metadata || {}),
           value,
@@ -341,8 +350,8 @@ export const trackController = {
           ttclid,
           msclkid,
         }) as Prisma.InputJsonValue,
-        ipAddress: extractClientIp(req),
-        userAgent: req.headers["user-agent"] || "",
+        ipAddress: evIp,
+        userAgent: evUa,
       },
     });
 
@@ -422,6 +431,8 @@ export const trackController = {
       }
     }
 
+    const postbackIp = extractClientIp(req);
+    const postbackUa = req.headers["user-agent"] || "";
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
@@ -431,6 +442,10 @@ export const trackController = {
           source: data.source || "google_ads",
           medium: data.medium || "cpc",
           campaign: data.campaign,
+          country: countryIsoFromIp(postbackIp) ?? undefined,
+          ipAddress: postbackIp,
+          userAgent: postbackUa,
+          device: detectDevice(postbackUa),
           metadata: {
             gclid: data.gclid,
             conversion_name: data.conversion_name,
@@ -535,6 +550,8 @@ export const trackController = {
       }
     }
 
+    const msIp = extractClientIp(req);
+    const msUa = req.headers["user-agent"] || "";
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
@@ -544,6 +561,10 @@ export const trackController = {
           source: data.source || "microsoft_ads",
           medium: data.medium || "cpc",
           campaign: data.campaign,
+          country: countryIsoFromIp(msIp) ?? undefined,
+          ipAddress: msIp,
+          userAgent: msUa,
+          device: detectDevice(msUa),
           metadata: {
             msclkid: data.msclkid,
             conversion_name: data.conversion_name,
@@ -696,6 +717,8 @@ export const trackController = {
       const value = Number.parseFloat(rawVal.replace(",", "."));
       const numVal = Number.isFinite(value) ? value : 0;
 
+      const csvIp = extractClientIp(req);
+      const csvUa = req.headers["user-agent"] || "";
       await systemPrisma.$transaction([
         systemPrisma.trackingEvent.create({
           data: {
@@ -706,9 +729,10 @@ export const trackController = {
             medium: "offline_csv",
             campaign: click.campaign,
             referrer: click.referrer,
-            ipAddress: extractClientIp(req),
-            userAgent: req.headers["user-agent"] || "",
-            device: detectDevice(req.headers["user-agent"] || ""),
+            country: countryIsoFromIp(csvIp) ?? undefined,
+            ipAddress: csvIp,
+            userAgent: csvUa,
+            device: detectDevice(csvUa),
             metadata: {
               gclid,
               value: numVal,
