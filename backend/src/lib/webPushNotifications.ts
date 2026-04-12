@@ -1,6 +1,9 @@
 import { sendWebPushToUser } from "./webPush";
 
-/** Nova conversão (postback) — alerta no browser/telemóvel com Web Push. */
+/**
+ * Nova conversão (postback) — alerta no browser/telemóvel com Web Push.
+ * `userId` deve ser o dono da conversão (ex.: `user.id` no webhook), nunca um ID arbitrário do cliente.
+ */
 export function notifyWebPushConversion(
   userId: string,
   detail: { platform: string; amount?: string; currency?: string },

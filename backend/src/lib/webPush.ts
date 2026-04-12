@@ -33,6 +33,9 @@ export type WebPushPayload = {
 
 /**
  * Envia notificação a todas as subscrições do utilizador. Remove subscrições expiradas (410/404).
+ *
+ * Multi-tenant: `userId` deve ser sempre o dono da conta (ex.: dono da conversão no webhook).
+ * Não aceitar `userId` vindo do cliente sem validação de tenant.
  */
 export async function sendWebPushToUser(userId: string, payload: WebPushPayload): Promise<void> {
   if (!configured) return;

@@ -477,6 +477,7 @@ export const integrationsController = {
     return res.json({ ok: true });
   },
 
+  /** Estado Web Push só para o tenant do JWT (nunca cruza contas). */
   async getWebPushConfig(req: Request, res: Response) {
     const userId = req.user!.userId;
     const subscription_count = await systemPrisma.webPushSubscription.count({ where: { userId } });
@@ -487,6 +488,11 @@ export const integrationsController = {
     });
   },
 
+  /**
+   * Subscreve o browser ao push do utilizador autenticado (`req.user.userId`).
+   * Usa `systemPrisma` com `userId` explícito (o modelo não está no cliente tenant Prisma — endpoint é único global).
+   * Se o mesmo endpoint existir para outro tenant, reatribui-se ao utilizador actual (troca de sessão no mesmo browser).
+   */
   async subscribeWebPush(req: Request, res: Response) {
     const schema = z.object({
       subscription: z.object({
@@ -547,6 +553,7 @@ export const integrationsController = {
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
+    /** Só remove linhas do tenant actual (JWT). */
     const result = await systemPrisma.webPushSubscription.deleteMany({
       where: { userId: req.user!.userId, endpoint: parsed.data.endpoint },
     });

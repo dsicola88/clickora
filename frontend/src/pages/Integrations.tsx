@@ -309,11 +309,15 @@ export default function Integrations() {
                 </div>
               ) : !webPush.configured ? (
                 <p className="text-sm text-muted-foreground">
-                  O servidor ainda não tem chaves VAPID configuradas. No painel de deploy da API, defina{" "}
+                  O servidor ainda não tem chaves VAPID configuradas. Quem gere o deploy da API deve definir{" "}
                   <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PUBLIC_KEY</code> e{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PRIVATE_KEY</code> (gere com{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PRIVATE_KEY</code> (gerar com{" "}
                   <code className="rounded bg-muted px-1 py-0.5 text-xs">npx web-push generate-vapid-keys</code>
-                  ).
+                  ). Super administradores: checklist em{" "}
+                  <Link to="/admin" className="font-medium text-primary hover:underline">
+                    Painel do sistema → Visão geral
+                  </Link>
+                  .
                 </p>
               ) : (
                 <>

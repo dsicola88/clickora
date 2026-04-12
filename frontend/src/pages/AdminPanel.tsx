@@ -28,6 +28,7 @@ import {
   Sparkles,
   Calendar,
   KeyRound,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -340,6 +341,86 @@ export default function AdminPanel() {
                   </Card>
                 ))}
               </div>
+
+              {isAdmin && (
+                <Card className="border-border/80 border-violet-500/25 bg-violet-500/[0.06]">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Bell className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0" />
+                      Web Push (notificações de conversão)
+                    </CardTitle>
+                    <CardDescription>
+                      {isSuperAdmin
+                        ? "Configuração ao nível do servidor (instalação). Cada conta mantém as suas subscrições — isolamento por tenant."
+                        : "Resumo para a equipa. A ativação técnica no servidor é feita por quem gere o deploy (super administrador / infra)."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground space-y-3">
+                    {isSuperAdmin ? (
+                      <>
+                        <p className="font-medium text-foreground/90">Super administrador — como ativar na instalação</p>
+                        <ol className="list-decimal pl-5 space-y-2 marker:text-foreground/70">
+                          <li>
+                            Aplicar a migração Prisma na base de dados (tabela{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">web_push_subscriptions</code>
+                            ).
+                          </li>
+                          <li>
+                            Gerar um par de chaves VAPID (na máquina local ou CI):{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">
+                              npx web-push generate-vapid-keys
+                            </code>
+                            .
+                          </li>
+                          <li>
+                            No serviço da API (ex.: Railway), definir variáveis de ambiente:{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">VAPID_PUBLIC_KEY</code>,{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">VAPID_PRIVATE_KEY</code>{" "}
+                            e, recomendado,{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">VAPID_SUBJECT</code> com um
+                            contacto <code className="rounded bg-muted px-1 py-0.5 text-xs">mailto:…</code> (exigência dos serviços de
+                            push).
+                          </li>
+                          <li>Fazer redeploy da API e verificar que os logs não mostram o aviso de VAPID em falta.</li>
+                          <li>
+                            Os <strong className="font-medium text-foreground/90">utilizadores finais</strong> ativam no próprio
+                            workspace: <span className="font-medium text-foreground/90">Tracking → Integrações → Web Push</span>.
+                          </li>
+                        </ol>
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 space-y-1.5 text-xs">
+                          <p>
+                            <span className="font-medium text-foreground/90">Multi-tenant:</span> a mesma chave VAPID serve toda a
+                            plataforma; cada linha de subscrição na BD está ligada ao{" "}
+                            <code className="rounded bg-muted px-1 py-0.5">user_id</code> do dono. Notificações de conversão só são
+                            enviadas para subscrições desse utilizador — não há mistura entre contas.
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground/90">Segurança:</span> nunca commitar a chave privada nem a
+                            expor no frontend; rodar sempre em HTTPS em produção (o Web Push exige contexto seguro, excepto
+                            localhost).
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <p>
+                          <span className="font-medium text-foreground/90">Administrador:</span> não precisa de chaves no painel —
+                          o Web Push depende das variáveis VAPID no <strong className="font-medium text-foreground/90">servidor da API</strong>.
+                        </p>
+                        <p>
+                          Peça a um <strong className="font-medium text-foreground/90">super administrador</strong> (ou à equipa de
+                          infra) para configurar <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PUBLIC_KEY</code> e{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PRIVATE_KEY</code> após a migração da BD.
+                        </p>
+                        <p>
+                          Depois de ativo, cada assinante gere as suas notificações em{" "}
+                          <span className="font-medium text-foreground/90">Tracking → Integrações</span>, no seu próprio espaço.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card className="border-border/80">
