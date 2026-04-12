@@ -79,15 +79,27 @@ function parseHotmartPayload(body: unknown): HotmartEventData | null {
   const buyer = asRecord(data.buyer);
   const purchase = asRecord(data.purchase);
   const subscription = asRecord(data.subscription);
+  const subscriber = asRecord(data.subscriber);
+  const user = asRecord(data.user);
   const product = asRecord(data.product);
   const offer = asRecord(data.offer);
 
-  const event = pickString(root.event, data.event, purchase.status, subscription.status);
+  const event = pickString(
+    root.event,
+    data.event,
+    purchase.status,
+    subscription.status,
+    subscription.event,
+    root.name,
+  );
   const email = pickString(
     buyer.email,
     purchase.buyer_email,
+    subscriber.email,
+    user.email,
     data.email,
-    root.email
+    root.email,
+    subscription.subscriber_email,
   );
 
   if (!event || !email) return null;
@@ -192,7 +204,13 @@ export const webhookController = {
 
     const payload = parseHotmartPayload(req.body);
     if (!payload) {
-      return res.status(400).json({ error: "Payload de webhook inválido" });
+      // 200 evita retentativas infinitas na Hotmart para eventos com JSON diferente (ex.: troca de plano, módulo).
+      console.warn("[hotmart-webhook] payload não reconhecido — evento ignorado (sem event+email)");
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: "payload_unrecognized",
+      });
     }
 
     const status = normalizeSubscriptionStatus(payload.event);
