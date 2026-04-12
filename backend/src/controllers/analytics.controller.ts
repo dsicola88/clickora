@@ -157,44 +157,70 @@ export const analyticsController = {
       rangeStart.setHours(0, 0, 0, 0);
     }
 
-    const createdAt = { gte: rangeStart, lte: rangeEnd };
+    const [aggRow, linkedRow, chartRows] = await Promise.all([
+      // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
+      systemPrisma.$queryRaw<
+        Array<{
+          clicks: bigint;
+          impressions: bigint;
+          tracking_conversions: bigint;
+          revenue_tracking: unknown;
+        }>
+      >(Prisma.sql`
+        SELECT
+          COUNT(*) FILTER (WHERE event_type::text = 'click') AS clicks,
+          COUNT(*) FILTER (WHERE event_type::text = 'impression') AS impressions,
+          COUNT(*) FILTER (WHERE event_type::text IN ('conversion', 'sale')) AS tracking_conversions,
+          COALESCE(
+            SUM(
+              CASE
+                WHEN event_type::text IN ('conversion', 'sale')
+                  AND (metadata->>'value') IS NOT NULL
+                  AND TRIM(metadata->>'value') ~ '^-?[0-9]+(\\.[0-9]*)?$'
+                THEN (metadata->>'value')::double precision
+                ELSE 0::double precision
+              END
+            ),
+            0::double precision
+          ) AS revenue_tracking
+        FROM tracking_events
+        WHERE user_id = ${userId}::uuid
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+      `),
+      systemPrisma.$queryRaw<Array<{ cnt: bigint; revenue_sum: unknown }>>(Prisma.sql`
+        SELECT
+          COUNT(*)::bigint AS cnt,
+          COALESCE(SUM(amount), 0) AS revenue_sum
+        FROM conversions
+        WHERE user_id = ${userId}::uuid
+          AND status = 'approved'
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+      `),
+      systemPrisma.$queryRaw<Array<{ day: Date; event_type: string; ct: bigint }>>(Prisma.sql`
+        SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+               event_type::text AS event_type,
+               COUNT(*)::bigint AS ct
+        FROM tracking_events
+        WHERE user_id = ${userId}::uuid
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND event_type::text IN ('click', 'impression')
+        GROUP BY 1, 2
+        ORDER BY 1 ASC
+      `),
+    ]);
 
-    const [clicks, impressions, trackingConversions, conversionEvents, linkedConvCount, linkedRevenueAgg, chartRows] =
-      await Promise.all([
-        prisma.trackingEvent.count({ where: { userId, eventType: "click", createdAt } }),
-        prisma.trackingEvent.count({ where: { userId, eventType: "impression", createdAt } }),
-        prisma.trackingEvent.count({ where: { userId, eventType: { in: ["conversion", "sale"] }, createdAt } }),
-        prisma.trackingEvent.findMany({
-          where: { userId, eventType: { in: ["conversion", "sale"] }, createdAt },
-          select: { metadata: true },
-        }),
-        prisma.conversion.count({ where: { userId, status: "approved", createdAt } }),
-        prisma.conversion.aggregate({
-          where: { userId, status: "approved", createdAt },
-          _sum: { amount: true },
-        }),
-        // Agregação em SQL: carregar todas as linhas do período fazia timeout (502) no proxy Vercel → Railway.
-        systemPrisma.$queryRaw<Array<{ day: Date; event_type: string; ct: bigint }>>(
-          Prisma.sql`
-            SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
-                   event_type::text AS event_type,
-                   COUNT(*)::bigint AS ct
-            FROM tracking_events
-            WHERE user_id = ${userId}::uuid
-              AND created_at >= ${rangeStart}
-              AND created_at <= ${rangeEnd}
-              AND event_type IN ('click', 'impression')
-            GROUP BY 1, 2
-            ORDER BY 1 ASC
-          `,
-        ),
-      ]);
-    const revenueTracking = conversionEvents.reduce((sum, e) => {
-      const metadata = (e.metadata || {}) as Record<string, unknown>;
-      const value = Number(metadata.value);
-      return Number.isFinite(value) ? sum + value : sum;
-    }, 0);
-    const revenueLinked = linkedRevenueAgg._sum.amount != null ? Number(linkedRevenueAgg._sum.amount) : 0;
+    const a = aggRow[0];
+    const clicks = Number(a?.clicks ?? 0);
+    const impressions = Number(a?.impressions ?? 0);
+    const trackingConversions = Number(a?.tracking_conversions ?? 0);
+    const revenueTracking = Number(a?.revenue_tracking ?? 0);
+
+    const l = linkedRow[0];
+    const linkedConvCount = Number(l?.cnt ?? 0);
+    const revenueLinked = l?.revenue_sum != null ? Number(l.revenue_sum) : 0;
     const revenue = revenueTracking + revenueLinked;
     const conversions = trackingConversions + linkedConvCount;
 
