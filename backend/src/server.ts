@@ -56,14 +56,8 @@ function corsAllowedOriginsFromEnv(): string[] {
     .filter(Boolean);
 }
 
-/** Origens do site em produção — mesmo que FRONTEND_URL falhe no deploy, CORS permite API direta (browser → Railway). */
-function baseProductionSiteOrigins(): string[] {
-  if (process.env.NODE_ENV !== "production") return [];
-  return ["https://www.dclickora.com", "https://dclickora.com"];
-}
-
 function allAllowedOrigins(): string[] {
-  return [...new Set([...baseProductionSiteOrigins(), ...expandFrontendOriginsFromEnv(), ...corsAllowedOriginsFromEnv()])];
+  return [...new Set([...expandFrontendOriginsFromEnv(), ...corsAllowedOriginsFromEnv()])];
 }
 
 function isAllowedOrigin(origin: string | undefined): boolean {

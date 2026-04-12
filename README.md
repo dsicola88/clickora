@@ -11,6 +11,10 @@ Aplicacao full-stack organizada em duas camadas:
 - `backend/prisma/`: schema e seed do PostgreSQL
 - `frontend/public/`: arquivos estaticos
 
+## Deploy (produção)
+
+Configuração Vercel + Railway, variáveis `VITE_PUBLIC_API_URL`, CORS e checklist: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
 ## Requisitos
 
 - Node.js 20+

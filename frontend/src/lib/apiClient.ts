@@ -1,6 +1,6 @@
-import { normalizeApiBaseUrl } from "./apiOrigin";
+import { getResolvedPublicApiBaseUrl } from "@/config/publicApiUrl";
 
-const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
+const API_BASE_URL = getResolvedPublicApiBaseUrl();
 
 class ApiClient {
   private baseUrl: string;
