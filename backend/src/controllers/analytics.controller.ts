@@ -153,10 +153,11 @@ export const analyticsController = {
     } else {
       rangeEnd = endOfDay(new Date());
       rangeStart = new Date(rangeEnd);
-      rangeStart.setDate(rangeStart.getDate() - 30);
+      rangeStart.setDate(rangeStart.getDate() - 14);
       rangeStart.setHours(0, 0, 0, 0);
     }
 
+    try {
     const [aggRow, linkedRow, chartRows, pipelineUser] = await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
@@ -285,5 +286,12 @@ export const analyticsController = {
         google_ads_api_env_configured: Boolean(getGoogleAdsApiClientConfigFromEnv()),
       },
     });
+    } catch (e) {
+      console.error("[analytics.getDashboard]", e);
+      return res.status(503).json({
+        error: "Indisponível de momento. Tente novamente.",
+        code: "dashboard_unavailable",
+      });
+    }
   },
 };

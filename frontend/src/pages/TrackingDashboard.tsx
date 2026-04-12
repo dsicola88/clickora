@@ -46,7 +46,7 @@ function formatDateInput(d: Date): string {
 function defaultDateRange(): { start: string; end: string } {
   const end = new Date();
   const start = new Date(end);
-  start.setDate(start.getDate() - 30);
+  start.setDate(start.getDate() - 14);
   return { start: formatDateInput(start), end: formatDateInput(end) };
 }
 

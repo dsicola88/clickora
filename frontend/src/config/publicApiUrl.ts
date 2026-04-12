@@ -6,26 +6,23 @@
  * - `VITE_API_URL` — legado, mesmo efeito se o anterior estiver vazio
  *
  * Comportamento:
- * - **Produção sem URL em `www`/`dclickora.com`:** URL Railway em `PRODUCTION_PUBLIC_API_FALLBACK` (evita 502 do proxy Vercel).
- * - **Produção sem URL (outros hosts):** `/api` (same-origin; requer `vercel.json`).
- * - **Produção com URL:** pedidos diretos à API (recomendado para evitar 502 no proxy) — a API deve permitir CORS para o domínio do site (`FRONTEND_URL` na Railway).
+ * - **Produção em `www`/`dclickora.com`:** usa sempre **`/api`** (same-origin via `vercel.json` → Railway). Não usar URL direta `*.railway.app` no browser — evita CORS, Firefox privado a bloquear, e erros 502 sem `Access-Control-Allow-Origin`.
+ * - **Produção (outros hosts, ex. preview Vercel):** `VITE_PUBLIC_API_URL` ou `/api`.
  * - **Desenvolvimento sem URL:** `http://localhost:3001/api`
  */
 
 const LOCAL_DEFAULT = "http://localhost:3001/api";
 const PROD_SAME_ORIGIN = "/api";
 
-/**
- * Se `VITE_PUBLIC_API_URL` não estiver no bundle (build Vercel sem env visível ao Vite),
- * o fallback era `/api` → proxy Vercel → 502/504. Para o domínio de produção, usar API direta.
- * Sobrescreve sempre com `VITE_PUBLIC_API_URL` se mudares o host na Railway.
- */
-const PRODUCTION_PUBLIC_API_FALLBACK = "https://clickora-production.up.railway.app/api";
-
-function isDclickoraProductionHost(): boolean {
+function isDclickoraSiteHostname(): boolean {
   if (typeof window === "undefined") return false;
   const h = window.location.hostname;
   return h === "www.dclickora.com" || h === "dclickora.com";
+}
+
+/** URL da env que aponta para Railway (cross-origin → problemas no browser). */
+function isRailwayDirectApiUrl(raw: string): boolean {
+  return /\.up\.railway\.app/i.test(raw);
 }
 
 function readEnvApiUrl(): string {
@@ -60,10 +57,12 @@ export function getResolvedPublicApiBaseUrl(): string {
     return normalizeToApiBaseUrl(raw);
   }
 
+  // Site em produção: nunca pedir direto a *.railway.app (CORS / tracking protection / 502 opacos).
+  if (isDclickoraSiteHostname() && (!raw || isRailwayDirectApiUrl(raw))) {
+    return PROD_SAME_ORIGIN;
+  }
+
   if (!raw) {
-    if (isDclickoraProductionHost()) {
-      return PRODUCTION_PUBLIC_API_FALLBACK;
-    }
     return PROD_SAME_ORIGIN;
   }
 
