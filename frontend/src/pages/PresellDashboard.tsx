@@ -44,6 +44,11 @@ function sanitizeSlug(raw: string): string {
   return s || "pagina";
 }
 
+function toastErrorFromCatch(err: unknown, fallback: string) {
+  const msg = err instanceof Error ? err.message.trim() : "";
+  toast.error(msg || fallback);
+}
+
 const presellTypes = [
   { id: "cookies", name: "Cookies" },
   { id: "desconto", name: "Desconto" },
@@ -320,8 +325,8 @@ export default function PresellDashboard() {
             },
           },
         });
-      } catch {
-        // toast em updateMutation.onError
+      } catch (e) {
+        toastErrorFromCatch(e, "Erro ao guardar alterações.");
       } finally {
         setIsSavingPage(false);
       }
@@ -391,8 +396,8 @@ export default function PresellDashboard() {
         },
         status: "published",
       });
-    } catch {
-      toast.error("Erro ao criar página.");
+    } catch (e) {
+      toastErrorFromCatch(e, "Erro ao criar página.");
     } finally {
       setIsSavingPage(false);
     }

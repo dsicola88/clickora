@@ -29,7 +29,11 @@ const createSchema = z.object({
   category: z.string().optional(),
   language: z.string().optional(),
   content: z.any().optional(),
-  video_url: z.string().url().optional().nullable(),
+  /** `""` / `null` do cliente tratados como omitido — evita 400 por string vazia. */
+  video_url: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.string().url().optional(),
+  ),
   settings: z.any().optional(),
   tracking: z.any().optional(),
   status: z.enum(["draft", "published", "paused", "archived"]).optional(),
