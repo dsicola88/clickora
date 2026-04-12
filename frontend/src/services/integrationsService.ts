@@ -98,4 +98,27 @@ export const integrationsService = {
   async testTelegramIntegration() {
     return apiClient.post<{ ok: boolean }>("/integrations/telegram/test");
   },
+
+  async getWebPushConfig() {
+    return apiClient.get<{
+      configured: boolean;
+      vapid_public_key: string | null;
+      subscription_count: number;
+    }>("/integrations/push");
+  },
+
+  async subscribeWebPush(body: {
+    subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
+    user_agent?: string;
+  }) {
+    return apiClient.post<{ ok: boolean }>("/integrations/push/subscribe", body);
+  },
+
+  async unsubscribeWebPush(endpoint: string) {
+    return apiClient.post<{ ok: boolean; removed: number }>("/integrations/push/unsubscribe", { endpoint });
+  },
+
+  async testWebPush() {
+    return apiClient.post<{ ok: boolean }>("/integrations/push/test");
+  },
 };

@@ -93,8 +93,26 @@ model User {
   postbackLogs   PostbackLog[]
   subscription   Subscription?
   conversions    Conversion[]
+  webPushSubscriptions WebPushSubscription[]
 
   @@map("users")
+}
+
+/** Subscrição Web Push (navegador) para alertas de conversão no telemóvel/desktop. */
+model WebPushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  /** URL única do serviço de push do browser (ex.: FCM). */
+  endpoint  String   @unique @db.Text
+  p256dh    String   @map("p256dh") @db.Text
+  auth      String   @db.Text
+  userAgent String?  @map("user_agent") @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("web_push_subscriptions")
 }
 
 model UserRole {

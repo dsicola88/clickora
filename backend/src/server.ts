@@ -12,6 +12,9 @@ import { publicRouter } from "./routes/public.routes";
 import { integrationsRouter } from "./routes/integrations.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
+import { initWebPushFromEnv } from "./lib/webPush";
+
+initWebPushFromEnv();
 
 const app = express();
 /** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */

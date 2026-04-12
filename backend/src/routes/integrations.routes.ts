@@ -19,6 +19,10 @@ authed.patch("/notification-email", integrationsController.patchNotificationEmai
 authed.get("/telegram", integrationsController.getTelegramSettings);
 authed.patch("/telegram", integrationsController.patchTelegramSettings);
 authed.post("/telegram/test", integrationsController.testTelegramIntegration);
+authed.get("/push", integrationsController.getWebPushConfig);
+authed.post("/push/subscribe", integrationsController.subscribeWebPush);
+authed.post("/push/unsubscribe", integrationsController.unsubscribeWebPush);
+authed.post("/push/test", integrationsController.testWebPush);
 authed.get("/blacklist", integrationsController.listBlacklist);
 authed.post("/blacklist", integrationsController.addBlacklist);
 authed.delete("/blacklist/:id", integrationsController.removeBlacklist);

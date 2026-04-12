@@ -20,6 +20,8 @@ import {
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
+import { notifyWebPushConversion } from "../lib/webPushNotifications";
+import { getVapidPublicKeyFromEnv, isWebPushConfigured, sendWebPushToUser } from "../lib/webPush";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -126,6 +128,11 @@ export const integrationsController = {
             amount: amount != null ? amount.toString() : undefined,
             currency: currency ?? undefined,
             conversionId: createdConv.id,
+          });
+          notifyWebPushConversion(user.id, {
+            platform,
+            amount: amount != null ? amount.toString() : undefined,
+            currency: currency ?? undefined,
           });
           void syncConversionToGoogleAds(createdConv.id).catch((err) =>
             console.error("[syncConversionToGoogleAds]", err),
@@ -467,6 +474,103 @@ export const integrationsController = {
       return res.status(502).json({ error: r.error });
     }
 
+    return res.json({ ok: true });
+  },
+
+  async getWebPushConfig(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const subscription_count = await systemPrisma.webPushSubscription.count({ where: { userId } });
+    res.json({
+      configured: isWebPushConfigured(),
+      vapid_public_key: getVapidPublicKeyFromEnv(),
+      subscription_count,
+    });
+  },
+
+  async subscribeWebPush(req: Request, res: Response) {
+    const schema = z.object({
+      subscription: z.object({
+        endpoint: z.string().url(),
+        keys: z.object({
+          p256dh: z.string(),
+          auth: z.string(),
+        }),
+      }),
+      user_agent: z.string().max(512).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({
+        error: "Web Push não está configurado no servidor. Defina VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY.",
+      });
+    }
+
+    const userId = req.user!.userId;
+    const {
+      subscription: { endpoint, keys },
+      user_agent,
+    } = parsed.data;
+    const ua = user_agent?.trim() || null;
+
+    await systemPrisma.$transaction(async (tx) => {
+      const existing = await tx.webPushSubscription.findUnique({ where: { endpoint } });
+      if (existing && existing.userId !== userId) {
+        await tx.webPushSubscription.delete({ where: { id: existing.id } });
+      }
+      await tx.webPushSubscription.upsert({
+        where: { endpoint },
+        create: {
+          userId,
+          endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+          userAgent: ua,
+        },
+        update: {
+          userId,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+          userAgent: ua,
+        },
+      });
+    });
+
+    return res.json({ ok: true });
+  },
+
+  async unsubscribeWebPush(req: Request, res: Response) {
+    const schema = z.object({ endpoint: z.string().url() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const result = await systemPrisma.webPushSubscription.deleteMany({
+      where: { userId: req.user!.userId, endpoint: parsed.data.endpoint },
+    });
+    return res.json({ ok: true, removed: result.count });
+  },
+
+  async testWebPush(req: Request, res: Response) {
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({
+        error: "Web Push não está configurado no servidor.",
+      });
+    }
+    const userId = req.user!.userId;
+    const count = await systemPrisma.webPushSubscription.count({ where: { userId } });
+    if (count === 0) {
+      return res.status(400).json({
+        error: "Não há subscrições neste dispositivo. Ative as notificações primeiro.",
+      });
+    }
+    await sendWebPushToUser(userId, {
+      title: "Teste dclickora",
+      body: "Se viu isto no telemóvel ou no computador, o Web Push está a funcionar.",
+      url: "/tracking/integrations",
+    });
     return res.json({ ok: true });
   },
 

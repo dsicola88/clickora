@@ -11,6 +11,7 @@ import {
   MessageCircle,
   CloudUpload,
   ArrowRight,
+  Bell,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,13 +25,14 @@ import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
 import { cn } from "@/lib/utils";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { subscribeToWebPush, unsubscribeFromWebPush } from "@/lib/webPushClient";
 
 function SectionShell({
   accent,
   children,
   className,
 }: {
-  accent: "primary" | "accent" | "success";
+  accent: "primary" | "accent" | "success" | "violet";
   children: ReactNode;
   className?: string;
 }) {
@@ -39,7 +41,9 @@ function SectionShell({
       ? "border-l-primary"
       : accent === "accent"
         ? "border-l-accent"
-        : "border-l-success";
+        : accent === "violet"
+          ? "border-l-violet-500"
+          : "border-l-success";
   return (
     <div
       className={cn(
@@ -161,6 +165,52 @@ export default function Integrations() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const { data: webPush, isLoading: webPushLoading } = useQuery({
+    queryKey: ["integrations-web-push"],
+    queryFn: async () => {
+      const { data, error: err } = await integrationsService.getWebPushConfig();
+      if (err) throw new Error(err);
+      if (!data) throw new Error("Resposta vazia");
+      return data;
+    },
+  });
+
+  const activateWebPush = useMutation({
+    mutationFn: async () => {
+      const r = await subscribeToWebPush();
+      if (!r.ok) throw new Error(r.error);
+      return r;
+    },
+    onSuccess: async () => {
+      toast.success("Notificações ativadas neste dispositivo.");
+      await queryClient.invalidateQueries({ queryKey: ["integrations-web-push"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deactivateWebPush = useMutation({
+    mutationFn: async () => {
+      const r = await unsubscribeFromWebPush();
+      if (!r.ok) throw new Error(r.error);
+      return r;
+    },
+    onSuccess: async () => {
+      toast.success("Subscrição removida.");
+      await queryClient.invalidateQueries({ queryKey: ["integrations-web-push"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const testWebPush = useMutation({
+    mutationFn: async () => {
+      const { data, error: err } = await integrationsService.testWebPush();
+      if (err) throw new Error(err);
+      return data;
+    },
+    onSuccess: () => toast.success("Se estiver subscrito, deve receber uma notificação de teste."),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const handleCopyCsv = () => {
     if (!csvUploadUrl) return;
     navigator.clipboard.writeText(csvUploadUrl);
@@ -174,10 +224,10 @@ export default function Integrations() {
       <PageHeader
         centered
         title="Integrações"
-        description="Ligue o dclickora a canais externos: alertas no Telegram, upload CSV para o Google Ads e mais."
+        description="Ligue o dclickora a canais externos: Web Push no telemóvel, Telegram, upload CSV para o Google Ads e mais."
       />
 
-      <Accordion type="multiple" defaultValue={["google", "telegram"]} className="space-y-4">
+      <Accordion type="multiple" defaultValue={["google", "webpush", "telegram"]} className="space-y-4">
         <AccordionItem value="google" className="border-0">
           <SectionShell accent="primary">
             <AccordionTrigger className="px-5 py-4 hover:no-underline [&[data-state=open]]:border-b border-border/50">
@@ -237,6 +287,102 @@ export default function Integrations() {
           </SectionShell>
         </AccordionItem>
 
+        <AccordionItem value="webpush" className="border-0">
+          <SectionShell accent="violet">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline [&[data-state=open]]:border-b border-border/50">
+              <div className="flex items-center gap-3 text-left">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-400">
+                  <Bell className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-semibold text-foreground">Notificações no telemóvel (Web Push)</p>
+                  <p className="text-sm text-muted-foreground">
+                    Alertas de nova conversão no browser — útil no Android/Chrome e no computador.
+                  </p>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5 pt-2 space-y-4">
+              {webPushLoading || !webPush ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+                </div>
+              ) : !webPush.configured ? (
+                <p className="text-sm text-muted-foreground">
+                  O servidor ainda não tem chaves VAPID configuradas. No painel de deploy da API, defina{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PUBLIC_KEY</code> e{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PRIVATE_KEY</code> (gere com{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">npx web-push generate-vapid-keys</code>
+                  ).
+                </p>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-2">
+                    <p className="text-sm font-medium text-foreground">Como funciona</p>
+                    <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-5 marker:text-foreground/80">
+                      <li>
+                        Clique em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong> e
+                        aceite as notificações do browser.
+                      </li>
+                      <li>
+                        Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>{" "}
+                        (postback de afiliados), recebe um alerta mesmo com o separador em segundo plano.
+                      </li>
+                      <li>
+                        Use <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. No{" "}
+                        <strong className="font-medium text-foreground/90">iPhone</strong>, o Safari só envia push se
+                        tiver adicionado o site ao ecrã inicial (PWA); no Android/Chrome costuma funcionar em HTTPS.
+                      </li>
+                    </ol>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Subscrições registadas:{" "}
+                    <span className="font-medium text-foreground">{webPush.subscription_count}</span> (cada browser /
+                    dispositivo conta uma).
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      className="gap-2"
+                      disabled={activateWebPush.isPending}
+                      onClick={() => activateWebPush.mutate()}
+                    >
+                      {activateWebPush.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Bell className="h-4 w-4" />
+                      )}
+                      Ativar neste dispositivo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="gap-2"
+                      disabled={deactivateWebPush.isPending}
+                      onClick={() => deactivateWebPush.mutate()}
+                    >
+                      {deactivateWebPush.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Desativar neste dispositivo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      disabled={testWebPush.isPending || webPush.subscription_count === 0}
+                      onClick={() => testWebPush.mutate()}
+                    >
+                      {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Testar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </AccordionContent>
+          </SectionShell>
+        </AccordionItem>
+
         <AccordionItem value="discord" className="border-0">
           <SectionShell accent="accent">
             <AccordionTrigger className="px-5 py-4 hover:no-underline [&[data-state=open]]:border-b border-border/50">
@@ -286,7 +432,7 @@ export default function Integrations() {
                 <div>
                   <p className="font-semibold text-foreground">Telegram</p>
                   <p className="text-sm text-muted-foreground">
-                    Bot API — vendas, alertas de postback e opcionalmente novos cliques.
+                    Já ativo no servidor — vendas, alertas de postback e opcionalmente novos cliques.
                   </p>
                 </div>
               </div>
@@ -298,6 +444,50 @@ export default function Integrations() {
                 </div>
               ) : (
                 <>
+                  <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-3">
+                    <p className="text-sm font-medium text-foreground">Passo a passo</p>
+                    <p className="text-sm text-muted-foreground">
+                      Sim — já pode usar. Depois de guardar o token e o Chat ID, o servidor do dclickora envia as
+                      notificações para o Telegram (não precisa de mais software no seu computador).
+                    </p>
+                    <ol className="text-sm text-muted-foreground space-y-2.5 list-decimal pl-5 marker:text-foreground/80">
+                      <li className="pl-1">
+                        No Telegram, abra uma conversa com{" "}
+                        <span className="font-medium text-foreground/90">@BotFather</span> e envie o comando{" "}
+                        <code className="rounded bg-muted px-1 py-0.5 text-xs">/newbot</code>. Escolha um nome e um
+                        username que termine em <code className="rounded bg-muted px-1 py-0.5 text-xs">bot</code>.
+                      </li>
+                      <li className="pl-1">
+                        Quando o BotFather mostrar o <strong className="font-medium text-foreground/90">token</strong>{" "}
+                        (números e letras, tipo <code className="rounded bg-muted px-1 py-0.5 text-xs">123456789:ABC…</code>
+                        ), copie-o e cole no campo «Token do bot» abaixo.
+                      </li>
+                      <li className="pl-1">
+                        Para o bot poder enviar-lhe mensagens, envie primeiro{" "}
+                        <span className="font-medium text-foreground/90">qualquer mensagem ao seu bot</span> no Telegram
+                        (abra o bot pelo link que o BotFather deu e toque em Iniciar ou escreva «olá»).
+                      </li>
+                      <li className="pl-1">
+                        Obtenha o <strong className="font-medium text-foreground/90">Chat ID</strong>: no Telegram, use o
+                        bot <span className="font-medium text-foreground/90">@userinfobot</span> ou{" "}
+                        <span className="font-medium text-foreground/90">@RawDataBot</span> — ele responde com o seu ID
+                        (número). Para um <strong className="font-medium text-foreground/90">grupo</strong>, adicione o
+                        seu bot ao grupo, envie uma mensagem no grupo e use o mesmo tipo de bot de ID ou consulte o ID do
+                        grupo (costuma ser negativo, ex.{" "}
+                        <code className="rounded bg-muted px-1 py-0.5 text-xs">-100…</code>).
+                      </li>
+                      <li className="pl-1">
+                        Cole o Chat ID no campo abaixo, escolha que alertas quer (vendas, erros de postback, cliques) e
+                        clique em <strong className="font-medium text-foreground/90">Guardar</strong>.
+                      </li>
+                      <li className="pl-1">
+                        Use <strong className="font-medium text-foreground/90">Testar integração</strong> para confirmar
+                        que recebe uma mensagem de teste. Se não chegar nada, confira o token, o Chat ID e se já falou com
+                        o bot pelo menos uma vez.
+                      </li>
+                    </ol>
+                  </div>
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="tg-token">Token do bot</Label>
