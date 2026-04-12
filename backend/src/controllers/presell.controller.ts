@@ -58,12 +58,28 @@ export const presellController = {
   },
 
   async getAll(req: Request, res: Response) {
+    /** Sem `content` na lista — JSON gigante por página fazia GET lento e 502 no proxy; detalhe em GET /:id. */
     const pages = await prisma.presellPage.findMany({
       where: { userId: req.user!.userId },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        type: true,
+        category: true,
+        language: true,
+        status: true,
+        clicks: true,
+        impressions: true,
+        conversions: true,
+        videoUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    res.json(pages.map(mapPresell));
+    res.json(pages.map(mapPresellListRow));
   },
 
   async getById(req: Request, res: Response) {
@@ -229,6 +245,41 @@ export const presellController = {
     }
   },
 };
+
+function mapPresellListRow(p: {
+  id: string;
+  title: string;
+  slug: string;
+  type: string;
+  category: string | null;
+  language: string | null;
+  status: PresellPage["status"];
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  videoUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: p.id,
+    title: p.title,
+    content: {} as Record<string, unknown>,
+    slug: p.slug,
+    type: p.type,
+    category: p.category ?? "",
+    language: p.language ?? "pt",
+    status: p.status,
+    clicks: p.clicks,
+    impressions: p.impressions,
+    conversions: p.conversions,
+    video_url: p.videoUrl ?? undefined,
+    settings: {} as Record<string, unknown>,
+    tracking: {} as Record<string, unknown>,
+    created_at: p.createdAt?.toISOString?.() || String(p.createdAt),
+    updated_at: p.updatedAt?.toISOString?.() || String(p.updatedAt),
+  };
+}
 
 function mapPresell(p: PresellPage) {
   return {

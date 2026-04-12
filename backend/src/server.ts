@@ -87,10 +87,11 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+/** Presells após import podem ter JSON > 1MB (texto + imagens); 1MB fazia falhar o POST com 502 no proxy. */
+app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 app.use(
   express.json({
-    limit: "1mb",
+    limit: "12mb",
     verify: (req, _res, buf) => {
       (req as Request).rawBody = buf;
     },
