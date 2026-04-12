@@ -19,5 +19,8 @@ authed.patch("/notification-email", integrationsController.patchNotificationEmai
 authed.get("/telegram", integrationsController.getTelegramSettings);
 authed.patch("/telegram", integrationsController.patchTelegramSettings);
 authed.post("/telegram/test", integrationsController.testTelegramIntegration);
+authed.get("/blacklist", integrationsController.listBlacklist);
+authed.post("/blacklist", integrationsController.addBlacklist);
+authed.delete("/blacklist/:id", integrationsController.removeBlacklist);
 
 integrationsRouter.use(authed);

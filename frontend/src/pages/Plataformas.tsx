@@ -152,31 +152,24 @@ export default function Plataformas() {
           <ListOrdered className="h-5 w-5 text-primary shrink-0" />
           <h2 className="text-base font-semibold text-foreground">Como configurar (fluxo do afiliado)</h2>
         </div>
-        <ol className="list-decimal list-inside space-y-2.5 text-sm text-muted-foreground leading-relaxed [&>li]:pl-1">
+        <ol className="list-decimal list-outside space-y-2.5 pl-5 text-sm text-muted-foreground leading-relaxed marker:font-semibold marker:text-foreground">
           <li>
-            Em <strong className="text-foreground/90">Meu rastreamento → Plataformas</strong>, escolha a rede onde é afiliado (ex.:{" "}
-            <strong className="text-foreground/90">BuyGoods</strong>).
+            Escolhe a <strong className="text-foreground/90">rede</strong> na coluna à esquerda (ex.: BuyGoods).
           </li>
           <li>
-            Indique o <strong className="text-foreground/90">e-mail</strong> onde quer ser notificado das vendas e clique em{" "}
-            <strong className="text-foreground/90">Guardar e-mail</strong>.
+            Indica o <strong className="text-foreground/90">e-mail</strong> para alertas e clica <strong className="text-foreground/90">Guardar e-mail</strong>.
           </li>
           <li>
-            Copie a <strong className="text-foreground/90">URL do postback com macros</strong> (botão &quot;Copiar com macros&quot; abaixo) — é esta
-            linha que deve colar no painel da rede.
+            Clica <strong className="text-foreground/90">Copiar com macros</strong> e cola o URL no painel da rede (Postback / IPN / Webhook).
           </li>
           <li>
-            Na plataforma de afiliados (BuyGoods, ClickBank, etc.), abra <strong className="text-foreground/90">Postback / IPN / Webhook</strong>,
-            cole o URL, guarde nas definições da rede.
+            Na rede, guarda o postback; confirma na doc da rede que o <strong className="text-foreground/90">SUBID</strong> (ou equivalente) volta no URL — liga a venda ao clique no dclickora.
           </li>
           <li>
-            Volte ao dclickora e use <strong className="text-foreground/90">Testar e-mail</strong> para confirmar que recebe uma mensagem no endereço
-            cadastrado (requer SMTP no servidor).
+            Opcional: <strong className="text-foreground/90">Testar e-mail</strong> (requer SMTP no servidor).
           </li>
           <li>
-            A partir daí, quando houver <strong className="text-foreground/90">venda aprovada</strong>, a rede notifica o dclickora e o fluxo fica{" "}
-            <strong className="text-foreground/90">sincronizado</strong> com a plataforma que escolheu — pode repetir o processo para outra rede
-            selecionando-a na lista.
+            Com <strong className="text-foreground/90">venda aprovada</strong>, a rede chama o dclickora; repete para outra rede mudando a seleção à esquerda.
           </li>
         </ol>
       </div>

@@ -3,7 +3,10 @@ import { getTenantContext } from "./tenantContext";
 import { TenantIsolationError } from "./tenantErrors";
 import { logCrossTenantBlocked, logTenantViolation } from "./tenantLogging";
 
-/** Modelos com coluna `user_id` (tenant = dono da linha). */
+/**
+ * Modelos com coluna `user_id` (tenant = dono da linha).
+ * Ao adicionar modelo novo com `userId` em schema.prisma, incluir aqui ou o cliente tenant não filtra.
+ */
 const USER_ID_MODELS = [
   "presellPage",
   "trackingEvent",

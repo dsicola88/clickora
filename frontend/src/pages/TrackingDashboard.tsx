@@ -49,7 +49,7 @@ function formatDateInput(d: Date): string {
 function defaultDateRange(): { start: string; end: string } {
   const end = new Date();
   const start = new Date(end);
-  start.setDate(start.getDate() - 14);
+  start.setDate(start.getDate() - 30);
   return { start: formatDateInput(start), end: formatDateInput(end) };
 }
 
@@ -208,6 +208,7 @@ export default function TrackingDashboard() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const apiBase = getApiBaseUrl();
+  /** Alinhado ao botão «Últimos 30 dias» (intervalo inicial ao abrir a página). */
   const initialRange = useMemo(() => defaultDateRange(), []);
   const [startDate, setStartDate] = useState(initialRange.start);
   const [endDate, setEndDate] = useState(initialRange.end);
@@ -526,96 +527,38 @@ export default function TrackingDashboard() {
 
   return (
     <div className={cn(APP_PAGE_SHELL, "space-y-8")}>
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.08] via-background to-violet-500/[0.07] shadow-sm">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative grid gap-8 p-6 md:p-8 lg:grid-cols-[1fr_min(340px,100%)] lg:items-center lg:gap-10">
-          <div className="min-w-0 space-y-4">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-[2rem] lg:leading-tight">
-              {firstName ? `Bem-vindo, ${firstName}` : "Bem-vindo ao rastreamento"}
-            </h1>
-            {dashboard?.tracking_pipeline ? (
-              <div className="rounded-xl border border-border/60 bg-background/60 px-3 py-3 sm:px-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Estado</p>
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {(
-                    [
-                      { ok: dashboard.tracking_pipeline.click_tracking, label: "Rastreamento de clique" },
-                      { ok: dashboard.tracking_pipeline.campaign_tracking, label: "Rastreamento de campanha" },
-                      { ok: dashboard.tracking_pipeline.sale_tracking, label: "Rastreamento de venda" },
-                      { ok: dashboard.tracking_pipeline.google_ads_integration, label: "Integração Google Ads" },
-                    ] as const
-                  ).map((row) => (
-                    <li key={row.label} className="flex items-center gap-2 text-xs text-foreground">
-                      <span
-                        className={cn(
-                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                          row.ok ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground",
-                        )}
-                        aria-hidden
-                      >
-                        {row.ok ? <Check className="h-3 w-3" strokeWidth={3} /> : "—"}
-                      </span>
-                      {row.label}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/presell/dashboard">Presell</Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/tracking/links">Links</Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/tracking/analytics">Analytics</Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
-                <Link to="/tracking/tools">Tools</Link>
-              </Button>
-            </div>
-          </div>
-
-          <Card className="border-border/80 bg-card/90 shadow-lg shadow-primary/5 backdrop-blur-sm">
-            <CardContent className="space-y-4 p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Neste período você converteu</p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 md:text-4xl">
-                    $ {revenue.toFixed(2)}
-                    <span className="text-lg font-normal text-muted-foreground md:text-xl"> USD</span>
-                  </p>
-                </div>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <LayoutDashboard className="h-5 w-5" />
-                </div>
-              </div>
-              {periodLabel ? (
-                <Badge variant="secondary" className="font-normal text-muted-foreground">
-                  {periodLabel}
-                </Badge>
-              ) : null}
-              <Button className="w-full gap-2 rounded-xl" asChild>
-                <Link to="/tracking/analytics">
-                  Analytics
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Script e CSV</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Guia — instalação na presell</h2>
+          <ol className="mt-3 list-decimal list-outside space-y-2 pl-5 text-sm text-muted-foreground max-w-3xl marker:font-semibold marker:text-foreground">
+            <li>
+              <strong className="text-foreground/90">Presell publicada:</strong> cola o <strong className="text-foreground/90">script</strong> (passo 2 desta página)
+              no HTML da página; o teu ID está em <span className="font-mono text-[11px]">data-id</span>.
+            </li>
+            <li>
+              <strong className="text-foreground/90">Google Ads:</strong> na campanha, <strong className="text-foreground/90">URL final</strong> = URL
+              público da presell — o Google acrescenta o <span className="font-mono text-[11px]">gclid</span> ao clicar no anúncio.
+            </li>
+            <li>
+              <strong className="text-foreground/90">Rede de afiliados:</strong> em{" "}
+              <strong className="text-foreground/90">Meu rastreamento → Plataformas</strong>, copia o postback e cola no painel da rede (Postback / IPN).
+              Inclui o identificador de clique (ex.{" "}
+              <span className="font-mono text-[11px]">{"subid1={SUBID}"}</span> ou o que a rede mostrar).
+            </li>
+            <li>
+              <strong className="text-foreground/90">CSV (opcional):</strong> importação manual de conversões — usa <strong className="text-foreground/90">POST</strong>{" "}
+              com o URL à esquerda; <strong className="text-foreground/90">GET</strong> só testa o token.
+            </li>
+            <li>
+              <strong className="text-foreground/90">Enviar vendas ao Google Ads:</strong> preenche o bloco <strong className="text-foreground/90">Google Ads</strong>{" "}
+              abaixo (conta, ação de conversão, OAuth).
+            </li>
+          </ol>
+          <p className="text-xs text-muted-foreground mt-3 max-w-3xl">
+            API pública: <span className="font-mono text-[11px]">{apiBase}</span> (mesmo host do script e do CSV).
+          </p>
+        </div>
+        <h3 className="text-base font-semibold text-foreground">Script e CSV</h3>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
@@ -634,7 +577,12 @@ export default function TrackingDashboard() {
               copied={copiedCsv}
               onCopy={() => csvUploadUrl && handleCopy(csvUploadUrl, "csv")}
             />
-            <p className="mt-3 text-xs text-muted-foreground">Não partilhes o token.</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              <strong className="text-foreground/90">POST</strong> com o CSV no corpo importa linhas;{" "}
+              <strong className="text-foreground/90">GET</strong> no mesmo URL só confirma que o{" "}
+              <span className="font-mono">token</span> é válido (resposta JSON).
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Não partilhes o token.</p>
           </div>
 
           <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
@@ -812,6 +760,103 @@ export default function TrackingDashboard() {
           </p>
         </div>
       </section>
+
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.08] via-background to-violet-500/[0.07] shadow-sm">
+        <div
+          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative grid gap-8 p-6 md:p-8 lg:grid-cols-[1fr_min(340px,100%)] lg:items-center lg:gap-10">
+          <div className="min-w-0 space-y-4">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-[2rem] lg:leading-tight">
+              {firstName ? `Bem-vindo, ${firstName}` : "Bem-vindo ao rastreamento"}
+            </h1>
+            {dashboard?.tracking_pipeline ? (
+              <div className="rounded-xl border border-border/60 bg-background/60 px-3 py-3 sm:px-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Estado</p>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      { ok: dashboard.tracking_pipeline.click_tracking, label: "Rastreamento de clique" },
+                      { ok: dashboard.tracking_pipeline.campaign_tracking, label: "Rastreamento de campanha" },
+                      { ok: dashboard.tracking_pipeline.sale_tracking, label: "Rastreamento de venda" },
+                      { ok: dashboard.tracking_pipeline.google_ads_integration, label: "Integração Google Ads" },
+                    ] as const
+                  ).map((row) => (
+                    <li key={row.label} className="flex items-center gap-2 text-xs text-foreground">
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                          row.ok ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground",
+                        )}
+                        aria-hidden
+                      >
+                        {row.ok ? <Check className="h-3 w-3" strokeWidth={3} /> : "—"}
+                      </span>
+                      {row.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/presell/dashboard">Presell</Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/tracking/links">Links</Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/tracking/analytics">Analytics</Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="h-9 rounded-full px-4" asChild>
+                <Link to="/tracking/tools">Tools</Link>
+              </Button>
+            </div>
+          </div>
+
+          <Card className="border-border/80 bg-card/90 shadow-lg shadow-primary/5 backdrop-blur-sm">
+            <CardContent className="space-y-4 p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Neste período você converteu</p>
+                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 md:text-4xl">
+                    $ {revenue.toFixed(2)}
+                    <span className="text-lg font-normal text-muted-foreground md:text-xl"> USD</span>
+                  </p>
+                </div>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <LayoutDashboard className="h-5 w-5" />
+                </div>
+              </div>
+              {periodLabel ? (
+                <Badge variant="secondary" className="font-normal text-muted-foreground">
+                  {periodLabel}
+                </Badge>
+              ) : null}
+              <Button className="w-full gap-2 rounded-xl" asChild>
+                <Link to="/tracking/analytics">
+                  Analytics
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">Resumo do período</h2>
+        <ol className="mt-2 list-decimal list-outside space-y-1 pl-5 text-sm text-muted-foreground marker:font-semibold marker:text-foreground max-w-xl">
+          <li>Define <strong className="text-foreground/90">data inicial</strong> e <strong className="text-foreground/90">final</strong> (ou &quot;Últimos 30 dias&quot;).</li>
+          <li>Consulta os <strong className="text-foreground/90">números</strong> e o gráfico abaixo.</li>
+          <li>Para mais detalhe, abre <strong className="text-foreground/90">Analytics</strong> no cartão acima ou no menu.</li>
+        </ol>
+      </div>
 
       <Card className="border-border/70 shadow-sm">
         <CardContent className="space-y-4 p-5 md:p-6">

@@ -98,22 +98,40 @@ export const analyticsController = {
   },
 
   async getEvents(req: Request, res: Response) {
-    const { event_type, presell_id, limit } = req.query;
+    const { event_type, presell_id, limit, from, to } = req.query;
     const userId = req.user!.userId;
 
     const where: Prisma.TrackingEventWhereInput = { userId };
     if (event_type && typeof event_type === "string") where.eventType = event_type as EventType;
     if (presell_id && typeof presell_id === "string") where.presellPageId = presell_id;
+    if (from || to) {
+      where.createdAt = {};
+      if (from && typeof from === "string") {
+        const d = new Date(from);
+        d.setHours(0, 0, 0, 0);
+        if (!Number.isNaN(d.getTime())) where.createdAt.gte = d;
+      }
+      if (to && typeof to === "string") {
+        const d = new Date(to);
+        d.setHours(23, 59, 59, 999);
+        if (!Number.isNaN(d.getTime())) where.createdAt.lte = d;
+      }
+    }
+
+    const take = Math.min(Number(limit) || 200, 500);
 
     const events = await prisma.trackingEvent.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: Number(limit) || 50,
+      take,
     });
 
     res.json(
       events.map((e) => {
         const metadata = (e.metadata || {}) as Record<string, unknown>;
+        const gclid = typeof metadata.gclid === "string" ? metadata.gclid : null;
+        const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
+        const paid = Boolean(gclid?.trim() || msclkid?.trim());
         return {
           id: e.id,
           presell_id: e.presellPageId,
@@ -128,9 +146,80 @@ export const analyticsController = {
           created_at: e.createdAt.toISOString(),
           metadata: e.metadata ?? {},
           utm_source: typeof metadata.utm_source === "string" ? metadata.utm_source : (e.source ?? null),
+          utm_term: typeof metadata.utm_term === "string" ? metadata.utm_term : null,
+          gclid,
+          msclkid,
+          traffic_type: paid ? "paid" : "organic",
+          is_bot: metadata.is_bot === true,
+          bot_label: typeof metadata.bot_label === "string" ? metadata.bot_label : null,
         };
       }),
     );
+  },
+
+  /** Lista conversões aprovadas (postback) com dados do clique e sync Google Ads. */
+  async listConversions(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const { from, to, missing_gclid, limit } = req.query;
+
+    const where: Prisma.ConversionWhereInput = { userId, status: "approved" };
+    if (from || to) {
+      where.createdAt = {};
+      if (from && typeof from === "string") {
+        const d = new Date(from);
+        d.setHours(0, 0, 0, 0);
+        if (!Number.isNaN(d.getTime())) where.createdAt.gte = d;
+      }
+      if (to && typeof to === "string") {
+        const d = new Date(to);
+        d.setHours(23, 59, 59, 999);
+        if (!Number.isNaN(d.getTime())) where.createdAt.lte = d;
+      }
+    }
+
+    const wantMissingGclid = missing_gclid === "1" || missing_gclid === "true";
+    const take = Math.min(Number(limit) || (wantMissingGclid ? 2000 : 200), wantMissingGclid ? 3000 : 500);
+
+    const rows = await prisma.conversion.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take,
+      include: {
+        click: { select: { id: true, metadata: true } },
+      },
+    });
+
+    const out = rows.map((c) => {
+      const meta = (c.metadata || {}) as Record<string, unknown>;
+      const clickMeta = (c.click.metadata || {}) as Record<string, unknown>;
+      const gclid = typeof clickMeta.gclid === "string" ? clickMeta.gclid : null;
+      const wbraid = typeof clickMeta.wbraid === "string" ? clickMeta.wbraid : null;
+      const gbraid = typeof clickMeta.gbraid === "string" ? clickMeta.gbraid : null;
+      const hasClickId = Boolean(gclid?.trim() || gbraid?.trim() || wbraid?.trim());
+      const platform = typeof meta.platform === "string" ? meta.platform : "—";
+      const keyword =
+        (typeof clickMeta.utm_term === "string" && clickMeta.utm_term) ||
+        (typeof c.campaign === "string" && c.campaign) ||
+        "—";
+      const amount = c.amount != null ? Number(c.amount) : null;
+      return {
+        id: c.id,
+        created_at: c.createdAt.toISOString(),
+        click_id: c.clickId,
+        presell_id: c.presellId,
+        keyword,
+        commission: amount != null && Number.isFinite(amount) ? amount : null,
+        currency: c.currency ?? "USD",
+        platform,
+        google_ads_sync: c.googleAdsSync,
+        has_gclid: hasClickId,
+        gclid: gclid || null,
+      };
+    });
+
+    const filtered = wantMissingGclid ? out.filter((r) => !r.has_gclid) : out;
+
+    res.json(filtered);
   },
 
   async getDashboard(req: Request, res: Response) {
@@ -356,5 +445,37 @@ export const analyticsController = {
         code: "dashboard_unavailable",
       });
     }
+  },
+
+  /** Tentativas de clique/impressão bloqueadas por IP na blacklist (registo em postback_logs). */
+  async getBlacklistBlocks(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const limit = Math.min(Number(req.query.limit) || 40, 100);
+    const logs = await prisma.postbackLog.findMany({
+      where: { userId, platform: "blacklist_block" },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        createdAt: true,
+        message: true,
+        payload: true,
+        presellPageId: true,
+      },
+    });
+    res.json(
+      logs.map((l) => {
+        const p = (l.payload || {}) as Record<string, unknown>;
+        return {
+          id: l.id,
+          created_at: l.createdAt.toISOString(),
+          message: l.message,
+          presell_id: l.presellPageId,
+          ip: typeof p.ip === "string" ? p.ip : null,
+          channel: typeof p.channel === "string" ? p.channel : null,
+          user_agent: typeof p.user_agent === "string" ? p.user_agent : null,
+        };
+      }),
+    );
   },
 };

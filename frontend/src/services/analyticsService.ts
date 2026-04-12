@@ -11,13 +11,67 @@ export const analyticsService = {
     return apiClient.get<AnalyticsSummary[]>(`/analytics${qs ? `?${qs}` : ""}`);
   },
 
-  async getEvents(params?: { event_type?: string; presell_id?: string; limit?: number }) {
+  async getBlacklistBlocks(params?: { limit?: number }) {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return apiClient.get<
+      Array<{
+        id: string;
+        created_at: string;
+        message: string | null;
+        presell_id: string | null;
+        ip: string | null;
+        channel: string | null;
+        user_agent: string | null;
+      }>
+    >(`/analytics/blacklist-blocks${qs ? `?${qs}` : ""}`);
+  },
+
+  async getEvents(params?: {
+    event_type?: string;
+    presell_id?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  }) {
     const query = new URLSearchParams();
     if (params?.event_type) query.set("event_type", params.event_type);
     if (params?.presell_id) query.set("presell_id", params.presell_id);
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
     if (params?.limit) query.set("limit", String(params.limit));
     const qs = query.toString();
     return apiClient.get<TrackingEvent[]>(`/analytics/events${qs ? `?${qs}` : ""}`);
+  },
+
+  async getConversions(params?: {
+    from?: string;
+    to?: string;
+    missing_gclid?: boolean;
+    limit?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    if (params?.missing_gclid) query.set("missing_gclid", "1");
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return apiClient.get<
+      Array<{
+        id: string;
+        created_at: string;
+        click_id: string;
+        presell_id: string;
+        keyword: string;
+        commission: number | null;
+        currency: string;
+        platform: string;
+        google_ads_sync: string | null;
+        has_gclid: boolean;
+        gclid: string | null;
+      }>
+    >(`/analytics/conversions${qs ? `?${qs}` : ""}`);
   },
 
   async getDashboard(params?: { from?: string; to?: string }) {

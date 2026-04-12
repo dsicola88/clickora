@@ -10,4 +10,6 @@ analyticsRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
 
 analyticsRouter.get("/", analyticsController.getSummary);
 analyticsRouter.get("/events", analyticsController.getEvents);
+analyticsRouter.get("/conversions", analyticsController.listConversions);
 analyticsRouter.get("/dashboard", analyticsController.getDashboard);
+analyticsRouter.get("/blacklist-blocks", analyticsController.getBlacklistBlocks);

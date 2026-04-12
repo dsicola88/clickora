@@ -79,6 +79,14 @@ export interface TrackingEvent {
   created_at: string;
   metadata?: Record<string, unknown>;
   utm_source?: string | null;
+  /** Palavra-chave (UTM term) quando enviada no clique/impressão. */
+  utm_term?: string | null;
+  gclid?: string | null;
+  msclkid?: string | null;
+  /** paid | organic — derivado de gclid/msclkid no evento. */
+  traffic_type?: "paid" | "organic";
+  is_bot?: boolean;
+  bot_label?: string | null;
 }
 
 export interface AdminUser {

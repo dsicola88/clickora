@@ -63,6 +63,20 @@ export const integrationsService = {
     }>("/integrations/telegram");
   },
 
+  async listBlacklist() {
+    return apiClient.get<Array<{ id: string; ip: string; reason: string | null; added_at: string }>>(
+      "/integrations/blacklist",
+    );
+  },
+
+  async addBlacklist(body: { ip: string; reason?: string }) {
+    return apiClient.post<{ ok: boolean; ip: string }>("/integrations/blacklist", body);
+  },
+
+  async removeBlacklist(id: string) {
+    return apiClient.delete<{ ok: boolean }>(`/integrations/blacklist/${encodeURIComponent(id)}`);
+  },
+
   async patchTelegramSettings(body: {
     telegram_bot_token?: string;
     clear_telegram_bot_token?: boolean;

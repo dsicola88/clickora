@@ -17,6 +17,7 @@ import {
   isGoogleAdsClickUploadReadyForUser,
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
+import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
 
@@ -468,6 +469,58 @@ export const integrationsController = {
 
     return res.json({ ok: true });
   },
+
+  async listBlacklist(req: Request, res: Response) {
+    const rows = await prisma.blacklistedIp.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        ip: r.ipAddress,
+        reason: r.reason,
+        added_at: r.createdAt.toISOString(),
+      })),
+    );
+  },
+
+  async addBlacklist(req: Request, res: Response) {
+    const schema = z.object({
+      ip: z.string().min(7),
+      reason: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const ipNorm = parseIpv4Blacklist(parsed.data.ip);
+    if (!ipNorm) {
+      return res.status(400).json({ error: "Indique um IPv4 válido (ex.: 203.0.113.1)" });
+    }
+    const userId = req.user!.userId;
+    await prisma.blacklistedIp.upsert({
+      where: { userId_ipAddress: { userId, ipAddress: ipNorm } },
+      create: {
+        userId,
+        ipAddress: ipNorm,
+        reason: parsed.data.reason?.trim() || null,
+      },
+      update: { reason: parsed.data.reason?.trim() || null },
+    });
+    return res.json({ ok: true, ip: ipNorm });
+  },
+
+  async removeBlacklist(req: Request, res: Response) {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: "ID em falta" });
+    /** `userId` explícito + extensão tenant: só remove linha do próprio tenant (nunca por `id` sozinho). */
+    const result = await prisma.blacklistedIp.deleteMany({
+      where: { id, userId: req.user!.userId },
+    });
+    if (result.count === 0) return res.status(404).json({ error: "Entrada não encontrada" });
+    return res.json({ ok: true });
+  },
 };
 
 function pickString(...values: unknown[]): string | null {
@@ -481,4 +534,13 @@ function onlyDigits(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const d = raw.replace(/\D/g, "");
   return d.length > 0 ? d : null;
+}
+
+/** IPv4 só — alinhado com `normalizeIpForMatch` na verificação de tracking. */
+function parseIpv4Blacklist(raw: string): string | null {
+  const t = normalizeIpForMatch(raw.trim());
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(t)) return null;
+  const parts = t.split(".").map(Number);
+  if (parts.some((n) => n > 255 || n < 0)) return null;
+  return t;
 }

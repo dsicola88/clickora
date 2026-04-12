@@ -9,6 +9,7 @@ export const trackRouter = Router();
 trackRouter.get("/r/:presellId", trackController.redirect);
 trackRouter.get("/pixel/:presellId.gif", trackController.pixel);
 trackRouter.get("/v2/clickora.min.js", trackController.serveClickoraEmbed);
+trackRouter.get("/conversions/csv", trackController.conversionsCsvPing);
 trackRouter.post(
   "/conversions/csv",
   express.text({ limit: "5mb", type: ["text/csv", "application/csv", "text/plain", "*/*"] }),

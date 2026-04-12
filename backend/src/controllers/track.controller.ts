@@ -10,6 +10,8 @@ import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countryIsoFromIp } from "../lib/countryFromIp";
+import { detectBot } from "../lib/detectBot";
+import { normalizeIpForMatch } from "../lib/normalizeIp";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -100,10 +102,22 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
+    const ipKey = normalizeIpForMatch(ip);
     const blacklisted = await systemPrisma.blacklistedIp.findUnique({
-      where: { userId_ipAddress: { userId: page.userId, ipAddress: ip } },
+      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
     });
-    if (blacklisted) return res.status(403).json({ error: "IP bloqueado" });
+    if (blacklisted) {
+      await logBlacklistBlock({
+        userId: page.userId,
+        presellPageId: page.id,
+        ip: ipKey,
+        userAgent,
+        channel: "redirect",
+      });
+      return res.status(403).json({ error: "IP bloqueado" });
+    }
+
+    const { device, botMeta } = deviceAndBotMeta(userAgent);
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -118,7 +132,7 @@ export const trackController = {
           country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
-          device: detectDevice(userAgent),
+          device,
           metadata: {
             gclid,
             gbraid,
@@ -133,6 +147,7 @@ export const trackController = {
             medium,
             campaign,
             redirect_to: to,
+            ...botMeta,
           } as Prisma.InputJsonValue,
         },
       });
@@ -163,6 +178,26 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
+    const ipKey = normalizeIpForMatch(ip);
+    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
+      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
+    });
+    if (blacklisted) {
+      await logBlacklistBlock({
+        userId: page.userId,
+        presellPageId: page.id,
+        ip: ipKey,
+        userAgent,
+        channel: "pixel",
+      });
+      const pixelBase64 = "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+      const buffer = Buffer.from(pixelBase64, "base64");
+      res.setHeader("Content-Type", "image/gif");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return res.status(200).send(buffer);
+    }
+
+    const { device, botMeta } = deviceAndBotMeta(userAgent);
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
@@ -173,7 +208,8 @@ export const trackController = {
           country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
-          device: detectDevice(userAgent),
+          device,
+          metadata: Object.keys(botMeta).length ? (botMeta as Prisma.InputJsonValue) : undefined,
         },
       }),
       systemPrisma.presellPage.update({
@@ -218,12 +254,23 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
+    const ipKey = normalizeIpForMatch(ip);
 
-    // Check blacklist
     const blacklisted = await systemPrisma.blacklistedIp.findUnique({
-      where: { userId_ipAddress: { userId: page.userId, ipAddress: ip } },
+      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
     });
-    if (blacklisted) return res.status(403).json({ error: "IP bloqueado" });
+    if (blacklisted) {
+      await logBlacklistBlock({
+        userId: page.userId,
+        presellPageId: presell_id,
+        ip: ipKey,
+        userAgent,
+        channel: "api_click",
+      });
+      return res.status(403).json({ error: "IP bloqueado" });
+    }
+
+    const { device, botMeta } = deviceAndBotMeta(userAgent);
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -235,7 +282,7 @@ export const trackController = {
           country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
-          device: detectDevice(userAgent),
+          device,
           metadata: {
             gclid,
             gbraid,
@@ -249,6 +296,7 @@ export const trackController = {
             source,
             medium,
             campaign,
+            ...botMeta,
           } as Prisma.InputJsonValue,
         },
       });
@@ -281,6 +329,22 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
+    const ipKey = normalizeIpForMatch(ip);
+    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
+      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
+    });
+    if (blacklisted) {
+      await logBlacklistBlock({
+        userId: page.userId,
+        presellPageId: presell_id,
+        ip: ipKey,
+        userAgent,
+        channel: "impression_api",
+      });
+      return res.status(403).json({ error: "IP bloqueado" });
+    }
+
+    const { device, botMeta } = deviceAndBotMeta(userAgent);
 
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
@@ -292,7 +356,8 @@ export const trackController = {
           country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
-          device: detectDevice(userAgent),
+          device,
+          metadata: Object.keys(botMeta).length ? (botMeta as Prisma.InputJsonValue) : undefined,
         },
       }),
       systemPrisma.presellPage.update({
@@ -329,6 +394,7 @@ export const trackController = {
 
     const evIp = extractClientIp(req);
     const evUa = req.headers["user-agent"] || "";
+    const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa);
     await systemPrisma.trackingEvent.create({
       data: {
         userId: page.userId,
@@ -339,7 +405,7 @@ export const trackController = {
         campaign,
         referrer,
         country: countryIsoFromIp(evIp) ?? undefined,
-        device: detectDevice(evUa),
+        device: evDevice,
         metadata: ({
           ...(metadata || {}),
           value,
@@ -349,6 +415,7 @@ export const trackController = {
           fbclid,
           ttclid,
           msclkid,
+          ...evBotMeta,
         }) as Prisma.InputJsonValue,
         ipAddress: evIp,
         userAgent: evUa,
@@ -763,6 +830,20 @@ export const trackController = {
     return res.json({ ok: true, imported, skipped });
   },
 
+  /** GET com ?token= — confirma que o token é válido (abrir no browser ou curl -G). A importação continua a ser POST. */
+  async conversionsCsvPing(req: Request, res: Response) {
+    const token = req.query.token?.toString();
+    const decoded = token ? verifyPostbackToken(token) : null;
+    if (!decoded) return res.status(401).json({ error: "Token inválido ou ausente" });
+
+    return res.json({
+      ok: true,
+      message: "Token válido. Para importar conversões, usa POST com o corpo em texto CSV para este mesmo URL.",
+      import_method: "POST",
+      content_types: ["text/csv", "application/csv", "text/plain"],
+    });
+  },
+
   async getPostbackTemplates(req: Request, res: Response) {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ error: "Não autenticado" });
@@ -821,17 +902,21 @@ export const trackController = {
         message: true,
         createdAt: true,
         presellPageId: true,
+        payload: true,
       },
     });
 
-    return res.json(logs.map((l) => ({
-      id: l.id,
-      platform: l.platform,
-      status: l.status,
-      message: l.message,
-      created_at: l.createdAt.toISOString(),
-      presell_id: l.presellPageId,
-    })));
+    return res.json(
+      logs.map((l) => ({
+        id: l.id,
+        platform: l.platform,
+        status: l.status,
+        message: l.message,
+        created_at: l.createdAt.toISOString(),
+        presell_id: l.presellPageId,
+        payload: l.payload ?? {},
+      })),
+    );
   },
 };
 
@@ -851,6 +936,42 @@ function detectDevice(ua: string): string {
   if (/mobile|android|iphone|ipad/i.test(ua)) return "mobile";
   if (/tablet/i.test(ua)) return "tablet";
   return "desktop";
+}
+
+/** Dispositivo para relatórios + metadados `is_bot` / `bot_label` quando aplicável. */
+function deviceAndBotMeta(userAgent: string): { device: string; botMeta: Record<string, unknown> } {
+  const b = detectBot(userAgent);
+  if (b.isBot) {
+    return { device: "bot", botMeta: { is_bot: true, bot_label: b.label } };
+  }
+  return { device: detectDevice(userAgent), botMeta: {} };
+}
+
+async function logBlacklistBlock(params: {
+  userId: string;
+  presellPageId?: string;
+  ip: string;
+  userAgent: string;
+  channel: "redirect" | "api_click" | "pixel" | "impression_api";
+}): Promise<void> {
+  try {
+    await systemPrisma.postbackLog.create({
+      data: {
+        userId: params.userId,
+        presellPageId: params.presellPageId ?? null,
+        platform: "blacklist_block",
+        status: "blocked",
+        message: `IP na blacklist (${params.channel})`,
+        payload: {
+          ip: params.ip,
+          user_agent: params.userAgent,
+          channel: params.channel,
+        } as Prisma.InputJsonValue,
+      },
+    });
+  } catch (e) {
+    console.error("[logBlacklistBlock]", e);
+  }
 }
 
 function extractClientIp(req: Request): string {

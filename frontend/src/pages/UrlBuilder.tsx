@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Copy, Check, Plus, X, ChevronsUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,60 @@ import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 
 /** Plataformas (Integrações) + redes de tráfego + Personalizado — ver `marketingPlatforms.ts`. */
 const URL_BUILDER_PLATFORMS = getUrlBuilderPlatformList();
+
+/** Chaves de ID de clique — negrito + sublinhado no URL final. */
+const CLICK_ID_QUERY_KEYS = new Set([
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "msclkid",
+  "fbclid",
+  "ttclid",
+  "tblci",
+  "obclid",
+  "epik",
+  "clickid",
+  "twclid",
+]);
+
+function highlightGeneratedUrlPreview(url: string): ReactNode {
+  if (!url) return null;
+  const qIdx = url.indexOf("?");
+  if (qIdx === -1) {
+    return <span className="whitespace-pre-wrap break-all">{url}</span>;
+  }
+  const base = url.slice(0, qIdx + 1);
+  const query = url.slice(qIdx + 1);
+  const parts = query.split("&");
+  return (
+    <span className="whitespace-pre-wrap break-all">
+      {base}
+      {parts.map((part, i) => {
+        const eq = part.indexOf("=");
+        const rawKey = eq >= 0 ? part.slice(0, eq) : part;
+        let key = rawKey;
+        try {
+          key = decodeURIComponent(rawKey);
+        } catch {
+          key = rawKey;
+        }
+        const emphasize = CLICK_ID_QUERY_KEYS.has(key.toLowerCase());
+        return (
+          <span key={`${i}-${part.slice(0, 24)}`}>
+            {i > 0 ? "&" : null}
+            {emphasize ? (
+              <strong className="font-semibold text-foreground underline decoration-primary decoration-2 underline-offset-[3px]">
+                {part}
+              </strong>
+            ) : (
+              part
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 /** Marcador que vai para o URL (valor técnico) + nome legível + texto para pesquisa. */
 type TokenPick = { token: string; label: string; search: string };
@@ -457,7 +511,10 @@ export default function UrlBuilder() {
             {platform === "Google Ads" && (
               <p className="text-[11px] text-muted-foreground">
                 Usa o URL da página presell no teu site (rota <span className="font-mono">/p/…</span>). Os parâmetros abaixo incluem{" "}
-                <span className="font-mono">gclid=&#123;gclid&#125;</span> para o Google preencher no clique.
+                <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
+                  gclid=&#123;gclid&#125;
+                </strong>{" "}
+                para o Google preencher no clique.
               </p>
             )}
           </div>
@@ -468,10 +525,25 @@ export default function UrlBuilder() {
           <div className="space-y-3">
             <Label>Parâmetros</Label>
             {params.map((param, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="min-w-[100px]">
+              <div
+                key={i}
+                className={cn(
+                  "flex flex-col gap-1.5 rounded-lg p-2 -mx-2 transition-colors",
+                  param.highlight && "bg-primary/[0.08] border border-primary/25 border-l-4 border-l-primary shadow-sm",
+                )}
+              >
+                {param.highlight ? (
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-primary pl-0.5">
+                    ID de clique — recomendado
+                  </p>
+                ) : null}
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="min-w-[100px] shrink-0">
                   {param.highlight ? (
-                    <Badge variant="default" className="text-xs font-mono px-3 py-1.5 bg-primary text-primary-foreground">
+                    <Badge
+                      variant="default"
+                      className="text-xs font-mono px-3 py-1.5 bg-primary text-primary-foreground font-bold underline underline-offset-2 decoration-primary-foreground/80"
+                    >
                       {param.key || "param"}
                     </Badge>
                   ) : (
@@ -486,7 +558,10 @@ export default function UrlBuilder() {
                 <Input
                   value={param.value}
                   onChange={(e) => updateParam(i, "value", e.target.value)}
-                  className="font-mono text-xs flex-1"
+                  className={cn(
+                    "font-mono text-xs flex-1 min-w-0",
+                    param.highlight && "border-primary/40 bg-background/80 font-medium",
+                  )}
                   placeholder={
                     param.highlight
                       ? "Usa + para escolher ou escreve à mão"
@@ -512,6 +587,7 @@ export default function UrlBuilder() {
                 >
                   <X className="h-3 w-3" />
                 </Button>
+                </div>
               </div>
             ))}
             <Button variant="outline" size="sm" onClick={addParam} className="mt-1">
@@ -522,13 +598,23 @@ export default function UrlBuilder() {
 
         {/* Generated URL */}
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Input
-              value={generatedUrl || "Preencha com uma URL válida"}
-              readOnly
-              className={`font-mono text-xs ${!generatedUrl ? "text-muted-foreground" : ""}`}
-            />
-            <Button variant="outline" size="icon" onClick={handleCopy}>
+          <Label className="text-xs text-muted-foreground">URL gerado (IDs de clique em negrito e sublinhados)</Label>
+          <div className="flex items-stretch gap-2">
+            <div
+              role="status"
+              aria-label="URL gerada"
+              className={cn(
+                "flex min-h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm",
+                !generatedUrl && "text-muted-foreground",
+              )}
+            >
+              {generatedUrl ? (
+                highlightGeneratedUrlPreview(generatedUrl)
+              ) : (
+                "Preencha com uma URL válida"
+              )}
+            </div>
+            <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy}>
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
