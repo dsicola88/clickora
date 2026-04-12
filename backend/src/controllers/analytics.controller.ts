@@ -9,6 +9,7 @@ import {
   isGoogleAdsClickUploadReadyForUser,
   isGoogleAdsMetricsReadyForUser,
 } from "../modules/googleAds/googleAds.service";
+import { countryIsoFromIp } from "../lib/countryFromIp";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -132,6 +133,8 @@ export const analyticsController = {
         const gclid = typeof metadata.gclid === "string" ? metadata.gclid : null;
         const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
         const paid = Boolean(gclid?.trim() || msclkid?.trim());
+        const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
+        const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
         return {
           id: e.id,
           presell_id: e.presellPageId,
@@ -140,7 +143,7 @@ export const analyticsController = {
           medium: e.medium,
           campaign: e.campaign,
           referrer: e.referrer,
-          country: e.country,
+          country,
           ip_address: e.ipAddress,
           device: e.device,
           created_at: e.createdAt.toISOString(),

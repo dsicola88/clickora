@@ -8,6 +8,23 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Badge } from "@/components/ui/badge";
+import { countryDisplayLabel, countryFlagEmoji } from "@/lib/countryDisplay";
+
+function deviceDisplayLabel(device: string | null | undefined): string {
+  if (!device) return "—";
+  switch (device.toLowerCase().trim()) {
+    case "desktop":
+      return "Computador";
+    case "mobile":
+      return "Telemóvel";
+    case "tablet":
+      return "Tablet";
+    case "bot":
+      return "Bot";
+    default:
+      return device;
+  }
+}
 
 const trafficColors = [
   "hsl(172 66% 38%)",
@@ -133,8 +150,15 @@ export default function Analytics() {
                   <tr key={ev.id} className="border-b border-border/40 last:border-0">
                     <td className="py-2 px-3 text-xs whitespace-nowrap">{new Date(ev.created_at).toLocaleString("pt-PT")}</td>
                     <td className="py-2 px-3 font-mono text-[11px]">{ev.ip_address || "—"}</td>
-                    <td className="py-2 px-3 text-xs">{ev.country || "—"}</td>
-                    <td className="py-2 px-3 text-xs">{ev.device || "—"}</td>
+                    <td className="py-2 px-3 text-xs">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="text-base leading-none" aria-hidden>
+                          {countryFlagEmoji(ev.country)}
+                        </span>
+                        <span>{countryDisplayLabel(ev.country)}</span>
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-xs">{deviceDisplayLabel(ev.device)}</td>
                     <td className="py-2 px-3">
                       {ev.is_bot ? (
                         <span className="inline-flex items-center gap-1 flex-wrap">
