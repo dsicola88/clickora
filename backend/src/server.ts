@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type Request } from "express";
 import cors from "cors";
 import { authRouter } from "./routes/auth.routes";
 import { presellRouter } from "./routes/presell.routes";
@@ -88,7 +88,14 @@ app.use(
   }),
 );
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req, _res, buf) => {
+      (req as Request).rawBody = buf;
+    },
+  }),
+);
 
 // ========================
 // Routes

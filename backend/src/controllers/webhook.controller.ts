@@ -46,6 +46,27 @@ function extractHotmartWebhookToken(req: Request): string | null {
   return null;
 }
 
+/** Webhook 2.0: Hotmart envia `x-hotmart-signature` (HMAC-SHA256 do corpo bruto). */
+function verifyHotmartSignature(req: Request, secret: string): boolean {
+  const sigHeader = req.headers["x-hotmart-signature"];
+  if (!sigHeader || typeof sigHeader !== "string") return false;
+  const raw = req.rawBody;
+  if (!raw || raw.length === 0) return false;
+
+  const expectedHex = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+  const received = sigHeader.trim();
+  const normalized = /^sha256=/i.test(received) ? received.replace(/^sha256=/i, "").trim() : received;
+
+  try {
+    const a = Buffer.from(normalized, "hex");
+    const b = Buffer.from(expectedHex, "hex");
+    if (a.length !== b.length || a.length === 0) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 function parseDate(value: unknown): Date | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const date = new Date(value);
@@ -159,10 +180,12 @@ async function sendHotmartWelcomeEmail(to: string, provisionalPassword: string):
 
 export const webhookController = {
   async hotmart(req: Request, res: Response) {
-    const expectedToken = process.env.HOTMART_WEBHOOK_TOKEN;
+    const expectedToken = process.env.HOTMART_WEBHOOK_TOKEN?.trim();
     if (expectedToken) {
-      const incoming = extractHotmartWebhookToken(req);
-      if (!incoming || incoming !== expectedToken.trim()) {
+      const hmacSecret = process.env.HOTMART_WEBHOOK_SECRET?.trim() || expectedToken;
+      const plainOk = extractHotmartWebhookToken(req) === expectedToken;
+      const hmacOk = verifyHotmartSignature(req, hmacSecret);
+      if (!plainOk && !hmacOk) {
         return res.status(401).json({ error: "Webhook token inválido" });
       }
     }
