@@ -49,7 +49,7 @@ class ApiClient {
           return {
             data: null,
             error:
-              "O servidor não respondeu a tempo (proxy/gateway). Tente de novo ou confirme o deploy na Railway e o URL em vercel.json.",
+              "O servidor não respondeu a tempo (proxy/gateway). Se o site usa /api na Vercel, o proxy pode expirar antes da Railway — na Vercel define VITE_PUBLIC_API_URL com o URL da API (…railway.app/api) e faz redeploy, ou tenta de novo após o arranque do serviço.",
           };
         }
         const errorData = (await response.json().catch(() => ({}))) as {

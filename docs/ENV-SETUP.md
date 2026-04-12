@@ -65,7 +65,17 @@ Deves ver algo como `access-control-allow-origin` na resposta (ou o Express a ac
 
 ---
 
-## D. Se o login ainda falhar (CORS)
+## D. Erro “não respondeu a tempo” / 502 / 504 no dashboard
+
+O site em **`https://www.dclickora.com`** pode usar **`/api`** (rewrite no `vercel.json` → Railway). O **proxy da Vercel** tem **limite de tempo**; se a Railway **acordar devagar** (cold start) ou a consulta demorar, o browser recebe **504** e a app mostra a mensagem de proxy/gateway.
+
+**Solução:** na Vercel (Production), define **`VITE_PUBLIC_API_URL`** = `https://<o-teu-serviço>.up.railway.app/api` para o JavaScript ir **direto à Railway** (sem passar pelo proxy Vercel). Confirma **CORS** na Railway (`FRONTEND_URL` com o domínio do site) e faz **redeploy** do frontend.
+
+Alternativa: plano Railway com instância sempre quente / menos cold start, para respostas mais rápidas mesmo via `/api`.
+
+---
+
+## E. Se o login ainda falhar (CORS)
 
 1. Confirma no browser (F12 → Network) o **Request URL** e o header **Origin**.
 2. Confirma que `FRONTEND_URL` na Railway inclui **exatamente** esse Origin (ex.: `https://www.dclickora.com` com `https`, sem path).
@@ -76,7 +86,7 @@ O código do servidor também inclui origens mínimas `www` + apex `dclickora.co
 
 ---
 
-## E. Referência rápida
+## F. Referência rápida
 
 | Onde | Variável | Função |
 |------|----------|--------|

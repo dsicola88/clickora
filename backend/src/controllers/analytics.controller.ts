@@ -157,7 +157,7 @@ export const analyticsController = {
       rangeStart.setHours(0, 0, 0, 0);
     }
 
-    const [aggRow, linkedRow, chartRows] = await Promise.all([
+    const [aggRow, linkedRow, chartRows, pipelineUser] = await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
         Array<{
@@ -210,6 +210,16 @@ export const analyticsController = {
         GROUP BY 1, 2
         ORDER BY 1 ASC
       `),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          googleAdsEnabled: true,
+          googleAdsCustomerId: true,
+          googleAdsConversionActionId: true,
+          googleAdsLoginCustomerId: true,
+          googleAdsRefreshToken: true,
+        },
+      }),
     ]);
 
     const a = aggRow[0];
@@ -247,16 +257,6 @@ export const analyticsController = {
     const apiBase = publicApiBaseFromRequest(req);
     const postbackToken = createPostbackToken(userId);
 
-    const pipelineUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        googleAdsEnabled: true,
-        googleAdsCustomerId: true,
-        googleAdsConversionActionId: true,
-        googleAdsLoginCustomerId: true,
-        googleAdsRefreshToken: true,
-      },
-    });
     const googleAdsLive = pipelineUser ? isGoogleAdsClickUploadReadyForUser(pipelineUser) : false;
 
     res.json({
