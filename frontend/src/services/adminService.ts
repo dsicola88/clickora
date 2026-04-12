@@ -52,6 +52,8 @@ export const adminService = {
       max_presell_pages?: number | null;
       max_clicks_per_month?: number | null;
       has_branding?: boolean;
+      features?: string[];
+      cta_label?: string | null;
     },
   ) {
     return apiClient.patch<{ message: string }>(`/admin/plans/${planId}`, body);
@@ -120,6 +122,7 @@ export const adminService = {
     footer_font?: string;
     footer_text_align?: string;
     footer_text_size?: string;
+    plan_display_labels?: Record<string, string>;
   }) {
     return apiClient.patch<PlansLandingPublic & { ok?: boolean }>("/admin/plans-landing", body);
   },

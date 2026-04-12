@@ -32,6 +32,8 @@ export interface Plan {
   max_clicks_per_month: number | null;
   has_branding: boolean;
   features: string[];
+  /** Se definido, texto do botão do cartão (sobreposta aos textos globais). */
+  cta_label?: string | null;
 }
 
 export interface Presell {
@@ -137,6 +139,8 @@ export interface PlansLandingPublic {
   footer_text_align: string;
   footer_text_size: string;
   updated_at: string;
+  /** Etiquetas da grelha de planos (fundidas com defaults no servidor). */
+  plan_display_labels: Record<string, string>;
 }
 
 export interface AuthResponse {

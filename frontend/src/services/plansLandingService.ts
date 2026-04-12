@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { DEFAULT_PLAN_DISPLAY_LABELS } from "@/lib/planDisplayLabels";
 import type { PlansLandingPublic } from "@/types/api";
 
 const FALLBACK: PlansLandingPublic = {
@@ -21,6 +22,7 @@ const FALLBACK: PlansLandingPublic = {
   footer_text_align: "center",
   footer_text_size: "sm",
   updated_at: "",
+  plan_display_labels: DEFAULT_PLAN_DISPLAY_LABELS,
 };
 
 export const plansLandingService = {

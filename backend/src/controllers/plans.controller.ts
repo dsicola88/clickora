@@ -26,16 +26,19 @@ export const plansController = {
       orderBy: { priceCents: "asc" },
     });
 
-    res.json(plans.map((p) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      price_cents: p.priceCents,
-      max_presell_pages: p.maxPresellPages,
-      max_clicks_per_month: p.maxClicksPerMonth,
-      has_branding: p.hasBranding,
-      features: p.features || [],
-    })));
+    res.json(
+      plans.map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        price_cents: p.priceCents,
+        max_presell_pages: p.maxPresellPages,
+        max_clicks_per_month: p.maxClicksPerMonth,
+        has_branding: p.hasBranding,
+        features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
+        cta_label: p.ctaLabel ?? null,
+      })),
+    );
   },
 
   async subscribe(req: Request, res: Response) {

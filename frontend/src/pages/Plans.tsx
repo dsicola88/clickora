@@ -24,6 +24,19 @@ import {
   plansLandingHeroTitleClasses,
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
+import {
+  formatPlanPrice,
+  getPlanPriceSuffix,
+  mergeWithDefaultLabels,
+} from "@/lib/planDisplayLabels";
+
+function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string, string>) {
+  if (isCurrent) return labels.cta_current ?? "Plano atual";
+  const custom = plan.cta_label?.trim();
+  if (custom) return custom;
+  if (plan.type === "free_trial") return labels.cta_free ?? "Começar grátis";
+  return labels.cta_upgrade ?? "Fazer upgrade";
+}
 
 const planIcons: Record<string, React.ReactNode> = {
   free_trial: <Zap className="h-6 w-6" />,
@@ -54,25 +67,6 @@ export default function Plans() {
       return data ?? [];
     },
   });
-
-  const formatPrice = (cents: number) => {
-    if (cents === 0) return "Grátis";
-    return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
-  };
-
-  const getPriceLabel = (type: string) => {
-    switch (type) {
-      case "monthly": return "/mês";
-      case "annual": return "/ano";
-      default: return "";
-    }
-  };
-
-  const formatPagesLimit = (n: number | null) =>
-    n === null || n === undefined ? "Ilimitadas" : n.toLocaleString("pt-BR");
-
-  const formatClicksLimit = (n: number | null) =>
-    n === null || n === undefined ? "Ilimitados" : n.toLocaleString("pt-BR");
 
   const handleSelectPlan = async (plan: Plan) => {
     if (plan.type === userPlan?.plan_type) {
@@ -108,6 +102,15 @@ export default function Plans() {
     landing?.has_hero_image && landing.updated_at
       ? plansLandingService.heroImageHref(landing.updated_at)
       : null;
+
+  const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
+  const numLocale = lb.locale || "pt-BR";
+
+  const formatPagesLimit = (n: number | null) =>
+    n === null || n === undefined ? lb.unlimited_pages : n.toLocaleString(numLocale);
+
+  const formatClicksLimit = (n: number | null) =>
+    n === null || n === undefined ? lb.unlimited_clicks : n.toLocaleString(numLocale);
 
   return (
     <div className={APP_PAGE_SHELL_LOOSE}>
@@ -171,7 +174,7 @@ export default function Plans() {
       {userPlan && (
         <div className="rounded-xl border border-border/60 bg-card p-4">
           <p className="text-sm text-muted-foreground">
-            Plano atual: <span className="font-semibold text-foreground">{userPlan.plan_name}</span>
+            {lb.current_plan_banner_title}: <span className="font-semibold text-foreground">{userPlan.plan_name}</span>
           </p>
         </div>
       )}
@@ -201,32 +204,40 @@ export default function Plans() {
               key={plan.id}
               className={`relative flex min-h-[480px] flex-col rounded-2xl border-2 bg-card p-6 transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`}
             >
-              {isPopular && <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">Mais popular</Badge>}
+              {isPopular && (
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
+                  {lb.badge_popular}
+                </Badge>
+              )}
               <div className="mb-4 flex items-center gap-3">
                 <div className={`rounded-xl p-2 ${plan.type === "free_trial" ? "bg-muted" : "bg-primary/10"}`}>
                   {planIcons[plan.type] ?? <Star className="h-6 w-6" />}
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground">{plan.name}</h3>
-                  {isCurrent && <Badge variant="secondary" className="text-xs">Atual</Badge>}
+                  {isCurrent && (
+                    <Badge variant="secondary" className="text-xs">
+                      {lb.badge_current}
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="mb-5">
-                <span className="text-3xl font-bold text-foreground">{formatPrice(plan.price_cents)}</span>
-                <span className="text-sm text-muted-foreground">{getPriceLabel(plan.type)}</span>
+                <span className="text-3xl font-bold text-foreground">{formatPlanPrice(plan.price_cents, lb)}</span>
+                <span className="text-sm text-muted-foreground">{getPlanPriceSuffix(plan.type, lb)}</span>
               </div>
 
               <div className="mb-5 rounded-xl border border-primary/15 bg-primary/5 p-4">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary/90">Cobertura do plano</p>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary/90">{lb.coverage_title}</p>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 rounded-lg bg-background/80 p-1.5 shadow-sm">
                       <FileStack className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Páginas presell</p>
+                      <p className="text-xs text-muted-foreground">{lb.label_presell_pages}</p>
                       <p className="text-base font-bold tabular-nums text-foreground">{formatPagesLimit(plan.max_presell_pages)}</p>
-                      <p className="text-[11px] text-muted-foreground">simultâneas na sua conta</p>
+                      <p className="text-[11px] text-muted-foreground">{lb.sub_presell_pages}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -234,9 +245,9 @@ export default function Plans() {
                       <Gauge className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Cliques / tracking (mês)</p>
+                      <p className="text-xs text-muted-foreground">{lb.label_clicks}</p>
                       <p className="text-base font-bold tabular-nums text-foreground">{formatClicksLimit(plan.max_clicks_per_month)}</p>
-                      <p className="text-[11px] text-muted-foreground">quota mensal partilhada na conta</p>
+                      <p className="text-[11px] text-muted-foreground">{lb.sub_clicks}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 border-t border-border/60 pt-3">
@@ -244,16 +255,16 @@ export default function Plans() {
                       <Palette className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Marca no rodapé</p>
+                      <p className="text-xs text-muted-foreground">{lb.label_branding}</p>
                       <p className="text-sm font-semibold text-foreground">
-                        {plan.has_branding ? "Clickora visível" : "Sem marca Clickora"}
+                        {plan.has_branding ? lb.branding_yes : lb.branding_no}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Também inclui</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{lb.includes_title}</p>
               <ul className="mb-6 flex-1 space-y-3">
                 {plan.features.map((feature, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
@@ -263,7 +274,7 @@ export default function Plans() {
                 ))}
               </ul>
               <Button onClick={() => handleSelectPlan(plan)} variant={isCurrent ? "outline" : isPopular ? "default" : "secondary"} className="w-full" disabled={isCurrent}>
-                {isCurrent ? "Plano atual" : plan.type === "free_trial" ? "Começar grátis" : "Fazer upgrade"}
+                {planCardCtaLabel(plan, isCurrent, lb)}
               </Button>
             </div>
           );
@@ -287,19 +298,21 @@ export default function Plans() {
 
       {userPlan && (
         <div className="mt-10 rounded-2xl border border-border bg-card p-6">
-          <h2 className="font-bold text-foreground mb-4">Seu plano atual</h2>
+          <h2 className="font-bold text-foreground mb-4">{lb.section_your_plan_title}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-muted rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">Plano</p>
+              <p className="text-sm text-muted-foreground">{lb.label_plan_col}</p>
               <p className="font-bold text-foreground">{userPlan.plan_name}</p>
             </div>
             <div className="bg-muted rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">Páginas presell</p>
-              <p className="font-bold text-foreground">{userPlan.max_pages ?? "Ilimitadas"}</p>
+              <p className="text-sm text-muted-foreground">{lb.label_pages_col}</p>
+              <p className="font-bold text-foreground">{userPlan.max_pages ?? lb.unlimited_pages}</p>
             </div>
             <div className="bg-muted rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">Cliques/mês</p>
-              <p className="font-bold text-foreground">{userPlan.max_clicks ? userPlan.max_clicks.toLocaleString() : "Ilimitados"}</p>
+              <p className="text-sm text-muted-foreground">{lb.label_clicks_col}</p>
+              <p className="font-bold text-foreground">
+                {userPlan.max_clicks ? userPlan.max_clicks.toLocaleString(numLocale) : lb.unlimited_clicks}
+              </p>
             </div>
           </div>
         </div>

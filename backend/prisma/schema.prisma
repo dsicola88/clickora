@@ -118,6 +118,8 @@ model Plan {
   maxClicksPerMonth Int?    @map("max_clicks_per_month")
   hasBranding      Boolean  @default(true) @map("has_branding")
   features         Json     @default("[]")
+  /** Texto do botão do cartão (opcional). Se vazio, usam-se as etiquetas globais (começar grátis / upgrade / plano atual). */
+  ctaLabel         String?  @map("cta_label") @db.VarChar(160)
   createdAt        DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -298,6 +300,9 @@ model PlansLandingConfig {
   footerFont      String @default("sans") @map("footer_font")
   footerTextAlign String @default("center") @map("footer_text_align")
   footerTextSize  String @default("sm") @map("footer_text_size")
+
+  /** Etiquetas da grelha de planos (moeda, secções, botões). Merge com defaults no servidor. */
+  planDisplayLabels Json? @map("plan_display_labels")
 
   updatedAt     DateTime @updatedAt @map("updated_at")
 

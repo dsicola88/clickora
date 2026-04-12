@@ -19,6 +19,8 @@ const updatePlanSchema = z.object({
   max_presell_pages: z.number().int().min(0).nullable().optional(),
   max_clicks_per_month: z.number().int().min(0).nullable().optional(),
   has_branding: z.boolean().optional(),
+  features: z.array(z.string().max(500)).max(50).optional(),
+  cta_label: z.union([z.string().trim().min(1).max(160), z.null()]).optional(),
 });
 
 const updateSubscriptionSchema = z.object({
@@ -95,6 +97,8 @@ export const adminController = {
         max_presell_pages: p.maxPresellPages,
         max_clicks_per_month: p.maxClicksPerMonth,
         has_branding: p.hasBranding,
+        features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
+        cta_label: p.ctaLabel ?? null,
       })),
     );
   },
@@ -217,7 +221,9 @@ export const adminController = {
       p.price_cents === undefined &&
       p.max_presell_pages === undefined &&
       p.max_clicks_per_month === undefined &&
-      p.has_branding === undefined
+      p.has_branding === undefined &&
+      p.features === undefined &&
+      p.cta_label === undefined
     ) {
       return res.status(400).json({ error: "Nenhum campo para atualizar" });
     }
@@ -230,6 +236,8 @@ export const adminController = {
         ...(p.max_presell_pages !== undefined ? { maxPresellPages: p.max_presell_pages } : {}),
         ...(p.max_clicks_per_month !== undefined ? { maxClicksPerMonth: p.max_clicks_per_month } : {}),
         ...(p.has_branding !== undefined ? { hasBranding: p.has_branding } : {}),
+        ...(p.features !== undefined ? { features: p.features } : {}),
+        ...(p.cta_label !== undefined ? { ctaLabel: p.cta_label } : {}),
       },
     });
 

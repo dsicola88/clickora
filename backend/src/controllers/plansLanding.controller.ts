@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prismaAdmin, systemPrisma } from "../lib/prisma";
 import { getPlansLandingUploadDir, removeExistingPlansHero } from "../lib/plansLandingUpload";
+import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
 
 const fontEnum = z.enum(["sans", "serif", "mono"]);
 const alignEnum = z.enum(["left", "center", "right"]);
@@ -28,6 +30,8 @@ const patchSchema = z.object({
   footer_font: fontEnum.optional(),
   footer_text_align: alignEnum.optional(),
   footer_text_size: bodySizeEnum.optional(),
+  /** Etiquetas da grelha de planos (moeda, botões, secções). PATCH parcial. */
+  plan_display_labels: z.record(z.string().max(80), z.string().max(500)).optional(),
 });
 
 type Row = {
@@ -51,6 +55,7 @@ type Row = {
   footerTextAlign: string;
   footerTextSize: string;
   updatedAt: Date;
+  planDisplayLabels?: unknown;
 };
 
 function mapRow(row: Row) {
@@ -73,6 +78,7 @@ function mapRow(row: Row) {
     footer_text_align: row.footerTextAlign,
     footer_text_size: row.footerTextSize,
     updated_at: row.updatedAt.toISOString(),
+    plan_display_labels: mergePlanDisplayLabels(row.planDisplayLabels),
   };
 }
 
@@ -95,6 +101,7 @@ const DEFAULT_JSON = {
   footer_text_align: "center",
   footer_text_size: "sm",
   updated_at: new Date().toISOString(),
+  plan_display_labels: mergePlanDisplayLabels(null),
 };
 
 export const plansLandingController = {
@@ -131,6 +138,13 @@ export const plansLandingController = {
     }
 
     const d = parsed.data;
+    const existingBefore = await prismaAdmin.plansLandingConfig.findUnique({ where: { id: "default" } });
+    let planLabelsJson: Prisma.InputJsonValue | undefined;
+    if (d.plan_display_labels !== undefined) {
+      const mergedBefore = mergePlanDisplayLabels(existingBefore?.planDisplayLabels);
+      planLabelsJson = mergePlanDisplayLabelPatch(mergedBefore, d.plan_display_labels) as Prisma.InputJsonValue;
+    }
+
     const row = await prismaAdmin.plansLandingConfig.upsert({
       where: { id: "default" },
       create: {
@@ -151,6 +165,7 @@ export const plansLandingController = {
         footerFont: d.footer_font ?? "sans",
         footerTextAlign: d.footer_text_align ?? "center",
         footerTextSize: d.footer_text_size ?? "sm",
+        ...(planLabelsJson !== undefined && { planDisplayLabels: planLabelsJson }),
       },
       update: {
         ...(d.badge_text !== undefined && { badgeText: d.badge_text }),
@@ -169,6 +184,7 @@ export const plansLandingController = {
         ...(d.footer_font !== undefined && { footerFont: d.footer_font }),
         ...(d.footer_text_align !== undefined && { footerTextAlign: d.footer_text_align }),
         ...(d.footer_text_size !== undefined && { footerTextSize: d.footer_text_size }),
+        ...(planLabelsJson !== undefined && { planDisplayLabels: planLabelsJson }),
       },
     });
 

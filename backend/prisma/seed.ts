@@ -94,12 +94,12 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
-      update: { name: "Pro Mensal" },
+      update: { name: "Pro Mensal", priceCents: 7990 },
       create: {
         id: "plan_monthly",
         name: "Pro Mensal",
         type: "monthly",
-        priceCents: 4700,
+        priceCents: 7990,
         maxPresellPages: 25,
         maxClicksPerMonth: 50000,
         hasBranding: false,
@@ -115,12 +115,12 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_annual" },
-      update: { name: "Pro Anual" },
+      update: { name: "Pro Anual", priceCents: 69700 },
       create: {
         id: "plan_annual",
         name: "Pro Anual",
         type: "annual",
-        priceCents: 39700,
+        priceCents: 69700,
         maxPresellPages: null,
         maxClicksPerMonth: null,
         hasBranding: false,

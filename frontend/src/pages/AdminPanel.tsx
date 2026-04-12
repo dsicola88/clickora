@@ -108,6 +108,17 @@ export default function AdminPanel() {
     enabled: isAdmin,
   });
 
+  const { data: plansLandingForEditors } = useQuery({
+    queryKey: ["admin-plans-landing"],
+    queryFn: async () => {
+      const { data, error } = await adminService.getPlansLanding();
+      if (error) throw new Error(error);
+      if (!data) throw new Error("Resposta vazia");
+      return data;
+    },
+    enabled: isAdmin && isSuperAdmin && activeTab === "plans",
+  });
+
   const { data: brandingMeta } = useQuery({
     queryKey: PUBLIC_BRANDING_KEY,
     queryFn: () => brandingService.getPublicMeta(),
@@ -166,6 +177,7 @@ export default function AdminPanel() {
     queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
     queryClient.invalidateQueries({ queryKey: ["admin-plans"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-plans-landing"] });
   };
 
   const canAdminResetPassword = (u: AdminUser) =>
@@ -565,7 +577,12 @@ export default function AdminPanel() {
               </p>
               <div className="grid gap-4 md:grid-cols-2">
                 {plans.map((p) => (
-                  <PlanEditorCard key={p.id} plan={p} onSaved={invalidateAdmin} />
+                  <PlanEditorCard
+                    key={p.id}
+                    plan={p}
+                    onSaved={invalidateAdmin}
+                    priceLabels={plansLandingForEditors?.plan_display_labels}
+                  />
                 ))}
               </div>
               {plans.length === 0 && (

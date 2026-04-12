@@ -24,6 +24,7 @@ import {
   plansLandingHeroTitleClasses,
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
+import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
 
 const ADMIN_KEY = ["admin-plans-landing"] as const;
 const PUBLIC_KEY = ["plans-landing-public"] as const;
@@ -152,6 +153,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [footerTextAlign, setFooterTextAlign] = useState("center");
   const [footerTextSize, setFooterTextSize] = useState("sm");
   const [saving, setSaving] = useState(false);
+  const [planLabels, setPlanLabels] = useState<Record<string, string>>(() => mergeWithDefaultLabels(undefined));
 
   useEffect(() => {
     if (!data) return;
@@ -171,6 +173,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     setFooterFont(data.footer_font ?? "sans");
     setFooterTextAlign(data.footer_text_align ?? "center");
     setFooterTextSize(data.footer_text_size ?? "sm");
+    setPlanLabels(mergeWithDefaultLabels(data.plan_display_labels));
   }, [data]);
 
   const saveTexts = async () => {
@@ -197,6 +200,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         footer_font: footerFont,
         footer_text_align: footerTextAlign,
         footer_text_size: footerTextSize,
+        plan_display_labels: planLabels,
       });
       if (error) {
         toast.error(error);
@@ -566,6 +570,39 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Type className="h-4 w-4 text-primary" />
+                Etiquetas dos cartões de plano
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Moeda, textos das secções e botões na página pública <span className="font-medium text-foreground">/planos</span>. Guardar também aplica
+                estas alterações.
+              </p>
+              <div className="grid max-h-[min(70vh,520px)] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                {PLAN_LABEL_FORM_FIELDS.map(({ key, title }) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label className="text-xs leading-tight" htmlFor={`plab-${key}`}>
+                      {title}
+                    </Label>
+                    <Input
+                      id={`plab-${key}`}
+                      value={planLabels[key] ?? ""}
+                      onChange={(e) =>
+                        setPlanLabels((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
