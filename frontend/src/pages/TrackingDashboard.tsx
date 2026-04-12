@@ -484,43 +484,58 @@ export default function TrackingDashboard() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard title="Cliques" value={dashboard?.total_clicks?.toLocaleString() ?? "0"} change="" changeType="positive" icon={MousePointerClick} />
-          <MetricCard title="Impressões" value={dashboard?.total_impressions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={Eye} />
-          <MetricCard title="CTR" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
-          <MetricCard title="Conversões" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
-        </div>
-
-        <DashboardGoogleGeoSection dashboard={dashboard} />
-
-        {chartData.length > 0 && (
-          <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
-            <h2 className="text-lg font-semibold text-card-foreground mb-4">Cliques e impressões</h2>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="subCliques" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="subImps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
-                  <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
-                  <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
-                  <Legend />
-                  <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#subImps)" strokeWidth={2} name="Impressões" />
-                  <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#subCliques)" strokeWidth={2} name="Cliques" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+        <section
+          aria-labelledby="tracking-metrics-heading"
+          className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
+        >
+          <div className="space-y-1.5 border-b border-border/50 pb-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Desempenho</p>
+            <h2 id="tracking-metrics-heading" className="text-lg font-semibold tracking-tight text-foreground">
+              Métricas do período
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+              Totais de cliques e conversões, dados da conta Google Ads e cliques por país, mais a evolução no gráfico.
+            </p>
           </div>
-        )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard title="Cliques" value={dashboard?.total_clicks?.toLocaleString() ?? "0"} change="" changeType="positive" icon={MousePointerClick} />
+            <MetricCard title="Impressões" value={dashboard?.total_impressions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={Eye} />
+            <MetricCard title="CTR" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
+            <MetricCard title="Conversões" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
+          </div>
+
+          <DashboardGoogleGeoSection dashboard={dashboard} />
+
+          {chartData.length > 0 && (
+            <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm md:p-6">
+              <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões</h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="subCliques" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="subImps" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
+                    <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
+                    <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
+                    <Legend />
+                    <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#subImps)" strokeWidth={2} name="Impressões" />
+                    <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#subCliques)" strokeWidth={2} name="Cliques" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     );
   }
@@ -892,43 +907,58 @@ export default function TrackingDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard title="Cliques (período)" value={dashboard?.total_clicks?.toLocaleString() ?? "0"} change="" changeType="positive" icon={MousePointerClick} />
-        <MetricCard title="Impressões (período)" value={dashboard?.total_impressions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={Eye} />
-        <MetricCard title="CTR (período)" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
-        <MetricCard title="Conversões (período)" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
-      </div>
-
-      <DashboardGoogleGeoSection dashboard={dashboard} />
-
-      {chartData.length > 0 && (
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
-          <h2 className="text-lg font-semibold text-card-foreground mb-4">Cliques e impressões no período</h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="cCliques" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="cImps" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
-                <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
-                <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
-                <Legend />
-                <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#cImps)" strokeWidth={2} name="Impressões" />
-                <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#cCliques)" strokeWidth={2} name="Cliques" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+      <section
+        aria-labelledby="tracking-metrics-heading-admin"
+        className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
+      >
+        <div className="space-y-1.5 border-b border-border/50 pb-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Desempenho</p>
+          <h2 id="tracking-metrics-heading-admin" className="text-lg font-semibold tracking-tight text-foreground">
+            Métricas do período
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+            Totais de cliques e conversões, dados da conta Google Ads e cliques por país, mais a evolução no gráfico.
+          </p>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard title="Cliques (período)" value={dashboard?.total_clicks?.toLocaleString() ?? "0"} change="" changeType="positive" icon={MousePointerClick} />
+          <MetricCard title="Impressões (período)" value={dashboard?.total_impressions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={Eye} />
+          <MetricCard title="CTR (período)" value={`${(dashboard?.ctr ?? 0).toFixed(1)}%`} change="" changeType="positive" icon={TrendingUp} />
+          <MetricCard title="Conversões (período)" value={dashboard?.total_conversions?.toLocaleString() ?? "0"} change="" changeType="positive" icon={ShoppingCart} />
+        </div>
+
+        <DashboardGoogleGeoSection dashboard={dashboard} />
+
+        {chartData.length > 0 && (
+          <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm md:p-6">
+            <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões no período</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="cCliques" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="cImps" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
+                  <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
+                  <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
+                  <Legend />
+                  <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#cImps)" strokeWidth={2} name="Impressões" />
+                  <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#cCliques)" strokeWidth={2} name="Cliques" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
