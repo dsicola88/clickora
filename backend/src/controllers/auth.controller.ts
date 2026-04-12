@@ -6,6 +6,7 @@ import { signToken } from "../lib/jwt";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { z } from "zod";
 import { AVATAR_LOCAL_MARKER, removeUserAvatarFiles } from "../lib/avatarUpload";
+import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1).email(),
@@ -235,7 +236,7 @@ export const authController = {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const freePlan = await systemPrisma.plan.findFirst({ where: { type: "free_trial" } });
+    const defaultPlan = await resolveDefaultPlanForSignup();
 
     const user = await systemPrisma.user.create({
       data: {
@@ -243,10 +244,10 @@ export const authController = {
         password: hashedPassword,
         fullName: full_name,
         roles: { create: { role: "user" } },
-        ...(freePlan && {
+        ...(defaultPlan && {
           subscription: {
             create: {
-              planId: freePlan.id,
+              planId: defaultPlan.id,
               status: "active",
             },
           },
