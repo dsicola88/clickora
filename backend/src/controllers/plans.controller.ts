@@ -1,5 +1,49 @@
+import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma, { systemPrisma } from "../lib/prisma";
+
+/** Sem `cta_label` — para BD antiga antes de `prisma migrate deploy` (evita P2022). */
+const planSelectLegacy: Prisma.PlanSelect = {
+  id: true,
+  name: true,
+  type: true,
+  priceCents: true,
+  maxPresellPages: true,
+  maxClicksPerMonth: true,
+  hasBranding: true,
+  features: true,
+  createdAt: true,
+};
+
+async function findManyPlansOrdered() {
+  try {
+    return await systemPrisma.plan.findMany({
+      orderBy: { priceCents: "asc" },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      return await systemPrisma.plan.findMany({
+        select: planSelectLegacy,
+        orderBy: { priceCents: "asc" },
+      });
+    }
+    throw e;
+  }
+}
+
+async function findUniquePlanById(planId: string) {
+  try {
+    return await systemPrisma.plan.findUnique({ where: { id: planId } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      return await systemPrisma.plan.findUnique({
+        where: { id: planId },
+        select: planSelectLegacy,
+      });
+    }
+    throw e;
+  }
+}
 
 /** Checkout externo (Hotmart, etc.) — Stripe muitas vezes indisponível para Angola; ver docs/PAGAMENTOS-ANGOLA.md */
 function resolveExternalCheckoutUrl(planId: string): string | null {
@@ -22,9 +66,7 @@ function resolveExternalCheckoutUrl(planId: string): string | null {
 
 export const plansController = {
   async getAll(_req: Request, res: Response) {
-    const plans = await systemPrisma.plan.findMany({
-      orderBy: { priceCents: "asc" },
-    });
+    const plans = await findManyPlansOrdered();
 
     res.json(
       plans.map((p) => ({
@@ -36,7 +78,7 @@ export const plansController = {
         max_clicks_per_month: p.maxClicksPerMonth,
         has_branding: p.hasBranding,
         features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
-        cta_label: p.ctaLabel ?? null,
+        cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
       })),
     );
   },
@@ -45,7 +87,7 @@ export const plansController = {
     const { plan_id } = req.body;
     if (!plan_id) return res.status(400).json({ error: "plan_id é obrigatório" });
 
-    const plan = await systemPrisma.plan.findUnique({ where: { id: plan_id } });
+    const plan = await findUniquePlanById(plan_id);
     if (!plan) return res.status(404).json({ error: "Plano não encontrado" });
 
     // Planos pagos: checkout na Hotmart (ou URL configurada) — webhook ativa a assinatura

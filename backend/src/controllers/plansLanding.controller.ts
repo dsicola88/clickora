@@ -1,11 +1,63 @@
 import { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prismaAdmin, systemPrisma } from "../lib/prisma";
 import { getPlansLandingUploadDir, removeExistingPlansHero } from "../lib/plansLandingUpload";
 import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
+
+/** Sem `plan_display_labels` — BD antes da migration correspondente (evita P2022). */
+const plansLandingSelectLegacy: Prisma.PlansLandingConfigSelect = {
+  id: true,
+  badgeText: true,
+  heroTitle: true,
+  heroSubtitle: true,
+  heroImageExt: true,
+  heroImageMime: true,
+  introText: true,
+  footerText: true,
+  heroFont: true,
+  heroTextAlign: true,
+  heroTitleSize: true,
+  heroTitleWeight: true,
+  heroSubtitleSize: true,
+  introFont: true,
+  introTextAlign: true,
+  introTextSize: true,
+  footerFont: true,
+  footerTextAlign: true,
+  footerTextSize: true,
+  updatedAt: true,
+};
+
+async function findPlansLandingDefaultSystem() {
+  try {
+    return await systemPrisma.plansLandingConfig.findUnique({ where: { id: "default" } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      return await systemPrisma.plansLandingConfig.findUnique({
+        where: { id: "default" },
+        select: plansLandingSelectLegacy,
+      });
+    }
+    throw e;
+  }
+}
+
+async function findPlansLandingDefaultAdmin() {
+  try {
+    return await prismaAdmin.plansLandingConfig.findUnique({ where: { id: "default" } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      return await prismaAdmin.plansLandingConfig.findUnique({
+        where: { id: "default" },
+        select: plansLandingSelectLegacy,
+      });
+    }
+    throw e;
+  }
+}
 
 const fontEnum = z.enum(["sans", "serif", "mono"]);
 const alignEnum = z.enum(["left", "center", "right"]);
@@ -106,7 +158,7 @@ const DEFAULT_JSON = {
 
 export const plansLandingController = {
   async getPublic(_req: Request, res: Response) {
-    const row = await systemPrisma.plansLandingConfig.findUnique({ where: { id: "default" } });
+    const row = await findPlansLandingDefaultSystem();
     if (!row) {
       return res.json(DEFAULT_JSON);
     }
@@ -114,7 +166,7 @@ export const plansLandingController = {
   },
 
   async getHeroImage(_req: Request, res: Response) {
-    const row = await systemPrisma.plansLandingConfig.findUnique({ where: { id: "default" } });
+    const row = await findPlansLandingDefaultSystem();
     if (!row?.heroImageExt) return res.status(404).end();
     const filePath = path.join(getPlansLandingUploadDir(), `plans-hero.${row.heroImageExt}`);
     if (!fs.existsSync(filePath)) return res.status(404).end();
@@ -124,7 +176,7 @@ export const plansLandingController = {
   },
 
   async getAdmin(_req: Request, res: Response) {
-    const row = await prismaAdmin.plansLandingConfig.findUnique({ where: { id: "default" } });
+    const row = await findPlansLandingDefaultAdmin();
     if (!row) {
       return res.json(DEFAULT_JSON);
     }
@@ -138,7 +190,7 @@ export const plansLandingController = {
     }
 
     const d = parsed.data;
-    const existingBefore = await prismaAdmin.plansLandingConfig.findUnique({ where: { id: "default" } });
+    const existingBefore = await findPlansLandingDefaultAdmin();
     let planLabelsJson: Prisma.InputJsonValue | undefined;
     if (d.plan_display_labels !== undefined) {
       const mergedBefore = mergePlanDisplayLabels(existingBefore?.planDisplayLabels);
