@@ -22,7 +22,11 @@ const USERS_INTEGRATION_COLUMNS_SQL = [
 
 async function ensureUsersIntegrationColumns() {
   for (const sql of USERS_INTEGRATION_COLUMNS_SQL) {
-    await prisma.$executeRawUnsafe(sql);
+    try {
+      await prisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[seed] ALTER users (ignorado, pode já existir):", e);
+    }
   }
 }
 
@@ -34,6 +38,7 @@ async function upsertUserWithRoleAndPlan(args: {
   planId: string;
 }) {
   const password = await bcrypt.hash(args.passwordPlain, 12);
+  /** `select` evita RETURNING * — sem isto, P2022 se colunas novas (ex. google_ads_*) ainda não existirem na BD. */
   const user = await prisma.user.upsert({
     where: { email: args.email },
     update: {
@@ -45,6 +50,7 @@ async function upsertUserWithRoleAndPlan(args: {
       password,
       fullName: args.fullName,
     },
+    select: { id: true, email: true, fullName: true },
   });
 
   await prisma.userRole.deleteMany({ where: { userId: user.id } });
