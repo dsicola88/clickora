@@ -73,6 +73,30 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const LOOSE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Último recurso: eventos de assinatura/troca de plano guardam o e-mail noutros ramos do JSON. */
+function deepFindEmail(obj: unknown, depth = 0): string | null {
+  if (depth > 12 || obj == null) return null;
+  if (typeof obj === "string" && LOOSE_EMAIL.test(obj.trim())) return obj.trim().toLowerCase();
+  if (typeof obj !== "object") return null;
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const e = deepFindEmail(item, depth + 1);
+      if (e) return e;
+    }
+    return null;
+  }
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (/email|mail|e-mail|buyer|subscriber|user/i.test(k) && typeof v === "string" && LOOSE_EMAIL.test(v.trim())) {
+      return v.trim().toLowerCase();
+    }
+    const nested = deepFindEmail(v, depth + 1);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 function parseHotmartPayload(body: unknown): HotmartEventData | null {
   const root = asRecord(body);
   const data = asRecord(root.data);
@@ -92,7 +116,7 @@ function parseHotmartPayload(body: unknown): HotmartEventData | null {
     subscription.event,
     root.name,
   );
-  const email = pickString(
+  let email = pickString(
     buyer.email,
     purchase.buyer_email,
     subscriber.email,
@@ -101,6 +125,9 @@ function parseHotmartPayload(body: unknown): HotmartEventData | null {
     root.email,
     subscription.subscriber_email,
   );
+  if (!email) {
+    email = deepFindEmail(body);
+  }
 
   if (!event || !email) return null;
 
@@ -115,14 +142,17 @@ function parseHotmartPayload(body: unknown): HotmartEventData | null {
   };
 }
 
+const VALID_PLAN_TYPES: PlanType[] = ["free_trial", "monthly", "quarterly", "annual"];
+
 function resolvePlanType(productCode: string | null, offerCode: string | null): PlanType {
   const mapRaw = process.env.HOTMART_PLAN_MAP || "{}";
-  const fallback = (process.env.HOTMART_DEFAULT_PLAN_TYPE as PlanType | undefined) || "monthly";
+  const fallbackRaw = (process.env.HOTMART_DEFAULT_PLAN_TYPE as PlanType | undefined) || "monthly";
+  const fallback = VALID_PLAN_TYPES.includes(fallbackRaw) ? fallbackRaw : "monthly";
 
   try {
     const map = JSON.parse(mapRaw) as Record<string, PlanType>;
     const code = offerCode || productCode;
-    if (code && map[code]) return map[code];
+    if (code && map[code] && VALID_PLAN_TYPES.includes(map[code])) return map[code];
   } catch {
     // ignore invalid JSON and use fallback
   }
@@ -219,7 +249,13 @@ export const webhookController = {
     const planType = resolvePlanType(payload.productCode, payload.offerCode);
     const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
     if (!plan) {
-      return res.status(400).json({ error: `Plano não configurado para tipo ${planType}` });
+      console.warn(`[hotmart-webhook] sem plano na BD para type=${planType} — ignorado (evita 400 na Hotmart)`);
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: "plan_not_configured",
+        plan_type: planType,
+      });
     }
 
     const startsAt = payload.approvedDate ?? new Date();
