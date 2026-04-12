@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { systemPrisma } from "../lib/prisma";
@@ -25,6 +25,23 @@ function pickString(...values: unknown[]): string | null {
     if (typeof value === "string" && value.trim()) {
       return value.trim();
     }
+  }
+  return null;
+}
+
+/** Token enviado pela Hotmart (headers oficiais ou `Authorization: Bearer …`). */
+function extractHotmartWebhookToken(req: Request): string | null {
+  const headerNames = ["x-hotmart-hottok", "x-hotmart-token"] as const;
+  for (const name of headerNames) {
+    const v = req.headers[name];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (Array.isArray(v) && typeof v[0] === "string" && v[0].trim()) return v[0].trim();
+  }
+  const auth = req.headers.authorization;
+  if (typeof auth === "string" && auth.trim()) {
+    const t = auth.trim();
+    const m = /^Bearer\s+(.+)$/i.exec(t);
+    return (m ? m[1] : t).trim();
   }
   return null;
 }
@@ -144,12 +161,8 @@ export const webhookController = {
   async hotmart(req: Request, res: Response) {
     const expectedToken = process.env.HOTMART_WEBHOOK_TOKEN;
     if (expectedToken) {
-      const incoming = pickString(
-        req.headers["x-hotmart-hottok"],
-        req.headers["x-hotmart-token"],
-        req.headers.authorization
-      );
-      if (!incoming || incoming !== expectedToken) {
+      const incoming = extractHotmartWebhookToken(req);
+      if (!incoming || incoming !== expectedToken.trim()) {
         return res.status(401).json({ error: "Webhook token inválido" });
       }
     }
