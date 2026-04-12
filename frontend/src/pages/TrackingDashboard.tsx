@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { integrationsService } from "@/services/integrationsService";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 
 /** Data local (YYYY-MM-DD) — evita deslocar o dia/ano vs UTC em <input type="date">. */
 function formatDateInput(d: Date): string {
@@ -51,15 +52,6 @@ function defaultDateRange(): { start: string; end: string } {
 }
 
 /** Nome do país (ISO 3166-1 alpha-2) para o painel. */
-function countryDisplayName(code: string | null): string {
-  if (!code) return "Desconhecido";
-  try {
-    return new Intl.DisplayNames(["pt-PT"], { type: "region" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
 type DashboardGoogleGeoInput = {
   google_ads_metrics?: {
     impressions: number;
@@ -157,12 +149,34 @@ function DashboardGoogleGeoSection({
                 </tr>
               </thead>
               <tbody>
-                {countries.map((row, i) => (
-                  <tr key={`${row.country_code ?? "x"}-${i}`} className="border-b border-border/40 last:border-0">
-                    <td className="px-3 py-2">{countryDisplayName(row.country_code)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium">{row.clicks.toLocaleString()}</td>
-                  </tr>
-                ))}
+                {countries.map((row, i) => {
+                  const iso = normalizeIsoCountryCode(row.country_code);
+                  const label = countryDisplayLabel(row.country_code);
+                  return (
+                    <tr key={`${row.country_code ?? "x"}-${i}`} className="border-b border-border/40 last:border-0">
+                      <td className="px-3 py-2">
+                        <span
+                          className="inline-flex items-center gap-2.5 min-w-0 max-w-[min(100%,20rem)]"
+                          title={iso ? `${label} (${iso})` : label}
+                        >
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-[1.35rem] leading-none shadow-inner"
+                            aria-hidden
+                          >
+                            {countryFlagEmoji(row.country_code)}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="font-medium text-foreground">{label}</span>
+                            {iso ? (
+                              <span className="ml-2 text-xs font-mono text-muted-foreground tabular-nums">{iso}</span>
+                            ) : null}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{row.clicks.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

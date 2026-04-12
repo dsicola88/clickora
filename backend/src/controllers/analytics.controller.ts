@@ -414,10 +414,13 @@ export const analyticsController = {
       }
     }
 
-    const clicks_by_country = geoRows.map((row) => ({
-      country_code: row.country && row.country.trim() ? row.country.trim() : null,
-      clicks: Number(row.ct),
-    }));
+    const clicks_by_country = geoRows.map((row) => {
+      const raw = row.country?.trim();
+      if (!raw) return { country_code: null as string | null, clicks: Number(row.ct) };
+      const u = raw.toUpperCase();
+      const country_code = u.length === 2 && /^[A-Z]{2}$/.test(u) ? u : null;
+      return { country_code, clicks: Number(row.ct) };
+    });
 
     res.json({
       total_clicks: clicks,

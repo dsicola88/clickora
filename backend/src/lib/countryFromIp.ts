@@ -16,5 +16,6 @@ export function countryIsoFromIp(ip: string | null | undefined): string | null {
   const n = normalizeIp(ip);
   if (!n || n === "" || n === "::1") return null;
   const geo = geoip.lookup(n);
-  return geo?.country ?? null;
+  const c = geo?.country ?? null;
+  return c ? c.trim().toUpperCase() : null;
 }
