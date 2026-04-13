@@ -9,9 +9,9 @@ test.describe("autenticação e rotas públicas", () => {
 
   test("visitante em / vê planos e pode ir ao login", async ({ page }) => {
     await page.goto("/");
-    await page.waitForURL("**/plans", { timeout: 15_000 });
+    await page.waitForURL((url) => new URL(url).pathname === "/", { timeout: 15_000 });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await page.getByRole("link", { name: "Entrar", exact: true }).click();
+    await page.getByRole("link", { name: "Entrar", exact: true }).first().click();
     await expect(page.getByRole("heading", { name: "Entrar na sua conta" })).toBeVisible();
   });
 });

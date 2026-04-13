@@ -129,7 +129,7 @@ export interface AdminOverview {
   conversions_by_day: { date: string; count: number }[];
 }
 
-/** Configuração da página pública de planos /plans (hero, textos, imagem, tipografia). */
+/** Configuração da landing pública na raiz / (hero, textos, imagem, tipografia dos planos). */
 export interface PlansLandingPublic {
   badge_text: string | null;
   hero_title: string;

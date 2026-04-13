@@ -5,7 +5,7 @@ import { plansService } from "@/services/plansService";
 import { plansLandingService } from "@/services/plansLandingService";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Crown, Star, Rocket, FileStack, Gauge, Palette, LayoutTemplate } from "lucide-react";
+import { Check, Zap, Star, Rocket, FileStack, Gauge, Palette, LayoutTemplate } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
@@ -52,7 +52,8 @@ const planColors: Record<string, string> = {
 };
 
 export default function Plans() {
-  const { userPlan, isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { user, userPlan, isSuperAdmin } = useAuth();
 
   const { data: landing } = useQuery({
     queryKey: ["plans-landing-public"],
@@ -135,6 +136,26 @@ export default function Plans() {
         </div>
       )}
 
+      {!user && (
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border/60 bg-gradient-to-br from-primary/[0.07] via-card to-muted/25 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1 min-w-0">
+            <p className="font-semibold text-foreground">Bem-vindo</p>
+            <p className="text-sm text-muted-foreground max-w-xl text-pretty">
+              Esta é a sua página pública de vendas: o conteúdo acima e abaixo pode ser personalizado no painel. Compare os planos e
+              assinaturas, ou entre na conta para aceder ao dclickora.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Button variant="outline" size="sm" asChild>
+              <a href="#planos">Ver planos</a>
+            </Button>
+            <Button size="sm" className="gap-2" asChild>
+              <Link to="/auth">Entrar</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <PlansLandingHeroBlock heroImg={heroImg} heroVisualRaw={landing?.hero_visual}>
         <div
           className={cn(
@@ -186,7 +207,15 @@ export default function Plans() {
         </div>
       ) : null}
 
-      <div id="planos" className="grid scroll-mt-24 grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section id="planos" className="scroll-mt-24 space-y-6">
+        <div className="flex flex-col gap-1 border-b border-border/50 pb-4">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Planos e assinaturas</h2>
+          <p className="text-sm text-muted-foreground max-w-2xl">
+            Escolha um plano para subscrever ou fazer upgrade. Precisa de uma conta para concluir — use «Entrar» acima ou o botão do
+            cartão.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
           const isCurrent = plan.type === userPlan?.plan_type;
           const isPopular = plan.type === "annual";
@@ -271,7 +300,8 @@ export default function Plans() {
             </div>
           );
         })}
-      </div>
+        </div>
+      </section>
 
       {footerText ? (
         <div

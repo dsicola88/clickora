@@ -311,8 +311,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             </CardTitle>
             <CardDescription className="mt-1 max-w-2xl">
               Textos, imagem, tipografia e efeitos visuais do hero (overlay, zoom, parallax, botão, animação de entrada). A
-              pré-visualização replica <span className="font-medium text-foreground">/plans</span> (o URL em português{" "}
-              <span className="font-medium text-foreground">/planos</span> redireciona para o mesmo sítio).
+              pré-visualização replica a <span className="font-medium text-foreground">página inicial</span> (
+              <span className="font-medium text-foreground">/</span>
+              ); <span className="font-medium text-foreground">/plans</span> e <span className="font-medium text-foreground">/planos</span>{" "}
+              redirecionam para lá.
             </CardDescription>
           </div>
           <Button type="button" className="gap-2 shrink-0" disabled={saving} onClick={() => saveTexts()}>
@@ -739,7 +741,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 Etiquetas dos cartões de plano
               </p>
               <p className="text-xs text-muted-foreground">
-                Moeda, textos das secções e botões na página pública <span className="font-medium text-foreground">/plans</span>. Guardar também aplica
+                Moeda, textos das secções e botões na página pública (início <span className="font-medium text-foreground">/</span>). Guardar também aplica
                 estas alterações.
               </p>
               <div className="grid max-h-[min(70vh,520px)] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">

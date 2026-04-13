@@ -174,7 +174,7 @@ export default function Auth() {
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
           {mode === "login" && (
             <div className="space-y-6">
-              <GoogleSignInButton onSuccess={() => navigate("/plans")} />
+              <GoogleSignInButton onSuccess={() => navigate("/")} />
               {import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ? (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -185,10 +185,10 @@ export default function Auth() {
                   </div>
                 </div>
               ) : null}
-              <LoginFormComponent onSuccess={() => navigate("/plans")} />
+              <LoginFormComponent onSuccess={() => navigate("/")} />
             </div>
           )}
-          {mode === "register" && <RegisterFormComponent onSuccess={() => navigate("/plans")} />}
+          {mode === "register" && <RegisterFormComponent onSuccess={() => navigate("/")} />}
           {mode === "recovery" && <RecoveryFormComponent />}
 
           <div className="text-center text-sm space-y-2 mt-4">
@@ -218,7 +218,7 @@ export default function Auth() {
         </div>
         <p className="text-center mt-6">
           <Link
-            to="/plans"
+            to="/"
             className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
           >
             Continuar sem entrar — ver planos

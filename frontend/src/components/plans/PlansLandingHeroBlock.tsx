@@ -41,7 +41,7 @@ type Props = {
 };
 
 /**
- * Hero da página de planos (/plans): imagem com overlay, efeitos (Ken Burns, hover zoom, parallax),
+ * Hero da landing pública (/, alias /plans): imagem com overlay, efeitos (Ken Burns, hover zoom, parallax),
  * animação de entrada do texto e CTA opcional — configurável no admin.
  */
 export function PlansLandingHeroBlock({ heroImg, heroVisualRaw, children, className }: Props) {
