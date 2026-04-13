@@ -31,7 +31,7 @@ import {
 import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
 
 export default function Plataformas() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState("BuyGoods");
@@ -249,12 +249,19 @@ export default function Plataformas() {
 
             <div className="space-y-2">
               <Label className="font-semibold">URL do webhook (Postback)</Label>
-              <p className="text-xs text-muted-foreground">
-                Em produção deve ser <strong className="text-foreground/90">https://</strong>. Já inclui{" "}
-                <span className="font-mono">?token=…</span> (segredo). Parâmetros extra usam{" "}
-                <span className="font-mono">&amp;</span>. Na API, defina <span className="font-mono">API_PUBLIC_URL=https://www.dclickora.com/api</span>{" "}
-                (ou o domínio público da API) para o URL gerado ser sempre correto.
-              </p>
+              {isAdmin ? (
+                <p className="text-xs text-muted-foreground">
+                  Em produção deve ser <strong className="text-foreground/90">https://</strong>. Já inclui{" "}
+                  <span className="font-mono">?token=…</span> (segredo). Parâmetros extra usam{" "}
+                  <span className="font-mono">&amp;</span>. Na API, defina <span className="font-mono">API_PUBLIC_URL=https://www.dclickora.com/api</span>{" "}
+                  (ou o domínio público da API) para o URL gerado ser sempre correto.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Em produção use <strong className="text-foreground/90">https</strong>. O URL inclui um token secreto — não o partilhe. Parâmetros extra
+                  usam <span className="font-mono">&amp;</span>.
+                </p>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                 <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10" />
                 <div className="flex gap-2">
@@ -279,28 +286,41 @@ export default function Plataformas() {
               </div>
               {!info.smtp_configured && (
                 <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                  O servidor ainda não tem SMTP configurado (<span className="font-mono">SMTP_HOST</span>,{" "}
-                  <span className="font-mono">SMTP_FROM</span>, etc.). O botão de teste fica desativado até isso existir no{" "}
-                  <span className="font-mono">.env</span> da API.
+                  {isAdmin ? (
+                    <>
+                      O servidor ainda não tem SMTP configurado (<span className="font-mono">SMTP_HOST</span>,{" "}
+                      <span className="font-mono">SMTP_FROM</span>, etc.). O botão de teste fica desativado até isso existir no{" "}
+                      <span className="font-mono">.env</span> da API.
+                    </>
+                  ) : (
+                    <>O envio de e-mail de teste ainda não está disponível neste ambiente. Contacte o suporte se precisar de ajuda.</>
+                  )}
                 </p>
               )}
             </div>
 
             <div className="space-y-2 rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
               <Label className="font-semibold text-foreground">URL para colar na plataforma (com macros de sincronização)</Label>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Em muitas redes o postback é <strong className="text-foreground/90">uma só linha de URL</strong>: o domínio e o caminho são do teu
-                servidor dclickora; depois vêm parâmetros com <strong>placeholders</strong> que a rede troca por valores reais na venda (o mesmo
-                conceito que URLs do tipo{" "}
-                <span className="font-mono text-[10px] break-all opacity-80">
-                  …/aios-success/?buygoods-notify=1&amp;orderid=&#123;ORDERID&#125;…
-                </span>
-                ). <strong>Não uses o domínio de outro site</strong> — substitui pelo URL abaixo (começa pela tua API). Os nomes{" "}
-                <span className="font-mono">&#123;ORDERID&#125;</span>, <span className="font-mono">&#123;SUBID&#125;</span>, etc. devem coincidir
-                com a <strong>documentação oficial da rede</strong> (BuyGoods, Digistore24, ClickBank…); este bloco é um modelo que podes editar
-                antes de guardar na rede. O parâmetro <span className="font-mono">clickora_click_id</span> deve repetir o mesmo UUID que o link de
-                oferta envia no URL (ou num subid que a rede devolva no postback) — assim a venda fica ligada ao clique no presell.
-              </p>
+              {isAdmin ? (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Em muitas redes o postback é <strong className="text-foreground/90">uma só linha de URL</strong>: o domínio e o caminho são do teu
+                  servidor dclickora; depois vêm parâmetros com <strong>placeholders</strong> que a rede troca por valores reais na venda (o mesmo
+                  conceito que URLs do tipo{" "}
+                  <span className="font-mono text-[10px] break-all opacity-80">
+                    …/aios-success/?buygoods-notify=1&amp;orderid=&#123;ORDERID&#125;…
+                  </span>
+                  ). <strong>Não uses o domínio de outro site</strong> — substitui pelo URL abaixo (começa pela tua API). Os nomes{" "}
+                  <span className="font-mono">&#123;ORDERID&#125;</span>, <span className="font-mono">&#123;SUBID&#125;</span>, etc. devem coincidir
+                  com a <strong>documentação oficial da rede</strong> (BuyGoods, Digistore24, ClickBank…); este bloco é um modelo que podes editar
+                  antes de guardar na rede. O parâmetro <span className="font-mono">clickora_click_id</span> deve repetir o mesmo UUID que o link de
+                  oferta envia no URL (ou num subid que a rede devolva no postback) — assim a venda fica ligada ao clique no presell.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Copie o URL abaixo para a rede de afiliados. Os nomes entre chaves (macros) devem coincidir com a documentação da rede. O parâmetro{" "}
+                  <span className="font-mono text-[11px]">clickora_click_id</span> liga a venda ao clique na presell.
+                </p>
+              )}
               <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-muted/40 border border-border/50 px-3 py-2">
                 <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}
               </p>
@@ -328,10 +348,12 @@ export default function Plataformas() {
                     </Link>
                     .
                   </p>
-                  <p>
-                    <strong className="text-foreground/90">Webhook Hotmart do dclickora</strong> (assinaturas da app) é outro endpoint:{" "}
-                    <span className="font-mono">/api/webhooks/hotmart</span> — não confundir com postback de afiliado.
-                  </p>
+                  {isAdmin ? (
+                    <p>
+                      <strong className="text-foreground/90">Webhook Hotmart do dclickora</strong> (assinaturas da app) é outro endpoint:{" "}
+                      <span className="font-mono">/api/webhooks/hotmart</span> — não confundir com postback de afiliado.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>

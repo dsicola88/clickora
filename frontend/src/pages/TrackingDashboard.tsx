@@ -226,6 +226,7 @@ function TrackingScriptCsvBlocks({
   handleCopy,
   embedSrcWasPatched,
   scriptStillLocalhostOnDeploy,
+  showTechnicalNotes = true,
 }: {
   csvUploadUrl: string;
   csvPlaceholder: string;
@@ -235,6 +236,8 @@ function TrackingScriptCsvBlocks({
   handleCopy: (text: string, type: "script" | "csv") => void;
   embedSrcWasPatched: boolean;
   scriptStillLocalhostOnDeploy: boolean;
+  /** Avisos de env/deploy (VITE_, API_) — só admin / super_admin. */
+  showTechnicalNotes?: boolean;
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -254,12 +257,20 @@ function TrackingScriptCsvBlocks({
           copied={copiedCsv}
           onCopy={() => csvUploadUrl && handleCopy(csvUploadUrl, "csv")}
         />
-        <p className="mt-3 text-xs text-muted-foreground">
-          <strong className="text-foreground/90">POST</strong> com o CSV no corpo importa linhas;{" "}
-          <strong className="text-foreground/90">GET</strong> no mesmo URL só confirma que o{" "}
-          <span className="font-mono">token</span> é válido (resposta JSON).
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">Não partilhes o token.</p>
+        {showTechnicalNotes ? (
+          <>
+            <p className="mt-3 text-xs text-muted-foreground">
+              <strong className="text-foreground/90">POST</strong> com o CSV no corpo importa linhas;{" "}
+              <strong className="text-foreground/90">GET</strong> no mesmo URL só confirma que o{" "}
+              <span className="font-mono">token</span> é válido (resposta JSON).
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Não partilhes o token.</p>
+          </>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Use este URL para enviar conversões (POST). Não partilhe o link com terceiros.
+          </p>
+        )}
       </div>
 
       <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
@@ -271,17 +282,22 @@ function TrackingScriptCsvBlocks({
             <h3 className="font-semibold text-card-foreground">Script da presell</h3>
           </div>
         </div>
-        {embedSrcWasPatched && (
+        {showTechnicalNotes && embedSrcWasPatched && (
           <p className="mb-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
             URL do script ajustada via <span className="font-mono">VITE_API_URL</span>. Em produção define <span className="font-mono">API_PUBLIC_URL</span> no servidor.
           </p>
         )}
-        {scriptStillLocalhostOnDeploy && (
+        {showTechnicalNotes && scriptStillLocalhostOnDeploy && (
           <p className="mb-3 text-xs text-destructive bg-destructive/10 border border-destructive/25 rounded-lg px-3 py-2">
             O script aponta para <span className="font-mono">localhost</span> no site público — corrige <span className="font-mono">VITE_API_URL</span> /{" "}
             <span className="font-mono">API_PUBLIC_URL</span>.
           </p>
         )}
+        {!showTechnicalNotes && (embedSrcWasPatched || scriptStillLocalhostOnDeploy) ? (
+          <p className="mb-3 text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
+            Se o script não carregar na página pública, contacte o suporte.
+          </p>
+        ) : null}
         <CopyFieldRow
           id="tracking-script"
           value={trackingScript || "Carregando credenciais…"}
@@ -779,6 +795,7 @@ export default function TrackingDashboard() {
             handleCopy={handleCopy}
             embedSrcWasPatched={embedSrcWasPatched}
             scriptStillLocalhostOnDeploy={scriptStillLocalhostOnDeploy}
+            showTechnicalNotes={false}
           />
         </section>
 
@@ -937,6 +954,7 @@ export default function TrackingDashboard() {
           handleCopy={handleCopy}
           embedSrcWasPatched={embedSrcWasPatched}
           scriptStillLocalhostOnDeploy={scriptStillLocalhostOnDeploy}
+          showTechnicalNotes
         />
 
         <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">

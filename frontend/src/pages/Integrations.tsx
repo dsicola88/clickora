@@ -65,7 +65,7 @@ function SectionShell({
 export default function Integrations() {
   const queryClient = useQueryClient();
   const apiBase = getApiBaseUrl();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isAdmin } = useAuth();
 
   const [copiedCsv, setCopiedCsv] = useState(false);
   const [telegramTokenDraft, setTelegramTokenDraft] = useState("");
@@ -256,7 +256,11 @@ export default function Integrations() {
       <PageHeader
         centered
         title="Integrações"
-        description="Ligue o dclickora a canais externos: alertas no telemóvel, Telegram, upload CSV para o Google Ads e mais."
+        description={
+          isAdmin
+            ? "Ligue o dclickora a canais externos: alertas no telemóvel, Telegram, upload CSV para o Google Ads e mais."
+            : "Alertas, Telegram, Google Ads e outras ligações úteis."
+        }
       />
 
       <Accordion type="multiple" defaultValue={["webpush", "google", "telegram"]} className="space-y-4">
@@ -401,16 +405,31 @@ export default function Integrations() {
             </AccordionTrigger>
             <AccordionContent className="px-5 pb-5 pt-2 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Cole esta URL no Google Ads como origem HTTPS de upload. A API de cliques e o script de tracking
-                estão no{" "}
-                <Link
-                  to="/tracking/dashboard"
-                  className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
-                >
-                  painel de tracking
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-                .
+                {isAdmin ? (
+                  <>
+                    Cole esta URL no Google Ads como origem HTTPS de upload. A API de cliques e o script de tracking estão no{" "}
+                    <Link
+                      to="/tracking/dashboard"
+                      className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
+                    >
+                      painel de tracking
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Cole esta URL no Google Ads como origem de upload (HTTPS). O mesmo script e resumo estão no{" "}
+                    <Link
+                      to="/tracking/dashboard"
+                      className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
+                    >
+                      painel de tracking
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                    .
+                  </>
+                )}
               </p>
 
               <div className="space-y-2">
@@ -458,8 +477,14 @@ export default function Integrations() {
             </AccordionTrigger>
             <AccordionContent className="px-5 pb-5 pt-2 space-y-4">
               <p className="text-sm text-muted-foreground">
-                O envio automático para Discord ainda não está ligado ao backend. Pode guardar o URL localmente para
-                quando a funcionalidade estiver disponível.
+                {isAdmin ? (
+                  <>
+                    O envio automático para Discord ainda não está ligado ao backend. Pode guardar o URL localmente para quando a funcionalidade
+                    estiver disponível.
+                  </>
+                ) : (
+                  <>O Discord estará disponível numa próxima atualização. Pode guardar o URL localmente se quiser.</>
+                )}
               </p>
               <div className="space-y-2">
                 <Label htmlFor="discord-hook">Webhook URL</Label>
