@@ -26,6 +26,7 @@ import { integrationsService } from "@/services/integrationsService";
 import { cn } from "@/lib/utils";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { subscribeToWebPush, unsubscribeFromWebPush } from "@/lib/webPushClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 function SectionShell({
   accent,
@@ -60,6 +61,7 @@ function SectionShell({
 export default function Integrations() {
   const queryClient = useQueryClient();
   const apiBase = getApiBaseUrl();
+  const { isSuperAdmin } = useAuth();
 
   const [copiedCsv, setCopiedCsv] = useState(false);
   const [telegramTokenDraft, setTelegramTokenDraft] = useState("");
@@ -227,7 +229,121 @@ export default function Integrations() {
         description="Ligue o dclickora a canais externos: alertas no telemóvel, Telegram, upload CSV para o Google Ads e mais."
       />
 
-      <Accordion type="multiple" defaultValue={["google", "webpush", "telegram"]} className="space-y-4">
+      <Accordion type="multiple" defaultValue={["webpush", "google", "telegram"]} className="space-y-4">
+        <AccordionItem value="webpush" className="border-0">
+          <SectionShell accent="violet">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline [&[data-state=open]]:border-b border-border/50">
+              <div className="flex items-center gap-3 text-left">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-400">
+                  <Bell className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-semibold text-foreground">Notificações no telemóvel ou no computador</p>
+                  <p className="text-sm text-muted-foreground">
+                    Aviso quando entra uma venda. No telemóvel <strong className="font-medium text-foreground/90">não precisa de
+                    instalar app nem ir às definições do sistema</strong> — só abre o dclickora no browser e usa os botões
+                    abaixo.
+                  </p>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5 pt-2 space-y-4">
+              {webPushLoading || !webPush ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-2">
+                    <p className="text-sm font-medium text-foreground">Passos para si (assinante)</p>
+                    <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-5 marker:text-foreground/80">
+                      <li>
+                        Toque em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong>. Se o
+                        browser perguntar, aceite as notificações — não precisa de configurar o telemóvel noutro sítio.
+                      </li>
+                      <li>
+                        Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>, deve
+                        receber um aviso (mesmo com o site em segundo plano).
+                      </li>
+                      <li>
+                        Pode usar <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. Em alguns{" "}
+                        <strong className="font-medium text-foreground/90">iPhones</strong> o Safari pode pedir o site no ecrã
+                        inicial — continua a ser só no browser.
+                      </li>
+                    </ol>
+                  </div>
+
+                  {!webPush.configured ? (
+                    <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2.5 text-sm text-muted-foreground leading-relaxed">
+                      {isSuperAdmin ? (
+                        <>
+                          Ainda não está ligado no servidor. Veja o que falta em{" "}
+                          <Link to="/admin" className="font-medium text-primary hover:underline">
+                            Painel do sistema → Visão geral
+                          </Link>{" "}
+                          (cartão sobre alertas no telemóvel). Os botões abaixo ficam ativos depois de configurar a API.
+                        </>
+                      ) : (
+                        <>
+                          Esta opção <strong className="font-medium text-foreground/90">ainda não está ativa</strong> na
+                          plataforma. Os passos acima aplicam-se quando estiver disponível — os botões abaixo ativam-se nessa
+                          altura. Se precisar de ajuda, contacte o suporte.
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Aparelhos ligados nesta conta:{" "}
+                      <span className="font-medium text-foreground">{webPush.subscription_count}</span> (cada telemóvel ou
+                      computador conta à parte).
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      className="gap-2"
+                      disabled={!webPush.configured || activateWebPush.isPending}
+                      onClick={() => activateWebPush.mutate()}
+                    >
+                      {activateWebPush.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Bell className="h-4 w-4" />
+                      )}
+                      Ativar neste dispositivo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="gap-2"
+                      disabled={!webPush.configured || deactivateWebPush.isPending}
+                      onClick={() => deactivateWebPush.mutate()}
+                    >
+                      {deactivateWebPush.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Desativar neste dispositivo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      disabled={
+                        !webPush.configured || testWebPush.isPending || webPush.subscription_count === 0
+                      }
+                      onClick={() => testWebPush.mutate()}
+                    >
+                      {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Testar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </AccordionContent>
+          </SectionShell>
+        </AccordionItem>
+
         <AccordionItem value="google" className="border-0">
           <SectionShell accent="primary">
             <AccordionTrigger className="px-5 py-4 hover:no-underline [&[data-state=open]]:border-b border-border/50">
@@ -283,107 +399,6 @@ export default function Integrations() {
                 <li>Use apenas a URL fornecida; aceder ao link no browser pode invalidar o contexto esperado pelo Google.</li>
                 <li>Confirme que o fuso horário e o formato de ficheiro no Google Ads correspondem à sua conta.</li>
               </ul>
-            </AccordionContent>
-          </SectionShell>
-        </AccordionItem>
-
-        <AccordionItem value="webpush" className="border-0">
-          <SectionShell accent="violet">
-            <AccordionTrigger className="px-5 py-4 hover:no-underline [&[data-state=open]]:border-b border-border/50">
-              <div className="flex items-center gap-3 text-left">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-400">
-                  <Bell className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="font-semibold text-foreground">Notificações no telemóvel ou no computador</p>
-                  <p className="text-sm text-muted-foreground">
-                    Aviso quando entra uma venda. No telemóvel <strong className="font-medium text-foreground/90">não precisa de
-                    instalar app nem ir às definições do sistema</strong> — só abre o dclickora no browser e usa os botões
-                    abaixo.
-                  </p>
-                </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-5 pb-5 pt-2 space-y-4">
-              {webPushLoading || !webPush ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
-                </div>
-              ) : !webPush.configured ? (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Esta função ainda não está ligada no servidor (falta a configuração inicial das chaves). Quem gere a
-                  plataforma precisa de a fazer uma vez — quem for <strong className="font-medium text-foreground/90">super administrador</strong>{" "}
-                  encontra os passos em linguagem simples em{" "}
-                  <Link to="/admin" className="font-medium text-primary hover:underline">
-                    Painel do sistema → Visão geral
-                  </Link>
-                  , no cartão sobre alertas no telemóvel.
-                </p>
-              ) : (
-                <>
-                  <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-2">
-                    <p className="text-sm font-medium text-foreground">Passos</p>
-                    <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-5 marker:text-foreground/80">
-                      <li>
-                        Toque em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong>. Se o
-                        browser perguntar, aceite as notificações — é só isso, não precisa de configurar o telemóvel noutro sítio.
-                      </li>
-                      <li>
-                        Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>, deve
-                        receber um aviso (mesmo com o site em segundo plano).
-                      </li>
-                      <li>
-                        Pode usar <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. Em alguns{" "}
-                        <strong className="font-medium text-foreground/90">iPhones</strong> o Safari só envia este tipo de aviso
-                        se tiver adicionado o site ao ecrã inicial — continua a ser só no browser, não nas definições gerais do
-                        telemóvel.
-                      </li>
-                    </ol>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Aparelhos ligados nesta conta:{" "}
-                    <span className="font-medium text-foreground">{webPush.subscription_count}</span> (cada telemóvel ou
-                    computador conta à parte).
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      className="gap-2"
-                      disabled={activateWebPush.isPending}
-                      onClick={() => activateWebPush.mutate()}
-                    >
-                      {activateWebPush.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Bell className="h-4 w-4" />
-                      )}
-                      Ativar neste dispositivo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="gap-2"
-                      disabled={deactivateWebPush.isPending}
-                      onClick={() => deactivateWebPush.mutate()}
-                    >
-                      {deactivateWebPush.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      Desativar neste dispositivo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="gap-2"
-                      disabled={testWebPush.isPending || webPush.subscription_count === 0}
-                      onClick={() => testWebPush.mutate()}
-                    >
-                      {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Testar
-                    </Button>
-                  </div>
-                </>
-              )}
             </AccordionContent>
           </SectionShell>
         </AccordionItem>
