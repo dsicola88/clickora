@@ -49,34 +49,21 @@ function readVapidPublicRaw(): string | undefined {
 }
 
 /** Uma variável com JSON (Railway por vezes não injecta VAPID_PRIVATE_KEY sozinha). */
-let vapidJsonBundleMemo: { public: string; private: string } | null | undefined;
-
 function readVapidKeysFromJsonBundle(): { public: string; private: string } | null {
-  if (vapidJsonBundleMemo !== undefined) return vapidJsonBundleMemo;
-
   const raw = envValueForKey("VAPID_KEYS_JSON");
-  if (!raw) {
-    vapidJsonBundleMemo = null;
-    return null;
-  }
+  if (!raw) return null;
   const cleaned = stripVapidEnvValue(raw);
-  if (!cleaned) {
-    vapidJsonBundleMemo = null;
-    return null;
-  }
+  if (!cleaned) return null;
   try {
     const o = JSON.parse(cleaned) as Record<string, unknown>;
     const pub = o.public ?? o.publicKey;
     const priv = o.private ?? o.privateKey;
     if (typeof pub === "string" && typeof priv === "string" && pub.trim() && priv.trim()) {
-      const pair = { public: pub.trim(), private: priv.trim() };
-      vapidJsonBundleMemo = pair;
-      return pair;
+      return { public: pub.trim(), private: priv.trim() };
     }
   } catch (e) {
     console.warn("[web-push] VAPID_KEYS_JSON inválido (esperado JSON com public e private).", e);
   }
-  vapidJsonBundleMemo = null;
   return null;
 }
 
