@@ -14,6 +14,40 @@ function envValueForKey(canonical: string): string | undefined {
   return found ? process.env[found] : undefined;
 }
 
+/** Nomes alternativos por engano no painel (Railway). */
+const VAPID_PRIVATE_FALLBACKS = [
+  "VAPID_PRIVATE_KEY",
+  "VAPID_PRIVATEKEY",
+  "WEB_PUSH_VAPID_PRIVATE_KEY",
+  "VAPID_PRIVATE",
+];
+
+function readVapidPrivateRaw(): string | undefined {
+  for (const name of VAPID_PRIVATE_FALLBACKS) {
+    const v = envValueForKey(name);
+    if (v !== undefined && String(v).trim() !== "") return v;
+  }
+  const fuzzy = Object.keys(process.env).find((k) => {
+    const u = k.toUpperCase();
+    return u.includes("VAPID") && u.includes("PRIVATE") && !u.includes("PUBLIC");
+  });
+  return fuzzy ? process.env[fuzzy] : undefined;
+}
+
+const VAPID_PUBLIC_FALLBACKS = ["VAPID_PUBLIC_KEY", "VAPID_PUBLICKEY", "WEB_PUSH_VAPID_PUBLIC_KEY"];
+
+function readVapidPublicRaw(): string | undefined {
+  for (const name of VAPID_PUBLIC_FALLBACKS) {
+    const v = envValueForKey(name);
+    if (v !== undefined && String(v).trim() !== "") return v;
+  }
+  const fuzzy = Object.keys(process.env).find((k) => {
+    const u = k.toUpperCase();
+    return u.includes("VAPID") && u.includes("PUBLIC");
+  });
+  return fuzzy ? process.env[fuzzy] : undefined;
+}
+
 /** Remove aspas envolventes, quebras de linha e caracteres invisíveis (colar no Railway). */
 function stripVapidEnvValue(raw: string | undefined): string {
   if (raw == null) return "";
@@ -48,15 +82,15 @@ function normalizeVapidSubject(raw: string): string {
 export function initWebPushFromEnv(): void {
   if (configured) return;
 
-  const pub = stripVapidEnvValue(envValueForKey("VAPID_PUBLIC_KEY"));
-  const priv = stripVapidEnvValue(envValueForKey("VAPID_PRIVATE_KEY"));
+  const pub = stripVapidEnvValue(readVapidPublicRaw());
+  const priv = stripVapidEnvValue(readVapidPrivateRaw());
   const subjectRaw =
     stripVapidEnvValue(envValueForKey("VAPID_SUBJECT")) || "mailto:support@dclickora.com";
   const subject = normalizeVapidSubject(subjectRaw);
 
   if (!pub || !priv) {
-    const rawPriv = envValueForKey("VAPID_PRIVATE_KEY");
-    const rawPub = envValueForKey("VAPID_PUBLIC_KEY");
+    const rawPriv = readVapidPrivateRaw();
+    const rawPub = readVapidPublicRaw();
     const vapidNames = Object.keys(process.env).filter((k) => k.toUpperCase().includes("VAPID"));
     console.warn(
       "[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes ou vazias após limpeza — notificações push desativadas.",
@@ -92,7 +126,7 @@ export function isWebPushConfigured(): boolean {
 }
 
 export function getVapidPublicKeyFromEnv(): string | null {
-  const k = stripVapidEnvValue(envValueForKey("VAPID_PUBLIC_KEY"));
+  const k = stripVapidEnvValue(readVapidPublicRaw());
   return k || null;
 }
 

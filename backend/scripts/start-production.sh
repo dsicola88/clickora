@@ -10,6 +10,18 @@ if [ -z "$DATABASE_URL" ]; then
   exit 1
 fi
 
+# Web Push: o Node só vê o que o Railway injeta neste serviço. Não imprimir valores.
+if [ -z "${VAPID_PRIVATE_KEY:-}" ]; then
+  echo "WARN: VAPID_PRIVATE_KEY is NOT set in this container — Web Push disabled. Add it on the API service (clickora) Variables, Save, then Redeploy. If it appears in the UI but not here, remove and re-add the variable or check Shared Variables / wrong service."
+else
+  echo "OK: VAPID_PRIVATE_KEY is set (length ${#VAPID_PRIVATE_KEY})."
+fi
+if [ -z "${VAPID_PUBLIC_KEY:-}" ]; then
+  echo "WARN: VAPID_PUBLIC_KEY is NOT set."
+else
+  echo "OK: VAPID_PUBLIC_KEY is set (length ${#VAPID_PUBLIC_KEY})."
+fi
+
 echo "=== prisma migrate deploy ==="
 if ! npx prisma migrate deploy; then
   echo "ERROR: prisma migrate deploy failed."
