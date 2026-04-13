@@ -27,6 +27,12 @@ function readVapidPrivateRaw(): string | undefined {
     const v = envValueForKey(name);
     if (v !== undefined && String(v).trim() !== "") return v;
   }
+  const b64 = envValueForKey("VAPID_PRIVATE_KEY_B64");
+  if (b64 !== undefined && String(b64).trim() !== "") {
+    const dec = tryDecodeBase64Utf8(b64);
+    if (dec) return dec;
+    console.warn("[web-push] VAPID_PRIVATE_KEY_B64 definido mas não decodificou (Base64 inválido).");
+  }
   const fuzzy = Object.keys(process.env).find((k) => {
     const u = k.toUpperCase();
     return u.includes("VAPID") && u.includes("PRIVATE") && !u.includes("PUBLIC");
@@ -48,19 +54,31 @@ function readVapidPublicRaw(): string | undefined {
   return fuzzy ? process.env[fuzzy] : undefined;
 }
 
-/** Uma variável com JSON (Railway por vezes não injecta VAPID_PRIVATE_KEY sozinha). */
-function readVapidKeysFromJsonBundle(): { public: string; private: string } | null {
-  const raw = envValueForKey("VAPID_KEYS_JSON");
-  if (!raw) return null;
-  const cleaned = stripVapidEnvValue(raw);
-  if (!cleaned) return null;
+/** Base64 (ou base64url) → UTF-8; útil quando o painel corrompe `+`, `=` ou quebras no valor em claro. */
+function tryDecodeBase64Utf8(raw: string | undefined): string | null {
+  if (raw == null) return null;
+  const t = stripVapidEnvValue(raw);
+  if (!t) return null;
+  const norm = t.replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  const pad = norm.length % 4;
+  const padded = pad ? norm + "=".repeat(4 - pad) : norm;
+  try {
+    const buf = Buffer.from(padded, "base64");
+    if (!buf.length) return null;
+    const str = buf.toString("utf8");
+    return str.trim() ? str : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseVapidKeysJsonObject(cleaned: string): { public: string; private: string } | null {
   try {
     const o = JSON.parse(cleaned) as Record<string, unknown>;
     const pub = o.public ?? o.publicKey;
     const priv = o.private ?? o.privateKey;
     const pubStr = typeof pub === "string" ? pub.trim() : "";
     const privStr = typeof priv === "string" ? priv.trim() : "";
-    // Permite só {"private":"..."} se VAPID_PUBLIC_KEY já estiver noutra variável (Railway).
     const mergedPub = pubStr || stripVapidEnvValue(readVapidPublicRaw()) || "";
     const mergedPriv = privStr || stripVapidEnvValue(readVapidPrivateRaw()) || "";
     if (mergedPub && mergedPriv) {
@@ -73,6 +91,31 @@ function readVapidKeysFromJsonBundle(): { public: string; private: string } | nu
     });
   } catch (e) {
     console.warn("[web-push] VAPID_KEYS_JSON inválido (esperado JSON com public e private).", e);
+  }
+  return null;
+}
+
+/** Uma variável com JSON (Railway por vezes não injecta VAPID_PRIVATE_KEY sozinha). */
+function readVapidKeysFromJsonBundle(): { public: string; private: string } | null {
+  const candidates: string[] = [];
+  const raw = envValueForKey("VAPID_KEYS_JSON");
+  if (raw) {
+    const cleaned = stripVapidEnvValue(raw);
+    if (cleaned) candidates.push(cleaned);
+  }
+  const rawB64 = envValueForKey("VAPID_KEYS_JSON_B64");
+  if (rawB64 !== undefined && stripVapidEnvValue(rawB64)) {
+    const decoded = tryDecodeBase64Utf8(rawB64);
+    if (decoded) {
+      const cleaned = stripVapidEnvValue(decoded);
+      if (cleaned) candidates.push(cleaned);
+    } else {
+      console.warn("[web-push] VAPID_KEYS_JSON_B64 definido mas não decodificou (Base64 inválido ou vazio).");
+    }
+  }
+  for (const cleaned of candidates) {
+    const r = parseVapidKeysJsonObject(cleaned);
+    if (r) return r;
   }
   return null;
 }
@@ -133,7 +176,10 @@ export function initWebPushFromEnv(): void {
     const bundle = readVapidKeysFromJsonBundle();
     const vapidNames = Object.keys(process.env).filter((k) => k.toUpperCase().includes("VAPID"));
     const rawJson = envValueForKey("VAPID_KEYS_JSON");
+    const rawJsonB64 = envValueForKey("VAPID_KEYS_JSON_B64");
     const jsonStrippedLen = rawJson != null ? stripVapidEnvValue(rawJson).length : 0;
+    const jsonB64StrippedLen = rawJsonB64 != null ? stripVapidEnvValue(rawJsonB64).length : 0;
+    const rawPrivB64 = envValueForKey("VAPID_PRIVATE_KEY_B64");
     console.warn(
       "[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes ou vazias após limpeza — notificações push desativadas.",
       {
@@ -145,10 +191,13 @@ export function initWebPushFromEnv(): void {
         rawPrivateLen: rawPriv?.length ?? 0,
         hasVapidKeysJson: rawJson !== undefined,
         vapidKeysJsonStrippedLen: jsonStrippedLen,
+        hasVapidKeysJsonB64: rawJsonB64 !== undefined,
+        vapidKeysJsonB64StrippedLen: jsonB64StrippedLen,
+        hasVapidPrivateKeyB64: rawPrivB64 !== undefined,
         vapidKeysJsonValid: Boolean(bundle),
         envKeysContainingVapid: vapidNames,
         hint:
-          "No serviço da API (clickora): defina VAPID_PRIVATE_KEY ou VAPID_KEYS_JSON com JSON válido numa linha, ex.: {\"public\":\"...\",\"private\":\"...\"} ou só {\"private\":\"...\"} se VAPID_PUBLIC_KEY já existir. Redeploy.",
+          "No serviço clickora: VAPID_PRIVATE_KEY em claro, ou VAPID_PRIVATE_KEY_B64 (chave privada em Base64), ou VAPID_KEYS_JSON / VAPID_KEYS_JSON_B64 (JSON numa linha). Redeploy após gravar.",
       },
     );
     return;

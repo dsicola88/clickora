@@ -24,6 +24,12 @@ fi
 if [ -n "${VAPID_KEYS_JSON:-}" ]; then
   echo "OK: VAPID_KEYS_JSON is set (length ${#VAPID_KEYS_JSON}) — alternativa às duas chaves separadas."
 fi
+if [ -n "${VAPID_PRIVATE_KEY_B64:-}" ]; then
+  echo "OK: VAPID_PRIVATE_KEY_B64 is set (length ${#VAPID_PRIVATE_KEY_B64})."
+fi
+if [ -n "${VAPID_KEYS_JSON_B64:-}" ]; then
+  echo "OK: VAPID_KEYS_JSON_B64 is set (length ${#VAPID_KEYS_JSON_B64})."
+fi
 
 echo "=== prisma migrate deploy ==="
 if ! npx prisma migrate deploy; then
