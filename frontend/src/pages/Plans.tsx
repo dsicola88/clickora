@@ -18,7 +18,6 @@ import {
   LogIn,
   ShoppingBag,
   LayoutDashboard,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -105,9 +104,6 @@ export default function Plans() {
     return paid?.checkout_url ?? null;
   }, [plans]);
 
-  const checkoutHint =
-    "Será redirecionado para a página de compra. Após o pagamento aprovado, o acesso é ativado automaticamente — use o mesmo e-mail na Hotmart e na conta dclickora.";
-
   const handleSelectPlan = async (plan: Plan) => {
     if (user && plan.type === userPlan?.plan_type) {
       toast.info("Você já está neste plano.");
@@ -115,7 +111,6 @@ export default function Plans() {
     }
 
     if (plan.price_cents > 0 && plan.checkout_url) {
-      toast.info(checkoutHint, { duration: 9000 });
       window.location.href = plan.checkout_url;
       return;
     }
@@ -138,7 +133,6 @@ export default function Plans() {
       return;
     }
     if (data?.checkout_url) {
-      if (data.message) toast.info(data.message);
       window.location.href = data.checkout_url;
       return;
     }
@@ -185,7 +179,7 @@ export default function Plans() {
     extras.plans_section_subtitle?.trim() ??
     (salesDark
       ? "Escolha o melhor plano para você e transforme sua operação."
-      : "Planos pagos: «Comprar» abre o checkout (ex. Hotmart). Use o mesmo e-mail na compra e na conta dclickora. Plano grátis: registe-se em «Entrar».");
+      : "Escolha um plano e finalize a compra na Hotmart ou ative o grátis com a sua conta.");
 
   const mediaBlocks = extras.content_blocks ?? [];
   const sectionOrder = resolveSectionOrder(extras.section_order);
@@ -499,7 +493,7 @@ export default function Plans() {
         <nav
           className={cn(
             "mx-auto grid w-full max-w-2xl grid-cols-1 gap-2 sm:gap-3",
-            user ? "sm:max-w-lg sm:grid-cols-2" : "sm:max-w-3xl sm:grid-cols-3",
+            "sm:max-w-lg sm:grid-cols-2",
           )}
           aria-label="Ações da página"
         >
@@ -511,16 +505,7 @@ export default function Plans() {
             )}
             asChild
           >
-            <a
-              href={primaryCheckoutUrl ?? "#planos"}
-              className="inline-flex items-center justify-center"
-              onClick={(e) => {
-                if (!primaryCheckoutUrl) return;
-                e.preventDefault();
-                toast.info(checkoutHint, { duration: 9000 });
-                window.location.href = primaryCheckoutUrl;
-              }}
-            >
+            <a href={primaryCheckoutUrl ?? "#planos"} className="inline-flex items-center justify-center">
               <ShoppingBag className="h-4 w-4 shrink-0" aria-hidden />
               Comprar
             </a>
@@ -541,36 +526,20 @@ export default function Plans() {
               </Link>
             </Button>
           ) : (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                className={cn(
-                  "min-h-10 w-full gap-2 sm:min-w-0",
-                  salesDark && "border border-white/20 bg-white/10 text-white hover:bg-white/15",
-                )}
-                asChild
-              >
-                <Link to="/auth?trial=1" className="inline-flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
-                  Testar grátis
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "min-h-10 w-full gap-2 sm:min-w-0",
-                  salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
-                )}
-                asChild
-              >
-                <Link to="/auth" className="inline-flex items-center justify-center">
-                  <LogIn className="h-4 w-4 shrink-0" aria-hidden />
-                  Entrar
-                </Link>
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "min-h-10 w-full gap-2 sm:min-w-0",
+                salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
+              )}
+              asChild
+            >
+              <Link to="/auth" className="inline-flex items-center justify-center">
+                <LogIn className="h-4 w-4 shrink-0" aria-hidden />
+                Entrar
+              </Link>
+            </Button>
           )}
         </nav>
       </div>
@@ -594,30 +563,6 @@ export default function Plans() {
               Abrir editor da landing
             </Link>
           </Button>
-        </div>
-      )}
-
-      {!user && (
-        <div
-          className={cn(
-            "mb-6 flex flex-col gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between",
-            salesDark
-              ? "border-white/10 bg-white/[0.04] backdrop-blur-sm"
-              : "border-border/60 bg-gradient-to-br from-primary/[0.07] via-card to-muted/25",
-          )}
-        >
-          <div className="space-y-1 min-w-0">
-            <p className={cn("font-semibold", salesDark ? "text-white" : "text-foreground")}>Bem-vindo</p>
-            <p
-              className={cn(
-                "text-sm max-w-xl text-pretty",
-                salesDark ? "text-white/70" : "text-muted-foreground",
-              )}
-            >
-              Esta é a sua página pública de vendas: o conteúdo acima e abaixo pode ser personalizado no painel. Compare os planos e
-              assinaturas, ou entre na conta para aceder ao dclickora.
-            </p>
-          </div>
         </div>
       )}
 
