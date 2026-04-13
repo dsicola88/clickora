@@ -276,11 +276,16 @@ export default function Integrations() {
                     <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2.5 text-sm text-muted-foreground leading-relaxed">
                       {isSuperAdmin ? (
                         <>
-                          A API ainda não reconhece o Web Push (chaves no servidor ou formato). Confirme no Railway: variáveis
-                          no <strong className="font-medium text-foreground/90">serviço da API</strong>,{" "}
-                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_SUBJECT</code> como um único e-mail (
-                          ex. <code className="rounded bg-muted px-1 py-0.5 text-[11px]">mailto:seuemail@gmail.com</code> — sem dois
-                          @). Depois faça <strong className="font-medium text-foreground/90">Redeploy</strong>. Mais pormenores:{" "}
+                          Se os logs mostrarem a chave <strong className="font-medium text-foreground/90">privada</strong> em falta
+                          no Railway, crie <strong className="font-medium text-foreground/90">uma</strong> variável{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_KEYS_JSON</code> com o JSON numa linha:{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[10px] break-all">
+                            {`{"public":"…","private":"…"}`}
+                          </code>{" "}
+                          (valores do <code className="rounded bg-muted px-1 py-0.5 text-[11px]">npx web-push generate-vapid-keys</code>
+                          ). Depois <strong className="font-medium text-foreground/90">Redeploy</strong>. Confirme também{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_SUBJECT</code> e o serviço{" "}
+                          <strong className="font-medium text-foreground/90">clickora</strong> (API).{" "}
                           <Link to="/admin" className="font-medium text-primary hover:underline">
                             Painel do sistema → Visão geral
                           </Link>

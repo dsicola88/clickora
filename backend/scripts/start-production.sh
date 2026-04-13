@@ -21,6 +21,9 @@ if [ -z "${VAPID_PUBLIC_KEY:-}" ]; then
 else
   echo "OK: VAPID_PUBLIC_KEY is set (length ${#VAPID_PUBLIC_KEY})."
 fi
+if [ -n "${VAPID_KEYS_JSON:-}" ]; then
+  echo "OK: VAPID_KEYS_JSON is set (length ${#VAPID_KEYS_JSON}) — alternativa às duas chaves separadas."
+fi
 
 echo "=== prisma migrate deploy ==="
 if ! npx prisma migrate deploy; then

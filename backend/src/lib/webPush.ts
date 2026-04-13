@@ -48,6 +48,48 @@ function readVapidPublicRaw(): string | undefined {
   return fuzzy ? process.env[fuzzy] : undefined;
 }
 
+/** Uma variável com JSON (Railway por vezes não injecta VAPID_PRIVATE_KEY sozinha). */
+let vapidJsonBundleMemo: { public: string; private: string } | null | undefined;
+
+function readVapidKeysFromJsonBundle(): { public: string; private: string } | null {
+  if (vapidJsonBundleMemo !== undefined) return vapidJsonBundleMemo;
+
+  const raw = envValueForKey("VAPID_KEYS_JSON");
+  if (!raw) {
+    vapidJsonBundleMemo = null;
+    return null;
+  }
+  const cleaned = stripVapidEnvValue(raw);
+  if (!cleaned) {
+    vapidJsonBundleMemo = null;
+    return null;
+  }
+  try {
+    const o = JSON.parse(cleaned) as Record<string, unknown>;
+    const pub = o.public ?? o.publicKey;
+    const priv = o.private ?? o.privateKey;
+    if (typeof pub === "string" && typeof priv === "string" && pub.trim() && priv.trim()) {
+      const pair = { public: pub.trim(), private: priv.trim() };
+      vapidJsonBundleMemo = pair;
+      return pair;
+    }
+  } catch (e) {
+    console.warn("[web-push] VAPID_KEYS_JSON inválido (esperado JSON com public e private).", e);
+  }
+  vapidJsonBundleMemo = null;
+  return null;
+}
+
+function resolvedVapidPublic(): string {
+  const b = readVapidKeysFromJsonBundle();
+  return stripVapidEnvValue(b?.public ?? readVapidPublicRaw());
+}
+
+function resolvedVapidPrivate(): string {
+  const b = readVapidKeysFromJsonBundle();
+  return stripVapidEnvValue(b?.private ?? readVapidPrivateRaw());
+}
+
 /** Remove aspas envolventes, quebras de linha e caracteres invisíveis (colar no Railway). */
 function stripVapidEnvValue(raw: string | undefined): string {
   if (raw == null) return "";
@@ -82,8 +124,8 @@ function normalizeVapidSubject(raw: string): string {
 export function initWebPushFromEnv(): void {
   if (configured) return;
 
-  const pub = stripVapidEnvValue(readVapidPublicRaw());
-  const priv = stripVapidEnvValue(readVapidPrivateRaw());
+  const pub = resolvedVapidPublic();
+  const priv = resolvedVapidPrivate();
   const subjectRaw =
     stripVapidEnvValue(envValueForKey("VAPID_SUBJECT")) || "mailto:support@dclickora.com";
   const subject = normalizeVapidSubject(subjectRaw);
@@ -91,6 +133,7 @@ export function initWebPushFromEnv(): void {
   if (!pub || !priv) {
     const rawPriv = readVapidPrivateRaw();
     const rawPub = readVapidPublicRaw();
+    const bundle = readVapidKeysFromJsonBundle();
     const vapidNames = Object.keys(process.env).filter((k) => k.toUpperCase().includes("VAPID"));
     console.warn(
       "[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes ou vazias após limpeza — notificações push desativadas.",
@@ -101,6 +144,8 @@ export function initWebPushFromEnv(): void {
         rawPrivateDefined: rawPriv !== undefined,
         rawPublicLen: rawPub?.length ?? 0,
         rawPrivateLen: rawPriv?.length ?? 0,
+        hasVapidKeysJson: envValueForKey("VAPID_KEYS_JSON") !== undefined,
+        vapidKeysJsonValid: Boolean(bundle),
         envKeysContainingVapid: vapidNames,
       },
     );
@@ -110,7 +155,13 @@ export function initWebPushFromEnv(): void {
   try {
     webpush.setVapidDetails(subject, pub, priv);
     configured = true;
-    console.log("[web-push] VAPID configurado (subject:", subject, ")");
+    const fromJson = readVapidKeysFromJsonBundle() !== null;
+    console.log(
+      "[web-push] VAPID configurado.",
+      "subject:",
+      subject,
+      fromJson ? "(chaves via VAPID_KEYS_JSON)" : "",
+    );
   } catch (err) {
     console.error("[web-push] setVapidDetails falhou — verifique chaves e VAPID_SUBJECT (um mailto: válido).", err);
   }
@@ -126,7 +177,7 @@ export function isWebPushConfigured(): boolean {
 }
 
 export function getVapidPublicKeyFromEnv(): string | null {
-  const k = stripVapidEnvValue(readVapidPublicRaw());
+  const k = resolvedVapidPublic();
   return k || null;
 }
 
