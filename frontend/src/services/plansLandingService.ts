@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { DEFAULT_PLAN_DISPLAY_LABELS } from "@/lib/planDisplayLabels";
+import { DEFAULT_PLANS_HERO_VISUAL } from "@/lib/plansLandingHeroVisual";
 import type { PlansLandingPublic } from "@/types/api";
 
 const FALLBACK: PlansLandingPublic = {
@@ -23,6 +24,7 @@ const FALLBACK: PlansLandingPublic = {
   footer_text_size: "sm",
   updated_at: "",
   plan_display_labels: DEFAULT_PLAN_DISPLAY_LABELS,
+  hero_visual: { ...DEFAULT_PLANS_HERO_VISUAL } as unknown as Record<string, unknown>,
 };
 
 export const plansLandingService = {

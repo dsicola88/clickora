@@ -1,0 +1,51 @@
+import { z } from "zod";
+
+export const heroVisualPatchSchema = z.object({
+  image_effect: z.enum(["none", "ken-burns", "hover-zoom", "parallax"]).optional(),
+  overlay_style: z
+    .enum(["gradient-dark", "gradient-light", "solid-dark", "solid-light", "none"])
+    .optional(),
+  overlay_intensity: z.enum(["subtle", "medium", "strong"]).optional(),
+  content_entrance: z.enum(["none", "fade-in", "fade-up"]).optional(),
+  cta_enabled: z.boolean().optional(),
+  cta_label: z.string().max(80).nullable().optional(),
+  cta_href: z.string().max(500).nullable().optional(),
+});
+
+export type HeroVisualPatch = z.infer<typeof heroVisualPatchSchema>;
+
+export const DEFAULT_HERO_VISUAL = {
+  image_effect: "none" as const,
+  overlay_style: "gradient-dark" as const,
+  overlay_intensity: "medium" as const,
+  content_entrance: "fade-up" as const,
+  cta_enabled: false as const,
+  cta_label: null as string | null,
+  cta_href: "#planos" as string | null,
+};
+
+export type HeroVisualMerged = typeof DEFAULT_HERO_VISUAL;
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+export function mergeHeroVisual(existing: unknown, patch: HeroVisualPatch): HeroVisualMerged {
+  const base: HeroVisualMerged = { ...DEFAULT_HERO_VISUAL };
+  const cur = isRecord(existing) ? { ...base, ...existing } : base;
+  const merged = { ...cur, ...patch };
+  const out = {
+    image_effect: merged.image_effect ?? DEFAULT_HERO_VISUAL.image_effect,
+    overlay_style: merged.overlay_style ?? DEFAULT_HERO_VISUAL.overlay_style,
+    overlay_intensity: merged.overlay_intensity ?? DEFAULT_HERO_VISUAL.overlay_intensity,
+    content_entrance: merged.content_entrance ?? DEFAULT_HERO_VISUAL.content_entrance,
+    cta_enabled: Boolean(merged.cta_enabled),
+    cta_label: merged.cta_label === undefined ? DEFAULT_HERO_VISUAL.cta_label : merged.cta_label,
+    cta_href: merged.cta_href === undefined ? DEFAULT_HERO_VISUAL.cta_href : merged.cta_href,
+  };
+  return out as HeroVisualMerged;
+}
+
+export function heroVisualPublic(existing: unknown): HeroVisualMerged {
+  return mergeHeroVisual(existing, {});
+}

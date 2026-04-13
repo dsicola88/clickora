@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { LayoutTemplate, Save, Trash2, Upload, Sparkles, Type } from "lucide-react";
+import { LayoutTemplate, Save, Trash2, Upload, Sparkles, Type, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 import {
   coerceBodySize,
   coerceFontFamily,
@@ -24,6 +26,11 @@ import {
   plansLandingHeroTitleClasses,
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
+import {
+  coercePlansHeroVisual,
+  DEFAULT_PLANS_HERO_VISUAL,
+  type PlansHeroVisual,
+} from "@/lib/plansLandingHeroVisual";
 import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
 
 const ADMIN_KEY = ["admin-plans-landing"] as const;
@@ -64,6 +71,33 @@ const OPT_BODY = [
   { value: "xl", label: "XL" },
 ];
 
+const OPT_IMAGE_EFFECT = [
+  { value: "none", label: "Nenhum" },
+  { value: "ken-burns", label: "Zoom suave (Ken Burns)" },
+  { value: "hover-zoom", label: "Zoom ao passar o rato" },
+  { value: "parallax", label: "Parallax (fundo fixo em desktop)" },
+];
+
+const OPT_OVERLAY = [
+  { value: "gradient-dark", label: "Gradiente escuro (legível)" },
+  { value: "gradient-light", label: "Gradiente claro" },
+  { value: "solid-dark", label: "Overlay escuro uniforme" },
+  { value: "solid-light", label: "Overlay claro uniforme" },
+  { value: "none", label: "Sem overlay" },
+];
+
+const OPT_OVERLAY_STRENGTH = [
+  { value: "subtle", label: "Suave" },
+  { value: "medium", label: "Médio" },
+  { value: "strong", label: "Forte" },
+];
+
+const OPT_ENTRANCE = [
+  { value: "none", label: "Nenhuma" },
+  { value: "fade-in", label: "Fade in" },
+  { value: "fade-up", label: "Fade + subir (recomendado)" },
+];
+
 function HeroPreview(props: {
   badgeText: string;
   heroTitle: string;
@@ -75,6 +109,7 @@ function HeroPreview(props: {
   heroTitleSize: string;
   heroTitleWeight: string;
   heroSubtitleSize: string;
+  heroVisual: PlansHeroVisual;
   className?: string;
 }) {
   const src = props.hasImage ? plansLandingService.heroImageHref(props.imageUpdatedAt) : null;
@@ -85,26 +120,8 @@ function HeroPreview(props: {
   const subS = coerceBodySize(props.heroSubtitleSize);
 
   return (
-    <div
-      className={cn(
-        "relative flex min-h-[260px] flex-col overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-inner",
-        props.className,
-      )}
-    >
-      {src ? (
-        <>
-          <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/50 to-background/20" />
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-background to-accent/15" />
-      )}
-      <div
-        className={cn(
-          "relative z-10 p-6 md:p-8",
-          plansLandingHeroInnerClasses({ font, align }),
-        )}
-      >
+    <PlansLandingHeroBlock heroImg={src} heroVisualRaw={props.heroVisual} className={props.className}>
+      <div className={cn("flex min-h-[200px] flex-col", plansLandingHeroInnerClasses({ font, align }))}>
         {props.badgeText.trim() ? (
           <span className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
             {props.badgeText}
@@ -115,7 +132,7 @@ function HeroPreview(props: {
           <p className={plansLandingHeroSubtitleClasses(subS)}>{props.heroSubtitle}</p>
         ) : null}
       </div>
-    </div>
+    </PlansLandingHeroBlock>
   );
 }
 
@@ -154,6 +171,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [footerTextSize, setFooterTextSize] = useState("sm");
   const [saving, setSaving] = useState(false);
   const [planLabels, setPlanLabels] = useState<Record<string, string>>(() => mergeWithDefaultLabels(undefined));
+  const [heroVisual, setHeroVisual] = useState<PlansHeroVisual>(() => ({ ...DEFAULT_PLANS_HERO_VISUAL }));
 
   useEffect(() => {
     if (!data) return;
@@ -174,6 +192,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     setFooterTextAlign(data.footer_text_align ?? "center");
     setFooterTextSize(data.footer_text_size ?? "sm");
     setPlanLabels(mergeWithDefaultLabels(data.plan_display_labels));
+    setHeroVisual(coercePlansHeroVisual(data.hero_visual));
   }, [data]);
 
   const saveTexts = async () => {
@@ -201,6 +220,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         footer_text_align: footerTextAlign,
         footer_text_size: footerTextSize,
         plan_display_labels: planLabels,
+        hero_visual: {
+          image_effect: heroVisual.image_effect,
+          overlay_style: heroVisual.overlay_style,
+          overlay_intensity: heroVisual.overlay_intensity,
+          content_entrance: heroVisual.content_entrance,
+          cta_enabled: heroVisual.cta_enabled,
+          cta_label: heroVisual.cta_label?.trim() ? heroVisual.cta_label.trim() : null,
+          cta_href: heroVisual.cta_href?.trim() ? heroVisual.cta_href.trim() : null,
+        },
       });
       if (error) {
         toast.error(error);
@@ -282,8 +310,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               Landing da página de planos
             </CardTitle>
             <CardDescription className="mt-1 max-w-2xl">
-              Textos, imagem de fundo e tipografia (fonte, alinhamento, tamanhos). A pré-visualização à direita replica{" "}
-              <span className="font-medium text-foreground">/planos</span>.
+              Textos, imagem, tipografia e efeitos visuais do hero (overlay, zoom, parallax, botão, animação de entrada). A
+              pré-visualização replica <span className="font-medium text-foreground">/planos</span>.
             </CardDescription>
           </div>
           <Button type="button" className="gap-2 shrink-0" disabled={saving} onClick={() => saveTexts()}>
@@ -444,6 +472,135 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   <Trash2 className="h-4 w-4" />
                   Remover imagem
                 </Button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border/80 bg-muted/15 p-4 space-y-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                Efeitos visuais do hero
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Overlay, animação de entrada e efeitos na imagem — tudo configurável aqui, sem ferramentas externas.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Imagem</Label>
+                  <Select
+                    value={heroVisual.image_effect}
+                    onValueChange={(v) =>
+                      setHeroVisual((p) => ({ ...p, image_effect: v as PlansHeroVisual["image_effect"] }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPT_IMAGE_EFFECT.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Overlay sobre a foto</Label>
+                  <Select
+                    value={heroVisual.overlay_style}
+                    onValueChange={(v) =>
+                      setHeroVisual((p) => ({ ...p, overlay_style: v as PlansHeroVisual["overlay_style"] }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPT_OVERLAY.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Intensidade do overlay</Label>
+                  <Select
+                    value={heroVisual.overlay_intensity}
+                    onValueChange={(v) =>
+                      setHeroVisual((p) => ({ ...p, overlay_intensity: v as PlansHeroVisual["overlay_intensity"] }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPT_OVERLAY_STRENGTH.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Entrada do texto</Label>
+                  <Select
+                    value={heroVisual.content_entrance}
+                    onValueChange={(v) =>
+                      setHeroVisual((p) => ({ ...p, content_entrance: v as PlansHeroVisual["content_entrance"] }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPT_ENTRANCE.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-background/50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="pl-hero-cta" className="text-sm">
+                      Botão sobre o hero
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Ex.: “Ver planos” com link para a grelha (#planos).</p>
+                  </div>
+                  <Switch
+                    id="pl-hero-cta"
+                    checked={heroVisual.cta_enabled}
+                    onCheckedChange={(c) => setHeroVisual((p) => ({ ...p, cta_enabled: c }))}
+                  />
+                </div>
+                {heroVisual.cta_enabled ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Texto do botão</Label>
+                      <Input
+                        placeholder="Ver planos"
+                        value={heroVisual.cta_label ?? ""}
+                        onChange={(e) => setHeroVisual((p) => ({ ...p, cta_label: e.target.value }))}
+                        maxLength={80}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Link (URL, /rota ou #planos)</Label>
+                      <Input
+                        placeholder="#planos"
+                        value={heroVisual.cta_href ?? ""}
+                        onChange={(e) => setHeroVisual((p) => ({ ...p, cta_href: e.target.value }))}
+                        maxLength={500}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -623,6 +780,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               heroTitleSize={heroTitleSize}
               heroTitleWeight={heroTitleWeight}
               heroSubtitleSize={heroSubtitleSize}
+              heroVisual={heroVisual}
+              className="mb-0 border-border/80 bg-muted/20 shadow-inner"
             />
             {introText.trim() ? (
               <div

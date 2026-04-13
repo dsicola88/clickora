@@ -151,6 +151,8 @@ export interface PlansLandingPublic {
   updated_at: string;
   /** Etiquetas da grelha de planos (fundidas com defaults no servidor). */
   plan_display_labels: Record<string, string>;
+  /** Efeitos do hero: overlay, zoom, parallax, CTA, animação — fundidos com defaults no servidor. */
+  hero_visual: Record<string, unknown>;
 }
 
 export interface AuthResponse {

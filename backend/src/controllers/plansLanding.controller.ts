@@ -6,6 +6,12 @@ import { z } from "zod";
 import { prismaAdmin, systemPrisma } from "../lib/prisma";
 import { getPlansLandingUploadDir, removeExistingPlansHero } from "../lib/plansLandingUpload";
 import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
+import {
+  DEFAULT_HERO_VISUAL,
+  heroVisualPatchSchema,
+  heroVisualPublic,
+  mergeHeroVisual,
+} from "../lib/plansLandingHeroVisual";
 
 /** Sem `plan_display_labels` — BD antes da migration correspondente (evita P2022). */
 const plansLandingSelectLegacy: Prisma.PlansLandingConfigSelect = {
@@ -28,6 +34,7 @@ const plansLandingSelectLegacy: Prisma.PlansLandingConfigSelect = {
   footerFont: true,
   footerTextAlign: true,
   footerTextSize: true,
+  heroVisual: true,
   updatedAt: true,
 };
 
@@ -84,6 +91,8 @@ const patchSchema = z.object({
   footer_text_size: bodySizeEnum.optional(),
   /** Etiquetas da grelha de planos (moeda, botões, secções). PATCH parcial. */
   plan_display_labels: z.record(z.string().max(80), z.string().max(500)).optional(),
+  /** Efeitos visuais do hero (overlay, zoom, CTA). PATCH parcial; merge com defaults. */
+  hero_visual: heroVisualPatchSchema.optional(),
 });
 
 type Row = {
@@ -108,6 +117,7 @@ type Row = {
   footerTextSize: string;
   updatedAt: Date;
   planDisplayLabels?: unknown;
+  heroVisual?: unknown | null;
 };
 
 function mapRow(row: Row) {
@@ -131,6 +141,7 @@ function mapRow(row: Row) {
     footer_text_size: row.footerTextSize,
     updated_at: row.updatedAt.toISOString(),
     plan_display_labels: mergePlanDisplayLabels(row.planDisplayLabels),
+    hero_visual: heroVisualPublic(row.heroVisual),
   };
 }
 
@@ -154,6 +165,7 @@ const DEFAULT_JSON = {
   footer_text_size: "sm",
   updated_at: new Date().toISOString(),
   plan_display_labels: mergePlanDisplayLabels(null),
+  hero_visual: DEFAULT_HERO_VISUAL,
 };
 
 export const plansLandingController = {
@@ -197,6 +209,11 @@ export const plansLandingController = {
       planLabelsJson = mergePlanDisplayLabelPatch(mergedBefore, d.plan_display_labels) as Prisma.InputJsonValue;
     }
 
+    let heroVisualJson: Prisma.InputJsonValue | undefined;
+    if (d.hero_visual !== undefined) {
+      heroVisualJson = mergeHeroVisual(existingBefore?.heroVisual, d.hero_visual) as Prisma.InputJsonValue;
+    }
+
     const row = await prismaAdmin.plansLandingConfig.upsert({
       where: { id: "default" },
       create: {
@@ -218,6 +235,7 @@ export const plansLandingController = {
         footerTextAlign: d.footer_text_align ?? "center",
         footerTextSize: d.footer_text_size ?? "sm",
         ...(planLabelsJson !== undefined && { planDisplayLabels: planLabelsJson }),
+        ...(heroVisualJson !== undefined && { heroVisual: heroVisualJson }),
       },
       update: {
         ...(d.badge_text !== undefined && { badgeText: d.badge_text }),
@@ -237,6 +255,7 @@ export const plansLandingController = {
         ...(d.footer_text_align !== undefined && { footerTextAlign: d.footer_text_align }),
         ...(d.footer_text_size !== undefined && { footerTextSize: d.footer_text_size }),
         ...(planLabelsJson !== undefined && { planDisplayLabels: planLabelsJson }),
+        ...(heroVisualJson !== undefined && { heroVisual: heroVisualJson }),
       },
     });
 

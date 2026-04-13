@@ -29,6 +29,7 @@ import {
   getPlanPriceSuffix,
   mergeWithDefaultLabels,
 } from "@/lib/planDisplayLabels";
+import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 
 function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string, string>) {
   if (isCurrent) return labels.cta_current ?? "Plano atual";
@@ -129,23 +130,9 @@ export default function Plans() {
         </div>
       )}
 
-      <section
-        className={cn(
-          "relative mb-8 overflow-hidden rounded-2xl border border-border/60 shadow-sm",
-          "min-h-[220px] md:min-h-[280px]",
-        )}
-      >
-        {heroImg ? (
-          <>
-            <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/30" />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/10" />
-        )}
+      <PlansLandingHeroBlock heroImg={heroImg} heroVisualRaw={landing?.hero_visual}>
         <div
           className={cn(
-            "relative z-10 px-6 py-10 md:px-10 md:py-12",
             plansLandingHeroInnerClasses({
               font: coerceFontFamily(landing?.hero_font),
               align: coerceTextAlign(landing?.hero_text_align),
@@ -169,7 +156,7 @@ export default function Plans() {
             <p className={plansLandingHeroSubtitleClasses(coerceBodySize(landing?.hero_subtitle_size))}>{heroSubtitle}</p>
           ) : null}
         </div>
-      </section>
+      </PlansLandingHeroBlock>
 
       {userPlan && (
         <div className="rounded-xl border border-border/60 bg-card p-4">
@@ -194,7 +181,7 @@ export default function Plans() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div id="planos" className="grid scroll-mt-24 grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
           const isCurrent = plan.type === userPlan?.plan_type;
           const isPopular = plan.type === "annual";

@@ -322,6 +322,9 @@ model PlansLandingConfig {
   /** Etiquetas da grelha de planos (moeda, secções, botões). Merge com defaults no servidor. */
   planDisplayLabels Json? @map("plan_display_labels")
 
+  /** Efeitos do hero: overlay, zoom, parallax, CTA, animação de entrada — merge com defaults no servidor. */
+  heroVisual Json? @map("hero_visual")
+
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("plans_landing_config")

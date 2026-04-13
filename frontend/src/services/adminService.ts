@@ -123,6 +123,7 @@ export const adminService = {
     footer_text_align?: string;
     footer_text_size?: string;
     plan_display_labels?: Record<string, string>;
+    hero_visual?: Record<string, unknown>;
   }) {
     return apiClient.patch<PlansLandingPublic & { ok?: boolean }>("/admin/plans-landing", body);
   },
