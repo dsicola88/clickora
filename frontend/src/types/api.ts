@@ -34,6 +34,8 @@ export interface Plan {
   features: string[];
   /** Se definido, texto do botão do cartão (sobreposta aos textos globais). */
   cta_label?: string | null;
+  /** Hotmart / checkout público; presente quando o servidor configurou URLs por plano. */
+  checkout_url?: string | null;
 }
 
 export interface Presell {

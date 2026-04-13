@@ -69,17 +69,23 @@ export const plansController = {
     const plans = await findManyPlansOrdered();
 
     res.json(
-      plans.map((p) => ({
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        price_cents: p.priceCents,
-        max_presell_pages: p.maxPresellPages,
-        max_clicks_per_month: p.maxClicksPerMonth,
-        has_branding: p.hasBranding,
-        features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
-        cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
-      })),
+      plans.map((p) => {
+        const external =
+          p.priceCents > 0 ? resolveExternalCheckoutUrl(p.id) : null;
+        return {
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          price_cents: p.priceCents,
+          max_presell_pages: p.maxPresellPages,
+          max_clicks_per_month: p.maxClicksPerMonth,
+          has_branding: p.hasBranding,
+          features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
+          cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
+          /** Checkout Hotmart (ou URL pública); visitante pode ir direto sem login — o webhook ativa a assinatura. */
+          checkout_url: external,
+        };
+      }),
     );
   },
 

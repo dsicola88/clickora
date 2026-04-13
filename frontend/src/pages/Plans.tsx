@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,6 +18,7 @@ import {
   LogIn,
   ShoppingBag,
   LayoutDashboard,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -98,18 +99,44 @@ export default function Plans() {
     },
   });
 
+  /** Primeiro plano pago com checkout — botão «Comprar» do topo vai direto à Hotmart. */
+  const primaryCheckoutUrl = useMemo(() => {
+    const paid = plans.find((p) => p.price_cents > 0 && p.checkout_url);
+    return paid?.checkout_url ?? null;
+  }, [plans]);
+
+  const checkoutHint =
+    "Será redirecionado para a página de compra. Após o pagamento aprovado, o acesso é ativado automaticamente — use o mesmo e-mail na Hotmart e na conta dclickora.";
+
   const handleSelectPlan = async (plan: Plan) => {
-    if (!user) {
-      toast.info("Entre na conta para escolher ou alterar o plano.");
-      navigate("/auth");
-      return;
-    }
-    if (plan.type === userPlan?.plan_type) {
+    if (user && plan.type === userPlan?.plan_type) {
       toast.info("Você já está neste plano.");
       return;
     }
+
+    if (plan.price_cents > 0 && plan.checkout_url) {
+      toast.info(checkoutHint, { duration: 9000 });
+      window.location.href = plan.checkout_url;
+      return;
+    }
+
+    if (!user) {
+      if (plan.price_cents === 0) {
+        toast.info("Crie uma conta ou entre para ativar o plano grátis.");
+        navigate("/auth");
+        return;
+      }
+      toast.error(
+        "Checkout ainda não está configurado no servidor (ex.: HOTMART_PRODUCT_URL ou HOTMART_PLAN_CHECKOUT_URLS).",
+      );
+      return;
+    }
+
     const { data, error } = await plansService.subscribe(plan.id);
-    if (error) { toast.error(error); return; }
+    if (error) {
+      toast.error(error);
+      return;
+    }
     if (data?.checkout_url) {
       if (data.message) toast.info(data.message);
       window.location.href = data.checkout_url;
@@ -158,7 +185,7 @@ export default function Plans() {
     extras.plans_section_subtitle?.trim() ??
     (salesDark
       ? "Escolha o melhor plano para você e transforme sua operação."
-      : "Escolha um plano para subscrever ou fazer upgrade. Precisa de uma conta para concluir — use «Entrar» acima ou o botão do cartão.");
+      : "Planos pagos: «Comprar» abre o checkout (ex. Hotmart). Use o mesmo e-mail na compra e na conta dclickora. Plano grátis: registe-se em «Entrar».");
 
   const mediaBlocks = extras.content_blocks ?? [];
   const sectionOrder = resolveSectionOrder(extras.section_order);
@@ -470,18 +497,30 @@ export default function Plans() {
         )}
       >
         <nav
-          className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-center gap-2 sm:gap-3"
+          className={cn(
+            "mx-auto grid w-full max-w-2xl grid-cols-1 gap-2 sm:gap-3",
+            user ? "sm:max-w-lg sm:grid-cols-2" : "sm:max-w-3xl sm:grid-cols-3",
+          )}
           aria-label="Ações da página"
         >
           <Button
             size="sm"
             className={cn(
-              "min-h-10 w-full min-w-[8rem] max-w-[min(100%,20rem)] gap-2 sm:w-auto sm:max-w-none",
+              "min-h-10 w-full gap-2 sm:min-w-0",
               salesDark && "bg-blue-600 text-white hover:bg-blue-700",
             )}
             asChild
           >
-            <a href="#planos" className="inline-flex items-center justify-center">
+            <a
+              href={primaryCheckoutUrl ?? "#planos"}
+              className="inline-flex items-center justify-center"
+              onClick={(e) => {
+                if (!primaryCheckoutUrl) return;
+                e.preventDefault();
+                toast.info(checkoutHint, { duration: 9000 });
+                window.location.href = primaryCheckoutUrl;
+              }}
+            >
               <ShoppingBag className="h-4 w-4 shrink-0" aria-hidden />
               Comprar
             </a>
@@ -491,7 +530,7 @@ export default function Plans() {
               variant="outline"
               size="sm"
               className={cn(
-                "min-h-10 w-full min-w-[8rem] max-w-[min(100%,20rem)] gap-2 border sm:w-auto sm:max-w-none",
+                "min-h-10 w-full gap-2 border sm:min-w-0",
                 salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
               )}
               asChild
@@ -502,20 +541,36 @@ export default function Plans() {
               </Link>
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                "min-h-10 w-full min-w-[8rem] max-w-[min(100%,20rem)] gap-2 sm:w-auto sm:max-w-none",
-                salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
-              )}
-              asChild
-            >
-              <Link to="/auth" className="inline-flex items-center justify-center">
-                <LogIn className="h-4 w-4 shrink-0" aria-hidden />
-                Entrar
-              </Link>
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={cn(
+                  "min-h-10 w-full gap-2 sm:min-w-0",
+                  salesDark && "border border-white/20 bg-white/10 text-white hover:bg-white/15",
+                )}
+                asChild
+              >
+                <Link to="/auth?trial=1" className="inline-flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
+                  Testar grátis
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "min-h-10 w-full gap-2 sm:min-w-0",
+                  salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
+                )}
+                asChild
+              >
+                <Link to="/auth" className="inline-flex items-center justify-center">
+                  <LogIn className="h-4 w-4 shrink-0" aria-hidden />
+                  Entrar
+                </Link>
+              </Button>
+            </>
           )}
         </nav>
       </div>

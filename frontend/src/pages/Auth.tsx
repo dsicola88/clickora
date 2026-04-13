@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/contexts/AuthContext";
@@ -150,7 +150,16 @@ function RecoveryFormComponent() {
 
 export default function Auth() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [searchParams] = useSearchParams();
+  const trialIntent =
+    searchParams.get("trial") === "1" ||
+    searchParams.get("intent") === "trial";
+
+  const [mode, setMode] = useState<AuthMode>(() => (trialIntent ? "register" : "login"));
+
+  useEffect(() => {
+    if (trialIntent) setMode("register");
+  }, [trialIntent]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -161,12 +170,15 @@ export default function Auth() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">
             {mode === "login" && "Entrar na sua conta"}
-            {mode === "register" && "Criar sua conta"}
+            {mode === "register" && (trialIntent ? "Começar o teste grátis" : "Criar sua conta")}
             {mode === "recovery" && "Recuperar senha"}
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 text-pretty max-w-sm mx-auto">
             {mode === "login" && "Acesse sua plataforma de tracking e presell"}
-            {mode === "register" && "Comece gratuitamente com o plano Free Trial"}
+            {mode === "register" &&
+              (trialIntent
+                ? "Crie a sua conta sem cartão. Depois, ative o plano Free Trial na página de planos."
+                : "Comece gratuitamente com o plano Free Trial")}
             {mode === "recovery" && "Enviaremos um link para redefinir sua senha"}
           </p>
         </div>
@@ -199,7 +211,16 @@ export default function Auth() {
                 </button>
                 <p className="text-muted-foreground">
                   Não tem conta?{" "}
-                  <button type="button" onClick={() => setMode("register")} className="text-primary hover:underline">Criar conta grátis</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate("/auth?trial=1", { replace: true });
+                      setMode("register");
+                    }}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Criar conta — teste grátis
+                  </button>
                 </p>
               </>
             )}
