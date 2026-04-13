@@ -297,7 +297,9 @@ export default function Integrations() {
                 <div>
                   <p className="font-semibold text-foreground">Notificações no telemóvel ou no computador</p>
                   <p className="text-sm text-muted-foreground">
-                    Aviso quando entra uma venda — sem precisar de abrir o Telegram.
+                    Aviso quando entra uma venda. No telemóvel <strong className="font-medium text-foreground/90">não precisa de
+                    instalar app nem ir às definições do sistema</strong> — só abre o dclickora no browser e usa os botões
+                    abaixo.
                   </p>
                 </div>
               </div>
@@ -323,18 +325,18 @@ export default function Integrations() {
                     <p className="text-sm font-medium text-foreground">Passos</p>
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-5 marker:text-foreground/80">
                       <li>
-                        Toque em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong> e
-                        aceite quando o browser pedir permissão para notificações.
+                        Toque em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong>. Se o
+                        browser perguntar, aceite as notificações — é só isso, não precisa de configurar o telemóvel noutro sítio.
                       </li>
                       <li>
                         Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>, deve
-                        receber um aviso (mesmo com o site minimizado).
+                        receber um aviso (mesmo com o site em segundo plano).
                       </li>
                       <li>
-                        Use <strong className="font-medium text-foreground/90">Testar</strong> para ver se chega. No{" "}
-                        <strong className="font-medium text-foreground/90">iPhone</strong> pode ser preciso adicionar o
-                        site ao ecrã inicial; no <strong className="font-medium text-foreground/90">Android</strong> costuma
-                        funcionar direto.
+                        Pode usar <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. Em alguns{" "}
+                        <strong className="font-medium text-foreground/90">iPhones</strong> o Safari só envia este tipo de aviso
+                        se tiver adicionado o site ao ecrã inicial — continua a ser só no browser, não nas definições gerais do
+                        telemóvel.
                       </li>
                     </ol>
                   </div>

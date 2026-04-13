@@ -351,8 +351,8 @@ export default function AdminPanel() {
                     </CardTitle>
                     <CardDescription>
                       {isSuperAdmin
-                        ? "Isto é feito uma vez no servidor. Depois, cada pessoa liga os alertas na sua própria conta, se quiser."
-                        : "A parte inicial é feita por quem gere o servidor (super administrador). Depois cada cliente usa o menu Integrações."}
+                        ? "Isto é feito uma vez no servidor. Depois, cada assinante só precisa de tocar em Ativar no site — no telemóvel não há app nem definições do sistema a configurar."
+                        : "A parte inicial é feita por quem gere o servidor (super administrador). Depois o assinante usa só o menu Integrações no site; no telemóvel não instala nada nem configura o aparelho."}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground space-y-3">
@@ -383,9 +383,10 @@ export default function AdminPanel() {
                             tudo a correr sem avisos sobre estas chaves em falta.
                           </li>
                           <li>
-                            <strong className="font-medium text-foreground">Utilizadores</strong>: em{" "}
-                            <span className="font-medium text-foreground">Tracking → Integrações</span>, secção sobre notificações
-                            no telemóvel, cada um ativa no seu dispositivo quando quiser.
+                            <strong className="font-medium text-foreground">Assinantes</strong>: em{" "}
+                            <span className="font-medium text-foreground">Tracking → Integrações</span> tocam em Ativar no
+                            browser (telefone ou PC). Não precisam de instalar app nem de ir às definições do telemóvel — só ao
+                            site.
                           </li>
                         </ol>
                         <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 space-y-2 text-xs leading-relaxed">
@@ -416,8 +417,9 @@ export default function AdminPanel() {
                           aqui. Quem trata do servidor (super administrador ou alguém da infra) faz a configuração inicial uma vez.
                         </p>
                         <p>
-                          <strong className="font-medium text-foreground">Depois:</strong> cada cliente ativa ou desativa nos seus{" "}
-                          <span className="font-medium text-foreground">Tracking → Integrações</span>, na sua conta.
+                          <strong className="font-medium text-foreground">Depois:</strong> cada assinante entra no site,{" "}
+                          <span className="font-medium text-foreground">Tracking → Integrações</span>, e toca em Ativar. No
+                          telemóvel não configura o aparelho — só o browser quando pedir permissão.
                         </p>
                       </div>
                     )}
