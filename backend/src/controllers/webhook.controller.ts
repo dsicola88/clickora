@@ -197,7 +197,7 @@ async function findOrCreateUser(
 function loginPageUrl(): string {
   const raw = process.env.FRONTEND_URL || process.env.APP_PUBLIC_URL || "http://localhost:8080";
   const base = raw.split(",")[0].trim().replace(/\/$/, "");
-  return `${base}/login`;
+  return `${base}/auth`;
 }
 
 async function sendHotmartWelcomeEmail(to: string, provisionalPassword: string): Promise<{ sent: boolean; reason?: string }> {
