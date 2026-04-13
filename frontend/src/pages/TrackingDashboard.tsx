@@ -17,7 +17,6 @@ import {
   Info,
   Globe,
   Building2,
-  ClipboardList,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -68,13 +67,10 @@ type DashboardGoogleGeoInput = {
 function DashboardGoogleGeoSection({
   dashboard,
   hideGoogleAdsBlock = false,
-  compact = false,
 }: {
   dashboard: DashboardGoogleGeoInput | null | undefined;
   /** Quando true, o bloco Google Ads não é repetido (já mostrado no topo). */
   hideGoogleAdsBlock?: boolean;
-  /** Textos mais curtos para assinantes (menos detalhe técnico). */
-  compact?: boolean;
 }) {
   const g = dashboard?.google_ads_metrics;
   const err = dashboard?.google_ads_metrics_error;
@@ -85,25 +81,16 @@ function DashboardGoogleGeoSection({
   if (!showGoogleBlock && !showGeo) return null;
 
   return (
-    <div className={cn("space-y-4", compact && "space-y-3")}>
+    <div className="space-y-4">
       {showGoogleBlock ? (
-        <div
-          className={cn(
-            "rounded-2xl border border-border/80 bg-card shadow-sm space-y-3",
-            compact ? "p-4 md:p-4" : "p-5 shadow-sm md:p-6",
-          )}
-        >
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-3">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
               <Target className="h-4 w-4" />
             </div>
             <div className="min-w-0 space-y-0.5">
               <h3 className="font-semibold text-card-foreground">Google Ads (conta)</h3>
-              {!compact ? (
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Métricas oficiais da conta Google Ads no mesmo período (API de relatórios).
-                </p>
-              ) : null}
+              <p className="text-[11px] text-muted-foreground leading-snug">Métricas da conta Google Ads neste período.</p>
             </div>
           </div>
           {err ? (
@@ -129,9 +116,7 @@ function DashboardGoogleGeoSection({
               </div>
             </dl>
           ) : !err && !canGoogle ? (
-            <p className="text-xs text-muted-foreground">
-              Define Customer ID e OAuth em Tracking → Google Ads para carregar métricas da rede.
-            </p>
+            <p className="text-xs text-muted-foreground">Configure Google Ads em Tracking → Integrações.</p>
           ) : !err && canGoogle && !g ? (
             <p className="text-xs text-muted-foreground">Sem dados da API para este período.</p>
           ) : null}
@@ -139,25 +124,14 @@ function DashboardGoogleGeoSection({
       ) : null}
 
       {showGeo ? (
-        <div
-          className={cn(
-            "rounded-2xl border border-border/80 bg-card space-y-3",
-            compact ? "p-4 md:p-4" : "p-5 shadow-sm md:p-6",
-          )}
-        >
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-3">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
               <Globe className="h-4 w-4" />
             </div>
             <div className="min-w-0 space-y-0.5">
               <h3 className="font-semibold text-card-foreground">Cliques por país</h3>
-              {!compact ? (
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Derivado do IP em cada clique (base GeoLite2 no servidor). IPs locais ou desconhecidos aparecem como Desconhecido.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">Origem aproximada por país.</p>
-              )}
+              <p className="text-[11px] text-muted-foreground leading-snug">País estimado por IP (se não houver dados: Desconhecido).</p>
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border border-border/60">
@@ -265,7 +239,6 @@ function DashboardHeroMetrics({
   onReset30,
   greeting,
   adminExtras,
-  compact = false,
 }: {
   dashboard: DashboardHeroInput | null | undefined;
   revenue: number;
@@ -277,13 +250,11 @@ function DashboardHeroMetrics({
   onReset30: () => void;
   greeting: string;
   adminExtras?: ReactNode;
-  /** Vista simplificada para assinantes (menos texto e sem bloco Google Ads). */
-  compact?: boolean;
 }) {
   const g = dashboard?.google_ads_metrics;
   const err = dashboard?.google_ads_metrics_error;
   const canGoogle = dashboard?.tracking_pipeline?.google_ads_metrics_available;
-  const showGoogleRow = !compact && (g != null || err || canGoogle);
+  const showGoogleRow = g != null || err || canGoogle;
 
   const salesCount = dashboard?.approved_sales_count ?? 0;
   const platformsCount = dashboard?.affiliate_platforms_count ?? 0;
@@ -307,22 +278,12 @@ function DashboardHeroMetrics({
   const statGridValue = "mt-0.5 text-lg font-semibold tabular-nums text-foreground sm:text-xl";
 
   return (
-    <section
-      className={cn(
-        "rounded-2xl border border-border/70 bg-card shadow-sm",
-        compact ? "p-4 md:p-5" : "p-5 md:p-7",
-      )}
-      aria-label="Resumo do período"
-    >
-      <div className={cn("flex flex-col lg:flex-row lg:items-start lg:justify-between", compact ? "gap-3" : "gap-4")}>
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7" aria-label="Resumo do período">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-1">
-          <h1 className={cn("font-bold tracking-tight text-foreground", compact ? "text-lg md:text-xl" : "text-xl md:text-2xl")}>
-            {greeting}
-          </h1>
-          <p className={cn("text-muted-foreground", compact ? "text-xs" : "text-sm")}>
-            {compact
-              ? "Números do período que escolheu abaixo."
-              : "Valor convertido, vendas e plataformas afiliadas, totais de rastreamento na presell e métricas Google Ads no período."}
+          <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{greeting}</h1>
+          <p className="text-sm text-muted-foreground">
+            Resumo do período: vendas, presell e Google Ads (se estiver ligado).
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:max-w-xl">
@@ -342,51 +303,35 @@ function DashboardHeroMetrics({
         </div>
       </div>
 
-      <div className={cn("border-t border-border/50", compact ? "mt-5 pt-5" : "mt-8 pt-8")}>
+      <div className="mt-8 border-t border-border/50 pt-8">
         <p className={statLabel}>Conversões (valor registado)</p>
-        <p
-          className={cn(
-            "mt-2 font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400",
-            compact ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl",
-          )}
-        >
+        <p className="mt-2 text-4xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 md:text-5xl">
           $ {revenue.toFixed(2)}
-          <span className={cn("font-normal text-muted-foreground", compact ? "text-lg md:text-xl" : "text-xl md:text-2xl")}>
-            {" "}
-            USD
-          </span>
+          <span className="text-xl font-normal text-muted-foreground md:text-2xl"> USD</span>
         </p>
-        <div className={cn("flex flex-wrap items-center gap-2", compact ? "mt-3" : "mt-4")}>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {periodLabel ? (
             <Badge variant="secondary" className="font-normal">
               {periodLabel}
             </Badge>
           ) : null}
-          {!compact ? (
-            <Button size="sm" className="gap-1.5 rounded-lg" asChild>
-              <Link to="/tracking/analytics">
-                Analytics
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          ) : null}
+          <Button size="sm" className="gap-1.5 rounded-lg" asChild>
+            <Link to="/tracking/analytics">
+              Analytics
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
         </div>
       </div>
 
-      <div className={cn("space-y-3", compact ? "mt-5" : "mt-8")}>
+      <div className="mt-8 space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Afiliados</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className={cn(statClass, "flex items-start justify-between gap-3")}>
             <div>
               <p className={statLabel}>Total de vendas</p>
               <p className={statValue}>{salesCount.toLocaleString()}</p>
-              {!compact ? (
-                <p className="mt-2 text-xs text-muted-foreground leading-snug">
-                  Conversões aprovadas registadas via postback das redes (mesmo período).
-                </p>
-              ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">Aprovadas pelas redes no período.</p>
-              )}
+              <p className="mt-2 text-xs text-muted-foreground leading-snug">Vendas confirmadas pelas redes (mesmo período).</p>
             </div>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <ShoppingCart className="h-5 w-5" />
@@ -396,13 +341,7 @@ function DashboardHeroMetrics({
             <div>
               <p className={statLabel}>Plataformas com conversão</p>
               <p className={statValue}>{platformsCount.toLocaleString()}</p>
-              {!compact ? (
-                <p className="mt-2 text-xs text-muted-foreground leading-snug">
-                  Redes de afiliado distintas que converteram (pelo menos uma venda).
-                </p>
-              ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">Quantas redes geraram venda.</p>
-              )}
+              <p className="mt-2 text-xs text-muted-foreground leading-snug">Quantas redes geraram pelo menos uma venda.</p>
             </div>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-700 dark:text-violet-300">
               <Building2 className="h-5 w-5" />
@@ -411,17 +350,9 @@ function DashboardHeroMetrics({
         </div>
       </div>
 
-      <div className={cn("space-y-2", compact ? "mt-5" : "mt-8")}>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {compact ? "Presell" : "Rastreamento (presell)"}
-        </p>
-        {!compact ? (
-          <p className="text-xs text-muted-foreground pb-1">
-            Impressões, cliques e conversões registados pelo script Clickora no mesmo período.
-          </p>
-        ) : (
-          <p className="text-[11px] text-muted-foreground pb-0.5">Impressões, cliques e conversões na página.</p>
-        )}
+      <div className="mt-8 space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Rastreamento (presell)</p>
+        <p className="text-xs text-muted-foreground pb-1">Impressões, cliques e conversões na presell (script Clickora).</p>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className={statGridClass}>
             <p className={statGridLabel}>Impressões</p>
@@ -443,16 +374,14 @@ function DashboardHeroMetrics({
       </div>
 
       {showGoogleRow ? (
-        <div className={cn("space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 md:p-5", compact ? "mt-5" : "mt-8")}>
+        <div className="mt-8 space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 md:p-5">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
               <Target className="h-4 w-4" />
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Google Ads (conta)</p>
-              <p className="text-[11px] text-muted-foreground">
-                Métricas oficiais da conta no período (API Google), incluindo custos e médias.
-              </p>
+              <p className="text-[11px] text-muted-foreground">Métricas da conta no período (custos e médias).</p>
             </div>
           </div>
           {err ? (
@@ -492,16 +421,14 @@ function DashboardHeroMetrics({
               </div>
             </dl>
           ) : !err && !canGoogle ? (
-            <p className="text-xs text-muted-foreground">
-              Configura Customer ID e OAuth em Tracking → Integrações → Google Ads para ver métricas da rede.
-            </p>
+            <p className="text-xs text-muted-foreground">Configure Google Ads em Tracking → Integrações.</p>
           ) : !err && canGoogle && !g ? (
             <p className="text-xs text-muted-foreground">Sem dados da API Google para este período.</p>
           ) : null}
         </div>
       ) : null}
 
-      {adminExtras ? <div className={cn("border-t border-border/50", compact ? "mt-5 pt-5" : "mt-8 pt-8")}>{adminExtras}</div> : null}
+      {adminExtras ? <div className="mt-8 border-t border-border/50 pt-8">{adminExtras}</div> : null}
     </section>
   );
 }
@@ -694,13 +621,13 @@ export default function TrackingDashboard() {
   const revenue = dashboard?.revenue ?? 0;
   const csvPlaceholder = dashboard ? "Atualize a API para obter o link com token." : "Carregando…";
 
-  /** Vista simples para assinantes: sem scripts, CSV, Google Ads nem avisos de servidor. */
+  /** Assinantes: mesmo resumo e atalhos; a secção técnica (script/CSV) só para admin abaixo. */
   if (!isAdmin) {
     const hasGeoRows = (dashboard?.clicks_by_country?.length ?? 0) > 0;
     const showDetailSection = chartData.length > 0 || hasGeoRows;
 
     return (
-      <div className={cn(APP_PAGE_SHELL, "space-y-5")}>
+      <div className={cn(APP_PAGE_SHELL, "space-y-8")}>
         <DashboardHeroMetrics
           dashboard={dashboard}
           revenue={revenue}
@@ -715,54 +642,54 @@ export default function TrackingDashboard() {
             setEndDate(r.end);
           }}
           greeting={firstName ? `Olá, ${firstName}` : "Bem-vindo"}
-          compact
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(
             [
+              { to: "/tracking/analytics", title: "Ver números", color: "from-primary/15 to-primary/5", icon: BarChart3 },
               { to: "/presell/dashboard", title: "Presells", color: "from-violet-500/15 to-violet-500/5", icon: LayoutDashboard },
+              { to: "/tracking/links", title: "Links de tracking", color: "from-emerald-500/15 to-emerald-500/5", icon: Link2 },
               { to: "/tracking/vendas", title: "Vendas", color: "from-amber-500/15 to-amber-500/5", icon: ShoppingCart },
-              { to: "/tracking/relatorios", title: "Relatórios", color: "from-primary/15 to-primary/5", icon: ClipboardList },
-              { to: "/tracking/links", title: "Links", color: "from-emerald-500/15 to-emerald-500/5", icon: Link2 },
             ] as const
           ).map((item) => (
             <Link
               key={item.to}
               to={item.to}
               className={cn(
-                "group relative overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md",
+                "group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md",
               )}
             >
               <div
                 className={cn(
-                  "mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br text-primary",
+                  "mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-primary",
                   item.color,
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-6 w-6" />
               </div>
-              <h3 className="text-sm font-semibold text-card-foreground group-hover:text-primary transition-colors">{item.title}</h3>
-              <ArrowRight className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-hover:translate-x-0.5" />
+              <h3 className="font-semibold text-card-foreground group-hover:text-primary transition-colors">{item.title}</h3>
+              <ArrowRight className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-hover:translate-x-0.5" />
             </Link>
           ))}
         </div>
 
         {showDetailSection ? (
           <section
-            className="space-y-4 rounded-xl border border-border/70 bg-card p-4 shadow-sm md:p-5"
+            className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
             aria-labelledby="tracking-detail-heading"
           >
-            <div className="border-b border-border/50 pb-3">
-              <h2 id="tracking-detail-heading" className="text-base font-semibold tracking-tight text-foreground">
-                Desempenho
+            <div className="space-y-1 border-b border-border/50 pb-4">
+              <h2 id="tracking-detail-heading" className="text-lg font-semibold tracking-tight text-foreground">
+                Evolução e geografia
               </h2>
+              <p className="text-sm text-muted-foreground">Gráfico diário e cliques por país.</p>
             </div>
-            <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock compact />
+            <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock />
             {chartData.length > 0 ? (
-              <div className="rounded-lg border border-border/60 bg-background/50 p-4 shadow-sm">
-                <h3 className="text-sm font-semibold text-card-foreground mb-3">Cliques e impressões</h3>
-                <div className="h-60">
+              <div className="rounded-xl border border-border/60 bg-background/50 p-5 shadow-sm md:p-6">
+                <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões</h3>
+                <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                       <defs>
@@ -1103,7 +1030,7 @@ export default function TrackingDashboard() {
             <h2 id="tracking-detail-heading-admin" className="text-lg font-semibold tracking-tight text-foreground">
               Evolução e geografia
             </h2>
-            <p className="text-sm text-muted-foreground">Tendência diária e cliques por país no período selecionado.</p>
+            <p className="text-sm text-muted-foreground">Gráfico diário e cliques por país.</p>
           </div>
           <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock />
           {chartData.length > 0 ? (

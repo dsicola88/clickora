@@ -57,14 +57,12 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const presellNavItemsAdmin: NavItem[] = [
+const presellNavItems: NavItem[] = [
   { title: "Minhas Presells", url: "/presell/dashboard", icon: FileText },
   { title: "Templates", url: "/presell/templates", icon: Sparkles },
 ];
 
-const presellNavItemsSubscriber: NavItem[] = [{ title: "Minhas Presells", url: "/presell/dashboard", icon: FileText }];
-
-const trackingNavItemsAdmin: NavItem[] = [
+const trackingNavItems: NavItem[] = [
   { title: "Resumo e guia", url: "/tracking/dashboard", icon: LayoutDashboard },
   { title: "Vendas / Funil", url: "/tracking/vendas", icon: ShoppingCart },
   { title: "Plataformas", url: "/tracking/plataformas", icon: Globe },
@@ -77,14 +75,6 @@ const trackingNavItemsAdmin: NavItem[] = [
   { title: "Integrações", url: "/tracking/integrations", icon: Plug },
   { title: "Configurações", url: "/tracking/settings", icon: Settings },
   { title: "Logs", url: "/tracking/logs", icon: ScrollText },
-];
-
-/** Menu curto para assinantes — sem ferramentas técnicas. */
-const trackingNavItemsSubscriber: NavItem[] = [
-  { title: "Resumo", url: "/tracking/dashboard", icon: LayoutDashboard },
-  { title: "Vendas", url: "/tracking/vendas", icon: ShoppingCart },
-  { title: "Relatórios", url: "/tracking/relatorios", icon: ClipboardList },
-  { title: "Links", url: "/tracking/links", icon: Link2 },
 ];
 
 function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
@@ -116,8 +106,6 @@ export function AppSidebar() {
   const location = useLocation();
   const path = location.pathname;
   const { user, isAdmin, userPlan, signOut } = useAuth();
-  const trackingNavItems = isAdmin ? trackingNavItemsAdmin : trackingNavItemsSubscriber;
-  const presellNavItems = isAdmin ? presellNavItemsAdmin : presellNavItemsSubscriber;
 
   const inPresell = path.startsWith("/presell");
   const inTracking = path.startsWith("/tracking");
@@ -153,14 +141,10 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={path === "/inicio"}
-                  tooltip={isAdmin ? "Escolher área" : "Início"}
-                >
+                <SidebarMenuButton asChild isActive={path === "/inicio"} tooltip="Escolher área">
                   <NavLink to="/inicio" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
                     <Home className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>{isAdmin ? "Escolher área" : "Início"}</span>}
+                    {!collapsed && <span>Escolher área</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

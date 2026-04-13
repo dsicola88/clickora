@@ -511,16 +511,7 @@ export default function PresellDashboard() {
               />
               <FieldError message={formErrors.productLink} />
               <p className="text-xs text-muted-foreground">
-                {isAdmin ? (
-                  <>
-                    Cole o URL público da oferta (ex.:{" "}
-                    <span className="text-foreground/80">theneotonics.com/.../text.php?aff_id=...</span>
-                    ). Não use localhost. Para páginas em inglês, selecione <span className="text-foreground/80">English</span>{" "}
-                    no idioma.
-                  </>
-                ) : (
-                  <>Cole o link público da oferta (não use localhost). Em inglês, escolha English no idioma.</>
-                )}
+                Link público da oferta (não use localhost). Página em inglês: escolha English no idioma.
               </p>
             </div>
 
@@ -892,7 +883,7 @@ export default function PresellDashboard() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title={isAdmin ? "Lista de páginas Presell" : "As suas páginas"}
+        title="Lista de páginas Presell"
         description={isAdmin ? "Gerencie, duplique e publique suas páginas em um único lugar." : undefined}
         actions={
           <Button onClick={() => setShowCreator(true)} className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
