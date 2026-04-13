@@ -207,7 +207,7 @@ export default function Integrations() {
       if (err) throw new Error(err);
       return data;
     },
-    onSuccess: () => toast.success("Se estiver subscrito, deve receber uma notificação de teste."),
+    onSuccess: () => toast.success("Se estiver tudo certo, deve aparecer uma notificação de teste."),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -224,7 +224,7 @@ export default function Integrations() {
       <PageHeader
         centered
         title="Integrações"
-        description="Ligue o dclickora a canais externos: Web Push no telemóvel, Telegram, upload CSV para o Google Ads e mais."
+        description="Ligue o dclickora a canais externos: alertas no telemóvel, Telegram, upload CSV para o Google Ads e mais."
       />
 
       <Accordion type="multiple" defaultValue={["google", "webpush", "telegram"]} className="space-y-4">
@@ -295,9 +295,9 @@ export default function Integrations() {
                   <Bell className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="font-semibold text-foreground">Notificações no telemóvel (Web Push)</p>
+                  <p className="font-semibold text-foreground">Notificações no telemóvel ou no computador</p>
                   <p className="text-sm text-muted-foreground">
-                    Alertas de nova conversão no browser — útil no Android/Chrome e no computador.
+                    Aviso quando entra uma venda — sem precisar de abrir o Telegram.
                   </p>
                 </div>
               </div>
@@ -308,41 +308,40 @@ export default function Integrations() {
                   <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
                 </div>
               ) : !webPush.configured ? (
-                <p className="text-sm text-muted-foreground">
-                  O servidor ainda não tem chaves VAPID configuradas. Quem gere o deploy da API deve definir{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PUBLIC_KEY</code> e{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PRIVATE_KEY</code> (gerar com{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">npx web-push generate-vapid-keys</code>
-                  ). Super administradores: checklist em{" "}
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Esta função ainda não está ligada no servidor (falta a configuração inicial das chaves). Quem gere a
+                  plataforma precisa de a fazer uma vez — quem for <strong className="font-medium text-foreground/90">super administrador</strong>{" "}
+                  encontra os passos em linguagem simples em{" "}
                   <Link to="/admin" className="font-medium text-primary hover:underline">
                     Painel do sistema → Visão geral
                   </Link>
-                  .
+                  , no cartão sobre alertas no telemóvel.
                 </p>
               ) : (
                 <>
                   <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-2">
-                    <p className="text-sm font-medium text-foreground">Como funciona</p>
+                    <p className="text-sm font-medium text-foreground">Passos</p>
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-5 marker:text-foreground/80">
                       <li>
-                        Clique em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong> e
-                        aceite as notificações do browser.
+                        Toque em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong> e
+                        aceite quando o browser pedir permissão para notificações.
                       </li>
                       <li>
-                        Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>{" "}
-                        (postback de afiliados), recebe um alerta mesmo com o separador em segundo plano.
+                        Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>, deve
+                        receber um aviso (mesmo com o site minimizado).
                       </li>
                       <li>
-                        Use <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. No{" "}
-                        <strong className="font-medium text-foreground/90">iPhone</strong>, o Safari só envia push se
-                        tiver adicionado o site ao ecrã inicial (PWA); no Android/Chrome costuma funcionar em HTTPS.
+                        Use <strong className="font-medium text-foreground/90">Testar</strong> para ver se chega. No{" "}
+                        <strong className="font-medium text-foreground/90">iPhone</strong> pode ser preciso adicionar o
+                        site ao ecrã inicial; no <strong className="font-medium text-foreground/90">Android</strong> costuma
+                        funcionar direto.
                       </li>
                     </ol>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Subscrições registadas:{" "}
-                    <span className="font-medium text-foreground">{webPush.subscription_count}</span> (cada browser /
-                    dispositivo conta uma).
+                    Aparelhos ligados nesta conta:{" "}
+                    <span className="font-medium text-foreground">{webPush.subscription_count}</span> (cada telemóvel ou
+                    computador conta à parte).
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button

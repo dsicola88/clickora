@@ -347,74 +347,77 @@ export default function AdminPanel() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Bell className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0" />
-                      Web Push (notificações de conversão)
+                      Alertas no telemóvel quando há uma venda
                     </CardTitle>
                     <CardDescription>
                       {isSuperAdmin
-                        ? "Configuração ao nível do servidor (instalação). Cada conta mantém as suas subscrições — isolamento por tenant."
-                        : "Resumo para a equipa. A ativação técnica no servidor é feita por quem gere o deploy (super administrador / infra)."}
+                        ? "Isto é feito uma vez no servidor. Depois, cada pessoa liga os alertas na sua própria conta, se quiser."
+                        : "A parte inicial é feita por quem gere o servidor (super administrador). Depois cada cliente usa o menu Integrações."}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground space-y-3">
                     {isSuperAdmin ? (
                       <>
-                        <p className="font-medium text-foreground/90">Super administrador — como ativar na instalação</p>
-                        <ol className="list-decimal pl-5 space-y-2 marker:text-foreground/70">
+                        <p className="text-foreground/90">
+                          Como <strong className="font-medium text-foreground">super administrador</strong>, o que precisa de saber
+                          é: o sistema precisa de duas &quot;chaves&quot; guardadas no sítio onde corre a API (Railway ou similar),
+                          igual a quando se colocam outras palavras-passe de serviço. Sem isso, o botão nas Integrações não consegue
+                          enviar notificações — com isso, funciona para toda a plataforma.
+                        </p>
+                        <ol className="list-decimal pl-5 space-y-2.5 marker:text-foreground/70 text-foreground/85">
                           <li>
-                            Aplicar a migração Prisma na base de dados (tabela{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">web_push_subscriptions</code>
-                            ).
+                            <strong className="font-medium text-foreground">Atualizar a base de dados</strong> no próximo arranque
+                            da API (o mesmo processo que já usam quando há alterações à base — deploy normal).
                           </li>
                           <li>
-                            Gerar um par de chaves VAPID (na máquina local ou CI):{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">
-                              npx web-push generate-vapid-keys
-                            </code>
-                            .
+                            <strong className="font-medium text-foreground">Obter o par de chaves</strong> — a equipa técnica gera
+                            dois textos longos (público e privado). O privado é secreto, como uma palavra-passe.
                           </li>
                           <li>
-                            No serviço da API (ex.: Railway), definir variáveis de ambiente:{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">VAPID_PUBLIC_KEY</code>,{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">VAPID_PRIVATE_KEY</code>{" "}
-                            e, recomendado,{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground/90">VAPID_SUBJECT</code> com um
-                            contacto <code className="rounded bg-muted px-1 py-0.5 text-xs">mailto:…</code> (exigência dos serviços de
-                            push).
+                            <strong className="font-medium text-foreground">Colar no painel do servidor</strong> da API, nas
+                            variáveis com nomes que a documentação do projecto indica (chaves público/privado e um e-mail de
+                            contacto em formato mailto).
                           </li>
-                          <li>Fazer redeploy da API e verificar que os logs não mostram o aviso de VAPID em falta.</li>
                           <li>
-                            Os <strong className="font-medium text-foreground/90">utilizadores finais</strong> ativam no próprio
-                            workspace: <span className="font-medium text-foreground/90">Tracking → Integrações → Web Push</span>.
+                            <strong className="font-medium text-foreground">Publicar de novo</strong> a API e confirmar que está
+                            tudo a correr sem avisos sobre estas chaves em falta.
+                          </li>
+                          <li>
+                            <strong className="font-medium text-foreground">Utilizadores</strong>: em{" "}
+                            <span className="font-medium text-foreground">Tracking → Integrações</span>, secção sobre notificações
+                            no telemóvel, cada um ativa no seu dispositivo quando quiser.
                           </li>
                         </ol>
-                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 space-y-1.5 text-xs">
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 space-y-2 text-xs leading-relaxed">
                           <p>
-                            <span className="font-medium text-foreground/90">Multi-tenant:</span> a mesma chave VAPID serve toda a
-                            plataforma; cada linha de subscrição na BD está ligada ao{" "}
-                            <code className="rounded bg-muted px-1 py-0.5">user_id</code> do dono. Notificações de conversão só são
-                            enviadas para subscrições desse utilizador — não há mistura entre contas.
+                            <strong className="text-foreground/90">Privacidade entre contas:</strong> cada utilizador só recebe
+                            alertas das suas próprias vendas. Uma conta nunca vê notificações de outra.
                           </p>
                           <p>
-                            <span className="font-medium text-foreground/90">Segurança:</span> nunca commitar a chave privada nem a
-                            expor no frontend; rodar sempre em HTTPS em produção (o Web Push exige contexto seguro, excepto
-                            localhost).
+                            <strong className="text-foreground/90">Cuidado:</strong> não partilhe a chave privada nem a coloque no
+                            site visível ao público. O site em produção deve abrir em HTTPS (cadeado no browser).
+                          </p>
+                          <p className="text-muted-foreground/90 pt-1 border-t border-border/50">
+                            <span className="font-medium text-foreground/80">Detalhe para quem usa terminal:</span> gerar chaves com{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-[11px]">npx web-push generate-vapid-keys</code> e
+                            copiar para as variáveis de ambiente da API (nomes no ficheiro{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-[11px]">.env.example</code> do backend).
                           </p>
                         </div>
                       </>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-2.5 text-foreground/85">
                         <p>
-                          <span className="font-medium text-foreground/90">Administrador:</span> não precisa de chaves no painel —
-                          o Web Push depende das variáveis VAPID no <strong className="font-medium text-foreground/90">servidor da API</strong>.
+                          <strong className="font-medium text-foreground">O que é isto?</strong> Permite que um afiliado receba um
+                          aviso no telemóvel ou no computador quando regista uma venda, sem abrir o Telegram.
                         </p>
                         <p>
-                          Peça a um <strong className="font-medium text-foreground/90">super administrador</strong> (ou à equipa de
-                          infra) para configurar <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PUBLIC_KEY</code> e{" "}
-                          <code className="rounded bg-muted px-1 py-0.5 text-xs">VAPID_PRIVATE_KEY</code> após a migração da BD.
+                          <strong className="font-medium text-foreground">O seu papel:</strong> não precisa de configurar nada técnico
+                          aqui. Quem trata do servidor (super administrador ou alguém da infra) faz a configuração inicial uma vez.
                         </p>
                         <p>
-                          Depois de ativo, cada assinante gere as suas notificações em{" "}
-                          <span className="font-medium text-foreground/90">Tracking → Integrações</span>, no seu próprio espaço.
+                          <strong className="font-medium text-foreground">Depois:</strong> cada cliente ativa ou desativa nos seus{" "}
+                          <span className="font-medium text-foreground">Tracking → Integrações</span>, na sua conta.
                         </p>
                       </div>
                     )}
