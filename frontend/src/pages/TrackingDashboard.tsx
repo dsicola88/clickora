@@ -17,6 +17,7 @@ import {
   Info,
   Globe,
   Building2,
+  ChevronDown,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,10 @@ import { integrationsService } from "@/services/integrationsService";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
+const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
+const GOOGLE_ADS_OAUTH_DOC = "https://developers.google.com/google-ads/api/docs/oauth/overview";
 
 /** Data local (YYYY-MM-DD) — evita deslocar o dia/ano vs UTC em <input type="date">. */
 function formatDateInput(d: Date): string {
@@ -49,6 +54,226 @@ function defaultDateRange(): { start: string; end: string } {
   const start = new Date(end);
   start.setDate(start.getDate() - 30);
   return { start: formatDateInput(start), end: formatDateInput(end) };
+}
+
+type GoogleAdsQueryData = {
+  google_ads_enabled: boolean;
+  google_ads_customer_id: string;
+  google_ads_conversion_action_id: string;
+  google_ads_login_customer_id: string;
+  has_refresh_token: boolean;
+  api_env_configured: boolean;
+  can_upload: boolean;
+};
+
+function GoogleAdsConversionUploadCard({
+  googleAds,
+  gaEnabled,
+  setGaEnabled,
+  gaCustomerId,
+  setGaCustomerId,
+  gaActionId,
+  setGaActionId,
+  gaLoginMcc,
+  setGaLoginMcc,
+  gaRefresh,
+  setGaRefresh,
+  saveGoogleAds,
+}: {
+  googleAds: GoogleAdsQueryData | undefined;
+  gaEnabled: boolean;
+  setGaEnabled: (v: boolean) => void;
+  gaCustomerId: string;
+  setGaCustomerId: (v: string) => void;
+  gaActionId: string;
+  setGaActionId: (v: string) => void;
+  gaLoginMcc: string;
+  setGaLoginMcc: (v: string) => void;
+  gaRefresh: string;
+  setGaRefresh: (v: string) => void;
+  saveGoogleAds: { mutate: () => void; isPending: boolean };
+}) {
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-300">
+          <Target className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-semibold text-card-foreground">Google Ads</h3>
+          <p className="text-xs text-muted-foreground">
+            Envio automático de conversões offline (API de upload de cliques) após venda aprovada no webhook de afiliados.
+          </p>
+        </div>
+      </div>
+
+      <Collapsible className="rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 py-2">
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md py-1.5 text-left text-sm font-medium text-foreground hover:opacity-90 [&[data-state=open]>svg]:rotate-180">
+          <span className="inline-flex items-center gap-2">
+            <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+            Como funciona o envio automático
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-blue-500/15 mt-2">
+            Com anúncios bem configurados e script na presell, o Google envia <span className="font-mono text-[11px]">gclid</span> no clique; quando a
+            rede confirma a venda, o dclickora pode registar a conversão na sua conta Google Ads. Detalhe técnico:{" "}
+            <a
+              href={GOOGLE_ADS_OAUTH_DOC}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/90"
+            >
+              OAuth na Google Ads API
+            </a>
+            .
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-3 space-y-2 text-xs text-muted-foreground">
+        <p className="font-semibold text-foreground text-sm">Conta simples vs conta gestora (MCC)</p>
+        <ul className="space-y-2 leading-relaxed list-disc list-inside">
+          <li>
+            <strong className="text-foreground/90">Conta simples:</strong> em <strong className="text-foreground/90">Customer ID</strong> cola o ID da
+            própria conta Google Ads (10 dígitos). Deixa <strong className="text-foreground/90">Login customer ID</strong> vazio. O OAuth (refresh token)
+            deve ser da mesma conta.
+          </li>
+          <li>
+            <strong className="text-foreground/90">Via MCC:</strong> <strong className="text-foreground/90">Customer ID</strong> é sempre o da{" "}
+            <em>conta cliente</em> onde está a campanha e a ação de conversão. Em <strong className="text-foreground/90">Login customer ID</strong> cola o
+            ID da <em>conta gestora</em> com que o OAuth entra. O refresh token deve ter acesso a essa gestão.
+          </li>
+        </ul>
+        <p className="text-[11px] pt-1 border-t border-border/50">
+          <strong className="text-foreground/90">Importante:</strong> o MCC deve ser configurado aqui por perfil — não depender de variáveis globais no
+          servidor para contas mistas, para o envio não falhar em contas diretas.
+        </p>
+      </div>
+
+      {!googleAds?.api_env_configured && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
+          Variáveis <span className="font-mono">GOOGLE_ADS_DEVELOPER_TOKEN</span>, <span className="font-mono">CLIENT_ID</span> e{" "}
+          <span className="font-mono">CLIENT_SECRET</span> são obrigatórias no servidor; o refresh pode vir do utilizador abaixo ou de{" "}
+          <span className="font-mono">GOOGLE_ADS_REFRESH_TOKEN</span> no ambiente.
+        </p>
+      )}
+      <div className="flex items-center gap-3">
+        <Switch id="ga-enabled" checked={gaEnabled} onCheckedChange={setGaEnabled} />
+        <Label htmlFor="ga-enabled" className="text-sm cursor-pointer">
+          Ativar envio após venda aprovada
+        </Label>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Customer ID</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Conta Google Ads onde criaste a ação de conversão (10 dígitos, só números). Em MCC: conta <em>cliente</em>, não a gestora.
+          </p>
+          <Input
+            value={gaCustomerId}
+            onChange={(e) => setGaCustomerId(e.target.value)}
+            placeholder="1234567890"
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">ID da ação de conversão</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            ID numérico da ação (Ferramentas → Conversões). Deve ser compatível com <strong className="text-foreground/90">conversões offline / importação por clique</strong> (gclid).
+          </p>
+          <Input
+            value={gaActionId}
+            onChange={(e) => setGaActionId(e.target.value)}
+            placeholder="número em Ferramentas → Conversões"
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Login customer ID (MCC, opcional)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Só se o acesso à API for através de uma conta gestora. Vazio = OAuth da própria conta em Customer ID.
+          </p>
+          <Input
+            value={gaLoginMcc}
+            onChange={(e) => setGaLoginMcc(e.target.value)}
+            placeholder="ID da conta gestora (10 dígitos) ou vazio"
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Refresh token OAuth (opcional)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Liga a sua conta Google Ads a este envio. Deixe vazio para manter o token já guardado.
+          </p>
+          <Input
+            type="password"
+            value={gaRefresh}
+            onChange={(e) => setGaRefresh(e.target.value)}
+            placeholder="Cole o refresh token ou deixe vazio"
+            className="font-mono text-xs"
+          />
+          <Collapsible className="rounded-md border border-border/60 bg-muted/30">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-medium text-foreground hover:bg-muted/50 [&[data-state=open]>svg]:rotate-180">
+              Onde obtenho o refresh token?
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-2 border-t border-border/50 px-3 pb-3 pt-2 text-[11px] text-muted-foreground leading-relaxed">
+                <p>
+                  <strong className="text-foreground/90">Uma vez só</strong>, com a <strong className="text-foreground/90">mesma conta Google</strong>{" "}
+                  que usa no Google Ads.
+                </p>
+                <p>
+                  Abra a{" "}
+                  <a
+                    href={GOOGLE_OAUTH_PLAYGROUND}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/90"
+                  >
+                    OAuth 2.0 Playground
+                  </a>
+                  {" "}
+                  da Google. Nas definições (engrenagem), ative o uso do seu Client ID e Secret — use os da <strong className="text-foreground/90">dclickora</strong>{" "}
+                  (o suporte pode enviar-lhos se precisar).
+                </p>
+                <p>
+                  Escolha o âmbito <span className="font-mono text-[10px]">…/auth/adwords</span> (Google Ads API), autorize, troque o código por tokens e copie o{" "}
+                  <strong className="text-foreground/90">Refresh token</strong> para o campo acima. Guarde nesta página.
+                </p>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" onClick={() => saveGoogleAds.mutate()} disabled={saveGoogleAds.isPending} className="gap-2">
+          {saveGoogleAds.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Guardar Google Ads
+        </Button>
+        {googleAds?.can_upload ? (
+          <Badge variant="secondary" className="font-normal">
+            Pronto para enviar
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            Configuração incompleta
+          </Badge>
+        )}
+        {googleAds?.has_refresh_token ? (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            Refresh token OK
+          </Badge>
+        ) : null}
+      </div>
+      <p className="text-[11px] text-muted-foreground leading-snug">
+        <strong className="text-foreground/90">Pronto para enviar</strong> quando o envio está ligado, os IDs estão corretos e existe refresh token (seu ou do
+        servidor), com a API configurada no backend.
+      </p>
+    </div>
+  );
 }
 
 /** Nome do país (ISO 3166-1 alpha-2) para o painel. */
@@ -116,7 +341,9 @@ function DashboardGoogleGeoSection({
               </div>
             </dl>
           ) : !err && !canGoogle ? (
-            <p className="text-xs text-muted-foreground">Configure Google Ads em Tracking → Integrações.</p>
+            <p className="text-xs text-muted-foreground">
+              Configure o envio no bloco Google Ads em Meu rastreamento ou a importação CSV em Integrações.
+            </p>
           ) : !err && canGoogle && !g ? (
             <p className="text-xs text-muted-foreground">Sem dados da API para este período.</p>
           ) : null}
@@ -515,7 +742,9 @@ function DashboardHeroMetrics({
               </div>
             </dl>
           ) : !err && !canGoogle ? (
-            <p className="text-xs text-muted-foreground">Configure Google Ads em Tracking → Integrações.</p>
+            <p className="text-xs text-muted-foreground">
+              Configure o envio no bloco Google Ads em Meu rastreamento ou a importação CSV em Integrações.
+            </p>
           ) : !err && canGoogle && !g ? (
             <p className="text-xs text-muted-foreground">Sem dados da API Google para este período.</p>
           ) : null}
@@ -569,7 +798,6 @@ export default function TrackingDashboard() {
 
   const { data: googleAds } = useQuery({
     queryKey: ["integrations-google-ads"],
-    enabled: isAdmin,
     queryFn: async () => {
       const { data, error: err } = await integrationsService.getGoogleAdsSettings();
       if (err) throw new Error(err);
@@ -579,13 +807,13 @@ export default function TrackingDashboard() {
   });
 
   useEffect(() => {
-    if (!isAdmin || !googleAds) return;
+    if (!googleAds) return;
     setGaEnabled(googleAds.google_ads_enabled);
     setGaCustomerId(googleAds.google_ads_customer_id);
     setGaActionId(googleAds.google_ads_conversion_action_id);
     setGaLoginMcc(googleAds.google_ads_login_customer_id);
     setGaRefresh("");
-  }, [isAdmin, googleAds]);
+  }, [googleAds]);
 
   const saveGoogleAds = useMutation({
     mutationFn: async () => {
@@ -715,7 +943,7 @@ export default function TrackingDashboard() {
   const revenue = dashboard?.revenue ?? 0;
   const csvPlaceholder = dashboard ? "Atualize a API para obter o link com token." : "Carregando…";
 
-  /** Assinantes: mesmo resumo, atalhos, script/CSV e gráficos; guia longa e painel Google Ads só para admin. */
+  /** Assinantes: mesmo resumo, atalhos, script/CSV, envio Google Ads (API) e gráficos; guia longa só para admin. */
   if (!isAdmin) {
     const hasGeoRows = (dashboard?.clicks_by_country?.length ?? 0) > 0;
     const showDetailSection = chartData.length > 0 || hasGeoRows;
@@ -798,6 +1026,21 @@ export default function TrackingDashboard() {
             showTechnicalNotes={false}
           />
         </section>
+
+        <GoogleAdsConversionUploadCard
+          googleAds={googleAds}
+          gaEnabled={gaEnabled}
+          setGaEnabled={setGaEnabled}
+          gaCustomerId={gaCustomerId}
+          setGaCustomerId={setGaCustomerId}
+          gaActionId={gaActionId}
+          setGaActionId={setGaActionId}
+          gaLoginMcc={gaLoginMcc}
+          setGaLoginMcc={setGaLoginMcc}
+          gaRefresh={gaRefresh}
+          setGaRefresh={setGaRefresh}
+          saveGoogleAds={saveGoogleAds}
+        />
 
         {showDetailSection ? (
           <section
@@ -957,151 +1200,20 @@ export default function TrackingDashboard() {
           showTechnicalNotes
         />
 
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-300">
-              <Target className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <h3 className="font-semibold text-card-foreground">Google Ads</h3>
-              <p className="text-xs text-muted-foreground">
-                Envio automático de conversões offline (API de upload de cliques) após venda aprovada no webhook de afiliados.
-              </p>
-            </div>
-          </div>
-
-          <Alert className="border-blue-500/25 bg-blue-500/[0.06] px-3 py-3">
-            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertTitle className="text-sm text-foreground">Como é feito</AlertTitle>
-            <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-              <ol className="list-decimal list-inside space-y-1.5 mt-2">
-                <li>
-                  O tráfego pago traz <span className="font-mono text-[11px]">gclid</span> (ou <span className="font-mono text-[11px]">gbraid</span>/
-                  <span className="font-mono text-[11px]">wbraid</span>) até à presell e o clique no CTA regista esse ID no servidor.
-                </li>
-                <li>
-                  A rede de afiliados devolve o postback com o mesmo UUID de clique (<span className="font-mono text-[11px]">clickora_click_id</span> / subids).
-                </li>
-                <li>
-                  O dclickora valida o clique, cria a conversão e chama a <strong className="text-foreground/90">Google Ads API</strong>{" "}
-                  (<span className="font-mono text-[11px]">uploadClickConversions</span>) com o ID de clique do Google e o valor da venda.
-                </li>
-                <li>
-                  O estado fica registado na conversão (enviado ou falha); erros parciais da API são tratados e guardados para diagnóstico.
-                </li>
-              </ol>
-            </AlertDescription>
-          </Alert>
-
-          <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-3 space-y-2 text-xs text-muted-foreground">
-            <p className="font-semibold text-foreground text-sm">Conta simples vs conta gestora (MCC)</p>
-            <ul className="space-y-2 leading-relaxed list-disc list-inside">
-              <li>
-                <strong className="text-foreground/90">Conta simples:</strong> em <strong className="text-foreground/90">Customer ID</strong> cola o ID da
-                própria conta Google Ads (10 dígitos). Deixa <strong className="text-foreground/90">Login customer ID</strong> vazio. O OAuth (refresh token)
-                deve ser da mesma conta.
-              </li>
-              <li>
-                <strong className="text-foreground/90">Via MCC:</strong> <strong className="text-foreground/90">Customer ID</strong> é sempre o da{" "}
-                <em>conta cliente</em> onde está a campanha e a ação de conversão. Em <strong className="text-foreground/90">Login customer ID</strong> cola o
-                ID da <em>conta gestora</em> com que o OAuth entra. O refresh token deve ter acesso a essa gestão.
-              </li>
-            </ul>
-            <p className="text-[11px] pt-1 border-t border-border/50">
-              <strong className="text-foreground/90">Importante:</strong> o MCC deve ser configurado aqui por perfil — não depender de variáveis globais no
-              servidor para contas mistas, para o envio não falhar em contas diretas.
-            </p>
-          </div>
-
-          {!googleAds?.api_env_configured && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
-              Variáveis <span className="font-mono">GOOGLE_ADS_DEVELOPER_TOKEN</span>, <span className="font-mono">CLIENT_ID</span> e{" "}
-              <span className="font-mono">CLIENT_SECRET</span> são obrigatórias no servidor; o refresh pode vir do utilizador abaixo ou de{" "}
-              <span className="font-mono">GOOGLE_ADS_REFRESH_TOKEN</span> no ambiente.
-            </p>
-          )}
-          <div className="flex items-center gap-3">
-            <Switch id="ga-enabled" checked={gaEnabled} onCheckedChange={setGaEnabled} />
-            <Label htmlFor="ga-enabled" className="text-sm cursor-pointer">
-              Ativar envio após venda aprovada
-            </Label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Customer ID</Label>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Conta Google Ads onde criaste a ação de conversão (10 dígitos, só números). Em MCC: conta <em>cliente</em>, não a gestora.
-              </p>
-              <Input
-                value={gaCustomerId}
-                onChange={(e) => setGaCustomerId(e.target.value)}
-                placeholder="1234567890"
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">ID da ação de conversão</Label>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                ID numérico da ação (Ferramentas → Conversões). Deve ser compatível com <strong className="text-foreground/90">conversões offline / importação por clique</strong> (gclid).
-              </p>
-              <Input
-                value={gaActionId}
-                onChange={(e) => setGaActionId(e.target.value)}
-                placeholder="número em Ferramentas → Conversões"
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Login customer ID (MCC, opcional)</Label>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Só se o acesso à API for através de uma conta gestora. Vazio = OAuth da própria conta em Customer ID.
-              </p>
-              <Input
-                value={gaLoginMcc}
-                onChange={(e) => setGaLoginMcc(e.target.value)}
-                placeholder="ID da conta gestora (10 dígitos) ou vazio"
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Refresh token OAuth (opcional)</Label>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Credencial OAuth com âmbito Google Ads. Em branco mantém o token já guardado; preenche para ligar ou atualizar esta conta.
-              </p>
-              <Input
-                type="password"
-                value={gaRefresh}
-                onChange={(e) => setGaRefresh(e.target.value)}
-                placeholder="vazio = não alterar; cola o token OAuth desta conta"
-                className="font-mono text-xs"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" onClick={() => saveGoogleAds.mutate()} disabled={saveGoogleAds.isPending} className="gap-2">
-              {saveGoogleAds.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Guardar Google Ads
-            </Button>
-            {googleAds?.can_upload ? (
-              <Badge variant="secondary" className="font-normal">
-                Pronto para enviar
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="font-normal text-muted-foreground">
-                Configuração incompleta
-              </Badge>
-            )}
-            {googleAds?.has_refresh_token ? (
-              <Badge variant="outline" className="font-normal text-muted-foreground">
-                Refresh token OK
-              </Badge>
-            ) : null}
-          </div>
-          <p className="text-[11px] text-muted-foreground leading-snug">
-            O estado <strong className="text-foreground/90">Pronto para enviar</strong> exige integração ativa, customer e ação de conversão, refresh token
-            (utilizador ou servidor) e credenciais API no backend.
-          </p>
-        </div>
+        <GoogleAdsConversionUploadCard
+          googleAds={googleAds}
+          gaEnabled={gaEnabled}
+          setGaEnabled={setGaEnabled}
+          gaCustomerId={gaCustomerId}
+          setGaCustomerId={setGaCustomerId}
+          gaActionId={gaActionId}
+          setGaActionId={setGaActionId}
+          gaLoginMcc={gaLoginMcc}
+          setGaLoginMcc={setGaLoginMcc}
+          gaRefresh={gaRefresh}
+          setGaRefresh={setGaRefresh}
+          saveGoogleAds={saveGoogleAds}
+        />
       </section>
 
       {showDetailSectionAdmin ? (
