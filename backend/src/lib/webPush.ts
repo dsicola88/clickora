@@ -58,9 +58,19 @@ function readVapidKeysFromJsonBundle(): { public: string; private: string } | nu
     const o = JSON.parse(cleaned) as Record<string, unknown>;
     const pub = o.public ?? o.publicKey;
     const priv = o.private ?? o.privateKey;
-    if (typeof pub === "string" && typeof priv === "string" && pub.trim() && priv.trim()) {
-      return { public: pub.trim(), private: priv.trim() };
+    const pubStr = typeof pub === "string" ? pub.trim() : "";
+    const privStr = typeof priv === "string" ? priv.trim() : "";
+    // Permite só {"private":"..."} se VAPID_PUBLIC_KEY já estiver noutra variável (Railway).
+    const mergedPub = pubStr || stripVapidEnvValue(readVapidPublicRaw()) || "";
+    const mergedPriv = privStr || stripVapidEnvValue(readVapidPrivateRaw()) || "";
+    if (mergedPub && mergedPriv) {
+      return { public: mergedPub, private: mergedPriv };
     }
+    console.warn("[web-push] VAPID_KEYS_JSON parseado mas falta public ou private (após merge com env).", {
+      jsonKeys: Object.keys(o),
+      mergedPublicLen: mergedPub.length,
+      mergedPrivateLen: mergedPriv.length,
+    });
   } catch (e) {
     console.warn("[web-push] VAPID_KEYS_JSON inválido (esperado JSON com public e private).", e);
   }
@@ -122,6 +132,8 @@ export function initWebPushFromEnv(): void {
     const rawPub = readVapidPublicRaw();
     const bundle = readVapidKeysFromJsonBundle();
     const vapidNames = Object.keys(process.env).filter((k) => k.toUpperCase().includes("VAPID"));
+    const rawJson = envValueForKey("VAPID_KEYS_JSON");
+    const jsonStrippedLen = rawJson != null ? stripVapidEnvValue(rawJson).length : 0;
     console.warn(
       "[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes ou vazias após limpeza — notificações push desativadas.",
       {
@@ -131,9 +143,12 @@ export function initWebPushFromEnv(): void {
         rawPrivateDefined: rawPriv !== undefined,
         rawPublicLen: rawPub?.length ?? 0,
         rawPrivateLen: rawPriv?.length ?? 0,
-        hasVapidKeysJson: envValueForKey("VAPID_KEYS_JSON") !== undefined,
+        hasVapidKeysJson: rawJson !== undefined,
+        vapidKeysJsonStrippedLen: jsonStrippedLen,
         vapidKeysJsonValid: Boolean(bundle),
         envKeysContainingVapid: vapidNames,
+        hint:
+          "No serviço da API (clickora): defina VAPID_PRIVATE_KEY ou VAPID_KEYS_JSON com JSON válido numa linha, ex.: {\"public\":\"...\",\"private\":\"...\"} ou só {\"private\":\"...\"} se VAPID_PUBLIC_KEY já existir. Redeploy.",
       },
     );
     return;
