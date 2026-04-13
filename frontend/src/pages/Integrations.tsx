@@ -240,9 +240,8 @@ export default function Integrations() {
                 <div>
                   <p className="font-semibold text-foreground">Notificações no telemóvel ou no computador</p>
                   <p className="text-sm text-muted-foreground">
-                    Aviso quando entra uma venda. No telemóvel <strong className="font-medium text-foreground/90">não precisa de
-                    instalar app nem ir às definições do sistema</strong> — só abre o dclickora no browser e usa os botões
-                    abaixo.
+                    Aviso quando entra uma venda — <strong className="font-medium text-foreground/90">no computador ou no
+                    telemóvel</strong> (Chrome, Edge, Safari…). Não precisa de instalar app: use o browser e os botões abaixo.
                   </p>
                 </div>
               </div>
@@ -277,11 +276,15 @@ export default function Integrations() {
                     <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2.5 text-sm text-muted-foreground leading-relaxed">
                       {isSuperAdmin ? (
                         <>
-                          Ainda não está ligado no servidor. Veja o que falta em{" "}
+                          A API ainda não reconhece o Web Push (chaves no servidor ou formato). Confirme no Railway: variáveis
+                          no <strong className="font-medium text-foreground/90">serviço da API</strong>,{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_SUBJECT</code> como um único e-mail (
+                          ex. <code className="rounded bg-muted px-1 py-0.5 text-[11px]">mailto:seuemail@gmail.com</code> — sem dois
+                          @). Depois faça <strong className="font-medium text-foreground/90">Redeploy</strong>. Mais pormenores:{" "}
                           <Link to="/admin" className="font-medium text-primary hover:underline">
                             Painel do sistema → Visão geral
-                          </Link>{" "}
-                          (cartão sobre alertas no telemóvel). Os botões abaixo ficam ativos depois de configurar a API.
+                          </Link>
+                          .
                         </>
                       ) : (
                         <>

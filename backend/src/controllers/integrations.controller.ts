@@ -21,7 +21,12 @@ import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
 import { notifyWebPushConversion } from "../lib/webPushNotifications";
-import { getVapidPublicKeyFromEnv, isWebPushConfigured, sendWebPushToUser } from "../lib/webPush";
+import {
+  ensureWebPushFromEnv,
+  getVapidPublicKeyFromEnv,
+  isWebPushConfigured,
+  sendWebPushToUser,
+} from "../lib/webPush";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -479,6 +484,7 @@ export const integrationsController = {
 
   /** Estado Web Push só para o tenant do JWT (nunca cruza contas). */
   async getWebPushConfig(req: Request, res: Response) {
+    ensureWebPushFromEnv();
     const userId = req.user!.userId;
     const subscription_count = await systemPrisma.webPushSubscription.count({ where: { userId } });
     res.json({
@@ -508,6 +514,7 @@ export const integrationsController = {
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
+    ensureWebPushFromEnv();
     if (!isWebPushConfigured()) {
       return res.status(503).json({
         error: "Web Push não está configurado no servidor. Defina VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY.",
@@ -561,6 +568,7 @@ export const integrationsController = {
   },
 
   async testWebPush(req: Request, res: Response) {
+    ensureWebPushFromEnv();
     if (!isWebPushConfigured()) {
       return res.status(503).json({
         error: "Web Push não está configurado no servidor.",

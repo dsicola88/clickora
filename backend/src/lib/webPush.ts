@@ -3,16 +3,62 @@ import { systemPrisma } from "./prisma";
 
 let configured = false;
 
+/** Remove aspas envolventes e quebras de linha (comum ao colar no Railway). */
+function stripVapidEnvValue(raw: string | undefined): string {
+  if (raw == null) return "";
+  let s = raw.trim().replace(/\r?\n/g, "");
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
+/**
+ * Corrige mailto mal formado (ex.: dois @) que faz falhar o web-push.
+ * Ex.: mailto:user@gmail.com@dominio.com -> mailto:user@gmail.com
+ */
+function normalizeVapidSubject(raw: string): string {
+  let s = raw.trim();
+  if (!s.toLowerCase().startsWith("mailto:")) {
+    s = `mailto:${s}`;
+  }
+  const rest = s.slice("mailto:".length);
+  const parts = rest.split("@");
+  if (parts.length <= 2) return `mailto:${rest}`;
+  return `mailto:${parts[0]}@${parts[1]}`;
+}
+
 export function initWebPushFromEnv(): void {
-  const pub = process.env.VAPID_PUBLIC_KEY?.trim();
-  const priv = process.env.VAPID_PRIVATE_KEY?.trim();
-  const subject = (process.env.VAPID_SUBJECT || "mailto:support@dclickora.com").trim();
+  if (configured) return;
+
+  const pub = stripVapidEnvValue(process.env.VAPID_PUBLIC_KEY);
+  const priv = stripVapidEnvValue(process.env.VAPID_PRIVATE_KEY);
+  const subjectRaw = stripVapidEnvValue(process.env.VAPID_SUBJECT) || "mailto:support@dclickora.com";
+  const subject = normalizeVapidSubject(subjectRaw);
+
   if (!pub || !priv) {
-    console.warn("[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes — notificações push desativadas.");
+    console.warn(
+      "[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes ou vazias após limpeza — notificações push desativadas.",
+      { publicLen: pub.length, privateLen: priv.length },
+    );
     return;
   }
-  webpush.setVapidDetails(subject, pub, priv);
-  configured = true;
+
+  try {
+    webpush.setVapidDetails(subject, pub, priv);
+    configured = true;
+    console.log("[web-push] VAPID configurado (subject:", subject, ")");
+  } catch (err) {
+    console.error("[web-push] setVapidDetails falhou — verifique chaves e VAPID_SUBJECT (um mailto: válido).", err);
+  }
+}
+
+/** Tenta de novo se o arranque correu antes das variáveis estarem disponíveis (raro). */
+export function ensureWebPushFromEnv(): void {
+  initWebPushFromEnv();
 }
 
 export function isWebPushConfigured(): boolean {
@@ -20,7 +66,7 @@ export function isWebPushConfigured(): boolean {
 }
 
 export function getVapidPublicKeyFromEnv(): string | null {
-  const k = process.env.VAPID_PUBLIC_KEY?.trim();
+  const k = stripVapidEnvValue(process.env.VAPID_PUBLIC_KEY);
   return k || null;
 }
 
@@ -38,6 +84,7 @@ export type WebPushPayload = {
  * Não aceitar `userId` vindo do cliente sem validação de tenant.
  */
 export async function sendWebPushToUser(userId: string, payload: WebPushPayload): Promise<void> {
+  ensureWebPushFromEnv();
   if (!configured) return;
 
   const subs = await systemPrisma.webPushSubscription.findMany({
