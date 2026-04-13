@@ -13,6 +13,21 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 const SW_PATH = "/sw-push.js";
 
+/** Indica se este browser já tem subscrição push activa (mesmo dispositivo). */
+export async function hasLocalWebPushSubscription(): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return false;
+  }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return false;
+    const sub = await reg.pushManager.getSubscription();
+    return sub !== null;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Regista o service worker, pede permissão e envia a subscrição ao servidor.
  * @returns true se ficou subscrito com sucesso

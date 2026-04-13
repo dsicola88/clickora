@@ -25,7 +25,11 @@ import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
 import { cn } from "@/lib/utils";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import { subscribeToWebPush, unsubscribeFromWebPush } from "@/lib/webPushClient";
+import {
+  subscribeToWebPush,
+  unsubscribeFromWebPush,
+  hasLocalWebPushSubscription,
+} from "@/lib/webPushClient";
 import { useAuth } from "@/contexts/AuthContext";
 
 function SectionShell({
@@ -177,6 +181,30 @@ export default function Integrations() {
     },
   });
 
+  /** null = a sincronizar com o browser; só este dispositivo (PushManager). */
+  const [localPushOn, setLocalPushOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function sync() {
+      if (webPushLoading || !webPush) return;
+      if (!webPush.configured) {
+        setLocalPushOn(false);
+        return;
+      }
+      setLocalPushOn(null);
+      const on = await hasLocalWebPushSubscription();
+      if (!cancelled) setLocalPushOn(on);
+    }
+    void sync();
+    return () => {
+      cancelled = true;
+    };
+  }, [webPushLoading, webPush]);
+
+  const pushUiReady = Boolean(webPush?.configured && localPushOn !== null);
+  const isLocalPushOn = localPushOn === true;
+
   const activateWebPush = useMutation({
     mutationFn: async () => {
       const r = await subscribeToWebPush();
@@ -185,6 +213,7 @@ export default function Integrations() {
     },
     onSuccess: async () => {
       toast.success("Notificações ativadas neste dispositivo.");
+      setLocalPushOn(true);
       await queryClient.invalidateQueries({ queryKey: ["integrations-web-push"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -198,6 +227,7 @@ export default function Integrations() {
     },
     onSuccess: async () => {
       toast.success("Subscrição removida.");
+      setLocalPushOn(false);
       await queryClient.invalidateQueries({ queryKey: ["integrations-web-push"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -311,7 +341,9 @@ export default function Integrations() {
                     <Button
                       type="button"
                       className="gap-2"
-                      disabled={!webPush.configured || activateWebPush.isPending}
+                      disabled={
+                        !pushUiReady || isLocalPushOn || activateWebPush.isPending
+                      }
                       onClick={() => activateWebPush.mutate()}
                     >
                       {activateWebPush.isPending ? (
@@ -325,7 +357,9 @@ export default function Integrations() {
                       type="button"
                       variant="secondary"
                       className="gap-2"
-                      disabled={!webPush.configured || deactivateWebPush.isPending}
+                      disabled={
+                        !pushUiReady || !isLocalPushOn || deactivateWebPush.isPending
+                      }
                       onClick={() => deactivateWebPush.mutate()}
                     >
                       {deactivateWebPush.isPending ? (
@@ -337,9 +371,7 @@ export default function Integrations() {
                       type="button"
                       variant="outline"
                       className="gap-2"
-                      disabled={
-                        !webPush.configured || testWebPush.isPending || webPush.subscription_count === 0
-                      }
+                      disabled={!pushUiReady || !isLocalPushOn || testWebPush.isPending}
                       onClick={() => testWebPush.mutate()}
                     >
                       {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
