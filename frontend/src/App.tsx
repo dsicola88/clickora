@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,14 +32,13 @@ import NotFound from "./pages/NotFound";
 import PublicPresell from "./pages/PublicPresell";
 
 const appRoutes = [
-  { path: "/", element: <Home /> },
+  { path: "/inicio", element: <Home /> },
   { path: "/plans", element: <Plans /> },
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminPanel /> },
   { path: "/presell/dashboard", element: <PresellDashboard /> },
   { path: "/presell/templates", element: <PresellCreator /> },
   { path: "/tracking/dashboard", element: <TrackingDashboard /> },
-  { path: "/tracking/vendas", element: <Vendas /> },
   { path: "/tracking/plataformas", element: <Plataformas /> },
   { path: "/tracking/relatorios", element: <Relatorios /> },
   { path: "/tracking/analytics", element: <Analytics /> },
@@ -76,6 +75,8 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/p/:id" element={<PublicPresell />} />
+              <Route path="/" element={<Navigate to="/tracking/vendas" replace />} />
+              <Route path="/tracking/vendas" element={<AppLayout><Vendas /></AppLayout>} />
               {/* Protected routes */}
               <Route
                 path="/*"

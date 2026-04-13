@@ -186,7 +186,7 @@ export default function AdminPanel() {
 
   if (authLoading) return <LoadingState />;
   if (!isAdmin) {
-    navigate("/");
+    navigate("/tracking/vendas");
     return null;
   }
   if (isLoading) return <LoadingState message="A carregar administradores…" />;

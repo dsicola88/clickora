@@ -20,6 +20,7 @@ import {
   ScrollText,
   CreditCard,
   ShieldAlert,
+  LogIn,
   LogOut,
   User,
 } from "lucide-react";
@@ -123,7 +124,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4 border-b border-sidebar-border/80">
-        <NavLink to="/" className="flex items-center gap-2.5 group/logo">
+        <NavLink to="/tracking/vendas" className="flex items-center gap-2.5 group/logo">
           <div className="gradient-primary rounded-md w-8 h-8 flex items-center justify-center flex-shrink-0 shadow-md shadow-black/20 ring-1 ring-white/10">
             <Zap className="w-4 h-4 text-primary-foreground drop-shadow-sm" />
           </div>
@@ -140,10 +141,10 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={path === "/"} tooltip="Início">
-                  <NavLink to="/" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
+                <SidebarMenuButton asChild isActive={path === "/inicio"} tooltip="Escolher área">
+                  <NavLink to="/inicio" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
                     <Home className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>Início</span>}
+                    {!collapsed && <span>Escolher área</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -264,14 +265,27 @@ export function AppSidebar() {
             <p className="text-xs text-sidebar-muted truncate">{user.email}</p>
           </div>
         )}
-        <button
-          onClick={signOut}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-destructive hover:bg-sidebar-accent transition-colors w-full text-sm"
-          aria-label="Sair da conta"
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Sair</span>}
-        </button>
+        {user ? (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-destructive hover:bg-sidebar-accent transition-colors w-full text-sm"
+            aria-label="Sair da conta"
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span>Sair</span>}
+          </button>
+        ) : (
+          <NavLink
+            to="/auth"
+            aria-label="Entrar"
+            title="Entrar"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-sidebar-primary-foreground hover:bg-sidebar-accent transition-colors w-full text-sm"
+          >
+            <LogIn className="h-4 w-4 flex-shrink-0" />
+            {!collapsed && <span>Entrar</span>}
+          </NavLink>
+        )}
         <button
           onClick={toggleSidebar}
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-sidebar-accent-foreground hover:bg-sidebar-accent transition-colors w-full"

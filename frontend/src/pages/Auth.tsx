@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +174,7 @@ export default function Auth() {
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
           {mode === "login" && (
             <div className="space-y-6">
-              <GoogleSignInButton onSuccess={() => navigate("/")} />
+              <GoogleSignInButton onSuccess={() => navigate("/tracking/vendas")} />
               {import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ? (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -185,10 +185,10 @@ export default function Auth() {
                   </div>
                 </div>
               ) : null}
-              <LoginFormComponent onSuccess={() => navigate("/")} />
+              <LoginFormComponent onSuccess={() => navigate("/tracking/vendas")} />
             </div>
           )}
-          {mode === "register" && <RegisterFormComponent onSuccess={() => navigate("/")} />}
+          {mode === "register" && <RegisterFormComponent onSuccess={() => navigate("/tracking/vendas")} />}
           {mode === "recovery" && <RecoveryFormComponent />}
 
           <div className="text-center text-sm space-y-2 mt-4">
@@ -216,6 +216,14 @@ export default function Auth() {
             )}
           </div>
         </div>
+        <p className="text-center mt-6">
+          <Link
+            to="/tracking/vendas"
+            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          >
+            Continuar sem entrar — ver vendas
+          </Link>
+        </p>
       </div>
     </div>
   );
