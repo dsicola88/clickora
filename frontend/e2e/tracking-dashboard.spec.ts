@@ -14,6 +14,6 @@ test.describe("tracking dashboard", () => {
 
     await page.goto("/tracking/dashboard");
     await expect(page.getByRole("heading", { name: /Bem-vindo/ })).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole("heading", { name: "Período", exact: true })).toBeVisible();
+    await expect(page.getByLabel(/Resumo do período/i)).toBeVisible({ timeout: 15_000 });
   });
 });
