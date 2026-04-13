@@ -325,6 +325,9 @@ model PlansLandingConfig {
   /** Efeitos do hero: overlay, zoom, parallax, CTA, animação de entrada — merge com defaults no servidor. */
   heroVisual Json? @map("hero_visual")
 
+  /** Tema visual, FAQ, stats, cartões de destaque — merge com defaults no servidor. */
+  landingExtras Json? @map("landing_extras")
+
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("plans_landing_config")

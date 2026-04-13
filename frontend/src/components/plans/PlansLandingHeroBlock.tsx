@@ -38,23 +38,33 @@ type Props = {
   heroVisualRaw: unknown;
   children: React.ReactNode;
   className?: string;
+  /** Texto claro sobre fundo escuro (tema «vendas»). */
+  tone?: "default" | "dark";
 };
 
 /**
  * Hero da landing pública (/, alias /plans): imagem com overlay, efeitos (Ken Burns, hover zoom, parallax),
  * animação de entrada do texto e CTA opcional — configurável no admin.
  */
-export function PlansLandingHeroBlock({ heroImg, heroVisualRaw, children, className }: Props) {
+export function PlansLandingHeroBlock({
+  heroImg,
+  heroVisualRaw,
+  children,
+  className,
+  tone = "default",
+}: Props) {
   const v = coercePlansHeroVisual(heroVisualRaw);
   const overlay = plansHeroOverlayClass(v);
   const showCta = v.cta_enabled && Boolean(v.cta_label?.trim());
   const ctaLabel = v.cta_label?.trim() ?? "";
   const ctaHref = v.cta_href?.trim() || "#planos";
+  const dark = tone === "dark";
 
   return (
     <section
       className={cn(
-        "group/plans-hero relative mb-8 overflow-hidden rounded-2xl border border-border/60 shadow-sm",
+        "group/plans-hero relative mb-8 overflow-hidden rounded-2xl shadow-sm",
+        dark ? "border border-white/10 ring-1 ring-white/5" : "border border-border/60",
         "min-h-[220px] md:min-h-[280px]",
         className,
       )}
@@ -82,14 +92,34 @@ export function PlansLandingHeroBlock({ heroImg, heroVisualRaw, children, classN
           {overlay ? (
             <div className={cn("pointer-events-none absolute inset-0", overlay)} aria-hidden />
           ) : null}
+          {dark ? (
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-black/30"
+              aria-hidden
+            />
+          ) : null}
         </>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/10" />
+        <div
+          className={cn(
+            "absolute inset-0",
+            dark
+              ? "bg-gradient-to-br from-[#0a1628] via-[#050a18] to-black"
+              : "bg-gradient-to-br from-primary/20 via-background to-accent/10",
+          )}
+        />
       )}
+      {dark && !heroImg ? (
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_20%,rgba(59,130,246,0.18),transparent_55%)]"
+          aria-hidden
+        />
+      ) : null}
       <div
         className={cn(
           "relative z-10 px-6 py-10 md:px-10 md:py-12",
           plansHeroContentEntranceClass(v),
+          dark && "[&_h1]:text-white [&_h2]:text-white [&_p]:text-white/80 [&_span]:border-blue-400/40 [&_span]:bg-blue-500/15 [&_span]:text-blue-300",
         )}
       >
         {children}

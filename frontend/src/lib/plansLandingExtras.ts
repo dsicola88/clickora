@@ -1,0 +1,404 @@
+/** Espelha `backend/src/lib/plansLandingExtras.ts` — tipos da landing extra (tema escuro, FAQ, etc.). */
+
+import type { LandingSectionId } from "./landingSectionLayout";
+
+export type LandingExtrasAppearance = "default" | "sales_dark";
+
+export interface LandingExtrasCard {
+  title: string;
+  body: string;
+}
+
+export interface LandingExtrasStat {
+  value: string;
+  label: string;
+}
+
+export interface LandingExtrasFaqItem {
+  q: string;
+  a: string;
+}
+
+export interface LandingExtrasLink {
+  label: string;
+  href: string;
+}
+
+export type LandingContentBlock =
+  | {
+      type: "video";
+      title: string | null;
+      subtitle: string | null;
+      url: string;
+      layout?: "contained" | "wide";
+    }
+  | {
+      type: "image";
+      title: string | null;
+      subtitle: string | null;
+      src: string;
+      alt?: string;
+      caption?: string | null;
+      layout?: "contained" | "wide";
+    };
+
+export interface LandingTestimonialItem {
+  thumbnail_url: string;
+  video_url: string;
+  name: string | null;
+  role: string | null;
+  social_handle: string | null;
+}
+
+/** Secção testemunhos (grelha vertical + modal de vídeo). */
+export interface LandingTestimonials {
+  enabled?: boolean;
+  title: string | null;
+  subtitle: string | null;
+  items?: LandingTestimonialItem[];
+}
+
+export interface LandingGalleryItem {
+  image_url: string;
+  name: string | null;
+  role: string | null;
+  social_handle: string | null;
+  caption: string | null;
+}
+
+export interface LandingGallery {
+  enabled?: boolean;
+  title: string | null;
+  subtitle: string | null;
+  items?: LandingGalleryItem[];
+}
+
+export type LandingSectionsEnabled = Partial<Record<LandingSectionId, boolean>>;
+
+export interface LandingExtrasPublic {
+  appearance: LandingExtrasAppearance;
+  plans_section_label: string | null;
+  plans_section_title: string | null;
+  plans_section_subtitle: string | null;
+  features: {
+    title: string | null;
+    subtitle: string | null;
+    cards?: LandingExtrasCard[];
+  } | null;
+  stats: {
+    title: string | null;
+    subtitle: string | null;
+    items?: LandingExtrasStat[];
+  } | null;
+  faq: {
+    title: string | null;
+    items?: LandingExtrasFaqItem[];
+  } | null;
+  legal_footer: {
+    lines?: string[];
+    links?: LandingExtrasLink[];
+  } | null;
+  content_blocks: LandingContentBlock[] | null;
+  testimonials: LandingTestimonials | null;
+  gallery: LandingGallery | null;
+  section_order: LandingSectionId[] | null;
+  sections_enabled: LandingSectionsEnabled | null;
+}
+
+export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
+  appearance: "default",
+  plans_section_label: null,
+  plans_section_title: null,
+  plans_section_subtitle: null,
+  features: null,
+  stats: null,
+  faq: null,
+  legal_footer: null,
+  content_blocks: null,
+  testimonials: null,
+  gallery: null,
+  section_order: null,
+  sections_enabled: null,
+};
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
+  if (!isPlainObject(raw)) return { ...DEFAULT_LANDING_EXTRAS };
+  const appearance =
+    raw.appearance === "sales_dark" ? "sales_dark" : "default";
+  const plans_section_label =
+    typeof raw.plans_section_label === "string" ? raw.plans_section_label : null;
+  const plans_section_title =
+    typeof raw.plans_section_title === "string" ? raw.plans_section_title : null;
+  const plans_section_subtitle =
+    typeof raw.plans_section_subtitle === "string" ? raw.plans_section_subtitle : null;
+
+  let features: LandingExtrasPublic["features"] = null;
+  if (raw.features !== null && raw.features !== undefined && isPlainObject(raw.features)) {
+    const f = raw.features;
+    const cardsRaw = f.cards;
+    const cards = Array.isArray(cardsRaw)
+      ? cardsRaw
+          .map((c) => {
+            if (!isPlainObject(c)) return null;
+            const title = typeof c.title === "string" ? c.title : "";
+            const body = typeof c.body === "string" ? c.body : "";
+            return { title, body };
+          })
+          .filter((c) => c && (c.title.trim() || c.body.trim()))
+      : [];
+    features = {
+      title: typeof f.title === "string" ? f.title : null,
+      subtitle: typeof f.subtitle === "string" ? f.subtitle : null,
+      cards: cards.length ? (cards as LandingExtrasCard[]) : undefined,
+    };
+    if (!features.title?.trim() && !features.subtitle?.trim() && !features.cards?.length) {
+      features = null;
+    }
+  }
+
+  let stats: LandingExtrasPublic["stats"] = null;
+  if (raw.stats !== null && raw.stats !== undefined && isPlainObject(raw.stats)) {
+    const s = raw.stats;
+    const itemsRaw = s.items;
+    const items = Array.isArray(itemsRaw)
+      ? itemsRaw
+          .map((it) => {
+            if (!isPlainObject(it)) return null;
+            const value = typeof it.value === "string" ? it.value : "";
+            const label = typeof it.label === "string" ? it.label : "";
+            return { value, label };
+          })
+          .filter((it) => it && (it.value.trim() || it.label.trim()))
+      : [];
+    stats = {
+      title: typeof s.title === "string" ? s.title : null,
+      subtitle: typeof s.subtitle === "string" ? s.subtitle : null,
+      items: items.length ? (items as LandingExtrasStat[]) : undefined,
+    };
+    if (!stats.title?.trim() && !stats.subtitle?.trim() && !stats.items?.length) {
+      stats = null;
+    }
+  }
+
+  let faq: LandingExtrasPublic["faq"] = null;
+  if (raw.faq !== null && raw.faq !== undefined && isPlainObject(raw.faq)) {
+    const q = raw.faq;
+    const itemsRaw = q.items;
+    const items = Array.isArray(itemsRaw)
+      ? itemsRaw
+          .map((it) => {
+            if (!isPlainObject(it)) return null;
+            const qq = typeof it.q === "string" ? it.q : "";
+            const aa = typeof it.a === "string" ? it.a : "";
+            return { q: qq, a: aa };
+          })
+          .filter((it) => it && (it.q.trim() || it.a.trim()))
+      : [];
+    faq = {
+      title: typeof q.title === "string" ? q.title : null,
+      items: items.length ? (items as LandingExtrasFaqItem[]) : undefined,
+    };
+    if (!faq.title?.trim() && !faq.items?.length) {
+      faq = null;
+    }
+  }
+
+  let legal_footer: LandingExtrasPublic["legal_footer"] = null;
+  if (
+    raw.legal_footer !== null &&
+    raw.legal_footer !== undefined &&
+    isPlainObject(raw.legal_footer)
+  ) {
+    const lf = raw.legal_footer;
+    const linesRaw = lf.lines;
+    const lines = Array.isArray(linesRaw)
+      ? linesRaw.map((l) => (typeof l === "string" ? l : "")).filter((l) => l.trim())
+      : [];
+    const linksRaw = lf.links;
+    const links = Array.isArray(linksRaw)
+      ? linksRaw
+          .map((lnk) => {
+            if (!isPlainObject(lnk)) return null;
+            const label = typeof lnk.label === "string" ? lnk.label : "";
+            const href = typeof lnk.href === "string" ? lnk.href : "";
+            return { label, href };
+          })
+          .filter((lnk) => lnk && lnk.label.trim() && lnk.href.trim())
+      : [];
+    legal_footer = {
+      lines: lines.length ? lines : undefined,
+      links: links.length ? (links as LandingExtrasLink[]) : undefined,
+    };
+    if (!legal_footer.lines?.length && !legal_footer.links?.length) {
+      legal_footer = null;
+    }
+  }
+
+  let content_blocks: LandingExtrasPublic["content_blocks"] = null;
+  const rawBlocks = raw.content_blocks;
+  if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
+    const parsed: LandingContentBlock[] = [];
+    for (const item of rawBlocks) {
+      if (!isPlainObject(item)) continue;
+      const t = item.type === "image" ? "image" : "video";
+      const title = typeof item.title === "string" ? item.title : null;
+      const subtitle = typeof item.subtitle === "string" ? item.subtitle : null;
+      const layout =
+        item.layout === "wide" || item.layout === "contained" ? item.layout : undefined;
+      if (t === "video") {
+        const url = typeof item.url === "string" ? item.url.trim() : "";
+        if (!url) continue;
+        parsed.push({
+          type: "video",
+          title,
+          subtitle,
+          url,
+          layout,
+        });
+      } else {
+        const src = typeof item.src === "string" ? item.src.trim() : "";
+        if (!src) continue;
+        const alt = typeof item.alt === "string" ? item.alt : undefined;
+        const caption = typeof item.caption === "string" ? item.caption : null;
+        parsed.push({
+          type: "image",
+          title,
+          subtitle,
+          src,
+          alt,
+          caption,
+          layout,
+        });
+      }
+    }
+    content_blocks = parsed.length ? parsed : null;
+  }
+
+  let testimonials: LandingExtrasPublic["testimonials"] = null;
+  if (raw.testimonials !== null && raw.testimonials !== undefined && isPlainObject(raw.testimonials)) {
+    const t = raw.testimonials;
+    const itemsRaw = t.items;
+    const items = Array.isArray(itemsRaw)
+      ? itemsRaw
+          .map((it) => {
+            if (!isPlainObject(it)) return null;
+            const thumbnail_url =
+              typeof it.thumbnail_url === "string" ? it.thumbnail_url.trim() : "";
+            const video_url = typeof it.video_url === "string" ? it.video_url.trim() : "";
+            if (!thumbnail_url || !video_url) return null;
+            return {
+              thumbnail_url,
+              video_url,
+              name: typeof it.name === "string" ? it.name : null,
+              role: typeof it.role === "string" ? it.role : null,
+              social_handle: typeof it.social_handle === "string" ? it.social_handle : null,
+            } as LandingTestimonialItem;
+          })
+          .filter((it): it is LandingTestimonialItem => it !== null)
+      : [];
+    const title = typeof t.title === "string" ? t.title : null;
+    const subtitle = typeof t.subtitle === "string" ? t.subtitle : null;
+    const enabled = typeof t.enabled === "boolean" ? t.enabled : undefined;
+    if (items.length) {
+      testimonials = {
+        ...(enabled !== undefined ? { enabled } : {}),
+        title,
+        subtitle,
+        items,
+      };
+    }
+  }
+
+  let gallery: LandingExtrasPublic["gallery"] = null;
+  if (raw.gallery !== null && raw.gallery !== undefined && isPlainObject(raw.gallery)) {
+    const g = raw.gallery;
+    const itemsRaw = g.items;
+    const items = Array.isArray(itemsRaw)
+      ? itemsRaw
+          .map((it) => {
+            if (!isPlainObject(it)) return null;
+            const image_url =
+              typeof it.image_url === "string" ? it.image_url.trim() : "";
+            if (!image_url) return null;
+            return {
+              image_url,
+              name: typeof it.name === "string" ? it.name : null,
+              role: typeof it.role === "string" ? it.role : null,
+              social_handle: typeof it.social_handle === "string" ? it.social_handle : null,
+              caption: typeof it.caption === "string" ? it.caption : null,
+            } as LandingGalleryItem;
+          })
+          .filter((it): it is LandingGalleryItem => it !== null)
+      : [];
+    const title = typeof g.title === "string" ? g.title : null;
+    const subtitle = typeof g.subtitle === "string" ? g.subtitle : null;
+    const enabled = typeof g.enabled === "boolean" ? g.enabled : undefined;
+    if (items.length) {
+      gallery = {
+        ...(enabled !== undefined ? { enabled } : {}),
+        title,
+        subtitle,
+        items,
+      };
+    }
+  }
+
+  let section_order: LandingExtrasPublic["section_order"] = null;
+  if (Array.isArray(raw.section_order) && raw.section_order.length > 0) {
+    const valid = new Set<string>([
+      "content_blocks",
+      "features",
+      "stats",
+      "testimonials",
+      "gallery",
+      "planos",
+      "faq",
+    ]);
+    const filtered = raw.section_order.filter(
+      (x): x is LandingSectionId => typeof x === "string" && valid.has(x),
+    );
+    section_order = filtered.length ? filtered : null;
+  }
+
+  let sections_enabled: LandingExtrasPublic["sections_enabled"] = null;
+  if (
+    raw.sections_enabled !== null &&
+    raw.sections_enabled !== undefined &&
+    isPlainObject(raw.sections_enabled)
+  ) {
+    const se = raw.sections_enabled;
+    const pick = (k: LandingSectionId) =>
+      typeof se[k] === "boolean" ? se[k] : undefined;
+    sections_enabled = {
+      content_blocks: pick("content_blocks"),
+      features: pick("features"),
+      stats: pick("stats"),
+      testimonials: pick("testimonials"),
+      gallery: pick("gallery"),
+      planos: pick("planos"),
+      faq: pick("faq"),
+    };
+    const hasAny = Object.values(sections_enabled).some((v) => v !== undefined);
+    if (!hasAny) sections_enabled = null;
+  }
+
+  return {
+    appearance,
+    plans_section_label,
+    plans_section_title,
+    plans_section_subtitle,
+    features,
+    stats,
+    faq,
+    legal_footer,
+    content_blocks,
+    testimonials,
+    gallery,
+    section_order,
+    sections_enabled,
+  };
+}

@@ -76,7 +76,8 @@ const App = () => (
               <Route path="/p/:id" element={<PublicPresell />} />
               <Route path="/plans" element={<Navigate to="/" replace />} />
               <Route path="/planos" element={<Navigate to="/" replace />} />
-              <Route path="/" element={<AppLayout><Plans /></AppLayout>} />
+              {/* Landing de vendas sem sidebar — só a página pública de planos */}
+              <Route path="/" element={<Plans />} />
               <Route path="/tracking/vendas" element={<AppLayout><Vendas /></AppLayout>} />
               {/* Protected routes */}
               <Route

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -5,7 +6,19 @@ import { plansService } from "@/services/plansService";
 import { plansLandingService } from "@/services/plansLandingService";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Star, Rocket, FileStack, Gauge, Palette, LayoutTemplate } from "lucide-react";
+import {
+  Check,
+  Zap,
+  Star,
+  Rocket,
+  FileStack,
+  Gauge,
+  Palette,
+  LayoutTemplate,
+  LogIn,
+  ShoppingBag,
+  LayoutDashboard,
+} from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
@@ -30,6 +43,21 @@ import {
   mergeWithDefaultLabels,
 } from "@/lib/planDisplayLabels";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
+import {
+  SalesLandingFaq,
+  SalesLandingFeatures,
+  SalesLandingLegalFooter,
+  SalesLandingStats,
+} from "@/components/plans/SalesLandingSections";
+import { coerceLandingExtras } from "@/lib/plansLandingExtras";
+import { LandingContentBlocks } from "@/components/plans/LandingContentBlocks";
+import { LandingTestimonialsSection } from "@/components/plans/LandingTestimonialsSection";
+import { LandingGallerySection } from "@/components/plans/LandingGallerySection";
+import {
+  resolveSectionOrder,
+  resolveSectionsEnabled,
+  type LandingSectionId,
+} from "@/lib/landingSectionLayout";
 
 function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string, string>) {
   if (isCurrent) return labels.cta_current ?? "Plano atual";
@@ -111,6 +139,8 @@ export default function Plans() {
       : null;
 
   const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
+  const extras = coerceLandingExtras(landing?.landing_extras);
+  const salesDark = extras.appearance === "sales_dark";
   const numLocale = lb.locale || "pt-BR";
 
   const formatPagesLimit = (n: number | null) =>
@@ -119,13 +149,389 @@ export default function Plans() {
   const formatClicksLimit = (n: number | null) =>
     n === null || n === undefined ? lb.unlimited_clicks : n.toLocaleString(numLocale);
 
+  const plansSectionLabel =
+    extras.plans_section_label?.trim() ?? (salesDark ? "PLANOS" : "");
+  const plansSectionTitle =
+    extras.plans_section_title?.trim() ??
+    (salesDark ? "Nossas Opções de Adesão" : "Planos e assinaturas");
+  const plansSectionSub =
+    extras.plans_section_subtitle?.trim() ??
+    (salesDark
+      ? "Escolha o melhor plano para você e transforme sua operação."
+      : "Escolha um plano para subscrever ou fazer upgrade. Precisa de uma conta para concluir — use «Entrar» acima ou o botão do cartão.");
+
+  const mediaBlocks = extras.content_blocks ?? [];
+  const sectionOrder = resolveSectionOrder(extras.section_order);
+  const sectionsOn = resolveSectionsEnabled(extras.sections_enabled);
+
+  const renderSection = (id: LandingSectionId) => {
+    switch (id) {
+      case "content_blocks":
+        if (!sectionsOn.content_blocks || !mediaBlocks.length) return null;
+        return (
+          <LandingContentBlocks blocks={mediaBlocks} salesDark={salesDark} className="mb-12" />
+        );
+      case "features":
+        if (!sectionsOn.features || !salesDark || !(extras.features?.cards?.length ?? 0)) {
+          return null;
+        }
+        return <SalesLandingFeatures extras={extras} className="mb-12" />;
+      case "stats":
+        if (!sectionsOn.stats || !salesDark || !(extras.stats?.items?.length ?? 0)) {
+          return null;
+        }
+        return <SalesLandingStats extras={extras} className="mb-12" />;
+      case "testimonials":
+        if (!sectionsOn.testimonials || extras.testimonials?.enabled === false) {
+          return null;
+        }
+        if (!(extras.testimonials?.items?.length ?? 0)) return null;
+        return (
+          <LandingTestimonialsSection
+            data={extras.testimonials}
+            salesDark={salesDark}
+            className="mb-12"
+          />
+        );
+      case "gallery":
+        if (!sectionsOn.gallery || extras.gallery?.enabled === false) return null;
+        if (!extras.gallery?.items?.length) return null;
+        return (
+          <LandingGallerySection data={extras.gallery} salesDark={salesDark} className="mb-12" />
+        );
+      case "planos":
+        if (!sectionsOn.planos) return null;
+        return (
+          <section id="planos" className="scroll-mt-24 space-y-6 mb-12">
+            <div
+              className={cn(
+                "flex flex-col gap-1 pb-4",
+                salesDark ? "text-center border-b border-white/10 max-w-3xl mx-auto" : "border-b border-border/50",
+              )}
+            >
+              {plansSectionLabel ? (
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400 mb-1">
+                  {plansSectionLabel}
+                </p>
+              ) : null}
+              <h2
+                className={cn(
+                  "text-2xl font-bold tracking-tight md:text-3xl",
+                  salesDark ? "text-white" : "text-foreground",
+                )}
+              >
+                {plansSectionTitle}
+              </h2>
+              <p
+                className={cn(
+                  "text-sm max-w-2xl",
+                  salesDark ? "text-white/70 mx-auto" : "text-muted-foreground",
+                )}
+              >
+                {plansSectionSub}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {plans.map((plan) => {
+                const isCurrent = plan.type === userPlan?.plan_type;
+                const isPopular = plan.type === "annual";
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={cn(
+                      "relative flex min-h-[480px] flex-col rounded-2xl p-6 transition-all duration-300",
+                      salesDark
+                        ? "border-0 bg-white text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
+                        : `border-2 bg-card transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`,
+                      isPopular && salesDark && "ring-2 ring-blue-500/35",
+                    )}
+                  >
+                    {salesDark ? (
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-blue-500"
+                        aria-hidden
+                      />
+                    ) : null}
+                    {isPopular && (
+                      <Badge
+                        className={cn(
+                          "absolute -top-3 left-1/2 -translate-x-1/2",
+                          salesDark
+                            ? "bg-blue-600 text-white hover:bg-blue-600"
+                            : "bg-primary text-primary-foreground",
+                        )}
+                      >
+                        {lb.badge_popular}
+                      </Badge>
+                    )}
+                    <div className="mb-4 flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "rounded-xl p-2",
+                          salesDark
+                            ? plan.type === "free_trial"
+                              ? "bg-slate-100"
+                              : "bg-blue-500/15"
+                            : plan.type === "free_trial"
+                              ? "bg-muted"
+                              : "bg-primary/10",
+                        )}
+                      >
+                        {planIcons[plan.type] ?? <Star className="h-6 w-6" />}
+                      </div>
+                      <div>
+                        <h3 className={cn("font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
+                          {plan.name}
+                        </h3>
+                        {isCurrent && (
+                          <Badge variant="secondary" className="text-xs">
+                            {lb.badge_current}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mb-5">
+                      <span className={cn("text-3xl font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
+                        {formatPlanPrice(plan.price_cents, lb)}
+                      </span>
+                      <span className={cn("text-sm", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                        {getPlanPriceSuffix(plan.type, lb)}
+                      </span>
+                    </div>
+
+                    <div
+                      className={cn(
+                        "mb-5 rounded-xl border p-4",
+                        salesDark ? "border-slate-200 bg-slate-50" : "border-primary/15 bg-primary/5",
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "mb-3 text-xs font-semibold uppercase tracking-wide",
+                          salesDark ? "text-blue-700" : "text-primary/90",
+                        )}
+                      >
+                        {lb.coverage_title}
+                      </p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={cn(
+                              "mt-0.5 rounded-lg p-1.5 shadow-sm",
+                              salesDark ? "bg-white" : "bg-background/80",
+                            )}
+                          >
+                            <FileStack className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.label_presell_pages}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-base font-bold tabular-nums",
+                                salesDark ? "text-slate-900" : "text-foreground",
+                              )}
+                            >
+                              {formatPagesLimit(plan.max_presell_pages)}
+                            </p>
+                            <p className={cn("text-[11px]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.sub_presell_pages}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={cn(
+                              "mt-0.5 rounded-lg p-1.5 shadow-sm",
+                              salesDark ? "bg-white" : "bg-background/80",
+                            )}
+                          >
+                            <Gauge className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.label_clicks}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-base font-bold tabular-nums",
+                                salesDark ? "text-slate-900" : "text-foreground",
+                              )}
+                            >
+                              {formatClicksLimit(plan.max_clicks_per_month)}
+                            </p>
+                            <p className={cn("text-[11px]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.sub_clicks}
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className={cn(
+                            "flex items-start gap-3 border-t pt-3",
+                            salesDark ? "border-slate-200" : "border-border/60",
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "mt-0.5 rounded-lg p-1.5 shadow-sm",
+                              salesDark ? "bg-white" : "bg-background/80",
+                            )}
+                          >
+                            <Palette className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.label_branding}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-sm font-semibold",
+                                salesDark ? "text-slate-900" : "text-foreground",
+                              )}
+                            >
+                              {plan.has_branding ? lb.branding_yes : lb.branding_no}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p
+                      className={cn(
+                        "mb-2 text-xs font-semibold uppercase tracking-wide",
+                        salesDark ? "text-slate-500" : "text-muted-foreground",
+                      )}
+                    >
+                      {lb.includes_title}
+                    </p>
+                    <ul className="mb-6 flex-1 space-y-3">
+                      {plan.features.map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <Check
+                            className={cn(
+                              "mt-0.5 h-4 w-4 flex-shrink-0",
+                              salesDark ? "text-blue-600" : "text-primary",
+                            )}
+                          />
+                          <span className={salesDark ? "text-slate-800" : "text-foreground"}>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      onClick={() => handleSelectPlan(plan)}
+                      variant={isCurrent ? "outline" : isPopular ? "default" : "secondary"}
+                      className={cn(
+                        "w-full",
+                        salesDark && !isCurrent && isPopular && "bg-blue-600 hover:bg-blue-700",
+                      )}
+                      disabled={isCurrent}
+                    >
+                      {planCardCtaLabel(plan, isCurrent, lb)}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      case "faq":
+        if (!sectionsOn.faq || !salesDark || !(extras.faq?.items?.length ?? 0)) {
+          return null;
+        }
+        return <SalesLandingFaq extras={extras} className="mb-12" />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className={APP_PAGE_SHELL_LOOSE}>
+    <div
+      className={cn(
+        "min-h-svh w-full px-4 pb-12 pt-2 md:px-6 md:pb-14 md:pt-4 lg:px-8 lg:pb-16",
+        salesDark
+          ? "bg-[#050a18] text-white selection:bg-blue-500/25"
+          : "bg-background text-foreground",
+      )}
+    >
+      <div
+        className={cn(
+          APP_PAGE_SHELL_LOOSE,
+          salesDark && "relative py-8 md:py-12",
+        )}
+      >
+      <div
+        className={cn(
+          "sticky top-0 z-40 mb-6 border-b py-3 backdrop-blur-md",
+          salesDark
+            ? "border-white/10 bg-[#050a18]/85 supports-[backdrop-filter]:bg-[#050a18]/75"
+            : "border-border/60 bg-background/90 supports-[backdrop-filter]:bg-background/75",
+        )}
+      >
+        <nav
+          className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-center gap-2 sm:gap-3"
+          aria-label="Ações da página"
+        >
+          <Button
+            size="sm"
+            className={cn(
+              "min-h-10 w-full min-w-[8rem] max-w-[min(100%,20rem)] gap-2 sm:w-auto sm:max-w-none",
+              salesDark && "bg-blue-600 text-white hover:bg-blue-700",
+            )}
+            asChild
+          >
+            <a href="#planos" className="inline-flex items-center justify-center">
+              <ShoppingBag className="h-4 w-4 shrink-0" aria-hidden />
+              Comprar
+            </a>
+          </Button>
+          {user ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "min-h-10 w-full min-w-[8rem] max-w-[min(100%,20rem)] gap-2 border sm:w-auto sm:max-w-none",
+                salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
+              )}
+              asChild
+            >
+              <Link to="/inicio" className="inline-flex items-center justify-center">
+                <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                Painel
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "min-h-10 w-full min-w-[8rem] max-w-[min(100%,20rem)] gap-2 sm:w-auto sm:max-w-none",
+                salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
+              )}
+              asChild
+            >
+              <Link to="/auth" className="inline-flex items-center justify-center">
+                <LogIn className="h-4 w-4 shrink-0" aria-hidden />
+                Entrar
+              </Link>
+            </Button>
+          )}
+        </nav>
+      </div>
+
       {isSuperAdmin && (
-        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Super administrador:</span> edite a landing pública desta página (textos, imagem, tipografia) no
-            painel — separador <span className="font-medium text-foreground">Planos</span>, bloco no topo.
+        <div
+          className={cn(
+            "mb-6 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+            salesDark
+              ? "border-white/15 bg-white/5 text-white/90"
+              : "border-primary/25 bg-primary/5",
+          )}
+        >
+          <p className={cn("text-sm", salesDark ? "text-white/75" : "text-muted-foreground")}>
+            <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>Super administrador:</span> edite a landing pública desta página (textos, imagem, tipografia) no
+            painel — separador <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>Planos</span>, bloco no topo.
           </p>
           <Button variant="secondary" size="sm" className="shrink-0 gap-2" asChild>
             <Link to="/admin?tab=plans">
@@ -137,26 +543,34 @@ export default function Plans() {
       )}
 
       {!user && (
-        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border/60 bg-gradient-to-br from-primary/[0.07] via-card to-muted/25 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className={cn(
+            "mb-6 flex flex-col gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between",
+            salesDark
+              ? "border-white/10 bg-white/[0.04] backdrop-blur-sm"
+              : "border-border/60 bg-gradient-to-br from-primary/[0.07] via-card to-muted/25",
+          )}
+        >
           <div className="space-y-1 min-w-0">
-            <p className="font-semibold text-foreground">Bem-vindo</p>
-            <p className="text-sm text-muted-foreground max-w-xl text-pretty">
+            <p className={cn("font-semibold", salesDark ? "text-white" : "text-foreground")}>Bem-vindo</p>
+            <p
+              className={cn(
+                "text-sm max-w-xl text-pretty",
+                salesDark ? "text-white/70" : "text-muted-foreground",
+              )}
+            >
               Esta é a sua página pública de vendas: o conteúdo acima e abaixo pode ser personalizado no painel. Compare os planos e
               assinaturas, ou entre na conta para aceder ao dclickora.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 shrink-0">
-            <Button variant="outline" size="sm" asChild>
-              <a href="#planos">Ver planos</a>
-            </Button>
-            <Button size="sm" className="gap-2" asChild>
-              <Link to="/auth">Entrar</Link>
-            </Button>
-          </div>
         </div>
       )}
 
-      <PlansLandingHeroBlock heroImg={heroImg} heroVisualRaw={landing?.hero_visual}>
+      <PlansLandingHeroBlock
+        heroImg={heroImg}
+        heroVisualRaw={landing?.hero_visual}
+        tone={salesDark ? "dark" : "default"}
+      >
         <div
           className={cn(
             plansLandingHeroInnerClasses({
@@ -185,9 +599,17 @@ export default function Plans() {
       </PlansLandingHeroBlock>
 
       {userPlan && (
-        <div className="rounded-xl border border-border/60 bg-card p-4">
-          <p className="text-sm text-muted-foreground">
-            {lb.current_plan_banner_title}: <span className="font-semibold text-foreground">{userPlan.plan_name}</span>
+        <div
+          className={cn(
+            "rounded-xl border p-4",
+            salesDark ? "border-white/10 bg-white/5" : "border-border/60 bg-card",
+          )}
+        >
+          <p className={cn("text-sm", salesDark ? "text-white/75" : "text-muted-foreground")}>
+            {lb.current_plan_banner_title}:{" "}
+            <span className={cn("font-semibold", salesDark ? "text-white" : "text-foreground")}>
+              {userPlan.plan_name}
+            </span>
           </p>
         </div>
       )}
@@ -196,6 +618,7 @@ export default function Plans() {
         <div
           className={cn(
             "mb-8 max-w-3xl whitespace-pre-line",
+            salesDark && "text-white/85",
             plansLandingIntroClasses({
               font: coerceFontFamily(landing?.intro_font),
               align: coerceTextAlign(landing?.intro_text_align),
@@ -207,109 +630,20 @@ export default function Plans() {
         </div>
       ) : null}
 
-      <section id="planos" className="scroll-mt-24 space-y-6">
-        <div className="flex flex-col gap-1 border-b border-border/50 pb-4">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Planos e assinaturas</h2>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            Escolha um plano para subscrever ou fazer upgrade. Precisa de uma conta para concluir — use «Entrar» acima ou o botão do
-            cartão.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {plans.map((plan) => {
-          const isCurrent = plan.type === userPlan?.plan_type;
-          const isPopular = plan.type === "annual";
-
-          return (
-            <div
-              key={plan.id}
-              className={`relative flex min-h-[480px] flex-col rounded-2xl border-2 bg-card p-6 transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`}
-            >
-              {isPopular && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
-                  {lb.badge_popular}
-                </Badge>
-              )}
-              <div className="mb-4 flex items-center gap-3">
-                <div className={`rounded-xl p-2 ${plan.type === "free_trial" ? "bg-muted" : "bg-primary/10"}`}>
-                  {planIcons[plan.type] ?? <Star className="h-6 w-6" />}
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground">{plan.name}</h3>
-                  {isCurrent && (
-                    <Badge variant="secondary" className="text-xs">
-                      {lb.badge_current}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="mb-5">
-                <span className="text-3xl font-bold text-foreground">{formatPlanPrice(plan.price_cents, lb)}</span>
-                <span className="text-sm text-muted-foreground">{getPlanPriceSuffix(plan.type, lb)}</span>
-              </div>
-
-              <div className="mb-5 rounded-xl border border-primary/15 bg-primary/5 p-4">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary/90">{lb.coverage_title}</p>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-lg bg-background/80 p-1.5 shadow-sm">
-                      <FileStack className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{lb.label_presell_pages}</p>
-                      <p className="text-base font-bold tabular-nums text-foreground">{formatPagesLimit(plan.max_presell_pages)}</p>
-                      <p className="text-[11px] text-muted-foreground">{lb.sub_presell_pages}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-lg bg-background/80 p-1.5 shadow-sm">
-                      <Gauge className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{lb.label_clicks}</p>
-                      <p className="text-base font-bold tabular-nums text-foreground">{formatClicksLimit(plan.max_clicks_per_month)}</p>
-                      <p className="text-[11px] text-muted-foreground">{lb.sub_clicks}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 border-t border-border/60 pt-3">
-                    <div className="mt-0.5 rounded-lg bg-background/80 p-1.5 shadow-sm">
-                      <Palette className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{lb.label_branding}</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {plan.has_branding ? lb.branding_yes : lb.branding_no}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{lb.includes_title}</p>
-              <ul className="mb-6 flex-1 space-y-3">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
-                    <span className="text-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button onClick={() => handleSelectPlan(plan)} variant={isCurrent ? "outline" : isPopular ? "default" : "secondary"} className="w-full" disabled={isCurrent}>
-                {planCardCtaLabel(plan, isCurrent, lb)}
-              </Button>
-            </div>
-          );
-        })}
-        </div>
-      </section>
+      {sectionOrder.map((id) => (
+        <Fragment key={id}>{renderSection(id)}</Fragment>
+      ))}
 
       {footerText ? (
         <div
           className={cn(
-            "mt-10 rounded-xl border border-border/80 bg-muted/30 px-6 py-8 whitespace-pre-line",
+            "mt-10 rounded-xl border px-6 py-8 whitespace-pre-line",
+            salesDark
+              ? "border-white/10 bg-white/[0.04] text-white/90"
+              : "border-border/80 bg-muted/30",
             plansLandingFooterClasses({
               font: coerceFontFamily(landing?.footer_font),
-              align: coerceTextAlign(landing?.footer_text_align),
+              align: salesDark ? "center" : coerceTextAlign(landing?.footer_text_align),
               size: coerceBodySize(landing?.footer_text_size),
             }),
           )}
@@ -318,27 +652,55 @@ export default function Plans() {
         </div>
       ) : null}
 
+      <SalesLandingLegalFooter extras={extras} />
+
       {userPlan && (
-        <div className="mt-10 rounded-2xl border border-border bg-card p-6">
-          <h2 className="font-bold text-foreground mb-4">{lb.section_your_plan_title}</h2>
+        <div
+          className={cn(
+            "mt-10 rounded-2xl border p-6",
+            salesDark ? "border-white/10 bg-white/5" : "border-border bg-card",
+          )}
+        >
+          <h2
+            className={cn("font-bold mb-4", salesDark ? "text-white" : "text-foreground")}
+          >
+            {lb.section_your_plan_title}
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-muted rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">{lb.label_plan_col}</p>
-              <p className="font-bold text-foreground">{userPlan.plan_name}</p>
+            <div
+              className={cn("rounded-xl p-4", salesDark ? "bg-white/10" : "bg-muted")}
+            >
+              <p className={cn("text-sm", salesDark ? "text-white/70" : "text-muted-foreground")}>
+                {lb.label_plan_col}
+              </p>
+              <p className={cn("font-bold", salesDark ? "text-white" : "text-foreground")}>
+                {userPlan.plan_name}
+              </p>
             </div>
-            <div className="bg-muted rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">{lb.label_pages_col}</p>
-              <p className="font-bold text-foreground">{userPlan.max_pages ?? lb.unlimited_pages}</p>
+            <div
+              className={cn("rounded-xl p-4", salesDark ? "bg-white/10" : "bg-muted")}
+            >
+              <p className={cn("text-sm", salesDark ? "text-white/70" : "text-muted-foreground")}>
+                {lb.label_pages_col}
+              </p>
+              <p className={cn("font-bold", salesDark ? "text-white" : "text-foreground")}>
+                {userPlan.max_pages ?? lb.unlimited_pages}
+              </p>
             </div>
-            <div className="bg-muted rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">{lb.label_clicks_col}</p>
-              <p className="font-bold text-foreground">
+            <div
+              className={cn("rounded-xl p-4", salesDark ? "bg-white/10" : "bg-muted")}
+            >
+              <p className={cn("text-sm", salesDark ? "text-white/70" : "text-muted-foreground")}>
+                {lb.label_clicks_col}
+              </p>
+              <p className={cn("font-bold", salesDark ? "text-white" : "text-foreground")}>
                 {userPlan.max_clicks ? userPlan.max_clicks.toLocaleString(numLocale) : lb.unlimited_clicks}
               </p>
             </div>
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

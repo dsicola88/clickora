@@ -12,8 +12,14 @@ import {
   heroVisualPublic,
   mergeHeroVisual,
 } from "../lib/plansLandingHeroVisual";
+import {
+  DEFAULT_LANDING_EXTRAS,
+  landingExtrasPatchSchema,
+  mergeLandingExtras,
+  normalizeLandingExtras,
+} from "../lib/plansLandingExtras";
 
-/** Sem `plan_display_labels` — BD antes da migration correspondente (evita P2022). */
+/** Sem `plan_display_labels` / `landing_extras` — BD antes da migration (evita P2022). */
 const plansLandingSelectLegacy: Prisma.PlansLandingConfigSelect = {
   id: true,
   badgeText: true,
@@ -93,6 +99,8 @@ const patchSchema = z.object({
   plan_display_labels: z.record(z.string().max(80), z.string().max(500)).optional(),
   /** Efeitos visuais do hero (overlay, zoom, CTA). PATCH parcial; merge com defaults. */
   hero_visual: heroVisualPatchSchema.optional(),
+  /** Tema escuro, FAQ, stats, destaques. PATCH parcial; merge com defaults. */
+  landing_extras: landingExtrasPatchSchema.optional(),
 });
 
 type Row = {
@@ -118,6 +126,7 @@ type Row = {
   updatedAt: Date;
   planDisplayLabels?: unknown;
   heroVisual?: unknown | null;
+  landingExtras?: unknown | null;
 };
 
 function mapRow(row: Row) {
@@ -142,6 +151,7 @@ function mapRow(row: Row) {
     updated_at: row.updatedAt.toISOString(),
     plan_display_labels: mergePlanDisplayLabels(row.planDisplayLabels),
     hero_visual: heroVisualPublic(row.heroVisual),
+    landing_extras: normalizeLandingExtras(row.landingExtras ?? null),
   };
 }
 
@@ -166,6 +176,7 @@ const DEFAULT_JSON = {
   updated_at: new Date().toISOString(),
   plan_display_labels: mergePlanDisplayLabels(null),
   hero_visual: DEFAULT_HERO_VISUAL,
+  landing_extras: DEFAULT_LANDING_EXTRAS,
 };
 
 export const plansLandingController = {
@@ -214,6 +225,12 @@ export const plansLandingController = {
       heroVisualJson = mergeHeroVisual(existingBefore?.heroVisual, d.hero_visual) as Prisma.InputJsonValue;
     }
 
+    let landingExtrasJson: Prisma.InputJsonValue | undefined;
+    if (d.landing_extras !== undefined) {
+      const mergedBefore = normalizeLandingExtras(existingBefore?.landingExtras ?? null);
+      landingExtrasJson = mergeLandingExtras(mergedBefore, d.landing_extras) as Prisma.InputJsonValue;
+    }
+
     const row = await prismaAdmin.plansLandingConfig.upsert({
       where: { id: "default" },
       create: {
@@ -236,6 +253,7 @@ export const plansLandingController = {
         footerTextSize: d.footer_text_size ?? "sm",
         ...(planLabelsJson !== undefined && { planDisplayLabels: planLabelsJson }),
         ...(heroVisualJson !== undefined && { heroVisual: heroVisualJson }),
+        ...(landingExtrasJson !== undefined && { landingExtras: landingExtrasJson }),
       },
       update: {
         ...(d.badge_text !== undefined && { badgeText: d.badge_text }),
@@ -256,6 +274,7 @@ export const plansLandingController = {
         ...(d.footer_text_size !== undefined && { footerTextSize: d.footer_text_size }),
         ...(planLabelsJson !== undefined && { planDisplayLabels: planLabelsJson }),
         ...(heroVisualJson !== undefined && { heroVisual: heroVisualJson }),
+        ...(landingExtrasJson !== undefined && { landingExtras: landingExtrasJson }),
       },
     });
 

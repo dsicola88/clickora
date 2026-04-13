@@ -153,6 +153,8 @@ export interface PlansLandingPublic {
   plan_display_labels: Record<string, string>;
   /** Efeitos do hero: overlay, zoom, parallax, CTA, animação — fundidos com defaults no servidor. */
   hero_visual: Record<string, unknown>;
+  /** Tema escuro (estilo vendas), FAQ, números, destaques — fundido com defaults no servidor. */
+  landing_extras: Record<string, unknown>;
 }
 
 export interface AuthResponse {

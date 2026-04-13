@@ -8,6 +8,7 @@ const PLAN_COLUMNS_SQL = [
 const PLANS_LANDING_COLUMNS_SQL = [
   `ALTER TABLE "plans_landing_config" ADD COLUMN IF NOT EXISTS "plan_display_labels" JSONB`,
   `ALTER TABLE "plans_landing_config" ADD COLUMN IF NOT EXISTS "hero_visual" JSONB`,
+  `ALTER TABLE "plans_landing_config" ADD COLUMN IF NOT EXISTS "landing_extras" JSONB`,
 ] as const;
 
 export async function repairPlanSchemaColumns(): Promise<void> {

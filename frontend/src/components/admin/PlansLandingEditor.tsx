@@ -11,7 +11,21 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { LayoutTemplate, Save, Trash2, Upload, Sparkles, Type, ImageIcon } from "lucide-react";
+import {
+  LayoutTemplate,
+  Save,
+  Trash2,
+  Upload,
+  Sparkles,
+  Type,
+  ImageIcon,
+  Plus,
+  ChevronUp,
+  ChevronDown,
+  Video,
+  Users,
+  GripVertical,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 import {
@@ -32,9 +46,29 @@ import {
   type PlansHeroVisual,
 } from "@/lib/plansLandingHeroVisual";
 import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
+import { coerceLandingExtras, type LandingExtrasPublic } from "@/lib/plansLandingExtras";
+import {
+  DEFAULT_LANDING_SECTION_ORDER,
+  LANDING_SECTION_LABELS,
+  LANDING_SECTION_IDS,
+  resolveSectionOrder,
+  type LandingSectionId,
+} from "@/lib/landingSectionLayout";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const ADMIN_KEY = ["admin-plans-landing"] as const;
 const PUBLIC_KEY = ["plans-landing-public"] as const;
+
+type EditorContentBlock = {
+  type: "video" | "image";
+  title: string;
+  subtitle: string;
+  url: string;
+  src: string;
+  alt: string;
+  caption: string;
+  layout: "contained" | "wide";
+};
 
 const OPT_FONT = [
   { value: "sans", label: "Sans (UI)" },
@@ -110,6 +144,8 @@ function HeroPreview(props: {
   heroTitleWeight: string;
   heroSubtitleSize: string;
   heroVisual: PlansHeroVisual;
+  /** Pré-visualização com texto claro (tema vendas escuro). */
+  salesTone?: boolean;
   className?: string;
 }) {
   const src = props.hasImage ? plansLandingService.heroImageHref(props.imageUpdatedAt) : null;
@@ -120,7 +156,12 @@ function HeroPreview(props: {
   const subS = coerceBodySize(props.heroSubtitleSize);
 
   return (
-    <PlansLandingHeroBlock heroImg={src} heroVisualRaw={props.heroVisual} className={props.className}>
+    <PlansLandingHeroBlock
+      heroImg={src}
+      heroVisualRaw={props.heroVisual}
+      className={props.className}
+      tone={props.salesTone ? "dark" : "default"}
+    >
       <div className={cn("flex min-h-[200px] flex-col", plansLandingHeroInnerClasses({ font, align }))}>
         {props.badgeText.trim() ? (
           <span className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
@@ -173,6 +214,67 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [planLabels, setPlanLabels] = useState<Record<string, string>>(() => mergeWithDefaultLabels(undefined));
   const [heroVisual, setHeroVisual] = useState<PlansHeroVisual>(() => ({ ...DEFAULT_PLANS_HERO_VISUAL }));
 
+  const [appearance, setAppearance] = useState<LandingExtrasPublic["appearance"]>("default");
+  const [plansSectionLabel, setPlansSectionLabel] = useState("");
+  const [plansSectionTitle, setPlansSectionTitle] = useState("");
+  const [plansSectionSubtitle, setPlansSectionSubtitle] = useState("");
+  const [featTitle, setFeatTitle] = useState("");
+  const [featSubtitle, setFeatSubtitle] = useState("");
+  const [featCards, setFeatCards] = useState(() => [
+    { title: "", body: "" },
+    { title: "", body: "" },
+    { title: "", body: "" },
+  ]);
+  const [statTitle, setStatTitle] = useState("");
+  const [statSubtitle, setStatSubtitle] = useState("");
+  const [statItems, setStatItems] = useState(() => [
+    { value: "", label: "" },
+    { value: "", label: "" },
+    { value: "", label: "" },
+    { value: "", label: "" },
+  ]);
+  const [faqTitle, setFaqTitle] = useState("");
+  const [faqItems, setFaqItems] = useState(() =>
+    Array.from({ length: 5 }, () => ({ q: "", a: "" })),
+  );
+  const [legalLines, setLegalLines] = useState("");
+  const [legalLinks, setLegalLinks] = useState(() => [
+    { label: "", href: "" },
+    { label: "", href: "" },
+    { label: "", href: "" },
+  ]);
+  const [contentBlocks, setContentBlocks] = useState<EditorContentBlock[]>([]);
+  const [sectionOrder, setSectionOrder] = useState<LandingSectionId[]>(() => [
+    ...DEFAULT_LANDING_SECTION_ORDER,
+  ]);
+  const [sectionsEnabled, setSectionsEnabled] = useState<Record<LandingSectionId, boolean>>(() => {
+    const o = {} as Record<LandingSectionId, boolean>;
+    for (const id of LANDING_SECTION_IDS) o[id] = true;
+    return o;
+  });
+  const [testimonialTitle, setTestimonialTitle] = useState("");
+  const [testimonialSubtitle, setTestimonialSubtitle] = useState("");
+  const [testimonialItems, setTestimonialItems] = useState<
+    {
+      thumbnail_url: string;
+      video_url: string;
+      name: string;
+      role: string;
+      social_handle: string;
+    }[]
+  >([]);
+  const [galleryTitle, setGalleryTitle] = useState("");
+  const [gallerySubtitle, setGallerySubtitle] = useState("");
+  const [galleryItems, setGalleryItems] = useState<
+    {
+      image_url: string;
+      name: string;
+      role: string;
+      social_handle: string;
+      caption: string;
+    }[]
+  >([]);
+
   useEffect(() => {
     if (!data) return;
     setBadgeText(data.badge_text ?? "");
@@ -193,7 +295,309 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     setFooterTextSize(data.footer_text_size ?? "sm");
     setPlanLabels(mergeWithDefaultLabels(data.plan_display_labels));
     setHeroVisual(coercePlansHeroVisual(data.hero_visual));
+
+    const ex = coerceLandingExtras(data.landing_extras);
+    setAppearance(ex.appearance);
+    setPlansSectionLabel(ex.plans_section_label ?? "");
+    setPlansSectionTitle(ex.plans_section_title ?? "");
+    setPlansSectionSubtitle(ex.plans_section_subtitle ?? "");
+    setFeatTitle(ex.features?.title ?? "");
+    setFeatSubtitle(ex.features?.subtitle ?? "");
+    const fc = ex.features?.cards ?? [];
+    setFeatCards([
+      { title: fc[0]?.title ?? "", body: fc[0]?.body ?? "" },
+      { title: fc[1]?.title ?? "", body: fc[1]?.body ?? "" },
+      { title: fc[2]?.title ?? "", body: fc[2]?.body ?? "" },
+    ]);
+    setStatTitle(ex.stats?.title ?? "");
+    setStatSubtitle(ex.stats?.subtitle ?? "");
+    const si = ex.stats?.items ?? [];
+    setStatItems([
+      { value: si[0]?.value ?? "", label: si[0]?.label ?? "" },
+      { value: si[1]?.value ?? "", label: si[1]?.label ?? "" },
+      { value: si[2]?.value ?? "", label: si[2]?.label ?? "" },
+      { value: si[3]?.value ?? "", label: si[3]?.label ?? "" },
+    ]);
+    setFaqTitle(ex.faq?.title ?? "");
+    const fq = ex.faq?.items ?? [];
+    setFaqItems(
+      Array.from({ length: 5 }, (_, i) => ({
+        q: fq[i]?.q ?? "",
+        a: fq[i]?.a ?? "",
+      })),
+    );
+    setLegalLines((ex.legal_footer?.lines ?? []).join("\n"));
+    const ll = ex.legal_footer?.links ?? [];
+    setLegalLinks([
+      { label: ll[0]?.label ?? "", href: ll[0]?.href ?? "" },
+      { label: ll[1]?.label ?? "", href: ll[1]?.href ?? "" },
+      { label: ll[2]?.label ?? "", href: ll[2]?.href ?? "" },
+    ]);
+
+    const blocks = ex.content_blocks;
+    if (blocks?.length) {
+      setContentBlocks(
+        blocks.map((b) =>
+          b.type === "image"
+            ? {
+                type: "image",
+                title: b.title ?? "",
+                subtitle: b.subtitle ?? "",
+                url: "",
+                src: b.src,
+                alt: b.alt ?? "",
+                caption: b.caption ?? "",
+                layout: b.layout === "wide" ? "wide" : "contained",
+              }
+            : {
+                type: "video",
+                title: b.title ?? "",
+                subtitle: b.subtitle ?? "",
+                url: b.url,
+                src: "",
+                alt: "",
+                caption: "",
+                layout: b.layout === "wide" ? "wide" : "contained",
+              },
+        ),
+      );
+    } else {
+      setContentBlocks([]);
+    }
+
+    setSectionOrder(resolveSectionOrder(ex.section_order));
+    const se = ex.sections_enabled;
+    if (se) {
+      setSectionsEnabled({
+        content_blocks: se.content_blocks !== false,
+        features: se.features !== false,
+        stats: se.stats !== false,
+        testimonials: se.testimonials !== false,
+        gallery: se.gallery !== false,
+        planos: se.planos !== false,
+        faq: se.faq !== false,
+      });
+    } else {
+      const o = {} as Record<LandingSectionId, boolean>;
+      for (const id of LANDING_SECTION_IDS) o[id] = true;
+      setSectionsEnabled(o);
+    }
+
+    const te = ex.testimonials;
+    setTestimonialTitle(te?.title ?? "");
+    setTestimonialSubtitle(te?.subtitle ?? "");
+    setTestimonialItems(
+      te?.items?.length
+        ? te.items.map((it) => ({
+            thumbnail_url: it.thumbnail_url,
+            video_url: it.video_url,
+            name: it.name ?? "",
+            role: it.role ?? "",
+            social_handle: it.social_handle ?? "",
+          }))
+        : [],
+    );
+
+    const gal = ex.gallery;
+    setGalleryTitle(gal?.title ?? "");
+    setGallerySubtitle(gal?.subtitle ?? "");
+    setGalleryItems(
+      gal?.items?.length
+        ? gal.items.map((it) => ({
+            image_url: it.image_url,
+            name: it.name ?? "",
+            role: it.role ?? "",
+            social_handle: it.social_handle ?? "",
+            caption: it.caption ?? "",
+          }))
+        : [],
+    );
   }, [data]);
+
+  const buildLandingExtrasPayload = (): Record<string, unknown> => {
+    const cards = featCards
+      .map((c) => ({ title: c.title.trim(), body: c.body.trim() }))
+      .filter((c) => c.title || c.body);
+    const features =
+      cards.length || featTitle.trim() || featSubtitle.trim()
+        ? {
+            title: featTitle.trim() || null,
+            subtitle: featSubtitle.trim() || null,
+            cards,
+          }
+        : null;
+
+    const statsFiltered = statItems
+      .map((s) => ({ value: s.value.trim(), label: s.label.trim() }))
+      .filter((s) => s.value || s.label);
+    const stats =
+      statsFiltered.length || statTitle.trim() || statSubtitle.trim()
+        ? {
+            title: statTitle.trim() || null,
+            subtitle: statSubtitle.trim() || null,
+            items: statsFiltered,
+          }
+        : null;
+
+    const faqFiltered = faqItems
+      .map((f) => ({ q: f.q.trim(), a: f.a.trim() }))
+      .filter((f) => f.q || f.a);
+    const faq =
+      faqFiltered.length || faqTitle.trim()
+        ? {
+            title: faqTitle.trim() || null,
+            items: faqFiltered,
+          }
+        : null;
+
+    const lines = legalLines
+      .split("\n")
+      .map((l) => l.trimEnd())
+      .filter((l) => l.trim());
+    const links = legalLinks
+      .map((l) => ({ label: l.label.trim(), href: l.href.trim() }))
+      .filter((l) => l.label && l.href);
+    const legal_footer =
+      lines.length || links.length
+        ? {
+            lines: lines.length ? lines : undefined,
+            links: links.length ? links : undefined,
+          }
+        : null;
+
+    const content_blocks = contentBlocks
+      .map((b) => {
+        if (b.type === "video") {
+          const url = b.url.trim();
+          if (!url) return null;
+          return {
+            type: "video" as const,
+            title: b.title.trim() || null,
+            subtitle: b.subtitle.trim() || null,
+            url,
+            ...(b.layout === "wide" ? { layout: "wide" as const } : {}),
+          };
+        }
+        const src = b.src.trim();
+        if (!src) return null;
+        return {
+          type: "image" as const,
+          title: b.title.trim() || null,
+          subtitle: b.subtitle.trim() || null,
+          src,
+          alt: b.alt.trim() || undefined,
+          caption: b.caption.trim() || null,
+          ...(b.layout === "wide" ? { layout: "wide" as const } : {}),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    const testimonialFiltered = testimonialItems
+      .map((t) => ({
+        thumbnail_url: t.thumbnail_url.trim(),
+        video_url: t.video_url.trim(),
+        name: t.name.trim() || null,
+        role: t.role.trim() || null,
+        social_handle: t.social_handle.trim() || null,
+      }))
+      .filter((t) => t.thumbnail_url && t.video_url);
+
+    const testimonials =
+      testimonialFiltered.length > 0
+        ? {
+            title: testimonialTitle.trim() || null,
+            subtitle: testimonialSubtitle.trim() || null,
+            items: testimonialFiltered,
+          }
+        : null;
+
+    const galleryFiltered = galleryItems
+      .map((t) => ({
+        image_url: t.image_url.trim(),
+        name: t.name.trim() || null,
+        role: t.role.trim() || null,
+        social_handle: t.social_handle.trim() || null,
+        caption: t.caption.trim() || null,
+      }))
+      .filter((t) => t.image_url);
+
+    const gallery =
+      galleryFiltered.length > 0
+        ? {
+            title: galleryTitle.trim() || null,
+            subtitle: gallerySubtitle.trim() || null,
+            items: galleryFiltered,
+          }
+        : null;
+
+    return {
+      appearance,
+      plans_section_label: plansSectionLabel.trim() || null,
+      plans_section_title: plansSectionTitle.trim() || null,
+      plans_section_subtitle: plansSectionSubtitle.trim() || null,
+      features,
+      stats,
+      faq,
+      legal_footer,
+      content_blocks: content_blocks.length ? content_blocks : null,
+      testimonials,
+      gallery,
+      section_order: sectionOrder,
+      sections_enabled: {
+        content_blocks: sectionsEnabled.content_blocks,
+        features: sectionsEnabled.features,
+        stats: sectionsEnabled.stats,
+        testimonials: sectionsEnabled.testimonials,
+        gallery: sectionsEnabled.gallery,
+        planos: sectionsEnabled.planos,
+        faq: sectionsEnabled.faq,
+      },
+    };
+  };
+
+  const addContentBlock = (type: "video" | "image") => {
+    setContentBlocks((prev) => [
+      ...prev,
+      {
+        type,
+        title: "",
+        subtitle: "",
+        url: "",
+        src: "",
+        alt: "",
+        caption: "",
+        layout: "contained",
+      },
+    ]);
+  };
+
+  const moveContentBlock = (index: number, delta: -1 | 1) => {
+    setContentBlocks((prev) => {
+      const next = [...prev];
+      const j = index + delta;
+      if (j < 0 || j >= next.length) return prev;
+      const t = next[index];
+      next[index] = next[j]!;
+      next[j] = t!;
+      return next;
+    });
+  };
+
+  const removeContentBlock = (index: number) => {
+    setContentBlocks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveSectionInOrder = (index: number, delta: -1 | 1) => {
+    setSectionOrder((prev) => {
+      const next = [...prev];
+      const j = index + delta;
+      if (j < 0 || j >= next.length) return prev;
+      const t = next[index];
+      next[index] = next[j]!;
+      next[j] = t!;
+      return next;
+    });
+  };
 
   const saveTexts = async () => {
     if (!heroTitle.trim()) {
@@ -229,6 +633,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           cta_label: heroVisual.cta_label?.trim() ? heroVisual.cta_label.trim() : null,
           cta_href: heroVisual.cta_href?.trim() ? heroVisual.cta_href.trim() : null,
         },
+        landing_extras: buildLandingExtrasPayload(),
       });
       if (error) {
         toast.error(error);
@@ -301,6 +706,63 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const previewAt = data.updated_at;
 
   return (
+    <div className="space-y-6">
+    <Card className="border-primary/20 shadow-sm">
+      <CardHeader className="border-b border-border/60 bg-muted/20">
+        <CardTitle className="text-lg">Ordem e visibilidade das secções</CardTitle>
+        <CardDescription>
+          Defina a ordem na página pública (entre o intro e o rodapé) e ligue ou desligue cada bloco. «Planos» pode ficar oculto
+          apenas se não quiser mostrar preços nesta página.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 p-4">
+        {sectionOrder.map((id, index) => (
+          <div
+            key={id}
+            className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/10 px-3 py-2"
+          >
+            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
+              {LANDING_SECTION_LABELS[id]}
+            </span>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">Mostrar</Label>
+              <Switch
+                checked={sectionsEnabled[id]}
+                onCheckedChange={(v) =>
+                  setSectionsEnabled((prev) => ({ ...prev, [id]: v }))
+                }
+              />
+            </div>
+            <div className="flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={index === 0}
+                onClick={() => moveSectionInOrder(index, -1)}
+                aria-label="Subir"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={index >= sectionOrder.length - 1}
+                onClick={() => moveSectionInOrder(index, 1)}
+                aria-label="Descer"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+
     <Card className="overflow-hidden border-primary/20 shadow-sm">
       <CardHeader className="border-b border-border/60 bg-muted/30">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -434,6 +896,536 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   </Select>
                 </div>
               </div>
+            </div>
+
+            <Separator />
+
+            <div className="rounded-lg border border-blue-500/25 bg-blue-500/[0.06] p-4 space-y-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                Tema e secções (estilo página de vendas)
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ative o fundo escuro (tipo Smart Click), títulos da secção de planos, até 3 cartões de destaque, números, FAQ e rodapé
+                legal. Deixe vazio o que não quiser mostrar.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Aparência global</Label>
+                <Select
+                  value={appearance}
+                  onValueChange={(v) => setAppearance(v as LandingExtrasPublic["appearance"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Claro (padrão do site)</SelectItem>
+                    <SelectItem value="sales_dark">Escuro — vendas (cartões brancos, azul)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Etiqueta pequena acima dos planos (ex.: PLANOS)</Label>
+                  <Input
+                    value={plansSectionLabel}
+                    onChange={(e) => setPlansSectionLabel(e.target.value)}
+                    placeholder="PLANOS"
+                    maxLength={80}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Título da secção de planos</Label>
+                  <Input
+                    value={plansSectionTitle}
+                    onChange={(e) => setPlansSectionTitle(e.target.value)}
+                    placeholder="Nossas Opções de Adesão"
+                    maxLength={200}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Subtítulo da secção de planos</Label>
+                  <Textarea
+                    value={plansSectionSubtitle}
+                    onChange={(e) => setPlansSectionSubtitle(e.target.value)}
+                    rows={2}
+                    maxLength={500}
+                    className="resize-y min-h-[52px]"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <p className="text-xs font-medium text-foreground">Cartões de destaque (até 3)</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Título do bloco</Label>
+                <Input value={featTitle} onChange={(e) => setFeatTitle(e.target.value)} maxLength={200} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Subtítulo do bloco</Label>
+                <Input value={featSubtitle} onChange={(e) => setFeatSubtitle(e.target.value)} maxLength={500} />
+              </div>
+              {featCards.map((card, idx) => (
+                <div key={idx} className="rounded-md border border-border/60 bg-background/80 p-3 space-y-2">
+                  <p className="text-[11px] font-medium text-muted-foreground">Cartão {idx + 1}</p>
+                  <Input
+                    placeholder="Título"
+                    value={card.title}
+                    onChange={(e) =>
+                      setFeatCards((prev) =>
+                        prev.map((c, i) => (i === idx ? { ...c, title: e.target.value } : c)),
+                      )
+                    }
+                  />
+                  <Textarea
+                    placeholder="Texto"
+                    value={card.body}
+                    onChange={(e) =>
+                      setFeatCards((prev) =>
+                        prev.map((c, i) => (i === idx ? { ...c, body: e.target.value } : c)),
+                      )
+                    }
+                    rows={2}
+                    className="resize-y min-h-[56px] text-sm"
+                  />
+                </div>
+              ))}
+
+              <Separator />
+
+              <p className="text-xs font-medium text-foreground">Números / estatísticas (até 4)</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input
+                  placeholder="Título do bloco"
+                  value={statTitle}
+                  onChange={(e) => setStatTitle(e.target.value)}
+                  maxLength={200}
+                />
+                <Input
+                  placeholder="Subtítulo"
+                  value={statSubtitle}
+                  onChange={(e) => setStatSubtitle(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+              {statItems.map((row, idx) => (
+                <div key={idx} className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    placeholder="Valor (ex.: 7k+)"
+                    value={row.value}
+                    onChange={(e) =>
+                      setStatItems((prev) =>
+                        prev.map((r, i) => (i === idx ? { ...r, value: e.target.value } : r)),
+                      )
+                    }
+                  />
+                  <Input
+                    placeholder="Etiqueta"
+                    value={row.label}
+                    onChange={(e) =>
+                      setStatItems((prev) =>
+                        prev.map((r, i) => (i === idx ? { ...r, label: e.target.value } : r)),
+                      )
+                    }
+                  />
+                </div>
+              ))}
+
+              <Separator />
+
+              <p className="text-xs font-medium text-foreground">FAQ (até 5 perguntas)</p>
+              <Input
+                placeholder="Título da secção FAQ"
+                value={faqTitle}
+                onChange={(e) => setFaqTitle(e.target.value)}
+                maxLength={200}
+                className="mb-2"
+              />
+              {faqItems.map((row, idx) => (
+                <div key={idx} className="mb-3 space-y-2 rounded-md border border-border/60 p-3">
+                  <Input
+                    placeholder={`Pergunta ${idx + 1}`}
+                    value={row.q}
+                    onChange={(e) =>
+                      setFaqItems((prev) =>
+                        prev.map((r, i) => (i === idx ? { ...r, q: e.target.value } : r)),
+                      )
+                    }
+                  />
+                  <Textarea
+                    placeholder="Resposta"
+                    value={row.a}
+                    onChange={(e) =>
+                      setFaqItems((prev) =>
+                        prev.map((r, i) => (i === idx ? { ...r, a: e.target.value } : r)),
+                      )
+                    }
+                    rows={2}
+                    className="resize-y text-sm"
+                  />
+                </div>
+              ))}
+
+              <Separator />
+
+              <Collapsible defaultOpen={false} className="rounded-md border border-border/50 bg-background/40">
+                <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]]:border-b border-border/50">
+                  <span className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Testemunhos em vídeo (grelha)
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
+              <p className="text-xs text-muted-foreground">
+                Miniatura em retrato (9:16), URL do vídeo (YouTube/Vimeo ou .mp4) ao clicar. Até 8 cartões. Aparece após os números e
+                antes dos planos.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Título da secção</Label>
+                  <Input
+                    placeholder="Testemunhos"
+                    value={testimonialTitle}
+                    onChange={(e) => setTestimonialTitle(e.target.value)}
+                    maxLength={200}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Subtítulo</Label>
+                  <Input
+                    placeholder="Veja o que os utilizadores dizem…"
+                    value={testimonialSubtitle}
+                    onChange={(e) => setTestimonialSubtitle(e.target.value)}
+                    maxLength={800}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  disabled={testimonialItems.length >= 8}
+                  onClick={() =>
+                    setTestimonialItems((prev) => [
+                      ...prev,
+                      {
+                        thumbnail_url: "",
+                        video_url: "",
+                        name: "",
+                        role: "",
+                        social_handle: "",
+                      },
+                    ])
+                  }
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar cartão
+                </Button>
+              </div>
+              {testimonialItems.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem testemunhos. Adicione cartões com miniatura e vídeo.</p>
+              ) : (
+                <div className="space-y-3">
+                  {testimonialItems.map((row, idx) => (
+                    <div
+                      key={`tm-${idx}`}
+                      className="space-y-2 rounded-md border border-border/60 bg-background/80 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-medium text-muted-foreground">Cartão {idx + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-destructive"
+                          onClick={() =>
+                            setTestimonialItems((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">URL da miniatura (imagem)</Label>
+                          <Input
+                            placeholder="https://… (retrato recomendado)"
+                            value={row.thumbnail_url}
+                            onChange={(e) =>
+                              setTestimonialItems((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, thumbnail_url: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            maxLength={2000}
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">URL do vídeo (ao clicar)</Label>
+                          <Input
+                            placeholder="YouTube, Vimeo ou .mp4"
+                            value={row.video_url}
+                            onChange={(e) =>
+                              setTestimonialItems((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, video_url: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            maxLength={2000}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Nome (opcional)</Label>
+                          <Input
+                            value={row.name}
+                            onChange={(e) =>
+                              setTestimonialItems((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, name: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            maxLength={120}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Função / título (opcional)</Label>
+                          <Input
+                            placeholder="Ex.: Empreendedora digital"
+                            value={row.role}
+                            onChange={(e) =>
+                              setTestimonialItems((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, role: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            maxLength={200}
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Rede / handle (opcional, canto superior)</Label>
+                          <Input
+                            placeholder="@instagram ou texto curto"
+                            value={row.social_handle}
+                            onChange={(e) =>
+                              setTestimonialItems((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, social_handle: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            maxLength={80}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Separator />
+
+              <Collapsible defaultOpen={false} className="rounded-md border border-border/50 bg-background/40">
+                <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]]:border-b border-border/50">
+                  <span className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-primary" />
+                    Galeria de imagens (grelha)
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Mesmo layout dos testemunhos, mas só imagens (clique para ampliar). Até 8 cartões. Visibilidade global no cartão
+                    «Ordem e visibilidade».
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Título</Label>
+                      <Input
+                        placeholder="Galeria"
+                        value={galleryTitle}
+                        onChange={(e) => setGalleryTitle(e.target.value)}
+                        maxLength={200}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Subtítulo</Label>
+                      <Input
+                        value={gallerySubtitle}
+                        onChange={(e) => setGallerySubtitle(e.target.value)}
+                        maxLength={800}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={galleryItems.length >= 8}
+                      onClick={() =>
+                        setGalleryItems((prev) => [
+                          ...prev,
+                          {
+                            image_url: "",
+                            name: "",
+                            role: "",
+                            social_handle: "",
+                            caption: "",
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Adicionar imagem
+                    </Button>
+                  </div>
+                  {galleryItems.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Sem imagens na galeria.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {galleryItems.map((row, idx) => (
+                        <div
+                          key={`gal-${idx}`}
+                          className="space-y-2 rounded-md border border-border/60 bg-background/80 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium text-muted-foreground">
+                              Imagem {idx + 1}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-destructive"
+                              onClick={() =>
+                                setGalleryItems((prev) => prev.filter((_, i) => i !== idx))
+                              }
+                            >
+                              Remover
+                            </Button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <Label className="text-xs">URL da imagem</Label>
+                              <Input
+                                placeholder="https://…"
+                                value={row.image_url}
+                                onChange={(e) =>
+                                  setGalleryItems((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, image_url: e.target.value } : r,
+                                    ),
+                                  )
+                                }
+                                maxLength={2000}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Nome (opcional)</Label>
+                              <Input
+                                value={row.name}
+                                onChange={(e) =>
+                                  setGalleryItems((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, name: e.target.value } : r,
+                                    ),
+                                  )
+                                }
+                                maxLength={120}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Função (opcional)</Label>
+                              <Input
+                                value={row.role}
+                                onChange={(e) =>
+                                  setGalleryItems((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, role: e.target.value } : r,
+                                    ),
+                                  )
+                                }
+                                maxLength={200}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Legenda (opcional)</Label>
+                              <Input
+                                value={row.caption}
+                                onChange={(e) =>
+                                  setGalleryItems((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, caption: e.target.value } : r,
+                                    ),
+                                  )
+                                }
+                                maxLength={500}
+                              />
+                            </div>
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <Label className="text-xs">Handle / rede (opcional)</Label>
+                              <Input
+                                value={row.social_handle}
+                                onChange={(e) =>
+                                  setGalleryItems((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, social_handle: e.target.value } : r,
+                                    ),
+                                  )
+                                }
+                                maxLength={80}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Separator />
+
+              <p className="text-xs font-medium text-foreground">Rodapé legal</p>
+              <Textarea
+                placeholder="Linhas de texto (uma por linha): copyright, avisos…"
+                value={legalLines}
+                onChange={(e) => setLegalLines(e.target.value)}
+                rows={3}
+                className="resize-y text-sm"
+              />
+              {legalLinks.map((link, idx) => (
+                <div key={idx} className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    placeholder="Texto do link"
+                    value={link.label}
+                    onChange={(e) =>
+                      setLegalLinks((prev) =>
+                        prev.map((l, i) => (i === idx ? { ...l, label: e.target.value } : l)),
+                      )
+                    }
+                  />
+                  <Input
+                    placeholder="URL"
+                    value={link.href}
+                    onChange={(e) =>
+                      setLegalLinks((prev) =>
+                        prev.map((l, i) => (i === idx ? { ...l, href: e.target.value } : l)),
+                      )
+                    }
+                  />
+                </div>
+              ))}
             </div>
 
             <Separator />
@@ -784,6 +1776,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               heroTitleWeight={heroTitleWeight}
               heroSubtitleSize={heroSubtitleSize}
               heroVisual={heroVisual}
+              salesTone={appearance === "sales_dark"}
               className="mb-0 border-border/80 bg-muted/20 shadow-inner"
             />
             {introText.trim() ? (
@@ -820,5 +1813,228 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         </div>
       </CardContent>
     </Card>
+
+    <Card className="border-primary/15 shadow-sm">
+      <Collapsible defaultOpen={false}>
+        <CardHeader className="border-b border-border/60 bg-muted/20">
+          <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
+            <div className="min-w-0 space-y-1.5">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Video className="h-5 w-5 text-primary" />
+                Blocos de vídeo e imagem
+              </CardTitle>
+              <CardDescription>
+                Ordem de cima para baixo = ordem na página (após o texto introdutório). Vídeo: YouTube, Vimeo ou URL direta .mp4/.webm.
+                Imagem: URL completa (https) ou caminho começado por / (ex.: /uploads/banner.png). Guardar com o botão do cartão principal ou abaixo.
+              </CardDescription>
+            </div>
+            <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+      <CardContent className="space-y-4 p-6">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => addContentBlock("video")}
+          >
+            <Plus className="h-4 w-4" />
+            Vídeo
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => addContentBlock("image")}
+          >
+            <Plus className="h-4 w-4" />
+            Imagem
+          </Button>
+        </div>
+
+        {contentBlocks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum bloco. Adicione vídeos ou imagens para mostrar na landing.</p>
+        ) : (
+          <div className="space-y-4">
+            {contentBlocks.map((block, index) => (
+              <div
+                key={`cb-${index}`}
+                className="rounded-lg border border-border/80 bg-background/80 p-4 space-y-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {block.type === "video" ? (
+                      <>
+                        <Video className="h-3.5 w-3.5" /> Vídeo
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-3.5 w-3.5" /> Imagem
+                      </>
+                    )}
+                    <span className="text-[10px] font-normal normal-case opacity-70">#{index + 1}</span>
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={index === 0}
+                      onClick={() => moveContentBlock(index, -1)}
+                      aria-label="Mover para cima"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={index >= contentBlocks.length - 1}
+                      onClick={() => moveContentBlock(index, 1)}
+                      aria-label="Mover para baixo"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => removeContentBlock(index)}
+                      aria-label="Remover bloco"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Título (opcional)</Label>
+                    <Input
+                      value={block.title}
+                      onChange={(e) =>
+                        setContentBlocks((prev) =>
+                          prev.map((b, i) => (i === index ? { ...b, title: e.target.value } : b)),
+                        )
+                      }
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Subtítulo (opcional)</Label>
+                    <Input
+                      value={block.subtitle}
+                      onChange={(e) =>
+                        setContentBlocks((prev) =>
+                          prev.map((b, i) => (i === index ? { ...b, subtitle: e.target.value } : b)),
+                        )
+                      }
+                      maxLength={500}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs">Largura</Label>
+                    <Select
+                      value={block.layout}
+                      onValueChange={(v) =>
+                        setContentBlocks((prev) =>
+                          prev.map((b, i) =>
+                            i === index ? { ...b, layout: v === "wide" ? "wide" : "contained" } : b,
+                          ),
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contained">Contida (max. ~896px)</SelectItem>
+                        <SelectItem value="wide">Larga (largura útil)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {block.type === "video" ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">URL do vídeo</Label>
+                    <Input
+                      placeholder="https://www.youtube.com/watch?v=… ou https://…/video.mp4"
+                      value={block.url}
+                      onChange={(e) =>
+                        setContentBlocks((prev) =>
+                          prev.map((b, i) => (i === index ? { ...b, url: e.target.value } : b)),
+                        )
+                      }
+                      maxLength={2000}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">URL da imagem</Label>
+                      <Input
+                        placeholder="https://… ou /caminho/relativo.png"
+                        value={block.src}
+                        onChange={(e) =>
+                          setContentBlocks((prev) =>
+                            prev.map((b, i) => (i === index ? { ...b, src: e.target.value } : b)),
+                          )
+                        }
+                        maxLength={2000}
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Texto alternativo (acessibilidade)</Label>
+                        <Input
+                          value={block.alt}
+                          onChange={(e) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) => (i === index ? { ...b, alt: e.target.value } : b)),
+                            )
+                          }
+                          maxLength={200}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Legenda (opcional)</Label>
+                        <Input
+                          value={block.caption}
+                          onChange={(e) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) => (i === index ? { ...b, caption: e.target.value } : b)),
+                            )
+                          }
+                          maxLength={500}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveTexts()}>
+          <Save className="h-4 w-4" />
+          Guardar landing
+        </Button>
+      </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+    </div>
   );
 }
