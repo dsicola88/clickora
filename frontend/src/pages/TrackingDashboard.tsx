@@ -216,6 +216,84 @@ function CopyFieldRow({
   );
 }
 
+/** URL de importação CSV + script clickora.min.js — necessário para todos os utilizadores. */
+function TrackingScriptCsvBlocks({
+  csvUploadUrl,
+  csvPlaceholder,
+  trackingScript,
+  copiedCsv,
+  copiedScript,
+  handleCopy,
+  embedSrcWasPatched,
+  scriptStillLocalhostOnDeploy,
+}: {
+  csvUploadUrl: string;
+  csvPlaceholder: string;
+  trackingScript: string;
+  copiedCsv: boolean;
+  copiedScript: boolean;
+  handleCopy: (text: string, type: "script" | "csv") => void;
+  embedSrcWasPatched: boolean;
+  scriptStillLocalhostOnDeploy: boolean;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FileDown className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-card-foreground">URL de conversões (CSV)</h3>
+          </div>
+        </div>
+        <CopyFieldRow
+          id="csv-url"
+          value={csvUploadUrl || csvPlaceholder}
+          disabled={!csvUploadUrl}
+          copied={copiedCsv}
+          onCopy={() => csvUploadUrl && handleCopy(csvUploadUrl, "csv")}
+        />
+        <p className="mt-3 text-xs text-muted-foreground">
+          <strong className="text-foreground/90">POST</strong> com o CSV no corpo importa linhas;{" "}
+          <strong className="text-foreground/90">GET</strong> no mesmo URL só confirma que o{" "}
+          <span className="font-mono">token</span> é válido (resposta JSON).
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">Não partilhes o token.</p>
+      </div>
+
+      <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-700 dark:text-violet-300">
+            <Code className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-card-foreground">Script da presell</h3>
+          </div>
+        </div>
+        {embedSrcWasPatched && (
+          <p className="mb-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
+            URL do script ajustada via <span className="font-mono">VITE_API_URL</span>. Em produção define <span className="font-mono">API_PUBLIC_URL</span> no servidor.
+          </p>
+        )}
+        {scriptStillLocalhostOnDeploy && (
+          <p className="mb-3 text-xs text-destructive bg-destructive/10 border border-destructive/25 rounded-lg px-3 py-2">
+            O script aponta para <span className="font-mono">localhost</span> no site público — corrige <span className="font-mono">VITE_API_URL</span> /{" "}
+            <span className="font-mono">API_PUBLIC_URL</span>.
+          </p>
+        )}
+        <CopyFieldRow
+          id="tracking-script"
+          value={trackingScript || "Carregando credenciais…"}
+          disabled={!trackingScript}
+          copied={copiedScript}
+          onCopy={() => trackingScript && handleCopy(trackingScript, "script")}
+        />
+      </div>
+    </div>
+  );
+}
+
 type DashboardHeroInput = {
   total_clicks?: number;
   total_impressions?: number;
@@ -621,7 +699,7 @@ export default function TrackingDashboard() {
   const revenue = dashboard?.revenue ?? 0;
   const csvPlaceholder = dashboard ? "Atualize a API para obter o link com token." : "Carregando…";
 
-  /** Assinantes: mesmo resumo e atalhos; a secção técnica (script/CSV) só para admin abaixo. */
+  /** Assinantes: mesmo resumo, atalhos, script/CSV e gráficos; guia longa e painel Google Ads só para admin. */
   if (!isAdmin) {
     const hasGeoRows = (dashboard?.clicks_by_country?.length ?? 0) > 0;
     const showDetailSection = chartData.length > 0 || hasGeoRows;
@@ -673,6 +751,36 @@ export default function TrackingDashboard() {
             </Link>
           ))}
         </div>
+
+        <section className="space-y-4" aria-labelledby="subscriber-script-csv">
+          <div>
+            <h2 id="subscriber-script-csv" className="text-lg font-semibold text-foreground">
+              Script e conversões (CSV)
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground max-w-3xl">
+              Cole o <strong className="text-foreground/90">script</strong> no HTML da presell (head ou código da página). Use o{" "}
+              <strong className="text-foreground/90">URL</strong> para importar conversões por POST. Postbacks e Google Ads:{" "}
+              <Link className="text-primary underline underline-offset-4 hover:text-primary/90" to="/tracking/integrations">
+                Integrações
+              </Link>{" "}
+              e{" "}
+              <Link className="text-primary underline underline-offset-4 hover:text-primary/90" to="/tracking/plataformas">
+                Plataformas
+              </Link>
+              .
+            </p>
+          </div>
+          <TrackingScriptCsvBlocks
+            csvUploadUrl={csvUploadUrl}
+            csvPlaceholder={csvPlaceholder}
+            trackingScript={trackingScript}
+            copiedCsv={copiedCsv}
+            copiedScript={copiedScript}
+            handleCopy={handleCopy}
+            embedSrcWasPatched={embedSrcWasPatched}
+            scriptStillLocalhostOnDeploy={scriptStillLocalhostOnDeploy}
+          />
+        </section>
 
         {showDetailSection ? (
           <section
@@ -820,59 +928,16 @@ export default function TrackingDashboard() {
         </div>
         <h3 className="text-base font-semibold text-foreground">Script e CSV</h3>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <FileDown className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-card-foreground">URL de conversões (CSV)</h3>
-              </div>
-            </div>
-            <CopyFieldRow
-              id="csv-url"
-              value={csvUploadUrl || csvPlaceholder}
-              disabled={!csvUploadUrl}
-              copied={copiedCsv}
-              onCopy={() => csvUploadUrl && handleCopy(csvUploadUrl, "csv")}
-            />
-            <p className="mt-3 text-xs text-muted-foreground">
-              <strong className="text-foreground/90">POST</strong> com o CSV no corpo importa linhas;{" "}
-              <strong className="text-foreground/90">GET</strong> no mesmo URL só confirma que o{" "}
-              <span className="font-mono">token</span> é válido (resposta JSON).
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">Não partilhes o token.</p>
-          </div>
-
-          <div className="group rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow hover:shadow-md md:p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-700 dark:text-violet-300">
-                <Code className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-card-foreground">Script da presell</h3>
-              </div>
-            </div>
-            {embedSrcWasPatched && (
-              <p className="mb-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
-                URL do script ajustada via <span className="font-mono">VITE_API_URL</span>. Em produção define <span className="font-mono">API_PUBLIC_URL</span> no servidor.
-              </p>
-            )}
-            {scriptStillLocalhostOnDeploy && (
-              <p className="mb-3 text-xs text-destructive bg-destructive/10 border border-destructive/25 rounded-lg px-3 py-2">
-                O script aponta para <span className="font-mono">localhost</span> no site público — corrige <span className="font-mono">VITE_API_URL</span> / <span className="font-mono">API_PUBLIC_URL</span>.
-              </p>
-            )}
-            <CopyFieldRow
-              id="tracking-script"
-              value={trackingScript || "Carregando credenciais…"}
-              disabled={!trackingScript}
-              copied={copiedScript}
-              onCopy={() => trackingScript && handleCopy(trackingScript, "script")}
-            />
-          </div>
-        </div>
+        <TrackingScriptCsvBlocks
+          csvUploadUrl={csvUploadUrl}
+          csvPlaceholder={csvPlaceholder}
+          trackingScript={trackingScript}
+          copiedCsv={copiedCsv}
+          copiedScript={copiedScript}
+          handleCopy={handleCopy}
+          embedSrcWasPatched={embedSrcWasPatched}
+          scriptStillLocalhostOnDeploy={scriptStillLocalhostOnDeploy}
+        />
 
         <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
           <div className="flex items-start gap-3">
