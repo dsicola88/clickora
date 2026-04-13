@@ -33,7 +33,6 @@ import PublicPresell from "./pages/PublicPresell";
 
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
-  { path: "/plans", element: <Plans /> },
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminPanel /> },
   { path: "/presell/dashboard", element: <PresellDashboard /> },
@@ -75,7 +74,9 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/p/:id" element={<PublicPresell />} />
-              <Route path="/" element={<Navigate to="/tracking/vendas" replace />} />
+              <Route path="/" element={<Navigate to="/plans" replace />} />
+              <Route path="/planos" element={<Navigate to="/plans" replace />} />
+              <Route path="/plans" element={<AppLayout><Plans /></AppLayout>} />
               <Route path="/tracking/vendas" element={<AppLayout><Vendas /></AppLayout>} />
               {/* Protected routes */}
               <Route

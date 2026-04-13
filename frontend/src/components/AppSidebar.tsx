@@ -124,7 +124,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4 border-b border-sidebar-border/80">
-        <NavLink to="/tracking/vendas" className="flex items-center gap-2.5 group/logo">
+        <NavLink to="/plans" className="flex items-center gap-2.5 group/logo">
           <div className="gradient-primary rounded-md w-8 h-8 flex items-center justify-center flex-shrink-0 shadow-md shadow-black/20 ring-1 ring-white/10">
             <Zap className="w-4 h-4 text-primary-foreground drop-shadow-sm" />
           </div>

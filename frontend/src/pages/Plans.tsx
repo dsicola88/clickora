@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { plansService } from "@/services/plansService";
 import { plansLandingService } from "@/services/plansLandingService";
@@ -70,6 +70,11 @@ export default function Plans() {
   });
 
   const handleSelectPlan = async (plan: Plan) => {
+    if (!user) {
+      toast.info("Entre na conta para escolher ou alterar o plano.");
+      navigate("/auth");
+      return;
+    }
     if (plan.type === userPlan?.plan_type) {
       toast.info("Você já está neste plano.");
       return;
