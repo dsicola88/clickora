@@ -109,7 +109,7 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground border-t border-border/50 pt-4">Sem plano associado neste momento.</p>
           )}
           <Button className="w-full mt-auto gap-2 rounded-xl" variant="secondary" asChild>
-            <Link to="/">Ver e alterar planos</Link>
+            <Link to="/planos">Ver e alterar planos</Link>
           </Button>
         </div>
       </div>

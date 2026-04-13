@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,6 +26,7 @@ import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
 import Logs from "./pages/Logs";
 import Plans from "./pages/Plans";
+import { LandingRoot } from "./components/LandingRoot";
 import AdminPanel from "./pages/AdminPanel";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
@@ -74,10 +75,10 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/p/:id" element={<PublicPresell />} />
-              <Route path="/plans" element={<Navigate to="/" replace />} />
-              <Route path="/planos" element={<Navigate to="/" replace />} />
-              {/* Landing de vendas sem sidebar — só a página pública de planos */}
-              <Route path="/" element={<Plans />} />
+              {/* Landing de planos (acessível com ou sem login; a raiz redireciona logados para /inicio) */}
+              <Route path="/plans" element={<Plans />} />
+              <Route path="/planos" element={<Plans />} />
+              <Route path="/" element={<LandingRoot />} />
               <Route path="/tracking/vendas" element={<AppLayout><Vendas /></AppLayout>} />
               {/* Protected routes */}
               <Route
