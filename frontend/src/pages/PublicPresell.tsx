@@ -213,6 +213,7 @@ export default function PublicPresell() {
     });
   }, [page?.settings]);
 
+  // Re-run when serialized custom code changes (settingsInjectKey), not when page.settings object identity changes.
   useLayoutEffect(() => {
     if (!page?.id) return;
     const s = (page.settings || {}) as Record<string, unknown>;
@@ -237,6 +238,7 @@ export default function PublicPresell() {
     if (footerCode) cleanups.push(injectWithCleanup(footerCode, document.body));
 
     return () => cleanups.forEach((fn) => fn());
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps above: settingsInjectKey covers page.settings fields
   }, [page?.id, settingsInjectKey]);
 
   const content = (page?.content || {}) as Record<string, unknown>;
