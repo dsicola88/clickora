@@ -3,10 +3,24 @@ import { systemPrisma } from "./prisma";
 
 let configured = false;
 
-/** Remove aspas envolventes e quebras de linha (comum ao colar no Railway). */
+/**
+ * Railway/Linux: `process.env` é sensível a maiúsculas; o painel por vezes cria `Vapid_Private_Key`
+ * em vez de `VAPID_PRIVATE_KEY`.
+ */
+function envValueForKey(canonical: string): string | undefined {
+  const direct = process.env[canonical];
+  if (direct !== undefined) return direct;
+  const found = Object.keys(process.env).find((k) => k.toUpperCase() === canonical.toUpperCase());
+  return found ? process.env[found] : undefined;
+}
+
+/** Remove aspas envolventes, quebras de linha e caracteres invisíveis (colar no Railway). */
 function stripVapidEnvValue(raw: string | undefined): string {
   if (raw == null) return "";
-  let s = raw.trim().replace(/\r?\n/g, "");
+  let s = raw
+    .trim()
+    .replace(/\r?\n/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "");
   if (
     (s.startsWith('"') && s.endsWith('"')) ||
     (s.startsWith("'") && s.endsWith("'"))
@@ -34,15 +48,27 @@ function normalizeVapidSubject(raw: string): string {
 export function initWebPushFromEnv(): void {
   if (configured) return;
 
-  const pub = stripVapidEnvValue(process.env.VAPID_PUBLIC_KEY);
-  const priv = stripVapidEnvValue(process.env.VAPID_PRIVATE_KEY);
-  const subjectRaw = stripVapidEnvValue(process.env.VAPID_SUBJECT) || "mailto:support@dclickora.com";
+  const pub = stripVapidEnvValue(envValueForKey("VAPID_PUBLIC_KEY"));
+  const priv = stripVapidEnvValue(envValueForKey("VAPID_PRIVATE_KEY"));
+  const subjectRaw =
+    stripVapidEnvValue(envValueForKey("VAPID_SUBJECT")) || "mailto:support@dclickora.com";
   const subject = normalizeVapidSubject(subjectRaw);
 
   if (!pub || !priv) {
+    const rawPriv = envValueForKey("VAPID_PRIVATE_KEY");
+    const rawPub = envValueForKey("VAPID_PUBLIC_KEY");
+    const vapidNames = Object.keys(process.env).filter((k) => k.toUpperCase().includes("VAPID"));
     console.warn(
       "[web-push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes ou vazias após limpeza — notificações push desativadas.",
-      { publicLen: pub.length, privateLen: priv.length },
+      {
+        publicLen: pub.length,
+        privateLen: priv.length,
+        rawPublicDefined: rawPub !== undefined,
+        rawPrivateDefined: rawPriv !== undefined,
+        rawPublicLen: rawPub?.length ?? 0,
+        rawPrivateLen: rawPriv?.length ?? 0,
+        envKeysContainingVapid: vapidNames,
+      },
     );
     return;
   }
@@ -66,7 +92,7 @@ export function isWebPushConfigured(): boolean {
 }
 
 export function getVapidPublicKeyFromEnv(): string | null {
-  const k = stripVapidEnvValue(process.env.VAPID_PUBLIC_KEY);
+  const k = stripVapidEnvValue(envValueForKey("VAPID_PUBLIC_KEY"));
   return k || null;
 }
 
