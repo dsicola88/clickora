@@ -1,0 +1,260 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Globe, Copy, Check, Loader2, Trash2, Star } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { customDomainService } from "@/services/customDomainService";
+import type { CustomDomainDto } from "@/types/api";
+
+export function CustomDomainSettings() {
+  const queryClient = useQueryClient();
+  const [newHostname, setNewHostname] = useState("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const { data: domains = [], isLoading } = useQuery({
+    queryKey: ["custom-domain"],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.list();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (hostname: string) => customDomainService.create(hostname),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      setNewHostname("");
+      toast.success("Domínio adicionado. Configure o TXT no DNS e verifique.");
+    },
+    onError: () => toast.error("Não foi possível adicionar."),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: (id: string) => customDomainService.verify(id),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      toast.success("Domínio verificado.");
+    },
+    onError: () => toast.error("Verificação falhou."),
+  });
+
+  const defaultMutation = useMutation({
+    mutationFn: (id: string) => customDomainService.setDefault(id),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      toast.success("Domínio padrão atualizado.");
+    },
+    onError: () => toast.error("Não foi possível definir o padrão."),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => customDomainService.remove(id),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      toast.success("Domínio removido.");
+    },
+    onError: () => toast.error("Não foi possível remover."),
+  });
+
+  const copy = async (label: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(label);
+      setTimeout(() => setCopiedField(null), 2000);
+      toast.success("Copiado.");
+    } catch {
+      toast.error("Não foi possível copiar.");
+    }
+  };
+
+  const txtFor = (d: CustomDomainDto) => ({
+    txt_name: `_dclickora-verify.${d.hostname}`,
+    txt_value: `dclickora-verification=${d.verification_token}`,
+  });
+
+  return (
+    <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Globe className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-lg font-semibold text-card-foreground">Domínios personalizados</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Adicione vários domínios (um por campanha ou marca). Cada um verifica-se com um registo TXT; o padrão é usado
+            nas presells que não escolhem outro domínio. Em produção, adicione também cada hostname no projeto Vercel e no
+            DNS (CNAME).
+          </p>
+        </div>
+      </div>
+
+      <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground border border-border/50 rounded-lg p-4 bg-muted/20">
+        <li>Domínio na Vercel (HTTPS) + DNS a apontar para o site.</li>
+        <li>Registo TXT abaixo para provar a propriedade.</li>
+        <li>Presells: em editar, pode escolher qual domínio usar nos links públicos.</li>
+      </ol>
+
+      <div className="space-y-2">
+        <Label htmlFor="new-custom-hostname">Adicionar domínio</Label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            id="new-custom-hostname"
+            placeholder="www.seusite.com"
+            value={newHostname}
+            onChange={(e) => setNewHostname(e.target.value)}
+            disabled={createMutation.isPending}
+            className="font-mono text-sm"
+          />
+          <Button
+            type="button"
+            className="shrink-0"
+            disabled={createMutation.isPending}
+            onClick={() => {
+              const raw = newHostname.trim();
+              if (!raw) {
+                toast.error("Indique o hostname.");
+                return;
+              }
+              createMutation.mutate(raw);
+            }}
+          >
+            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Sem https:// — só o hostname.</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+        </div>
+      ) : domains.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum domínio ainda. Adicione um acima.</p>
+      ) : (
+        <div className="space-y-4">
+          {domains.map((d) => {
+            const dns = txtFor(d);
+            const isPending = d.status === "pending";
+            return (
+              <div
+                key={d.id}
+                className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <code className="text-sm font-mono break-all">https://{d.hostname}</code>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        d.status === "verified"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                          : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                      }`}
+                    >
+                      {d.status === "verified" ? "Verificado" : "Pendente"}
+                    </span>
+                    {d.status === "verified" && d.is_default && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> Padrão
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1 shrink-0">
+                    {d.status === "verified" && !d.is_default && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        disabled={defaultMutation.isPending}
+                        onClick={() => defaultMutation.mutate(d.id)}
+                      >
+                        Tornar padrão
+                      </Button>
+                    )}
+                    {isPending && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="text-xs"
+                        disabled={verifyMutation.isPending}
+                        onClick={() => verifyMutation.mutate(d.id)}
+                      >
+                        Verificar agora
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive text-xs"
+                      disabled={removeMutation.isPending}
+                      onClick={() => {
+                        if (!confirm(`Remover ${d.hostname}?`)) return;
+                        removeMutation.mutate(d.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                {isPending && (
+                  <div className="space-y-2 text-xs">
+                    <p className="font-medium text-card-foreground">TXT (verificação)</p>
+                    <div className="flex gap-2 items-start">
+                      <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
+                        {dns.txt_name}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => copy("n-" + d.id, dns.txt_name)}
+                      >
+                        {copiedField === "n-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
+                        {dns.txt_value}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => copy("v-" + d.id, dns.txt_value)}
+                      >
+                        {copiedField === "v-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

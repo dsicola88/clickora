@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import type { PresellPage } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
+import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
 import { z } from "zod";
@@ -37,7 +38,23 @@ const createSchema = z.object({
   settings: z.any().optional(),
   tracking: z.any().optional(),
   status: z.enum(["draft", "published", "paused", "archived"]).optional(),
+  /** Domínio público para links; omitir = sem override; null = usar só o padrão da conta. */
+  custom_domain_id: z.preprocess(
+    (v) => (v === "" || v === null ? null : v === undefined ? undefined : v),
+    z.union([z.string().uuid(), z.null()]).optional(),
+  ),
 });
+
+async function resolveCustomDomainIdForUser(userId: string, raw: string | null): Promise<string | null> {
+  if (raw === null) return null;
+  const d = await prisma.customDomain.findFirst({
+    where: { id: raw, userId, status: "verified" },
+  });
+  if (!d) {
+    throw new Error("Domínio inválido ou não verificado.");
+  }
+  return raw;
+}
 
 const importFromUrlSchema = z.object({
   product_url: z.preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().url()),
@@ -59,6 +76,9 @@ export const presellController = {
     });
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
@@ -82,6 +102,7 @@ export const presellController = {
         impressions: true,
         conversions: true,
         videoUrl: true,
+        customDomainId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -102,6 +123,19 @@ export const presellController = {
   async create(req: Request, res: Response) {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+
+    let customDomainIdField: { customDomainId?: string | null } = {};
+    if (parsed.data.custom_domain_id !== undefined) {
+      try {
+        customDomainIdField.customDomainId = await resolveCustomDomainIdForUser(
+          req.user!.userId,
+          parsed.data.custom_domain_id,
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Domínio inválido.";
+        return res.status(400).json({ error: msg });
+      }
+    }
 
     // Check plan limits
     const count = await prisma.presellPage.count({ where: { userId: req.user!.userId } });
@@ -129,6 +163,7 @@ export const presellController = {
           settings: parsed.data.settings || {},
           tracking: parsed.data.tracking || {},
           status: parsed.data.status || "draft",
+          ...customDomainIdField,
         },
       });
     } catch (error) {
@@ -147,19 +182,35 @@ export const presellController = {
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
+    const data: Record<string, unknown> = {
+      ...(req.body.title && { title: req.body.title }),
+      ...(req.body.slug && { slug: req.body.slug }),
+      ...(req.body.type && { type: req.body.type }),
+      ...(req.body.category !== undefined && { category: req.body.category }),
+      ...(req.body.language && { language: req.body.language }),
+      ...(req.body.content && { content: req.body.content }),
+      ...(req.body.video_url !== undefined && { videoUrl: req.body.video_url }),
+      ...(req.body.settings && { settings: req.body.settings }),
+      ...(req.body.tracking && { tracking: req.body.tracking }),
+    };
+
+    if (req.body.custom_domain_id !== undefined) {
+      try {
+        const raw = req.body.custom_domain_id;
+        const next = await resolveCustomDomainIdForUser(
+          req.user!.userId,
+          raw === null || raw === "" ? null : String(raw),
+        );
+        data.customDomainId = next;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Domínio inválido.";
+        return res.status(400).json({ error: msg });
+      }
+    }
+
     const updated = await prisma.presellPage.update({
       where: { id: req.params.id },
-      data: {
-        ...(req.body.title && { title: req.body.title }),
-        ...(req.body.slug && { slug: req.body.slug }),
-        ...(req.body.type && { type: req.body.type }),
-        ...(req.body.category !== undefined && { category: req.body.category }),
-        ...(req.body.language && { language: req.body.language }),
-        ...(req.body.content && { content: req.body.content }),
-        ...(req.body.video_url !== undefined && { videoUrl: req.body.video_url }),
-        ...(req.body.settings && { settings: req.body.settings }),
-        ...(req.body.tracking && { tracking: req.body.tracking }),
-      },
+      data: data as Prisma.PresellPageUpdateInput,
     });
 
     res.json(mapPresell(updated));
@@ -196,6 +247,7 @@ export const presellController = {
           settings: page.settings || {},
           tracking: page.tracking || {},
           status: "draft",
+          customDomainId: page.customDomainId,
         },
       });
     } catch (error) {
@@ -266,6 +318,7 @@ function mapPresellListRow(p: {
   impressions: number;
   conversions: number;
   videoUrl: string | null;
+  customDomainId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -282,6 +335,7 @@ function mapPresellListRow(p: {
     impressions: p.impressions,
     conversions: p.conversions,
     video_url: p.videoUrl ?? undefined,
+    custom_domain_id: p.customDomainId ?? null,
     settings: {} as Record<string, unknown>,
     tracking: {} as Record<string, unknown>,
     created_at: p.createdAt?.toISOString?.() || String(p.createdAt),
@@ -303,6 +357,7 @@ function mapPresell(p: PresellPage) {
     impressions: p.impressions,
     conversions: p.conversions,
     video_url: p.videoUrl,
+    custom_domain_id: p.customDomainId ?? null,
     settings: p.settings,
     tracking: p.tracking,
     created_at: p.createdAt?.toISOString?.() || p.createdAt,

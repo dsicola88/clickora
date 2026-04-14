@@ -2,6 +2,22 @@
 // Data models expected from API
 // ============================
 
+/** Domínio personalizado (Tracking → Configurações). GET /custom-domain devolve lista. */
+export interface CustomDomainDto {
+  id: string;
+  hostname: string;
+  verification_token: string;
+  status: "pending" | "verified";
+  verified_at: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+  dns?: {
+    txt_name: string;
+    txt_value: string;
+  };
+}
+
 export interface User {
   id: string;
   name: string;
@@ -51,6 +67,8 @@ export interface Presell {
   impressions: number;
   conversions: number;
   video_url?: string;
+  /** Domínio público para links; omitido ou null = usar o domínio padrão da conta. */
+  custom_domain_id?: string | null;
   settings: Record<string, unknown>;
   tracking: Record<string, unknown>;
   created_at: string;

@@ -6,18 +6,22 @@
  * - `VITE_API_URL` — legado, mesmo efeito se o anterior estiver vazio
  *
  * Comportamento:
- * - **Produção em `www`/`dclickora.com`:** usa sempre **`/api`** (same-origin via `vercel.json` → Railway). Não usar URL direta `*.railway.app` no browser — evita CORS, Firefox privado a bloquear, e erros 502 sem `Access-Control-Allow-Origin`.
- * - **Produção (outros hosts, ex. preview Vercel):** `VITE_PUBLIC_API_URL` ou `/api`.
+ * - **Produção em `dclickora.com` ou domínio personalizado no mesmo deploy:** usa **`/api`** (same-origin via `vercel.json` → Railway). Previews `*.vercel.app` podem usar `VITE_PUBLIC_API_URL` explícita.
+ * - **Produção (preview Vercel):** `VITE_PUBLIC_API_URL` ou `/api`.
  * - **Desenvolvimento sem URL:** `http://localhost:3001/api`
  */
 
 const LOCAL_DEFAULT = "http://localhost:3001/api";
 const PROD_SAME_ORIGIN = "/api";
 
-function isDclickoraSiteHostname(): boolean {
+/** Produção no site real (dclickora ou domínio do afiliado no mesmo projeto), não preview local nem `*.vercel.app`. */
+function shouldUseSameOriginApiInProd(): boolean {
   if (typeof window === "undefined") return false;
+  if (!import.meta.env.PROD) return false;
   const h = window.location.hostname;
-  return h === "www.dclickora.com" || h === "dclickora.com";
+  if (h === "localhost" || h === "127.0.0.1") return false;
+  if (h.endsWith(".vercel.app")) return false;
+  return true;
 }
 
 /** URL da env que aponta para Railway (cross-origin → problemas no browser). */
@@ -57,8 +61,8 @@ export function getResolvedPublicApiBaseUrl(): string {
     return normalizeToApiBaseUrl(raw);
   }
 
-  // Site em produção: nunca pedir direto a *.railway.app (CORS / tracking protection / 502 opacos).
-  if (isDclickoraSiteHostname() && (!raw || isRailwayDirectApiUrl(raw))) {
+  // Site em produção (dclickora ou domínio personalizado): mesmo origin que `/api` no Vercel.
+  if (shouldUseSameOriginApiInProd() && (!raw || isRailwayDirectApiUrl(raw))) {
     return PROD_SAME_ORIGIN;
   }
 

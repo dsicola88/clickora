@@ -14,6 +14,7 @@ const USER_ID_MODELS = [
   "conversion",
   "blacklistedIp",
   "subscription",
+  "customDomain",
   "userRole",
 ] as const;
 

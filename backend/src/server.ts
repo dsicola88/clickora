@@ -10,7 +10,9 @@ import { trackRouter } from "./routes/track.routes";
 import { webhookRouter } from "./routes/webhook.routes";
 import { publicRouter } from "./routes/public.routes";
 import { integrationsRouter } from "./routes/integrations.routes";
+import { customDomainRouter } from "./routes/customDomain.routes";
 import { errorHandler } from "./middleware/errorHandler";
+import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/customDomainCache";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 import { initWebPushFromEnv } from "./lib/webPush";
 
@@ -98,6 +100,7 @@ function isLocalMachineOrigin(origin: string): boolean {
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   if (isDclickoraSiteOrigin(origin)) return true;
+  if (isVerifiedCustomDomainOrigin(origin)) return true;
   if (isLocalMachineOrigin(origin)) return true;
   const fromEnv = allAllowedOrigins();
   if (fromEnv.length > 0) return fromEnv.includes(origin);
@@ -186,6 +189,7 @@ app.use("/api/admin", adminRouter);
 app.use("/api/track", trackRouter);
 app.use("/api/webhooks", webhookRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/custom-domain", customDomainRouter);
 app.use("/api/public", publicRouter);
 
 // Health check
@@ -201,6 +205,11 @@ app.use(errorHandler);
 // ========================
 // Start
 // ========================
+void refreshCustomDomainCache();
+setInterval(() => {
+  void refreshCustomDomainCache();
+}, 120_000);
+
 // Escutar **antes** do repair: se ALTER falhar ou a BD estiver lenta, o processo ainda responde
 // (health + rotas com fallback P2022). Esperar repair antes de listen causava process.exit(1) → 502 no Railway/Vercel.
 app.listen(Number(PORT), "0.0.0.0", () => {

@@ -31,6 +31,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { getPublicPresellOriginForPresell } from "@/lib/publicPresellOrigin";
+import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
 
@@ -96,6 +98,18 @@ export default function PresellDashboard() {
     const base = getApiBaseUrl().replace(/\/$/, "");
     return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
   }, [user?.id]);
+
+  const { data: customDomains = [] } = useQuery({
+    queryKey: ["custom-domain"],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.list();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  const hasVerifiedCustomDomain = customDomains.some((d) => d.status === "verified");
 
   const { data: pages = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["presells"],
@@ -167,6 +181,8 @@ export default function PresellDashboard() {
     presellType: "cookies",
     language: "pt",
     productLink: "",
+    /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
+    customDomainId: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -212,6 +228,7 @@ export default function PresellDashboard() {
       presellType: "cookies",
       language: "pt",
       productLink: "",
+      customDomainId: "",
     });
     setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
@@ -226,6 +243,7 @@ export default function PresellDashboard() {
       presellType: page.type,
       language: page.language,
       productLink: String(content.affiliateLink ?? ""),
+      customDomainId: page.custom_domain_id ?? "",
     });
     setTypeOptions({
       cookiePolicyUrl: String(settings.cookiePolicyUrl ?? ""),
@@ -272,8 +290,9 @@ export default function PresellDashboard() {
     }
   };
 
-  const handleCopySlug = (slug: string, id: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/p/${id}`);
+  const handleCopySlug = (page: Presell) => {
+    const origin = getPublicPresellOriginForPresell(customDomains, page.custom_domain_id);
+    navigator.clipboard.writeText(`${origin}/p/${page.id}`);
     setCopiedId(id);
     toast.success("Link copiado!");
     setTimeout(() => setCopiedId(null), 2000);
@@ -333,6 +352,9 @@ export default function PresellDashboard() {
               cookiePolicyUrl: typeOptions.cookiePolicyUrl,
               minAge: typeOptions.minAge,
             },
+            ...(hasVerifiedCustomDomain
+              ? { custom_domain_id: formData.customDomainId ? formData.customDomainId : null }
+              : {}),
           },
         });
       } catch (e) {
@@ -380,6 +402,9 @@ export default function PresellDashboard() {
         category: "sem",
         language: formData.language,
         video_url,
+        ...(hasVerifiedCustomDomain && formData.customDomainId
+          ? { custom_domain_id: formData.customDomainId }
+          : {}),
         content: {
           title: data.title,
           subtitle: data.subtitle,
@@ -472,8 +497,19 @@ export default function PresellDashboard() {
               <>
                 <p className="font-medium text-card-foreground mb-2">O que acontece ao criar</p>
                 <p className="mb-3 text-xs sm:text-sm leading-relaxed">
-                  A presell fica no <span className="text-foreground/90 font-medium">seu domínio dclickora</span> (ex.:{" "}
-                  <span className="font-mono text-xs">https://dclickora.com</span>); o anúncio
+                  A presell fica num URL público{" "}
+                  <span className="text-foreground/90 font-medium">
+                    {hasVerifiedCustomDomain ? "num dos seus domínios verificados (ou dclickora)" : "no domínio dclickora"}
+                  </span>{" "}
+                  (ex.:{" "}
+                  <span className="font-mono text-xs">https://dclickora.com</span>
+                  {hasVerifiedCustomDomain ? (
+                    <>
+                      {" "}
+                      — pode escolher o domínio por presell abaixo quando existir domínio verificado.
+                    </>
+                  ) : null}
+                  ); o anúncio
                   pode apontar para ela e o visitante só segue para a página do produtor ao clicar na oferta — fluxo habitual
                   para afiliados quando políticas de anúncio desincentivam o destino direto ao site do produtor. Aprovação na
                   rede não é garantida: depende de políticas, criativo e página.
@@ -571,6 +607,35 @@ export default function PresellDashboard() {
                 <p className="text-xs text-muted-foreground">Se vazio, o nome vira o endereço automaticamente.</p>
               </div>
             </div>
+
+            {hasVerifiedCustomDomain ? (
+              <div className="space-y-2 max-w-xl">
+                <Label>Domínio nos links públicos</Label>
+                <Select
+                  value={formData.customDomainId || "default"}
+                  onValueChange={(v) => updateField("customDomainId", v === "default" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Domínio padrão da conta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Domínio padrão da conta</SelectItem>
+                    {customDomains
+                      .filter((d) => d.status === "verified")
+                      .map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.hostname}
+                          {d.is_default ? " (padrão)" : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  O URL copiado e usado nos anúncios segue este domínio; se escolher o padrão, usa o marcado como padrão em
+                  Configurações.
+                </p>
+              </div>
+            ) : null}
 
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 sm:p-5 space-y-4 text-left w-full min-w-0">
               <p className="text-sm font-medium text-card-foreground">Opções do tipo (respeitadas na página pública)</p>
@@ -949,7 +1014,7 @@ export default function PresellDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="text-primary text-xs">/{page.slug}</span>
                       <button
-                        onClick={() => handleCopySlug(page.slug, page.id)}
+                        onClick={() => handleCopySlug(page)}
                         className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors"
                       >
                         {copiedId === page.id ? <Check className="h-3 w-3" /> : "Copiar"}
@@ -976,7 +1041,7 @@ export default function PresellDashboard() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <a
-                        href={`${window.location.origin}/p/${page.id}`}
+                        href={`${getPublicPresellOriginForPresell(customDomains, page.custom_domain_id)}/p/${page.id}`}
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

@@ -53,6 +53,11 @@ enum SubscriptionStatus {
   suspended
 }
 
+enum CustomDomainStatus {
+  pending
+  verified
+}
+
 // ========================
 // Models
 // ========================
@@ -94,8 +99,30 @@ model User {
   subscription   Subscription?
   conversions    Conversion[]
   webPushSubscriptions WebPushSubscription[]
+  customDomains        CustomDomain[]
 
   @@map("users")
+}
+
+/** Vários domínios por conta; `is_default` indica o URL base quando a presell não escolhe outro. */
+model CustomDomain {
+  id                  String             @id @default(uuid())
+  userId              String             @map("user_id")
+  /** Hostname normalizado em minúsculas, ex.: www.exemplo.com */
+  hostname            String             @unique
+  verificationToken   String             @map("verification_token") @db.VarChar(128)
+  status              CustomDomainStatus @default(pending)
+  verifiedAt          DateTime?          @map("verified_at")
+  isDefault           Boolean            @default(false) @map("is_default")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presellPages PresellPage[]
+
+  @@index([userId])
+  @@index([hostname])
+  @@map("custom_domains")
 }
 
 /** Subscrição Web Push (navegador) para alertas de conversão no telemóvel/desktop. */
@@ -180,8 +207,11 @@ model PresellPage {
   conversions Int           @default(0)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
+  /** Domínio público preferido para links desta presell; nulo = usar domínio padrão da conta. */
+  customDomainId String?  @map("custom_domain_id")
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customDomain   CustomDomain?   @relation(fields: [customDomainId], references: [id], onDelete: SetNull)
   trackingEvents TrackingEvent[]
   postbackLogs PostbackLog[]
   linkedConversions Conversion[]
@@ -190,6 +220,7 @@ model PresellPage {
   @@index([userId])
   @@index([status])
   @@index([userId, status])
+  @@index([customDomainId])
   @@map("presell_pages")
 }
 

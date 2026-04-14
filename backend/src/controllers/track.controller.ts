@@ -12,6 +12,7 @@ import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
 import { detectBot } from "../lib/detectBot";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
+import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -96,6 +97,9 @@ export const trackController = {
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
@@ -173,6 +177,7 @@ export const trackController = {
     const referrer = req.query.referrer?.toString();
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page || page.status !== "published") return res.status(404).end();
+    if (!assertPresellAllowedOnRequestHost(req, page.userId)) return res.status(404).end();
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).end();
 
@@ -248,6 +253,9 @@ export const trackController = {
     // Get page owner
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
@@ -323,6 +331,9 @@ export const trackController = {
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
@@ -376,6 +387,9 @@ export const trackController = {
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
