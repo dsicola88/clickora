@@ -34,6 +34,7 @@ import { getApiBaseUrl } from "@/lib/apiOrigin";
 import {
   getPublicPresellFullUrl,
   getPublicPresellOriginForPresell,
+  getPublicPresellViewerUrl,
   publicPresellPathUsesSlugForOrigin,
 } from "@/lib/publicPresellOrigin";
 import { customDomainService } from "@/services/customDomainService";
@@ -1089,11 +1090,15 @@ export default function PresellDashboard() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <a
-                        href={getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
+                        href={getPublicPresellViewerUrl(customDomains, page.custom_domain_id, page)}
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        title="Visualizar"
+                        title={
+                          page.status === "published"
+                            ? "Visualizar página pública (abre com /p/ e ID — mais fiável que só o slug)"
+                            : "A presell tem de estar «Habilitada» (publicada) para o link público mostrar conteúdo"
+                        }
                       >
                         <Eye className="h-4 w-4" />
                       </a>

@@ -69,3 +69,16 @@ export function getPublicPresellFullUrl(
   const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
   return `${origin}${getPublicPresellPath(page, origin)}`;
 }
+
+/**
+ * Pré-visualização no painel (ícone «olho»): **sempre** `/p/<uuid>`.
+ * O caminho por slug em domínio próprio depende do Host na API; o GET por ID é fiável em qualquer origem.
+ */
+export function getPublicPresellViewerUrl(
+  domains: CustomDomainDto[] | null | undefined,
+  presellCustomDomainId: string | null | undefined,
+  page: { id: string },
+): string {
+  const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
+  return `${origin}/p/${page.id}`;
+}
