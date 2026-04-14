@@ -95,10 +95,12 @@ export const presellController = {
     });
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
-      return res.status(404).json({ error: "Página não encontrada" });
-    }
 
+    /**
+     * Não aplicar `assertPresellAllowedOnRequestHost` aqui: o id (UUID) é único globalmente.
+     * Atrás de Vercel→Railway o `Host`/`X-Forwarded-*` por vezes não bate com o domínio do visitante,
+     * causando 404 falsos em domínios personalizados. O slug (`getPublicBySlug`) continua restrito ao host.
+     */
     if (page.status !== "published") {
       const hint =
         page.status === "draft"
@@ -204,11 +206,7 @@ export const presellController = {
         },
         include: { user: { include: { subscription: true } } },
       });
-      if (
-        byRoot &&
-        (await assertPresellAllowedOnRequestHost(req, byRoot.userId)) &&
-        evaluateSubscriptionAccess(byRoot.user.subscription).allowed
-      ) {
+      if (byRoot && evaluateSubscriptionAccess(byRoot.user.subscription).allowed) {
         page = byRoot;
       }
     }
@@ -230,10 +228,6 @@ export const presellController = {
         error: "Nenhuma presell publicada neste domínio.",
         code: "ROOT_PRESELL_NONE",
       });
-    }
-
-    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
-      return res.status(404).json({ error: "Página não encontrada" });
     }
 
     const access = evaluateSubscriptionAccess(page.user.subscription);
