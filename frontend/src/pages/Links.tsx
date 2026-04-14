@@ -17,6 +17,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TrackingLink {
   id: string;
@@ -29,6 +30,8 @@ interface TrackingLink {
 }
 
 export default function Links() {
+  const { user } = useAuth();
+  const tenantKey = user?.id ?? "";
   const [links, setLinks] = useState<TrackingLink[]>([]);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -42,12 +45,13 @@ export default function Links() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: presells = [] } = useQuery({
-    queryKey: ["presells-links"],
+    queryKey: ["presells-links", tenantKey],
     queryFn: async () => {
       const { data, error } = await presellService.getAll();
       if (error) throw new Error(error);
       return data ?? [];
     },
+    enabled: !!tenantKey,
   });
 
   const apiBase = useMemo(() => getApiBaseUrl(), []);

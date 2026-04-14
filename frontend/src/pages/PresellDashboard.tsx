@@ -86,6 +86,8 @@ const languages = [
 export default function PresellDashboard() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  /** Isola cache React Query por conta (evita mostrar dados da sessão anterior). */
+  const tenantKey = user?.id ?? "";
   const [showCreator, setShowCreator] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
@@ -104,24 +106,26 @@ export default function PresellDashboard() {
   }, [user?.id]);
 
   const { data: customDomains = [] } = useQuery({
-    queryKey: ["custom-domain"],
+    queryKey: ["custom-domain", tenantKey],
     queryFn: async () => {
       const { data, error } = await customDomainService.list();
       if (error) throw new Error(error);
       return data ?? [];
     },
+    enabled: !!tenantKey,
     staleTime: 60_000,
   });
 
   const hasVerifiedCustomDomain = customDomains.some((d) => d.status === "verified");
 
   const { data: pages = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["presells"],
+    queryKey: ["presells", tenantKey],
     queryFn: async () => {
       const { data, error } = await presellService.getAll();
       if (error) throw new Error(error);
       return data ?? [];
     },
+    enabled: !!tenantKey,
   });
 
   const deleteMutation = useMutation({

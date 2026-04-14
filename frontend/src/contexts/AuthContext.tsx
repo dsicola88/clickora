@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { authService } from "@/services/authService";
 import type { User, UserPlan } from "@/types/api";
 
@@ -19,6 +20,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(authService.getStoredUser());
   const [loading, setLoading] = useState(true);
 
@@ -36,45 +38,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data, error } = await authService.me();
     if (data) {
-      setUser(data);
+      setUser((current) => {
+        if (current?.id && data.id !== current.id) {
+          queryClient.clear();
+        }
+        return data;
+      });
       localStorage.setItem("clickora_user", JSON.stringify(data));
     } else if (error) {
       setUser(null);
       authService.logout();
+      queryClient.clear();
     }
     setLoading(false);
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     refreshUser();
 
     // Listen for forced logout (401 from API)
     const handleLogout = () => {
+      queryClient.clear();
       setUser(null);
     };
     window.addEventListener("auth:logout", handleLogout);
     return () => window.removeEventListener("auth:logout", handleLogout);
-  }, [refreshUser]);
+  }, [refreshUser, queryClient]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { data, error } = await authService.login({ email, password });
-    if (data) {
-      setUser(data.user);
-    }
-    return { error };
-  }, []);
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const { data, error } = await authService.login({ email, password });
+      if (data) {
+        queryClient.clear();
+        setUser(data.user);
+      }
+      return { error };
+    },
+    [queryClient],
+  );
 
-  const signInWithGoogle = useCallback(async (idToken: string) => {
-    const { data, error } = await authService.loginWithGoogle(idToken);
-    if (data) {
-      setUser(data.user);
-    }
-    return { error };
-  }, []);
+  const signInWithGoogle = useCallback(
+    async (idToken: string) => {
+      const { data, error } = await authService.loginWithGoogle(idToken);
+      if (data) {
+        queryClient.clear();
+        setUser(data.user);
+      }
+      return { error };
+    },
+    [queryClient],
+  );
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const { data, error } = await authService.register({ email, password, full_name: fullName });
     if (data) {
+      queryClient.clear();
       setUser(data.user);
     }
     return { error };
@@ -82,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await authService.logout();
+    queryClient.clear();
     setUser(null);
   };
 

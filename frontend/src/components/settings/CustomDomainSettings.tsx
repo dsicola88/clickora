@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Globe, Copy, Check, Loader2, Trash2, Star } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,17 +10,20 @@ import { customDomainService } from "@/services/customDomainService";
 import type { CustomDomainDto, CustomDomainPendingDns } from "@/types/api";
 
 export function CustomDomainSettings() {
+  const { user } = useAuth();
+  const tenantKey = user?.id ?? "";
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const { data: domains = [], isLoading } = useQuery({
-    queryKey: ["custom-domain"],
+    queryKey: ["custom-domain", tenantKey],
     queryFn: async () => {
       const { data, error } = await customDomainService.list();
       if (error) throw new Error(error);
       return data ?? [];
     },
+    enabled: !!tenantKey,
   });
 
   const createMutation = useMutation({
