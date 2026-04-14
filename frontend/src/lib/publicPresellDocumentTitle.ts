@@ -3,27 +3,47 @@ import type { Presell } from "@/types/api";
 /** Alinhar com `frontend/index.html` — valor ao sair da página pública. */
 export const DEFAULT_BROWSER_TAB_TITLE = "dclickora - Presell Pages & Tracking para Afiliados";
 
+const MAX_LABEL = 100;
+
+function clampLabel(s: string): string {
+  const t = s.trim();
+  if (!t) return "";
+  return t.length > MAX_LABEL ? `${t.slice(0, MAX_LABEL - 1)}…` : t;
+}
+
 /**
- * Título do separador do browser na presell pública.
- * - Domínio próprio: «título da oferta · hostname» (confiança, sem marca da plataforma).
- * - dclickora.com: «título da oferta · dclickora».
- * - localhost / preview Vercel: só o título da oferta.
+ * Nome curto do produto / página para o separador — **não** usa o headline longo (`content.title`).
+ * Ordem: nome vindo da importação → «Nome da página» no painel (`page.title`) → último recurso «Página».
+ */
+export function getPresellProductLabel(page: Presell): string {
+  const c = (page.content || {}) as Record<string, unknown>;
+  const fromImport = clampLabel(String(c.productName ?? c.product_name ?? ""));
+  if (fromImport) return fromImport;
+  const pageName = clampLabel(String(page.title ?? ""));
+  if (pageName) return pageName;
+  return "Página";
+}
+
+/**
+ * Título do separador: `{hostname} | {nome do produto}` (sem headline de marketing).
  */
 export function resolvePublicPresellDocumentTitle(page: Presell): string {
-  const content = (page.content || {}) as Record<string, unknown>;
-  const headline = String(content.title || page.title || "").trim() || "Página";
-  if (typeof window === "undefined") return headline;
-
+  const product = getPresellProductLabel(page);
+  if (typeof window === "undefined") {
+    return product;
+  }
   const host = window.location.hostname;
-  const isMainApp = host === "dclickora.com" || host === "www.dclickora.com";
-  const isLocal = host === "localhost" || host === "127.0.0.1";
-  const isVercelPreview = host.endsWith(".vercel.app");
+  return `${host} | ${product}`;
+}
 
-  if (isLocal || isVercelPreview) {
-    return headline;
+/** Para export HTML: mesmo padrão usando o URL público da presell. */
+export function buildExportDocumentTitle(page: Presell, publicPageUrl: string): string {
+  const product = getPresellProductLabel(page);
+  try {
+    const h = new URL(publicPageUrl).hostname;
+    if (h) return `${h} | ${product}`;
+  } catch {
+    /* ignore */
   }
-  if (isMainApp) {
-    return `${headline} · dclickora`;
-  }
-  return `${headline} · ${host}`;
+  return product;
 }

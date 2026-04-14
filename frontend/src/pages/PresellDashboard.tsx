@@ -514,6 +514,7 @@ export default function PresellDashboard() {
           salesText: data.sales_text,
           ctaText: isDiscount ? data.official_buy_cta : data.cta_text,
           affiliateLink: link,
+          productName: data.product_name,
           productImages: data.images,
           sourceUrl: data.source_url,
           ...(isDiscount

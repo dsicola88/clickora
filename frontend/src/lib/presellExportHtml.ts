@@ -1,3 +1,4 @@
+import { buildExportDocumentTitle } from "@/lib/publicPresellDocumentTitle";
 import { resolveApiUrl } from "@/lib/apiOrigin";
 import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
@@ -680,7 +681,7 @@ ${footerCode ? `${footerCode}\n` : ""}`;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="Clickora Presell Export">
-<title>${escapeHtml(title)}</title>
+<title>${escapeHtml(buildExportDocumentTitle(page, opts.publicPageUrl))}</title>
 ${fontLink}
 ${styleBlock}
 ${headerCode ? headerCode : ""}
