@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Pencil,
   Code2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +92,8 @@ export default function PresellDashboard() {
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [copyingHtmlId, setCopyingHtmlId] = useState<string | null>(null);
+  /** A carregar HTML (copiar Elementor ou descarregar .html completo). */
+  const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
   const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
@@ -158,11 +160,27 @@ export default function PresellDashboard() {
         });
         void (async () => {
           try {
-            await navigator.clipboard.writeText(publicUrl);
-            const hint =
-              "Página criada. Link público copiado. Na lista, «Copiar HTML» gera o ficheiro completo para colar no Elementor ou noutro editor.";
-            toast.success(hint, { duration: 10000 });
+            const { data: full } = await presellService.getById(created.id);
+            if (full) {
+              const html = buildPresellStandaloneHtml(full, {
+                apiBase: getApiBaseUrl(),
+                publicPageUrl: publicUrl,
+                format: "elementor",
+              });
+              await navigator.clipboard.writeText(html);
+            } else {
+              await navigator.clipboard.writeText(publicUrl);
+            }
+            toast.success(
+              "Página criada. HTML completo copiado (igual à pré-visualização pública) — cola no Elementor (widget HTML). O link público está no comentário no topo do código.",
+              { duration: 12000 },
+            );
           } catch {
+            try {
+              await navigator.clipboard.writeText(publicUrl);
+            } catch {
+              /* ignore */
+            }
             toast.success(`Página criada. Link público: ${publicUrl}`, { duration: 15000 });
           }
         })();
@@ -326,7 +344,7 @@ export default function PresellDashboard() {
   };
 
   const handleCopyHtml = async (page: Presell) => {
-    setCopyingHtmlId(page.id);
+    setHtmlExportBusyId(page.id);
     try {
       const { data, error } = await presellService.getById(page.id);
       if (error || !data) {
@@ -337,13 +355,49 @@ export default function PresellDashboard() {
       const html = buildPresellStandaloneHtml(data, {
         apiBase: getApiBaseUrl(),
         publicPageUrl: publicUrl,
+        format: "elementor",
       });
       await navigator.clipboard.writeText(html);
-      toast.success("HTML completo copiado. Cola no Elementor (widget HTML) ou noutro editor.");
+      toast.success(
+        "HTML copiado (mesmo layout que a página pública). Cola no Elementor no widget «HTML».",
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível copiar o HTML.");
     } finally {
-      setCopyingHtmlId(null);
+      setHtmlExportBusyId(null);
+    }
+  };
+
+  const handleDownloadFullHtml = async (page: Presell) => {
+    setHtmlExportBusyId(page.id);
+    try {
+      const { data, error } = await presellService.getById(page.id);
+      if (error || !data) {
+        toast.error(error || "Não foi possível carregar a página.");
+        return;
+      }
+      const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
+      const html = buildPresellStandaloneHtml(data, {
+        apiBase: getApiBaseUrl(),
+        publicPageUrl: publicUrl,
+        format: "document",
+      });
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      const baseName = sanitizeSlug(data.slug || data.title || "presell");
+      a.download = `${baseName}.html`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      toast.success("Ficheiro .html completo descarregado (abre no browser ou edita offline).");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível gerar o ficheiro.");
+    } finally {
+      setHtmlExportBusyId(null);
     }
   };
 
@@ -1048,10 +1102,11 @@ export default function PresellDashboard() {
         <span className="font-medium text-card-foreground">Anúncios e partilha:</span> o link que copias é sempre{" "}
         <code className="text-[11px] bg-background px-1 rounded">https://teu-dominio/p/&lt;id&gt;</code> (com domínio
         verificado, o dclickora ou o que estiver na conta). O «endereço» (slug) no formulário é só nome interno. O link do
-        produto (afiliado) não substitui este URL — fica no botão da presell. O ícone{" "}
-        <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden /> copia um{" "}
-        <span className="font-medium text-card-foreground">HTML completo</span> da página (conteúdo + estilos) para colar
-        no Elementor ou noutro editor.
+        produto (afiliado) não substitui este URL — fica no botão da presell.{" "}
+        <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
+        <span className="font-medium text-card-foreground">Copiar HTML</span> (bloco para o Elementor);{" "}
+        <Download className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
+        <span className="font-medium text-card-foreground">Descarregar .html</span> (página completa com &lt;html&gt;).
       </p>
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -1129,11 +1184,20 @@ export default function PresellDashboard() {
                       <button
                         type="button"
                         onClick={() => handleCopyHtml(page)}
-                        disabled={copyingHtmlId === page.id}
+                        disabled={htmlExportBusyId === page.id}
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        title="Copiar HTML completo da presell (Elementor, WordPress, etc.)"
+                        title="Copiar HTML para colar no Elementor (widget HTML)"
                       >
                         <Code2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFullHtml(page)}
+                        disabled={htmlExportBusyId === page.id}
+                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        title="Descarregar página .html completa (DOCTYPE, head, body)"
+                      >
+                        <Download className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => duplicateMutation.mutate(page.id)}
