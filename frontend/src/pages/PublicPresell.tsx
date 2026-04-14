@@ -29,6 +29,10 @@ import { PresellCta } from "@/components/presell/PresellCta";
 import { VslProductVideoFallback } from "@/components/presell/VslProductVideoFallback";
 import { injectWithCleanup } from "@/lib/injectPresellCustomCode";
 import { isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import {
+  DEFAULT_BROWSER_TAB_TITLE,
+  resolvePublicPresellDocumentTitle,
+} from "@/lib/publicPresellDocumentTitle";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -195,6 +199,17 @@ export default function PublicPresell() {
     },
     enabled: !!id,
   });
+
+  useEffect(() => {
+    if (!page) return;
+    const t = resolvePublicPresellDocumentTitle(page);
+    document.title = t;
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", t);
+    document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", t);
+    return () => {
+      document.title = DEFAULT_BROWSER_TAB_TITLE;
+    };
+  }, [page]);
 
   const search = useMemo(() => new URLSearchParams(window.location.search), []);
   const apiBase = useMemo(() => getApiBaseUrl(), []);
