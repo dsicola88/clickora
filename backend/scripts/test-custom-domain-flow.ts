@@ -117,8 +117,8 @@ async function testDatabaseIfAvailable() {
 
 async function testDnsLookupOptional() {
   try {
-    const ok = await dnsTxtContainsVerification("example.com", "impossible-token-xyz");
-    assert.equal(typeof ok, "boolean");
+    const dnsR = await dnsTxtContainsVerification("example.com", "impossible-token-xyz");
+    assert.ok(dnsR === "match" || dnsR === "no_match" || dnsR === "timeout");
     console.log("[DNS] resolveTxt acessível (exemplo: example.com).");
   } catch (e) {
     console.warn("[DNS] Lookup opcional falhou (rede/firewall):", String(e));

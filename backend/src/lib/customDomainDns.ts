@@ -62,14 +62,31 @@ export function verificationTxtValue(token: string): string {
   return `${TXT_PREFIX}${token}`;
 }
 
-export async function dnsTxtContainsVerification(hostname: string, token: string): Promise<boolean> {
+/** Limite para não ultrapassar timeouts de proxy (Vercel → Railway) durante «Verificar». */
+const DNS_TXT_LOOKUP_MS = 8000;
+
+export type DnsTxtVerificationResult = "match" | "no_match" | "timeout";
+
+export async function dnsTxtContainsVerification(
+  hostname: string,
+  token: string,
+): Promise<DnsTxtVerificationResult> {
   const name = verificationTxtRecordName(hostname);
   const expected = verificationTxtValue(token);
-  try {
-    const chunks = await dns.resolveTxt(name);
-    const joined = chunks.map((c) => c.join("")).join("");
-    return joined.includes(expected);
-  } catch {
-    return false;
-  }
+
+  const lookup = async (): Promise<DnsTxtVerificationResult> => {
+    try {
+      const chunks = await dns.resolveTxt(name);
+      const joined = chunks.map((c) => c.join("")).join("");
+      return joined.includes(expected) ? "match" : "no_match";
+    } catch {
+      return "no_match";
+    }
+  };
+
+  const timeout = new Promise<DnsTxtVerificationResult>((resolve) => {
+    setTimeout(() => resolve("timeout"), DNS_TXT_LOOKUP_MS);
+  });
+
+  return Promise.race([lookup(), timeout]);
 }

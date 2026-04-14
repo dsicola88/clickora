@@ -46,10 +46,13 @@ class ApiClient {
 
       if (!response.ok) {
         if (response.status === 502 || response.status === 504) {
+          const errorData = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
+          const fromBody = errorData.error || errorData.message;
           return {
             data: null,
             error:
-              "O servidor não respondeu a tempo (proxy/gateway). Se o site usa /api na Vercel, o proxy pode expirar antes da Railway — na Vercel define VITE_PUBLIC_API_URL com o URL da API (…railway.app/api) e faz redeploy, ou tenta de novo após o arranque do serviço.",
+              fromBody ||
+              "O pedido expirou no proxy (Vercel → API). Tente «Verificar» de novo; se persistir, defina VITE_PUBLIC_API_URL no build com o URL direto da API (Railway …/api) para contornar o proxy, ou confirme que o serviço na Railway está em execução.",
           };
         }
         const errorData = (await response.json().catch(() => ({}))) as {

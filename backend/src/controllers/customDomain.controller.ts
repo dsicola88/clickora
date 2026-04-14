@@ -241,15 +241,23 @@ export const customDomainController = {
       });
     }
 
-    const ok = await dnsTxtContainsVerification(row.hostname, row.verificationToken);
-    if (!ok) {
+    const dnsResult = await dnsTxtContainsVerification(row.hostname, row.verificationToken);
+    const dnsPayload = buildDnsPayload(row.hostname, row.verificationToken, {
+      vercel: false,
+      vercelVerification: [],
+      vercelVerifiedImmediately: false,
+    });
+    if (dnsResult === "timeout") {
+      return res.status(503).json({
+        error:
+          "A consulta DNS demorou demasiado (timeout do servidor). Tente «Verificar» de novo dentro de alguns segundos.",
+        dns: dnsPayload,
+      });
+    }
+    if (dnsResult !== "match") {
       return res.status(400).json({
         error: "Ainda não detetámos o registo TXT correto. Confirme o DNS e aguarde a propagação (pode demorar).",
-        dns: buildDnsPayload(row.hostname, row.verificationToken, {
-          vercel: false,
-          vercelVerification: [],
-          vercelVerifiedImmediately: false,
-        }),
+        dns: dnsPayload,
       });
     }
 

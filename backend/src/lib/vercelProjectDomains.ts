@@ -10,6 +10,18 @@
 
 const VERCEL_API = "https://api.vercel.com";
 
+const VERCEL_FETCH_MS = 15_000;
+
+async function vercelFetch(url: string, init: RequestInit): Promise<Response> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), VERCEL_FETCH_MS);
+  try {
+    return await fetch(url, { ...init, signal: ac.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 export type VercelVerificationChallenge = {
   type: string;
   domain: string;
@@ -53,11 +65,17 @@ export async function vercelAddProjectDomain(hostname: string): Promise<
     return { ok: false, error: "Integração Vercel não configurada no servidor." };
   }
   const url = `${projectBase()}/domains${teamQuery()}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ name: hostname }),
-  });
+  let res: Response;
+  try {
+    res = await vercelFetch(url, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ name: hostname }),
+    });
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return { ok: false, error: aborted ? "Pedido à Vercel expirou (timeout). Tente de novo." : String(e) };
+  }
   const data = (await res.json().catch(() => ({}))) as {
     verified?: boolean;
     verification?: VercelVerificationChallenge[];
@@ -83,11 +101,17 @@ export async function vercelVerifyProjectDomain(hostname: string): Promise<
     return { ok: false, error: "Integração Vercel não configurada." };
   }
   const url = `${projectBaseV9()}/domains/${encodeURIComponent(hostname)}/verify${teamQuery()}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: authHeaders(),
-    body: "{}",
-  });
+  let res: Response;
+  try {
+    res = await vercelFetch(url, {
+      method: "POST",
+      headers: authHeaders(),
+      body: "{}",
+    });
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return { ok: false, error: aborted ? "Pedido à Vercel expirou (timeout). Tente de novo." : String(e) };
+  }
   const data = (await res.json().catch(() => ({}))) as {
     verified?: boolean;
     error?: { message?: string };
@@ -102,10 +126,16 @@ export async function vercelVerifyProjectDomain(hostname: string): Promise<
 export async function vercelRemoveProjectDomain(hostname: string): Promise<{ ok: boolean; error?: string }> {
   if (!isVercelConfigured()) return { ok: true };
   const url = `${projectBaseV9()}/domains/${encodeURIComponent(hostname)}${teamQuery()}`;
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
+  let res: Response;
+  try {
+    res = await vercelFetch(url, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return { ok: false, error: aborted ? "Pedido à Vercel expirou (timeout). Tente de novo." : String(e) };
+  }
   if (res.status === 404) return { ok: true };
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
