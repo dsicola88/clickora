@@ -1,3 +1,4 @@
+import { normalizeHostname } from "./requestHost";
 import { systemPrisma } from "./prisma";
 
 /** Origins `https://hostname` com domínio personalizado verificado — CORS. */
@@ -13,7 +14,8 @@ export async function refreshCustomDomainCache(): Promise<void> {
   verifiedOrigins.clear();
   hostnameToUserId.clear();
   for (const r of rows) {
-    const h = r.hostname.toLowerCase();
+    const h = normalizeHostname(r.hostname);
+    if (!h) continue;
     hostnameToUserId.set(h, r.userId);
     if (h.startsWith("www.")) {
       hostnameToUserId.set(h.slice(4), r.userId);
@@ -40,5 +42,7 @@ export function isVerifiedCustomDomainOrigin(origin: string): boolean {
 /** Se o Host for um domínio personalizado verificado, devolve o userId dono; caso contrário `null`. */
 export function getVerifiedOwnerIdForHostname(hostname: string | null | undefined): string | null {
   if (!hostname) return null;
-  return hostnameToUserId.get(hostname.toLowerCase()) ?? null;
+  const key = normalizeHostname(hostname);
+  if (!key) return null;
+  return hostnameToUserId.get(key) ?? null;
 }

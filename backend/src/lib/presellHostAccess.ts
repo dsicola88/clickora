@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { getRequestHostname } from "./requestHost";
+import { getRequestHostname, hostnameLookupVariants } from "./requestHost";
 import { getVerifiedOwnerIdForHostname } from "./customDomainCache";
 import { systemPrisma } from "./prisma";
 
@@ -16,10 +16,8 @@ export function isMainOrPreviewHostname(hostname: string): boolean {
 }
 
 export async function resolveVerifiedOwnerUserIdFromDb(hostname: string): Promise<string | null> {
-  const h = hostname.toLowerCase();
-  const variants = [h];
-  if (h.startsWith("www.")) variants.push(h.slice(4));
-  else variants.push(`www.${h}`);
+  const variants = hostnameLookupVariants(hostname);
+  if (variants.length === 0) return null;
   const cd = await systemPrisma.customDomain.findFirst({
     where: { status: "verified", hostname: { in: variants } },
     select: { userId: true },
@@ -42,5 +40,16 @@ export async function assertPresellAllowedOnRequestHost(req: Request, pageUserId
     ownerId = await resolveVerifiedOwnerUserIdFromDb(host);
   }
   if (!ownerId) return true;
-  return ownerId === pageUserId;
+  if (ownerId === pageUserId) return true;
+
+  /** Confirma na BD (cache desatualizado ou hostname ligeiramente diferente do armazenado). */
+  const owns = await systemPrisma.customDomain.findFirst({
+    where: {
+      status: "verified",
+      userId: pageUserId,
+      hostname: { in: hostnameLookupVariants(host) },
+    },
+    select: { id: true },
+  });
+  return !!owns;
 }

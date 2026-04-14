@@ -1,5 +1,33 @@
 import type { Request } from "express";
 
+/**
+ * Hostname comparável a `CustomDomain.hostname`: minúsculas, sem ponto final (FQDN),
+ * e IDN convertido para punycode quando aplicável.
+ */
+export function normalizeHostname(hostname: string): string {
+  let h = hostname.trim().toLowerCase();
+  while (h.endsWith(".")) h = h.slice(0, -1);
+  if (!h) return h;
+  try {
+    if (/[^\x00-\x7F]/.test(h) && !h.includes("xn--")) {
+      return new URL(`https://${h}`).hostname.toLowerCase();
+    }
+  } catch {
+    // ignore
+  }
+  return h;
+}
+
+/** Variantes apex/www para corresponder linhas na BD. */
+export function hostnameLookupVariants(hostname: string): string[] {
+  const h = normalizeHostname(hostname);
+  if (!h) return [];
+  const out = new Set<string>([h]);
+  if (h.startsWith("www.")) out.add(h.slice(4));
+  else out.add(`www.${h}`);
+  return [...out];
+}
+
 function firstHeader(req: Request, name: string): string | undefined {
   const v = req.headers[name];
   if (typeof v === "string") return v;
@@ -41,12 +69,13 @@ function parseForwardedHeaderForHost(raw: string | undefined, out: string[]): vo
  *
  * Com Vercel → Railway, `Host` pode ser `*.railway.app`; por isso lemos vários forwarded headers
  * e preferimos o primeiro hostname que não seja infraestrutura.
+ * `x-vercel-forwarded-host` costuma ser o domínio do visitante (antes de `x-forwarded-host`).
  */
 export function getRequestHostname(req: Request): string | null {
   const chain: string[] = [];
 
-  pushHostParts(firstHeader(req, "x-forwarded-host"), chain);
   pushHostParts(firstHeader(req, "x-vercel-forwarded-host"), chain);
+  pushHostParts(firstHeader(req, "x-forwarded-host"), chain);
   pushHostParts(firstHeader(req, "x-original-host"), chain);
   pushHostParts(firstHeader(req, "cf-connecting-host"), chain);
   parseForwardedHeaderForHost(firstHeader(req, "forwarded"), chain);
@@ -66,13 +95,15 @@ export function getRequestHostname(req: Request): string | null {
   const seen = new Set<string>();
   const unique: string[] = [];
   for (const h of chain) {
-    if (seen.has(h)) continue;
-    seen.add(h);
-    unique.push(h);
+    const n = normalizeHostname(h);
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    unique.push(n);
   }
 
   for (const h of unique) {
     if (!isForwardedInfrastructureHost(h)) return h;
   }
-  return unique[0] ?? null;
+  const fallback = unique[0];
+  return fallback ? normalizeHostname(fallback) : null;
 }
