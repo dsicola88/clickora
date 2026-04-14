@@ -158,29 +158,29 @@ export function CustomDomainSettings() {
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-semibold text-card-foreground">Domínios personalizados</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Adicione vários domínios (um por campanha ou marca). Com a integração Vercel ativa no servidor, o hostname é
-            registado no projeto do site e verá instruções de CNAME/A e TXT da Vercel. Sem essa integração, a verificação
-            é com <strong className="text-foreground font-medium">um único registo TXT</strong>: no DNS cria tipo{" "}
-            <strong className="text-foreground font-medium">TXT</strong> e preenche o{" "}
-            <strong className="text-foreground font-medium">nome</strong> e o{" "}
-            <strong className="text-foreground font-medium">valor</strong> exatamente como abaixo (são duas caixas
-            diferentes no painel — não são dois TXT com o mesmo texto). O domínio padrão aplica-se às presells que não
-            escolhem outro.
+            Adicione vários domínios (um por campanha ou marca). Os <strong className="text-foreground font-medium">valores
+            para copiar no DNS</strong> (TXT e, com Vercel, CNAME/A) aparecem{" "}
+            <strong className="text-foreground font-medium">dentro do cartão</strong> de cada domínio enquanto o estado for{" "}
+            <strong className="text-foreground font-medium">Pendente</strong>. Depois de «Verificado», o cartão mostra só
+            referência de apontamento (se aplicável) e a presell na raiz. Com integração Vercel no servidor, o hostname é
+            registado no projeto do site. Sem Vercel, a verificação é com{" "}
+            <strong className="text-foreground font-medium">um registo TXT</strong> (nome e valor no cartão pendente). O
+            domínio padrão aplica-se às presells que não escolhem outro.
           </p>
         </div>
       </div>
 
       <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground border border-border/50 rounded-lg p-4 bg-muted/20">
         <li>
-          No registador (Hostinger, Cloudflare, etc.): <strong className="text-foreground font-medium">um</strong>{" "}
-          registo TXT — campo «Nome/Host» = primeira linha abaixo; «Valor/Conteúdo» = segunda linha. Não inverta nem
-          coloque aspas a envolver mal o valor.
+          Com o domínio em estado <strong className="text-foreground font-medium">Pendente</strong>, abra o respetivo
+          cartão: lá estão as linhas <strong className="text-foreground font-medium">Nome</strong> e{" "}
+          <strong className="text-foreground font-medium">Valor</strong> para colar no DNS (Hostinger, Cloudflare, etc.).
+          Não inverta nome e valor nem adicione aspas a mais.
         </li>
         <li>
-          Se as instruções incluírem CNAME ou A (Vercel), adicione também esse apontamento para o site carregar no seu
-          domínio.
+          Se o cartão mostrar CNAME ou A (Vercel), crie também esse registo para o site carregar no seu domínio.
         </li>
-        <li>Aguarde a propagação (minutos a horas) e clique em «Verificar agora».</li>
+        <li>Aguarde a propagação (minutos a horas) e clique em «Verificar agora» no mesmo cartão.</li>
         <li>Nas presells, em editar, escolha o domínio dos links públicos.</li>
       </ol>
 
@@ -420,6 +420,24 @@ export function CustomDomainSettings() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+                {d.status === "verified" && d.hosting_dns_hint && (
+                  <div className="rounded-md border border-border/50 bg-background/50 p-3 space-y-2 text-xs">
+                    <p className="font-medium text-card-foreground">Apontamento do site (referência Vercel)</p>
+                    <p className="text-muted-foreground leading-relaxed">{d.hosting_dns_hint.note}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
+                      <span>
+                        Nome: <span className="text-card-foreground">{d.hosting_dns_hint.host}</span>
+                      </span>
+                      <span>
+                        Valor: <span className="text-card-foreground">{d.hosting_dns_hint.target}</span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Se o site não abrir no domínio, confirme estes registos no painel DNS. Quando estava «Pendente», os
+                      mesmos dados apareciam no bloco de configuração acima.
+                    </p>
                   </div>
                 )}
                 {d.status === "verified" && (

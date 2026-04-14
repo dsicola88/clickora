@@ -13,6 +13,7 @@ import { refreshCustomDomainCache } from "../lib/customDomainCache";
 import {
   isVercelConfigured,
   vercelAddProjectDomain,
+  vercelCnameHint,
   vercelRemoveProjectDomain,
   vercelVerifyProjectDomain,
   type VercelVerificationChallenge,
@@ -51,6 +52,10 @@ function mapRow(d: {
       vercelVerification: vj,
       vercelVerifiedImmediately: false,
     });
+  }
+  /** Com domínio já verificado, o cliente não recebe `pending_dns`; devolvemos só o CNAME/A do site para referência na Hostinger. */
+  if (d.status === "verified" && d.vercelDomainRegistered) {
+    base.hosting_dns_hint = vercelCnameHint(d.hostname);
   }
   return base;
 }

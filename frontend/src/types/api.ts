@@ -35,6 +35,8 @@ export interface CustomDomainDto {
   vercel_verification?: { type: string; domain: string; value: string; reason: string }[] | null;
   /** Enquanto `status === "pending"`, o servidor devolve os registos a configurar. */
   pending_dns?: CustomDomainPendingDns;
+  /** Com `status === "verified"` e domínio registado na Vercel: CNAME/A de referência para o site (o tráfego já deve estar apontado). */
+  hosting_dns_hint?: { host: string; target: string; note: string };
 }
 
 export interface User {
