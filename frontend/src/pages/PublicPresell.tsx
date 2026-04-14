@@ -167,7 +167,7 @@ function isEmbedPlayerVideoUrl(url: string): boolean {
 
 export default function PublicPresell() {
   const { id = "" } = useParams();
-  const { data: page, isLoading, isError, refetch } = useQuery({
+  const { data: page, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ["public-presell", id],
     queryFn: async () => {
       const { data, error } = await presellService.getPublicById(id);
@@ -308,7 +308,11 @@ export default function PublicPresell() {
   }, [page?.id, page?.type, href]);
 
   if (isLoading) return <LoadingState message="Carregando página..." />;
-  if (isError || !page) return <ErrorState message="Página indisponível." onRetry={() => refetch()} />;
+  if (isError || !page) {
+    const msg =
+      loadError instanceof Error ? loadError.message : "Página indisponível.";
+    return <ErrorState message={msg} onRetry={() => refetch()} />;
+  }
 
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);

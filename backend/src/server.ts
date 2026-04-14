@@ -22,7 +22,8 @@ initWebPushFromEnv();
 
 const app = express();
 /** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */
-app.set("trust proxy", 1);
+/** Vercel → Railway: vários hops; `X-Forwarded-Host` deve refletir o domínio do visitante (presells em domínio próprio). */
+app.set("trust proxy", true);
 const PORT = process.env.PORT || 3001;
 
 /**

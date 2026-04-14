@@ -15,8 +15,18 @@ export async function refreshCustomDomainCache(): Promise<void> {
   for (const r of rows) {
     const h = r.hostname.toLowerCase();
     hostnameToUserId.set(h, r.userId);
+    if (h.startsWith("www.")) {
+      hostnameToUserId.set(h.slice(4), r.userId);
+    } else {
+      hostnameToUserId.set(`www.${h}`, r.userId);
+    }
     try {
       verifiedOrigins.add(new URL(`https://${h}`).origin);
+      if (h.startsWith("www.")) {
+        verifiedOrigins.add(new URL(`https://${h.slice(4)}`).origin);
+      } else {
+        verifiedOrigins.add(new URL(`https://www.${h}`).origin);
+      }
     } catch {
       // ignore bad hostname rows
     }
