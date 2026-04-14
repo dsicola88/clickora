@@ -31,3 +31,41 @@ export function getPublicPresellOriginForPresell(
   if (verified[0]) return `https://${verified[0].hostname}`;
   return getPublicPresellOrigin(null);
 }
+
+/** Parâmetro de rota `/p/:id` é UUID da presell no Clickora (não o link do produto). */
+export function isPresellUuidParam(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
+}
+
+/**
+ * No domínio personalizado verificado, o URL público pode usar o slug (endereço) em vez do UUID.
+ * Em dclickora.com, preview Vercel ou localhost usa-se sempre o UUID.
+ */
+export function publicPresellPathUsesSlugForOrigin(origin: string): boolean {
+  try {
+    const h = new URL(origin).hostname.toLowerCase();
+    if (h === "localhost" || h === "127.0.0.1") return false;
+    if (h.endsWith(".vercel.app")) return false;
+    if (h === "dclickora.com" || h === "www.dclickora.com") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getPublicPresellPath(page: { id: string; slug: string }, origin: string): string {
+  if (publicPresellPathUsesSlugForOrigin(origin)) {
+    return `/p/${encodeURIComponent(page.slug)}`;
+  }
+  return `/p/${page.id}`;
+}
+
+/** URL completo para anúncios: domínio + `/p/` + slug (domínio próprio) ou + UUID (dclickora). */
+export function getPublicPresellFullUrl(
+  domains: CustomDomainDto[] | null | undefined,
+  presellCustomDomainId: string | null | undefined,
+  page: { id: string; slug: string },
+): string {
+  const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
+  return `${origin}${getPublicPresellPath(page, origin)}`;
+}

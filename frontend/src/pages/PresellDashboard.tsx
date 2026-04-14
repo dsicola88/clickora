@@ -31,7 +31,11 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import { getPublicPresellOriginForPresell } from "@/lib/publicPresellOrigin";
+import {
+  getPublicPresellFullUrl,
+  getPublicPresellOriginForPresell,
+  publicPresellPathUsesSlugForOrigin,
+} from "@/lib/publicPresellOrigin";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
@@ -145,16 +149,19 @@ export default function PresellDashboard() {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       setShowCreator(false);
       resetForm();
-      if (created?.id) {
+      if (created?.id && created.slug) {
         const origin = getPublicPresellOriginForPresell(customDomains, created.custom_domain_id ?? null);
-        const publicUrl = `${origin}/p/${created.id}`;
+        const publicUrl = getPublicPresellFullUrl(customDomains, created.custom_domain_id ?? null, {
+          id: created.id,
+          slug: created.slug,
+        });
         void (async () => {
           try {
             await navigator.clipboard.writeText(publicUrl);
-            toast.success(
-              "Página criada. O link público da presell foi copiado (inclui /p/ e o ID). Use este URL no navegador e nos anúncios — não o link do produto.",
-              { duration: 9000 },
-            );
+            const hint = publicPresellPathUsesSlugForOrigin(origin)
+              ? "Página criada. Link copiado: domínio + /p/ + o teu endereço (slug). Esse é o URL da presell; o link do produto é o botão na página."
+              : "Página criada. Link copiado: /p/ + ID da página no Clickora. Esse é o URL da presell; o link do produto é o botão na página.";
+            toast.success(hint, { duration: 10000 });
           } catch {
             toast.success(`Página criada. Link público: ${publicUrl}`, { duration: 15000 });
           }
@@ -308,9 +315,14 @@ export default function PresellDashboard() {
 
   const handleCopySlug = (page: Presell) => {
     const origin = getPublicPresellOriginForPresell(customDomains, page.custom_domain_id);
-    navigator.clipboard.writeText(`${origin}/p/${page.id}`);
+    const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
+    navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    toast.success("Link público copiado (com /p/ e ID).");
+    toast.success(
+      publicPresellPathUsesSlugForOrigin(origin)
+        ? "Link público copiado (/p/ e o teu endereço)."
+        : "Link público copiado (/p/ e ID).",
+    );
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -513,11 +525,15 @@ export default function PresellDashboard() {
               <>
                 <p className="font-medium text-card-foreground mb-2">O que acontece ao criar</p>
                 <p className="mb-3 text-xs sm:text-sm leading-relaxed">
-                  A página pública fica sempre em{" "}
-                  <span className="font-mono text-[11px] text-foreground/90">https://…/p/&lt;id&gt;</span>
+                  A página pública fica em{" "}
+                  <span className="font-mono text-[11px] text-foreground/90">
+                    {hasVerifiedCustomDomain ? "https://…/p/&lt;teu_endereco&gt;" : "https://…/p/&lt;id&gt;"}
+                  </span>{" "}
                   —{" "}
                   <span className="text-foreground/90 font-medium">
-                    {hasVerifiedCustomDomain ? "no domínio que escolher (verificado) ou no dclickora" : "no domínio dclickora"}
+                    {hasVerifiedCustomDomain
+                      ? "no domínio verificado usa-se o endereço (slug); no dclickora.com usa-se o ID"
+                      : "no domínio dclickora"}
                   </span>
                   . O link do produto que cola acima só serve para gerar conteúdo e para o clique final na oferta;{" "}
                   <span className="font-medium text-card-foreground">não</span> é o URL de destino do anúncio. O anúncio deve
@@ -1001,10 +1017,12 @@ export default function PresellDashboard() {
       </div>
 
       <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/20 px-3 py-2 leading-relaxed">
-        <span className="font-medium text-card-foreground">Anúncios e partilha:</span> use sempre o link com{" "}
-        <code className="text-[11px] bg-background px-1 rounded">/p/</code> e o ID da presell. O{" "}
-        <span className="italic">slug</span> (ex. <code className="text-[11px]">/nome_pagina</code>) é só referência interna —
-        não abre a presell se colar só o domínio ou só o slug no browser.
+        <span className="font-medium text-card-foreground">Anúncios e partilha:</span> no{" "}
+        <span className="text-foreground/90">teu domínio verificado</span>, o link público é{" "}
+        <code className="text-[11px] bg-background px-1 rounded">https://…/p/teu_endereco</code> (o mesmo «endereço» do
+        formulário). Em <code className="text-[11px] bg-background px-1 rounded">dclickora.com</code> usa-se{" "}
+        <code className="text-[11px] bg-background px-1 rounded">/p/</code> e o identificador (UUID). O link do produto
+        (afiliado) não substitui este URL — fica no botão da presell.
       </p>
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -1033,7 +1051,7 @@ export default function PresellDashboard() {
                   <td className="py-3 px-4 max-w-[min(100vw,22rem)]">
                     <div className="flex flex-col gap-1">
                       <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">
-                        {getPublicPresellOriginForPresell(customDomains, page.custom_domain_id)}/p/{page.id}
+                        {getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
                       </code>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] text-muted-foreground">slug: /{page.slug}</span>
@@ -1067,7 +1085,7 @@ export default function PresellDashboard() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <a
-                        href={`${getPublicPresellOriginForPresell(customDomains, page.custom_domain_id)}/p/${page.id}`}
+                        href={getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

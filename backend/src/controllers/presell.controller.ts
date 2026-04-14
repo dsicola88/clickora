@@ -2,7 +2,13 @@ import { Request, Response } from "express";
 import type { PresellPage } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
-import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
+import {
+  assertPresellAllowedOnRequestHost,
+  isMainOrPreviewHostname,
+  resolveVerifiedOwnerUserIdFromDb,
+} from "../lib/presellHostAccess";
+import { getRequestHostname } from "../lib/requestHost";
+import { getVerifiedOwnerIdForHostname } from "../lib/customDomainCache";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
 import { z } from "zod";
@@ -88,6 +94,50 @@ export const presellController = {
             ? "Esta página está em pausa. No painel, reativa ou publica de novo."
             : "Esta página não está disponível publicamente.";
       return res.status(404).json({ error: hint, code: "PRESHELL_NOT_PUBLISHED" });
+    }
+
+    const access = evaluateSubscriptionAccess(page.user.subscription);
+    if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
+
+    return res.json(mapPresell(page));
+  },
+
+  /**
+   * Link público por slug (estilo «/p/meu_endereco») — só em domínio personalizado verificado.
+   * No dclickora.com / localhost / preview Vercel usa-se sempre GET /presells/id/:uuid.
+   */
+  async getPublicBySlug(req: Request, res: Response) {
+    const raw = req.params.slug;
+    const slug = typeof raw === "string" ? decodeURIComponent(raw) : "";
+    if (!slug || slug.length > 200) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
+
+    const host = getRequestHostname(req);
+    if (!host || isMainOrPreviewHostname(host)) {
+      return res.status(404).json({
+        error:
+          "O link por slug só funciona no teu domínio personalizado verificado. No dclickora.com usa o URL com /p/ e o identificador (UUID).",
+        code: "PRESHELL_SLUG_MAIN_HOST",
+      });
+    }
+
+    let ownerId = getVerifiedOwnerIdForHostname(host);
+    if (!ownerId) {
+      ownerId = await resolveVerifiedOwnerUserIdFromDb(host);
+    }
+    if (!ownerId) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
+
+    const page = await systemPrisma.presellPage.findFirst({
+      where: { userId: ownerId, slug, status: "published" },
+      include: { user: { include: { subscription: true } } },
+    });
+
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
+      return res.status(404).json({ error: "Página não encontrada" });
     }
 
     const access = evaluateSubscriptionAccess(page.user.subscription);

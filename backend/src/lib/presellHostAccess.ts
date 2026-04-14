@@ -7,6 +7,14 @@ import { systemPrisma } from "./prisma";
  * Resolve o dono (userId) de um hostname com domínio personalizado verificado na BD.
  * Usado quando o cache em memória ainda não tem o mapeamento (arranque, race) ou está desatualizado.
  */
+/** Hosts onde o URL público por slug não está disponível (usa-se só `/p/<uuid>`). */
+export function isMainOrPreviewHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase().split(":")[0];
+  if (h === "localhost" || h === "127.0.0.1") return true;
+  if (h.endsWith(".vercel.app")) return true;
+  return h === "dclickora.com" || h === "www.dclickora.com";
+}
+
 export async function resolveVerifiedOwnerUserIdFromDb(hostname: string): Promise<string | null> {
   const h = hostname.toLowerCase();
   const variants = [h];

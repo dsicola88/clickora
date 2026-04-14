@@ -44,6 +44,7 @@ npm start      # Production
 | POST | /api/auth/reset-password | ❌ | Request reset |
 | POST | /api/auth/update-password | ❌ | Update password |
 | GET | /api/public/presells/id/:id | ❌ | Get public presell by id |
+| GET | /api/public/presells/slug/:slug | ❌ | Get public presell by slug (domínio personalizado verificado) |
 | GET | /api/presells | ✅ | List presells |
 | POST | /api/presells | ✅ | Create presell |
 | GET | /api/presells/:id | ✅ | Get presell |

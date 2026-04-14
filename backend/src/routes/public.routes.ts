@@ -7,6 +7,7 @@ import { publicAvatarController } from "../controllers/publicAvatar.controller";
 export const publicRouter = Router();
 
 publicRouter.get("/presells/id/:id", presellController.getPublicById);
+publicRouter.get("/presells/slug/:slug", presellController.getPublicBySlug);
 publicRouter.get("/branding", brandingController.getMeta);
 publicRouter.get("/branding/favicon", brandingController.getFavicon);
 publicRouter.get("/plans-landing", plansLandingController.getPublic);

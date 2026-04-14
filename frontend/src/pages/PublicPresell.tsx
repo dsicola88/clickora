@@ -20,6 +20,7 @@ import {
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
 import { getApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
+import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import {
   DiscountPresellOverlay,
   discountSocialFallback,
@@ -170,9 +171,16 @@ export default function PublicPresell() {
   const { data: page, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ["public-presell", id],
     queryFn: async () => {
-      const { data, error } = await presellService.getPublicById(id);
-      if (error || !data) throw new Error(error || "Página não encontrada");
-      return data;
+      const param = id.trim();
+      if (isPresellUuidParam(param)) {
+        const { data, error } = await presellService.getPublicById(param);
+        if (data) return data;
+        if (error) throw new Error(error);
+        throw new Error("Página não encontrada");
+      }
+      const { data, error } = await presellService.getPublicBySlug(param);
+      if (data) return data;
+      throw new Error(error || "Página não encontrada");
     },
     enabled: !!id,
   });

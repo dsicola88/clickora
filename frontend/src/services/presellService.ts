@@ -6,6 +6,10 @@ export const presellService = {
     return apiClient.get<Presell>(`/public/presells/id/${encodeURIComponent(id)}`);
   },
 
+  async getPublicBySlug(slug: string) {
+    return apiClient.get<Presell>(`/public/presells/slug/${encodeURIComponent(slug)}`);
+  },
+
   async getAll() {
     return apiClient.get<Presell[]>("/presells");
   },
