@@ -98,7 +98,8 @@ export function CustomDomainSettings() {
       mode: "dclickora",
       txt_name: `_dclickora-verify.${d.hostname}`,
       txt_value: `dclickora-verification=${d.verification_token}`,
-      note: "Adicione o registo TXT abaixo no seu DNS e volte a verificar.",
+      note:
+        "Crie um único registo TXT: use a primeira linha como Nome/Host e a segunda como Valor. Depois clique em «Verificar agora».",
     };
   }
 
@@ -117,16 +118,29 @@ export function CustomDomainSettings() {
           <h3 className="text-lg font-semibold text-card-foreground">Domínios personalizados</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
             Adicione vários domínios (um por campanha ou marca). Com a integração Vercel ativa no servidor, o hostname é
-            registado automaticamente no projeto do site — só precisa de CNAME (ou A no apex) e TXT no DNS. Sem essa
-            integração, a verificação é por TXT dclickora. O domínio padrão é usado nas presells que não escolhem outro.
+            registado no projeto do site e verá instruções de CNAME/A e TXT da Vercel. Sem essa integração, a verificação
+            é com <strong className="text-foreground font-medium">um único registo TXT</strong>: no DNS cria tipo{" "}
+            <strong className="text-foreground font-medium">TXT</strong> e preenche o{" "}
+            <strong className="text-foreground font-medium">nome</strong> e o{" "}
+            <strong className="text-foreground font-medium">valor</strong> exatamente como abaixo (são duas caixas
+            diferentes no painel — não são dois TXT com o mesmo texto). O domínio padrão aplica-se às presells que não
+            escolhem outro.
           </p>
         </div>
       </div>
 
       <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground border border-border/50 rounded-lg p-4 bg-muted/20">
-        <li>DNS: apontar o domínio para o site (CNAME ou A no apex) e o(s) TXT indicados abaixo.</li>
-        <li>Verificar no painel quando a propagação DNS estiver feita.</li>
-        <li>Presells: em editar, pode escolher qual domínio usar nos links públicos.</li>
+        <li>
+          No registador (Hostinger, Cloudflare, etc.): <strong className="text-foreground font-medium">um</strong>{" "}
+          registo TXT — campo «Nome/Host» = primeira linha abaixo; «Valor/Conteúdo» = segunda linha. Não inverta nem
+          coloque aspas a envolver mal o valor.
+        </li>
+        <li>
+          Se as instruções incluírem CNAME ou A (Vercel), adicione também esse apontamento para o site carregar no seu
+          domínio.
+        </li>
+        <li>Aguarde a propagação (minutos a horas) e clique em «Verificar agora».</li>
+        <li>Nas presells, em editar, escolha o domínio dos links públicos.</li>
       </ol>
 
       <div className="space-y-2">
@@ -252,13 +266,23 @@ export function CustomDomainSettings() {
                         </div>
                         {dns.vercel_txt.length > 0 && (
                           <div className="space-y-2">
-                            <p className="font-medium text-card-foreground">TXT (Vercel)</p>
+                            <p className="font-medium text-card-foreground">TXT adicionais (Vercel)</p>
+                            <p className="text-muted-foreground leading-relaxed">
+                              Para cada linha abaixo, crie <strong className="text-foreground font-medium">um</strong>{" "}
+                              registo TXT no DNS: o nome e o valor são os dois textos indicados (não troque nome e valor).
+                            </p>
                             {dns.vercel_txt.map((row, i) => (
-                              <div key={i} className="rounded-md border border-border/50 bg-background/60 p-2 space-y-1">
+                              <div key={i} className="rounded-md border border-border/50 bg-background/60 p-2 space-y-2">
                                 <p className="text-[11px] text-muted-foreground">{row.reason}</p>
-                                <div className="flex gap-2 items-start">
-                                  <code className="break-all flex-1 rounded px-2 py-1.5">
-                                    {row.name} → {row.value}
+                                <div className="space-y-1">
+                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nome</p>
+                                  <code className="block break-all rounded px-2 py-1.5 text-[12px]">{row.name}</code>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor</p>
+                                  <div className="flex gap-2 items-start">
+                                  <code className="break-all flex-1 rounded px-2 py-1.5 text-[12px]">
+                                    {row.value}
                                   </code>
                                   <Button
                                     type="button"
@@ -273,6 +297,7 @@ export function CustomDomainSettings() {
                                       <Copy className="h-3 w-3" />
                                     )}
                                   </Button>
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -280,38 +305,68 @@ export function CustomDomainSettings() {
                         )}
                       </>
                     ) : (
-                      <>
-                        <p className="text-muted-foreground">{dns.note}</p>
-                        <p className="font-medium text-card-foreground">TXT (verificação dclickora)</p>
-                        <div className="flex gap-2 items-start">
-                          <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
-                            {dns.txt_name}
-                          </code>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => copy("n-" + d.id, dns.txt_name)}
-                          >
-                            {copiedField === "n-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </Button>
+                      <div className="space-y-3 rounded-md border border-border/50 bg-background/40 p-3">
+                        <div>
+                          <p className="font-medium text-card-foreground">Um registo TXT (verificação dclickora)</p>
+                          <p className="text-muted-foreground mt-1 leading-relaxed">{dns.note}</p>
                         </div>
-                        <div className="flex gap-2 items-start">
-                          <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
-                            {dns.txt_value}
-                          </code>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => copy("v-" + d.id, dns.txt_value)}
-                          >
-                            {copiedField === "v-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </Button>
+                        <ul className="list-disc pl-4 text-muted-foreground space-y-1.5 leading-relaxed">
+                          <li>
+                            No painel DNS, tipo <strong className="text-foreground font-medium">TXT</strong> — não use
+                            tipo A nem CNAME para estes valores.
+                          </li>
+                          <li>
+                            <strong className="text-foreground font-medium">Nome / Host / Name:</strong> muitos painéis
+                            pedem só <code className="text-[11px]">_dclickora-verify</code> (o domínio acrescenta-se
+                            sozinho). Se o sistema pedir o nome completo, use a primeira linha tal como está.
+                          </li>
+                          <li>
+                            <strong className="text-foreground font-medium">Valor / Conteúdo / Value:</strong> a segunda
+                            linha completa, começando por <code className="text-[11px]">dclickora-verification=</code>{" "}
+                            — não coloque aqui o nome do registo nem aspas desnecessárias.
+                          </li>
+                        </ul>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                            1 — Nome do registo (host)
+                          </Label>
+                          <div className="flex gap-2 items-start">
+                            <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5 text-[13px]">
+                              {dns.txt_name}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => copy("n-" + d.id, dns.txt_name)}
+                              aria-label="Copiar nome do registo TXT"
+                            >
+                              {copiedField === "n-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                          </div>
                         </div>
-                      </>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                            2 — Valor do TXT (conteúdo)
+                          </Label>
+                          <div className="flex gap-2 items-start">
+                            <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5 text-[13px]">
+                              {dns.txt_value}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => copy("v-" + d.id, dns.txt_value)}
+                              aria-label="Copiar valor do registo TXT"
+                            >
+                              {copiedField === "v-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}

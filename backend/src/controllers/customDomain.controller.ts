@@ -86,7 +86,8 @@ function buildDnsPayload(
     mode: "dclickora" as const,
     txt_name: verificationTxtRecordName(hostname),
     txt_value: verificationTxtValue(token),
-    note: "Adicione o registo TXT abaixo no seu DNS e volte a verificar.",
+    note:
+      "Crie um único registo TXT: primeira linha = Nome/Host do registo; segunda linha = Valor/Conteúdo. Depois use «Verificar».",
   };
 }
 
