@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Globe, Copy, Check, Loader2, Trash2, Star } from "lucide-react";
+import { Globe, Loader2, Trash2, Star } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import { customDomainService } from "@/services/customDomainService";
 import { presellService } from "@/services/presellService";
 import type { CustomDomainDto } from "@/types/api";
 import {
+  inferDnsRecordKind,
   normalizeDomainStatus,
   resolveHostingDnsHint,
   resolvePendingDnsForDisplay,
 } from "@/lib/customDomainDnsDisplay";
+import { CustomDomainDnsTable } from "@/components/settings/CustomDomainDnsTable";
 
 export function CustomDomainSettings() {
   const { user } = useAuth();
@@ -282,153 +284,83 @@ export function CustomDomainSettings() {
                   <div className="space-y-3 text-xs" data-testid="custom-domain-pending-dns">
                     {dns.mode === "vercel" ? (
                       <>
-                        <p className="text-muted-foreground">{dns.note}</p>
-                        <div className="rounded-md border border-border/50 bg-background/60 p-3 space-y-1">
-                          <p className="font-medium text-card-foreground">Apontamento (Vercel)</p>
-                          <p className="text-muted-foreground">{dns.cname.note}</p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
-                            <span>
-                              Nome: <span className="text-card-foreground">{dns.cname.host}</span>
-                            </span>
-                            <span>
-                              Valor: <span className="text-card-foreground">{dns.cname.target}</span>
-                            </span>
-                          </div>
-                        </div>
+                        <p className="text-muted-foreground leading-relaxed">{dns.note}</p>
+                        <CustomDomainDnsTable
+                          idPrefix={`${d.id}-pend-v`}
+                          title="Registos DNS (Vercel)"
+                          sourceNote="Valores alinhados com o projeto do site na Vercel (API add domain / mesma lógica que o painel Vercel)."
+                          description={dns.cname.note}
+                          rows={[
+                            {
+                              kind: inferDnsRecordKind(dns.cname.target),
+                              name: dns.cname.host,
+                              value: dns.cname.target,
+                            },
+                            ...dns.vercel_txt.map((row) => ({
+                              kind: "TXT" as const,
+                              name: row.name,
+                              value: row.value,
+                              detail: row.reason,
+                            })),
+                          ]}
+                          copiedField={copiedField}
+                          onCopy={(fieldId, text) => void copy(fieldId, text)}
+                        />
                         {dns.vercel_txt.length === 0 && (
                           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-muted-foreground leading-relaxed">
                             <p className="font-medium text-card-foreground mb-1">Sem TXT extra da Vercel neste momento</p>
                             <p>
                               Em muitos casos basta o <strong className="text-foreground font-medium">CNAME</strong> (ou{" "}
-                              <strong className="text-foreground font-medium">A</strong> no domínio raiz) acima. Guarde o
+                              <strong className="text-foreground font-medium">A</strong> no domínio raiz) na tabela. Guarde o
                               DNS, aguarde a propagação e use «Verificar agora». Se continuar pendente, atualize a página
                               — a Vercel pode passar a pedir um TXT depois.
                             </p>
                           </div>
                         )}
-                        {dns.vercel_txt.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="font-medium text-card-foreground">TXT (Vercel)</p>
-                            <p className="text-muted-foreground leading-relaxed">
-                              Para cada linha abaixo, crie <strong className="text-foreground font-medium">um</strong>{" "}
-                              registo TXT no DNS: o nome e o valor são os dois textos indicados (não troque nome e valor).
-                            </p>
-                            {dns.vercel_txt.map((row, i) => (
-                              <div key={i} className="rounded-md border border-border/50 bg-background/60 p-2 space-y-2">
-                                <p className="text-[11px] text-muted-foreground">{row.reason}</p>
-                                <div className="space-y-1">
-                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nome</p>
-                                  <code className="block break-all rounded px-2 py-1.5 text-[12px]">{row.name}</code>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor</p>
-                                  <div className="flex gap-2 items-start">
-                                  <code className="break-all flex-1 rounded px-2 py-1.5 text-[12px]">
-                                    {row.value}
-                                  </code>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 shrink-0"
-                                    onClick={() => copy(`vt-${d.id}-${i}`, `${row.name} ${row.value}`)}
-                                  >
-                                    {copiedField === `vt-${d.id}-${i}` ? (
-                                      <Check className="h-3 w-3" />
-                                    ) : (
-                                      <Copy className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </>
                     ) : (
-                      <div className="space-y-3 rounded-md border border-border/50 bg-background/40 p-3">
-                        <div>
-                          <p className="font-medium text-card-foreground">Um registo TXT (verificação dclickora)</p>
-                          <p className="text-muted-foreground mt-1 leading-relaxed">{dns.note}</p>
-                        </div>
-                        <ul className="list-disc pl-4 text-muted-foreground space-y-1.5 leading-relaxed">
+                      <>
+                        <p className="text-muted-foreground leading-relaxed">{dns.note}</p>
+                        <ul className="list-disc pl-4 text-muted-foreground space-y-1 text-[11px] leading-relaxed">
                           <li>
-                            No painel DNS, tipo <strong className="text-foreground font-medium">TXT</strong> — não use
-                            tipo A nem CNAME para estes valores.
-                          </li>
-                          <li>
-                            <strong className="text-foreground font-medium">Nome / Host / Name:</strong> muitos painéis
-                            pedem só <code className="text-[11px]">_dclickora-verify</code> (o domínio acrescenta-se
-                            sozinho). Se o sistema pedir o nome completo, use a primeira linha tal como está.
-                          </li>
-                          <li>
-                            <strong className="text-foreground font-medium">Valor / Conteúdo / Value:</strong> a segunda
-                            linha completa, começando por <code className="text-[11px]">dclickora-verification=</code>{" "}
-                            — não coloque aqui o nome do registo nem aspas desnecessárias.
+                            No painel DNS crie tipo <strong className="text-foreground font-medium">TXT</strong> (não use
+                            A/CNAME para esta linha).
                           </li>
                         </ul>
-                        <div className="space-y-1.5">
-                          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            1 — Nome do registo (host)
-                          </Label>
-                          <div className="flex gap-2 items-start">
-                            <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5 text-[13px]">
-                              {dns.txt_name}
-                            </code>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 shrink-0"
-                              onClick={() => copy("n-" + d.id, dns.txt_name)}
-                              aria-label="Copiar nome do registo TXT"
-                            >
-                              {copiedField === "n-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            2 — Valor do TXT (conteúdo)
-                          </Label>
-                          <div className="flex gap-2 items-start">
-                            <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5 text-[13px]">
-                              {dns.txt_value}
-                            </code>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 shrink-0"
-                              onClick={() => copy("v-" + d.id, dns.txt_value)}
-                              aria-label="Copiar valor do registo TXT"
-                            >
-                              {copiedField === "v-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                        <CustomDomainDnsTable
+                          idPrefix={`${d.id}-pend-d`}
+                          title="Registo TXT (verificação dclickora)"
+                          sourceNote="Prova de posse do domínio; independente da Vercel."
+                          rows={[
+                            {
+                              kind: "TXT",
+                              name: dns.txt_name,
+                              value: dns.txt_value,
+                            },
+                          ]}
+                          copiedField={copiedField}
+                          onCopy={(fieldId, text) => void copy(fieldId, text)}
+                        />
+                      </>
                     )}
                   </div>
                 )}
                 {hostingHint && (
-                  <div className="rounded-md border border-border/50 bg-background/50 p-3 space-y-2 text-xs">
-                    <p className="font-medium text-card-foreground">Apontamento do site (referência Vercel)</p>
-                    <p className="text-muted-foreground leading-relaxed">{hostingHint.note}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
-                      <span>
-                        Nome: <span className="text-card-foreground">{hostingHint.host}</span>
-                      </span>
-                      <span>
-                        Valor: <span className="text-card-foreground">{hostingHint.target}</span>
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Se o site não abrir no domínio, confirme estes registos no painel DNS. Quando estava «Pendente», os
-                      mesmos dados apareciam no bloco de configuração acima.
-                    </p>
-                  </div>
+                  <CustomDomainDnsTable
+                    idPrefix={`${d.id}-host`}
+                    title="Apontamento do site (referência Vercel)"
+                    sourceNote="Mesmos valores recomendados pela Vercel para o projeto do site; use na Hostinger se o domínio não abrir o site."
+                    description={hostingHint.note}
+                    rows={[
+                      {
+                        kind: inferDnsRecordKind(hostingHint.target),
+                        name: hostingHint.host,
+                        value: hostingHint.target,
+                      },
+                    ]}
+                    copiedField={copiedField}
+                    onCopy={(fieldId, text) => void copy(fieldId, text)}
+                  />
                 )}
                 {normalizeDomainStatus(d.status) === "verified" && (
                   <div className="space-y-2 pt-3 border-t border-border/40">

@@ -30,6 +30,13 @@ export function buildVercelCnameHint(hostname: string): { host: string; target: 
 const VERCEL_PENDING_NOTE =
   "O domínio foi registado no projeto do site. Configure o CNAME (ou A no apex) e o(s) TXT abaixo; depois use «Verificar».";
 
+/** Tipo de registo DNS para exibição (alinhado à Vercel: apex → A 76.76.21.21, subdomínio → CNAME). */
+export function inferDnsRecordKind(target: string): "A" | "CNAME" {
+  const t = target.trim();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(t)) return "A";
+  return "CNAME";
+}
+
 export function normalizeDomainStatus(raw: string | undefined): "pending" | "verified" {
   const s = String(raw ?? "").toLowerCase();
   if (s === "verified") return "verified";
