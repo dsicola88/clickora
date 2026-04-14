@@ -131,7 +131,11 @@ export const presellController = {
     }
 
     const page = await systemPrisma.presellPage.findFirst({
-      where: { userId: ownerId, slug, status: "published" },
+      where: {
+        userId: ownerId,
+        status: "published",
+        slug: { equals: slug, mode: "insensitive" },
+      },
       include: { user: { include: { subscription: true } } },
     });
 
