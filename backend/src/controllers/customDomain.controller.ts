@@ -7,14 +7,12 @@ import {
   normalizeHostname,
   newVerificationToken,
   validateHostnameOrThrow,
-  verificationTxtRecordName,
-  verificationTxtValue,
 } from "../lib/customDomainDns";
+import { buildPendingDnsPayload } from "../lib/customDomainDnsPayload";
 import { refreshCustomDomainCache } from "../lib/customDomainCache";
 import {
   isVercelConfigured,
   vercelAddProjectDomain,
-  vercelCnameHint,
   vercelRemoveProjectDomain,
   vercelVerifyProjectDomain,
   type VercelVerificationChallenge,
@@ -48,49 +46,13 @@ function mapRow(d: {
   };
   if (d.status === "pending") {
     const vj = (d.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [];
-    base.pending_dns = buildDnsPayload(d.hostname, d.verificationToken, {
+    base.pending_dns = buildPendingDnsPayload(d.hostname, d.verificationToken, {
       vercel: d.vercelDomainRegistered,
       vercelVerification: vj,
       vercelVerifiedImmediately: false,
     });
   }
   return base;
-}
-
-function buildDnsPayload(
-  hostname: string,
-  token: string,
-  opts: {
-    vercel: boolean;
-    vercelVerification: VercelVerificationChallenge[];
-    vercelVerifiedImmediately: boolean;
-  },
-) {
-  const cname = vercelCnameHint(hostname);
-
-  if (opts.vercel) {
-    return {
-      mode: "vercel" as const,
-      cname,
-      vercel_txt: opts.vercelVerification.map((v) => ({
-        type: v.type,
-        name: v.domain,
-        value: v.value,
-        reason: v.reason,
-      })),
-      vercel_verified_immediately: opts.vercelVerifiedImmediately,
-      note:
-        "O domínio foi registado automaticamente no projeto do site. Configure o CNAME (ou A no apex) e o(s) TXT abaixo; depois use «Verificar».",
-    };
-  }
-
-  return {
-    mode: "dclickora" as const,
-    txt_name: verificationTxtRecordName(hostname),
-    txt_value: verificationTxtValue(token),
-    note:
-      "Crie um único registo TXT: primeira linha = Nome/Host do registo; segunda linha = Valor/Conteúdo. Depois use «Verificar».",
-  };
 }
 
 /** Garante exatamente um `is_default` quando ainda há domínios após remoção ou estado inconsistente. */
@@ -135,7 +97,10 @@ export const customDomainController = {
       return res.status(409).json({ error: "Este domínio já está associado a outra conta." });
     }
     if (taken && taken.userId === userId) {
-      return res.status(409).json({ error: "Este domínio já está na sua lista." });
+      return res.status(409).json({
+        error:
+          "Este hostname já está na sua lista (veja abaixo). Para voltar a tentar a verificação, use «Verificar agora» no cartão desse domínio. Só pode remover e adicionar de novo se quiser recomeçar o DNS.",
+      });
     }
 
     const count = await prisma.customDomain.count({ where: { userId } });
@@ -225,7 +190,7 @@ export const customDomainController = {
       if (!vr.ok) {
         return res.status(400).json({
           error: vr.error || "A Vercel ainda não validou o DNS. Confirme CNAME e TXT e aguarde a propagação.",
-          dns: buildDnsPayload(row.hostname, row.verificationToken, {
+          dns: buildPendingDnsPayload(row.hostname, row.verificationToken, {
             vercel: true,
             vercelVerification: (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [],
             vercelVerifiedImmediately: false,
@@ -235,7 +200,7 @@ export const customDomainController = {
 
       return res.status(400).json({
         error: "Ainda a verificar na Vercel. Confirme os registos DNS e tente de novo.",
-        dns: buildDnsPayload(row.hostname, row.verificationToken, {
+        dns: buildPendingDnsPayload(row.hostname, row.verificationToken, {
           vercel: true,
           vercelVerification: (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [],
           vercelVerifiedImmediately: false,
@@ -244,7 +209,7 @@ export const customDomainController = {
     }
 
     const dnsResult = await dnsTxtContainsVerification(row.hostname, row.verificationToken);
-    const dnsPayload = buildDnsPayload(row.hostname, row.verificationToken, {
+    const dnsPayload = buildPendingDnsPayload(row.hostname, row.verificationToken, {
       vercel: false,
       vercelVerification: [],
       vercelVerifiedImmediately: false,

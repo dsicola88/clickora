@@ -13,6 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test:custom-domain": "tsx scripts/test-custom-domain-flow.ts",
+    "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts"
   },
   "dependencies": {
