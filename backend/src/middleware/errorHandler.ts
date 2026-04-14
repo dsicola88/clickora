@@ -22,6 +22,22 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     });
   }
 
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    return res.status(503).json({
+      error: "Ligação à base de dados indisponível. Tente de novo dentro de instantes.",
+    });
+  }
+
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    console.error("[PRISMA_VALIDATION]", err.message);
+    return res.status(400).json({
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Pedido inválido."
+          : err.message,
+    });
+  }
+
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
       return res.status(409).json({ error: "Registro duplicado." });
@@ -35,7 +51,10 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
           "Esquema da base de dados desatualizado (coluna em falta). Execute as migrações no servidor ou contacte o suporte.",
       });
     }
+    console.error("[PRISMA]", err.code, err.message, err.meta);
   }
+
+  console.error("[ERROR_TYPE]", err.constructor?.name);
 
   res.status(500).json({
     error: process.env.NODE_ENV === "production"
