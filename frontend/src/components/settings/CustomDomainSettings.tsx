@@ -45,6 +45,14 @@ export function CustomDomainSettings() {
         toast.error(res.error);
         return;
       }
+      const created = res.data;
+      if (created) {
+        queryClient.setQueryData<CustomDomainDto[]>(["custom-domain", tenantKey], (old) => {
+          const list = old ?? [];
+          const rest = list.filter((x) => x.id !== created.id);
+          return [created, ...rest];
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
       setNewHostname("");
       const d = res.data;
@@ -297,9 +305,20 @@ export function CustomDomainSettings() {
                             </span>
                           </div>
                         </div>
+                        {dns.vercel_txt.length === 0 && (
+                          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-muted-foreground leading-relaxed">
+                            <p className="font-medium text-card-foreground mb-1">Sem TXT extra da Vercel neste momento</p>
+                            <p>
+                              Em muitos casos basta o <strong className="text-foreground font-medium">CNAME</strong> (ou{" "}
+                              <strong className="text-foreground font-medium">A</strong> no domínio raiz) acima. Guarde o
+                              DNS, aguarde a propagação e use «Verificar agora». Se continuar pendente, atualize a página
+                              — a Vercel pode passar a pedir um TXT depois.
+                            </p>
+                          </div>
+                        )}
                         {dns.vercel_txt.length > 0 && (
                           <div className="space-y-2">
-                            <p className="font-medium text-card-foreground">TXT adicionais (Vercel)</p>
+                            <p className="font-medium text-card-foreground">TXT (Vercel)</p>
                             <p className="text-muted-foreground leading-relaxed">
                               Para cada linha abaixo, crie <strong className="text-foreground font-medium">um</strong>{" "}
                               registo TXT no DNS: o nome e o valor são os dois textos indicados (não troque nome e valor).

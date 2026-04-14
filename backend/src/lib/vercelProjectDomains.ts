@@ -56,15 +56,48 @@ function authHeaders(): Record<string, string> {
   };
 }
 
+/** A API Vercel por vezes devolve o domínio dentro de `domain`; os desafios podem usar `name` em vez de `domain`. */
+function unwrapProjectDomainPayload(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const inner = d.domain;
+  if (inner && typeof inner === "object") {
+    return inner as Record<string, unknown>;
+  }
+  return d;
+}
+
+/** Normaliza o array `verification` da Vercel para o formato interno. */
+export function normalizeVercelVerificationChallenges(raw: unknown): VercelVerificationChallenge[] {
+  if (raw == null) return [];
+  const arr = Array.isArray(raw) ? raw : [raw];
+  const out: VercelVerificationChallenge[] = [];
+  for (const item of arr) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const domain =
+      typeof o.domain === "string"
+        ? o.domain
+        : typeof o.name === "string"
+          ? o.name
+          : "";
+    const value = typeof o.value === "string" ? o.value : "";
+    const type = typeof o.type === "string" ? o.type : "TXT";
+    const reason = typeof o.reason === "string" ? o.reason : "pending_domain_verification";
+    if (!domain || !value) continue;
+    out.push({ type, domain, value, reason });
+  }
+  return out;
+}
+
 function parseProjectDomainBody(data: unknown): {
   verified: boolean;
   verification: VercelVerificationChallenge[];
 } | null {
-  if (!data || typeof data !== "object") return null;
-  const d = data as Record<string, unknown>;
+  const d = unwrapProjectDomainPayload(data);
+  if (!d) return null;
   const verified = typeof d.verified === "boolean" ? d.verified : Boolean(d.verified);
-  const raw = d.verification;
-  const verification = Array.isArray(raw) ? (raw as VercelVerificationChallenge[]) : [];
+  const verification = normalizeVercelVerificationChallenges(d.verification);
   return { verified, verification };
 }
 
@@ -160,18 +193,24 @@ export async function vercelAddProjectDomain(hostname: string): Promise<
 
   if (res.ok) {
     const parsed = parseProjectDomainBody(data);
+    let verified: boolean;
+    let verification: VercelVerificationChallenge[];
     if (parsed) {
-      return {
-        ok: true,
-        verified: parsed.verified,
-        verification: parsed.verification,
-      };
+      verified = parsed.verified;
+      verification = parsed.verification;
+    } else {
+      const u = unwrapProjectDomainPayload(data);
+      verified = Boolean(u && u.verified);
+      verification = u ? normalizeVercelVerificationChallenges(u.verification) : [];
     }
-    return {
-      ok: true,
-      verified: Boolean(data.verified),
-      verification: Array.isArray(data.verification) ? data.verification : [],
-    };
+    /** Resposta v10 por vezes vem sem `verification`; o GET do mesmo hostname devolve os desafios TXT. */
+    if (!verified && verification.length === 0) {
+      const refill = await vercelFetchProjectDomain(hostname);
+      if (refill.ok) {
+        return { ok: true, verified: refill.verified, verification: refill.verification };
+      }
+    }
+    return { ok: true, verified, verification };
   }
 
   /** Domínio já neste projeto: POST pode falhar; GET devolve o estado (idempotente). */
