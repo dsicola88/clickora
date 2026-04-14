@@ -7,7 +7,7 @@ import {
   isMainOrPreviewHostname,
   resolveVerifiedOwnerUserIdFromDb,
 } from "../lib/presellHostAccess";
-import { getRequestHostname } from "../lib/requestHost";
+import { getRequestHostname, hostnameLookupVariants } from "../lib/requestHost";
 import { getVerifiedOwnerIdForHostname } from "../lib/customDomainCache";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
@@ -161,6 +161,60 @@ export const presellController = {
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
     return res.json(mapPresell(page));
+  },
+
+  /**
+   * Raiz do domínio personalizado: id da presell publicada associada a este host (`custom_domain_id`).
+   * Várias presells no mesmo domínio → a mais recentemente atualizada.
+   */
+  async getRootPresellForHost(req: Request, res: Response) {
+    const host = getRequestHostname(req);
+    if (!host || isMainOrPreviewHostname(host)) {
+      return res.status(404).json({ error: "Indisponível neste host.", code: "ROOT_PRESELL_MAIN_HOST" });
+    }
+
+    let ownerId = getVerifiedOwnerIdForHostname(host);
+    if (!ownerId) {
+      ownerId = await resolveVerifiedOwnerUserIdFromDb(host);
+    }
+    if (!ownerId) {
+      return res.status(404).json({ error: "Domínio não verificado.", code: "ROOT_PRESELL_NOT_VERIFIED" });
+    }
+
+    const variants = hostnameLookupVariants(host);
+    const cd = await systemPrisma.customDomain.findFirst({
+      where: { status: "verified", userId: ownerId, hostname: { in: variants } },
+      select: { id: true },
+    });
+    if (!cd) {
+      return res.status(404).json({ error: "Domínio não encontrado.", code: "ROOT_PRESELL_NO_DOMAIN" });
+    }
+
+    const page = await systemPrisma.presellPage.findFirst({
+      where: {
+        userId: ownerId,
+        customDomainId: cd.id,
+        status: "published",
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      include: { user: { include: { subscription: true } } },
+    });
+
+    if (!page) {
+      return res.status(404).json({
+        error: "Nenhuma presell publicada neste domínio.",
+        code: "ROOT_PRESELL_NONE",
+      });
+    }
+
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
+
+    const access = evaluateSubscriptionAccess(page.user.subscription);
+    if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
+
+    return res.json({ id: page.id });
   },
 
   async getAll(req: Request, res: Response) {

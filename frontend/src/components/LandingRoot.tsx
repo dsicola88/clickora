@@ -1,5 +1,7 @@
 import { Navigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { presellService } from "@/services/presellService";
 import Plans from "@/pages/Plans";
 
 /** Hosts onde a raiz `/` mostra a landing de planos (site principal ou dev/preview). */
@@ -11,9 +13,60 @@ function isMainProductHostname(hostname: string): boolean {
 }
 
 /**
- * Rota `/`: landing de planos para visitantes; utilizadores autenticados vão para o painel.
- * Num domínio personalizado verificado (outro hostname), a raiz não é uma presell — mostramos
- * instruções em vez da página de planos, para não parecer que o link público «caiu no site errado».
+ * Domínio personalizado: pede à API qual presell publicada está ligada a este host e redireciona para `/p/{id}`.
+ * Várias presells no mesmo domínio → a mais recentemente atualizada.
+ */
+function CustomDomainRootRedirect() {
+  const mainSite =
+    import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["public-custom-domain-root-presell", typeof window !== "undefined" ? window.location.hostname : ""],
+    queryFn: async () => {
+      const { data: payload, error } = await presellService.getRootPresellIdForHost();
+      if (payload?.id) return payload.id;
+      if (error) throw new Error(error);
+      return null;
+    },
+    retry: 1,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (data) {
+    return <Navigate to={`/p/${data}`} replace />;
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 text-center">
+      <div className="max-w-md space-y-4">
+        <h1 className="text-xl font-semibold text-foreground">Domínio ativo</h1>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {isError
+            ? "Não foi possível carregar a página. Verifica a ligação ou tenta o link com /p/ e o identificador (UUID) copiado no painel."
+            : "Nenhuma presell publicada neste domínio. No painel, associa a presell a este domínio (Domínio nos links públicos) e publica a página."}
+        </p>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Gerir contas e presells em{" "}
+          <a href={mainSite} className="text-primary underline underline-offset-2 font-medium">
+            dclickora
+          </a>
+          .
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Rota `/`: landing de planos no site principal; no domínio personalizado verificado redireciona para a presell
+ * ligada a esse domínio (`/p/{uuid}`).
  */
 export function LandingRoot() {
   const { user, loading } = useAuth();
@@ -26,32 +79,11 @@ export function LandingRoot() {
     );
   }
 
-  if (user) return <Navigate to="/inicio" replace />;
-
   if (typeof window !== "undefined" && !isMainProductHostname(window.location.hostname)) {
-    const mainSite =
-      import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 text-center">
-        <div className="max-w-md space-y-4">
-          <h1 className="text-xl font-semibold text-foreground">Domínio ativo para presells</h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Este endereço está ligado à tua conta para páginas presell. Para veres uma página criada, tens de abrir o{" "}
-            <strong className="text-foreground">URL completo</strong> copiado no painel — inclui{" "}
-            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">/p/</code> e o identificador da página (não basta
-            abrir só o domínio).
-          </p>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Para criar e gerir presells, acede ao painel em{" "}
-            <a href={mainSite} className="text-primary underline underline-offset-2 font-medium">
-              dclickora
-            </a>
-            .
-          </p>
-        </div>
-      </div>
-    );
+    return <CustomDomainRootRedirect />;
   }
+
+  if (user) return <Navigate to="/inicio" replace />;
 
   return <Plans />;
 }

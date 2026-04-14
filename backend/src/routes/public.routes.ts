@@ -8,6 +8,7 @@ export const publicRouter = Router();
 
 publicRouter.get("/presells/id/:id", presellController.getPublicById);
 publicRouter.get("/presells/slug/:slug", presellController.getPublicBySlug);
+publicRouter.get("/custom-domain/root-presell", presellController.getRootPresellForHost);
 publicRouter.get("/branding", brandingController.getMeta);
 publicRouter.get("/branding/favicon", brandingController.getFavicon);
 publicRouter.get("/plans-landing", plansLandingController.getPublic);

@@ -10,6 +10,11 @@ export const presellService = {
     return apiClient.get<Presell>(`/public/presells/slug/${encodeURIComponent(slug)}`);
   },
 
+  /** Raiz do domínio personalizado: id da presell publicada ligada a este domínio (Host). */
+  async getRootPresellIdForHost() {
+    return apiClient.get<{ id: string }>(`/public/custom-domain/root-presell`);
+  },
+
   async getAll() {
     return apiClient.get<Presell[]>("/presells");
   },
