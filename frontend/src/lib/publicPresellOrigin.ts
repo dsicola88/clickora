@@ -71,14 +71,15 @@ export function getPublicPresellFullUrl(
 }
 
 /**
- * Pré-visualização no painel (ícone «olho»): **sempre** `/p/<uuid>`.
- * O caminho por slug em domínio próprio depende do Host na API; o GET por ID é fiável em qualquer origem.
+ * Pré-visualização no painel (ícone «olho»): abre no **mesmo** site onde estás (ex.: dclickora.com),
+ * não no domínio personalizado — evita mudar de domínio só para pré-visualizar.
+ * Sempre `/p/<uuid>` (GET público por ID funciona em qualquer origem).
  */
-export function getPublicPresellViewerUrl(
-  domains: CustomDomainDto[] | null | undefined,
-  presellCustomDomainId: string | null | undefined,
-  page: { id: string },
-): string {
-  const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
-  return `${origin}/p/${page.id}`;
+export function getPublicPresellViewerUrl(page: { id: string }): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin.replace(/\/+$/, "")}/p/${page.id}`;
+  }
+  const env = import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim();
+  if (env) return `${env.replace(/\/+$/, "")}/p/${page.id}`;
+  return `https://www.dclickora.com/p/${page.id}`;
 }

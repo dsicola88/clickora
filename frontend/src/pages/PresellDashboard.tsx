@@ -1090,13 +1090,13 @@ export default function PresellDashboard() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <a
-                        href={getPublicPresellViewerUrl(customDomains, page.custom_domain_id, page)}
+                        href={getPublicPresellViewerUrl(page)}
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         title={
                           page.status === "published"
-                            ? "Visualizar página pública (abre com /p/ e ID — mais fiável que só o slug)"
+                            ? "Visualizar no mesmo site (dclickora ou ambiente atual); o link de anúncios pode ser o teu domínio."
                             : "A presell tem de estar «Habilitada» (publicada) para o link público mostrar conteúdo"
                         }
                       >
