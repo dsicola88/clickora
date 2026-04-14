@@ -195,7 +195,7 @@ export const customDomainController = {
     if (row.vercelDomainRegistered) {
       const vr = await vercelVerifyProjectDomain(row.hostname);
       if (vr.ok && vr.verified) {
-        const updated = await prisma.customDomain.update({
+        let out = await prisma.customDomain.update({
           where: { id: row.id },
           data: {
             status: "verified",
@@ -209,15 +209,14 @@ export const customDomainController = {
         });
         if (!hasVerifiedDefault) {
           await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-          await prisma.customDomain.update({
-            where: { id: updated.id },
+          out = await prisma.customDomain.update({
+            where: { id: out.id },
             data: { isDefault: true },
           });
         }
 
-        const final = await prisma.customDomain.findFirst({ where: { id: updated.id } });
         await refreshCustomDomainCache();
-        return res.json({ verified: true, ...mapRow(final!) });
+        return res.json({ verified: true, ...mapRow(out) });
       }
 
       if (!vr.ok) {
@@ -261,7 +260,7 @@ export const customDomainController = {
       });
     }
 
-    const updated = await prisma.customDomain.update({
+    let out = await prisma.customDomain.update({
       where: { id: row.id },
       data: { status: "verified", verifiedAt: new Date() },
     });
@@ -271,16 +270,15 @@ export const customDomainController = {
     });
     if (!hasVerifiedDefault) {
       await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-      await prisma.customDomain.update({
-        where: { id: updated.id },
+      out = await prisma.customDomain.update({
+        where: { id: out.id },
         data: { isDefault: true },
       });
     }
 
-    const final = await prisma.customDomain.findFirst({ where: { id: updated.id } });
     await refreshCustomDomainCache();
 
-    return res.json({ verified: true, ...mapRow(final!) });
+    return res.json({ verified: true, ...mapRow(out) });
   },
 
   async setDefault(req: Request, res: Response) {

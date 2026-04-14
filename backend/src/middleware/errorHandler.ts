@@ -4,6 +4,7 @@ import { TenantIsolationError } from "../lib/tenantErrors";
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
   console.error("[ERROR]", err.message);
+  if (err.stack) console.error(err.stack);
 
   const tooLarge =
     (err as NodeJS.ErrnoException & { type?: string; status?: number }).type === "entity.too.large" ||
