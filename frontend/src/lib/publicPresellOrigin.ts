@@ -14,6 +14,21 @@ export function getPublicPresellOrigin(verifiedHostname?: string | null): string
 }
 
 /**
+ * ID do domínio verificado a usar quando a presell não tem `custom_domain_id` explícito:
+ * marcado como padrão na conta, ou o único verificado.
+ */
+export function resolveDefaultCustomDomainIdForAccount(
+  domains: CustomDomainDto[] | null | undefined,
+): string | null {
+  const verified = (domains ?? []).filter((d) => d.status === "verified");
+  if (verified.length === 0) return null;
+  const def = verified.find((d) => d.is_default);
+  if (def) return def.id;
+  if (verified.length === 1) return verified[0].id;
+  return null;
+}
+
+/**
  * Resolve o URL base para uma presell: override por domínio, senão domínio padrão da conta, senão primeiro verificado.
  */
 export function getPublicPresellOriginForPresell(
@@ -26,8 +41,11 @@ export function getPublicPresellOriginForPresell(
     const pick = verified.find((d) => d.id === presellCustomDomainId);
     if (pick) return `https://${pick.hostname}`;
   }
-  const def = verified.find((d) => d.is_default);
-  if (def) return `https://${def.hostname}`;
+  const defaultId = resolveDefaultCustomDomainIdForAccount(domains);
+  if (defaultId) {
+    const pick = verified.find((d) => d.id === defaultId);
+    if (pick) return `https://${pick.hostname}`;
+  }
   if (verified[0]) return `https://${verified[0].hostname}`;
   return getPublicPresellOrigin(null);
 }
@@ -48,17 +66,4 @@ export function getPublicPresellFullUrl(
 ): string {
   const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
   return `${origin}/p/${page.id}`;
-}
-
-/**
- * Pré-visualização no painel (ícone «olho»): abre no **mesmo** site onde estás (ex.: dclickora.com),
- * não no domínio personalizado — evita mudar de domínio só para pré-visualizar.
- */
-export function getPublicPresellViewerUrl(page: { id: string }): string {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin.replace(/\/+$/, "")}/p/${page.id}`;
-  }
-  const env = import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim();
-  if (env) return `${env.replace(/\/+$/, "")}/p/${page.id}`;
-  return `https://www.dclickora.com/p/${page.id}`;
 }

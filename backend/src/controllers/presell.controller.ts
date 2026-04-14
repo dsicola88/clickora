@@ -62,6 +62,20 @@ async function resolveCustomDomainIdForUser(userId: string, raw: string | null):
   return raw;
 }
 
+/** Quando o cliente não envia `custom_domain_id`, associa o domínio verificado padrão ou o único da conta. */
+async function resolveDefaultVerifiedCustomDomainIdForUser(userId: string): Promise<string | null> {
+  const rows = await prisma.customDomain.findMany({
+    where: { userId, status: "verified" },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { id: true, isDefault: true },
+  });
+  if (rows.length === 0) return null;
+  const def = rows.find((r) => r.isDefault);
+  if (def) return def.id;
+  if (rows.length === 1) return rows[0].id;
+  return null;
+}
+
 const importFromUrlSchema = z.object({
   product_url: z.preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().url()),
   language: z.string().optional(),
@@ -200,6 +214,9 @@ export const presellController = {
         const msg = e instanceof Error ? e.message : "Domínio inválido.";
         return res.status(400).json({ error: msg });
       }
+    } else {
+      const auto = await resolveDefaultVerifiedCustomDomainIdForUser(req.user!.userId);
+      if (auto) customDomainIdField = { customDomainId: auto };
     }
 
     // Check plan limits

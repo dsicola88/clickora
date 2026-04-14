@@ -31,7 +31,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import { getPublicPresellFullUrl, getPublicPresellViewerUrl } from "@/lib/publicPresellOrigin";
+import { getPublicPresellFullUrl, resolveDefaultCustomDomainIdForAccount } from "@/lib/publicPresellOrigin";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
@@ -241,14 +241,18 @@ export default function PresellDashboard() {
     }
   };
 
-  const resetForm = () => {
+  const resetForm = (opts?: { presetCustomDomain?: boolean }) => {
+    const presetDomainId =
+      opts?.presetCustomDomain && hasVerifiedCustomDomain
+        ? resolveDefaultCustomDomainIdForAccount(customDomains) ?? ""
+        : "";
     setFormData({
       pageName: "",
       pageSlug: "",
       presellType: "cookies",
       language: "pt",
       productLink: "",
-      customDomainId: "",
+      customDomainId: presetDomainId,
     });
     setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
@@ -958,7 +962,10 @@ export default function PresellDashboard() {
         title="Nenhuma presell criada"
         description={isAdmin ? "Cole o link do produto, escolha idioma e tipo — a página completa é gerada automaticamente." : "Crie a primeira página para começar."}
         actionLabel="Criar presell"
-        onAction={() => setShowCreator(true)}
+        onAction={() => {
+          resetForm({ presetCustomDomain: true });
+          setShowCreator(true);
+        }}
         icon={<FileText className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -970,7 +977,13 @@ export default function PresellDashboard() {
         title="Lista de páginas Presell"
         description={isAdmin ? "Gerencie, duplique e publique suas páginas em um único lugar." : undefined}
         actions={
-          <Button onClick={() => setShowCreator(true)} className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
+          <Button
+            onClick={() => {
+              resetForm({ presetCustomDomain: true });
+              setShowCreator(true);
+            }}
+            className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+          >
             <Plus className="h-4 w-4" /> Criar nova Presell
           </Button>
         }
@@ -1073,13 +1086,13 @@ export default function PresellDashboard() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <a
-                        href={getPublicPresellViewerUrl(page)}
+                        href={getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         title={
                           page.status === "published"
-                            ? "Visualizar no mesmo site (dclickora ou ambiente atual); o link de anúncios pode ser o teu domínio."
+                            ? "Abrir o mesmo link público que vês na coluna (domínio verificado ou dclickora)."
                             : "A presell tem de estar «Habilitada» (publicada) para o link público mostrar conteúdo"
                         }
                       >
