@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Pencil,
+  Code2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { getPublicPresellFullUrl, resolveDefaultCustomDomainIdForAccount } from "@/lib/publicPresellOrigin";
+import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
@@ -89,6 +91,7 @@ export default function PresellDashboard() {
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyingHtmlId, setCopyingHtmlId] = useState<string | null>(null);
   const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
@@ -157,7 +160,7 @@ export default function PresellDashboard() {
           try {
             await navigator.clipboard.writeText(publicUrl);
             const hint =
-              "Página criada. Link público copiado (teu domínio ou dclickora + /p/ + ID). O link do produto é o botão na página.";
+              "Página criada. Link público copiado. Na lista, «Copiar HTML» gera o ficheiro completo para colar no Elementor ou noutro editor.";
             toast.success(hint, { duration: 10000 });
           } catch {
             toast.success(`Página criada. Link público: ${publicUrl}`, { duration: 15000 });
@@ -320,6 +323,28 @@ export default function PresellDashboard() {
     setCopiedId(page.id);
     toast.success("Link público copiado (/p/ e ID da página).");
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleCopyHtml = async (page: Presell) => {
+    setCopyingHtmlId(page.id);
+    try {
+      const { data, error } = await presellService.getById(page.id);
+      if (error || !data) {
+        toast.error(error || "Não foi possível carregar a página.");
+        return;
+      }
+      const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
+      const html = buildPresellStandaloneHtml(data, {
+        apiBase: getApiBaseUrl(),
+        publicPageUrl: publicUrl,
+      });
+      await navigator.clipboard.writeText(html);
+      toast.success("HTML completo copiado. Cola no Elementor (widget HTML) ou noutro editor.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível copiar o HTML.");
+    } finally {
+      setCopyingHtmlId(null);
+    }
   };
 
   const handleSave = async () => {
@@ -1023,7 +1048,10 @@ export default function PresellDashboard() {
         <span className="font-medium text-card-foreground">Anúncios e partilha:</span> o link que copias é sempre{" "}
         <code className="text-[11px] bg-background px-1 rounded">https://teu-dominio/p/&lt;id&gt;</code> (com domínio
         verificado, o dclickora ou o que estiver na conta). O «endereço» (slug) no formulário é só nome interno. O link do
-        produto (afiliado) não substitui este URL — fica no botão da presell.
+        produto (afiliado) não substitui este URL — fica no botão da presell. O ícone{" "}
+        <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden /> copia um{" "}
+        <span className="font-medium text-card-foreground">HTML completo</span> da página (conteúdo + estilos) para colar
+        no Elementor ou noutro editor.
       </p>
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -1098,6 +1126,15 @@ export default function PresellDashboard() {
                       >
                         <Eye className="h-4 w-4" />
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyHtml(page)}
+                        disabled={copyingHtmlId === page.id}
+                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        title="Copiar HTML completo da presell (Elementor, WordPress, etc.)"
+                      >
+                        <Code2 className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => duplicateMutation.mutate(page.id)}
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
