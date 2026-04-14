@@ -195,7 +195,8 @@ export const customDomainController = {
     if (row.vercelDomainRegistered) {
       const vr = await vercelVerifyProjectDomain(row.hostname);
       if (vr.ok && vr.verified) {
-        let out = await prisma.customDomain.update({
+        // `prisma.customDomain.update` com where `{ id }` rebenta no tenant client (WhereUniqueInput vs AND+userId).
+        let out = await systemPrisma.customDomain.update({
           where: { id: row.id },
           data: {
             status: "verified",
@@ -209,7 +210,7 @@ export const customDomainController = {
         });
         if (!hasVerifiedDefault) {
           await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-          out = await prisma.customDomain.update({
+          out = await systemPrisma.customDomain.update({
             where: { id: out.id },
             data: { isDefault: true },
           });
@@ -260,7 +261,7 @@ export const customDomainController = {
       });
     }
 
-    let out = await prisma.customDomain.update({
+    let out = await systemPrisma.customDomain.update({
       where: { id: row.id },
       data: { status: "verified", verifiedAt: new Date() },
     });
@@ -270,7 +271,7 @@ export const customDomainController = {
     });
     if (!hasVerifiedDefault) {
       await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-      out = await prisma.customDomain.update({
+      out = await systemPrisma.customDomain.update({
         where: { id: out.id },
         data: { isDefault: true },
       });
@@ -287,9 +288,9 @@ export const customDomainController = {
     const row = await prisma.customDomain.findFirst({ where: { id, userId, status: "verified" } });
     if (!row) return res.status(404).json({ error: "Domínio verificado não encontrado." });
 
-    await prisma.$transaction([
-      prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
-      prisma.customDomain.update({ where: { id: row.id }, data: { isDefault: true } }),
+    await systemPrisma.$transaction([
+      systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
+      systemPrisma.customDomain.update({ where: { id: row.id }, data: { isDefault: true } }),
     ]);
     await refreshCustomDomainCache();
 
@@ -315,7 +316,7 @@ export const customDomainController = {
       }
     }
 
-    await prisma.customDomain.delete({ where: { id: existing.id } });
+    await systemPrisma.customDomain.delete({ where: { id: existing.id } });
     await ensureDefaultDomainForUser(userId);
     await refreshCustomDomainCache();
 
