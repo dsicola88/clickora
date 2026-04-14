@@ -9,7 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { customDomainService } from "@/services/customDomainService";
 import { presellService } from "@/services/presellService";
-import type { CustomDomainDto, CustomDomainPendingDns } from "@/types/api";
+import type { CustomDomainDto } from "@/types/api";
+import {
+  normalizeDomainStatus,
+  resolveHostingDnsHint,
+  resolvePendingDnsForDisplay,
+} from "@/lib/customDomainDnsDisplay";
 
 export function CustomDomainSettings() {
   const { user } = useAuth();
@@ -133,22 +138,6 @@ export function CustomDomainSettings() {
     }
   };
 
-  /** Compatível com APIs antigas sem `pending_dns`. */
-  function legacyPendingDns(d: CustomDomainDto): Extract<CustomDomainPendingDns, { mode: "dclickora" }> {
-    return {
-      mode: "dclickora",
-      txt_name: `_dclickora-verify.${d.hostname}`,
-      txt_value: `dclickora-verification=${d.verification_token}`,
-      note:
-        "Crie um único registo TXT: use a primeira linha como Nome/Host e a segunda como Valor. Depois clique em «Verificar agora».",
-    };
-  }
-
-  function pendingDnsFor(d: CustomDomainDto): CustomDomainPendingDns | null {
-    if (d.status !== "pending") return null;
-    return d.pending_dns ?? legacyPendingDns(d);
-  }
-
   return (
     <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
       <div className="flex items-start gap-3">
@@ -223,8 +212,9 @@ export function CustomDomainSettings() {
       ) : (
         <div className="space-y-4">
           {domains.map((d) => {
-            const dns = pendingDnsFor(d);
-            const isPending = d.status === "pending";
+            const dns = resolvePendingDnsForDisplay(d);
+            const isPending = normalizeDomainStatus(d.status) === "pending";
+            const hostingHint = resolveHostingDnsHint(d);
             return (
               <div
                 key={d.id}
@@ -235,21 +225,21 @@ export function CustomDomainSettings() {
                     <code className="text-sm font-mono break-all">https://{d.hostname}</code>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${
-                        d.status === "verified"
+                        normalizeDomainStatus(d.status) === "verified"
                           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                           : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                       }`}
                     >
-                      {d.status === "verified" ? "Verificado" : "Pendente"}
+                      {normalizeDomainStatus(d.status) === "verified" ? "Verificado" : "Pendente"}
                     </span>
-                    {d.status === "verified" && d.is_default && (
+                    {normalizeDomainStatus(d.status) === "verified" && d.is_default && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> Padrão
                       </span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1 shrink-0">
-                    {d.status === "verified" && !d.is_default && (
+                    {normalizeDomainStatus(d.status) === "verified" && !d.is_default && (
                       <Button
                         type="button"
                         variant="outline"
@@ -289,7 +279,7 @@ export function CustomDomainSettings() {
                   </div>
                 </div>
                 {isPending && dns && (
-                  <div className="space-y-3 text-xs">
+                  <div className="space-y-3 text-xs" data-testid="custom-domain-pending-dns">
                     {dns.mode === "vercel" ? (
                       <>
                         <p className="text-muted-foreground">{dns.note}</p>
@@ -422,16 +412,16 @@ export function CustomDomainSettings() {
                     )}
                   </div>
                 )}
-                {d.status === "verified" && d.hosting_dns_hint && (
+                {hostingHint && (
                   <div className="rounded-md border border-border/50 bg-background/50 p-3 space-y-2 text-xs">
                     <p className="font-medium text-card-foreground">Apontamento do site (referência Vercel)</p>
-                    <p className="text-muted-foreground leading-relaxed">{d.hosting_dns_hint.note}</p>
+                    <p className="text-muted-foreground leading-relaxed">{hostingHint.note}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
                       <span>
-                        Nome: <span className="text-card-foreground">{d.hosting_dns_hint.host}</span>
+                        Nome: <span className="text-card-foreground">{hostingHint.host}</span>
                       </span>
                       <span>
-                        Valor: <span className="text-card-foreground">{d.hosting_dns_hint.target}</span>
+                        Valor: <span className="text-card-foreground">{hostingHint.target}</span>
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
@@ -440,7 +430,7 @@ export function CustomDomainSettings() {
                     </p>
                   </div>
                 )}
-                {d.status === "verified" && (
+                {normalizeDomainStatus(d.status) === "verified" && (
                   <div className="space-y-2 pt-3 border-t border-border/40">
                     <Label className="text-xs font-medium text-card-foreground">
                       Presell ao abrir <span className="font-mono text-[11px]">https://{d.hostname}/</span>
