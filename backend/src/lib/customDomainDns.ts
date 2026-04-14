@@ -67,6 +67,13 @@ const DNS_TXT_LOOKUP_MS = 8000;
 
 export type DnsTxtVerificationResult = "match" | "no_match" | "timeout";
 
+/** Alguns painéis DNS guardam o TXT com aspas à volta; o resolve devolve-as e a comparação falhava. */
+function txtJoinedContainsVerification(joined: string, expected: string): boolean {
+  if (joined.includes(expected)) return true;
+  const trimmed = joined.trim().replace(/^"+|"+$/g, "");
+  return trimmed.includes(expected);
+}
+
 export async function dnsTxtContainsVerification(
   hostname: string,
   token: string,
@@ -78,7 +85,7 @@ export async function dnsTxtContainsVerification(
     try {
       const chunks = await dns.resolveTxt(name);
       const joined = chunks.map((c) => c.join("")).join("");
-      return joined.includes(expected) ? "match" : "no_match";
+      return txtJoinedContainsVerification(joined, expected) ? "match" : "no_match";
     } catch {
       return "no_match";
     }
