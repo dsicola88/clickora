@@ -7,6 +7,7 @@
  */
 import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../src/lib/prisma";
 import {
   dnsTxtContainsVerification,
@@ -46,64 +47,72 @@ async function testDatabaseIfAvailable() {
     return;
   }
 
-  const tableCheck = await systemPrisma.$queryRaw<{ exists: boolean }[]>`
-    SELECT EXISTS (
-      SELECT FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'custom_domains'
-    ) AS exists
-  `;
-  if (!tableCheck[0]?.exists) {
-    console.warn("[skip BD] Tabela custom_domains não existe — execute `npx prisma migrate deploy`.");
-    return;
+  try {
+    const tableCheck = await systemPrisma.$queryRaw<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'custom_domains'
+      ) AS exists
+    `;
+    if (!tableCheck[0]?.exists) {
+      console.warn("[skip BD] Tabela custom_domains não existe — execute `npx prisma migrate deploy`.");
+      return;
+    }
+
+    const email = "custom-domain-flow-test@dclickora.local";
+    const password = await bcrypt.hash("test-flow-123", 8);
+
+    const user = await systemPrisma.user.upsert({
+      where: { email },
+      create: {
+        email,
+        password,
+        fullName: "Custom domain flow test",
+      },
+      update: { password },
+      select: { id: true },
+    });
+
+    await systemPrisma.customDomain.deleteMany({ where: { userId: user.id } });
+
+    const hostname = `flow-test-${user.id.slice(0, 8)}.local`;
+    const token = newVerificationToken();
+
+    const row = await systemPrisma.customDomain.create({
+      data: {
+        userId: user.id,
+        hostname,
+        verificationToken: token,
+        status: "pending",
+        isDefault: true,
+      },
+    });
+    assert.equal(row.status, "pending");
+
+    await systemPrisma.customDomain.update({
+      where: { id: row.id },
+      data: { status: "verified", verifiedAt: new Date() },
+    });
+
+    await refreshCustomDomainCache();
+    const origin = `https://${hostname}`;
+    assert.equal(isVerifiedCustomDomainOrigin(origin), true);
+    assert.equal(getVerifiedOwnerIdForHostname(hostname), user.id);
+
+    await systemPrisma.customDomain.delete({ where: { id: row.id } });
+    await refreshCustomDomainCache();
+    assert.equal(isVerifiedCustomDomainOrigin(origin), false);
+
+    console.log("[BD] Fluxo create → verify → cache CORS → delete OK.");
+
+    await systemPrisma.user.delete({ where: { id: user.id } }).catch(() => {});
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      console.warn("[skip BD] Esquema desatualizado — execute `npx prisma migrate deploy` na pasta backend.");
+      return;
+    }
+    throw e;
   }
-
-  const email = "custom-domain-flow-test@dclickora.local";
-  const password = await bcrypt.hash("test-flow-123", 8);
-
-  const user = await systemPrisma.user.upsert({
-    where: { email },
-    create: {
-      email,
-      password,
-      fullName: "Custom domain flow test",
-    },
-    update: { password },
-    select: { id: true },
-  });
-
-  await systemPrisma.customDomain.deleteMany({ where: { userId: user.id } });
-
-  const hostname = `flow-test-${user.id.slice(0, 8)}.local`;
-  const token = newVerificationToken();
-
-  const row = await systemPrisma.customDomain.create({
-    data: {
-      userId: user.id,
-      hostname,
-      verificationToken: token,
-      status: "pending",
-      isDefault: true,
-    },
-  });
-  assert.equal(row.status, "pending");
-
-  await systemPrisma.customDomain.update({
-    where: { id: row.id },
-    data: { status: "verified", verifiedAt: new Date() },
-  });
-
-  await refreshCustomDomainCache();
-  const origin = `https://${hostname}`;
-  assert.equal(isVerifiedCustomDomainOrigin(origin), true);
-  assert.equal(getVerifiedOwnerIdForHostname(hostname), user.id);
-
-  await systemPrisma.customDomain.delete({ where: { id: row.id } });
-  await refreshCustomDomainCache();
-  assert.equal(isVerifiedCustomDomainOrigin(origin), false);
-
-  console.log("[BD] Fluxo create → verify → cache CORS → delete OK.");
-
-  await systemPrisma.user.delete({ where: { id: user.id } }).catch(() => {});
 }
 
 async function testDnsLookupOptional() {

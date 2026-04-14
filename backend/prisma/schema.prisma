@@ -114,6 +114,10 @@ model CustomDomain {
   status              CustomDomainStatus @default(pending)
   verifiedAt          DateTime?          @map("verified_at")
   isDefault           Boolean            @default(false) @map("is_default")
+  /** Domínio registado na API Vercel (projeto do site) — verificação via Vercel + CNAME. */
+  vercelDomainRegistered Boolean         @default(false) @map("vercel_domain_registered")
+  /** Último desafio de verificação devolvido pela Vercel (TXT, etc.) para mostrar na UI. */
+  vercelVerificationJson Json?          @map("vercel_verification_json")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 

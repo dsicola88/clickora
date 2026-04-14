@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { systemPrisma } from "../lib/prisma";
@@ -10,6 +11,14 @@ import {
   verificationTxtValue,
 } from "../lib/customDomainDns";
 import { refreshCustomDomainCache } from "../lib/customDomainCache";
+import {
+  isVercelConfigured,
+  vercelAddProjectDomain,
+  vercelCnameHint,
+  vercelRemoveProjectDomain,
+  vercelVerifyProjectDomain,
+  type VercelVerificationChallenge,
+} from "../lib/vercelProjectDomains";
 
 function mapRow(d: {
   id: string;
@@ -18,18 +27,66 @@ function mapRow(d: {
   status: string;
   verifiedAt: Date | null;
   isDefault: boolean;
+  vercelDomainRegistered: boolean;
+  vercelVerificationJson: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 }) {
-  return {
+  const base: Record<string, unknown> = {
     id: d.id,
     hostname: d.hostname,
     verification_token: d.verificationToken,
     status: d.status,
     verified_at: d.verifiedAt?.toISOString() ?? null,
     is_default: d.isDefault,
+    vercel_domain_registered: d.vercelDomainRegistered,
+    vercel_verification: (d.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? null,
     created_at: d.createdAt.toISOString(),
     updated_at: d.updatedAt.toISOString(),
+  };
+  if (d.status === "pending") {
+    const vj = (d.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [];
+    base.pending_dns = buildDnsPayload(d.hostname, d.verificationToken, {
+      vercel: d.vercelDomainRegistered,
+      vercelVerification: vj,
+      vercelVerifiedImmediately: false,
+    });
+  }
+  return base;
+}
+
+function buildDnsPayload(
+  hostname: string,
+  token: string,
+  opts: {
+    vercel: boolean;
+    vercelVerification: VercelVerificationChallenge[];
+    vercelVerifiedImmediately: boolean;
+  },
+) {
+  const cname = vercelCnameHint(hostname);
+
+  if (opts.vercel) {
+    return {
+      mode: "vercel" as const,
+      cname,
+      vercel_txt: opts.vercelVerification.map((v) => ({
+        type: v.type,
+        name: v.domain,
+        value: v.value,
+        reason: v.reason,
+      })),
+      vercel_verified_immediately: opts.vercelVerifiedImmediately,
+      note:
+        "O domínio foi registado automaticamente no projeto do site. Configure o CNAME (ou A no apex) e o(s) TXT abaixo; depois use «Verificar».",
+    };
+  }
+
+  return {
+    mode: "dclickora" as const,
+    txt_name: verificationTxtRecordName(hostname),
+    txt_value: verificationTxtValue(token),
+    note: "Adicione o registo TXT abaixo no seu DNS e volte a verificar.",
   };
 }
 
@@ -82,25 +139,44 @@ export const customDomainController = {
     const token = newVerificationToken();
     const isFirst = count === 0;
 
+    let vercelRegistered = false;
+    let vercelVerification: VercelVerificationChallenge[] = [];
+    let vercelVerifiedImmediately = false;
+
+    if (isVercelConfigured()) {
+      const vr = await vercelAddProjectDomain(hostname);
+      if (!vr.ok) {
+        return res.status(502).json({
+          error: `Não foi possível registar o domínio no alojamento: ${vr.error}. Confirme VERCEL_TOKEN e VERCEL_PROJECT_ID na API.`,
+        });
+      }
+      vercelRegistered = true;
+      vercelVerification = vr.verification;
+      vercelVerifiedImmediately = vr.verified;
+    }
+
     const row = await prisma.customDomain.create({
       data: {
         userId,
         hostname,
         verificationToken: token,
-        status: "pending",
+        status: vercelVerifiedImmediately ? "verified" : "pending",
+        verifiedAt: vercelVerifiedImmediately ? new Date() : null,
         isDefault: isFirst,
+        vercelDomainRegistered: vercelRegistered,
+        vercelVerificationJson: vercelVerification.length
+          ? (vercelVerification as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
+
+    if (vercelVerifiedImmediately) {
+      await ensureDefaultDomainForUser(userId);
+    }
 
     await refreshCustomDomainCache();
 
-    return res.status(201).json({
-      ...mapRow(row),
-      dns: {
-        txt_name: verificationTxtRecordName(hostname),
-        txt_value: verificationTxtValue(token),
-      },
-    });
+    return res.status(201).json(mapRow(row));
   },
 
   async verify(req: Request, res: Response) {
@@ -115,14 +191,64 @@ export const customDomainController = {
       return res.json({ verified: true, ...mapRow(row) });
     }
 
+    if (row.vercelDomainRegistered) {
+      const vr = await vercelVerifyProjectDomain(row.hostname);
+      if (vr.ok && vr.verified) {
+        const updated = await prisma.customDomain.update({
+          where: { id: row.id },
+          data: {
+            status: "verified",
+            verifiedAt: new Date(),
+            vercelVerificationJson: Prisma.JsonNull,
+          },
+        });
+
+        const hasVerifiedDefault = await prisma.customDomain.findFirst({
+          where: { userId, status: "verified", isDefault: true },
+        });
+        if (!hasVerifiedDefault) {
+          await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
+          await prisma.customDomain.update({
+            where: { id: updated.id },
+            data: { isDefault: true },
+          });
+        }
+
+        const final = await prisma.customDomain.findFirst({ where: { id: updated.id } });
+        await refreshCustomDomainCache();
+        return res.json({ verified: true, ...mapRow(final!) });
+      }
+
+      if (!vr.ok) {
+        return res.status(400).json({
+          error: vr.error || "A Vercel ainda não validou o DNS. Confirme CNAME e TXT e aguarde a propagação.",
+          dns: buildDnsPayload(row.hostname, row.verificationToken, {
+            vercel: true,
+            vercelVerification: (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [],
+            vercelVerifiedImmediately: false,
+          }),
+        });
+      }
+
+      return res.status(400).json({
+        error: "Ainda a verificar na Vercel. Confirme os registos DNS e tente de novo.",
+        dns: buildDnsPayload(row.hostname, row.verificationToken, {
+          vercel: true,
+          vercelVerification: (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [],
+          vercelVerifiedImmediately: false,
+        }),
+      });
+    }
+
     const ok = await dnsTxtContainsVerification(row.hostname, row.verificationToken);
     if (!ok) {
       return res.status(400).json({
         error: "Ainda não detetámos o registo TXT correto. Confirme o DNS e aguarde a propagação (pode demorar).",
-        dns: {
-          txt_name: verificationTxtRecordName(row.hostname),
-          txt_value: verificationTxtValue(row.verificationToken),
-        },
+        dns: buildDnsPayload(row.hostname, row.verificationToken, {
+          vercel: false,
+          vercelVerification: [],
+          vercelVerifiedImmediately: false,
+        }),
       });
     }
 
@@ -172,6 +298,15 @@ export const customDomainController = {
     const id = req.params.id;
     const existing = await prisma.customDomain.findFirst({ where: { id, userId } });
     if (!existing) return res.status(404).json({ error: "Domínio não encontrado." });
+
+    if (existing.vercelDomainRegistered) {
+      const rm = await vercelRemoveProjectDomain(existing.hostname);
+      if (!rm.ok) {
+        return res.status(502).json({
+          error: rm.error || "Não foi possível remover o domínio na Vercel. Tente de novo ou contacte o suporte.",
+        });
+      }
+    }
 
     await prisma.customDomain.delete({ where: { id: existing.id } });
     await ensureDefaultDomainForUser(userId);

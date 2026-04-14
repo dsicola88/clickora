@@ -6,7 +6,7 @@ export const customDomainService = {
     return apiClient.get<CustomDomainDto[]>("/custom-domain");
   },
   create(hostname: string) {
-    return apiClient.post<CustomDomainDto & { dns: { txt_name: string; txt_value: string } }>("/custom-domain", {
+    return apiClient.post<CustomDomainDto>("/custom-domain", {
       hostname,
     });
   },

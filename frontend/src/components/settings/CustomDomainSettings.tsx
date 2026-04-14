@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { customDomainService } from "@/services/customDomainService";
-import type { CustomDomainDto } from "@/types/api";
+import type { CustomDomainDto, CustomDomainPendingDns } from "@/types/api";
 
 export function CustomDomainSettings() {
   const queryClient = useQueryClient();
@@ -31,7 +31,13 @@ export function CustomDomainSettings() {
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
       setNewHostname("");
-      toast.success("Domínio adicionado. Configure o TXT no DNS e verifique.");
+      const d = res.data;
+      const mode = d?.pending_dns?.mode;
+      if (mode === "vercel") {
+        toast.success("Domínio adicionado ao alojamento. Configure CNAME e TXT no DNS e use «Verificar».");
+      } else {
+        toast.success("Domínio adicionado. Configure o TXT no DNS e verifique.");
+      }
     },
     onError: () => toast.error("Não foi possível adicionar."),
   });
@@ -86,10 +92,20 @@ export function CustomDomainSettings() {
     }
   };
 
-  const txtFor = (d: CustomDomainDto) => ({
-    txt_name: `_dclickora-verify.${d.hostname}`,
-    txt_value: `dclickora-verification=${d.verification_token}`,
-  });
+  /** Compatível com APIs antigas sem `pending_dns`. */
+  function legacyPendingDns(d: CustomDomainDto): Extract<CustomDomainPendingDns, { mode: "dclickora" }> {
+    return {
+      mode: "dclickora",
+      txt_name: `_dclickora-verify.${d.hostname}`,
+      txt_value: `dclickora-verification=${d.verification_token}`,
+      note: "Adicione o registo TXT abaixo no seu DNS e volte a verificar.",
+    };
+  }
+
+  function pendingDnsFor(d: CustomDomainDto): CustomDomainPendingDns | null {
+    if (d.status !== "pending") return null;
+    return d.pending_dns ?? legacyPendingDns(d);
+  }
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
@@ -100,16 +116,16 @@ export function CustomDomainSettings() {
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-semibold text-card-foreground">Domínios personalizados</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Adicione vários domínios (um por campanha ou marca). Cada um verifica-se com um registo TXT; o padrão é usado
-            nas presells que não escolhem outro domínio. Em produção, adicione também cada hostname no projeto Vercel e no
-            DNS (CNAME).
+            Adicione vários domínios (um por campanha ou marca). Com a integração Vercel ativa no servidor, o hostname é
+            registado automaticamente no projeto do site — só precisa de CNAME (ou A no apex) e TXT no DNS. Sem essa
+            integração, a verificação é por TXT dclickora. O domínio padrão é usado nas presells que não escolhem outro.
           </p>
         </div>
       </div>
 
       <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground border border-border/50 rounded-lg p-4 bg-muted/20">
-        <li>Domínio na Vercel (HTTPS) + DNS a apontar para o site.</li>
-        <li>Registo TXT abaixo para provar a propriedade.</li>
+        <li>DNS: apontar o domínio para o site (CNAME ou A no apex) e o(s) TXT indicados abaixo.</li>
+        <li>Verificar no painel quando a propagação DNS estiver feita.</li>
         <li>Presells: em editar, pode escolher qual domínio usar nos links públicos.</li>
       </ol>
 
@@ -152,7 +168,7 @@ export function CustomDomainSettings() {
       ) : (
         <div className="space-y-4">
           {domains.map((d) => {
-            const dns = txtFor(d);
+            const dns = pendingDnsFor(d);
             const isPending = d.status === "pending";
             return (
               <div
@@ -217,37 +233,86 @@ export function CustomDomainSettings() {
                     </Button>
                   </div>
                 </div>
-                {isPending && (
-                  <div className="space-y-2 text-xs">
-                    <p className="font-medium text-card-foreground">TXT (verificação)</p>
-                    <div className="flex gap-2 items-start">
-                      <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
-                        {dns.txt_name}
-                      </code>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => copy("n-" + d.id, dns.txt_name)}
-                      >
-                        {copiedField === "n-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
-                        {dns.txt_value}
-                      </code>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => copy("v-" + d.id, dns.txt_value)}
-                      >
-                        {copiedField === "v-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      </Button>
-                    </div>
+                {isPending && dns && (
+                  <div className="space-y-3 text-xs">
+                    {dns.mode === "vercel" ? (
+                      <>
+                        <p className="text-muted-foreground">{dns.note}</p>
+                        <div className="rounded-md border border-border/50 bg-background/60 p-3 space-y-1">
+                          <p className="font-medium text-card-foreground">Apontamento (Vercel)</p>
+                          <p className="text-muted-foreground">{dns.cname.note}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono">
+                            <span>
+                              Nome: <span className="text-card-foreground">{dns.cname.host}</span>
+                            </span>
+                            <span>
+                              Valor: <span className="text-card-foreground">{dns.cname.target}</span>
+                            </span>
+                          </div>
+                        </div>
+                        {dns.vercel_txt.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="font-medium text-card-foreground">TXT (Vercel)</p>
+                            {dns.vercel_txt.map((row, i) => (
+                              <div key={i} className="rounded-md border border-border/50 bg-background/60 p-2 space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{row.reason}</p>
+                                <div className="flex gap-2 items-start">
+                                  <code className="break-all flex-1 rounded px-2 py-1.5">
+                                    {row.name} → {row.value}
+                                  </code>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    onClick={() => copy(`vt-${d.id}-${i}`, `${row.name} ${row.value}`)}
+                                  >
+                                    {copiedField === `vt-${d.id}-${i}` ? (
+                                      <Check className="h-3 w-3" />
+                                    ) : (
+                                      <Copy className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-muted-foreground">{dns.note}</p>
+                        <p className="font-medium text-card-foreground">TXT (verificação dclickora)</p>
+                        <div className="flex gap-2 items-start">
+                          <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
+                            {dns.txt_name}
+                          </code>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => copy("n-" + d.id, dns.txt_name)}
+                          >
+                            {copiedField === "n-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </Button>
+                        </div>
+                        <div className="flex gap-2 items-start">
+                          <code className="break-all flex-1 bg-background border border-border/50 rounded px-2 py-1.5">
+                            {dns.txt_value}
+                          </code>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => copy("v-" + d.id, dns.txt_value)}
+                          >
+                            {copiedField === "v-" + d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

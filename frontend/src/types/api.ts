@@ -2,6 +2,22 @@
 // Data models expected from API
 // ============================
 
+/** Instruções DNS enquanto o domínio está pendente (GET lista + POST create). */
+export type CustomDomainPendingDns =
+  | {
+      mode: "vercel";
+      cname: { host: string; target: string; note: string };
+      vercel_txt: { type: string; name: string; value: string; reason: string }[];
+      vercel_verified_immediately: boolean;
+      note: string;
+    }
+  | {
+      mode: "dclickora";
+      txt_name: string;
+      txt_value: string;
+      note: string;
+    };
+
 /** Domínio personalizado (Tracking → Configurações). GET /custom-domain devolve lista. */
 export interface CustomDomainDto {
   id: string;
@@ -12,10 +28,11 @@ export interface CustomDomainDto {
   is_default: boolean;
   created_at: string;
   updated_at: string;
-  dns?: {
-    txt_name: string;
-    txt_value: string;
-  };
+  /** Presente quando o servidor regista o hostname no projeto Vercel (CNAME + TXT da Vercel). */
+  vercel_domain_registered?: boolean;
+  vercel_verification?: { type: string; domain: string; value: string; reason: string }[] | null;
+  /** Enquanto `status === "pending"`, o servidor devolve os registos a configurar. */
+  pending_dns?: CustomDomainPendingDns;
 }
 
 export interface User {
