@@ -69,16 +69,27 @@ const importFromUrlSchema = z.object({
 export const presellController = {
   async getPublicById(req: Request, res: Response) {
     const id = req.params.id;
-    /** Rota pública sem JWT / ALS — usar systemPrisma com filtro explícito por id + estado. */
+    /** Rota pública sem JWT / ALS — usar systemPrisma com filtro explícito por id. */
     const page = await systemPrisma.presellPage.findFirst({
-      where: { id, status: "published" },
+      where: { id },
       include: { user: { include: { subscription: true } } },
     });
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
+
+    if (page.status !== "published") {
+      const hint =
+        page.status === "draft"
+          ? "Esta página ainda não está publicada. No painel, altere o estado para «Publicada»."
+          : page.status === "paused"
+            ? "Esta página está em pausa. No painel, reativa ou publica de novo."
+            : "Esta página não está disponível publicamente.";
+      return res.status(404).json({ error: hint, code: "PRESHELL_NOT_PUBLISHED" });
+    }
+
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 

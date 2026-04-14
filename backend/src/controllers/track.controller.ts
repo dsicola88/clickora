@@ -97,7 +97,7 @@ export const trackController = {
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
@@ -177,7 +177,7 @@ export const trackController = {
     const referrer = req.query.referrer?.toString();
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page || page.status !== "published") return res.status(404).end();
-    if (!assertPresellAllowedOnRequestHost(req, page.userId)) return res.status(404).end();
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) return res.status(404).end();
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).end();
 
@@ -253,7 +253,7 @@ export const trackController = {
     // Get page owner
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
@@ -331,7 +331,7 @@ export const trackController = {
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
@@ -387,7 +387,7 @@ export const trackController = {
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (!assertPresellAllowedOnRequestHost(req, page.userId)) {
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
