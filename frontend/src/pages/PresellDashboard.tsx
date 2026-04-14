@@ -141,11 +141,27 @@ export default function PresellDashboard() {
       if (error) throw new Error(error);
       return created;
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       setShowCreator(false);
       resetForm();
-      toast.success("Página criada! Texto e imagens foram gerados automaticamente.");
+      if (created?.id) {
+        const origin = getPublicPresellOriginForPresell(customDomains, created.custom_domain_id ?? null);
+        const publicUrl = `${origin}/p/${created.id}`;
+        void (async () => {
+          try {
+            await navigator.clipboard.writeText(publicUrl);
+            toast.success(
+              "Página criada. O link público da presell foi copiado (inclui /p/ e o ID). Use este URL no navegador e nos anúncios — não o link do produto.",
+              { duration: 9000 },
+            );
+          } catch {
+            toast.success(`Página criada. Link público: ${publicUrl}`, { duration: 15000 });
+          }
+        })();
+      } else {
+        toast.success("Página criada! Texto e imagens foram gerados automaticamente.");
+      }
     },
   });
 
@@ -497,22 +513,16 @@ export default function PresellDashboard() {
               <>
                 <p className="font-medium text-card-foreground mb-2">O que acontece ao criar</p>
                 <p className="mb-3 text-xs sm:text-sm leading-relaxed">
-                  A presell fica num URL público{" "}
+                  A página pública fica sempre em{" "}
+                  <span className="font-mono text-[11px] text-foreground/90">https://…/p/&lt;id&gt;</span>
+                  —{" "}
                   <span className="text-foreground/90 font-medium">
-                    {hasVerifiedCustomDomain ? "num dos seus domínios verificados (ou dclickora)" : "no domínio dclickora"}
-                  </span>{" "}
-                  (ex.:{" "}
-                  <span className="font-mono text-xs">https://dclickora.com</span>
-                  {hasVerifiedCustomDomain ? (
-                    <>
-                      {" "}
-                      — pode escolher o domínio por presell abaixo quando existir domínio verificado.
-                    </>
-                  ) : null}
-                  ); o anúncio
-                  pode apontar para ela e o visitante só segue para a página do produtor ao clicar na oferta — fluxo habitual
-                  para afiliados quando políticas de anúncio desincentivam o destino direto ao site do produtor. Aprovação na
-                  rede não é garantida: depende de políticas, criativo e página.
+                    {hasVerifiedCustomDomain ? "no domínio que escolher (verificado) ou no dclickora" : "no domínio dclickora"}
+                  </span>
+                  . O link do produto que cola acima só serve para gerar conteúdo e para o clique final na oferta;{" "}
+                  <span className="font-medium text-card-foreground">não</span> é o URL de destino do anúncio. O anúncio deve
+                  usar o link público com <span className="font-mono text-[11px]">/p/</span> — ao concluir a criação, esse
+                  link é copiado automaticamente para a área de transferência.
                 </p>
                 <ol className="list-decimal list-inside space-y-1.5">
                   <li>A ferramenta acessa o link do produto e extrai textos e imagens.</li>
@@ -523,7 +533,10 @@ export default function PresellDashboard() {
                     só, o destaque é o vídeo e os botões (sem repetir a carta longa abaixo). O vídeo é detetado no import quando
                     possível.
                   </li>
-                  <li>Depois use <span className="text-foreground font-medium">Copiar</span> na lista para o link nos anúncios.</li>
+                  <li>
+                    O link público (com <span className="font-mono text-[11px]">/p/</span>) fica copiado após criar; na lista
+                    pode voltar a <span className="text-foreground font-medium">Copiar</span> para anúncios.
+                  </li>
                 </ol>
               </>
             )}
