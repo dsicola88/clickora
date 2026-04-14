@@ -208,8 +208,8 @@ export const presellController = {
       }
     }
 
-    const updated = await prisma.presellPage.update({
-      where: { id: req.params.id },
+    const updated = await systemPrisma.presellPage.update({
+      where: { id: page.id },
       data: data as Prisma.PresellPageUpdateInput,
     });
 
@@ -222,7 +222,7 @@ export const presellController = {
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
-    await prisma.presellPage.delete({ where: { id: req.params.id } });
+    await systemPrisma.presellPage.delete({ where: { id: page.id } });
     res.json({ message: "Página removida" });
   },
 
@@ -271,8 +271,8 @@ export const presellController = {
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
-    const updated = await prisma.presellPage.update({
-      where: { id: req.params.id },
+    const updated = await systemPrisma.presellPage.update({
+      where: { id: page.id },
       data: { status },
     });
 
