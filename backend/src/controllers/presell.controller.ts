@@ -62,18 +62,17 @@ async function resolveCustomDomainIdForUser(userId: string, raw: string | null):
   return raw;
 }
 
-/** Quando o cliente não envia `custom_domain_id`, associa o domínio verificado padrão ou o único da conta. */
+/**
+ * Quando o cliente não envia `custom_domain_id`, associa um domínio verificado.
+ * Mesma prioridade que a migração de backfill: `is_default` primeiro, depois o mais antigo (`created_at`).
+ */
 async function resolveDefaultVerifiedCustomDomainIdForUser(userId: string): Promise<string | null> {
   const rows = await prisma.customDomain.findMany({
     where: { userId, status: "verified" },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-    select: { id: true, isDefault: true },
+    select: { id: true },
   });
-  if (rows.length === 0) return null;
-  const def = rows.find((r) => r.isDefault);
-  if (def) return def.id;
-  if (rows.length === 1) return rows[0].id;
-  return null;
+  return rows[0]?.id ?? null;
 }
 
 const importFromUrlSchema = z.object({

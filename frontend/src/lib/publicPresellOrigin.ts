@@ -14,18 +14,19 @@ export function getPublicPresellOrigin(verifiedHostname?: string | null): string
 }
 
 /**
- * ID do domínio verificado a usar quando a presell não tem `custom_domain_id` explícito:
- * marcado como padrão na conta, ou o único verificado.
+ * ID do domínio verificado quando a presell não tem `custom_domain_id` explícito.
+ * Alinhado com o backend e a migração: `is_default` primeiro, depois o mais antigo (`created_at`).
  */
 export function resolveDefaultCustomDomainIdForAccount(
   domains: CustomDomainDto[] | null | undefined,
 ): string | null {
   const verified = (domains ?? []).filter((d) => d.status === "verified");
   if (verified.length === 0) return null;
-  const def = verified.find((d) => d.is_default);
-  if (def) return def.id;
-  if (verified.length === 1) return verified[0].id;
-  return null;
+  const sorted = [...verified].sort((a, b) => {
+    if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+  return sorted[0]?.id ?? null;
 }
 
 /**
