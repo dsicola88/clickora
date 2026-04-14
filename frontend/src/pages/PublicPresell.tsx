@@ -328,8 +328,18 @@ export default function PublicPresell() {
 
   if (isLoading) return <LoadingState message="Carregando página..." />;
   if (isError || !page) {
-    const msg =
+    const raw =
       loadError instanceof Error ? loadError.message : "Página indisponível.";
+    let msg = raw;
+    if (/Failed to fetch|NetworkError|load failed/i.test(raw)) {
+      msg = `${raw} No seu domínio, os pedidos devem ir para o mesmo site (ex.: /api/…). Recarregue ou verifique o DNS.`;
+    } else if (
+      raw.trim() === "Página não encontrada" ||
+      /^Página não encontrada\.?$/i.test(raw.trim())
+    ) {
+      msg =
+        "Página não encontrada. Confirme no painel: a presell está «Publicada»; o UUID no URL é o copiado da lista (mesma conta); a subscrição está ativa.";
+    }
     return <ErrorState message={msg} onRetry={() => refetch()} />;
   }
 

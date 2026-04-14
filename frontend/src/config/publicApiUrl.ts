@@ -24,11 +24,6 @@ function shouldUseSameOriginApiInProd(): boolean {
   return true;
 }
 
-/** URL da env que aponta para Railway (cross-origin → problemas no browser). */
-function isRailwayDirectApiUrl(raw: string): boolean {
-  return /\.up\.railway\.app/i.test(raw);
-}
-
 function readEnvApiUrl(): string {
   const a = import.meta.env.VITE_PUBLIC_API_URL?.trim();
   const b = import.meta.env.VITE_API_URL?.trim();
@@ -51,7 +46,9 @@ export function normalizeToApiBaseUrl(input: string): string {
 
 /**
  * Resolve a base da API usada por `apiClient`, `getApiBaseUrl()` e fetches manuais.
- * Não depende de `window` — comportamento determinístico por ambiente de build.
+ * Em produção no browser, domínios personalizados (ex.: fastbuyzone.sbs) devem usar **sempre**
+ * `/api` no mesmo host — o Vercel reescreve para a Railway. Se `VITE_PUBLIC_API_URL` apontar
+ * para outro domínio, os pedidos públicos da presell podem falhar (CORS) ou ir para a API errada.
  */
 export function getResolvedPublicApiBaseUrl(): string {
   const raw = readEnvApiUrl();
@@ -61,8 +58,8 @@ export function getResolvedPublicApiBaseUrl(): string {
     return normalizeToApiBaseUrl(raw);
   }
 
-  // Site em produção (dclickora ou domínio personalizado): mesmo origin que `/api` no Vercel.
-  if (shouldUseSameOriginApiInProd() && (!raw || isRailwayDirectApiUrl(raw))) {
+  // Produção no browser: mesmo site que o JS (dclickora.com, www, ou domínio personalizado no projeto Vercel).
+  if (typeof window !== "undefined" && shouldUseSameOriginApiInProd()) {
     return PROD_SAME_ORIGIN;
   }
 
