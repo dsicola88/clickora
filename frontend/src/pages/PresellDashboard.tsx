@@ -293,8 +293,8 @@ export default function PresellDashboard() {
   const handleCopySlug = (page: Presell) => {
     const origin = getPublicPresellOriginForPresell(customDomains, page.custom_domain_id);
     navigator.clipboard.writeText(`${origin}/p/${page.id}`);
-    setCopiedId(id);
-    toast.success("Link copiado!");
+    setCopiedId(page.id);
+    toast.success("Link público copiado (com /p/ e ID).");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -987,6 +987,13 @@ export default function PresellDashboard() {
         />
       </div>
 
+      <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/20 px-3 py-2 leading-relaxed">
+        <span className="font-medium text-card-foreground">Anúncios e partilha:</span> use sempre o link com{" "}
+        <code className="text-[11px] bg-background px-1 rounded">/p/</code> e o ID da presell. O{" "}
+        <span className="italic">slug</span> (ex. <code className="text-[11px]">/nome_pagina</code>) é só referência interna —
+        não abre a presell se colar só o domínio ou só o slug no browser.
+      </p>
+
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -994,7 +1001,7 @@ export default function PresellDashboard() {
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nome da página</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Tipo da Presell</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Endereço da página</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Link público</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">
                   <Settings className="h-4 w-4 inline" />
@@ -1010,15 +1017,21 @@ export default function PresellDashboard() {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-muted-foreground">{page.type}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-primary text-xs">/{page.slug}</span>
-                      <button
-                        onClick={() => handleCopySlug(page)}
-                        className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors"
-                      >
-                        {copiedId === page.id ? <Check className="h-3 w-3" /> : "Copiar"}
-                      </button>
+                  <td className="py-3 px-4 max-w-[min(100vw,22rem)]">
+                    <div className="flex flex-col gap-1">
+                      <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">
+                        {getPublicPresellOriginForPresell(customDomains, page.custom_domain_id)}/p/{page.id}
+                      </code>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground">slug: /{page.slug}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopySlug(page)}
+                          className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors"
+                        >
+                          {copiedId === page.id ? <Check className="h-3 w-3" /> : "Copiar"}
+                        </button>
+                      </div>
                     </div>
                   </td>
                   <td className="py-3 px-4">
