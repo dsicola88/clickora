@@ -165,7 +165,7 @@ export const presellController = {
 
   /**
    * Raiz do domínio personalizado: id da presell publicada associada a este host (`custom_domain_id`).
-   * Várias presells no mesmo domínio → a mais recentemente atualizada.
+   * Se `custom_domains.root_presell_id` estiver definido, usa essa; senão a mais recentemente atualizada.
    */
   async getRootPresellForHost(req: Request, res: Response) {
     const host = getRequestHostname(req);
@@ -184,21 +184,46 @@ export const presellController = {
     const variants = hostnameLookupVariants(host);
     const cd = await systemPrisma.customDomain.findFirst({
       where: { status: "verified", userId: ownerId, hostname: { in: variants } },
-      select: { id: true },
+      select: { id: true, rootPresellId: true },
     });
     if (!cd) {
       return res.status(404).json({ error: "Domínio não encontrado.", code: "ROOT_PRESELL_NO_DOMAIN" });
     }
 
-    const page = await systemPrisma.presellPage.findFirst({
-      where: {
-        userId: ownerId,
-        customDomainId: cd.id,
-        status: "published",
-      },
-      orderBy: [{ updatedAt: "desc" }],
-      include: { user: { include: { subscription: true } } },
-    });
+    let page = null as
+      | Prisma.PresellPageGetPayload<{ include: { user: { include: { subscription: true } } } }>
+      | null;
+
+    if (cd.rootPresellId) {
+      const byRoot = await systemPrisma.presellPage.findFirst({
+        where: {
+          id: cd.rootPresellId,
+          userId: ownerId,
+          customDomainId: cd.id,
+          status: "published",
+        },
+        include: { user: { include: { subscription: true } } },
+      });
+      if (
+        byRoot &&
+        (await assertPresellAllowedOnRequestHost(req, byRoot.userId)) &&
+        evaluateSubscriptionAccess(byRoot.user.subscription).allowed
+      ) {
+        page = byRoot;
+      }
+    }
+
+    if (!page) {
+      page = await systemPrisma.presellPage.findFirst({
+        where: {
+          userId: ownerId,
+          customDomainId: cd.id,
+          status: "published",
+        },
+        orderBy: [{ updatedAt: "desc" }],
+        include: { user: { include: { subscription: true } } },
+      });
+    }
 
     if (!page) {
       return res.status(404).json({
@@ -347,6 +372,17 @@ export const presellController = {
       where: { id: page.id },
       data: data as Prisma.PresellPageUpdateInput,
     });
+
+    if (req.body.custom_domain_id !== undefined) {
+      const oldId = page.customDomainId;
+      const newId = updated.customDomainId;
+      if (oldId && oldId !== newId) {
+        await systemPrisma.customDomain.updateMany({
+          where: { id: oldId, rootPresellId: page.id },
+          data: { rootPresellId: null },
+        });
+      }
+    }
 
     res.json(mapPresell(updated));
   },

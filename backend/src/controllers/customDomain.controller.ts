@@ -27,6 +27,7 @@ function mapRow(d: {
   status: string;
   verifiedAt: Date | null;
   isDefault: boolean;
+  rootPresellId: string | null;
   vercelDomainRegistered: boolean;
   vercelVerificationJson: Prisma.JsonValue | null;
   createdAt: Date;
@@ -39,6 +40,7 @@ function mapRow(d: {
     status: d.status,
     verified_at: d.verifiedAt?.toISOString() ?? null,
     is_default: d.isDefault,
+    root_presell_id: d.rootPresellId ?? null,
     vercel_domain_registered: d.vercelDomainRegistered,
     vercel_verification: (d.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? null,
     created_at: d.createdAt.toISOString(),
@@ -325,5 +327,53 @@ export const customDomainController = {
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
     return res.json({ ok: true, domains: list.map(mapRow) });
+  },
+
+  async setRootPresell(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const id = req.params.id;
+    const raw = req.body?.presell_id;
+    const presellId =
+      raw === null || raw === undefined || raw === "" ? null : String(raw).trim() || null;
+
+    const domain = await prisma.customDomain.findFirst({ where: { id, userId } });
+    if (!domain) return res.status(404).json({ error: "Domínio não encontrado." });
+    if (domain.status !== "verified") {
+      return res.status(400).json({ error: "Só é possível após o domínio estar verificado." });
+    }
+
+    if (presellId === null) {
+      await systemPrisma.customDomain.update({
+        where: { id: domain.id },
+        data: { rootPresellId: null },
+      });
+      await refreshCustomDomainCache();
+      const list = await prisma.customDomain.findMany({
+        where: { userId },
+        orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
+      });
+      return res.json(list.map(mapRow));
+    }
+
+    const page = await prisma.presellPage.findFirst({
+      where: { id: presellId, userId, customDomainId: domain.id },
+    });
+    if (!page) {
+      return res.status(400).json({
+        error: "Presell não encontrada ou não está associada a este domínio (Domínio nos links públicos).",
+      });
+    }
+
+    await systemPrisma.customDomain.update({
+      where: { id: domain.id },
+      data: { rootPresellId: page.id },
+    });
+    await refreshCustomDomainCache();
+
+    const list = await prisma.customDomain.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
+    });
+    return res.json(list.map(mapRow));
   },
 };

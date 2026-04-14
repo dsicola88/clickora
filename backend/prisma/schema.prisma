@@ -118,11 +118,14 @@ model CustomDomain {
   vercelDomainRegistered Boolean         @default(false) @map("vercel_domain_registered")
   /** Último desafio de verificação devolvido pela Vercel (TXT, etc.) para mostrar na UI. */
   vercelVerificationJson Json?          @map("vercel_verification_json")
+  /** Presell publicada que abre em `https://hostname/`; nulo = usar a mais recentemente atualizada. */
+  rootPresellId String? @unique @map("root_presell_id")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  presellPages PresellPage[]
+  rootPresell  PresellPage?  @relation("DomainRootPresell", fields: [rootPresellId], references: [id], onDelete: SetNull)
+  presellPages PresellPage[] @relation("DomainPresellLinks")
 
   @@index([userId])
   @@index([hostname])
@@ -215,7 +218,8 @@ model PresellPage {
   customDomainId String?  @map("custom_domain_id")
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  customDomain   CustomDomain?   @relation(fields: [customDomainId], references: [id], onDelete: SetNull)
+  customDomain   CustomDomain?   @relation("DomainPresellLinks", fields: [customDomainId], references: [id], onDelete: SetNull)
+  rootForDomain  CustomDomain?   @relation("DomainRootPresell")
   trackingEvents TrackingEvent[]
   postbackLogs PostbackLog[]
   linkedConversions Conversion[]

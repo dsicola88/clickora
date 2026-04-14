@@ -5,8 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { customDomainService } from "@/services/customDomainService";
+import { presellService } from "@/services/presellService";
 import type { CustomDomainDto, CustomDomainPendingDns } from "@/types/api";
 
 export function CustomDomainSettings() {
@@ -20,6 +22,16 @@ export function CustomDomainSettings() {
     queryKey: ["custom-domain", tenantKey],
     queryFn: async () => {
       const { data, error } = await customDomainService.list();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+    enabled: !!tenantKey,
+  });
+
+  const { data: presells = [] } = useQuery({
+    queryKey: ["presells", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await presellService.getAll();
       if (error) throw new Error(error);
       return data ?? [];
     },
@@ -83,6 +95,23 @@ export function CustomDomainSettings() {
       toast.success("Domínio removido.");
     },
     onError: () => toast.error("Não foi possível remover."),
+  });
+
+  const rootPresellMutation = useMutation({
+    mutationFn: async ({ domainId, presellId }: { domainId: string; presellId: string | null }) => {
+      const res = await customDomainService.setRootPresell(domainId, presellId);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["public-custom-domain-root-presell"] });
+      toast.success("Presell na raiz do domínio atualizada.");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Não foi possível guardar.";
+      toast.error(msg);
+    },
   });
 
   const copy = async (label: string, text: string) => {
@@ -372,6 +401,39 @@ export function CustomDomainSettings() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+                {d.status === "verified" && (
+                  <div className="space-y-2 pt-3 border-t border-border/40">
+                    <Label className="text-xs font-medium text-card-foreground">
+                      Presell ao abrir <span className="font-mono text-[11px]">https://{d.hostname}/</span>
+                    </Label>
+                    <Select
+                      value={d.root_presell_id ?? "__auto__"}
+                      onValueChange={(v) => {
+                        const next = v === "__auto__" ? null : v;
+                        rootPresellMutation.mutate({ domainId: d.id, presellId: next });
+                      }}
+                      disabled={rootPresellMutation.isPending}
+                    >
+                      <SelectTrigger className="text-sm max-w-md">
+                        <SelectValue placeholder="Automático" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__auto__">Automático (última presell publicada atualizada)</SelectItem>
+                        {presells
+                          .filter((p) => p.custom_domain_id === d.id && p.status === "published")
+                          .map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.title}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Com várias presells no mesmo domínio, escolhe qual aparece na raiz; sem escolha, usa-se a
+                      publicada alterada mais recentemente.
+                    </p>
                   </div>
                 )}
               </div>

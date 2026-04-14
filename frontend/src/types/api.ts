@@ -26,6 +26,8 @@ export interface CustomDomainDto {
   status: "pending" | "verified";
   verified_at: string | null;
   is_default: boolean;
+  /** Presell que abre em `https://hostname/`; null/omitido = automático (mais recentemente atualizada publicada). */
+  root_presell_id?: string | null;
   created_at: string;
   updated_at: string;
   /** Presente quando o servidor regista o hostname no projeto Vercel (CNAME + TXT da Vercel). */

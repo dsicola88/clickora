@@ -16,6 +16,11 @@ export const customDomainService = {
   setDefault(id: string) {
     return apiClient.patch<CustomDomainDto[]>(`/custom-domain/${encodeURIComponent(id)}/default`, {});
   },
+  setRootPresell(domainId: string, presellId: string | null) {
+    return apiClient.patch<CustomDomainDto[]>(`/custom-domain/${encodeURIComponent(domainId)}/root-presell`, {
+      presell_id: presellId,
+    });
+  },
   remove(id: string) {
     return apiClient.delete<{ ok: boolean; domains: CustomDomainDto[] }>(`/custom-domain/${encodeURIComponent(id)}`);
   },
