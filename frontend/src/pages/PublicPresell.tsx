@@ -166,12 +166,23 @@ function isEmbedPlayerVideoUrl(url: string): boolean {
   );
 }
 
+function normalizePresellRouteParam(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  try {
+    return decodeURIComponent(t).replace(/\/+$/, "");
+  } catch {
+    return t.replace(/\/+$/, "");
+  }
+}
+
 export default function PublicPresell() {
-  const { id = "" } = useParams();
+  const rawId = useParams().id ?? "";
+  const id = useMemo(() => normalizePresellRouteParam(rawId), [rawId]);
   const { data: page, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ["public-presell", id],
     queryFn: async () => {
-      const param = id.trim();
+      const param = id;
       if (isPresellUuidParam(param)) {
         const { data, error } = await presellService.getPublicById(param);
         if (data) return data;
