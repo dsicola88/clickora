@@ -28,6 +28,12 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     if (err.code === "P2025") {
       return res.status(404).json({ error: "Registro não encontrado." });
     }
+    if (err.code === "P2022") {
+      return res.status(503).json({
+        error:
+          "Esquema da base de dados desatualizado (coluna em falta). Execute as migrações no servidor ou contacte o suporte.",
+      });
+    }
   }
 
   res.status(500).json({

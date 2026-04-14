@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express, { type NextFunction, type Request, type Response } from "express";
+/** Express 4 não captura rejeições em handlers `async` — sem isto, erros podem derrubar o processo (502 na Railway). */
+import "express-async-errors";
 import cors from "cors";
 import { authRouter } from "./routes/auth.routes";
 import { presellRouter } from "./routes/presell.routes";
