@@ -468,12 +468,12 @@ export const analyticsController = {
     }
   },
 
-  /** Tentativas de clique/impressão bloqueadas por IP na blacklist (registo em postback_logs). */
+  /** Tentativas bloqueadas: blacklist ou regras de tracking (rate limit, whitelist, UA, bots). */
   async getBlacklistBlocks(req: Request, res: Response) {
     const userId = req.user!.userId;
     const limit = Math.min(Number(req.query.limit) || 40, 100);
     const logs = await prisma.postbackLog.findMany({
-      where: { userId, platform: "blacklist_block" },
+      where: { userId, platform: { in: ["blacklist_block", "tracking_guard"] } },
       orderBy: { createdAt: "desc" },
       take: limit,
       select: {
@@ -495,6 +495,7 @@ export const analyticsController = {
           ip: typeof p.ip === "string" ? p.ip : null,
           channel: typeof p.channel === "string" ? p.channel : null,
           user_agent: typeof p.user_agent === "string" ? p.user_agent : null,
+          guard_reason: typeof p.reason === "string" ? p.reason : null,
         };
       }),
     );

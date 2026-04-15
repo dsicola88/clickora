@@ -640,6 +640,101 @@ export const integrationsController = {
     if (result.count === 0) return res.status(404).json({ error: "Entrada não encontrada" });
     return res.json({ ok: true });
   },
+
+  async getTrackingGuards(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { blockEmptyUserAgent: true, blockBotClicks: true },
+    });
+    if (!u) return res.status(404).json({ error: "Utilizador não encontrado" });
+    res.json({
+      block_empty_user_agent: u.blockEmptyUserAgent,
+      block_bot_clicks: u.blockBotClicks,
+    });
+  },
+
+  async patchTrackingGuards(req: Request, res: Response) {
+    const schema = z.object({
+      block_empty_user_agent: z.boolean().optional(),
+      block_bot_clicks: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const d = parsed.data;
+    if (d.block_empty_user_agent === undefined && d.block_bot_clicks === undefined) {
+      return res.status(400).json({ error: "Envie block_empty_user_agent e/ou block_bot_clicks" });
+    }
+    const userId = req.user!.userId;
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(d.block_empty_user_agent !== undefined ? { blockEmptyUserAgent: d.block_empty_user_agent } : {}),
+        ...(d.block_bot_clicks !== undefined ? { blockBotClicks: d.block_bot_clicks } : {}),
+      },
+    });
+    const u = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { blockEmptyUserAgent: true, blockBotClicks: true },
+    });
+    res.json({
+      block_empty_user_agent: u.blockEmptyUserAgent,
+      block_bot_clicks: u.blockBotClicks,
+    });
+  },
+
+  async listWhitelist(req: Request, res: Response) {
+    const rows = await prisma.whitelistedIp.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        ip: r.ipAddress,
+        note: r.note,
+        added_at: r.createdAt.toISOString(),
+      })),
+    );
+  },
+
+  async addWhitelist(req: Request, res: Response) {
+    const schema = z.object({
+      ip: z.string().min(7),
+      note: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const ipNorm = parseIpv4Blacklist(parsed.data.ip);
+    if (!ipNorm) {
+      return res.status(400).json({ error: "Indique um IPv4 válido (ex.: 203.0.113.1)" });
+    }
+    const userId = req.user!.userId;
+    await prisma.whitelistedIp.upsert({
+      where: { userId_ipAddress: { userId, ipAddress: ipNorm } },
+      create: {
+        userId,
+        ipAddress: ipNorm,
+        note: parsed.data.note?.trim() || null,
+      },
+      update: { note: parsed.data.note?.trim() || null },
+    });
+    return res.json({ ok: true, ip: ipNorm });
+  },
+
+  async removeWhitelist(req: Request, res: Response) {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: "ID em falta" });
+    const result = await prisma.whitelistedIp.deleteMany({
+      where: { id, userId: req.user!.userId },
+    });
+    if (result.count === 0) return res.status(404).json({ error: "Entrada não encontrada" });
+    return res.json({ ok: true });
+  },
 };
 
 function pickString(...values: unknown[]): string | null {

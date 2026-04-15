@@ -70,7 +70,7 @@ const trackingNavItems: NavItem[] = [
   { title: "Analytics", url: "/tracking/analytics", icon: BarChart3 },
   { title: "Links", url: "/tracking/links", icon: Link2 },
   { title: "Tracking Tools", url: "/tracking/tools", icon: Crosshair },
-  { title: "Blacklist", url: "/tracking/blacklist", icon: ShieldBan },
+  { title: "IP & proteções", url: "/tracking/blacklist", icon: ShieldBan },
   { title: "Construtor de URL", url: "/tracking/url-builder", icon: LinkIcon },
   { title: "Integrações", url: "/tracking/integrations", icon: Plug },
   { title: "Configurações", url: "/tracking/settings", icon: Settings },

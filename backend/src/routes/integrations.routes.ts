@@ -26,5 +26,10 @@ authed.post("/push/test", integrationsController.testWebPush);
 authed.get("/blacklist", integrationsController.listBlacklist);
 authed.post("/blacklist", integrationsController.addBlacklist);
 authed.delete("/blacklist/:id", integrationsController.removeBlacklist);
+authed.get("/whitelist", integrationsController.listWhitelist);
+authed.post("/whitelist", integrationsController.addWhitelist);
+authed.delete("/whitelist/:id", integrationsController.removeWhitelist);
+authed.get("/tracking-guards", integrationsController.getTrackingGuards);
+authed.patch("/tracking-guards", integrationsController.patchTrackingGuards);
 
 integrationsRouter.use(authed);

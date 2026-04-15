@@ -77,6 +77,34 @@ export const integrationsService = {
     return apiClient.delete<{ ok: boolean }>(`/integrations/blacklist/${encodeURIComponent(id)}`);
   },
 
+  async getTrackingGuards() {
+    return apiClient.get<{
+      block_empty_user_agent: boolean;
+      block_bot_clicks: boolean;
+    }>("/integrations/tracking-guards");
+  },
+
+  async patchTrackingGuards(body: { block_empty_user_agent?: boolean; block_bot_clicks?: boolean }) {
+    return apiClient.patch<{
+      block_empty_user_agent: boolean;
+      block_bot_clicks: boolean;
+    }>("/integrations/tracking-guards", body);
+  },
+
+  async listWhitelist() {
+    return apiClient.get<Array<{ id: string; ip: string; note: string | null; added_at: string }>>(
+      "/integrations/whitelist",
+    );
+  },
+
+  async addWhitelist(body: { ip: string; note?: string }) {
+    return apiClient.post<{ ok: boolean; ip: string }>("/integrations/whitelist", body);
+  },
+
+  async removeWhitelist(id: string) {
+    return apiClient.delete<{ ok: boolean }>(`/integrations/whitelist/${encodeURIComponent(id)}`);
+  },
+
   async patchTelegramSettings(body: {
     telegram_bot_token?: string;
     clear_telegram_bot_token?: boolean;

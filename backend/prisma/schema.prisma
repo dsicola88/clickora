@@ -87,6 +87,10 @@ model User {
   telegramNotifySale Boolean @default(true) @map("telegram_notify_sale")
   telegramNotifyPostbackError Boolean @default(true) @map("telegram_notify_postback_error")
   telegramNotifyClick         Boolean @default(false) @map("telegram_notify_click")
+  /** Opt-in: recusa eventos de tracking com User-Agent vazio (reduz tráfego «anónimo»/scripts). */
+  blockEmptyUserAgent Boolean @default(false) @map("block_empty_user_agent")
+  /** Opt-in: bloqueia cliques/impressões identificados como bot (UA). */
+  blockBotClicks      Boolean @default(false) @map("block_bot_clicks")
   workspaceId String   @default(uuid()) @map("workspace_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -100,6 +104,7 @@ model User {
   conversions    Conversion[]
   webPushSubscriptions WebPushSubscription[]
   customDomains        CustomDomain[]
+  whitelistedIps WhitelistedIp[]
 
   @@map("users")
 }
@@ -319,6 +324,24 @@ model BlacklistedIp {
   @@unique([userId, ipAddress])
   @@index([userId])
   @@map("blacklisted_ips")
+}
+
+/**
+ * Se existir pelo menos um IP na whitelist da conta, apenas esses IPv4 contam tracking (modo restrito).
+ * Lista vazio = desligado; combina com blacklist (bloqueio continua a prevalecer).
+ */
+model WhitelistedIp {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  ipAddress String   @map("ip_address")
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ipAddress])
+  @@index([userId])
+  @@map("whitelisted_ips")
 }
 
 /** Marca global da instalação (ex.: favicon). Uma linha id "default"; não é por assinante. */

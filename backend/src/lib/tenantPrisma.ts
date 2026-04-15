@@ -13,6 +13,7 @@ const USER_ID_MODELS = [
   "postbackLog",
   "conversion",
   "blacklistedIp",
+  "whitelistedIp",
   "subscription",
   "customDomain",
   "userRole",

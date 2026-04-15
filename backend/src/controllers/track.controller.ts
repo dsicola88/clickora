@@ -11,7 +11,7 @@ import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googl
 import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
 import { detectBot } from "../lib/detectBot";
-import { normalizeIpForMatch } from "../lib/normalizeIp";
+import { enforceTrackingRules } from "../lib/trackGuard";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 
 const clickSchema = z.object({
@@ -70,6 +70,14 @@ const redirectSchema = z.object({
   msclkid: z.string().optional(),
 });
 
+function sendTrackingPixelGif(res: Response) {
+  const pixelBase64 = "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+  const buffer = Buffer.from(pixelBase64, "base64");
+  res.setHeader("Content-Type", "image/gif");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  return res.status(200).send(buffer);
+}
+
 /** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id. */
 const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};if(userId)payload.metadata={clickora_user_id:userId};try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
@@ -106,19 +114,15 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
-    const ipKey = normalizeIpForMatch(ip);
-    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
-      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
+    const guard = await enforceTrackingRules({
+      ownerUserId: page.userId,
+      presellPageId: page.id,
+      ip,
+      userAgent,
+      channel: "redirect",
     });
-    if (blacklisted) {
-      await logBlacklistBlock({
-        userId: page.userId,
-        presellPageId: page.id,
-        ip: ipKey,
-        userAgent,
-        channel: "redirect",
-      });
-      return res.status(403).json({ error: "IP bloqueado" });
+    if (!guard.ok) {
+      return res.status(guard.status).json({ error: guard.error });
     }
 
     const { device, botMeta } = deviceAndBotMeta(userAgent);
@@ -183,23 +187,15 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
-    const ipKey = normalizeIpForMatch(ip);
-    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
-      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
+    const guard = await enforceTrackingRules({
+      ownerUserId: page.userId,
+      presellPageId: page.id,
+      ip,
+      userAgent,
+      channel: "pixel",
     });
-    if (blacklisted) {
-      await logBlacklistBlock({
-        userId: page.userId,
-        presellPageId: page.id,
-        ip: ipKey,
-        userAgent,
-        channel: "pixel",
-      });
-      const pixelBase64 = "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
-      const buffer = Buffer.from(pixelBase64, "base64");
-      res.setHeader("Content-Type", "image/gif");
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      return res.status(200).send(buffer);
+    if (!guard.ok) {
+      return sendTrackingPixelGif(res);
     }
 
     const { device, botMeta } = deviceAndBotMeta(userAgent);
@@ -223,11 +219,7 @@ export const trackController = {
       }),
     ]);
 
-    const pixelBase64 = "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
-    const buffer = Buffer.from(pixelBase64, "base64");
-    res.setHeader("Content-Type", "image/gif");
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    return res.status(200).send(buffer);
+    return sendTrackingPixelGif(res);
   },
 
   async trackClick(req: Request, res: Response) {
@@ -262,20 +254,15 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
-    const ipKey = normalizeIpForMatch(ip);
-
-    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
-      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
+    const guard = await enforceTrackingRules({
+      ownerUserId: page.userId,
+      presellPageId: presell_id,
+      ip,
+      userAgent,
+      channel: "api_click",
     });
-    if (blacklisted) {
-      await logBlacklistBlock({
-        userId: page.userId,
-        presellPageId: presell_id,
-        ip: ipKey,
-        userAgent,
-        channel: "api_click",
-      });
-      return res.status(403).json({ error: "IP bloqueado" });
+    if (!guard.ok) {
+      return res.status(guard.status).json({ error: guard.error });
     }
 
     const { device, botMeta } = deviceAndBotMeta(userAgent);
@@ -340,19 +327,15 @@ export const trackController = {
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
-    const ipKey = normalizeIpForMatch(ip);
-    const blacklisted = await systemPrisma.blacklistedIp.findUnique({
-      where: { userId_ipAddress: { userId: page.userId, ipAddress: ipKey } },
+    const guard = await enforceTrackingRules({
+      ownerUserId: page.userId,
+      presellPageId: presell_id,
+      ip,
+      userAgent,
+      channel: "impression_api",
     });
-    if (blacklisted) {
-      await logBlacklistBlock({
-        userId: page.userId,
-        presellPageId: presell_id,
-        ip: ipKey,
-        userAgent,
-        channel: "impression_api",
-      });
-      return res.status(403).json({ error: "IP bloqueado" });
+    if (!guard.ok) {
+      return res.status(guard.status).json({ error: guard.error });
     }
 
     const { device, botMeta } = deviceAndBotMeta(userAgent);
@@ -394,6 +377,19 @@ export const trackController = {
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
 
+    const evIp = extractClientIp(req);
+    const evUa = req.headers["user-agent"] || "";
+    const evGuard = await enforceTrackingRules({
+      ownerUserId: page.userId,
+      presellPageId: presell_id,
+      ip: evIp,
+      userAgent: evUa,
+      channel: "track_event",
+    });
+    if (!evGuard.ok) {
+      return res.status(evGuard.status).json({ error: evGuard.error });
+    }
+
     if (transaction_id) {
       const existing = await systemPrisma.trackingEvent.findFirst({
         where: {
@@ -406,8 +402,6 @@ export const trackController = {
       if (existing) return res.json({ tracked: true, duplicate: true });
     }
 
-    const evIp = extractClientIp(req);
-    const evUa = req.headers["user-agent"] || "";
     const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa);
     await systemPrisma.trackingEvent.create({
       data: {
@@ -979,33 +973,6 @@ function deviceAndBotMeta(userAgent: string): { device: string; botMeta: Record<
     return { device: "bot", botMeta: { is_bot: true, bot_label: b.label } };
   }
   return { device: detectDevice(userAgent), botMeta: {} };
-}
-
-async function logBlacklistBlock(params: {
-  userId: string;
-  presellPageId?: string;
-  ip: string;
-  userAgent: string;
-  channel: "redirect" | "api_click" | "pixel" | "impression_api";
-}): Promise<void> {
-  try {
-    await systemPrisma.postbackLog.create({
-      data: {
-        userId: params.userId,
-        presellPageId: params.presellPageId ?? null,
-        platform: "blacklist_block",
-        status: "blocked",
-        message: `IP na blacklist (${params.channel})`,
-        payload: {
-          ip: params.ip,
-          user_agent: params.userAgent,
-          channel: params.channel,
-        } as Prisma.InputJsonValue,
-      },
-    });
-  } catch (e) {
-    console.error("[logBlacklistBlock]", e);
-  }
 }
 
 function extractClientIp(req: Request): string {

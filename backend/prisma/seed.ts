@@ -18,6 +18,8 @@ const USERS_INTEGRATION_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_sale" BOOLEAN NOT NULL DEFAULT true`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_postback_error" BOOLEAN NOT NULL DEFAULT true`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_click" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_empty_user_agent" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_bot_clicks" BOOLEAN NOT NULL DEFAULT false`,
 ] as const;
 
 async function ensureUsersIntegrationColumns() {
@@ -28,6 +30,47 @@ async function ensureUsersIntegrationColumns() {
       console.warn("[seed] ALTER users (ignorado, pode já existir):", e);
     }
   }
+}
+
+/**
+ * Funcionalidades de tracking e proteção (iguais na filosofia do produto; quotas no topo de cada plano).
+ */
+const PLATFORM_FEATURE_LINES = [
+  "Conversões automáticas e manuais",
+  "Geolocalização por IP (país/região; GeoLite)",
+  "GCLID Decoder e ligação a conversões Google Ads",
+  "ClickShield (camada no vídeo presell / YouTube)",
+  "Anti-spam: limite de pedidos de tracking por IP no servidor",
+  "Anti-bots: deteção por UA; bloqueio opcional na conta",
+  "Anti-anónimo: bloqueio opcional de pedidos sem User-Agent",
+  "Blacklist e whitelist de IPv4 (bloqueio / modo só permitidos)",
+  "Classificação de bot no evento; VPN/proxy dedicado em roadmap",
+] as const;
+
+const PLAN_FEATURES_STARTER = [
+  "Até 3 presell pages · 1.000 cliques/mês (trial)",
+  "Inclui as funcionalidades abaixo dentro das quotas do trial",
+  ...PLATFORM_FEATURE_LINES,
+  "Templates básicos · Analytics básico · Branding dclickora",
+];
+
+const PLAN_FEATURES_PRO = [
+  "Até 25 presell pages · 50.000 cliques/mês",
+  "Uso pleno das funcionalidades abaixo durante o período contratado (mensal)",
+  ...PLATFORM_FEATURE_LINES,
+  "Todos os templates · Analytics completo · Sem branding",
+  "Suporte prioritário",
+];
+
+const PLAN_FEATURES_PREMIUM = [
+  "Uso ilimitado de presells e cliques durante o período contratado (plano anual)",
+  ...PLATFORM_FEATURE_LINES,
+  "Até 2 domínios personalizados · Analytics avançado · Sem branding",
+  "Suporte VIP · API access",
+];
+
+function jsonFeatures(lines: string[]) {
+  return JSON.parse(JSON.stringify(lines)) as Prisma.InputJsonValue;
 }
 
 async function upsertUserWithRoleAndPlan(args: {
@@ -82,7 +125,11 @@ async function main() {
   const plans = await Promise.all([
     prisma.plan.upsert({
       where: { id: "plan_free" },
-      update: { name: "Starter", maxCustomDomains: 0 },
+      update: {
+        name: "Starter",
+        maxCustomDomains: 0,
+        features: jsonFeatures(PLAN_FEATURES_STARTER),
+      },
       create: {
         id: "plan_free",
         name: "Starter",
@@ -92,18 +139,17 @@ async function main() {
         maxClicksPerMonth: 1000,
         maxCustomDomains: 0,
         hasBranding: true,
-        features: JSON.parse(JSON.stringify([
-          "Até 3 presell pages",
-          "1.000 cliques/mês",
-          "Templates básicos",
-          "Analytics básico",
-          "Branding dclickora",
-        ])),
+        features: jsonFeatures(PLAN_FEATURES_STARTER),
       },
     }),
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
-      update: { name: "Pro", priceCents: 7990, maxCustomDomains: 0 },
+      update: {
+        name: "Pro",
+        priceCents: 7990,
+        maxCustomDomains: 0,
+        features: jsonFeatures(PLAN_FEATURES_PRO),
+      },
       create: {
         id: "plan_monthly",
         name: "Pro",
@@ -113,19 +159,17 @@ async function main() {
         maxClicksPerMonth: 50000,
         maxCustomDomains: 0,
         hasBranding: false,
-        features: JSON.parse(JSON.stringify([
-          "Até 25 presell pages",
-          "50.000 cliques/mês",
-          "Todos os templates",
-          "Analytics completo",
-          "Sem branding",
-          "Suporte prioritário",
-        ])),
+        features: jsonFeatures(PLAN_FEATURES_PRO),
       },
     }),
     prisma.plan.upsert({
       where: { id: "plan_annual" },
-      update: { name: "Premium", priceCents: 69700, maxCustomDomains: 2 },
+      update: {
+        name: "Premium",
+        priceCents: 69700,
+        maxCustomDomains: 2,
+        features: jsonFeatures(PLAN_FEATURES_PREMIUM),
+      },
       create: {
         id: "plan_annual",
         name: "Premium",
@@ -135,15 +179,7 @@ async function main() {
         maxClicksPerMonth: null,
         maxCustomDomains: 2,
         hasBranding: false,
-        features: JSON.parse(JSON.stringify([
-          "Presell pages ilimitadas",
-          "Cliques ilimitados",
-          "Todos os templates",
-          "Analytics avançado",
-          "Sem branding",
-          "Suporte VIP",
-          "API access",
-        ])),
+        features: jsonFeatures(PLAN_FEATURES_PREMIUM),
       },
     }),
   ]);
