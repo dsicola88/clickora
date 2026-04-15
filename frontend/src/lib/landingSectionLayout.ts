@@ -18,7 +18,7 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   features: "Destaques (3 cartões)",
   stats: "Números / estatísticas",
   testimonials: "Testemunhos em vídeo",
-  gallery: "Galeria de imagens",
+  gallery: "Galeria / carrossel de imagens",
   planos: "Planos e preços",
   faq: "FAQ",
 };

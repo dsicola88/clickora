@@ -76,6 +76,20 @@ export const landingExtrasGalleryItemSchema = z.object({
   caption: z.string().max(500).nullable().optional(),
 });
 
+/** Opções tipo «Image Carousel» (Elementor): autoplay, setas, dots, slides visíveis. */
+export const landingExtrasGalleryCarouselSchema = z
+  .object({
+    autoplay: z.boolean().optional(),
+    interval_ms: z.number().int().min(2000).max(120000).optional(),
+    show_arrows: z.boolean().optional(),
+    show_dots: z.boolean().optional(),
+    slides_desktop: z.number().int().min(1).max(4).optional(),
+    slides_mobile: z.number().int().min(1).max(2).optional(),
+    loop: z.boolean().optional(),
+    gap_px: z.number().int().min(0).max(64).optional(),
+  })
+  .strict();
+
 const landingSectionIdEnum = z.enum([
   "content_blocks",
   "features",
@@ -164,10 +178,12 @@ export const landingExtrasSchema = z
       })
       .nullable()
       .optional(),
-    /** Galeria de imagens (grelha tipo testemunhos, sem vídeo). */
+    /** Galeria de imagens: grelha ou carrossel configurável. */
     gallery: z
       .object({
         enabled: z.boolean().optional(),
+        display: z.enum(["grid", "carousel"]).optional().nullable(),
+        carousel: landingExtrasGalleryCarouselSchema.optional().nullable(),
         title: z.string().max(200).nullable().optional(),
         subtitle: z.string().max(800).nullable().optional(),
         items: z.array(landingExtrasGalleryItemSchema).max(8).optional(),
@@ -378,6 +394,21 @@ export function mergeLandingExtras(
         : {
             enabled:
               p.gallery.enabled !== undefined ? p.gallery.enabled : base.gallery?.enabled,
+            display:
+              p.gallery.display !== undefined
+                ? p.gallery.display
+                : base.gallery?.display ?? null,
+            carousel:
+              p.gallery.carousel === undefined
+                ? base.gallery?.carousel
+                : p.gallery.carousel === null
+                  ? null
+                  : {
+                      ...(base.gallery?.carousel && typeof base.gallery.carousel === "object"
+                        ? base.gallery.carousel
+                        : {}),
+                      ...p.gallery.carousel,
+                    },
             title:
               p.gallery.title !== undefined ? p.gallery.title : base.gallery?.title ?? null,
             subtitle:

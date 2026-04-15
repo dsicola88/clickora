@@ -67,8 +67,23 @@ export interface LandingGalleryItem {
   caption: string | null;
 }
 
+/** Opções do carrossel (estilo «Image Carousel» / Elementor). */
+export interface LandingGalleryCarouselOptions {
+  autoplay?: boolean;
+  interval_ms?: number;
+  show_arrows?: boolean;
+  show_dots?: boolean;
+  slides_desktop?: number;
+  slides_mobile?: number;
+  loop?: boolean;
+  gap_px?: number;
+}
+
 export interface LandingGallery {
   enabled?: boolean;
+  /** `grid` (grelha habitual) ou `carousel`. */
+  display?: "grid" | "carousel" | null;
+  carousel?: LandingGalleryCarouselOptions | null;
   title: string | null;
   subtitle: string | null;
   items?: LandingGalleryItem[];
@@ -403,9 +418,40 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     const title = typeof g.title === "string" ? g.title : null;
     const subtitle = typeof g.subtitle === "string" ? g.subtitle : null;
     const enabled = typeof g.enabled === "boolean" ? g.enabled : undefined;
+    const display =
+      g.display === "carousel" ? "carousel" : g.display === "grid" ? "grid" : null;
+
+    let carousel: LandingGalleryCarouselOptions | null = null;
+    if (isPlainObject(g.carousel)) {
+      const c = g.carousel as Record<string, unknown>;
+      const num = (k: string) =>
+        typeof c[k] === "number" && Number.isFinite(c[k]) ? (c[k] as number) : undefined;
+      const bool = (k: string) => (typeof c[k] === "boolean" ? c[k] : undefined);
+      carousel = {
+        autoplay: bool("autoplay"),
+        interval_ms: num("interval_ms"),
+        show_arrows: bool("show_arrows"),
+        show_dots: bool("show_dots"),
+        slides_desktop: num("slides_desktop"),
+        slides_mobile: num("slides_mobile"),
+        loop: bool("loop"),
+        gap_px: num("gap_px"),
+      };
+      const emptyCarousel = !Object.values(carousel).some((v) => v !== undefined);
+      if (emptyCarousel) carousel = null;
+      else {
+        const pruned = Object.fromEntries(
+          Object.entries(carousel).filter(([, v]) => v !== undefined),
+        ) as LandingGalleryCarouselOptions;
+        carousel = Object.keys(pruned).length ? pruned : null;
+      }
+    }
+
     if (items.length) {
       gallery = {
         ...(enabled !== undefined ? { enabled } : {}),
+        ...(display ? { display } : {}),
+        ...(carousel ? { carousel } : {}),
         title,
         subtitle,
         items,

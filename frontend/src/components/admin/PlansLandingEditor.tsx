@@ -47,6 +47,7 @@ import {
 } from "@/lib/plansLandingHeroVisual";
 import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
 import { coerceLandingExtras, type LandingExtrasPublic } from "@/lib/plansLandingExtras";
+import { resolveGalleryCarouselOptions } from "@/lib/landingGalleryCarousel";
 import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
 import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
 import {
@@ -312,6 +313,20 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       caption: string;
     }[]
   >([]);
+  const [galleryDisplay, setGalleryDisplay] = useState<"grid" | "carousel">("grid");
+  const [galleryCarouselOpts, setGalleryCarouselOpts] = useState(() => {
+    const o = resolveGalleryCarouselOptions({});
+    return {
+      autoplay: o.autoplay,
+      interval_ms: o.interval_ms,
+      show_arrows: o.show_arrows,
+      show_dots: o.show_dots,
+      slides_desktop: o.slides_desktop,
+      slides_mobile: o.slides_mobile,
+      loop: o.loop,
+      gap_px: o.gap_px,
+    };
+  });
 
   useEffect(() => {
     if (!data) return;
@@ -451,6 +466,18 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           }))
         : [],
     );
+    setGalleryDisplay(gal?.display === "carousel" ? "carousel" : "grid");
+    const gc = resolveGalleryCarouselOptions(gal?.carousel ?? {});
+    setGalleryCarouselOpts({
+      autoplay: gc.autoplay,
+      interval_ms: gc.interval_ms,
+      show_arrows: gc.show_arrows,
+      show_dots: gc.show_dots,
+      slides_desktop: gc.slides_desktop,
+      slides_mobile: gc.slides_mobile,
+      loop: gc.loop,
+      gap_px: gc.gap_px,
+    });
   }, [data]);
 
   const buildLandingExtrasPayload = (): Record<string, unknown> => {
@@ -560,12 +587,34 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       }))
       .filter((t) => t.image_url);
 
+    const intervalMs = Math.min(
+      120_000,
+      Math.max(2000, Math.floor(galleryCarouselOpts.interval_ms) || 5000),
+    );
+    const slidesD = Math.min(4, Math.max(1, Math.floor(galleryCarouselOpts.slides_desktop) || 3));
+    const slidesM = Math.min(2, Math.max(1, Math.floor(galleryCarouselOpts.slides_mobile) || 1));
+    const gapPx = Math.min(64, Math.max(0, Math.floor(galleryCarouselOpts.gap_px) || 16));
+
     const gallery =
       galleryFiltered.length > 0
         ? {
             title: galleryTitle.trim() || null,
             subtitle: gallerySubtitle.trim() || null,
             items: galleryFiltered,
+            display: galleryDisplay,
+            carousel:
+              galleryDisplay === "carousel"
+                ? {
+                    autoplay: galleryCarouselOpts.autoplay,
+                    interval_ms: intervalMs,
+                    show_arrows: galleryCarouselOpts.show_arrows,
+                    show_dots: galleryCarouselOpts.show_dots,
+                    slides_desktop: slidesD,
+                    slides_mobile: slidesM,
+                    loop: galleryCarouselOpts.loop,
+                    gap_px: gapPx,
+                  }
+                : null,
           }
         : null;
 
@@ -634,6 +683,18 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const removeContentBlock = (index: number) => {
     setContentBlocks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveGalleryItem = (index: number, delta: -1 | 1) => {
+    setGalleryItems((prev) => {
+      const next = [...prev];
+      const j = index + delta;
+      if (j < 0 || j >= next.length) return prev;
+      const t = next[index]!;
+      next[index] = next[j]!;
+      next[j] = t;
+      return next;
+    });
   };
 
   const moveSectionInOrder = (index: number, delta: -1 | 1) => {
@@ -761,8 +822,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       <CardHeader className="border-b border-border/60 bg-muted/20">
         <CardTitle className="text-lg">Ordem e visibilidade das secções</CardTitle>
         <CardDescription>
-          Defina a ordem na página pública (entre o intro e o rodapé) e ligue ou desligue cada bloco. «Planos» pode ficar oculto
-          apenas se não quiser mostrar preços nesta página.
+          A primeira entrada da lista corresponde ao bloco mais acima na página (logo após o texto introdutório); use Subir/Descer para
+          alterar. Defina também se cada secção fica visível. «Planos» pode ficar oculto só se não quiser mostrar preços aqui.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 p-4">
@@ -1359,14 +1420,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]]:border-b border-border/50">
                   <span className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4 text-primary" />
-                    Galeria de imagens (grelha)
+                    Galeria de imagens (grelha ou carrossel)
                   </span>
                   <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
                   <p className="text-xs text-muted-foreground">
-                    Mesmo layout dos testemunhos, mas só imagens (clique para ampliar). Até 8 cartões. Visibilidade global no cartão
-                    «Ordem e visibilidade».
+                    Imagens em grelha ou em carrossel (setas, pontos, autoplay). Clique na imagem para ampliar. Até 8 cartões.
+                    Ordem na lista = ordem no carrossel ou na grelha. Visibilidade global no cartão «Ordem e visibilidade».
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1.5">
@@ -1387,6 +1448,139 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Apresentação</Label>
+                    <Select
+                      value={galleryDisplay}
+                      onValueChange={(v) => setGalleryDisplay(v === "carousel" ? "carousel" : "grid")}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="grid">Grelha</SelectItem>
+                        <SelectItem value="carousel">Carrossel de imagens</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {galleryDisplay === "carousel" ? (
+                    <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+                      <p className="text-xs font-medium text-foreground">Opções do carrossel</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5">
+                          <Label className="text-xs">Reprodução automática</Label>
+                          <Switch
+                            checked={galleryCarouselOpts.autoplay}
+                            onCheckedChange={(v) =>
+                              setGalleryCarouselOpts((prev) => ({ ...prev, autoplay: v }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Intervalo (ms)</Label>
+                          <Input
+                            type="number"
+                            min={2000}
+                            max={120000}
+                            step={500}
+                            value={galleryCarouselOpts.interval_ms}
+                            onChange={(e) =>
+                              setGalleryCarouselOpts((prev) => ({
+                                ...prev,
+                                interval_ms: Number(e.target.value) || prev.interval_ms,
+                              }))
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5">
+                          <Label className="text-xs">Setas</Label>
+                          <Switch
+                            checked={galleryCarouselOpts.show_arrows}
+                            onCheckedChange={(v) =>
+                              setGalleryCarouselOpts((prev) => ({ ...prev, show_arrows: v }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5">
+                          <Label className="text-xs">Pontos (indicadores)</Label>
+                          <Switch
+                            checked={galleryCarouselOpts.show_dots}
+                            onCheckedChange={(v) =>
+                              setGalleryCarouselOpts((prev) => ({ ...prev, show_dots: v }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5 sm:col-span-2">
+                          <Label className="text-xs">Loop (voltar ao início)</Label>
+                          <Switch
+                            checked={galleryCarouselOpts.loop}
+                            onCheckedChange={(v) =>
+                              setGalleryCarouselOpts((prev) => ({ ...prev, loop: v }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Slides visíveis (desktop)</Label>
+                          <Select
+                            value={String(galleryCarouselOpts.slides_desktop)}
+                            onValueChange={(v) =>
+                              setGalleryCarouselOpts((prev) => ({
+                                ...prev,
+                                slides_desktop: Number(v) || 3,
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1</SelectItem>
+                              <SelectItem value="2">2</SelectItem>
+                              <SelectItem value="3">3</SelectItem>
+                              <SelectItem value="4">4</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Slides visíveis (telemóvel)</Label>
+                          <Select
+                            value={String(galleryCarouselOpts.slides_mobile)}
+                            onValueChange={(v) =>
+                              setGalleryCarouselOpts((prev) => ({
+                                ...prev,
+                                slides_mobile: Number(v) === 2 ? 2 : 1,
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1</SelectItem>
+                              <SelectItem value="2">2</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Espaço entre slides (px)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={64}
+                            value={galleryCarouselOpts.gap_px}
+                            onChange={(e) =>
+                              setGalleryCarouselOpts((prev) => ({
+                                ...prev,
+                                gap_px: Number(e.target.value) || 0,
+                              }))
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -1419,21 +1613,45 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           key={`gal-${idx}`}
                           className="space-y-2 rounded-md border border-border/60 bg-background/80 p-3"
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-[11px] font-medium text-muted-foreground">
                               Imagem {idx + 1}
                             </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-destructive"
-                              onClick={() =>
-                                setGalleryItems((prev) => prev.filter((_, i) => i !== idx))
-                              }
-                            >
-                              Remover
-                            </Button>
+                            <div className="flex items-center gap-0.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={idx === 0}
+                                onClick={() => moveGalleryItem(idx, -1)}
+                                aria-label="Subir na galeria"
+                              >
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={idx >= galleryItems.length - 1}
+                                onClick={() => moveGalleryItem(idx, 1)}
+                                aria-label="Descer na galeria"
+                              >
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-destructive"
+                                onClick={() =>
+                                  setGalleryItems((prev) => prev.filter((_, i) => i !== idx))
+                                }
+                              >
+                                Remover
+                              </Button>
+                            </div>
                           </div>
                           <div className="grid gap-2 sm:grid-cols-2">
                             <div className="space-y-1.5 sm:col-span-2">
