@@ -156,15 +156,17 @@ function mapRow(row: Row) {
 }
 
 const DEFAULT_JSON = {
-  badge_text: null as string | null,
-  hero_title: "Escolha seu plano",
-  hero_subtitle: null as string | null,
+  badge_text: "Performance & conversão" as string | null,
+  hero_title: "A plataforma completa para presells e rastreamento",
+  hero_subtitle:
+    "Crie páginas que convertem, meça cada clique e escalone com dados — num painel único pensado para afiliados e media buyers.",
   has_hero_image: false,
-  intro_text: null as string | null,
+  intro_text:
+    "Junte modelos de presell prontos a usar, tracking fiável e integrações de checkout. Personalize textos, imagens e secções desta página no painel administrativo quando quiser refinar a conversão.",
   footer_text: null as string | null,
   hero_font: "sans",
-  hero_text_align: "left",
-  hero_title_size: "3xl",
+  hero_text_align: "center",
+  hero_title_size: "4xl",
   hero_title_weight: "bold",
   hero_subtitle_size: "base",
   intro_font: "sans",

@@ -226,8 +226,26 @@ export default function PresellDashboard() {
     customDomainId: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  /** Quando false, o slug segue o «Nome da página»; ao editar o slug à mão, passa a true (edição/alteração manual). */
+  const [slugTouchedByUser, setSlugTouchedByUser] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const toggleSection = (key: string) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const presellUrlPreview = useMemo(() => {
+    const origin = getPublicPresellOriginForPresell(customDomains, formData.customDomainId || null).replace(
+      /\/+$/,
+      "",
+    );
+    const slugPart = sanitizeSlug(formData.pageSlug || formData.pageName);
+    const emptyBoth = !formData.pageSlug.trim() && !formData.pageName.trim();
+    return {
+      origin,
+      prefix: `${origin}/p/`,
+      slugPart,
+      pathLabel: emptyBoth ? "…" : slugPart,
+      fullUrl: `${origin}/p/${slugPart}`,
+    };
+  }, [customDomains, formData.customDomainId, formData.pageSlug, formData.pageName]);
 
   const [typeOptions, setTypeOptions] = useState({
     cookiePolicyUrl: "",
@@ -275,6 +293,7 @@ export default function PresellDashboard() {
       productLink: "",
       customDomainId: presetDomainId,
     });
+    setSlugTouchedByUser(false);
     setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
   };
@@ -290,6 +309,7 @@ export default function PresellDashboard() {
       productLink: String(content.affiliateLink ?? ""),
       customDomainId: page.custom_domain_id ?? "",
     });
+    setSlugTouchedByUser(true);
     setTypeOptions({
       cookiePolicyUrl: String(settings.cookiePolicyUrl ?? ""),
       minAge: String(settings.minAge ?? "18"),
@@ -694,20 +714,60 @@ export default function PresellDashboard() {
                   id="pageName"
                   placeholder="Ex.: Oferta Suplemento X"
                   value={formData.pageName}
-                  onChange={(e) => updateField("pageName", e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      pageName: v,
+                      ...(!slugTouchedByUser ? { pageSlug: v.trim() ? sanitizeSlug(v) : "" } : {}),
+                    }));
+                    setFormErrors((prev) => {
+                      if (!prev.pageName) return prev;
+                      const next = { ...prev };
+                      delete next.pageName;
+                      return next;
+                    });
+                  }}
                   className={formErrors.pageName ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
                 <FieldError message={formErrors.pageName} />
               </div>
               <div className="space-y-2 min-w-0">
                 <Label htmlFor="pageSlug">Endereço (slug)</Label>
-                <Input
-                  id="pageSlug"
-                  placeholder="Opcional — ex.: suplemento_x"
-                  value={formData.pageSlug}
-                  onChange={(e) => updateField("pageSlug", e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Se vazio, o nome vira o endereço automaticamente.</p>
+                <div className="flex min-w-0 rounded-md border border-input bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                  <span
+                    className="flex items-center shrink min-w-0 max-w-[min(100%,14rem)] sm:max-w-[16rem] px-2.5 py-2 text-xs sm:text-sm font-mono text-muted-foreground bg-muted/40 border-r border-border select-none truncate"
+                    title={presellUrlPreview.fullUrl}
+                    aria-hidden
+                  >
+                    {presellUrlPreview.prefix}
+                  </span>
+                  <Input
+                    id="pageSlug"
+                    placeholder="ex.: suplemento_x"
+                    value={formData.pageSlug}
+                    onChange={(e) => {
+                      setSlugTouchedByUser(true);
+                      updateField("pageSlug", sanitizeSlug(e.target.value));
+                    }}
+                    className="min-w-0 border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-xs sm:text-sm"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pré-visualização do caminho:{" "}
+                  <span className="font-mono text-foreground/90 break-all" title={presellUrlPreview.fullUrl}>
+                    {presellUrlPreview.prefix}
+                    {presellUrlPreview.pathLabel}
+                  </span>
+                  {!hasVerifiedCustomDomain ? (
+                    <span className="block mt-1 text-[11px] leading-snug">
+                      Com domínio personalizado verificado, <code className="text-[10px] bg-muted px-1 rounded">/p/seu-endereco</code>{" "}
+                      funciona no teu site. No dclickora, o link copiado na lista usa <code className="text-[10px] bg-muted px-1 rounded">/p/</code> com o ID da página.
+                    </span>
+                  ) : null}
+                </p>
               </div>
             </div>
 

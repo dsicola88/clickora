@@ -1,6 +1,7 @@
 /** Espelha `backend/src/lib/plansLandingExtras.ts` — tipos da landing extra (tema escuro, FAQ, etc.). */
 
 import type { LandingSectionId } from "./landingSectionLayout";
+import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
 
 export type LandingExtrasAppearance = "default" | "sales_dark";
 
@@ -103,22 +104,87 @@ export interface LandingExtrasPublic {
   gallery: LandingGallery | null;
   section_order: LandingSectionId[] | null;
   sections_enabled: LandingSectionsEnabled | null;
+  /** Cores / tipografia secções (tema escuro); ver editor Planos → Cores da landing. */
+  theme: LandingPageThemeInput | null;
 }
 
+/** Alinhado ao backend `DEFAULT_LANDING_EXTRAS` — fallback se a resposta da API estiver incompleta. */
 export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
-  appearance: "default",
-  plans_section_label: null,
-  plans_section_title: null,
-  plans_section_subtitle: null,
-  features: null,
-  stats: null,
-  faq: null,
-  legal_footer: null,
+  appearance: "sales_dark",
+  plans_section_label: "PLANOS",
+  plans_section_title: "Escolha como quer escalar",
+  plans_section_subtitle:
+    "Limites claros de presells e cliques; faça upgrade quando a operação crescer. Comece grátis ou feche direto na Hotmart.",
+  features: {
+    title: "Tudo o que precisa num só ecossistema",
+    subtitle:
+      "Do primeiro clique ao remarketing: presells profissionais, rastreamento fiável e integrações pensadas para afiliados e media buyers.",
+    cards: [
+      {
+        title: "Presells de alta conversão",
+        body:
+          "VSL, TSL, quizzes e dezenas de modelos prontos para testar ângulos e segmentos sem depender só de builders externos.",
+      },
+      {
+        title: "Rastreamento e relatórios",
+        body:
+          "Scripts leves, painéis de plataformas e métricas para saber o que paga — e onde cortar desperdício.",
+      },
+      {
+        title: "A sua marca, o seu domínio",
+        body:
+          "White-label e domínios personalizados para páginas e links que transmitem confiança até ao checkout.",
+      },
+    ],
+  },
+  stats: {
+    title: "Feito para quem vive de performance",
+    subtitle: "Estruture campanhas com dados, escale o que funciona e mantenha o controlo da operação.",
+    items: [
+      { value: "1 painel", label: "Presell + tracking unificados" },
+      { value: "24/7", label: "Aceda quando a campanha disparar" },
+      { value: "Hotmart", label: "Checkout integrado nos planos pagos" },
+      { value: "API-first", label: "Automação e integrações à sua medida" },
+    ],
+  },
+  faq: {
+    title: "Perguntas frequentes",
+    items: [
+      {
+        q: "O teste grátis inclui o quê?",
+        a:
+          "Depende do plano configurado no servidor: normalmente pode criar presells e usar rastreamento até aos limites do plano grátis. Verifique os números nos cartões acima.",
+      },
+      {
+        q: "Como faço upgrade ou pago um plano pago?",
+        a:
+          "Clique no botão do plano desejado. Se existir link da Hotmart, será redirecionado para o checkout. Caso contrário, peça ao administrador para configurar HOTMART_PRODUCT_URL / URLs por plano.",
+      },
+      {
+        q: "Posso usar o meu domínio nas presells?",
+        a:
+          "Sim, quando o seu plano incluir domínio personalizado e o domínio estiver verificado no painel. As presells publicadas podem ser servidas no seu host.",
+      },
+      {
+        q: "Onde peço suporte?",
+        a:
+          "Utilize os canais indicados pela sua conta ou pelo administrador da plataforma. Informações de contacto podem ser adicionadas a esta secção no editor da landing.",
+      },
+    ],
+  },
+  legal_footer: {
+    lines: ["dclickora — presells, rastreamento e ferramentas para afiliados."],
+    links: [
+      { label: "Criar conta", href: "/auth" },
+      { label: "Entrar", href: "/auth" },
+    ],
+  },
   content_blocks: null,
   testimonials: null,
   gallery: null,
-  section_order: null,
+  section_order: ["features", "stats", "planos", "faq"],
   sections_enabled: null,
+  theme: null,
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -386,6 +452,45 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     if (!hasAny) sections_enabled = null;
   }
 
+  let theme: LandingPageThemeInput | null = null;
+  if (raw.theme !== null && raw.theme !== undefined && isPlainObject(raw.theme)) {
+    const tm = raw.theme as Record<string, unknown>;
+    const g = (k: string): string | undefined => {
+      const v = tm[k];
+      if (typeof v !== "string") return undefined;
+      const t = v.trim();
+      return t || undefined;
+    };
+    const partial: LandingPageThemeInput = {
+      page_background: g("page_background"),
+      nav_background: g("nav_background"),
+      accent: g("accent"),
+      accent_hover: g("accent_hover"),
+      heading_on_dark: g("heading_on_dark"),
+      muted_on_dark: g("muted_on_dark"),
+      badge_border: g("badge_border"),
+      badge_background: g("badge_background"),
+      badge_text: g("badge_text"),
+      stats_gradient_from: g("stats_gradient_from"),
+      stats_gradient_to: g("stats_gradient_to"),
+      stats_border: g("stats_border"),
+      faq_border: g("faq_border"),
+      link: g("link"),
+      card_surface: g("card_surface"),
+      selection_bg: g("selection_bg"),
+      nav_border: g("nav_border"),
+      outline_nav_border: g("outline_nav_border"),
+      outline_nav_bg: g("outline_nav_bg"),
+      stats_glow: g("stats_glow"),
+      section_font:
+        tm.section_font === "sans" || tm.section_font === "serif" || tm.section_font === "mono"
+          ? tm.section_font
+          : undefined,
+    };
+    const entries = Object.entries(partial).filter(([, v]) => v !== undefined);
+    if (entries.length) theme = Object.fromEntries(entries) as LandingPageThemeInput;
+  }
+
   return {
     appearance,
     plans_section_label,
@@ -400,5 +505,6 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     gallery,
     section_order,
     sections_enabled,
+    theme,
   };
 }

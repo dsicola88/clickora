@@ -5,11 +5,15 @@ export type PlansHeroOverlayStyle = "gradient-dark" | "gradient-light" | "solid-
 export type PlansHeroOverlayIntensity = "subtle" | "medium" | "strong";
 export type PlansHeroContentEntrance = "none" | "fade-in" | "fade-up";
 
+export type PlansHeroImageObjectPosition = "center" | "top" | "bottom";
+
 export interface PlansHeroVisual {
   image_effect: PlansHeroImageEffect;
   overlay_style: PlansHeroOverlayStyle;
   overlay_intensity: PlansHeroOverlayIntensity;
   content_entrance: PlansHeroContentEntrance;
+  /** Recorte vertical da fotografia no hero (equivalente a «foco» / object-position). */
+  image_object_position: PlansHeroImageObjectPosition;
   cta_enabled: boolean;
   cta_label: string | null;
   cta_href: string | null;
@@ -20,8 +24,9 @@ export const DEFAULT_PLANS_HERO_VISUAL: PlansHeroVisual = {
   overlay_style: "gradient-dark",
   overlay_intensity: "medium",
   content_entrance: "fade-up",
-  cta_enabled: false,
-  cta_label: null,
+  image_object_position: "center",
+  cta_enabled: true,
+  cta_label: "Ver planos",
   cta_href: "#planos",
 };
 
@@ -32,11 +37,16 @@ export function coercePlansHeroVisual(v: unknown): PlansHeroVisual {
   const overlay = o.overlay_style;
   const intensity = o.overlay_intensity;
   const entrance = o.content_entrance;
+  const focal = o.image_object_position;
   return {
     image_effect:
       effect === "ken-burns" || effect === "hover-zoom" || effect === "parallax" || effect === "none"
         ? effect
         : DEFAULT_PLANS_HERO_VISUAL.image_effect,
+    image_object_position:
+      focal === "top" || focal === "bottom" || focal === "center"
+        ? focal
+        : DEFAULT_PLANS_HERO_VISUAL.image_object_position,
     overlay_style:
       overlay === "gradient-dark" ||
       overlay === "gradient-light" ||
@@ -91,6 +101,19 @@ export function plansHeroOverlayClass(v: PlansHeroVisual): string {
     return op;
   }
   return "";
+}
+
+export function plansHeroImagePositionStyle(v: PlansHeroVisual): {
+  objectPosition: string;
+  backgroundPosition: string;
+} {
+  const map: Record<PlansHeroImageObjectPosition, string> = {
+    top: "center top",
+    center: "center center",
+    bottom: "center bottom",
+  };
+  const pos = map[v.image_object_position] ?? map.center;
+  return { objectPosition: pos, backgroundPosition: pos };
 }
 
 export function plansHeroImageEffectClass(v: PlansHeroVisual): string {

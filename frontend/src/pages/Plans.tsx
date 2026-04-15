@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Fragment, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
@@ -59,6 +60,8 @@ import {
   resolveSectionsEnabled,
   type LandingSectionId,
 } from "@/lib/landingSectionLayout";
+import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
+import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
 
 function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string, string>) {
   if (isCurrent) return labels.cta_current ?? "Plano atual";
@@ -208,6 +211,7 @@ export default function Plans() {
   const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
   const extras = coerceLandingExtras(landing?.landing_extras);
   const salesDark = extras.appearance === "sales_dark";
+  const salesThemed = resolveLandingPageTheme(extras.theme);
   const numLocale = lb.locale || "pt-BR";
 
   const formatPagesLimit = (n: number | null) =>
@@ -273,27 +277,34 @@ export default function Plans() {
             <div
               className={cn(
                 "flex flex-col gap-1 pb-4",
-                salesDark ? "text-center border-b border-white/10 max-w-3xl mx-auto" : "border-b border-border/50",
+                salesDark ? "text-center border-b max-w-3xl mx-auto" : "border-b border-border/50",
               )}
+              style={
+                salesDark
+                  ? { borderColor: salesThemed.nav_border }
+                  : undefined
+              }
             >
               {plansSectionLabel ? (
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400 mb-1">
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.2em] mb-1"
+                  style={salesDark ? { color: salesThemed.link } : undefined}
+                >
                   {plansSectionLabel}
                 </p>
               ) : null}
               <h2
                 className={cn(
                   "text-2xl font-bold tracking-tight md:text-3xl",
-                  salesDark ? "text-white" : "text-foreground",
+                  !salesDark && "text-foreground",
                 )}
+                style={salesDark ? { color: salesThemed.heading_on_dark } : undefined}
               >
                 {plansSectionTitle}
               </h2>
               <p
-                className={cn(
-                  "text-sm max-w-2xl",
-                  salesDark ? "text-white/70 mx-auto" : "text-muted-foreground",
-                )}
+                className={cn("text-sm max-w-2xl", !salesDark && "text-muted-foreground", salesDark && "mx-auto")}
+                style={salesDark ? { color: salesThemed.muted_on_dark } : undefined}
               >
                 {plansSectionSub}
               </p>
@@ -312,25 +323,33 @@ export default function Plans() {
                     className={cn(
                       "relative flex min-h-[480px] flex-col rounded-2xl p-6 transition-all duration-300",
                       salesDark
-                        ? "border-0 bg-white text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
+                        ? "border-0 text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
                         : `border-2 bg-card transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`,
-                      isPopular && salesDark && "ring-2 ring-blue-500/40",
                     )}
+                    style={
+                      salesDark
+                        ? {
+                            backgroundColor: salesThemed.card_surface,
+                            boxShadow:
+                              isPopular ? `0 0 0 2px ${salesThemed.accent}55, 0 25px 50px -12px rgba(0,0,0,0.25)` : undefined,
+                          }
+                        : undefined
+                    }
                   >
                     {salesDark ? (
                       <div
-                        className={cn("absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl", accent.bar)}
+                        className={cn("absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl", !isPopular && accent.bar)}
+                        style={isPopular && salesDark ? { backgroundColor: salesThemed.accent } : undefined}
                         aria-hidden
                       />
                     ) : null}
                     {isPopular && (
                       <Badge
                         className={cn(
-                          "absolute -top-3 left-1/2 -translate-x-1/2",
-                          salesDark
-                            ? "bg-blue-600 text-white hover:bg-blue-600"
-                            : "bg-blue-600 text-white hover:bg-blue-600",
+                          "absolute -top-3 left-1/2 -translate-x-1/2 text-white border-0",
+                          !salesDark && "bg-blue-600 hover:bg-blue-600",
                         )}
+                        style={salesDark ? { backgroundColor: salesThemed.accent } : undefined}
                       >
                         {lb.badge_popular}
                       </Badge>
@@ -381,10 +400,8 @@ export default function Plans() {
                       )}
                     >
                       <p
-                        className={cn(
-                          "mb-3 text-xs font-semibold uppercase tracking-wide",
-                          salesDark ? "text-blue-700" : "text-primary/90",
-                        )}
+                        className={cn("mb-3 text-xs font-semibold uppercase tracking-wide", !salesDark && "text-primary/90")}
+                        style={salesDark ? { color: salesThemed.accent } : undefined}
                       >
                         {lb.coverage_title}
                       </p>
@@ -396,7 +413,10 @@ export default function Plans() {
                               salesDark ? "bg-white" : "bg-background/80",
                             )}
                           >
-                            <FileStack className="h-4 w-4 text-primary" />
+                            <FileStack
+                              className={cn("h-4 w-4", !salesDark && "text-primary")}
+                              style={salesDark ? { color: salesThemed.accent } : undefined}
+                            />
                           </div>
                           <div>
                             <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
@@ -422,7 +442,10 @@ export default function Plans() {
                               salesDark ? "bg-white" : "bg-background/80",
                             )}
                           >
-                            <Gauge className="h-4 w-4 text-primary" />
+                            <Gauge
+                              className={cn("h-4 w-4", !salesDark && "text-primary")}
+                              style={salesDark ? { color: salesThemed.accent } : undefined}
+                            />
                           </div>
                           <div>
                             <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
@@ -453,7 +476,10 @@ export default function Plans() {
                               salesDark ? "bg-white" : "bg-background/80",
                             )}
                           >
-                            <Palette className="h-4 w-4 text-primary" />
+                            <Palette
+                              className={cn("h-4 w-4", !salesDark && "text-primary")}
+                              style={salesDark ? { color: salesThemed.accent } : undefined}
+                            />
                           </div>
                           <div>
                             <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
@@ -493,10 +519,12 @@ export default function Plans() {
                     <Button
                       onClick={() => handleSelectPlan(plan)}
                       variant={isCurrent ? "outline" : isPopular ? "default" : "secondary"}
-                      className={cn(
-                        "w-full",
-                        salesDark && !isCurrent && isPopular && "bg-blue-600 hover:bg-blue-700",
-                      )}
+                      className={cn("w-full", salesDark && !isCurrent && isPopular && "border-0 text-white hover:opacity-[0.92]")}
+                      style={
+                        salesDark && !isCurrent && isPopular
+                          ? { backgroundColor: salesThemed.accent, boxShadow: `0 0 20px -4px ${salesThemed.accent}55` }
+                          : undefined
+                      }
                       disabled={isCurrent}
                     >
                       {planCardCtaLabel(plan, isCurrent, lb)}
@@ -517,15 +545,32 @@ export default function Plans() {
     }
   };
 
+  const navSurface: CSSProperties | undefined = salesDark
+    ? {
+        backgroundColor: salesThemed.nav_background,
+        borderColor: salesThemed.nav_border,
+      }
+    : undefined;
+
+  const selectionCss =
+    salesDark &&
+    `[data-plans-sales-root]::selection{background:${salesThemed.selection_bg}}`;
+
   return (
-    <div
-      className={cn(
-        "min-h-svh w-full px-4 pb-12 pt-2 md:px-6 md:pb-14 md:pt-4 lg:px-8 lg:pb-16",
-        salesDark
-          ? "bg-[#050a18] text-white selection:bg-blue-500/25"
-          : "bg-background text-foreground",
-      )}
-    >
+    <LandingPageThemeProvider value={salesDark ? salesThemed : null}>
+      {selectionCss ? <style dangerouslySetInnerHTML={{ __html: selectionCss }} /> : null}
+      <div
+        data-plans-sales-root={salesDark ? true : undefined}
+        className={cn(
+          "min-h-svh w-full px-4 pb-12 pt-2 md:px-6 md:pb-14 md:pt-4 lg:px-8 lg:pb-16",
+          salesDark ? "text-white" : "bg-background text-foreground",
+        )}
+        style={
+          salesDark
+            ? { backgroundColor: salesThemed.page_background, color: salesThemed.heading_on_dark }
+            : undefined
+        }
+      >
       <div
         className={cn(
           APP_PAGE_SHELL_LOOSE,
@@ -534,11 +579,10 @@ export default function Plans() {
       >
       <div
         className={cn(
-          "sticky top-0 z-40 mb-6 border-b py-3 backdrop-blur-md",
-          salesDark
-            ? "border-white/10 bg-[#050a18]/85 supports-[backdrop-filter]:bg-[#050a18]/75"
-            : "border-border/60 bg-background/90 supports-[backdrop-filter]:bg-background/75",
+          "sticky top-0 z-40 mb-6 border-b py-3 backdrop-blur-md supports-[backdrop-filter]:backdrop-blur-md",
+          salesDark ? "border-b" : "border-border/60 bg-background/90 supports-[backdrop-filter]:bg-background/75",
         )}
+        style={salesDark ? navSurface : undefined}
       >
         <nav
           className={cn(
@@ -550,9 +594,16 @@ export default function Plans() {
           <Button
             size="sm"
             className={cn(
-              "min-h-10 w-full gap-2 sm:min-w-0",
-              salesDark && "bg-blue-600 text-white hover:bg-blue-700",
+              "min-h-10 w-full gap-2 sm:min-w-0 border-0 text-white hover:opacity-[0.92]",
             )}
+            style={
+              salesDark
+                ? {
+                    backgroundColor: salesThemed.accent,
+                    boxShadow: `0 0 24px -4px ${salesThemed.accent}66`,
+                  }
+                : undefined
+            }
             asChild
           >
             <a href={primaryCheckoutUrl ?? "#planos"} className="inline-flex items-center justify-center">
@@ -566,8 +617,17 @@ export default function Plans() {
               size="sm"
               className={cn(
                 "min-h-10 w-full gap-2 border sm:min-w-0",
-                salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
+                salesDark && "text-white hover:opacity-95",
               )}
+              style={
+                salesDark
+                  ? {
+                      borderColor: salesThemed.outline_nav_border,
+                      backgroundColor: salesThemed.outline_nav_bg,
+                      color: salesThemed.heading_on_dark,
+                    }
+                  : undefined
+              }
               asChild
             >
               <Link to="/inicio" className="inline-flex items-center justify-center">
@@ -581,8 +641,17 @@ export default function Plans() {
               size="sm"
               className={cn(
                 "min-h-10 w-full gap-2 sm:min-w-0",
-                salesDark && "border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white",
+                salesDark && "text-white hover:opacity-95",
               )}
+              style={
+                salesDark
+                  ? {
+                      borderColor: salesThemed.outline_nav_border,
+                      backgroundColor: salesThemed.outline_nav_bg,
+                      color: salesThemed.heading_on_dark,
+                    }
+                  : undefined
+              }
               asChild
             >
               <Link to="/auth" className="inline-flex items-center justify-center">
@@ -620,6 +689,7 @@ export default function Plans() {
         heroImg={heroImg}
         heroVisualRaw={landing?.hero_visual}
         tone={salesDark ? "dark" : "default"}
+        salesTheme={salesDark ? salesThemed : null}
       >
         <div
           className={cn(
@@ -630,7 +700,21 @@ export default function Plans() {
           )}
         >
           {badgeText ? (
-            <span className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+            <span
+              className={cn(
+                "inline-flex w-fit max-w-full items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider",
+                !salesDark && "border-primary/35 bg-primary/10 text-primary",
+              )}
+              style={
+                salesDark
+                  ? {
+                      borderColor: salesThemed.badge_border,
+                      backgroundColor: salesThemed.badge_background,
+                      color: salesThemed.badge_text,
+                    }
+                  : undefined
+              }
+            >
               {badgeText}
             </span>
           ) : null}
@@ -668,21 +752,23 @@ export default function Plans() {
         <div
           className={cn(
             "mb-8 max-w-3xl whitespace-pre-line",
-            salesDark && "text-white/85",
             plansLandingIntroClasses({
               font: coerceFontFamily(landing?.intro_font),
               align: coerceTextAlign(landing?.intro_text_align),
               size: coerceBodySize(landing?.intro_text_size),
             }),
           )}
+          style={salesDark ? { color: salesThemed.muted_on_dark } : undefined}
         >
           {introText}
         </div>
       ) : null}
 
-      {sectionOrder.map((id) => (
-        <Fragment key={id}>{renderSection(id)}</Fragment>
-      ))}
+      <div className={cn(salesDark && salesThemed.sectionFontClass)}>
+        {sectionOrder.map((id) => (
+          <Fragment key={id}>{renderSection(id)}</Fragment>
+        ))}
+      </div>
 
       {footerText ? (
         <div
@@ -752,5 +838,6 @@ export default function Plans() {
       )}
       </div>
     </div>
+    </LandingPageThemeProvider>
   );
 }

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const heroVisualPatchSchema = z.object({
   image_effect: z.enum(["none", "ken-burns", "hover-zoom", "parallax"]).optional(),
+  image_object_position: z.enum(["center", "top", "bottom"]).optional(),
   overlay_style: z
     .enum(["gradient-dark", "gradient-light", "solid-dark", "solid-light", "none"])
     .optional(),
@@ -16,11 +17,12 @@ export type HeroVisualPatch = z.infer<typeof heroVisualPatchSchema>;
 
 export const DEFAULT_HERO_VISUAL = {
   image_effect: "none" as const,
+  image_object_position: "center" as const,
   overlay_style: "gradient-dark" as const,
   overlay_intensity: "medium" as const,
   content_entrance: "fade-up" as const,
-  cta_enabled: false as const,
-  cta_label: null as string | null,
+  cta_enabled: true as const,
+  cta_label: "Ver planos" as string | null,
   cta_href: "#planos" as string | null,
 };
 
@@ -34,8 +36,13 @@ export function mergeHeroVisual(existing: unknown, patch: HeroVisualPatch): Hero
   const base: HeroVisualMerged = { ...DEFAULT_HERO_VISUAL };
   const cur = isRecord(existing) ? { ...base, ...existing } : base;
   const merged = { ...cur, ...patch };
+  const focal = merged.image_object_position;
   const out = {
     image_effect: merged.image_effect ?? DEFAULT_HERO_VISUAL.image_effect,
+    image_object_position:
+      focal === "top" || focal === "bottom" || focal === "center"
+        ? focal
+        : DEFAULT_HERO_VISUAL.image_object_position,
     overlay_style: merged.overlay_style ?? DEFAULT_HERO_VISUAL.overlay_style,
     overlay_intensity: merged.overlay_intensity ?? DEFAULT_HERO_VISUAL.overlay_intensity,
     content_entrance: merged.content_entrance ?? DEFAULT_HERO_VISUAL.content_entrance,

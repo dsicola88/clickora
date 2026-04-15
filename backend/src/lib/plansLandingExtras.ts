@@ -86,6 +86,36 @@ const landingSectionIdEnum = z.enum([
   "faq",
 ]);
 
+/** Valores CSS (#hex, rgba, hsl); validação estrita fica no admin; aqui aceitamos string curta para não rejeitar JSON antigo. */
+const colorToken = z.string().max(80).optional().nullable();
+
+/** Cores e tipografia da landing «vendas escuras» — editável no admin (equivalente a variáveis CSS). */
+export const landingExtrasThemeSchema = z
+  .object({
+    page_background: colorToken,
+    nav_background: colorToken,
+    accent: colorToken,
+    accent_hover: colorToken,
+    heading_on_dark: colorToken,
+    muted_on_dark: colorToken,
+    badge_border: colorToken,
+    badge_background: colorToken,
+    badge_text: colorToken,
+    stats_gradient_from: colorToken,
+    stats_gradient_to: colorToken,
+    stats_border: colorToken,
+    faq_border: colorToken,
+    link: colorToken,
+    card_surface: colorToken,
+    selection_bg: colorToken,
+    nav_border: colorToken,
+    outline_nav_border: colorToken,
+    outline_nav_bg: colorToken,
+    stats_glow: colorToken,
+    section_font: z.enum(["sans", "serif", "mono"]).optional().nullable(),
+  })
+  .strict();
+
 export const landingExtrasSchema = z
   .object({
     appearance: z.enum(["default", "sales_dark"]).optional(),
@@ -159,25 +189,89 @@ export const landingExtrasSchema = z
       })
       .nullable()
       .optional(),
+    theme: landingExtrasThemeSchema.optional().nullable(),
   })
   .strict();
 
 export type LandingExtras = z.infer<typeof landingExtrasSchema>;
 
+/** Template inicial da landing pública (tema escuro tipo página de vendas completa). Editável no admin → Planos. */
 export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
-  appearance: "default",
-  plans_section_label: null,
-  plans_section_title: null,
-  plans_section_subtitle: null,
-  features: null,
-  stats: null,
-  faq: null,
-  legal_footer: null,
+  appearance: "sales_dark",
+  plans_section_label: "PLANOS",
+  plans_section_title: "Escolha como quer escalar",
+  plans_section_subtitle:
+    "Limites claros de presells e cliques; faça upgrade quando a operação crescer. Comece grátis ou feche direto na Hotmart.",
+  features: {
+    title: "Tudo o que precisa num só ecossistema",
+    subtitle:
+      "Do primeiro clique ao remarketing: presells profissionais, rastreamento fiável e integrações pensadas para afiliados e media buyers.",
+    cards: [
+      {
+        title: "Presells de alta conversão",
+        body:
+          "VSL, TSL, quizzes e dezenas de modelos prontos para testar ângulos e segmentos sem depender só de builders externos.",
+      },
+      {
+        title: "Rastreamento e relatórios",
+        body:
+          "Scripts leves, painéis de plataformas e métricas para saber o que paga — e onde cortar desperdício.",
+      },
+      {
+        title: "A sua marca, o seu domínio",
+        body:
+          "White-label e domínios personalizados para páginas e links que transmitem confiança até ao checkout.",
+      },
+    ],
+  },
+  stats: {
+    title: "Feito para quem vive de performance",
+    subtitle: "Estruture campanhas com dados, escale o que funciona e mantenha o controlo da operação.",
+    items: [
+      { value: "1 painel", label: "Presell + tracking unificados" },
+      { value: "24/7", label: "Aceda quando a campanha disparar" },
+      { value: "Hotmart", label: "Checkout integrado nos planos pagos" },
+      { value: "API-first", label: "Automação e integrações à sua medida" },
+    ],
+  },
+  faq: {
+    title: "Perguntas frequentes",
+    items: [
+      {
+        q: "O teste grátis inclui o quê?",
+        a:
+          "Depende do plano configurado no servidor: normalmente pode criar presells e usar rastreamento até aos limites do plano grátis. Verifique os números nos cartões acima.",
+      },
+      {
+        q: "Como faço upgrade ou pago um plano pago?",
+        a:
+          "Clique no botão do plano desejado. Se existir link da Hotmart, será redirecionado para o checkout. Caso contrário, peça ao administrador para configurar HOTMART_PRODUCT_URL / URLs por plano.",
+      },
+      {
+        q: "Posso usar o meu domínio nas presells?",
+        a:
+          "Sim, quando o seu plano incluir domínio personalizado e o domínio estiver verificado no painel. As presells publicadas podem ser servidas no seu host.",
+      },
+      {
+        q: "Onde peço suporte?",
+        a:
+          "Utilize os canais indicados pela sua conta ou pelo administrador da plataforma. Informações de contacto podem ser adicionadas a esta secção no editor da landing.",
+      },
+    ],
+  },
+  legal_footer: {
+    lines: ["dclickora — presells, rastreamento e ferramentas para afiliados."],
+    links: [
+      { label: "Criar conta", href: "/auth" },
+      { label: "Entrar", href: "/auth" },
+    ],
+  },
   content_blocks: null,
   testimonials: null,
   gallery: null,
-  section_order: null,
+  section_order: ["features", "stats", "planos", "faq"],
   sections_enabled: null,
+  theme: null,
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -293,6 +387,15 @@ export function mergeLandingExtras(
             items:
               p.gallery.items !== undefined ? p.gallery.items : base.gallery?.items,
           };
+  const nextTheme =
+    p.theme === undefined
+      ? base.theme
+      : p.theme === null
+        ? null
+        : {
+            ...(base.theme && typeof base.theme === "object" ? base.theme : {}),
+            ...p.theme,
+          };
   return {
     ...base,
     ...(p.appearance !== undefined ? { appearance: p.appearance } : {}),
@@ -332,6 +435,7 @@ export function mergeLandingExtras(
                 },
         }
       : {}),
+    ...(p.theme !== undefined ? { theme: nextTheme } : {}),
   };
 }
 

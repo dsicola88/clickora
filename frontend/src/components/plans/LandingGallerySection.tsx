@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLandingSalesTheme } from "@/contexts/LandingPageThemeContext";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function LandingGallerySection({ data, salesDark, className }: Props) {
+  const t = useLandingSalesTheme();
   const items =
     data.items?.filter((it) => it.image_url.trim()) ?? [];
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -28,10 +30,8 @@ export function LandingGallerySection({ data, salesDark, className }: Props) {
     <section className={cn("space-y-8", className)}>
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <h2
-          className={cn(
-            "text-2xl font-bold tracking-tight md:text-3xl",
-            salesDark ? "text-blue-400" : "text-primary",
-          )}
+          className={cn("text-2xl font-bold tracking-tight md:text-3xl", !salesDark && "text-primary")}
+          style={salesDark ? { color: t.link } : undefined}
         >
           {title}
         </h2>
@@ -54,7 +54,7 @@ export function LandingGallerySection({ data, salesDark, className }: Props) {
             type="button"
             onClick={() => setLightbox(item.image_url)}
             className={cn(
-              "group relative aspect-[9/16] w-full overflow-hidden rounded-xl text-left shadow-lg outline-none transition-transform focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                "group relative aspect-[9/16] w-full overflow-hidden rounded-xl text-left shadow-lg outline-none transition-transform focus-visible:ring-2 focus-visible:ring-offset-2",
               salesDark
                 ? "ring-1 ring-white/10 focus-visible:ring-offset-[#050a18]"
                 : "border border-border focus-visible:ring-offset-background",

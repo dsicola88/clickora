@@ -47,6 +47,8 @@ import {
 } from "@/lib/plansLandingHeroVisual";
 import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
 import { coerceLandingExtras, type LandingExtrasPublic } from "@/lib/plansLandingExtras";
+import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
+import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
 import {
   DEFAULT_LANDING_SECTION_ORDER,
   LANDING_SECTION_LABELS,
@@ -132,6 +134,35 @@ const OPT_ENTRANCE = [
   { value: "fade-up", label: "Fade + subir (recomendado)" },
 ];
 
+const OPT_HERO_FOCAL = [
+  { value: "center", label: "Centro" },
+  { value: "top", label: "Topo (cabeças / horizonte)" },
+  { value: "bottom", label: "Baixo" },
+];
+
+const THEME_FIELD_ROWS: { key: keyof LandingPageThemeInput; label: string; placeholder: string }[] = [
+  { key: "page_background", label: "Fundo da página", placeholder: "#050a18" },
+  { key: "nav_background", label: "Barra fixa (topo)", placeholder: "rgba(5,10,24,0.88)" },
+  { key: "accent", label: "Cor de destaque (CTAs)", placeholder: "#059669" },
+  { key: "accent_hover", label: "Destaque ao passar o rato", placeholder: "#047857" },
+  { key: "heading_on_dark", label: "Títulos sobre escuro", placeholder: "#ffffff" },
+  { key: "muted_on_dark", label: "Texto secundário", placeholder: "rgba(255,255,255,0.78)" },
+  { key: "link", label: "Ligações e rótulos pequenos", placeholder: "#34d399" },
+  { key: "card_surface", label: "Fundo dos cartões brancos", placeholder: "#ffffff" },
+  { key: "badge_border", label: "Borda do selo (hero)", placeholder: "rgba(16,185,129,0.45)" },
+  { key: "badge_background", label: "Fundo do selo", placeholder: "rgba(16,185,129,0.12)" },
+  { key: "badge_text", label: "Texto do selo", placeholder: "#d1fae5" },
+  { key: "selection_bg", label: "Seleção de texto", placeholder: "rgba(16,185,129,0.2)" },
+  { key: "stats_gradient_from", label: "Bloco números — topo do gradiente", placeholder: "rgba(6,78,59,0.38)" },
+  { key: "stats_gradient_to", label: "Bloco números — base do gradiente", placeholder: "#050a18" },
+  { key: "stats_border", label: "Borda do bloco números", placeholder: "rgba(16,185,129,0.25)" },
+  { key: "stats_glow", label: "Brilho ao fundo (números)", placeholder: "rgba(16,185,129,0.22)" },
+  { key: "faq_border", label: "Borda do FAQ", placeholder: "rgba(16,185,129,0.3)" },
+  { key: "nav_border", label: "Borda da barra / separadores", placeholder: "rgba(255,255,255,0.1)" },
+  { key: "outline_nav_border", label: "Botões outline (borda)", placeholder: "rgba(255,255,255,0.25)" },
+  { key: "outline_nav_bg", label: "Botões outline (fundo)", placeholder: "rgba(255,255,255,0.05)" },
+];
+
 function HeroPreview(props: {
   badgeText: string;
   heroTitle: string;
@@ -146,6 +177,8 @@ function HeroPreview(props: {
   heroVisual: PlansHeroVisual;
   /** Pré-visualização com texto claro (tema vendas escuro). */
   salesTone?: boolean;
+  /** Tema em edição (cores) para pré-visualização. */
+  landingTheme?: LandingPageThemeInput | null;
   className?: string;
 }) {
   const src = props.hasImage ? plansLandingService.heroImageHref(props.imageUpdatedAt) : null;
@@ -155,12 +188,16 @@ function HeroPreview(props: {
   const weight = coerceFontWeight(props.heroTitleWeight);
   const subS = coerceBodySize(props.heroSubtitleSize);
 
+  const salesThemed =
+    props.salesTone ? resolveLandingPageTheme(props.landingTheme ?? null) : null;
+
   return (
     <PlansLandingHeroBlock
       heroImg={src}
       heroVisualRaw={props.heroVisual}
       className={props.className}
       tone={props.salesTone ? "dark" : "default"}
+      salesTheme={salesThemed}
     >
       <div className={cn("flex min-h-[200px] flex-col", plansLandingHeroInnerClasses({ font, align }))}>
         {props.badgeText.trim() ? (
@@ -215,6 +252,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [heroVisual, setHeroVisual] = useState<PlansHeroVisual>(() => ({ ...DEFAULT_PLANS_HERO_VISUAL }));
 
   const [appearance, setAppearance] = useState<LandingExtrasPublic["appearance"]>("default");
+  const [landingTheme, setLandingTheme] = useState<LandingPageThemeInput>({});
   const [plansSectionLabel, setPlansSectionLabel] = useState("");
   const [plansSectionTitle, setPlansSectionTitle] = useState("");
   const [plansSectionSubtitle, setPlansSectionSubtitle] = useState("");
@@ -298,6 +336,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
     const ex = coerceLandingExtras(data.landing_extras);
     setAppearance(ex.appearance);
+    setLandingTheme(ex.theme ? { ...ex.theme } : {});
     setPlansSectionLabel(ex.plans_section_label ?? "");
     setPlansSectionTitle(ex.plans_section_title ?? "");
     setPlansSectionSubtitle(ex.plans_section_subtitle ?? "");
@@ -530,6 +569,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           }
         : null;
 
+    const themeEntries = Object.entries(landingTheme).filter(
+      ([k, v]) =>
+        v !== undefined &&
+        v !== null &&
+        (k === "section_font" || (typeof v === "string" && v.trim() !== "")),
+    );
+    const themePayload =
+      themeEntries.length > 0 ? (Object.fromEntries(themeEntries) as LandingPageThemeInput) : null;
+
     return {
       appearance,
       plans_section_label: plansSectionLabel.trim() || null,
@@ -552,6 +600,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         planos: sectionsEnabled.planos,
         faq: sectionsEnabled.faq,
       },
+      theme: themePayload,
     };
   };
 
@@ -626,6 +675,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         plan_display_labels: planLabels,
         hero_visual: {
           image_effect: heroVisual.image_effect,
+          image_object_position: heroVisual.image_object_position,
           overlay_style: heroVisual.overlay_style,
           overlay_intensity: heroVisual.overlay_intensity,
           content_entrance: heroVisual.content_entrance,
@@ -920,10 +970,81 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="default">Claro (padrão do site)</SelectItem>
-                    <SelectItem value="sales_dark">Escuro — vendas (cartões brancos, azul)</SelectItem>
+                    <SelectItem value="sales_dark">Escuro — vendas (cartões brancos, destaque verde)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="rounded-md border border-border/60 bg-background/50 p-3 space-y-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Personalização completa da <span className="font-medium text-foreground">copy</span>,{" "}
+                  <span className="font-medium text-foreground">imagem e vídeo do hero</span>,{" "}
+                  <span className="font-medium text-foreground">tipografia</span>,{" "}
+                  <span className="font-medium text-foreground">ordem e visibilidade das secções</span>,{" "}
+                  <span className="font-medium text-foreground">cores</span> e{" "}
+                  <span className="font-medium text-foreground">posição do recorte</span> da foto. Isto não é um page
+                  builder por arrastar blocos como o Elementor em WordPress — aqui tudo passa por estes campos e
+                  pré-visualização ao lado.
+                </p>
+                {appearance === "sales_dark" ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
+                      <p className="text-xs font-semibold text-foreground">Cores (CSS: #hex ou rgba)</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setLandingTheme({})}
+                      >
+                        Repor tema padrão
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Fonte das secções (destaques, estatísticas, FAQ…)</Label>
+                      <Select
+                        value={landingTheme.section_font ?? "sans"}
+                        onValueChange={(v) =>
+                          setLandingTheme((prev) => ({
+                            ...prev,
+                            section_font: v as LandingPageThemeInput["section_font"],
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OPT_FONT.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid max-h-[min(420px,55vh)] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                      {THEME_FIELD_ROWS.map(({ key, label, placeholder }) => (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-[11px] leading-tight text-muted-foreground">{label}</Label>
+                          <Input
+                            value={String(landingTheme[key] ?? "")}
+                            onChange={(e) =>
+                              setLandingTheme((prev) => ({
+                                ...prev,
+                                [key]: e.target.value.trim() === "" ? undefined : e.target.value,
+                              }))
+                            }
+                            placeholder={placeholder}
+                            className="h-8 font-mono text-[11px]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-1">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Etiqueta pequena acima dos planos (ex.: PLANOS)</Label>
@@ -1500,6 +1621,29 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
+                  <Label className="text-xs">Recorte da imagem (foco)</Label>
+                  <Select
+                    value={heroVisual.image_object_position}
+                    onValueChange={(v) =>
+                      setHeroVisual((p) => ({
+                        ...p,
+                        image_object_position: v as PlansHeroVisual["image_object_position"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPT_HERO_FOCAL.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label className="text-xs">Overlay sobre a foto</Label>
                   <Select
                     value={heroVisual.overlay_style}
@@ -1777,6 +1921,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               heroSubtitleSize={heroSubtitleSize}
               heroVisual={heroVisual}
               salesTone={appearance === "sales_dark"}
+              landingTheme={appearance === "sales_dark" ? landingTheme : null}
               className="mb-0 border-border/80 bg-muted/20 shadow-inner"
             />
             {introText.trim() ? (
