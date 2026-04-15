@@ -125,7 +125,7 @@ export const customDomainController = {
       if (max === 0) {
         return res.status(403).json({
           error:
-            "O seu plano não inclui domínios personalizados. O Plano Anual permite até 2 domínios; no Mensal use exportação HTML para WordPress (Elementor) no domínio dclickora.",
+            "O seu plano não inclui domínios personalizados. O plano Premium permite até 2 domínios; no Pro use exportação HTML para WordPress (Elementor) no domínio dclickora.",
         });
       }
       return res.status(403).json({

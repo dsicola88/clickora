@@ -82,10 +82,10 @@ async function main() {
   const plans = await Promise.all([
     prisma.plan.upsert({
       where: { id: "plan_free" },
-      update: { maxCustomDomains: 0 },
+      update: { name: "Starter", maxCustomDomains: 0 },
       create: {
         id: "plan_free",
-        name: "Free Trial",
+        name: "Starter",
         type: "free_trial",
         priceCents: 0,
         maxPresellPages: 3,
@@ -103,10 +103,10 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
-      update: { name: "Pro Mensal", priceCents: 7990, maxCustomDomains: 0 },
+      update: { name: "Pro", priceCents: 7990, maxCustomDomains: 0 },
       create: {
         id: "plan_monthly",
-        name: "Pro Mensal",
+        name: "Pro",
         type: "monthly",
         priceCents: 7990,
         maxPresellPages: 25,
@@ -125,10 +125,10 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_annual" },
-      update: { name: "Pro Anual", priceCents: 69700, maxCustomDomains: 2 },
+      update: { name: "Premium", priceCents: 69700, maxCustomDomains: 2 },
       create: {
         id: "plan_annual",
-        name: "Pro Anual",
+        name: "Premium",
         type: "annual",
         priceCents: 69700,
         maxPresellPages: null,
@@ -153,7 +153,7 @@ async function main() {
     data: { planId: "plan_monthly" },
   });
   if (migrated.count > 0) {
-    console.log(`ℹ️ ${migrated.count} assinatura(s) migradas de trimestral → Pro Mensal.`);
+    console.log(`ℹ️ ${migrated.count} assinatura(s) migradas de trimestral → Pro.`);
   }
   await prisma.plan.deleteMany({ where: { id: "plan_quarterly" } });
 
@@ -165,7 +165,7 @@ async function main() {
         id: "default",
         heroTitle: "Escolha seu plano",
         heroSubtitle:
-          "Cada cartão mostra os limites de presells e de cliques por mês; abaixo, o que mais está incluído. Comece grátis e faça upgrade quando precisar.",
+          "Starter para testar, Pro para escalar com afiliação e Premium para o máximo desempenho. Os limites de presells e cliques estão em cada cartão.",
       },
     });
   } catch (e) {
@@ -178,7 +178,7 @@ async function main() {
 
   const planAnnual = plans.find((p) => p.id === "plan_annual")!;
 
-  /** Mesma password para as contas de seed (também em produção no Docker). Todas com Pro Anual para testes sem limites de presell/cliques. */
+  /** Mesma password para as contas de seed (também em produção no Docker). Todas com Premium (anual) para testes sem limites de presell/cliques. */
   const seedPassword = "Dpa211088@";
 
   await upsertUserWithRoleAndPlan({
@@ -206,9 +206,9 @@ async function main() {
   });
 
   console.log(`✅ Plans: ${plans.map((p) => p.name).join(", ")}`);
-  console.log("✅ super_admin (Pro Anual): danielclickora@gmail.com");
-  console.log("✅ user (Pro Anual): danielclickora1@gmail.com");
-  console.log("✅ admin (Pro Anual): danielclickora2@gmail.com");
+  console.log("✅ super_admin (Premium): danielclickora@gmail.com");
+  console.log("✅ user (Premium): danielclickora1@gmail.com");
+  console.log("✅ admin (Premium): danielclickora2@gmail.com");
   console.log("🌱 Seed complete!");
 }
 

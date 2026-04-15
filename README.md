@@ -49,10 +49,10 @@ npm run api:db:seed
 
 | Perfil | E-mail | Senha | Plano |
 |--------|--------|-------|--------|
-| Super Admin | `dclickora@gmail.com` | (ver `backend/prisma/seed.ts`) | Pro Anual (ilimitado) |
-| Admin + Pro (mensal) | `adminpro@dclickora.com` | `pro123456` | Pro Mensal |
-| Admin + Pro (anual) | `admin@dclickora.com` | `admin123456` | Pro Anual |
-| Utilizador (testes) | `daniel@gmail.com` | `daniel123456` | Pro Mensal |
+| Super Admin | `dclickora@gmail.com` | (ver `backend/prisma/seed.ts`) | Premium / anual (ilimitado) |
+| Admin + Pro (mensal) | `adminpro@dclickora.com` | `pro123456` | Pro |
+| Admin + Pro (anual) | `admin@dclickora.com` | `admin123456` | Premium |
+| Utilizador (testes) | `daniel@gmail.com` | `daniel123456` | Pro |
 
 ## Configuracao
 

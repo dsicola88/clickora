@@ -177,8 +177,8 @@ export default function Auth() {
             {mode === "login" && "Acesse sua plataforma de tracking e presell"}
             {mode === "register" &&
               (trialIntent
-                ? "Crie a sua conta sem cartão. Depois, ative o plano Free Trial na página de planos."
-                : "Comece gratuitamente com o plano Free Trial")}
+                ? "Crie a sua conta sem cartão. Depois, ative o plano Starter na página de planos."
+                : "Comece gratuitamente com o plano Starter")}
             {mode === "recovery" && "Enviaremos um link para redefinir sua senha"}
           </p>
         </div>

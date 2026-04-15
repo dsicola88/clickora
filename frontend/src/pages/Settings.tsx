@@ -12,13 +12,13 @@ import type { UserPlan } from "@/types/api";
 function planTypeLabel(t: UserPlan["plan_type"]): string {
   switch (t) {
     case "free_trial":
-      return "Experimental";
+      return "Trial (Starter)";
     case "monthly":
-      return "Mensal";
+      return "Mensal (Pro)";
     case "quarterly":
       return "Trimestral";
     case "annual":
-      return "Anual";
+      return "Anual (Premium)";
     default:
       return t;
   }

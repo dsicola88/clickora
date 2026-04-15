@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Check,
-  Zap,
   Star,
-  Rocket,
   FileStack,
   Gauge,
   Palette,
@@ -18,6 +16,9 @@ import {
   LogIn,
   ShoppingBag,
   LayoutDashboard,
+  Leaf,
+  TrendingUp,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -67,17 +68,62 @@ function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string,
   return labels.cta_upgrade ?? "Fazer upgrade";
 }
 
-const planIcons: Record<string, React.ReactNode> = {
-  free_trial: <Zap className="h-6 w-6" />,
-  monthly: <Star className="h-6 w-6" />,
-  annual: <Rocket className="h-6 w-6" />,
+const PLAN_TAGLINES: Record<string, string> = {
+  free_trial: "Ideal para começar e testar campanhas",
+  monthly: "Melhor para afiliados que querem escalar",
+  annual: "Para profissionais que querem máximo desempenho",
 };
 
+/** Borda do cartão (tema claro) — Starter verde, Pro azul (destaque), Premium roxo. */
 const planColors: Record<string, string> = {
-  free_trial: "border-border",
-  monthly: "border-primary",
-  annual: "border-primary ring-2 ring-primary/20",
+  free_trial: "border-emerald-500/50",
+  monthly: "border-blue-500/60 ring-2 ring-blue-500/25",
+  annual: "border-violet-500/55",
 };
+
+const planIcons: Record<string, React.ReactNode> = {
+  free_trial: <Leaf className="h-6 w-6" />,
+  monthly: <TrendingUp className="h-6 w-6" />,
+  annual: <Crown className="h-6 w-6" />,
+};
+
+function planVisualAccent(planType: string): {
+  bar: string;
+  iconLight: string;
+  iconDarkWrap: string;
+  check: string;
+} {
+  switch (planType) {
+    case "free_trial":
+      return {
+        bar: "bg-emerald-500",
+        iconLight: "bg-emerald-500/12 text-emerald-800 dark:text-emerald-300",
+        iconDarkWrap: "bg-emerald-500/15",
+        check: "text-emerald-600 dark:text-emerald-400",
+      };
+    case "monthly":
+      return {
+        bar: "bg-blue-500",
+        iconLight: "bg-blue-500/12 text-blue-800 dark:text-blue-300",
+        iconDarkWrap: "bg-blue-500/15",
+        check: "text-blue-600 dark:text-blue-400",
+      };
+    case "annual":
+      return {
+        bar: "bg-violet-500",
+        iconLight: "bg-violet-500/12 text-violet-900 dark:text-violet-300",
+        iconDarkWrap: "bg-violet-500/15",
+        check: "text-violet-600 dark:text-violet-400",
+      };
+    default:
+      return {
+        bar: "bg-slate-400",
+        iconLight: "bg-muted text-foreground",
+        iconDarkWrap: "bg-slate-100",
+        check: "text-primary",
+      };
+  }
+}
 
 export default function Plans() {
   const navigate = useNavigate();
@@ -255,7 +301,10 @@ export default function Plans() {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan) => {
                 const isCurrent = plan.type === userPlan?.plan_type;
-                const isPopular = plan.type === "annual";
+                /** Pro (mensal) é o plano de maior foco comercial. */
+                const isPopular = plan.type === "monthly";
+                const accent = planVisualAccent(plan.type);
+                const tagline = PLAN_TAGLINES[plan.type] ?? "";
 
                 return (
                   <div
@@ -265,12 +314,12 @@ export default function Plans() {
                       salesDark
                         ? "border-0 bg-white text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
                         : `border-2 bg-card transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`,
-                      isPopular && salesDark && "ring-2 ring-blue-500/35",
+                      isPopular && salesDark && "ring-2 ring-blue-500/40",
                     )}
                   >
                     {salesDark ? (
                       <div
-                        className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-blue-500"
+                        className={cn("absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl", accent.bar)}
                         aria-hidden
                       />
                     ) : null}
@@ -280,33 +329,37 @@ export default function Plans() {
                           "absolute -top-3 left-1/2 -translate-x-1/2",
                           salesDark
                             ? "bg-blue-600 text-white hover:bg-blue-600"
-                            : "bg-primary text-primary-foreground",
+                            : "bg-blue-600 text-white hover:bg-blue-600",
                         )}
                       >
                         {lb.badge_popular}
                       </Badge>
                     )}
-                    <div className="mb-4 flex items-center gap-3">
+                    <div className="mb-4 flex items-start gap-3">
                       <div
                         className={cn(
                           "rounded-xl p-2",
-                          salesDark
-                            ? plan.type === "free_trial"
-                              ? "bg-slate-100"
-                              : "bg-blue-500/15"
-                            : plan.type === "free_trial"
-                              ? "bg-muted"
-                              : "bg-primary/10",
+                          salesDark ? accent.iconDarkWrap : accent.iconLight,
                         )}
                       >
                         {planIcons[plan.type] ?? <Star className="h-6 w-6" />}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className={cn("font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
                           {plan.name}
                         </h3>
+                        {tagline ? (
+                          <p
+                            className={cn(
+                              "mt-1 text-xs leading-snug",
+                              salesDark ? "text-slate-600" : "text-muted-foreground",
+                            )}
+                          >
+                            {tagline}
+                          </p>
+                        ) : null}
                         {isCurrent && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs mt-1">
                             {lb.badge_current}
                           </Badge>
                         )}
@@ -431,10 +484,7 @@ export default function Plans() {
                       {plan.features.map((feature, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm">
                           <Check
-                            className={cn(
-                              "mt-0.5 h-4 w-4 flex-shrink-0",
-                              salesDark ? "text-blue-600" : "text-primary",
-                            )}
+                            className={cn("mt-0.5 h-4 w-4 flex-shrink-0", accent.check)}
                           />
                           <span className={salesDark ? "text-slate-800" : "text-foreground"}>{feature}</span>
                         </li>
