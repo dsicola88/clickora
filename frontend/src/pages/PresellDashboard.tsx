@@ -33,7 +33,11 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import { getPublicPresellFullUrl, resolveDefaultCustomDomainIdForAccount } from "@/lib/publicPresellOrigin";
+import {
+  getPublicPresellFullUrl,
+  getPublicPresellOriginForPresell,
+  resolveDefaultCustomDomainIdForAccount,
+} from "@/lib/publicPresellOrigin";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
