@@ -1,8 +1,8 @@
 /** Espelha `backend/src/lib/planDisplayLabels.ts` — etiquetas fundidas vindas da API. */
 export const DEFAULT_PLAN_DISPLAY_LABELS: Record<string, string> = {
-  price_symbol: "R$",
-  price_currency: "BRL",
-  locale: "pt-BR",
+  price_symbol: "$",
+  price_currency: "USD",
+  locale: "en-US",
   price_free: "Grátis",
   suffix_monthly: "/mês",
   suffix_annual: "/ano",
@@ -28,6 +28,14 @@ export const DEFAULT_PLAN_DISPLAY_LABELS: Record<string, string> = {
   label_plan_col: "Plano",
   label_pages_col: "Páginas presell",
   label_clicks_col: "Cliques/mês",
+  /** Cartão Premium (anual): poupança vs. 12× preço mensal — placeholders {{equiv}} {{save}} {{pct}} {{monthly_name}} {{compare_yearly}} */
+  annual_pitch_equiv:
+    "≈ {{equiv}}/mês em média ao pagar o ano de uma vez — faturação anual única.",
+  annual_pitch_savings:
+    "Poupe {{save}} em relação a 12 meses no {{monthly_name}} ({{pct}}% de desconto).",
+  annual_pitch_reference:
+    "Referência: 12× {{monthly_name}} = {{compare_yearly}}/ano a preço mensal.",
+  badge_best_value: "Melhor valor",
 };
 
 export function mergeWithDefaultLabels(merged: Record<string, string> | undefined | null): Record<string, string> {
@@ -57,6 +65,42 @@ export function getPlanPriceSuffix(planType: string, labels: Record<string, stri
     default:
       return "";
   }
+}
+
+/** Comparação anual vs. 12 meses ao preço Pro: só retorna poupança se o anual for mais barato. */
+export function computeAnnualVersusMonthlySavings(
+  monthlyPriceCents: number,
+  annualPriceCents: number,
+): {
+  savingsCents: number;
+  percentRounded: number;
+  equivalentMonthlyCents: number;
+  yearlyAtMonthlyRateCents: number;
+} | null {
+  if (monthlyPriceCents <= 0 || annualPriceCents <= 0) return null;
+  const yearlyAtMonthlyRateCents = monthlyPriceCents * 12;
+  const savingsCents = yearlyAtMonthlyRateCents - annualPriceCents;
+  if (savingsCents <= 0) return null;
+  const percentRounded = Math.round((savingsCents / yearlyAtMonthlyRateCents) * 100);
+  const equivalentMonthlyCents = Math.round(annualPriceCents / 12);
+  return {
+    savingsCents,
+    percentRounded: Math.max(1, percentRounded),
+    equivalentMonthlyCents,
+    yearlyAtMonthlyRateCents,
+  };
+}
+
+/** Substitui {{chave}} no texto das etiquetas da landing. */
+export function interpolatePlanLabelTemplate(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  let s = template;
+  for (const [k, v] of Object.entries(vars)) {
+    s = s.split(`{{${k}}}`).join(v);
+  }
+  return s;
 }
 
 /** Ordem dos campos no editor admin (landing /planos). */
@@ -89,4 +133,17 @@ export const PLAN_LABEL_FORM_FIELDS: { key: string; title: string }[] = [
   { key: "label_plan_col", title: "Coluna «Plano»" },
   { key: "label_pages_col", title: "Coluna «Páginas presell»" },
   { key: "label_clicks_col", title: "Coluna «Cliques/mês»" },
+  {
+    key: "annual_pitch_equiv",
+    title: "Premium: linha da média mensal ({{equiv}})",
+  },
+  {
+    key: "annual_pitch_savings",
+    title: "Premium: poupança vs. 12× mensal ({{save}} {{pct}} {{monthly_name}})",
+  },
+  {
+    key: "annual_pitch_reference",
+    title: "Premium: referência 12× mensal ({{compare_yearly}} {{monthly_name}})",
+  },
+  { key: "badge_best_value", title: "Selo «Melhor valor» (Premium anual)" },
 ];

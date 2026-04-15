@@ -40,8 +40,10 @@ import {
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
 import {
+  computeAnnualVersusMonthlySavings,
   formatPlanPrice,
   getPlanPriceSuffix,
+  interpolatePlanLabelTemplate,
   mergeWithDefaultLabels,
 } from "@/lib/planDisplayLabels";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
@@ -152,6 +154,22 @@ export default function Plans() {
     const paid = plans.find((p) => p.price_cents > 0 && p.checkout_url);
     return paid?.checkout_url ?? null;
   }, [plans]);
+
+  const monthlyPlanForPitch = useMemo(
+    () => plans.find((p) => p.type === "monthly" && p.price_cents > 0),
+    [plans],
+  );
+  const annualPlanForPitch = useMemo(
+    () => plans.find((p) => p.type === "annual" && p.price_cents > 0),
+    [plans],
+  );
+  const annualSavingsPitch = useMemo(() => {
+    if (!monthlyPlanForPitch || !annualPlanForPitch) return null;
+    return computeAnnualVersusMonthlySavings(
+      monthlyPlanForPitch.price_cents,
+      annualPlanForPitch.price_cents,
+    );
+  }, [monthlyPlanForPitch, annualPlanForPitch]);
 
   const handleSelectPlan = async (plan: Plan) => {
     if (user && plan.type === userPlan?.plan_type) {
@@ -314,8 +332,10 @@ export default function Plans() {
                 const isCurrent = plan.type === userPlan?.plan_type;
                 /** Pro (mensal) é o plano de maior foco comercial. */
                 const isPopular = plan.type === "monthly";
+                const showBestValue = plan.type === "annual" && annualSavingsPitch;
                 const accent = planVisualAccent(plan.type);
                 const tagline = PLAN_TAGLINES[plan.type] ?? "";
+                const monthlyName = monthlyPlanForPitch?.name?.trim() || "Pro";
 
                 return (
                   <div
@@ -354,6 +374,21 @@ export default function Plans() {
                         {lb.badge_popular}
                       </Badge>
                     )}
+                    {showBestValue && (
+                      <Badge
+                        className={cn(
+                          "absolute -top-3 left-1/2 -translate-x-1/2 border-0 text-white shadow-md",
+                          !salesDark && "bg-violet-600 hover:bg-violet-600",
+                        )}
+                        style={
+                          salesDark
+                            ? { backgroundColor: "rgb(124 58 237)", boxShadow: "0 8px 24px -6px rgb(124 58 237 / 0.55)" }
+                            : undefined
+                        }
+                      >
+                        {lb.badge_best_value}
+                      </Badge>
+                    )}
                     <div className="mb-4 flex items-start gap-3">
                       <div
                         className={cn(
@@ -384,13 +419,59 @@ export default function Plans() {
                         )}
                       </div>
                     </div>
-                    <div className="mb-5">
-                      <span className={cn("text-3xl font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
-                        {formatPlanPrice(plan.price_cents, lb)}
-                      </span>
-                      <span className={cn("text-sm", salesDark ? "text-slate-500" : "text-muted-foreground")}>
-                        {getPlanPriceSuffix(plan.type, lb)}
-                      </span>
+                    <div className="mb-5 space-y-3">
+                      <div>
+                        <span className={cn("text-3xl font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
+                          {formatPlanPrice(plan.price_cents, lb)}
+                        </span>
+                        <span className={cn("text-sm", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                          {getPlanPriceSuffix(plan.type, lb)}
+                        </span>
+                      </div>
+                      {plan.type === "annual" && annualSavingsPitch ? (
+                        <div
+                          className={cn(
+                            "space-y-2 rounded-xl border px-3 py-2.5",
+                            salesDark
+                              ? "border-violet-400/35 bg-violet-950/35"
+                              : "border-violet-500/35 bg-violet-500/[0.07]",
+                          )}
+                        >
+                          <p
+                            className={cn(
+                              "text-xs leading-snug",
+                              salesDark ? "text-violet-100/95" : "text-slate-700",
+                            )}
+                          >
+                            {interpolatePlanLabelTemplate(lb.annual_pitch_equiv, {
+                              equiv: formatPlanPrice(annualSavingsPitch.equivalentMonthlyCents, lb),
+                            })}
+                          </p>
+                          <p
+                            className={cn(
+                              "text-xs font-semibold leading-snug",
+                              salesDark ? "text-white" : "text-violet-900",
+                            )}
+                          >
+                            {interpolatePlanLabelTemplate(lb.annual_pitch_savings, {
+                              save: formatPlanPrice(annualSavingsPitch.savingsCents, lb),
+                              pct: String(annualSavingsPitch.percentRounded),
+                              monthly_name: monthlyName,
+                            })}
+                          </p>
+                          <p
+                            className={cn(
+                              "text-[11px] leading-snug opacity-90",
+                              salesDark ? "text-violet-200/85" : "text-muted-foreground",
+                            )}
+                          >
+                            {interpolatePlanLabelTemplate(lb.annual_pitch_reference, {
+                              compare_yearly: formatPlanPrice(annualSavingsPitch.yearlyAtMonthlyRateCents, lb),
+                              monthly_name: monthlyName,
+                            })}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div

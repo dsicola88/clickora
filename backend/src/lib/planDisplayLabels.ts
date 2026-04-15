@@ -1,8 +1,8 @@
 /** Etiquetas da página de planos (merge com a BD). Chaves em snake_case estáveis na API. */
 export const DEFAULT_PLAN_DISPLAY_LABELS: Record<string, string> = {
-  price_symbol: "R$",
-  price_currency: "BRL",
-  locale: "pt-BR",
+  price_symbol: "$",
+  price_currency: "USD",
+  locale: "en-US",
   price_free: "Grátis",
   suffix_monthly: "/mês",
   suffix_annual: "/ano",
@@ -28,6 +28,13 @@ export const DEFAULT_PLAN_DISPLAY_LABELS: Record<string, string> = {
   label_plan_col: "Plano",
   label_pages_col: "Páginas presell",
   label_clicks_col: "Cliques/mês",
+  annual_pitch_equiv:
+    "≈ {{equiv}}/mês em média ao pagar o ano de uma vez — faturação anual única.",
+  annual_pitch_savings:
+    "Poupe {{save}} em relação a 12 meses no {{monthly_name}} ({{pct}}% de desconto).",
+  annual_pitch_reference:
+    "Referência: 12× {{monthly_name}} = {{compare_yearly}}/ano a preço mensal.",
+  badge_best_value: "Melhor valor",
 };
 
 const MAX_LEN = 500;
