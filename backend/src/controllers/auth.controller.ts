@@ -6,7 +6,9 @@ import { signToken } from "../lib/jwt";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { z } from "zod";
 import { AVATAR_LOCAL_MARKER, removeUserAvatarFiles } from "../lib/avatarUpload";
+import type { PlanType } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
+import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1).email(),
@@ -50,6 +52,7 @@ function serializeUser(
         type: string;
         maxPresellPages: number | null;
         maxClicksPerMonth: number | null;
+        maxCustomDomains?: number | null;
         hasBranding: boolean;
       } | null;
     } | null;
@@ -73,6 +76,11 @@ function serializeUser(
           plan_type: plan.type,
           max_pages: plan.maxPresellPages,
           max_clicks: plan.maxClicksPerMonth,
+          max_custom_domains: effectiveMaxCustomDomainsFromPlan({
+            type: plan.type as PlanType,
+            maxCustomDomains:
+              typeof plan.maxCustomDomains === "number" ? plan.maxCustomDomains : null,
+          }),
           has_branding: plan.hasBranding,
         }
       : null,

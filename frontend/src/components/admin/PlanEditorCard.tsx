@@ -23,6 +23,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
   const [priceInput, setPriceInput] = useState((plan.price_cents / 100).toFixed(2));
   const [maxPages, setMaxPages] = useState(plan.max_presell_pages != null ? String(plan.max_presell_pages) : "");
   const [maxClicks, setMaxClicks] = useState(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
+  const [maxCustomDomains, setMaxCustomDomains] = useState(String(plan.max_custom_domains ?? 0));
   const [hasBranding, setHasBranding] = useState(plan.has_branding);
   const [featuresText, setFeaturesText] = useState(() => (plan.features ?? []).join("\n"));
   const [ctaLabel, setCtaLabel] = useState(plan.cta_label ?? "");
@@ -33,6 +34,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setPriceInput((plan.price_cents / 100).toFixed(2));
     setMaxPages(plan.max_presell_pages != null ? String(plan.max_presell_pages) : "");
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
+    setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
     setHasBranding(plan.has_branding);
     setFeaturesText((plan.features ?? []).join("\n"));
     setCtaLabel(plan.cta_label ?? "");
@@ -43,6 +45,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setPriceInput((plan.price_cents / 100).toFixed(2));
     setMaxPages(plan.max_presell_pages != null ? String(plan.max_presell_pages) : "");
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
+    setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
     setHasBranding(plan.has_branding);
     setFeaturesText((plan.features ?? []).join("\n"));
     setCtaLabel(plan.cta_label ?? "");
@@ -73,6 +76,11 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
       }
       max_clicks_per_month = n;
     }
+    const mcd = parseInt(maxCustomDomains, 10);
+    if (Number.isNaN(mcd) || mcd < 0 || mcd > 50) {
+      toast.error("Máx. domínios personalizados: número entre 0 e 50");
+      return;
+    }
 
     const features = featuresText
       .split("\n")
@@ -86,6 +94,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
         price_cents,
         max_presell_pages,
         max_clicks_per_month,
+        max_custom_domains: mcd,
         has_branding: hasBranding,
         features,
         cta_label: ctaLabel.trim() === "" ? null : ctaLabel.trim(),
@@ -143,6 +152,15 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               placeholder="—"
               value={maxClicks}
               onChange={(e) => setMaxClicks(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor={`mcd-${plan.id}`}>Máx. domínios personalizados (0 = só HTML/dclickora)</Label>
+            <Input
+              id={`mcd-${plan.id}`}
+              inputMode="numeric"
+              value={maxCustomDomains}
+              onChange={(e) => setMaxCustomDomains(e.target.value)}
             />
           </div>
         </div>

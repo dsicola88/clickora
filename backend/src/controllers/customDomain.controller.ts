@@ -18,6 +18,7 @@ import {
   vercelVerifyProjectDomain,
   type VercelVerificationChallenge,
 } from "../lib/vercelProjectDomains";
+import { resolveCustomDomainQuotaForUser } from "../lib/customDomainLimits";
 
 function mapRow(d: {
   id: string;
@@ -85,6 +86,16 @@ export const customDomainController = {
     return res.json(rows.map(mapRow));
   },
 
+  async quota(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const q = await resolveCustomDomainQuotaForUser(userId);
+    return res.json({
+      max_custom_domains: q.maxCustomDomains,
+      used: q.used,
+      can_add: q.canAdd,
+    });
+  },
+
   async create(req: Request, res: Response) {
     const userId = req.user!.userId;
     const hostnameRaw = typeof req.body?.hostname === "string" ? req.body.hostname : "";
@@ -105,6 +116,20 @@ export const customDomainController = {
       return res.status(409).json({
         error:
           "Este hostname já está na sua lista (veja abaixo). Para voltar a tentar a verificação, use «Verificar agora» no cartão desse domínio. Só pode remover e adicionar de novo se quiser recomeçar o DNS.",
+      });
+    }
+
+    const quota = await resolveCustomDomainQuotaForUser(userId);
+    if (!quota.canAdd) {
+      const max = quota.maxCustomDomains;
+      if (max === 0) {
+        return res.status(403).json({
+          error:
+            "O seu plano não inclui domínios personalizados. O Plano Anual permite até 2 domínios; no Mensal use exportação HTML para WordPress (Elementor) no domínio dclickora.",
+        });
+      }
+      return res.status(403).json({
+        error: `Limite de domínios atingido (${max}). Remova um domínio abaixo antes de adicionar outro.`,
       });
     }
 

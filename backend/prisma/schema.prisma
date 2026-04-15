@@ -169,6 +169,8 @@ model Plan {
   maxPresellPages  Int?     @map("max_presell_pages")
   maxClicksPerMonth Int?    @map("max_clicks_per_month")
   hasBranding      Boolean  @default(true) @map("has_branding")
+  /** Domínios personalizados permitidos (0 = só HTML/dclickora; anual típico = 2). */
+  maxCustomDomains Int      @default(0) @map("max_custom_domains")
   features         Json     @default("[]")
   /** Texto do botão do cartão (opcional). Se vazio, usam-se as etiquetas globais (começar grátis / upgrade / plano atual). */
   ctaLabel         String?  @map("cta_label") @db.VarChar(160)

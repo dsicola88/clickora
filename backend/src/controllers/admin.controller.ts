@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { Prisma, type AppRole, type PlanType, type SubscriptionStatus } from "@prisma/client";
 import { z } from "zod";
 import { prismaAdmin } from "../lib/prisma";
+import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 
 function parseDateInput(s: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
@@ -18,6 +19,7 @@ const updatePlanSchema = z.object({
   price_cents: z.number().int().min(0).optional(),
   max_presell_pages: z.number().int().min(0).nullable().optional(),
   max_clicks_per_month: z.number().int().min(0).nullable().optional(),
+  max_custom_domains: z.number().int().min(0).max(50).optional(),
   has_branding: z.boolean().optional(),
   features: z.array(z.string().max(500)).max(50).optional(),
   cta_label: z.union([z.string().trim().min(1).max(160), z.null()]).optional(),
@@ -129,6 +131,14 @@ export const adminController = {
         price_cents: p.priceCents,
         max_presell_pages: p.maxPresellPages,
         max_clicks_per_month: p.maxClicksPerMonth,
+        max_custom_domains: effectiveMaxCustomDomainsFromPlan({
+          type: p.type,
+          maxCustomDomains:
+            "maxCustomDomains" in p &&
+            typeof (p as { maxCustomDomains?: unknown }).maxCustomDomains === "number"
+              ? (p as { maxCustomDomains: number }).maxCustomDomains
+              : null,
+        }),
         has_branding: p.hasBranding,
         features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
         cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
@@ -262,6 +272,7 @@ export const adminController = {
       p.price_cents === undefined &&
       p.max_presell_pages === undefined &&
       p.max_clicks_per_month === undefined &&
+      p.max_custom_domains === undefined &&
       p.has_branding === undefined &&
       p.features === undefined &&
       p.cta_label === undefined
@@ -276,6 +287,7 @@ export const adminController = {
         ...(p.price_cents !== undefined ? { priceCents: p.price_cents } : {}),
         ...(p.max_presell_pages !== undefined ? { maxPresellPages: p.max_presell_pages } : {}),
         ...(p.max_clicks_per_month !== undefined ? { maxClicksPerMonth: p.max_clicks_per_month } : {}),
+        ...(p.max_custom_domains !== undefined ? { maxCustomDomains: p.max_custom_domains } : {}),
         ...(p.has_branding !== undefined ? { hasBranding: p.has_branding } : {}),
         ...(p.features !== undefined ? { features: p.features } : {}),
         ...(p.cta_label !== undefined ? { ctaLabel: p.cta_label } : {}),

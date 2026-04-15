@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma, { systemPrisma } from "../lib/prisma";
+import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 
 /** Sem `cta_label` — para BD antiga antes de `prisma migrate deploy` (evita P2022). */
 const planSelectLegacy: Prisma.PlanSelect = {
@@ -13,6 +14,7 @@ const planSelectLegacy: Prisma.PlanSelect = {
   hasBranding: true,
   features: true,
   createdAt: true,
+  /** Omitido em BD muito antiga (P2022) — o map usa `effectiveMaxCustomDomainsFromPlan`. */
 };
 
 async function findManyPlansOrdered() {
@@ -79,6 +81,14 @@ export const plansController = {
           price_cents: p.priceCents,
           max_presell_pages: p.maxPresellPages,
           max_clicks_per_month: p.maxClicksPerMonth,
+          max_custom_domains: effectiveMaxCustomDomainsFromPlan({
+            type: p.type,
+            maxCustomDomains:
+              "maxCustomDomains" in p &&
+              typeof (p as { maxCustomDomains?: unknown }).maxCustomDomains === "number"
+                ? (p as { maxCustomDomains: number }).maxCustomDomains
+                : null,
+          }),
           has_branding: p.hasBranding,
           features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
           cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,

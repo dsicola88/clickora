@@ -690,6 +690,7 @@ export default function AdminPanel() {
                       <TableHead className="text-right">Preço</TableHead>
                       <TableHead className="text-right">Max presells</TableHead>
                       <TableHead className="text-right">Max cliques/mês</TableHead>
+                      <TableHead className="text-right">Domínios</TableHead>
                       <TableHead>Branding</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -703,6 +704,7 @@ export default function AdminPanel() {
                         <TableCell className="text-right tabular-nums">{formatMoneyCents(p.price_cents)}</TableCell>
                         <TableCell className="text-right">{p.max_presell_pages ?? "—"}</TableCell>
                         <TableCell className="text-right">{p.max_clicks_per_month?.toLocaleString() ?? "—"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{p.max_custom_domains}</TableCell>
                         <TableCell>
                           <Badge variant={p.has_branding ? "secondary" : "outline"}>{p.has_branding ? "Sim" : "Não"}</Badge>
                         </TableCell>
@@ -710,7 +712,7 @@ export default function AdminPanel() {
                     ))}
                     {plans.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           Sem planos na base de dados
                         </TableCell>
                       </TableRow>

@@ -82,7 +82,7 @@ async function main() {
   const plans = await Promise.all([
     prisma.plan.upsert({
       where: { id: "plan_free" },
-      update: {},
+      update: { maxCustomDomains: 0 },
       create: {
         id: "plan_free",
         name: "Free Trial",
@@ -90,6 +90,7 @@ async function main() {
         priceCents: 0,
         maxPresellPages: 3,
         maxClicksPerMonth: 1000,
+        maxCustomDomains: 0,
         hasBranding: true,
         features: JSON.parse(JSON.stringify([
           "Até 3 presell pages",
@@ -102,7 +103,7 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
-      update: { name: "Pro Mensal", priceCents: 7990 },
+      update: { name: "Pro Mensal", priceCents: 7990, maxCustomDomains: 0 },
       create: {
         id: "plan_monthly",
         name: "Pro Mensal",
@@ -110,6 +111,7 @@ async function main() {
         priceCents: 7990,
         maxPresellPages: 25,
         maxClicksPerMonth: 50000,
+        maxCustomDomains: 0,
         hasBranding: false,
         features: JSON.parse(JSON.stringify([
           "Até 25 presell pages",
@@ -123,7 +125,7 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_annual" },
-      update: { name: "Pro Anual", priceCents: 69700 },
+      update: { name: "Pro Anual", priceCents: 69700, maxCustomDomains: 2 },
       create: {
         id: "plan_annual",
         name: "Pro Anual",
@@ -131,6 +133,7 @@ async function main() {
         priceCents: 69700,
         maxPresellPages: null,
         maxClicksPerMonth: null,
+        maxCustomDomains: 2,
         hasBranding: false,
         features: JSON.parse(JSON.stringify([
           "Presell pages ilimitadas",

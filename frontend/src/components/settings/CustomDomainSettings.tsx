@@ -35,6 +35,17 @@ export function CustomDomainSettings() {
     enabled: !!tenantKey,
   });
 
+  const { data: quota } = useQuery({
+    queryKey: ["custom-domain-quota", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.quota();
+      if (error) throw new Error(error);
+      return data ?? null;
+    },
+    enabled: !!tenantKey,
+    staleTime: 30_000,
+  });
+
   const { data: presells = [] } = useQuery({
     queryKey: ["presells", tenantKey],
     queryFn: async () => {
@@ -61,6 +72,7 @@ export function CustomDomainSettings() {
         });
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-quota"] });
       setNewHostname("");
       const d = res.data;
       const mode = d?.pending_dns?.mode;
@@ -107,6 +119,7 @@ export function CustomDomainSettings() {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-quota"] });
       toast.success("Domínio removido.");
     },
     onError: () => toast.error("Não foi possível remover."),
@@ -175,6 +188,17 @@ export function CustomDomainSettings() {
         <li>Nas presells, em editar, escolha o domínio dos links públicos.</li>
       </ol>
 
+      {quota && !quota.can_add ? (
+        <div
+          className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100/95"
+          role="status"
+        >
+          {quota.max_custom_domains === 0
+            ? "O seu plano não inclui domínios personalizados. O Plano Anual permite até 2 domínios; no Mensal use exportação HTML para WordPress (Elementor) no domínio dclickora."
+            : `Limite atingido (${quota.used}/${quota.max_custom_domains}). Remova um domínio abaixo para libertar um lugar.`}
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <Label htmlFor="new-custom-hostname">Adicionar domínio</Label>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -183,13 +207,13 @@ export function CustomDomainSettings() {
             placeholder="www.seusite.com"
             value={newHostname}
             onChange={(e) => setNewHostname(e.target.value)}
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || (quota != null && !quota.can_add)}
             className="font-mono text-sm"
           />
           <Button
             type="button"
             className="shrink-0"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || (quota != null && !quota.can_add)}
             onClick={() => {
               const raw = newHostname.trim();
               if (!raw) {

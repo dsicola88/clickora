@@ -105,6 +105,16 @@ export default function Settings() {
                   <span className="text-card-foreground tabular-nums">{userPlan.max_clicks.toLocaleString()}</span>
                 </div>
               )}
+              {userPlan.max_custom_domains !== undefined && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Domínios personalizados</span>
+                  <span className="text-card-foreground tabular-nums text-right">
+                    {userPlan.max_custom_domains === 0
+                      ? "Não incluído (use HTML / dclickora)"
+                      : `Até ${userPlan.max_custom_domains}`}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground border-t border-border/50 pt-4">Sem plano associado neste momento.</p>

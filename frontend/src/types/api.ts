@@ -39,6 +39,13 @@ export interface CustomDomainDto {
   hosting_dns_hint?: { host: string; target: string; note: string };
 }
 
+/** GET /custom-domain/quota */
+export interface CustomDomainQuotaDto {
+  max_custom_domains: number | null;
+  used: number;
+  can_add: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -57,6 +64,8 @@ export interface UserPlan {
   plan_type: "free_trial" | "monthly" | "quarterly" | "annual";
   max_pages: number | null;
   max_clicks: number | null;
+  /** Limite de domínios personalizados do plano (0 = só HTML/dclickora). */
+  max_custom_domains?: number;
   has_branding: boolean;
 }
 
@@ -67,6 +76,7 @@ export interface Plan {
   price_cents: number;
   max_presell_pages: number | null;
   max_clicks_per_month: number | null;
+  max_custom_domains: number;
   has_branding: boolean;
   features: string[];
   /** Se definido, texto do botão do cartão (sobreposta aos textos globais). */
@@ -156,7 +166,10 @@ export interface AdminPlanRow {
   price_cents: number;
   max_presell_pages: number | null;
   max_clicks_per_month: number | null;
+  max_custom_domains: number;
   has_branding: boolean;
+  features?: string[];
+  cta_label?: string | null;
 }
 
 export interface AdminOverview {

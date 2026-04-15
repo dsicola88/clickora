@@ -1,9 +1,12 @@
 import { apiClient } from "@/lib/apiClient";
-import type { CustomDomainDto } from "@/types/api";
+import type { CustomDomainDto, CustomDomainQuotaDto } from "@/types/api";
 
 export const customDomainService = {
   list() {
     return apiClient.get<CustomDomainDto[]>("/custom-domain");
+  },
+  quota() {
+    return apiClient.get<CustomDomainQuotaDto>("/custom-domain/quota");
   },
   create(hostname: string) {
     return apiClient.post<CustomDomainDto>("/custom-domain", {

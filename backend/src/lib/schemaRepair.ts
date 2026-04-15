@@ -3,6 +3,7 @@ import { systemPrisma } from "./prisma";
 /** Alinha a BD com o schema quando migrações não foram aplicadas (ex.: Railway, drift). Idempotente. */
 const PLAN_COLUMNS_SQL = [
   `ALTER TABLE "plans" ADD COLUMN IF NOT EXISTS "cta_label" VARCHAR(160)`,
+  `ALTER TABLE "plans" ADD COLUMN IF NOT EXISTS "max_custom_domains" INTEGER NOT NULL DEFAULT 0`,
 ] as const;
 
 const PLANS_LANDING_COLUMNS_SQL = [

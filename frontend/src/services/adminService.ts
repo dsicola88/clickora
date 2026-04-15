@@ -51,6 +51,7 @@ export const adminService = {
       price_cents?: number;
       max_presell_pages?: number | null;
       max_clicks_per_month?: number | null;
+      max_custom_domains?: number;
       has_branding?: boolean;
       features?: string[];
       cta_label?: string | null;
