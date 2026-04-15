@@ -74,9 +74,9 @@ function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string,
 }
 
 const PLAN_TAGLINES: Record<string, string> = {
-  free_trial: "Ideal para começar e testar campanhas",
-  monthly: "Melhor para afiliados que querem escalar",
-  annual: "Para profissionais que querem máximo desempenho",
+  free_trial: "Limites reduzidos para experimentar presells e tracking",
+  monthly: "Quotas mensais para quem publica com frequência",
+  annual: "Mesmas ferramentas com quotas amplas e pagamento anual",
 };
 
 /** Borda do cartão (tema claro) — Starter verde, Pro azul (destaque), Premium roxo. */
@@ -217,7 +217,7 @@ export default function Plans() {
   const heroTitle = landing?.hero_title ?? "Escolha seu plano";
   const heroSubtitle =
     landing?.hero_subtitle ??
-    "Cada cartão mostra os limites de presells e de cliques por mês; abaixo, o que mais está incluído. Comece grátis e faça upgrade quando precisar.";
+    "Limites de presells e cliques por plano estão nos cartões. O que segue descreve as funcionalidades da plataforma — resultados de campanha dependem da sua oferta e tráfego.";
   const badgeText = landing?.badge_text?.trim() ?? "";
   const introText = landing?.intro_text?.trim() ?? "";
   const footerText = landing?.footer_text?.trim() ?? "";

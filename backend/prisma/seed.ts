@@ -36,37 +36,36 @@ async function ensureUsersIntegrationColumns() {
  * Funcionalidades de tracking e proteção (iguais na filosofia do produto; quotas no topo de cada plano).
  */
 const PLATFORM_FEATURE_LINES = [
-  "Conversões automáticas e manuais",
-  "Geolocalização por IP (país/região; GeoLite)",
-  "GCLID Decoder e ligação a conversões Google Ads",
-  "ClickShield (camada no vídeo presell / YouTube)",
-  "Anti-spam: limite de pedidos de tracking por IP no servidor",
-  "Anti-bots: deteção por UA; bloqueio opcional na conta",
-  "Anti-anónimo: bloqueio opcional de pedidos sem User-Agent",
-  "Blacklist e whitelist de IPv4 (bloqueio / modo só permitidos)",
-  "Classificação de bot no evento; VPN/proxy dedicado em roadmap",
+  "Conversões automáticas e registo manual de conversões",
+  "Geolocalização por IP (país/região, base GeoLite)",
+  "GCLID em URLs e ligação a conversões Google Ads quando configurado",
+  "ClickShield no iframe de vídeo presell (YouTube)",
+  "Limite de pedidos de tracking por IP no servidor (anti-spam)",
+  "Anti-bots: análise de User-Agent; bloqueio opcional na conta",
+  "Bloqueio opcional de pedidos sem User-Agent",
+  "Blacklist e whitelist de IPv4 (bloqueio ou modo só permitidos)",
+  "Classificação de bot nos eventos; melhorias de rede em roadmap",
 ] as const;
 
 const PLAN_FEATURES_STARTER = [
   "Até 3 presell pages · 1.000 cliques/mês (trial)",
-  "Inclui as funcionalidades abaixo dentro das quotas do trial",
+  "As linhas abaixo aplicam-se dentro destas quotas",
   ...PLATFORM_FEATURE_LINES,
-  "Templates básicos · Analytics básico · Branding dclickora",
+  "Tipos de presell disponíveis no editor (com limites do plano) · Métricas no painel · Branding Clickora pode aparecer no rodapé",
 ];
 
 const PLAN_FEATURES_PRO = [
   "Até 25 presell pages · 50.000 cliques/mês",
-  "Uso pleno das funcionalidades abaixo durante o período contratado (mensal)",
+  "Mesmas ferramentas abaixo durante a subscrição mensal (sujeito a quotas)",
   ...PLATFORM_FEATURE_LINES,
-  "Todos os templates · Analytics completo · Sem branding",
-  "Suporte prioritário",
+  "Todos os tipos de presell expostos no editor (VSL, TSL, DTC, gates, etc.) · Eventos e relatórios no painel · Sem branding Clickora no rodapé",
 ];
 
 const PLAN_FEATURES_PREMIUM = [
-  "Uso ilimitado de presells e cliques durante o período contratado (plano anual)",
+  "Presells e cliques ilimitados na conta durante o período do plano anual (uso razoável)",
   ...PLATFORM_FEATURE_LINES,
-  "Até 2 domínios personalizados · Analytics avançado · Sem branding",
-  "Suporte VIP · API access",
+  "Até 2 domínios personalizados · Sem branding Clickora no rodapé",
+  "Webhooks e endpoints no servidor para tracking, presell e integrações",
 ];
 
 function jsonFeatures(lines: string[]) {
@@ -201,7 +200,7 @@ async function main() {
         id: "default",
         heroTitle: "Escolha seu plano",
         heroSubtitle:
-          "Starter para testar, Pro para escalar com afiliação e Premium para o máximo desempenho. Os limites de presells e cliques estão em cada cartão.",
+          "Limites de presells e cliques estão em cada cartão. Starter para testar, Pro e Premium com quotas maiores e mais domínios no plano anual — conforme configurado.",
       },
     });
   } catch (e) {

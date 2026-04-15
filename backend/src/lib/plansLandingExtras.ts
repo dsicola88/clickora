@@ -217,61 +217,62 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
   plans_section_label: "PLANOS",
   plans_section_title: "Escolha como quer escalar",
   plans_section_subtitle:
-    "Limites claros de presells e cliques; faça upgrade quando a operação crescer. Comece grátis ou feche direto na Hotmart.",
+    "Os limites de presells e cliques estão nos cartões. Pode começar no plano grátis e fazer upgrade quando precisar. Planos pagos abrem num checkout externo (por exemplo Hotmart) apenas se o administrador tiver configurado o link.",
   features: {
-    title: "Tudo o que precisa num só ecossistema",
+    title: "Presells, métricas e domínio no mesmo sítio",
     subtitle:
-      "Do primeiro clique ao remarketing: presells profissionais, rastreamento fiável e integrações pensadas para afiliados e media buyers.",
+      "Crie páginas presell no editor, acompanhe eventos no painel e use domínio próprio nos planos em que isso está incluído — sem prometer resultados que dependem da sua oferta e tráfego.",
     cards: [
       {
-        title: "Presells de alta conversão",
+        title: "Formatos de presell reais no editor",
         body:
-          "VSL, TSL, quizzes e dezenas de modelos prontos para testar ângulos e segmentos sem depender só de builders externos.",
+          "Tipos como VSL, TSL, DTC, VSL+TSL, e gates (cookies, desconto, idade, país, captcha, entre outros). Vídeo em incorporação (ex.: YouTube) onde o layout o permitir — não é um construtor genérico de «dezenas de páginas», é o que a plataforma expõe hoje.",
       },
       {
-        title: "Rastreamento e relatórios",
+        title: "Tracking e proteção configuráveis",
         body:
-          "Scripts leves, painéis de plataformas e métricas para saber o que paga — e onde cortar desperdício.",
+          "Scripts e eventos no servidor (cliques, impressões, conversões), ligação a GCLID e conversões quando configurar integrações, e regras anti-abuso e listas IP que pode ativar na conta.",
       },
       {
-        title: "A sua marca, o seu domínio",
+        title: "Domínio e branding conforme o plano",
         body:
-          "White-label e domínios personalizados para páginas e links que transmitem confiança até ao checkout.",
+          "Nos planos com domínio personalizado, verifique o hostname e publique na sua URL. Nos planos pagos indicados, o rodapé pode ficar sem a marca Clickora; no grátis o branding pode ser visível.",
       },
     ],
   },
   stats: {
-    title: "Feito para quem vive de performance",
-    subtitle: "Estruture campanhas com dados, escale o que funciona e mantenha o controlo da operação.",
+    title: "Feito para medir e iterar",
+    subtitle:
+      "Use os números do painel para ver o que a conta está a registar; disponibilidade do serviço depende da infraestrutura em produção.",
     items: [
-      { value: "1 painel", label: "Presell + tracking unificados" },
-      { value: "24/7", label: "Aceda quando a campanha disparar" },
-      { value: "Hotmart", label: "Checkout integrado nos planos pagos" },
-      { value: "API-first", label: "Automação e integrações à sua medida" },
+      { value: "1", label: "Conta: presells e métricas no mesmo painel" },
+      { value: "Eventos", label: "Cliques, impressões e conversões nas quotas do plano" },
+      { value: "Checkout", label: "Pagamento via link externo se o admin o configurar" },
+      { value: "Domínio", label: "Hostname próprio nos planos que o incluem" },
     ],
   },
   faq: {
     title: "Perguntas frequentes",
     items: [
       {
-        q: "O teste grátis inclui o quê?",
+        q: "O plano grátis inclui o quê?",
         a:
-          "Depende do plano configurado no servidor: normalmente pode criar presells e usar rastreamento até aos limites do plano grátis. Verifique os números nos cartões acima.",
+          "Pode criar presells e usar o tracking até aos limites do plano (número de presells e de cliques por mês) indicados no cartão. Funcionalidades extra dependem da configuração da sua instalação.",
       },
       {
-        q: "Como faço upgrade ou pago um plano pago?",
+        q: "Como pago um plano pago?",
         a:
-          "Clique no botão do plano desejado. Se existir link da Hotmart, será redirecionado para o checkout. Caso contrário, peça ao administrador para configurar HOTMART_PRODUCT_URL / URLs por plano.",
+          "Escolha o plano e use o botão de compra. Se existir um link de checkout configurado, será redirecionado. Se não acontecer nada ou aparecer um aviso, o link ainda não foi definido — contacte o suporte ou administrador da plataforma.",
       },
       {
         q: "Posso usar o meu domínio nas presells?",
         a:
-          "Sim, quando o seu plano incluir domínio personalizado e o domínio estiver verificado no painel. As presells publicadas podem ser servidas no seu host.",
+          "Sim, nos planos que incluem domínio personalizado: adicione o domínio no painel, siga a verificação DNS indicada e publique. O número de domínios permitido depende do plano.",
       },
       {
-        q: "Onde peço suporte?",
+        q: "Onde obtenho suporte?",
         a:
-          "Utilize os canais indicados pela sua conta ou pelo administrador da plataforma. Informações de contacto podem ser adicionadas a esta secção no editor da landing.",
+          "Use os contactos ou canais que a sua instalação da plataforma disponibilizar. Podem ser adicionados a esta secção no editor da landing.",
       },
     ],
   },

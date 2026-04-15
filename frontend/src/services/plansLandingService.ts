@@ -8,7 +8,7 @@ const FALLBACK: PlansLandingPublic = {
   badge_text: null,
   hero_title: "Escolha seu plano",
   hero_subtitle:
-    "Cada cartão mostra os limites de presells e de cliques por mês; abaixo, o que mais está incluído. Comece grátis e faça upgrade quando precisar.",
+    "Limites de presells e cliques por plano estão nos cartões. O que segue descreve as funcionalidades da plataforma — resultados de campanha dependem da sua oferta e tráfego.",
   has_hero_image: false,
   intro_text: null,
   footer_text: null,
