@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,12 +56,6 @@ export default function Plans() {
       return data ?? [];
     },
   });
-
-  /** Primeiro plano pago com checkout — botão «Comprar» do topo vai direto à Hotmart. */
-  const primaryCheckoutUrl = useMemo(() => {
-    const paid = plans.find((p) => p.price_cents > 0 && p.checkout_url);
-    return paid?.checkout_url ?? null;
-  }, [plans]);
 
   const handleSelectPlan = async (plan: Plan) => {
     if (user && plan.type === userPlan?.plan_type) {
@@ -193,7 +186,10 @@ export default function Plans() {
             }
             asChild
           >
-            <a href={primaryCheckoutUrl ?? "#planos"} className="inline-flex items-center justify-center">
+            <a
+              href="#planos"
+              className="inline-flex items-center justify-center"
+            >
               <ShoppingBag className="h-4 w-4 shrink-0" aria-hidden />
               Comprar
             </a>
