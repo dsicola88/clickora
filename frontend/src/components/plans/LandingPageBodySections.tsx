@@ -173,7 +173,12 @@ export function LandingPageBodySections({
       case "content_blocks":
         if (!sectionsOn.content_blocks || !mediaBlocks.length) return null;
         return (
-          <LandingContentBlocks blocks={mediaBlocks} salesDark={salesDark} className="mb-12" />
+          <LandingContentBlocks
+            blocks={mediaBlocks}
+            salesDark={salesDark}
+            salesTheme={salesThemed}
+            className="mb-12"
+          />
         );
       case "features":
         if (!sectionsOn.features || !salesDark || !(extras.features?.cards?.length ?? 0)) {

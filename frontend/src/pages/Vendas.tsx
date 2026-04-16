@@ -25,7 +25,7 @@ export default function Vendas() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Funil de Conversões"
-        description="Analise etapas da jornada e identifique onde estão os maiores gargalos."
+        description="Vista de funil e etapas da jornada. Os números agregados por período continuam no Resumo e guia; o detalhe por eventos e datas está em Relatórios."
       />
 
       {/* Date Filter + Keyword */}

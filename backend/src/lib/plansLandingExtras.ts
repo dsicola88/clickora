@@ -37,6 +37,9 @@ const urlish = z
 
 const layoutEnum = z.enum(["contained", "wide"]).optional();
 
+/** Valores CSS (#hex, rgba, hsl); validação fina no admin. */
+const colorToken = z.string().max(80).optional().nullable();
+
 export const landingExtrasVideoBlockSchema = z.object({
   type: z.literal("video"),
   title: z.string().max(200).nullable().optional(),
@@ -55,9 +58,22 @@ export const landingExtrasImageBlockSchema = z.object({
   layout: layoutEnum,
 });
 
+export const landingExtrasRichTextBlockSchema = z.object({
+  type: z.literal("rich_text"),
+  content: z.string().min(1).max(12000),
+  font_family: z.enum(["sans", "serif", "mono"]).optional(),
+  font_size: z.enum(["xs", "sm", "base", "lg", "xl", "2xl"]).optional(),
+  font_weight: z.enum(["normal", "medium", "semibold", "bold"]).optional(),
+  text_align: z.enum(["left", "center", "right"]).optional(),
+  text_color: colorToken,
+  background_color: colorToken,
+  layout: layoutEnum,
+});
+
 export const landingExtrasContentBlockSchema = z.discriminatedUnion("type", [
   landingExtrasVideoBlockSchema,
   landingExtrasImageBlockSchema,
+  landingExtrasRichTextBlockSchema,
 ]);
 
 export const landingExtrasTestimonialItemSchema = z.object({
@@ -99,9 +115,6 @@ const landingSectionIdEnum = z.enum([
   "planos",
   "faq",
 ]);
-
-/** Valores CSS (#hex, rgba, hsl); validação estrita fica no admin; aqui aceitamos string curta para não rejeitar JSON antigo. */
-const colorToken = z.string().max(80).optional().nullable();
 
 /** Cores e tipografia da landing «vendas escuras» — editável no admin (equivalente a variáveis CSS). */
 export const landingExtrasThemeSchema = z

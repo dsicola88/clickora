@@ -4,7 +4,12 @@ import path from "path";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prismaAdmin, systemPrisma } from "../lib/prisma";
-import { getPlansLandingUploadDir, removeExistingPlansHero } from "../lib/plansLandingUpload";
+import {
+  getPlansLandingUploadDir,
+  isSafePlansGalleryFilename,
+  removeExistingPlansHero,
+} from "../lib/plansLandingUpload";
+import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
 import {
   DEFAULT_HERO_VISUAL,
@@ -200,6 +205,22 @@ export const plansLandingController = {
     return res.sendFile(path.resolve(filePath));
   },
 
+  async getGalleryImage(req: Request, res: Response) {
+    const raw = req.params.filename;
+    const name = typeof raw === "string" ? decodeURIComponent(raw.trim()) : "";
+    if (!name || !isSafePlansGalleryFilename(name)) {
+      return res.status(404).end();
+    }
+    const filePath = path.join(getPlansLandingUploadDir(), name);
+    if (!fs.existsSync(filePath)) return res.status(404).end();
+    const ext = path.extname(name).slice(1).toLowerCase();
+    const mime =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.sendFile(path.resolve(filePath));
+  },
+
   async getAdmin(_req: Request, res: Response) {
     const row = await findPlansLandingDefaultAdmin();
     if (!row) {
@@ -310,6 +331,20 @@ export const plansLandingController = {
       message: "Imagem do hero atualizada",
       has_hero_image: true,
       updated_at: row.updatedAt.toISOString(),
+    });
+  },
+
+  /** Upload de imagem para galeria / carrossel: devolve `image_url` público para guardar em `landing_extras.gallery.items`. */
+  async uploadGalleryImage(req: Request, res: Response) {
+    const file = req.file;
+    if (!file?.filename) {
+      return res.status(400).json({ error: "Envie um ficheiro no campo gallery_image." });
+    }
+    const base = publicApiBaseFromRequest(req);
+    const image_url = `${base}/public/plans-landing/gallery-image/${encodeURIComponent(file.filename)}`;
+    return res.status(201).json({
+      image_url,
+      filename: file.filename,
     });
   },
 

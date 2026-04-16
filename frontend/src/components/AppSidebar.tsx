@@ -55,6 +55,8 @@ type NavItem = {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Texto ao pairar: quando usar esta página vs as outras do mesmo grupo */
+  hint?: string;
 };
 
 const presellNavItems: NavItem[] = [
@@ -63,18 +65,78 @@ const presellNavItems: NavItem[] = [
 ];
 
 const trackingNavItems: NavItem[] = [
-  { title: "Resumo e guia", url: "/tracking/dashboard", icon: LayoutDashboard },
-  { title: "Vendas / Funil", url: "/tracking/vendas", icon: ShoppingCart },
-  { title: "Plataformas", url: "/tracking/plataformas", icon: Globe },
-  { title: "Relatórios", url: "/tracking/relatorios", icon: ClipboardList },
-  { title: "Analytics", url: "/tracking/analytics", icon: BarChart3 },
-  { title: "Links", url: "/tracking/links", icon: Link2 },
-  { title: "Tracking Tools", url: "/tracking/tools", icon: Crosshair },
-  { title: "IP & proteções", url: "/tracking/blacklist", icon: ShieldBan },
-  { title: "Construtor de URL", url: "/tracking/url-builder", icon: LinkIcon },
-  { title: "Integrações", url: "/tracking/integrations", icon: Plug },
-  { title: "Configurações", url: "/tracking/settings", icon: Settings },
-  { title: "Logs", url: "/tracking/logs", icon: ScrollText },
+  {
+    title: "Resumo e guia",
+    url: "/tracking/dashboard",
+    icon: LayoutDashboard,
+    hint: "Painel principal: KPIs por período, gráfico e guia (script, postback). Comece aqui.",
+  },
+  {
+    title: "Vendas / Funil",
+    url: "/tracking/vendas",
+    icon: ShoppingCart,
+    hint: "Funil e etapas da jornada de conversão.",
+  },
+  {
+    title: "Plataformas",
+    url: "/tracking/plataformas",
+    icon: Globe,
+    hint: "Webhook de postback de afiliado: liga vendas ao clique (clickora_click_id).",
+  },
+  {
+    title: "Relatórios",
+    url: "/tracking/relatorios",
+    icon: ClipboardList,
+    hint: "Tabelas com filtro por data: impressões, cliques e conversões (mais detalhe).",
+  },
+  {
+    title: "Analytics",
+    url: "/tracking/analytics",
+    icon: BarChart3,
+    hint: "Visão rápida: totais e gráfico por presell. Para listagens por data, use Relatórios.",
+  },
+  {
+    title: "Links",
+    url: "/tracking/links",
+    icon: Link2,
+    hint: "Gerar links de redirect com UTMs ligados à presell.",
+  },
+  {
+    title: "Tracking Tools",
+    url: "/tracking/tools",
+    icon: Crosshair,
+    hint: "Diagnóstico: IP (GeoLite), GCLID no clique, auditoria de postbacks.",
+  },
+  {
+    title: "IP & proteções",
+    url: "/tracking/blacklist",
+    icon: ShieldBan,
+    hint: "Blacklist, whitelist e regras de proteção do tracking.",
+  },
+  {
+    title: "Construtor de URL",
+    url: "/tracking/url-builder",
+    icon: LinkIcon,
+    hint: "Montar o URL público da presell com UTMs e macros das redes.",
+  },
+  {
+    title: "Integrações",
+    url: "/tracking/integrations",
+    icon: Plug,
+    hint: "Google Ads, CSV, Telegram e ferramentas ligadas ao tracking.",
+  },
+  {
+    title: "Configurações",
+    url: "/tracking/settings",
+    icon: Settings,
+    hint: "Domínios personalizados, notificações e preferências da conta.",
+  },
+  {
+    title: "Logs",
+    url: "/tracking/logs",
+    icon: ScrollText,
+    hint: "Histórico de atividade e eventos recentes.",
+  },
 ];
 
 function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
@@ -86,6 +148,7 @@ function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
             <NavLink
               to={item.url}
               end
+              title={item.hint ?? item.title}
               className={({ isActive: a }) =>
                 cn("no-underline", a && "bg-sidebar-accent text-sidebar-accent-foreground font-medium")
               }

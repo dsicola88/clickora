@@ -25,6 +25,17 @@ export interface LandingExtrasLink {
   href: string;
 }
 
+export type LandingRichTextTypography = {
+  font_family?: "sans" | "serif" | "mono";
+  font_size?: "xs" | "sm" | "base" | "lg" | "xl" | "2xl";
+  font_weight?: "normal" | "medium" | "semibold" | "bold";
+  text_align?: "left" | "center" | "right";
+  /** Cor CSS (hex, rgba). Vazio = tema da página. */
+  text_color?: string | null;
+  /** Fundo da secção; vazio = transparente. */
+  background_color?: string | null;
+};
+
 export type LandingContentBlock =
   | {
       type: "video";
@@ -41,7 +52,12 @@ export type LandingContentBlock =
       alt?: string;
       caption?: string | null;
       layout?: "contained" | "wide";
-    };
+    }
+  | ({
+      type: "rich_text";
+      content: string;
+      layout?: "contained" | "wide";
+    } & LandingRichTextTypography);
 
 export interface LandingTestimonialItem {
   thumbnail_url: string;
@@ -326,11 +342,59 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     const parsed: LandingContentBlock[] = [];
     for (const item of rawBlocks) {
       if (!isPlainObject(item)) continue;
+      const layout =
+        item.layout === "wide" || item.layout === "contained" ? item.layout : undefined;
+      if (item.type === "rich_text") {
+        const content = typeof item.content === "string" ? item.content : "";
+        if (!content.trim()) continue;
+        const ff = item.font_family;
+        const font_family =
+          ff === "serif" || ff === "mono" || ff === "sans" ? ff : "sans";
+        const fsz = item.font_size;
+        const font_size =
+          fsz === "xs" ||
+          fsz === "sm" ||
+          fsz === "base" ||
+          fsz === "lg" ||
+          fsz === "xl" ||
+          fsz === "2xl"
+            ? fsz
+            : "base";
+        const fw = item.font_weight;
+        const font_weight =
+          fw === "medium" ||
+          fw === "semibold" ||
+          fw === "bold" ||
+          fw === "normal"
+            ? fw
+            : "normal";
+        const ta = item.text_align;
+        const text_align =
+          ta === "center" || ta === "right" || ta === "left" ? ta : "left";
+        const text_color =
+          typeof item.text_color === "string" && item.text_color.trim()
+            ? item.text_color.trim()
+            : null;
+        const background_color =
+          typeof item.background_color === "string" && item.background_color.trim()
+            ? item.background_color.trim()
+            : null;
+        parsed.push({
+          type: "rich_text",
+          content,
+          font_family,
+          font_size,
+          font_weight,
+          text_align,
+          text_color,
+          background_color,
+          layout,
+        });
+        continue;
+      }
       const t = item.type === "image" ? "image" : "video";
       const title = typeof item.title === "string" ? item.title : null;
       const subtitle = typeof item.subtitle === "string" ? item.subtitle : null;
-      const layout =
-        item.layout === "wide" || item.layout === "contained" ? item.layout : undefined;
       if (t === "video") {
         const url = typeof item.url === "string" ? item.url.trim() : "";
         if (!url) continue;

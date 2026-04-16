@@ -8,6 +8,7 @@ import {
   plansHeroContentEntranceClass,
   plansHeroImageEffectClass,
   plansHeroImagePositionStyle,
+  plansHeroMinHeightStyle,
   plansHeroOverlayClass,
 } from "@/lib/plansLandingHeroVisual";
 
@@ -98,10 +99,11 @@ export function PlansLandingHeroBlock({
 
   return (
     <section
+      style={plansHeroMinHeightStyle(v)}
       className={cn(
         "group/plans-hero relative mb-8 overflow-hidden rounded-2xl shadow-sm",
         dark ? "border border-white/10 ring-1 ring-white/5" : "border border-border/60",
-        "min-h-[220px] md:min-h-[280px]",
+        "min-h-[var(--plans-hero-min-sm)] md:min-h-[var(--plans-hero-min-md)]",
         className,
       )}
     >

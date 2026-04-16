@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 export type PlansHeroImageEffect = "none" | "ken-burns" | "hover-zoom" | "parallax";
@@ -14,6 +15,10 @@ export interface PlansHeroVisual {
   content_entrance: PlansHeroContentEntrance;
   /** Recorte vertical da fotografia no hero (equivalente a «foco» / object-position). */
   image_object_position: PlansHeroImageObjectPosition;
+  /** Altura mínima do hero em px (mobile). */
+  min_height_mobile_px: number;
+  /** Altura mínima do hero em px (md e acima). */
+  min_height_desktop_px: number;
   cta_enabled: boolean;
   cta_label: string | null;
   cta_href: string | null;
@@ -25,10 +30,17 @@ export const DEFAULT_PLANS_HERO_VISUAL: PlansHeroVisual = {
   overlay_intensity: "medium",
   content_entrance: "fade-up",
   image_object_position: "center",
+  min_height_mobile_px: 220,
+  min_height_desktop_px: 280,
   cta_enabled: true,
   cta_label: "Ver planos",
   cta_href: "#planos",
 };
+
+function clampInt(n: unknown, fallback: number, min: number, max: number): number {
+  if (typeof n !== "number" || !Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
 
 export function coercePlansHeroVisual(v: unknown): PlansHeroVisual {
   if (typeof v !== "object" || v === null) return { ...DEFAULT_PLANS_HERO_VISUAL };
@@ -47,6 +59,13 @@ export function coercePlansHeroVisual(v: unknown): PlansHeroVisual {
       focal === "top" || focal === "bottom" || focal === "center"
         ? focal
         : DEFAULT_PLANS_HERO_VISUAL.image_object_position,
+    min_height_mobile_px: clampInt(o.min_height_mobile_px, DEFAULT_PLANS_HERO_VISUAL.min_height_mobile_px, 160, 900),
+    min_height_desktop_px: clampInt(
+      o.min_height_desktop_px,
+      DEFAULT_PLANS_HERO_VISUAL.min_height_desktop_px,
+      200,
+      1200,
+    ),
     overlay_style:
       overlay === "gradient-dark" ||
       overlay === "gradient-light" ||
@@ -127,6 +146,14 @@ export function plansHeroImageEffectClass(v: PlansHeroVisual): string {
     default:
       return "";
   }
+}
+
+/** Variáveis CSS para `min-height` responsivo do hero (definidas no `<section>`). */
+export function plansHeroMinHeightStyle(v: PlansHeroVisual): CSSProperties {
+  return {
+    ["--plans-hero-min-sm"]: `${v.min_height_mobile_px}px`,
+    ["--plans-hero-min-md"]: `${v.min_height_desktop_px}px`,
+  };
 }
 
 export function plansHeroContentEntranceClass(v: PlansHeroVisual): string {

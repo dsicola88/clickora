@@ -5,12 +5,23 @@ import type { ResolvedLandingPageTheme } from "@/lib/landingPageTheme";
 
 type Surface = "dark_page" | "light_card" | "inherit";
 
+type ColorOverrides = {
+  body?: string;
+  heading?: string;
+  link?: string;
+  border?: string;
+};
+
 type Props = {
   content: string;
   /** `dark_page`: cores do tema da landing escura. `light_card`: cartões brancos (destaques). `inherit`: só estrutura, cor do pai. */
   surface?: Surface;
   /** Obrigatório quando `surface` é `dark_page`. */
   salesTheme?: ResolvedLandingPageTheme | null;
+  /** Sobrepõe cores do tema (blocos de texto personalizados). */
+  colorOverrides?: ColorOverrides | null;
+  /** Classes Tailwind do tamanho base do texto (ex.: `text-lg`). Omissão: `text-sm md:text-base`. */
+  sizeClassName?: string;
   className?: string;
 };
 
@@ -22,20 +33,29 @@ export function LandingMarkdown({
   content,
   surface = "inherit",
   salesTheme,
+  colorOverrides,
+  sizeClassName,
   className,
 }: Props) {
   const t = salesTheme ?? null;
-  const body = surface === "dark_page" && t ? t.muted_on_dark : undefined;
-  const heading = surface === "dark_page" && t ? t.heading_on_dark : undefined;
-  const link = surface === "dark_page" && t ? t.link : undefined;
-  const border = surface === "dark_page" && t ? t.nav_border : undefined;
+  const ov = colorOverrides ?? null;
+  const body =
+    ov?.body ??
+    (surface === "dark_page" && t ? t.muted_on_dark : undefined);
+  const heading =
+    ov?.heading ??
+    ov?.body ??
+    (surface === "dark_page" && t ? t.heading_on_dark : undefined);
+  const link = ov?.link ?? (surface === "dark_page" && t ? t.link : undefined);
+  const border = ov?.border ?? (surface === "dark_page" && t ? t.nav_border : undefined);
 
   const lightCard = surface === "light_card";
 
   return (
     <div
       className={cn(
-        "landing-md text-sm leading-relaxed md:text-base",
+        "landing-md leading-relaxed",
+        sizeClassName ?? "text-sm md:text-base",
         lightCard && "text-slate-600 [&_strong]:text-slate-900 [&_a]:text-primary [&_code]:text-slate-800",
         className,
       )}
@@ -126,8 +146,8 @@ export function LandingMarkdown({
                 lightCard && "border-primary/40 text-slate-700",
               )}
               style={
-                surface === "dark_page" && link
-                  ? { borderColor: link, color: body }
+                body || link
+                  ? { borderColor: link ?? border, color: body }
                   : undefined
               }
             >

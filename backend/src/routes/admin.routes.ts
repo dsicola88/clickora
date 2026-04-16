@@ -5,7 +5,7 @@ import { authenticate } from "../middleware/authenticate";
 import { requireRole } from "../middleware/requireRole";
 import { faviconUpload } from "../lib/brandingUpload";
 import { plansLandingController } from "../controllers/plansLanding.controller";
-import { plansHeroUpload } from "../lib/plansLandingUpload";
+import { plansGalleryUpload, plansHeroUpload } from "../lib/plansLandingUpload";
 
 export const adminRouter = Router();
 
@@ -39,6 +39,16 @@ function handlePlansHeroUpload(req: Request, res: Response, next: NextFunction) 
   });
 }
 
+function handlePlansGalleryUpload(req: Request, res: Response, next: NextFunction) {
+  plansGalleryUpload.single("gallery_image")(req, res, (err: unknown) => {
+    if (err) {
+      const msg = err instanceof Error ? err.message : "Erro no upload";
+      return res.status(400).json({ error: msg });
+    }
+    next();
+  });
+}
+
 adminRouter.get("/plans-landing", requireRole("super_admin"), plansLandingController.getAdmin);
 adminRouter.patch("/plans-landing", requireRole("super_admin"), plansLandingController.patchAdmin);
 adminRouter.post(
@@ -46,6 +56,12 @@ adminRouter.post(
   requireRole("super_admin"),
   handlePlansHeroUpload,
   plansLandingController.uploadHero,
+);
+adminRouter.post(
+  "/plans-landing/gallery-image",
+  requireRole("super_admin"),
+  handlePlansGalleryUpload,
+  plansLandingController.uploadGalleryImage,
 );
 adminRouter.delete("/plans-landing/hero-image", requireRole("super_admin"), plansLandingController.clearHero);
 

@@ -156,6 +156,34 @@ export const adminService = {
     }
   },
 
+  async uploadPlansGalleryImage(file: File) {
+    const form = new FormData();
+    form.append("gallery_image", file);
+    const token = localStorage.getItem("clickora_token");
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/admin/plans-landing/gallery-image`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        image_url?: string;
+        filename?: string;
+      };
+      if (!res.ok) {
+        return { data: null, error: body.error || `Erro ${res.status}` };
+      }
+      if (!body.image_url) {
+        return { data: null, error: "Resposta sem image_url" };
+      }
+      return { data: { image_url: body.image_url, filename: body.filename }, error: null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro de rede";
+      return { data: null, error: msg };
+    }
+  },
+
   async clearPlansHeroImage() {
     const token = localStorage.getItem("clickora_token");
     try {

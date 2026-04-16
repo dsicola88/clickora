@@ -368,7 +368,7 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Relatórios"
-        description="Visualize dados detalhados de acessos, cliques e conversões (sincronizado com o tracking)."
+        description="Detalhe operacional: escolha o intervalo de datas e analise impressões, cliques e conversões em tabela. Complementa o resumo do painel (Resumo e guia) e o gráfico rápido em Analytics."
       />
 
       <Tabs value={tab} onValueChange={setTab}>

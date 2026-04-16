@@ -123,7 +123,7 @@ export default function Tracking() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Tracking Tools"
-        description="Use ferramentas avançadas para diagnóstico, GCLID e auditoria de postbacks."
+        description="Ferramentas de diagnóstico (IP, GCLID, postbacks): não substituem Relatórios nem Analytics — servem para investigar um IP, um clique ou os últimos postbacks recebidos."
       />
 
       <Tabs defaultValue="ip">

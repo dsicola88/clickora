@@ -14,7 +14,7 @@ export const LANDING_SECTION_IDS = [
 export type LandingSectionId = (typeof LANDING_SECTION_IDS)[number];
 
 export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
-  content_blocks: "Blocos de vídeo / imagem",
+  content_blocks: "Blocos (vídeo, imagem, texto)",
   features: "Destaques (3 cartões)",
   stats: "Números / estatísticas",
   testimonials: "Testemunhos em vídeo",

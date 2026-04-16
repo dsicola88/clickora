@@ -604,7 +604,9 @@ function DashboardHeroMetrics({
         <div className="min-w-0 space-y-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{greeting}</h1>
           <p className="text-sm text-muted-foreground">
-            Resumo do período: vendas, presell e Google Ads (se estiver ligado).
+            Painel principal do período: vendas, presell e Google Ads (se estiver ligado). Para{" "}
+            <strong className="text-foreground/90 font-medium">tabelas com filtro por data</strong> use Relatórios; para{" "}
+            <strong className="text-foreground/90 font-medium">visão rápida por página</strong>, Analytics.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:max-w-xl">

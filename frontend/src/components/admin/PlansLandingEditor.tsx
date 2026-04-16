@@ -26,6 +26,8 @@ import {
   Video,
   Users,
   GripVertical,
+  Loader2,
+  Type,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
@@ -67,16 +69,37 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 const ADMIN_KEY = ["admin-plans-landing"] as const;
 const PUBLIC_KEY = ["plans-landing-public"] as const;
 
-type EditorContentBlock = {
-  type: "video" | "image";
+type EditorVideoBlock = {
+  type: "video";
   title: string;
   subtitle: string;
   url: string;
+  layout: "contained" | "wide";
+};
+
+type EditorImageBlock = {
+  type: "image";
+  title: string;
+  subtitle: string;
   src: string;
   alt: string;
   caption: string;
   layout: "contained" | "wide";
 };
+
+type EditorRichTextBlock = {
+  type: "rich_text";
+  content: string;
+  font_family: "sans" | "serif" | "mono";
+  font_size: "xs" | "sm" | "base" | "lg" | "xl" | "2xl";
+  font_weight: "normal" | "medium" | "semibold" | "bold";
+  text_align: "left" | "center" | "right";
+  text_color: string;
+  background_color: string;
+  layout: "contained" | "wide";
+};
+
+type EditorContentBlock = EditorVideoBlock | EditorImageBlock | EditorRichTextBlock;
 
 const OPT_FONT = [
   { value: "sans", label: "Sans (UI)" },
@@ -111,6 +134,15 @@ const OPT_BODY = [
   { value: "base", label: "Base (padrão)" },
   { value: "lg", label: "LG" },
   { value: "xl", label: "XL" },
+];
+
+const OPT_RICH_SIZE = [
+  { value: "xs", label: "XS" },
+  { value: "sm", label: "SM" },
+  { value: "base", label: "Base" },
+  { value: "lg", label: "LG" },
+  { value: "xl", label: "XL" },
+  { value: "2xl", label: "2XL" },
 ];
 
 const OPT_IMAGE_EFFECT = [
@@ -366,6 +398,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       gap_px: o.gap_px,
     };
   });
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryPickIndexRef = useRef<number | null>(null);
+  const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -430,29 +465,39 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     const blocks = ex.content_blocks;
     if (blocks?.length) {
       setContentBlocks(
-        blocks.map((b) =>
-          b.type === "image"
-            ? {
-                type: "image",
-                title: b.title ?? "",
-                subtitle: b.subtitle ?? "",
-                url: "",
-                src: b.src,
-                alt: b.alt ?? "",
-                caption: b.caption ?? "",
-                layout: b.layout === "wide" ? "wide" : "contained",
-              }
-            : {
-                type: "video",
-                title: b.title ?? "",
-                subtitle: b.subtitle ?? "",
-                url: b.url,
-                src: "",
-                alt: "",
-                caption: "",
-                layout: b.layout === "wide" ? "wide" : "contained",
-              },
-        ),
+        blocks.map((b) => {
+          if (b.type === "rich_text") {
+            return {
+              type: "rich_text" as const,
+              content: b.content ?? "",
+              font_family: b.font_family ?? "sans",
+              font_size: b.font_size ?? "base",
+              font_weight: b.font_weight ?? "normal",
+              text_align: b.text_align ?? "left",
+              text_color: b.text_color?.trim() ?? "",
+              background_color: b.background_color?.trim() ?? "",
+              layout: b.layout === "wide" ? "wide" : "contained",
+            };
+          }
+          if (b.type === "image") {
+            return {
+              type: "image" as const,
+              title: b.title ?? "",
+              subtitle: b.subtitle ?? "",
+              src: b.src,
+              alt: b.alt ?? "",
+              caption: b.caption ?? "",
+              layout: b.layout === "wide" ? "wide" : "contained",
+            };
+          }
+          return {
+            type: "video" as const,
+            title: b.title ?? "",
+            subtitle: b.subtitle ?? "",
+            url: b.url,
+            layout: b.layout === "wide" ? "wide" : "contained",
+          };
+        }),
       );
     } else {
       setContentBlocks([]);
@@ -572,6 +617,21 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
     const content_blocks = contentBlocks
       .map((b) => {
+        if (b.type === "rich_text") {
+          const content = b.content.trim();
+          if (!content) return null;
+          return {
+            type: "rich_text" as const,
+            content,
+            font_family: b.font_family,
+            font_size: b.font_size,
+            font_weight: b.font_weight,
+            text_align: b.text_align,
+            text_color: b.text_color.trim() || null,
+            background_color: b.background_color.trim() || null,
+            ...(b.layout === "wide" ? { layout: "wide" as const } : {}),
+          };
+        }
         if (b.type === "video") {
           const url = b.url.trim();
           if (!url) return null;
@@ -726,19 +786,38 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const previewSalesThemed = useMemo(() => resolveLandingPageTheme(landingTheme), [landingTheme]);
 
-  const addContentBlock = (type: "video" | "image") => {
+  const addContentBlock = (kind: "video" | "image" | "rich_text") => {
     setContentBlocks((prev) => [
       ...prev,
-      {
-        type,
-        title: "",
-        subtitle: "",
-        url: "",
-        src: "",
-        alt: "",
-        caption: "",
-        layout: "contained",
-      },
+      kind === "rich_text"
+        ? {
+            type: "rich_text",
+            content: "",
+            font_family: "sans",
+            font_size: "base",
+            font_weight: "normal",
+            text_align: "left",
+            text_color: "",
+            background_color: "",
+            layout: "contained",
+          }
+        : kind === "video"
+          ? {
+              type: "video",
+              title: "",
+              subtitle: "",
+              url: "",
+              layout: "contained",
+            }
+          : {
+              type: "image",
+              title: "",
+              subtitle: "",
+              src: "",
+              alt: "",
+              caption: "",
+              layout: "contained",
+            },
     ]);
   };
 
@@ -810,6 +889,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         hero_visual: {
           image_effect: heroVisual.image_effect,
           image_object_position: heroVisual.image_object_position,
+          min_height_mobile_px: heroVisual.min_height_mobile_px,
+          min_height_desktop_px: heroVisual.min_height_desktop_px,
           overlay_style: heroVisual.overlay_style,
           overlay_intensity: heroVisual.overlay_intensity,
           content_entrance: heroVisual.content_entrance,
@@ -1502,9 +1583,40 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
                   <p className="text-xs text-muted-foreground">
-                    Imagens em grelha ou em carrossel (setas, pontos, autoplay). Clique na imagem para ampliar. Até 8 cartões.
-                    Ordem na lista = ordem no carrossel ou na grelha. Visibilidade global no cartão «Ordem e visibilidade».
+                    Imagens em grelha ou em carrossel (setas, pontos, autoplay). Clique na imagem para ampliar. Até 8
+                    cartões. Ordem na lista = ordem no carrossel ou na grelha. Pode{" "}
+                    <strong className="text-foreground/90">colar um URL</strong> ou{" "}
+                    <strong className="text-foreground/90">carregar do PC</strong> (JPG, PNG ou WebP, máx. 2 MB) — o
+                    servidor gera o URL público. Guarde a landing em seguida.
                   </p>
+                  <input
+                    ref={galleryFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    tabIndex={-1}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      const idx = galleryPickIndexRef.current;
+                      e.target.value = "";
+                      galleryPickIndexRef.current = null;
+                      if (file == null || idx === null) return;
+                      setGalleryUploadBusy(true);
+                      try {
+                        const { data, error } = await adminService.uploadPlansGalleryImage(file);
+                        if (error || !data?.image_url) {
+                          toast.error(error || "Não foi possível carregar a imagem.");
+                          return;
+                        }
+                        setGalleryItems((prev) =>
+                          prev.map((r, i) => (i === idx ? { ...r, image_url: data.image_url } : r)),
+                        );
+                        toast.success("Imagem carregada. Guarde a landing para persistir.");
+                      } finally {
+                        setGalleryUploadBusy(false);
+                      }
+                    }}
+                  />
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Título</Label>
@@ -1731,9 +1843,29 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           </div>
                           <div className="grid gap-2 sm:grid-cols-2">
                             <div className="space-y-1.5 sm:col-span-2">
-                              <Label className="text-xs">URL da imagem</Label>
+                              <div className="flex flex-wrap items-end justify-between gap-2">
+                                <Label className="text-xs">URL da imagem (ou carregue do PC)</Label>
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  className="h-8 gap-1.5 text-xs"
+                                  disabled={galleryUploadBusy}
+                                  onClick={() => {
+                                    galleryPickIndexRef.current = idx;
+                                    galleryFileInputRef.current?.click();
+                                  }}
+                                >
+                                  {galleryUploadBusy ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Upload className="h-3.5 w-3.5" />
+                                  )}
+                                  Carregar do PC
+                                </Button>
+                              </div>
                               <Input
-                                placeholder="https://…"
+                                placeholder="https://… ou use «Carregar do PC»"
                                 value={row.image_url}
                                 onChange={(e) =>
                                   setGalleryItems((prev) =>
@@ -1744,6 +1876,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 }
                                 maxLength={2000}
                               />
+                              {row.image_url.trim() ? (
+                                <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                                  <img
+                                    src={row.image_url}
+                                    alt=""
+                                    className="max-h-28 w-full object-contain object-left"
+                                  />
+                                </div>
+                              ) : null}
                             </div>
                             <div className="space-y-1.5">
                               <Label className="text-xs">Nome (opcional)</Label>
@@ -1894,6 +2035,42 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 Overlay, animação de entrada e efeitos na imagem — tudo configurável aqui, sem ferramentas externas.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Altura mínima — mobile (px)</Label>
+                  <Input
+                    type="number"
+                    min={160}
+                    max={900}
+                    step={10}
+                    value={heroVisual.min_height_mobile_px}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setHeroVisual((p) => ({
+                        ...p,
+                        min_height_mobile_px: Number.isFinite(n) ? n : p.min_height_mobile_px,
+                      }));
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground">160–900 (padrão 220)</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Altura mínima — desktop (px)</Label>
+                  <Input
+                    type="number"
+                    min={200}
+                    max={1200}
+                    step={10}
+                    value={heroVisual.min_height_desktop_px}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setHeroVisual((p) => ({
+                        ...p,
+                        min_height_desktop_px: Number.isFinite(n) ? n : p.min_height_desktop_px,
+                      }));
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground">200–1200 (padrão 280)</p>
+                </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Imagem</Label>
                   <Select
@@ -2316,11 +2493,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             <div className="min-w-0 space-y-1.5">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Video className="h-5 w-5 text-primary" />
-                Blocos de vídeo e imagem
+                Blocos de conteúdo
               </CardTitle>
               <CardDescription>
-                Ordem de cima para baixo = ordem na página (após o texto introdutório). Vídeo: YouTube, Vimeo ou URL direta .mp4/.webm.
-                Imagem: URL completa (https) ou caminho começado por / (ex.: /uploads/banner.png). Guardar com o botão do cartão principal ou abaixo.
+                Ordem de cima para baixo = ordem na página (após o texto introdutório). Pode adicionar vídeos, imagens ou secções de texto com tipografia e cores (estilo página de vendas). Vídeo:
+                YouTube, Vimeo ou ficheiro .mp4/.webm. Imagem: URL https ou caminho a começar por /. Texto: Markdown (negrito, listas, ligações). Guarde com o botão do cartão principal ou abaixo.
               </CardDescription>
             </div>
             <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -2349,10 +2526,23 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             <Plus className="h-4 w-4" />
             Imagem
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => addContentBlock("rich_text")}
+          >
+            <Plus className="h-4 w-4" />
+            <Type className="h-4 w-4" />
+            Texto
+          </Button>
         </div>
 
         {contentBlocks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum bloco. Adicione vídeos ou imagens para mostrar na landing.</p>
+          <p className="text-sm text-muted-foreground">
+            Nenhum bloco. Adicione vídeo, imagem ou secções de texto para mostrar na landing.
+          </p>
         ) : (
           <div className="space-y-4">
             {contentBlocks.map((block, index) => (
@@ -2366,9 +2556,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       <>
                         <Video className="h-3.5 w-3.5" /> Vídeo
                       </>
-                    ) : (
+                    ) : block.type === "image" ? (
                       <>
                         <ImageIcon className="h-3.5 w-3.5" /> Imagem
+                      </>
+                    ) : (
+                      <>
+                        <Type className="h-3.5 w-3.5" /> Texto
                       </>
                     )}
                     <span className="text-[10px] font-normal normal-case opacity-70">#{index + 1}</span>
@@ -2409,113 +2603,328 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Título (opcional)</Label>
-                    <Input
-                      value={block.title}
-                      onChange={(e) =>
-                        setContentBlocks((prev) =>
-                          prev.map((b, i) => (i === index ? { ...b, title: e.target.value } : b)),
-                        )
-                      }
-                      maxLength={200}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Subtítulo (opcional)</Label>
-                    <Input
-                      value={block.subtitle}
-                      onChange={(e) =>
-                        setContentBlocks((prev) =>
-                          prev.map((b, i) => (i === index ? { ...b, subtitle: e.target.value } : b)),
-                        )
-                      }
-                      maxLength={500}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label className="text-xs">Largura</Label>
-                    <Select
-                      value={block.layout}
-                      onValueChange={(v) =>
-                        setContentBlocks((prev) =>
-                          prev.map((b, i) =>
-                            i === index ? { ...b, layout: v === "wide" ? "wide" : "contained" } : b,
-                          ),
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="contained">Contida (max. ~896px)</SelectItem>
-                        <SelectItem value="wide">Larga (largura útil)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {block.type === "video" ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">URL do vídeo</Label>
-                    <Input
-                      placeholder="https://www.youtube.com/watch?v=… ou https://…/video.mp4"
-                      value={block.url}
-                      onChange={(e) =>
-                        setContentBlocks((prev) =>
-                          prev.map((b, i) => (i === index ? { ...b, url: e.target.value } : b)),
-                        )
-                      }
-                      maxLength={2000}
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-3">
+                {block.type === "rich_text" ? (
+                  <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">URL da imagem</Label>
-                      <Input
-                        placeholder="https://… ou /caminho/relativo.png"
-                        value={block.src}
+                      <Label className="text-xs">Conteúdo (Markdown)</Label>
+                      <Textarea
+                        rows={8}
+                        placeholder="Parágrafos, **negrito**, listas e [ligações](https://…)"
+                        value={block.content}
                         onChange={(e) =>
                           setContentBlocks((prev) =>
-                            prev.map((b, i) => (i === index ? { ...b, src: e.target.value } : b)),
+                            prev.map((b, i) =>
+                              i === index && b.type === "rich_text"
+                                ? { ...b, content: e.target.value }
+                                : b,
+                            ),
                           )
                         }
-                        maxLength={2000}
+                        className="resize-y font-mono text-sm"
                       />
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        Vazio não é guardado. Cor vazio no texto = cores do tema escolhido na landing.
+                      </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Texto alternativo (acessibilidade)</Label>
+                        <Label className="text-xs">Tipo de letra</Label>
+                        <Select
+                          value={block.font_family}
+                          onValueChange={(v) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, font_family: v as EditorRichTextBlock["font_family"] }
+                                  : b,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OPT_FONT.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Tamanho</Label>
+                        <Select
+                          value={block.font_size}
+                          onValueChange={(v) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, font_size: v as EditorRichTextBlock["font_size"] }
+                                  : b,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OPT_RICH_SIZE.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Peso</Label>
+                        <Select
+                          value={block.font_weight}
+                          onValueChange={(v) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, font_weight: v as EditorRichTextBlock["font_weight"] }
+                                  : b,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OPT_WEIGHT.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Alinhamento</Label>
+                        <Select
+                          value={block.text_align}
+                          onValueChange={(v) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, text_align: v as EditorRichTextBlock["text_align"] }
+                                  : b,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OPT_ALIGN.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Cor do texto (opcional)</Label>
                         <Input
-                          value={block.alt}
+                          placeholder="ex.: #e2e8f0 ou rgba(255,255,255,0.9)"
+                          value={block.text_color}
                           onChange={(e) =>
                             setContentBlocks((prev) =>
-                              prev.map((b, i) => (i === index ? { ...b, alt: e.target.value } : b)),
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, text_color: e.target.value }
+                                  : b,
+                              ),
+                            )
+                          }
+                          maxLength={80}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Fundo da secção (opcional)</Label>
+                        <Input
+                          placeholder="ex.: rgba(0,0,0,0.25)"
+                          value={block.background_color}
+                          onChange={(e) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, background_color: e.target.value }
+                                  : b,
+                              ),
+                            )
+                          }
+                          maxLength={80}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs">Largura</Label>
+                        <Select
+                          value={block.layout}
+                          onValueChange={(v) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "rich_text"
+                                  ? { ...b, layout: v === "wide" ? "wide" : "contained" }
+                                  : b,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="contained">Contida (max. ~896px)</SelectItem>
+                            <SelectItem value="wide">Larga (largura útil)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Título (opcional)</Label>
+                        <Input
+                          value={block.title}
+                          onChange={(e) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && (b.type === "video" || b.type === "image")
+                                  ? { ...b, title: e.target.value }
+                                  : b,
+                              ),
                             )
                           }
                           maxLength={200}
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Legenda (opcional)</Label>
+                        <Label className="text-xs">Subtítulo (opcional)</Label>
                         <Input
-                          value={block.caption}
+                          value={block.subtitle}
                           onChange={(e) =>
                             setContentBlocks((prev) =>
-                              prev.map((b, i) => (i === index ? { ...b, caption: e.target.value } : b)),
+                              prev.map((b, i) =>
+                                i === index && (b.type === "video" || b.type === "image")
+                                  ? { ...b, subtitle: e.target.value }
+                                  : b,
+                              ),
                             )
                           }
                           maxLength={500}
                         />
                       </div>
                     </div>
-                  </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs">Largura</Label>
+                        <Select
+                          value={block.layout}
+                          onValueChange={(v) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && (b.type === "video" || b.type === "image")
+                                  ? { ...b, layout: v === "wide" ? "wide" : "contained" }
+                                  : b,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="contained">Contida (max. ~896px)</SelectItem>
+                            <SelectItem value="wide">Larga (largura útil)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {block.type === "video" ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">URL do vídeo</Label>
+                        <Input
+                          placeholder="https://www.youtube.com/watch?v=… ou https://…/video.mp4"
+                          value={block.url}
+                          onChange={(e) =>
+                            setContentBlocks((prev) =>
+                              prev.map((b, i) =>
+                                i === index && b.type === "video" ? { ...b, url: e.target.value } : b,
+                              ),
+                            )
+                          }
+                          maxLength={2000}
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">URL da imagem</Label>
+                          <Input
+                            placeholder="https://… ou /caminho/relativo.png"
+                            value={block.src}
+                            onChange={(e) =>
+                              setContentBlocks((prev) =>
+                                prev.map((b, i) =>
+                                  i === index && b.type === "image" ? { ...b, src: e.target.value } : b,
+                                ),
+                              )
+                            }
+                            maxLength={2000}
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Texto alternativo (acessibilidade)</Label>
+                            <Input
+                              value={block.alt}
+                              onChange={(e) =>
+                                setContentBlocks((prev) =>
+                                  prev.map((b, i) =>
+                                    i === index && b.type === "image" ? { ...b, alt: e.target.value } : b,
+                                  ),
+                                )
+                              }
+                              maxLength={200}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Legenda (opcional)</Label>
+                            <Input
+                              value={block.caption}
+                              onChange={(e) =>
+                                setContentBlocks((prev) =>
+                                  prev.map((b, i) =>
+                                    i === index && b.type === "image"
+                                      ? { ...b, caption: e.target.value }
+                                      : b,
+                                  ),
+                                )
+                              }
+                              maxLength={500}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}

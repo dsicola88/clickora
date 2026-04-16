@@ -79,7 +79,7 @@ export default function Analytics() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Analytics"
-        description="Acompanhe a performance das suas páginas por volume e taxa de cliques."
+        description="Visão rápida: totais e gráfico por presell. Para listagens detalhadas com intervalo de datas (impressões, cliques, conversões), abra Relatórios."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
