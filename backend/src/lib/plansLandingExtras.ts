@@ -127,6 +127,9 @@ export const landingExtrasThemeSchema = z
     outline_nav_bg: colorToken,
     stats_glow: colorToken,
     section_font: z.enum(["sans", "serif", "mono"]).optional().nullable(),
+    accent_button_shadow: z.string().max(200).optional().nullable(),
+    accent_button_radius: z.string().max(48).optional().nullable(),
+    plan_card_radius: z.string().max(48).optional().nullable(),
   })
   .strict();
 

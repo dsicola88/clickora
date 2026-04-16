@@ -37,7 +37,7 @@ import {
   coerceTextAlign,
   plansLandingFooterClasses,
   plansLandingHeroInnerClasses,
-  plansLandingHeroSubtitleClasses,
+  plansLandingHeroSubtitleMarkdownClasses,
   plansLandingHeroTitleClasses,
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
@@ -53,6 +53,7 @@ import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
 import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
 import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
 import { LandingPageBodySections } from "@/components/plans/LandingPageBodySections";
+import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
 import {
   DEFAULT_LANDING_SECTION_ORDER,
@@ -166,7 +167,22 @@ const THEME_FIELD_ROWS: { key: keyof LandingPageThemeInput; label: string; place
   { key: "nav_border", label: "Borda da barra / separadores", placeholder: "rgba(255,255,255,0.1)" },
   { key: "outline_nav_border", label: "Botões outline (borda)", placeholder: "rgba(255,255,255,0.25)" },
   { key: "outline_nav_bg", label: "Botões outline (fundo)", placeholder: "rgba(255,255,255,0.05)" },
+  {
+    key: "accent_button_shadow",
+    label: "Sombra dos botões principais (CTA)",
+    placeholder: "0 8px 32px -8px rgba(5,150,105,0.45)",
+  },
+  { key: "accent_button_radius", label: "Raio dos botões CTA", placeholder: "9999px ou 0.75rem" },
+  { key: "plan_card_radius", label: "Raio dos cartões de plano", placeholder: "1rem" },
 ];
+
+const MARKDOWN_HINT = (
+  <p className="text-[11px] leading-snug text-muted-foreground">
+    Pode usar Markdown: <span className="font-mono">**negrito**</span>, listas,{" "}
+    <span className="font-mono">[texto](https://…)</span>, imagens{" "}
+    <span className="font-mono">![descrição](https://…)</span>.
+  </p>
+);
 
 function HeroPreview(props: {
   badgeText: string;
@@ -212,7 +228,15 @@ function HeroPreview(props: {
         ) : null}
         <h2 className={plansLandingHeroTitleClasses({ size: titleS, weight })}>{props.heroTitle || "…"}</h2>
         {props.heroSubtitle.trim() ? (
-          <p className={plansLandingHeroSubtitleClasses(subS)}>{props.heroSubtitle}</p>
+          <LandingMarkdown
+            content={props.heroSubtitle}
+            surface={props.salesTone ? "dark_page" : "inherit"}
+            salesTheme={props.salesTone ? salesThemed : null}
+            className={cn(
+              plansLandingHeroSubtitleMarkdownClasses(subS),
+              !props.salesTone && "text-muted-foreground",
+            )}
+          />
         ) : null}
       </div>
     </PlansLandingHeroBlock>
@@ -932,8 +956,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               Landing da página de planos
             </CardTitle>
             <CardDescription className="mt-1 max-w-2xl">
-              Textos, imagem, tipografia e efeitos visuais do hero (overlay, zoom, parallax, botão, animação de entrada). A
-              pré-visualização replica a <span className="font-medium text-foreground">página inicial</span> (
+              Textos (subtítulo, intro e rodapé suportam Markdown para negrito, listas, ligações e imagens por URL), imagem,
+              tipografia e efeitos visuais do hero (overlay, zoom, parallax, botão, animação de entrada). A pré-visualização
+              replica a <span className="font-medium text-foreground">página inicial</span> (
               <span className="font-medium text-foreground">/</span>
               ); <span className="font-medium text-foreground">/plans</span> e <span className="font-medium text-foreground">/planos</span>{" "}
               redirecionam para lá.
@@ -972,6 +997,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 onChange={(e) => setHeroSubtitle(e.target.value)}
                 className="resize-y min-h-[72px]"
               />
+              {MARKDOWN_HINT}
             </div>
 
             <div className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-4">
@@ -1222,6 +1248,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
               ))}
+              {MARKDOWN_HINT}
 
               <Separator />
 
@@ -2022,6 +2049,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 onChange={(e) => setIntroText(e.target.value)}
                 className="resize-y"
               />
+              {MARKDOWN_HINT}
             </div>
             <div className="rounded-lg border border-border/60 p-3 space-y-3">
               <p className="text-xs font-medium text-muted-foreground">Tipografia do texto introdutório</p>
@@ -2084,6 +2112,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 onChange={(e) => setFooterText(e.target.value)}
                 className="resize-y"
               />
+              {MARKDOWN_HINT}
             </div>
             <div className="rounded-lg border border-border/60 p-3 space-y-3">
               <p className="text-xs font-medium text-muted-foreground">Tipografia do rodapé</p>
@@ -2218,15 +2247,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   {introText.trim() ? (
                     <div
                       className={cn(
-                        "mt-4 rounded-lg border border-border/60 bg-card/80 p-4 whitespace-pre-line",
-                        plansLandingIntroClasses({
-                          font: coerceFontFamily(introFont),
-                          align: coerceTextAlign(introTextAlign),
-                          size: coerceBodySize(introTextSize),
-                        }),
+                        "mt-4 rounded-lg border border-border/60 bg-card/80 p-4",
+                        plansLandingIntroClasses(
+                          {
+                            font: coerceFontFamily(introFont),
+                            align: coerceTextAlign(introTextAlign),
+                            size: coerceBodySize(introTextSize),
+                          },
+                          { omitColor: appearance === "sales_dark" },
+                        ),
                       )}
                     >
-                      {introText}
+                      <LandingMarkdown
+                        content={introText}
+                        surface={appearance === "sales_dark" ? "dark_page" : "inherit"}
+                        salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                      />
                     </div>
                   ) : (
                     <p className="mt-4 text-xs italic text-muted-foreground">Sem texto introdutório.</p>
@@ -2244,15 +2280,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   {footerText.trim() ? (
                     <div
                       className={cn(
-                        "mt-6 rounded-md border border-dashed border-border/80 bg-muted/30 p-3 whitespace-pre-line",
-                        plansLandingFooterClasses({
-                          font: coerceFontFamily(footerFont),
-                          align: coerceTextAlign(footerTextAlign),
-                          size: coerceBodySize(footerTextSize),
-                        }),
+                        "mt-6 rounded-md border border-dashed border-border/80 bg-muted/30 p-3",
+                        plansLandingFooterClasses(
+                          {
+                            font: coerceFontFamily(footerFont),
+                            align: coerceTextAlign(footerTextAlign),
+                            size: coerceBodySize(footerTextSize),
+                          },
+                          { omitColor: appearance === "sales_dark" },
+                        ),
                       )}
                     >
-                      {footerText}
+                      <LandingMarkdown
+                        content={footerText}
+                        surface={appearance === "sales_dark" ? "dark_page" : "inherit"}
+                        salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                      />
                     </div>
                   ) : null}
                   <div className="mt-6">

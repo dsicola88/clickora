@@ -529,6 +529,9 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
       outline_nav_border: g("outline_nav_border"),
       outline_nav_bg: g("outline_nav_bg"),
       stats_glow: g("stats_glow"),
+      accent_button_shadow: g("accent_button_shadow"),
+      accent_button_radius: g("accent_button_radius"),
+      plan_card_radius: g("plan_card_radius"),
       section_font:
         tm.section_font === "sans" || tm.section_font === "serif" || tm.section_font === "mono"
           ? tm.section_font

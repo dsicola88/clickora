@@ -22,7 +22,7 @@ import {
   coerceTextAlign,
   plansLandingFooterClasses,
   plansLandingHeroInnerClasses,
-  plansLandingHeroSubtitleClasses,
+  plansLandingHeroSubtitleMarkdownClasses,
   plansLandingHeroTitleClasses,
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
@@ -31,7 +31,12 @@ import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock"
 import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
 import { coerceLandingExtras } from "@/lib/plansLandingExtras";
 import { LandingPageBodySections } from "@/components/plans/LandingPageBodySections";
-import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
+import {
+  resolveLandingPageTheme,
+  resolvedAccentButtonBoxShadow,
+  resolvedAccentButtonRadiusStyle,
+} from "@/lib/landingPageTheme";
+import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
 
 export default function Plans() {
@@ -181,7 +186,8 @@ export default function Plans() {
               salesDark
                 ? {
                     backgroundColor: salesThemed.accent,
-                    boxShadow: `0 0 24px -4px ${salesThemed.accent}66`,
+                    boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
+                    ...resolvedAccentButtonRadiusStyle(salesThemed),
                   }
                 : undefined
             }
@@ -308,7 +314,15 @@ export default function Plans() {
             {heroTitle}
           </h1>
           {heroSubtitle ? (
-            <p className={plansLandingHeroSubtitleClasses(coerceBodySize(landing?.hero_subtitle_size))}>{heroSubtitle}</p>
+            <LandingMarkdown
+              content={heroSubtitle}
+              surface={salesDark ? "dark_page" : "inherit"}
+              salesTheme={salesDark ? salesThemed : null}
+              className={cn(
+                plansLandingHeroSubtitleMarkdownClasses(coerceBodySize(landing?.hero_subtitle_size)),
+                !salesDark && "text-muted-foreground",
+              )}
+            />
           ) : null}
         </div>
       </PlansLandingHeroBlock>
@@ -332,16 +346,22 @@ export default function Plans() {
       {introText ? (
         <div
           className={cn(
-            "mb-8 max-w-3xl whitespace-pre-line",
-            plansLandingIntroClasses({
-              font: coerceFontFamily(landing?.intro_font),
-              align: coerceTextAlign(landing?.intro_text_align),
-              size: coerceBodySize(landing?.intro_text_size),
-            }),
+            "mb-8 max-w-3xl",
+            plansLandingIntroClasses(
+              {
+                font: coerceFontFamily(landing?.intro_font),
+                align: coerceTextAlign(landing?.intro_text_align),
+                size: coerceBodySize(landing?.intro_text_size),
+              },
+              { omitColor: salesDark },
+            ),
           )}
-          style={salesDark ? { color: salesThemed.muted_on_dark } : undefined}
         >
-          {introText}
+          <LandingMarkdown
+            content={introText}
+            surface={salesDark ? "dark_page" : "inherit"}
+            salesTheme={salesDark ? salesThemed : null}
+          />
         </div>
       ) : null}
 
@@ -358,18 +378,25 @@ export default function Plans() {
       {footerText ? (
         <div
           className={cn(
-            "mt-10 rounded-xl border px-6 py-8 whitespace-pre-line",
+            "mt-10 rounded-xl border px-6 py-8",
             salesDark
               ? "border-white/10 bg-white/[0.04] text-white/90"
               : "border-border/80 bg-muted/30",
-            plansLandingFooterClasses({
-              font: coerceFontFamily(landing?.footer_font),
-              align: salesDark ? "center" : coerceTextAlign(landing?.footer_text_align),
-              size: coerceBodySize(landing?.footer_text_size),
-            }),
+            plansLandingFooterClasses(
+              {
+                font: coerceFontFamily(landing?.footer_font),
+                align: salesDark ? "center" : coerceTextAlign(landing?.footer_text_align),
+                size: coerceBodySize(landing?.footer_text_size),
+              },
+              { omitColor: salesDark },
+            ),
           )}
         >
-          {footerText}
+          <LandingMarkdown
+            content={footerText}
+            surface={salesDark ? "dark_page" : "inherit"}
+            salesTheme={salesDark ? salesThemed : null}
+          />
         </div>
       ) : null}
 

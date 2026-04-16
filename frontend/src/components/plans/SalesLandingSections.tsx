@@ -8,6 +8,7 @@ import { useLandingSalesTheme } from "@/contexts/LandingPageThemeContext";
 import { cn } from "@/lib/utils";
 import type { LandingExtrasPublic } from "@/lib/plansLandingExtras";
 import { Check } from "lucide-react";
+import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 
 type Props = {
   extras: LandingExtrasPublic;
@@ -56,7 +57,7 @@ export function SalesLandingFeatures({ extras, className }: Props) {
               <h3 className="font-bold text-slate-900 mb-2 text-lg">{card.title}</h3>
             ) : null}
             {card.body.trim() ? (
-              <p className="text-sm text-slate-600 whitespace-pre-line leading-relaxed">{card.body}</p>
+              <LandingMarkdown content={card.body} surface="light_card" />
             ) : null}
           </div>
         ))}

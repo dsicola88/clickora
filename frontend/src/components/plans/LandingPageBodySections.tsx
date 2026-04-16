@@ -33,7 +33,12 @@ import {
   resolveSectionsEnabled,
   type LandingSectionId,
 } from "@/lib/landingSectionLayout";
-import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
+import {
+  resolveLandingPageTheme,
+  resolvedAccentButtonBoxShadow,
+  resolvedAccentButtonRadiusStyle,
+  resolvedPlanCardRadiusStyle,
+} from "@/lib/landingPageTheme";
 
 function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string, string>) {
   if (isCurrent) return labels.cta_current ?? "Plano atual";
@@ -260,16 +265,17 @@ export function LandingPageBodySections({
                         ? "border-0 text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
                         : `border-2 bg-card transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`,
                     )}
-                    style={
-                      salesDark
+                    style={{
+                      ...resolvedPlanCardRadiusStyle(salesThemed),
+                      ...(salesDark
                         ? {
                             backgroundColor: salesThemed.card_surface,
                             boxShadow: isPopular
                               ? `0 0 0 2px ${salesThemed.accent}55, 0 25px 50px -12px rgba(0,0,0,0.25)`
                               : undefined,
                           }
-                        : undefined
-                    }
+                        : {}),
+                    }}
                   >
                     {salesDark ? (
                       <div
@@ -524,7 +530,11 @@ export function LandingPageBodySections({
                       className={cn("w-full", salesDark && !isCurrent && isPopular && "border-0 text-white hover:opacity-[0.92]")}
                       style={
                         salesDark && !isCurrent && isPopular
-                          ? { backgroundColor: salesThemed.accent, boxShadow: `0 0 20px -4px ${salesThemed.accent}55` }
+                          ? {
+                              backgroundColor: salesThemed.accent,
+                              boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
+                              ...resolvedAccentButtonRadiusStyle(salesThemed),
+                            }
                           : undefined
                       }
                       disabled={isCurrent || previewMode}

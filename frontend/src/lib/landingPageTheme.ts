@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 /** Campos opcionais guardados em `landing_extras.theme` (cores `#hex` ou `rgba(...)`, tipografia das secções). */
@@ -23,6 +24,12 @@ export interface LandingPageThemeInput {
   outline_nav_bg?: string | null;
   stats_glow?: string | null;
   section_font?: "sans" | "serif" | "mono" | null;
+  /** Sombra CSS dos botões principais (CTA verde); vazio = cálculo automático a partir do accent. */
+  accent_button_shadow?: string | null;
+  /** Raio da borda dos botões principais (ex.: `9999px` pill, `0.75rem`). */
+  accent_button_radius?: string | null;
+  /** Raio dos cartões de plano na secção planos (opcional). */
+  plan_card_radius?: string | null;
 }
 
 const DEFAULTS: Required<
@@ -49,6 +56,9 @@ const DEFAULTS: Required<
   outline_nav_bg: "rgba(255, 255, 255, 0.05)",
   stats_glow: "rgba(16, 185, 129, 0.22)",
   section_font: "sans",
+  accent_button_shadow: "",
+  accent_button_radius: "",
+  plan_card_radius: "",
 };
 
 export type ResolvedLandingPageTheme = {
@@ -89,7 +99,29 @@ export function resolveLandingPageTheme(raw: LandingPageThemeInput | null | unde
     outline_nav_border: pick(r.outline_nav_border, DEFAULTS.outline_nav_border),
     outline_nav_bg: pick(r.outline_nav_bg, DEFAULTS.outline_nav_bg),
     stats_glow: pick(r.stats_glow, DEFAULTS.stats_glow),
+    accent_button_shadow: pick(r.accent_button_shadow, DEFAULTS.accent_button_shadow),
+    accent_button_radius: pick(r.accent_button_radius, DEFAULTS.accent_button_radius),
+    plan_card_radius: pick(r.plan_card_radius, DEFAULTS.plan_card_radius),
     section_font,
     sectionFontClass,
   };
+}
+
+/** Sombra do botão primário (nav «Comprar», CTA Pro); usa tema ou valor personalizado. */
+export function resolvedAccentButtonBoxShadow(t: ResolvedLandingPageTheme): string {
+  const custom = t.accent_button_shadow?.trim();
+  if (custom) return custom;
+  return `0 0 24px -4px ${t.accent}66`;
+}
+
+/** Raio opcional para botões CTAs principais. */
+export function resolvedAccentButtonRadiusStyle(t: ResolvedLandingPageTheme): CSSProperties {
+  const r = t.accent_button_radius?.trim();
+  return r ? { borderRadius: r } : {};
+}
+
+/** Raio opcional dos cartões de plano (`.rounded-2xl` por defeito no CSS). */
+export function resolvedPlanCardRadiusStyle(t: ResolvedLandingPageTheme): CSSProperties {
+  const r = t.plan_card_radius?.trim();
+  return r ? { borderRadius: r } : {};
 }

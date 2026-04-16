@@ -76,22 +76,45 @@ export function plansLandingHeroSubtitleClasses(size: PlansBodySize): string {
   return cn("max-w-3xl text-pretty leading-relaxed text-muted-foreground", SUBTITLE_SIZE[size] ?? SUBTITLE_SIZE.base);
 }
 
-export function plansLandingIntroClasses(opts: {
-  font: PlansFontFamily;
-  align: PlansTextAlign;
-  size: PlansBodySize;
-}): string {
-  const alignOnly = opts.align === "center" ? "text-center" : opts.align === "right" ? "text-right" : "text-left";
-  return cn("leading-relaxed text-muted-foreground", FONT[opts.font] ?? FONT.sans, alignOnly, BODY_SIZE[opts.size] ?? BODY_SIZE.base);
+/** Tamanho e largura do subtítulo do hero com Markdown (cor via `LandingMarkdown` no tema escuro). */
+export function plansLandingHeroSubtitleMarkdownClasses(size: PlansBodySize): string {
+  return cn("max-w-3xl text-pretty leading-relaxed", SUBTITLE_SIZE[size] ?? SUBTITLE_SIZE.base);
 }
 
-export function plansLandingFooterClasses(opts: {
-  font: PlansFontFamily;
-  align: PlansTextAlign;
-  size: PlansBodySize;
-}): string {
+export function plansLandingIntroClasses(
+  opts: {
+    font: PlansFontFamily;
+    align: PlansTextAlign;
+    size: PlansBodySize;
+  },
+  block?: { omitColor?: boolean },
+): string {
   const alignOnly = opts.align === "center" ? "text-center" : opts.align === "right" ? "text-right" : "text-left";
-  return cn("leading-relaxed text-muted-foreground", FONT[opts.font] ?? FONT.sans, alignOnly, BODY_SIZE[opts.size] ?? BODY_SIZE.sm);
+  return cn(
+    "leading-relaxed",
+    !block?.omitColor && "text-muted-foreground",
+    FONT[opts.font] ?? FONT.sans,
+    alignOnly,
+    BODY_SIZE[opts.size] ?? BODY_SIZE.base,
+  );
+}
+
+export function plansLandingFooterClasses(
+  opts: {
+    font: PlansFontFamily;
+    align: PlansTextAlign;
+    size: PlansBodySize;
+  },
+  block?: { omitColor?: boolean },
+): string {
+  const alignOnly = opts.align === "center" ? "text-center" : opts.align === "right" ? "text-right" : "text-left";
+  return cn(
+    "leading-relaxed",
+    !block?.omitColor && "text-muted-foreground",
+    FONT[opts.font] ?? FONT.sans,
+    alignOnly,
+    BODY_SIZE[opts.size] ?? BODY_SIZE.sm,
+  );
 }
 
 /** Fallback se a API devolver valores antigos ou desconhecidos. */
