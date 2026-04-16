@@ -1333,7 +1333,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
               <Separator />
 
-              <p className="text-xs font-medium text-foreground">Números / estatísticas (até 4)</p>
+              <p className="text-xs font-medium text-foreground">
+                Números / estatísticas (até 4) — visíveis na página só com aparência «Escuro — vendas»
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Input
                   placeholder="Título do bloco"
@@ -2487,13 +2489,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     </Card>
 
     <Card className="border-primary/15 shadow-sm">
-      <Collapsible defaultOpen={false}>
+      <Collapsible defaultOpen>
         <CardHeader className="border-b border-border/60 bg-muted/20">
           <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
             <div className="min-w-0 space-y-1.5">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Video className="h-5 w-5 text-primary" />
-                Blocos de conteúdo
+                Blocos de conteúdo (vídeo, imagem, texto)
               </CardTitle>
               <CardDescription>
                 Ordem de cima para baixo = ordem na página (após o texto introdutório). Pode adicionar vídeos, imagens ou secções de texto com tipografia e cores (estilo página de vendas). Vídeo:
