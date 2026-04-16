@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminService } from "@/services/adminService";
 import { plansLandingService } from "@/services/plansLandingService";
+import { plansService } from "@/services/plansService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,9 @@ import { coerceLandingExtras, type LandingExtrasPublic } from "@/lib/plansLandin
 import { resolveGalleryCarouselOptions } from "@/lib/landingGalleryCarousel";
 import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
 import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
+import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
+import { LandingPageBodySections } from "@/components/plans/LandingPageBodySections";
+import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
 import {
   DEFAULT_LANDING_SECTION_ORDER,
   LANDING_SECTION_LABELS,
@@ -230,6 +234,17 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       if (!row) throw new Error("Resposta vazia");
       return row;
     },
+  });
+
+  /** Planos reais para a pré-visualização (cartões e preços iguais à página pública). */
+  const { data: previewPlans = [] } = useQuery({
+    queryKey: ["plans"],
+    queryFn: async () => {
+      const { data: rows, error } = await plansService.getAll();
+      if (error) return [];
+      return rows ?? [];
+    },
+    staleTime: 60_000,
   });
 
   const [badgeText, setBadgeText] = useState("");
@@ -652,6 +667,40 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       theme: themePayload,
     };
   };
+
+  const previewExtras = useMemo(
+    () => coerceLandingExtras(buildLandingExtrasPayload()),
+    [
+      appearance,
+      landingTheme,
+      plansSectionLabel,
+      plansSectionTitle,
+      plansSectionSubtitle,
+      featTitle,
+      featSubtitle,
+      featCards,
+      statTitle,
+      statSubtitle,
+      statItems,
+      faqTitle,
+      faqItems,
+      legalLines,
+      legalLinks,
+      contentBlocks,
+      testimonialTitle,
+      testimonialSubtitle,
+      testimonialItems,
+      galleryTitle,
+      gallerySubtitle,
+      galleryItems,
+      galleryDisplay,
+      galleryCarouselOpts,
+      sectionOrder,
+      sectionsEnabled,
+    ],
+  );
+
+  const previewSalesThemed = useMemo(() => resolveLandingPageTheme(landingTheme), [landingTheme]);
 
   const addContentBlock = (type: "video" | "image") => {
     setContentBlocks((prev) => [
@@ -2121,57 +2170,97 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             </div>
           </div>
 
-          <div className="bg-muted/20 p-6 lg:min-h-[520px]">
+          <div className="bg-muted/20 p-4 lg:min-h-[520px] lg:max-w-[min(100%,520px)] xl:max-w-none">
             <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" />
               Pré-visualização ao vivo
             </div>
-            <HeroPreview
-              badgeText={badgeText}
-              heroTitle={heroTitle || "…"}
-              heroSubtitle={heroSubtitle}
-              hasImage={data.has_hero_image}
-              imageUpdatedAt={previewAt}
-              heroFont={heroFont}
-              heroTextAlign={heroTextAlign}
-              heroTitleSize={heroTitleSize}
-              heroTitleWeight={heroTitleWeight}
-              heroSubtitleSize={heroSubtitleSize}
-              heroVisual={heroVisual}
-              salesTone={appearance === "sales_dark"}
-              landingTheme={appearance === "sales_dark" ? landingTheme : null}
-              className="mb-0 border-border/80 bg-muted/20 shadow-inner"
-            />
-            {introText.trim() ? (
-              <div
-                className={cn(
-                  "mt-4 rounded-lg border border-border/60 bg-card/80 p-4 whitespace-pre-line",
-                  plansLandingIntroClasses({
-                    font: coerceFontFamily(introFont),
-                    align: coerceTextAlign(introTextAlign),
-                    size: coerceBodySize(introTextSize),
-                  }),
-                )}
-              >
-                {introText}
-              </div>
-            ) : (
-              <p className="mt-4 text-xs italic text-muted-foreground">Sem texto introdutório.</p>
-            )}
-            {footerText.trim() ? (
-              <div
-                className={cn(
-                  "mt-3 rounded-md border border-dashed border-border/80 bg-muted/30 p-3 whitespace-pre-line",
-                  plansLandingFooterClasses({
-                    font: coerceFontFamily(footerFont),
-                    align: coerceTextAlign(footerTextAlign),
-                    size: coerceBodySize(footerTextSize),
-                  }),
-                )}
-              >
-                {footerText}
-              </div>
-            ) : null}
+            <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+              Ordem e conteúdo iguais à página pública (inclui secções, planos e rodapé legal). Botões de plano estão inativos aqui.
+            </p>
+            <div
+              className={cn(
+                "max-h-[min(75vh,1100px)] overflow-y-auto overflow-x-hidden rounded-lg border border-border/50",
+                appearance === "sales_dark" ? "shadow-inner" : "bg-background/80",
+              )}
+            >
+              <LandingPageThemeProvider value={appearance === "sales_dark" ? previewSalesThemed : null}>
+                <div
+                  className={cn("p-3", appearance === "sales_dark" && "min-h-[200px]")}
+                  style={
+                    appearance === "sales_dark"
+                      ? {
+                          backgroundColor: previewSalesThemed.page_background,
+                          color: previewSalesThemed.heading_on_dark,
+                        }
+                      : undefined
+                  }
+                >
+                  <HeroPreview
+                    badgeText={badgeText}
+                    heroTitle={heroTitle || "…"}
+                    heroSubtitle={heroSubtitle}
+                    hasImage={data.has_hero_image}
+                    imageUpdatedAt={previewAt}
+                    heroFont={heroFont}
+                    heroTextAlign={heroTextAlign}
+                    heroTitleSize={heroTitleSize}
+                    heroTitleWeight={heroTitleWeight}
+                    heroSubtitleSize={heroSubtitleSize}
+                    heroVisual={heroVisual}
+                    salesTone={appearance === "sales_dark"}
+                    landingTheme={appearance === "sales_dark" ? landingTheme : null}
+                    className={cn(
+                      "mb-0 border-border/80 shadow-inner",
+                      appearance === "sales_dark" ? "bg-white/[0.06]" : "bg-muted/20",
+                    )}
+                  />
+                  {introText.trim() ? (
+                    <div
+                      className={cn(
+                        "mt-4 rounded-lg border border-border/60 bg-card/80 p-4 whitespace-pre-line",
+                        plansLandingIntroClasses({
+                          font: coerceFontFamily(introFont),
+                          align: coerceTextAlign(introTextAlign),
+                          size: coerceBodySize(introTextSize),
+                        }),
+                      )}
+                    >
+                      {introText}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs italic text-muted-foreground">Sem texto introdutório.</p>
+                  )}
+                  <div className="mt-4">
+                    <LandingPageBodySections
+                      extras={previewExtras}
+                      plans={previewPlans}
+                      planLabels={mergeWithDefaultLabels(planLabels)}
+                      userPlan={null}
+                      previewMode
+                      onSelectPlan={() => {}}
+                    />
+                  </div>
+                  {footerText.trim() ? (
+                    <div
+                      className={cn(
+                        "mt-6 rounded-md border border-dashed border-border/80 bg-muted/30 p-3 whitespace-pre-line",
+                        plansLandingFooterClasses({
+                          font: coerceFontFamily(footerFont),
+                          align: coerceTextAlign(footerTextAlign),
+                          size: coerceBodySize(footerTextSize),
+                        }),
+                      )}
+                    >
+                      {footerText}
+                    </div>
+                  ) : null}
+                  <div className="mt-6">
+                    <SalesLandingLegalFooter extras={previewExtras} />
+                  </div>
+                </div>
+              </LandingPageThemeProvider>
+            </div>
           </div>
         </div>
       </CardContent>
