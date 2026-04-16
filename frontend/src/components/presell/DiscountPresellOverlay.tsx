@@ -1,25 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { PresellCta } from "@/components/presell/PresellCta";
-
-function langNorm(language: string) {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) return "en";
-  return raw;
-}
+import { getPresellUiStrings } from "@/lib/presellUiStrings";
 
 export function discountUrgencyCopy(language: string): string {
-  const lang = langNorm(language);
-  if (lang === "en") return "You have little time to take advantage of the offer.";
-  if (lang === "es") return "Tienes poco tiempo para aprovechar la oferta.";
-  return "Você tem pouco tempo para aproveitar a oferta.";
+  return getPresellUiStrings(language).discountUrgency;
 }
 
 export function discountSocialFallback(language: string): string {
-  const lang = langNorm(language);
-  if (lang === "en") return "8 out of 10 people prefer our product";
-  if (lang === "es") return "8 de cada 10 personas prefieren nuestro producto";
-  return "8 em cada 10 pessoas preferem o nosso produto";
+  return getPresellUiStrings(language).discountSocial;
 }
 
 function formatMmSs(totalSeconds: number): string {

@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
-
-function presentationLabel(language: string): string {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) return "Product presentation";
-  if (raw.startsWith("es")) return "Presentación del producto";
-  return "Apresentação do produto";
-}
+import { getPresellUiStrings } from "@/lib/presellUiStrings";
 
 type Props = {
   images: string[];
@@ -65,7 +59,7 @@ export function VslProductVideoFallback({
       <div className="absolute inset-0 z-[3] flex flex-col items-center justify-center text-center px-5 sm:px-10 py-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/95">
           <Play className="h-3.5 w-3.5 shrink-0 fill-white/95 text-white/95" aria-hidden />
-          {presentationLabel(language)}
+          {getPresellUiStrings(language).presentationLabel}
         </div>
         <h2 className="text-xl sm:text-2xl md:text-[1.75rem] font-extrabold text-white leading-tight max-w-2xl drop-shadow-md">
           {title}

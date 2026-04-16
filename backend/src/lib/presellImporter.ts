@@ -1,3 +1,13 @@
+import type { RichLocalePack } from "./presellLocalePack";
+import {
+  buildDiscountHeadline,
+  localePack,
+  officialBuyCta,
+  referencePriceLineCompact,
+  referencePriceLineRich,
+  socialProofFallback,
+} from "./presellLocalePack";
+
 type ImportPresellInput = {
   productUrl: string;
   language?: string;
@@ -246,31 +256,6 @@ function extractRatingFromHtml(html: string): string | null {
   return null;
 }
 
-function buildDiscountHeadline(percent: number | null, language: string): string {
-  const raw = (language || "pt").toLowerCase();
-  const isEn = raw === "us" || raw.startsWith("en");
-  const isEs = raw.startsWith("es");
-  if (percent != null && percent >= 5) {
-    if (isEn) return `Up to ${percent}% OFF`;
-    if (isEs) return `Hasta ${percent}% OFF`;
-    return `Até ${percent}% OFF`;
-  }
-  if (isEn) return "Limited time offer";
-  if (isEs) return "Oferta por tiempo limitado";
-  return "Oferta por tempo limitado";
-}
-
-function socialProofFallback(language: string): string {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) {
-    return "8 out of 10 people prefer our product";
-  }
-  if (raw.startsWith("es")) {
-    return "8 de cada 10 personas prefieren nuestro producto";
-  }
-  return "8 em cada 10 pessoas preferem o nosso produto";
-}
-
 function extractDiscountSignals(html: string, language: string) {
   const text = htmlToSearchableText(html);
   const percent = extractDiscountPercentFromText(text);
@@ -285,13 +270,6 @@ function extractDiscountSignals(html: string, language: string) {
     rating_stars: 5,
     urgency_timer_seconds: 649,
   };
-}
-
-function officialBuyCta(language: string): string {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) return "Buy on the Official Website";
-  if (raw.startsWith("es")) return "Comprar en el sitio oficial";
-  return "Comprar no site oficial";
 }
 
 function normalizeYoutubeToEmbed(url: string): string {
@@ -532,50 +510,6 @@ function extractVideoUrl(html: string, pageUrl: string): string | undefined {
   return undefined;
 }
 
-function localePack(language: string) {
-  const lang = (language || "pt").toLowerCase();
-  if (lang === "en") {
-    return {
-      subtitleFallback: "Key information from the official offer page",
-      cta: "Order Now",
-      sectionWhy: "Why it matters",
-      sectionWhat: "What you will find on the official page",
-      sectionFromPage: "More from the offer",
-      bullet1: "Transparent offer and conditions on the official site.",
-      bullet2: "You can review everything before completing your purchase.",
-      bullet3: "Focus on practical results you can evaluate with calm.",
-      urgency: "Availability and conditions may change — check the official page.",
-      richFooter: "Continue on the official page for full details, pricing, and secure checkout.",
-    };
-  }
-  if (lang === "es") {
-    return {
-      subtitleFallback: "Información clave de la página oficial de la oferta",
-      cta: "Quiero acceder ahora",
-      sectionWhy: "Por qué importa",
-      sectionWhat: "Qué encontrarás en la página oficial",
-      sectionFromPage: "Más de la oferta",
-      bullet1: "Oferta y condiciones transparentes en el sitio oficial.",
-      bullet2: "Puedes revisar todo antes de finalizar la compra.",
-      bullet3: "Enfoque en resultados prácticos que puedes evaluar con calma.",
-      urgency: "La disponibilidad y las condiciones pueden cambiar — revisa la página oficial.",
-      richFooter: "Continúa en la página oficial para precios completos y pago seguro.",
-    };
-  }
-  return {
-    subtitleFallback: "Informações da página oficial da oferta",
-    cta: "Quero aproveitar agora",
-    sectionWhy: "Por que isso importa",
-    sectionWhat: "O que você encontra na página oficial",
-    sectionFromPage: "Mais da oferta",
-    bullet1: "Oferta e condições explicadas com transparência no site oficial.",
-    bullet2: "Você pode revisar todas as informações antes de concluir a compra.",
-    bullet3: "Foco em resultados práticos que você pode avaliar com calma.",
-    urgency: "Disponibilidade e condições podem mudar — confira na página oficial.",
-    richFooter: "Continue na página oficial para preços completos e checkout seguro.",
-  };
-}
-
 function firstSentences(text: string, maxChars: number): string {
   const t = cleanText(text);
   if (!t) return "";
@@ -604,7 +538,7 @@ function pickHeroTitle(headings: string[], brand: string): string {
   return good || brand;
 }
 
-function pickSubtitle(headings: string[], hero: string, description: string, locale: ReturnType<typeof localePack>): string {
+function pickSubtitle(headings: string[], hero: string, description: string, locale: RichLocalePack): string {
   const next = headings.find((h) => h !== hero && h.length > 24 && h.length < 260 && !ORDER_NOISE.test(h));
   if (next) return next;
   if (!isGarbageDescription(description) && description.length > 20) {
@@ -616,23 +550,16 @@ function pickSubtitle(headings: string[], hero: string, description: string, loc
 /** Página longa (ex.: Neotonics): texto denso parecido com a oferta. */
 function buildRichSalesText(
   paragraphs: string[],
-  locale: ReturnType<typeof localePack>,
+  locale: RichLocalePack,
   price: string,
-  lang: string,
+  language: string,
 ): string {
   const chunks = paragraphs.slice(0, 22);
   let body = chunks.join("\n\n");
   const max = 5200;
   if (body.length > max) body = `${body.slice(0, max).trim()}…`;
 
-  const priceLine =
-    price && lang === "en"
-      ? `\n\nReference price on the official page: ${price}.`
-      : price && lang === "es"
-        ? `\n\nReferencia de precio en la página oficial: ${price}.`
-        : price
-          ? `\n\nReferência de valor na página oficial: ${price}.`
-          : "";
+  const priceLine = referencePriceLineRich(language, price);
 
   return `${body}${priceLine}\n\n—\n${locale.richFooter}\n${locale.urgency}`.trim();
 }
@@ -645,7 +572,6 @@ function buildCompactSalesText(args: {
   paragraphs: string[];
 }): string {
   const locale = localePack(args.language);
-  const lang = (args.language || "pt").toLowerCase();
   const primary = cleanText(args.description) || args.productName;
   const intro = firstSentences(primary, 420);
 
@@ -656,14 +582,7 @@ function buildCompactSalesText(args: {
     if (snippet && extraBullets.length < 3) extraBullets.push(snippet);
   }
 
-  const priceLine =
-    args.price && lang === "en"
-      ? `Offer reference on the official page: ${args.price}.`
-      : args.price && lang === "es"
-        ? `Referencia de precio en la página oficial: ${args.price}.`
-        : args.price
-          ? `Referência de valor na página oficial: ${args.price}.`
-          : "";
+  const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
 
   const template = `${intro}
 
@@ -743,9 +662,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     );
   }
 
-  const language = input.language || "pt";
+  const language = input.language || "pt-BR";
   const locale = localePack(language);
-  const langKey = language.toLowerCase();
 
   const pageHost = new URL(finalUrl).hostname;
   const brandFromHost = brandFromHostname(pageHost.replace(/^www\./, ""));
@@ -785,7 +703,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const joinedLen = paragraphs.join("").length;
   const sales_text =
     joinedLen >= 900
-      ? buildRichSalesText(paragraphs, locale, price, langKey)
+      ? buildRichSalesText(paragraphs, locale, price, language)
       : buildCompactSalesText({
           language,
           productName,

@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InteractivePresellGateKind } from "@/lib/presellTypeMeta";
+import { getPresellUiStrings } from "@/lib/presellUiStrings";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -39,86 +40,6 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Textos conforme idioma da presell (nada fixo em PT se language=en). */
-function t(language: string) {
-  const raw = (language || "pt").toLowerCase();
-  const lang = raw === "us" || raw.startsWith("en") ? "en" : raw;
-  if (lang === "en") {
-    return {
-      beforeContinue: "Before you continue",
-      ageLabel: "Your age",
-      ageInvalid: `You must be at least {min} years old.`,
-      sexLabel: "Select an option",
-      sexM: "Male",
-      sexF: "Female",
-      sexO: "Other",
-      groupLabel: "Age group",
-      countryLabel: "Country",
-      captchaLabel: "I confirm I am human",
-      modelLabel: "Choose an option",
-      cookieTitle: "Cookie Policy",
-      cookieBody:
-        "This site uses cookies to customize content and ads, provide social media features and analyze our traffic. By clicking \"Allow\", you agree to the use of cookies. For more information, visit our Cookie Policy.",
-      cookieAllow: "Allow",
-      cookieClose: "Close",
-      cookieFooter: "Your privacy is important to us.",
-      cookieReopen: "Cookie settings",
-      cookieBar:
-        "We use cookies to improve your experience. By continuing, you accept our policy.",
-      cookieAccept: "Accept & continue",
-      cookiePolicy: "Cookie Policy",
-    };
-  }
-  if (lang === "es") {
-    return {
-      beforeContinue: "Antes de continuar",
-      ageLabel: "Tu edad",
-      ageInvalid: `Debes tener al menos {min} años.`,
-      sexLabel: "Elige una opción",
-      sexM: "Hombre",
-      sexF: "Mujer",
-      sexO: "Otro",
-      groupLabel: "Grupo de edad",
-      countryLabel: "País",
-      captchaLabel: "Confirmo que soy humano",
-      modelLabel: "Elige una opción",
-      cookieTitle: "Política de cookies",
-      cookieBody:
-        "Este sitio utiliza cookies para personalizar contenido y anuncios, ofrecer funciones de redes sociales y analizar el tráfico. Al hacer clic en «Permitir», aceptas el uso de cookies. Para más información, consulta nuestra política.",
-      cookieAllow: "Permitir",
-      cookieClose: "Cerrar",
-      cookieFooter: "Tu privacidad es importante para nosotros.",
-      cookieReopen: "Configuración de cookies",
-      cookieBar: "Usamos cookies para mejorar tu experiencia. Al continuar, aceptas la política.",
-      cookieAccept: "Aceptar y continuar",
-      cookiePolicy: "Política de cookies",
-    };
-  }
-  return {
-    beforeContinue: "Antes de continuar",
-    ageLabel: "Sua idade",
-    ageInvalid: `É necessário ter pelo menos {min} anos.`,
-    sexLabel: "Selecione uma opção",
-    sexM: "Masculino",
-    sexF: "Feminino",
-    sexO: "Outro",
-    groupLabel: "Faixa etária",
-    countryLabel: "País",
-    captchaLabel: "Confirmo que sou humano",
-    modelLabel: "Escolha uma opção",
-    cookieTitle: "Política de cookies",
-    cookieBody:
-      "Este site utiliza cookies para personalizar conteúdos e anúncios, oferecer funcionalidades de redes sociais e analisar o tráfego. Ao clicar em «Permitir», concorda com a utilização de cookies. Para mais informações, consulte a nossa política.",
-    cookieAllow: "Permitir",
-    cookieClose: "Fechar",
-    cookieFooter: "A sua privacidade é importante para nós.",
-    cookieReopen: "Definições de cookies",
-    cookieBar: "Utilizamos cookies para melhorar a sua experiência. Ao continuar, aceita a política.",
-    cookieAccept: "Aceitar e continuar",
-    cookiePolicy: "Política de cookies",
-  };
-}
-
 /** Modal central (estilo Flow Pages): overlay + Allow verde + Close. */
 export function CookieConsentModal({
   language,
@@ -136,7 +57,7 @@ export function CookieConsentModal({
   onAccept: () => void;
   onDismiss: () => void;
 }) {
-  const L = t(language);
+  const L = getPresellUiStrings(language);
   if (accepted) return null;
 
   const go = () => {
@@ -212,7 +133,7 @@ export function CookieSettingsChip({
   language: string;
   onClick: () => void;
 }) {
-  const L = t(language);
+  const L = getPresellUiStrings(language);
   return (
     <button
       type="button"
@@ -235,7 +156,7 @@ export function PresellGateFields({
   settings: Record<string, unknown>;
   onPayload: (p: GatePayload) => void;
 }) {
-  const L = t(language);
+  const L = getPresellUiStrings(language);
   const minAge = num(settings.minAge, 18);
   const onPayloadRef = useRef(onPayload);
   onPayloadRef.current = onPayload;
@@ -391,7 +312,7 @@ export function PresellGateFields({
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
-              {MODELS.map((m) => (
+              {modelRows(L).map((m) => (
                 <SelectItem key={m.id} value={m.id}>
                   {m.label}
                 </SelectItem>

@@ -33,6 +33,9 @@ import {
   DEFAULT_BROWSER_TAB_TITLE,
   resolvePublicPresellDocumentTitle,
 } from "@/lib/publicPresellDocumentTitle";
+import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
+import { PresellLanguageSelector } from "@/components/presell/PresellLanguageSelector";
+import { getPresellUiStrings, htmlLangForLocale, isRtlLocale } from "@/lib/presellUiStrings";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -121,26 +124,6 @@ function ContentBlock({ block }: { block: string }) {
   return <p className="text-base md:text-[1.05rem] leading-[1.75] text-foreground/90 whitespace-pre-line">{t}</p>;
 }
 
-function langNorm(language: string) {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) return "en";
-  return raw;
-}
-
-function copyMidCta(language: string) {
-  const lang = langNorm(language);
-  if (lang === "en") return "Continue to the official page for current pricing and secure checkout.";
-  if (lang === "es") return "Continúa en la página oficial para precios y pago seguro.";
-  return "Continue na página oficial para preços atualizados e checkout seguro.";
-}
-
-function copyFooter(language: string) {
-  const lang = langNorm(language);
-  if (lang === "en") return "You will be taken to the product link with affiliate tracking.";
-  if (lang === "es") return "Serás enviado al enlace del producto con seguimiento de afiliado.";
-  return "Ao clicar, você será direcionado ao link do produto com rastreamento do afiliado.";
-}
-
 /**
  * Camada sobre o canto inferior direito do embed do YouTube para absorver cliques no logo (abre youtube.com).
  * Não há parâmetro oficial no iframe para remover o logo; a área é estreita para não tapar ecrã inteiro / definições.
@@ -217,6 +200,13 @@ export default function PublicPresell() {
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
   const [cookieDismissed, setCookieDismissed] = useState(false);
   const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: true });
+
+  const { resolved: uiLang, setMode, override } = usePresellUiLanguage(page?.id, page?.language);
+
+  useEffect(() => {
+    document.documentElement.lang = htmlLangForLocale(uiLang);
+    document.documentElement.dir = isRtlLocale(uiLang) ? "rtl" : "ltr";
+  }, [uiLang]);
 
   useEffect(() => {
     setCookieAccepted(false);
@@ -404,7 +394,7 @@ export default function PublicPresell() {
     <>
       {gateKind === "cookies" && !cookieAccepted && !cookieDismissed ? (
         <CookieConsentModal
-          language={page.language}
+          language={uiLang}
           policyUrl={cookiePolicyUrl}
           accepted={cookieAccepted}
           redirectHref={href}
@@ -414,7 +404,7 @@ export default function PublicPresell() {
       ) : null}
       {gateKind === "cookies" && showCookieChip ? (
         <CookieSettingsChip
-          language={page.language}
+          language={uiLang}
           onClick={() => {
             if (href) window.location.assign(href);
           }}
@@ -432,7 +422,7 @@ export default function PublicPresell() {
           {interactiveKind ? (
             <PresellGateFields
               gateKind={interactiveKind}
-              language={page.language}
+              language={uiLang}
               settings={settings}
               onPayload={handleFieldPayload}
             />
@@ -502,7 +492,7 @@ export default function PublicPresell() {
                     images={productImages}
                     title={title}
                     subtitle={subtitle}
-                    language={page.language}
+                    language={uiLang}
                     excerpt={vslExcerpt}
                     variant="vslHero"
                   />
@@ -578,7 +568,7 @@ export default function PublicPresell() {
                 <div className="my-6 sm:my-8 rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 via-card/80 to-muted/30 p-6 sm:p-8 shadow-inner">
                   <div className="flex flex-col items-center gap-4 sm:gap-5 max-w-lg mx-auto text-center">
                     <p className="text-sm sm:text-base text-foreground/85 font-medium leading-relaxed px-1">
-                      {copyMidCta(page.language)}
+                      {getPresellUiStrings(uiLang).midCta}
                     </p>
                     <PresellCta href={href} disabled={!ctaEnabled} surface="light">
                       {ctaText}
@@ -597,7 +587,7 @@ export default function PublicPresell() {
             {ctaText}
           </PresellCta>
           <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-            {copyFooter(page.language)}
+            {getPresellUiStrings(uiLang).footerNote}
           </p>
         </div>
       </section>
@@ -606,6 +596,7 @@ export default function PublicPresell() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
+      <PresellLanguageSelector override={override} onModeChange={setMode} />
       {/* Montagem de scripts “início do corpo” (pixels, SmartClick, etc.) */}
       <div
         ref={bodyCodeMountRef}
@@ -615,9 +606,9 @@ export default function PublicPresell() {
       />
       {isDiscount ? (
         <DiscountPresellOverlay
-          language={page.language}
+          language={uiLang}
           headline={discountHeadline}
-          socialProof={socialProofLine.trim() ? socialProofLine : discountSocialFallback(page.language)}
+          socialProof={socialProofLine.trim() ? socialProofLine : discountSocialFallback(uiLang)}
           ratingValue={ratingValue}
           ratingStars={ratingStars}
           initialTimerSeconds={urgencyTimerSeconds}

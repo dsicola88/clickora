@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale } from "@/lib/presellUiStrings";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,15 +76,6 @@ const presellTypes = [
   { id: "pais", name: "País" },
   { id: "captcha", name: "Captcha" },
   { id: "modelos", name: "Modelos" },
-];
-
-const languages = [
-  { id: "pt", name: "Português" },
-  { id: "en", name: "English" },
-  { id: "es", name: "Español" },
-  { id: "fr", name: "Français" },
-  { id: "de", name: "Deutsch" },
-  { id: "it", name: "Italiano" },
 ];
 
 export default function PresellDashboard() {
@@ -224,7 +216,7 @@ export default function PresellDashboard() {
     pageName: "",
     pageSlug: "",
     presellType: "cookies",
-    language: "pt",
+    language: "pt-BR",
     productLink: "",
     /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
     customDomainId: "",
@@ -293,7 +285,7 @@ export default function PresellDashboard() {
       pageName: "",
       pageSlug: "",
       presellType: "cookies",
-      language: "pt",
+      language: "pt-BR",
       productLink: "",
       customDomainId: presetDomainId,
     });
@@ -309,7 +301,7 @@ export default function PresellDashboard() {
       pageName: page.title,
       pageSlug: page.slug,
       presellType: page.type,
-      language: page.language,
+      language: normalizePresellLocale(page.language),
       productLink: String(content.affiliateLink ?? ""),
       customDomainId: page.custom_domain_id ?? "",
     });
@@ -686,7 +678,7 @@ export default function PresellDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {languages.map((l) => (
+                    {PRESELL_CREATION_LANGUAGES.map((l) => (
                       <SelectItem key={l.id} value={l.id}>
                         {l.name}
                       </SelectItem>

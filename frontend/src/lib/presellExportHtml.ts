@@ -11,7 +11,12 @@ import {
   isVslOnlyPresellType,
   type InteractivePresellGateKind,
 } from "@/lib/presellTypeMeta";
-import { discountSocialFallback, discountUrgencyCopy } from "@/components/presell/DiscountPresellOverlay";
+import {
+  getPresellUiStrings,
+  htmlLangForLocale,
+  isRtlLocale,
+  normalizePresellLocale,
+} from "@/lib/presellUiStrings";
 
 function escapeHtml(s: string): string {
   return s
@@ -23,26 +28,6 @@ function escapeHtml(s: string): string {
 
 function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/\n/g, "&#10;");
-}
-
-function langNorm(language: string) {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) return "en";
-  return raw;
-}
-
-function copyMidCta(language: string) {
-  const lang = langNorm(language);
-  if (lang === "en") return "Continue to the official page for current pricing and secure checkout.";
-  if (lang === "es") return "Continúa en la página oficial para precios y pago seguro.";
-  return "Continue na página oficial para preços atualizados e checkout seguro.";
-}
-
-function copyFooter(language: string) {
-  const lang = langNorm(language);
-  if (lang === "en") return "You will be taken to the product link with affiliate tracking.";
-  if (lang === "es") return "Serás enviado al enlace del producto con seguimiento de afiliado.";
-  return "Ao clicar, você será direcionado ao link do produto com rastreamento do afiliado.";
 }
 
 function looksLikeSectionHeading(block: string): boolean {
@@ -181,90 +166,35 @@ function ctaHtml(href: string, label: string, surface: "light" | "dark", opts: {
 }
 
 function presentationLabel(language: string): string {
-  const raw = (language || "pt").toLowerCase();
-  if (raw === "us" || raw.startsWith("en")) return "Product presentation";
-  if (raw.startsWith("es")) return "Presentación del producto";
-  return "Apresentação do produto";
+  return getPresellUiStrings(language).presentationLabel;
 }
 
 function cookieTexts(language: string) {
-  const raw = (language || "pt").toLowerCase();
-  const lang = raw === "us" || raw.startsWith("en") ? "en" : raw.startsWith("es") ? "es" : "pt";
-  if (lang === "en") {
-    return {
-      title: "Cookie Policy",
-      body: "This site uses cookies to customize content and ads, provide social media features and analyze our traffic. By clicking \"Allow\", you agree to the use of cookies. For more information, visit our Cookie Policy.",
-      policy: "Cookie Policy",
-      close: "Close",
-      allow: "Allow",
-      footer: "Your privacy is important to us.",
-    };
-  }
-  if (lang === "es") {
-    return {
-      title: "Política de cookies",
-      body: "Este sitio utiliza cookies para personalizar contenido y anuncios, ofrecer funciones de redes sociales y analizar el tráfico. Al hacer clic en «Permitir», aceptas el uso de cookies.",
-      policy: "Política de cookies",
-      close: "Cerrar",
-      allow: "Permitir",
-      footer: "Tu privacidad es importante para nosotros.",
-    };
-  }
+  const L = getPresellUiStrings(language);
   return {
-    title: "Política de cookies",
-    body: "Este site utiliza cookies para personalizar conteúdos e anúncios, oferecer funcionalidades de redes sociais e analisar o tráfego. Ao clicar em «Permitir», concorda com a utilização de cookies.",
-    policy: "Política de cookies",
-    close: "Fechar",
-    allow: "Permitir",
-    footer: "A sua privacidade é importante para nós.",
+    title: L.cookieTitle,
+    body: L.cookieBody,
+    policy: L.cookiePolicy,
+    close: L.cookieClose,
+    allow: L.cookieAllow,
+    footer: L.cookieFooter,
   };
 }
 
 function gateTexts(language: string) {
-  const raw = (language || "pt").toLowerCase();
-  const lang = raw === "us" || raw.startsWith("en") ? "en" : raw.startsWith("es") ? "es" : "pt";
-  if (lang === "en") {
-    return {
-      before: "Before you continue",
-      age: "Your age",
-      ageHint: (min: number) => `You must be at least ${min} years old.`,
-      sex: "Select an option",
-      m: "Male",
-      f: "Female",
-      o: "Other",
-      group: "Age group",
-      country: "Country",
-      captcha: "I confirm I am human",
-      model: "Choose an option",
-    };
-  }
-  if (lang === "es") {
-    return {
-      before: "Antes de continuar",
-      age: "Tu edad",
-      ageHint: (min: number) => `Debes tener al menos ${min} años.`,
-      sex: "Elige una opción",
-      m: "Hombre",
-      f: "Mujer",
-      o: "Otro",
-      group: "Grupo de edad",
-      country: "País",
-      captcha: "Confirmo que soy humano",
-      model: "Elige una opción",
-    };
-  }
+  const L = getPresellUiStrings(language);
   return {
-    before: "Antes de continuar",
-    age: "Sua idade",
-    ageHint: (min: number) => `É necessário ter pelo menos ${min} anos.`,
-    sex: "Selecione uma opção",
-    m: "Masculino",
-    f: "Feminino",
-    o: "Outro",
-    group: "Faixa etária",
-    country: "País",
-    captcha: "Confirmo que sou humano",
-    model: "Escolha uma opção",
+    before: L.beforeContinue,
+    age: L.ageLabel,
+    ageHint: (min: number) => L.ageInvalid.replace("{min}", String(min)),
+    sex: L.sexLabel,
+    m: L.sexM,
+    f: L.sexF,
+    o: L.sexO,
+    group: L.groupLabel,
+    country: L.countryLabel,
+    captcha: L.captchaLabel,
+    model: L.modelLabel,
   };
 }
 
@@ -282,12 +212,6 @@ const COUNTRIES: { code: string; name: string }[] = [
   { code: "IT", name: "Italia" },
   { code: "OTHER", name: "Outro / Other" },
 ];
-const MODELS = [
-  { id: "a", label: "Opção A" },
-  { id: "b", label: "Opção B" },
-  { id: "c", label: "Opção C" },
-];
-
 function num(v: unknown, fallback: number): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -332,9 +256,15 @@ function buildInteractiveGateHtml(
       `<div class="pe-radio-row"><input type="checkbox" id="pe-gate-human" /> <label for="pe-gate-human">${escapeHtml(L.captcha)}</label></div>`,
     );
   } else if (kind === "models") {
+    const U = getPresellUiStrings(language);
+    const modelOpts = [
+      { id: "a", label: U.modelA },
+      { id: "b", label: U.modelB },
+      { id: "c", label: U.modelC },
+    ];
     parts.push(`<label for="pe-gate-model">${escapeHtml(L.model)}</label>`);
     parts.push(
-      `<select id="pe-gate-model"><option value="">—</option>${MODELS.map((m) => `<option value="${escapeAttr(m.id)}">${escapeHtml(m.label)}</option>`).join("")}</select>`,
+      `<select id="pe-gate-model"><option value="">—</option>${modelOpts.map((m) => `<option value="${escapeAttr(m.id)}">${escapeHtml(m.label)}</option>`).join("")}</select>`,
     );
   }
 
@@ -435,7 +365,7 @@ function buildDiscountBarHtml(initialSeconds: number, language: string): string 
   const mm = Math.floor(Math.max(0, initialSeconds) / 60);
   const ss = Math.max(0, initialSeconds) % 60;
   const label = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-  const urg = discountUrgencyCopy(language);
+  const urg = getPresellUiStrings(language).discountUrgency;
   return `<div class="pe-discount-bar"><div class="pe-timer" id="pe-discount-timer">${escapeHtml(label)}</div><p>${escapeHtml(urg)}</p></div>
 <script>
 (function(){
@@ -532,7 +462,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   const socialProofLineRaw = typeof content.socialProofLine === "string" ? content.socialProofLine : "";
   const socialProofDisplay = socialProofLineRaw.trim()
     ? socialProofLineRaw
-    : discountSocialFallback(page.language);
+    : getPresellUiStrings(page.language).discountSocial;
   const ratingValue = typeof content.ratingValue === "string" ? content.ratingValue : "4.9";
   const ratingStars = typeof content.ratingStars === "number" ? content.ratingStars : 5;
   const urgencyTimerSeconds =
@@ -612,7 +542,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     for (const b of first) letterParts.push(blockToHtml(b));
     if (rest.length > 0) {
       letterParts.push(
-        `<div class="pe-mid-wrap"><p>${escapeHtml(copyMidCta(page.language))}</p>${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}</div>`,
+        `<div class="pe-mid-wrap"><p>${escapeHtml(getPresellUiStrings(page.language).midCta)}</p>${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}</div>`,
       );
       for (const b of rest) letterParts.push(blockToHtml(b));
     }
@@ -620,7 +550,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     salesSection = letterParts.join("\n");
   }
 
-  const footerSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(copyFooter(page.language))}</p></div></section>`;
+  const footerSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(getPresellUiStrings(page.language).footerNote)}</p></div></section>`;
 
   let core = "";
   if (gateKind === "cookies") {
@@ -672,11 +602,12 @@ ${inner}
 ${footerCode ? `${footerCode}\n` : ""}`;
   }
 
-  const htmlLang =
-    langNorm(page.language) === "en" ? "en" : langNorm(page.language) === "es" ? "es" : "pt-BR";
+  const loc = normalizePresellLocale(page.language);
+  const htmlLang = htmlLangForLocale(loc);
+  const htmlDir = isRtlLocale(loc) ? "rtl" : "ltr";
 
   return `<!DOCTYPE html>
-<html lang="${escapeAttr(htmlLang)}">
+<html lang="${escapeAttr(htmlLang)}" dir="${escapeAttr(htmlDir)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
