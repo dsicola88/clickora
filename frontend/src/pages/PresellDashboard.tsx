@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -42,9 +42,25 @@ import {
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import type { Presell } from "@/types/api";
 
 type PresellSettings = Record<string, string | boolean>;
+
+const DEFAULT_PRESELL_CONFIG_SETTINGS = {
+  exitPopup: false,
+  countdownTimer: false,
+  socialProof: false,
+  googleTrackingCode: "",
+  googleConversionEvent: "",
+  fbPixelId: "",
+  fbTrackName: "",
+  fbConversionApi: "disabled",
+  headerCode: "",
+  bodyCode: "",
+  footerCode: "",
+  customCss: "",
+};
 
 function sanitizeSlug(raw: string): string {
   const s = raw
@@ -101,6 +117,20 @@ export default function PresellDashboard() {
     const base = getApiBaseUrl().replace(/\/$/, "");
     return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
   }, [user?.id]);
+
+  /**
+   * Nova presell: junta o script Clickora ao head ao abrir o formulário.
+   * Edição: só sugere script se o head guardado estiver vazio (evita sobrescrever o que já existe).
+   */
+  useEffect(() => {
+    if (!showCreator || !trackingEmbedScript) return;
+    setConfigSettings((prev) => {
+      if (editingId && prev.headerCode.trim()) return prev;
+      const next = mergeClickoraTrackingIntoHeader(prev.headerCode, trackingEmbedScript);
+      if (next === prev.headerCode) return prev;
+      return { ...prev, headerCode: next };
+    });
+  }, [showCreator, editingId, trackingEmbedScript]);
 
   const { data: customDomains = [] } = useQuery({
     queryKey: ["custom-domain", tenantKey],
@@ -250,20 +280,7 @@ export default function PresellDashboard() {
     manualYoutubeUrl: "",
   });
 
-  const [configSettings, setConfigSettings] = useState({
-    exitPopup: false,
-    countdownTimer: false,
-    socialProof: false,
-    googleTrackingCode: "",
-    googleConversionEvent: "",
-    fbPixelId: "",
-    fbTrackName: "",
-    fbConversionApi: "disabled",
-    headerCode: "",
-    bodyCode: "",
-    footerCode: "",
-    customCss: "",
-  });
+  const [configSettings, setConfigSettings] = useState(() => ({ ...DEFAULT_PRESELL_CONFIG_SETTINGS }));
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -292,6 +309,7 @@ export default function PresellDashboard() {
     setSlugTouchedByUser(false);
     setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
+    setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
   };
 
   const populateFormFromPresell = (page: Presell) => {
@@ -417,6 +435,13 @@ export default function PresellDashboard() {
     }
   };
 
+  const buildPresellSettingsPayload = (): PresellSettings => ({
+    ...(configSettings as PresellSettings),
+    headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
+    cookiePolicyUrl: typeOptions.cookiePolicyUrl,
+    minAge: typeOptions.minAge,
+  });
+
   const handleSave = async () => {
     const result = presellAutoCreatorSchema.safeParse(formData);
     if (!result.success) {
@@ -466,11 +491,7 @@ export default function PresellDashboard() {
             language: formData.language,
             video_url: isVsl ? video_url : null,
             content,
-            settings: {
-              ...(configSettings as PresellSettings),
-              cookiePolicyUrl: typeOptions.cookiePolicyUrl,
-              minAge: typeOptions.minAge,
-            },
+            settings: buildPresellSettingsPayload(),
             ...(hasVerifiedCustomDomain
               ? { custom_domain_id: formData.customDomainId ? formData.customDomainId : null }
               : {}),
@@ -544,11 +565,7 @@ export default function PresellDashboard() {
               }
             : {}),
         },
-        settings: {
-          ...(configSettings as PresellSettings),
-          cookiePolicyUrl: typeOptions.cookiePolicyUrl,
-          minAge: typeOptions.minAge,
-        },
+        settings: buildPresellSettingsPayload(),
         status: "published",
       });
     } catch (e) {
@@ -894,6 +911,18 @@ export default function PresellDashboard() {
           </div>
         </div>
 
+        {trackingEmbedScript ? (
+          <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground leading-relaxed">
+            <span className="font-medium text-card-foreground">Rastreamento Clickora: </span>
+            o script da tua conta é incluído automaticamente em «Código no head» ao guardar (e ao abrir uma presell
+            nova). Podes acrescentar Google, Meta ou outros scripts na secção opcional abaixo.
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+            Inicia sessão para associar o rastreamento Clickora à presell ao guardar.
+          </div>
+        )}
+
         <div className="space-y-2">
           <Collapsible open={openSections["advanced"]} onOpenChange={() => toggleSection("advanced")}>
             <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 bg-card rounded-xl px-4 py-4 sm:px-6 border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer text-left min-w-0">
@@ -967,10 +996,10 @@ export default function PresellDashboard() {
                   <div>
                     <p className="text-sm font-medium text-card-foreground">Scripts na página pública</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      O rastreamento Clickora deve ir no <span className="text-foreground/90">head</span>, junto de outros
-                      scripts que colares (ex. SmartClick). Os <span className="text-foreground/90">&lt;script&gt;</span>{" "}
-                      executam na presell — cabeçalho no <span className="text-foreground/90">head</span>, início do corpo e
-                      rodapé no fim do <span className="text-foreground/90">documento</span>.
+                      O script Clickora da conta é aplicado ao <span className="text-foreground/90">head</span> ao guardar
+                      (atualiza com o teu utilizador e o URL da API). Podes acrescentar aqui outros scripts (ex. SmartClick). Os{" "}
+                      <span className="text-foreground/90">&lt;script&gt;</span> executam na presell — cabeçalho, início do
+                      corpo e rodapé no fim do <span className="text-foreground/90">documento</span>.
                     </p>
                   </div>
 
@@ -978,10 +1007,10 @@ export default function PresellDashboard() {
                     <div className="space-y-2 min-w-0">
                       <Label className="text-sm">Script Clickora (rastreamento)</Label>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Cola este <span className="font-mono text-[11px]">&lt;script&gt;</span> no campo{" "}
-                        <span className="font-medium text-foreground/90">Código no &lt;head&gt;</span> ao lado. Serve para
-                        contar impressões, cliques e conversões na tua conta Clickora (<span className="font-mono text-[11px]">data-id</span>{" "}
-                        = o teu utilizador).
+                        Este <span className="font-mono text-[11px]">&lt;script&gt;</span> é o mesmo que vai para{" "}
+                        <span className="font-medium text-foreground/90">Código no &lt;head&gt;</span> ao guardar (conta
+                        impressões, cliques e conversões; <span className="font-mono text-[11px]">data-id</span> = o teu
+                        utilizador). Copia só se precisares noutro sítio.
                       </p>
                       {trackingEmbedScript ? (
                         <div className="space-y-2">
@@ -1001,7 +1030,7 @@ export default function PresellDashboard() {
                               navigator.clipboard.writeText(trackingEmbedScript);
                               setCopiedTrackingScript(true);
                               setTimeout(() => setCopiedTrackingScript(false), 2000);
-                              toast.success("Script copiado — cola em Código no head.");
+                              toast.success("Script copiado.");
                             }}
                           >
                             {copiedTrackingScript ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1020,8 +1049,8 @@ export default function PresellDashboard() {
                         Código no &lt;head&gt;
                       </Label>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Cola aqui o script Clickora (bloco à esquerda) e, se precisares, outros scripts do produtor ou
-                        ferramentas (pixels, SmartClick, etc.).
+                        O Clickora é antecipado automaticamente; edita ou acrescenta outros scripts (pixels, SmartClick,
+                        etc.) se precisares.
                       </p>
                       <Textarea
                         id="headerCode"
