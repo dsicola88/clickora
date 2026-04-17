@@ -2,6 +2,8 @@
 
 import type { LandingSectionId } from "./landingSectionLayout";
 import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
+import type { LandingTextStylesPublic } from "@/lib/plansLandingTextStyles";
+import { coerceLandingTextStyles } from "@/lib/plansLandingTextStyles";
 
 export type LandingExtrasAppearance = "default" | "sales_dark";
 
@@ -137,6 +139,8 @@ export interface LandingExtrasPublic {
   sections_enabled: LandingSectionsEnabled | null;
   /** Cores / tipografia secções (tema escuro); ver editor Planos → Cores da landing. */
   theme: LandingPageThemeInput | null;
+  /** Tipografia por zona (cor, fonte, tamanho, peso, alinhamento). */
+  text_styles: LandingTextStylesPublic | null;
 }
 
 /** Alinhado ao backend `DEFAULT_LANDING_EXTRAS` — fallback se a resposta da API estiver incompleta. */
@@ -217,6 +221,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   section_order: ["features", "stats", "planos", "faq"],
   sections_enabled: null,
   theme: null,
+  text_styles: null,
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -605,6 +610,9 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     if (entries.length) theme = Object.fromEntries(entries) as LandingPageThemeInput;
   }
 
+  const textStylesParsed = coerceLandingTextStyles(raw.text_styles);
+  const text_styles = Object.keys(textStylesParsed).length ? textStylesParsed : null;
+
   return {
     appearance,
     plans_section_label,
@@ -620,5 +628,6 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     section_order,
     sections_enabled,
     theme,
+    text_styles,
   };
 }

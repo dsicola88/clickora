@@ -10,10 +10,17 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveVideoEmbedUrl } from "@/lib/resolveVideoEmbed";
 import type { LandingTestimonials } from "@/lib/plansLandingExtras";
+import type { LandingTextStylesPublic } from "@/lib/plansLandingTextStyles";
+import {
+  landingTextStyleBodyClasses,
+  landingTextStyleColorStyle,
+  landingTextStyleTitleClasses,
+} from "@/lib/plansLandingTextStyles";
 
 type Props = {
   data: LandingTestimonials;
   salesDark: boolean;
+  textStyles?: LandingTextStylesPublic | null;
   className?: string;
 };
 
@@ -73,7 +80,7 @@ function TestimonialVideoDialog({
   );
 }
 
-export function LandingTestimonialsSection({ data, salesDark, className }: Props) {
+export function LandingTestimonialsSection({ data, salesDark, textStyles: st, className }: Props) {
   const t = useLandingSalesTheme();
   const items = data.items?.filter((it) => it.thumbnail_url.trim() && it.video_url.trim()) ?? [];
   const [open, setOpen] = useState(false);
@@ -90,8 +97,15 @@ export function LandingTestimonialsSection({ data, salesDark, className }: Props
     <section className={cn("space-y-8", className)}>
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <h2
-          className={cn("text-2xl font-bold tracking-tight md:text-3xl", !salesDark && "text-primary")}
-          style={salesDark ? { color: t.link } : undefined}
+          className={cn(
+            "text-2xl font-bold tracking-tight md:text-3xl",
+            !salesDark && "text-primary",
+            st?.testimonials_title && landingTextStyleTitleClasses(st.testimonials_title),
+          )}
+          style={{
+            ...(salesDark && !st?.testimonials_title?.color ? { color: t.link } : {}),
+            ...landingTextStyleColorStyle(st?.testimonials_title),
+          }}
         >
           {title}
         </h2>
@@ -100,7 +114,11 @@ export function LandingTestimonialsSection({ data, salesDark, className }: Props
             className={cn(
               "text-sm md:text-base whitespace-pre-line leading-relaxed",
               salesDark ? "text-white/80" : "text-muted-foreground",
+              st?.testimonials_subtitle && landingTextStyleBodyClasses(st.testimonials_subtitle),
             )}
+            style={{
+              ...landingTextStyleColorStyle(st?.testimonials_subtitle),
+            }}
           >
             {subtitle}
           </p>

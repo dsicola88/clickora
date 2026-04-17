@@ -14,17 +14,14 @@ import { APP_PAGE_SHELL_LOOSE } from "@/lib/appPageLayout";
 import type { Plan } from "@/types/api";
 import { cn } from "@/lib/utils";
 import {
-  coerceBodySize,
-  coerceFontFamily,
-  coerceFontWeight,
-  coerceHeroTitleSize,
-  coerceTextAlign,
-  plansLandingFooterClasses,
-  plansLandingHeroInnerClasses,
-  plansLandingHeroSubtitleMarkdownClasses,
-  plansLandingHeroTitleClasses,
-  plansLandingIntroClasses,
-} from "@/lib/plansLandingTypography";
+  landingTextStyleColorStyle,
+  landingTextStyleLabelClasses,
+  resolvedFooterClasses,
+  resolvedHeroInnerClasses,
+  resolvedHeroSubtitleMarkdownClasses,
+  resolvedHeroTitleClassNameFixed,
+  resolvedIntroClasses,
+} from "@/lib/plansLandingTextStyles";
 import { mergeWithDefaultLabels } from "@/lib/planDisplayLabels";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
@@ -114,6 +111,7 @@ export default function Plans() {
 
   const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
   const extras = coerceLandingExtras(landing?.landing_extras);
+  const ts = extras.text_styles ?? undefined;
   const salesDark = extras.appearance === "sales_dark";
   const salesThemed = resolveLandingPageTheme(extras.theme);
   const numLocale = lb.locale || "pt-BR";
@@ -276,47 +274,72 @@ export default function Plans() {
       >
         <div
           className={cn(
-            plansLandingHeroInnerClasses({
-              font: coerceFontFamily(landing?.hero_font),
-              align: coerceTextAlign(landing?.hero_text_align),
-            }),
+            resolvedHeroInnerClasses(
+              {
+                hero_font: landing?.hero_font,
+                hero_text_align: landing?.hero_text_align,
+              },
+              ts?.hero_title,
+            ),
           )}
         >
           {badgeText ? (
             <span
               className={cn(
-                "inline-flex w-fit max-w-full items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider",
+                "inline-flex w-fit max-w-full items-center rounded-full border px-3 py-1 font-semibold uppercase tracking-wider",
                 !salesDark && "border-primary/35 bg-primary/10 text-primary",
+                ts?.hero_badge && landingTextStyleLabelClasses(ts.hero_badge),
               )}
-              style={
-                salesDark
+              style={{
+                ...(salesDark
                   ? {
                       borderColor: salesThemed.badge_border,
                       backgroundColor: salesThemed.badge_background,
                       color: salesThemed.badge_text,
                     }
-                  : undefined
-              }
+                  : {}),
+                ...(ts?.hero_badge?.color?.trim() ? { color: ts.hero_badge.color.trim() } : {}),
+              }}
             >
               {badgeText}
             </span>
           ) : null}
           <h1
-            className={plansLandingHeroTitleClasses({
-              size: coerceHeroTitleSize(landing?.hero_title_size),
-              weight: coerceFontWeight(landing?.hero_title_weight),
-            })}
+            className={resolvedHeroTitleClassNameFixed(
+              {
+                hero_title_size: landing?.hero_title_size,
+                hero_title_weight: landing?.hero_title_weight,
+              },
+              ts?.hero_title,
+            )}
+            style={landingTextStyleColorStyle(ts?.hero_title)}
           >
             {heroTitle}
           </h1>
           {heroSubtitle ? (
             <LandingMarkdown
               content={heroSubtitle}
-              surface={salesDark ? "dark_page" : "inherit"}
+              surface={salesDark && !ts?.hero_subtitle?.color?.trim() ? "dark_page" : "inherit"}
               salesTheme={salesDark ? salesThemed : null}
+              colorOverrides={
+                ts?.hero_subtitle?.color?.trim()
+                  ? {
+                      body: ts.hero_subtitle.color.trim(),
+                      heading: ts.hero_subtitle.color.trim(),
+                      link: salesThemed.link,
+                      border: salesThemed.nav_border,
+                    }
+                  : null
+              }
+              sizeClassName={undefined}
               className={cn(
-                plansLandingHeroSubtitleMarkdownClasses(coerceBodySize(landing?.hero_subtitle_size)),
-                !salesDark && "text-muted-foreground",
+                resolvedHeroSubtitleMarkdownClasses(
+                  {
+                    hero_subtitle_size: landing?.hero_subtitle_size,
+                  },
+                  ts?.hero_subtitle,
+                ),
+                !salesDark && !ts?.hero_subtitle?.color && "text-muted-foreground",
               )}
             />
           ) : null}
@@ -343,20 +366,32 @@ export default function Plans() {
         <div
           className={cn(
             "mb-8 max-w-3xl",
-            plansLandingIntroClasses(
+            resolvedIntroClasses(
               {
-                font: coerceFontFamily(landing?.intro_font),
-                align: coerceTextAlign(landing?.intro_text_align),
-                size: coerceBodySize(landing?.intro_text_size),
+                intro_font: landing?.intro_font,
+                intro_text_align: landing?.intro_text_align,
+                intro_text_size: landing?.intro_text_size,
               },
-              { omitColor: salesDark },
+              ts?.intro,
+              { omitColor: salesDark || Boolean(ts?.intro?.color?.trim()) },
             ),
           )}
+          style={landingTextStyleColorStyle(ts?.intro)}
         >
           <LandingMarkdown
             content={introText}
-            surface={salesDark ? "dark_page" : "inherit"}
+            surface={salesDark && !ts?.intro?.color?.trim() ? "dark_page" : "inherit"}
             salesTheme={salesDark ? salesThemed : null}
+            colorOverrides={
+              ts?.intro?.color?.trim()
+                ? {
+                    body: ts.intro.color.trim(),
+                    heading: ts.intro.color.trim(),
+                    link: salesThemed.link,
+                    border: salesThemed.nav_border,
+                  }
+                : null
+            }
           />
         </div>
       ) : null}
@@ -378,20 +413,32 @@ export default function Plans() {
             salesDark
               ? "border-white/10 bg-white/[0.04] text-white/90"
               : "border-border/80 bg-muted/30",
-            plansLandingFooterClasses(
+            resolvedFooterClasses(
               {
-                font: coerceFontFamily(landing?.footer_font),
-                align: salesDark ? "center" : coerceTextAlign(landing?.footer_text_align),
-                size: coerceBodySize(landing?.footer_text_size),
+                footer_font: landing?.footer_font,
+                footer_text_align: salesDark ? "center" : landing?.footer_text_align,
+                footer_text_size: landing?.footer_text_size,
               },
-              { omitColor: salesDark },
+              ts?.footer,
+              { omitColor: salesDark || Boolean(ts?.footer?.color?.trim()) },
             ),
           )}
+          style={landingTextStyleColorStyle(ts?.footer)}
         >
           <LandingMarkdown
             content={footerText}
-            surface={salesDark ? "dark_page" : "inherit"}
+            surface={salesDark && !ts?.footer?.color?.trim() ? "dark_page" : "inherit"}
             salesTheme={salesDark ? salesThemed : null}
+            colorOverrides={
+              ts?.footer?.color?.trim()
+                ? {
+                    body: ts.footer.color.trim(),
+                    heading: ts.footer.color.trim(),
+                    link: salesThemed.link,
+                    border: salesThemed.nav_border,
+                  }
+                : null
+            }
           />
         </div>
       ) : null}

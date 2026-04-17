@@ -40,6 +40,48 @@ const layoutEnum = z.enum(["contained", "wide"]).optional();
 /** Valores CSS (#hex, rgba, hsl); validação fina no admin. */
 const colorToken = z.string().max(80).optional().nullable();
 
+const landingTextStyleBlockSchema = z
+  .object({
+    font_family: z.enum(["sans", "serif", "mono", "display"]).optional(),
+    font_size: z
+      .enum(["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl", "5xl"])
+      .optional(),
+    font_weight: z.enum(["normal", "medium", "semibold", "bold", "extrabold"]).optional(),
+    text_align: z.enum(["left", "center", "right"]).optional(),
+    color: colorToken,
+  })
+  .strict();
+
+/** Tipografia por zona (cor, fonte, tamanho, peso, alinhamento) — estilo page builder. */
+export const landingExtrasTextStylesSchema = z
+  .object({
+    hero_title: landingTextStyleBlockSchema.optional(),
+    hero_subtitle: landingTextStyleBlockSchema.optional(),
+    hero_badge: landingTextStyleBlockSchema.optional(),
+    intro: landingTextStyleBlockSchema.optional(),
+    footer: landingTextStyleBlockSchema.optional(),
+    plans_section_label: landingTextStyleBlockSchema.optional(),
+    plans_section_title: landingTextStyleBlockSchema.optional(),
+    plans_section_subtitle: landingTextStyleBlockSchema.optional(),
+    features_title: landingTextStyleBlockSchema.optional(),
+    features_subtitle: landingTextStyleBlockSchema.optional(),
+    feature_card_title: landingTextStyleBlockSchema.optional(),
+    feature_card_body: landingTextStyleBlockSchema.optional(),
+    stats_title: landingTextStyleBlockSchema.optional(),
+    stats_subtitle: landingTextStyleBlockSchema.optional(),
+    stat_value: landingTextStyleBlockSchema.optional(),
+    stat_label: landingTextStyleBlockSchema.optional(),
+    faq_title: landingTextStyleBlockSchema.optional(),
+    faq_question: landingTextStyleBlockSchema.optional(),
+    faq_answer: landingTextStyleBlockSchema.optional(),
+    legal_footer: landingTextStyleBlockSchema.optional(),
+    testimonials_title: landingTextStyleBlockSchema.optional(),
+    testimonials_subtitle: landingTextStyleBlockSchema.optional(),
+    gallery_title: landingTextStyleBlockSchema.optional(),
+    gallery_subtitle: landingTextStyleBlockSchema.optional(),
+  })
+  .strict();
+
 export const landingExtrasVideoBlockSchema = z.object({
   type: z.literal("video"),
   title: z.string().max(200).nullable().optional(),
@@ -222,6 +264,8 @@ export const landingExtrasSchema = z
       .nullable()
       .optional(),
     theme: landingExtrasThemeSchema.optional().nullable(),
+    /** Tipografia opcional por zona de texto (landing de planos). */
+    text_styles: landingExtrasTextStylesSchema.optional().nullable(),
   })
   .strict();
 
@@ -305,6 +349,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
   section_order: ["features", "stats", "planos", "faq"],
   sections_enabled: null,
   theme: null,
+  text_styles: null,
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -444,6 +489,15 @@ export function mergeLandingExtras(
             ...(base.theme && typeof base.theme === "object" ? base.theme : {}),
             ...p.theme,
           };
+  const nextTextStyles =
+    p.text_styles === undefined
+      ? base.text_styles
+      : p.text_styles === null
+        ? null
+        : {
+            ...(base.text_styles && typeof base.text_styles === "object" ? base.text_styles : {}),
+            ...p.text_styles,
+          };
   return {
     ...base,
     ...(p.appearance !== undefined ? { appearance: p.appearance } : {}),
@@ -484,6 +538,7 @@ export function mergeLandingExtras(
         }
       : {}),
     ...(p.theme !== undefined ? { theme: nextTheme } : {}),
+    ...(p.text_styles !== undefined ? { text_styles: nextTextStyles } : {}),
   };
 }
 

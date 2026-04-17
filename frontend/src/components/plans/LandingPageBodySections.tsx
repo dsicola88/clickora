@@ -39,6 +39,12 @@ import {
   resolvedAccentButtonRadiusStyle,
   resolvedPlanCardRadiusStyle,
 } from "@/lib/landingPageTheme";
+import {
+  landingTextStyleBodyClasses,
+  landingTextStyleColorStyle,
+  landingTextStyleTitleClasses,
+  landingTextStyleLabelClasses,
+} from "@/lib/plansLandingTextStyles";
 
 function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string, string>) {
   if (isCurrent) return labels.cta_current ?? "Plano atual";
@@ -199,6 +205,7 @@ export function LandingPageBodySections({
           <LandingTestimonialsSection
             data={extras.testimonials}
             salesDark={salesDark}
+            textStyles={extras.text_styles}
             className="mb-12"
           />
         );
@@ -206,7 +213,12 @@ export function LandingPageBodySections({
         if (!sectionsOn.gallery || extras.gallery?.enabled === false) return null;
         if (!extras.gallery?.items?.length) return null;
         return (
-          <LandingGallerySection data={extras.gallery} salesDark={salesDark} className="mb-12" />
+          <LandingGallerySection
+            data={extras.gallery}
+            salesDark={salesDark}
+            textStyles={extras.text_styles}
+            className="mb-12"
+          />
         );
       case "planos":
         if (!sectionsOn.planos) return null;
@@ -230,8 +242,14 @@ export function LandingPageBodySections({
             >
               {plansSectionLabel ? (
                 <p
-                  className="text-xs font-semibold uppercase tracking-[0.2em] mb-1"
-                  style={salesDark ? { color: salesThemed.link } : undefined}
+                  className={cn(
+                    "font-semibold uppercase tracking-[0.2em] mb-1",
+                    extras.text_styles?.plans_section_label && landingTextStyleLabelClasses(extras.text_styles.plans_section_label),
+                  )}
+                  style={{
+                    ...(salesDark && !extras.text_styles?.plans_section_label?.color ? { color: salesThemed.link } : {}),
+                    ...landingTextStyleColorStyle(extras.text_styles?.plans_section_label),
+                  }}
                 >
                   {plansSectionLabel}
                 </p>
@@ -240,14 +258,30 @@ export function LandingPageBodySections({
                 className={cn(
                   "text-2xl font-bold tracking-tight md:text-3xl",
                   !salesDark && "text-foreground",
+                  extras.text_styles?.plans_section_title && landingTextStyleTitleClasses(extras.text_styles.plans_section_title),
                 )}
-                style={salesDark ? { color: salesThemed.heading_on_dark } : undefined}
+                style={{
+                  ...(salesDark && !extras.text_styles?.plans_section_title?.color
+                    ? { color: salesThemed.heading_on_dark }
+                    : {}),
+                  ...landingTextStyleColorStyle(extras.text_styles?.plans_section_title),
+                }}
               >
                 {plansSectionTitle}
               </h2>
               <p
-                className={cn("text-sm max-w-2xl", !salesDark && "text-muted-foreground", salesDark && "mx-auto")}
-                style={salesDark ? { color: salesThemed.muted_on_dark } : undefined}
+                className={cn(
+                  "max-w-2xl",
+                  !salesDark && "text-muted-foreground",
+                  salesDark && "mx-auto",
+                  extras.text_styles?.plans_section_subtitle && landingTextStyleBodyClasses(extras.text_styles.plans_section_subtitle),
+                )}
+                style={{
+                  ...(salesDark && !extras.text_styles?.plans_section_subtitle?.color
+                    ? { color: salesThemed.muted_on_dark }
+                    : {}),
+                  ...landingTextStyleColorStyle(extras.text_styles?.plans_section_subtitle),
+                }}
               >
                 {plansSectionSub}
               </p>

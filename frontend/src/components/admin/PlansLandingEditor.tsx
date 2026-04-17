@@ -27,7 +27,6 @@ import {
   Users,
   GripVertical,
   Loader2,
-  Type,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
@@ -37,11 +36,9 @@ import {
   coerceFontWeight,
   coerceHeroTitleSize,
   coerceTextAlign,
-  plansLandingFooterClasses,
   plansLandingHeroInnerClasses,
   plansLandingHeroSubtitleMarkdownClasses,
   plansLandingHeroTitleClasses,
-  plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
 import {
   coercePlansHeroVisual,
@@ -65,6 +62,17 @@ import {
   type LandingSectionId,
 } from "@/lib/landingSectionLayout";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PlansLandingTextStyleFields } from "@/components/admin/PlansLandingTextStyleFields";
+import type { LandingTextStyleBlock, LandingTextStyleKey, LandingTextStylesPublic } from "@/lib/plansLandingTextStyles";
+import {
+  landingTextStyleColorStyle,
+  landingTextStyleLabelClasses,
+  resolvedFooterClasses,
+  resolvedHeroInnerClasses,
+  resolvedHeroSubtitleMarkdownClasses,
+  resolvedHeroTitleClassNameFixed,
+  resolvedIntroClasses,
+} from "@/lib/plansLandingTextStyles";
 
 const ADMIN_KEY = ["admin-plans-landing"] as const;
 const PUBLIC_KEY = ["plans-landing-public"] as const;
@@ -228,6 +236,7 @@ function HeroPreview(props: {
   heroTitleWeight: string;
   heroSubtitleSize: string;
   heroVisual: PlansHeroVisual;
+  textStyles?: LandingTextStylesPublic | null;
   /** Pré-visualização com texto claro (tema vendas escuro). */
   salesTone?: boolean;
   /** Tema em edição (cores) para pré-visualização. */
@@ -235,11 +244,7 @@ function HeroPreview(props: {
   className?: string;
 }) {
   const src = props.hasImage ? plansLandingService.heroImageHref(props.imageUpdatedAt) : null;
-  const font = coerceFontFamily(props.heroFont);
-  const align = coerceTextAlign(props.heroTextAlign);
-  const titleS = coerceHeroTitleSize(props.heroTitleSize);
-  const weight = coerceFontWeight(props.heroTitleWeight);
-  const subS = coerceBodySize(props.heroSubtitleSize);
+  const ts = props.textStyles ?? undefined;
 
   const salesThemed =
     props.salesTone ? resolveLandingPageTheme(props.landingTheme ?? null) : null;
@@ -252,21 +257,69 @@ function HeroPreview(props: {
       tone={props.salesTone ? "dark" : "default"}
       salesTheme={salesThemed}
     >
-      <div className={cn("flex min-h-[200px] flex-col", plansLandingHeroInnerClasses({ font, align }))}>
+      <div
+        className={cn(
+          "flex min-h-[200px] flex-col",
+          resolvedHeroInnerClasses(
+            { hero_font: props.heroFont, hero_text_align: props.heroTextAlign },
+            ts?.hero_title,
+          ),
+        )}
+      >
         {props.badgeText.trim() ? (
-          <span className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+          <span
+            className={cn(
+              "inline-flex w-fit max-w-full items-center rounded-full border px-3 py-1 font-semibold uppercase tracking-wider",
+              !props.salesTone && "border-primary/30 bg-primary/10 text-primary",
+              ts?.hero_badge && landingTextStyleLabelClasses(ts.hero_badge),
+            )}
+            style={{
+              ...(props.salesTone && salesThemed
+                ? {
+                    borderColor: salesThemed.badge_border,
+                    backgroundColor: salesThemed.badge_background,
+                    color: ts?.hero_badge?.color?.trim() ?? salesThemed.badge_text,
+                  }
+                : {}),
+              ...landingTextStyleColorStyle(ts?.hero_badge),
+            }}
+          >
             {props.badgeText}
           </span>
         ) : null}
-        <h2 className={plansLandingHeroTitleClasses({ size: titleS, weight })}>{props.heroTitle || "…"}</h2>
+        <h2
+          className={resolvedHeroTitleClassNameFixed(
+            {
+              hero_title_size: props.heroTitleSize,
+              hero_title_weight: props.heroTitleWeight,
+            },
+            ts?.hero_title,
+          )}
+          style={landingTextStyleColorStyle(ts?.hero_title)}
+        >
+          {props.heroTitle || "…"}
+        </h2>
         {props.heroSubtitle.trim() ? (
           <LandingMarkdown
             content={props.heroSubtitle}
-            surface={props.salesTone ? "dark_page" : "inherit"}
+            surface={props.salesTone && !ts?.hero_subtitle?.color?.trim() ? "dark_page" : "inherit"}
             salesTheme={props.salesTone ? salesThemed : null}
+            colorOverrides={
+              ts?.hero_subtitle?.color?.trim() && salesThemed
+                ? {
+                    body: ts.hero_subtitle.color.trim(),
+                    heading: ts.hero_subtitle.color.trim(),
+                    link: salesThemed.link,
+                    border: salesThemed.nav_border,
+                  }
+                : null
+            }
             className={cn(
-              plansLandingHeroSubtitleMarkdownClasses(subS),
-              !props.salesTone && "text-muted-foreground",
+              resolvedHeroSubtitleMarkdownClasses(
+                { hero_subtitle_size: props.heroSubtitleSize },
+                ts?.hero_subtitle,
+              ),
+              !props.salesTone && !ts?.hero_subtitle?.color && "text-muted-foreground",
             )}
           />
         ) : null}
@@ -401,6 +454,17 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const galleryPickIndexRef = useRef<number | null>(null);
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
+  const [textStyles, setTextStyles] = useState<LandingTextStylesPublic>({});
+
+  const patchTextStyle = (key: LandingTextStyleKey, block: LandingTextStyleBlock | undefined) => {
+    setTextStyles((prev) => {
+      if (!block || !Object.keys(block).length) {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [key]: block };
+    });
+  };
 
   useEffect(() => {
     if (!data) return;
@@ -425,6 +489,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
     const ex = coerceLandingExtras(data.landing_extras);
     setAppearance(ex.appearance);
+    setTextStyles(ex.text_styles && Object.keys(ex.text_styles).length ? { ...ex.text_styles } : {});
     setLandingTheme(ex.theme ? { ...ex.theme } : {});
     setPlansSectionLabel(ex.plans_section_label ?? "");
     setPlansSectionTitle(ex.plans_section_title ?? "");
@@ -726,6 +791,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     const themePayload =
       themeEntries.length > 0 ? (Object.fromEntries(themeEntries) as LandingPageThemeInput) : null;
 
+    const text_styles = Object.keys(textStyles).length ? textStyles : null;
+
     return {
       appearance,
       plans_section_label: plansSectionLabel.trim() || null,
@@ -749,6 +816,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         faq: sectionsEnabled.faq,
       },
       theme: themePayload,
+      text_styles,
     };
   };
 
@@ -757,6 +825,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     [
       appearance,
       landingTheme,
+      textStyles,
       plansSectionLabel,
       plansSectionTitle,
       plansSectionSubtitle,
@@ -1162,6 +1231,136 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.06] p-4 space-y-3">
+              <p className="text-sm font-semibold text-foreground">Tipografia por zona (opcional)</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Cor, tipo de letra, tamanho, peso e alinhamento por bloco — como no Elementor. Sobrepõem o tema escuro e os
+                campos base ao lado quando preenchidos. Use «Repor» para voltar ao padrão de cada zona.
+              </p>
+              <div className="max-h-[min(480px,50vh)] space-y-3 overflow-y-auto pr-1">
+                <PlansLandingTextStyleFields
+                  label="Título do hero"
+                  value={textStyles.hero_title}
+                  onChange={(b) => patchTextStyle("hero_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Subtítulo do hero"
+                  value={textStyles.hero_subtitle}
+                  onChange={(b) => patchTextStyle("hero_subtitle", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Selo / etiqueta (hero)"
+                  value={textStyles.hero_badge}
+                  onChange={(b) => patchTextStyle("hero_badge", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Texto introdutório"
+                  value={textStyles.intro}
+                  onChange={(b) => patchTextStyle("intro", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Rodapé da secção"
+                  value={textStyles.footer}
+                  onChange={(b) => patchTextStyle("footer", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Etiqueta pequena (PLANOS)"
+                  value={textStyles.plans_section_label}
+                  onChange={(b) => patchTextStyle("plans_section_label", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Título da secção de planos"
+                  value={textStyles.plans_section_title}
+                  onChange={(b) => patchTextStyle("plans_section_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Subtítulo da secção de planos"
+                  value={textStyles.plans_section_subtitle}
+                  onChange={(b) => patchTextStyle("plans_section_subtitle", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Destaques — título"
+                  value={textStyles.features_title}
+                  onChange={(b) => patchTextStyle("features_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Destaques — subtítulo"
+                  value={textStyles.features_subtitle}
+                  onChange={(b) => patchTextStyle("features_subtitle", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Destaques — título do cartão"
+                  value={textStyles.feature_card_title}
+                  onChange={(b) => patchTextStyle("feature_card_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Destaques — texto do cartão"
+                  value={textStyles.feature_card_body}
+                  onChange={(b) => patchTextStyle("feature_card_body", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Números — título"
+                  value={textStyles.stats_title}
+                  onChange={(b) => patchTextStyle("stats_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Números — subtítulo"
+                  value={textStyles.stats_subtitle}
+                  onChange={(b) => patchTextStyle("stats_subtitle", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Números — valor (grande)"
+                  value={textStyles.stat_value}
+                  onChange={(b) => patchTextStyle("stat_value", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Números — etiqueta"
+                  value={textStyles.stat_label}
+                  onChange={(b) => patchTextStyle("stat_label", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="FAQ — título"
+                  value={textStyles.faq_title}
+                  onChange={(b) => patchTextStyle("faq_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="FAQ — pergunta"
+                  value={textStyles.faq_question}
+                  onChange={(b) => patchTextStyle("faq_question", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="FAQ — resposta"
+                  value={textStyles.faq_answer}
+                  onChange={(b) => patchTextStyle("faq_answer", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Rodapé legal (linhas)"
+                  value={textStyles.legal_footer}
+                  onChange={(b) => patchTextStyle("legal_footer", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Testemunhos — título"
+                  value={textStyles.testimonials_title}
+                  onChange={(b) => patchTextStyle("testimonials_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Testemunhos — subtítulo"
+                  value={textStyles.testimonials_subtitle}
+                  onChange={(b) => patchTextStyle("testimonials_subtitle", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Galeria — título"
+                  value={textStyles.gallery_title}
+                  onChange={(b) => patchTextStyle("gallery_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Galeria — subtítulo"
+                  value={textStyles.gallery_subtitle}
+                  onChange={(b) => patchTextStyle("gallery_subtitle", b)}
+                />
               </div>
             </div>
 
@@ -2416,6 +2615,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     heroTitleWeight={heroTitleWeight}
                     heroSubtitleSize={heroSubtitleSize}
                     heroVisual={heroVisual}
+                    textStyles={previewExtras.text_styles ?? undefined}
                     salesTone={appearance === "sales_dark"}
                     landingTheme={appearance === "sales_dark" ? landingTheme : null}
                     className={cn(
@@ -2427,20 +2627,39 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <div
                       className={cn(
                         "mt-4 rounded-lg border border-border/60 bg-card/80 p-4",
-                        plansLandingIntroClasses(
+                        resolvedIntroClasses(
                           {
-                            font: coerceFontFamily(introFont),
-                            align: coerceTextAlign(introTextAlign),
-                            size: coerceBodySize(introTextSize),
+                            intro_font: introFont,
+                            intro_text_align: introTextAlign,
+                            intro_text_size: introTextSize,
                           },
-                          { omitColor: appearance === "sales_dark" },
+                          previewExtras.text_styles?.intro,
+                          {
+                            omitColor:
+                              appearance === "sales_dark" || Boolean(previewExtras.text_styles?.intro?.color?.trim()),
+                          },
                         ),
                       )}
+                      style={landingTextStyleColorStyle(previewExtras.text_styles?.intro)}
                     >
                       <LandingMarkdown
                         content={introText}
-                        surface={appearance === "sales_dark" ? "dark_page" : "inherit"}
+                        surface={
+                          appearance === "sales_dark" && !previewExtras.text_styles?.intro?.color?.trim()
+                            ? "dark_page"
+                            : "inherit"
+                        }
                         salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                        colorOverrides={
+                          previewExtras.text_styles?.intro?.color?.trim() && previewSalesThemed
+                            ? {
+                                body: previewExtras.text_styles.intro.color!.trim(),
+                                heading: previewExtras.text_styles.intro.color!.trim(),
+                                link: previewSalesThemed.link,
+                                border: previewSalesThemed.nav_border,
+                              }
+                            : null
+                        }
                       />
                     </div>
                   ) : (
@@ -2460,20 +2679,40 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <div
                       className={cn(
                         "mt-6 rounded-md border border-dashed border-border/80 bg-muted/30 p-3",
-                        plansLandingFooterClasses(
+                        resolvedFooterClasses(
                           {
-                            font: coerceFontFamily(footerFont),
-                            align: coerceTextAlign(footerTextAlign),
-                            size: coerceBodySize(footerTextSize),
+                            footer_font: footerFont,
+                            footer_text_align: footerTextAlign,
+                            footer_text_size: footerTextSize,
                           },
-                          { omitColor: appearance === "sales_dark" },
+                          previewExtras.text_styles?.footer,
+                          {
+                            omitColor:
+                              appearance === "sales_dark" ||
+                              Boolean(previewExtras.text_styles?.footer?.color?.trim()),
+                          },
                         ),
                       )}
+                      style={landingTextStyleColorStyle(previewExtras.text_styles?.footer)}
                     >
                       <LandingMarkdown
                         content={footerText}
-                        surface={appearance === "sales_dark" ? "dark_page" : "inherit"}
+                        surface={
+                          appearance === "sales_dark" && !previewExtras.text_styles?.footer?.color?.trim()
+                            ? "dark_page"
+                            : "inherit"
+                        }
                         salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                        colorOverrides={
+                          previewExtras.text_styles?.footer?.color?.trim() && previewSalesThemed
+                            ? {
+                                body: previewExtras.text_styles.footer.color!.trim(),
+                                heading: previewExtras.text_styles.footer.color!.trim(),
+                                link: previewSalesThemed.link,
+                                border: previewSalesThemed.nav_border,
+                              }
+                            : null
+                        }
                       />
                     </div>
                   ) : null}

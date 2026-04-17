@@ -17,6 +17,12 @@ import {
 import { cn } from "@/lib/utils";
 import type { LandingGallery, LandingGalleryItem } from "@/lib/plansLandingExtras";
 import {
+  landingTextStyleBodyClasses,
+  landingTextStyleColorStyle,
+  landingTextStyleTitleClasses,
+} from "@/lib/plansLandingTextStyles";
+import type { LandingTextStylesPublic } from "@/lib/plansLandingTextStyles";
+import {
   galleryCarouselItemBasisClasses,
   resolveGalleryCarouselOptions,
 } from "@/lib/landingGalleryCarousel";
@@ -24,6 +30,7 @@ import {
 type Props = {
   data: LandingGallery;
   salesDark: boolean;
+  textStyles?: LandingTextStylesPublic | null;
   className?: string;
 };
 
@@ -83,7 +90,7 @@ function GallerySlideCard({
   );
 }
 
-export function LandingGallerySection({ data, salesDark, className }: Props) {
+export function LandingGallerySection({ data, salesDark, textStyles: st, className }: Props) {
   const t = useLandingSalesTheme();
   const items = data.items?.filter((it) => it.image_url.trim()) ?? [];
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -131,8 +138,15 @@ export function LandingGallerySection({ data, salesDark, className }: Props) {
     <section className={cn("space-y-8", className)}>
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <h2
-          className={cn("text-2xl font-bold tracking-tight md:text-3xl", !salesDark && "text-primary")}
-          style={salesDark ? { color: t.link } : undefined}
+          className={cn(
+            "text-2xl font-bold tracking-tight md:text-3xl",
+            !salesDark && "text-primary",
+            st?.gallery_title && landingTextStyleTitleClasses(st.gallery_title),
+          )}
+          style={{
+            ...(salesDark && !st?.gallery_title?.color ? { color: t.link } : {}),
+            ...landingTextStyleColorStyle(st?.gallery_title),
+          }}
         >
           {title}
         </h2>
@@ -141,8 +155,12 @@ export function LandingGallerySection({ data, salesDark, className }: Props) {
             className={cn(
               "text-sm md:text-base whitespace-pre-line leading-relaxed",
               !salesDark && "text-muted-foreground",
+              st?.gallery_subtitle && landingTextStyleBodyClasses(st.gallery_subtitle),
             )}
-            style={salesDark ? { color: t.muted_on_dark } : undefined}
+            style={{
+              ...(salesDark && !st?.gallery_subtitle?.color ? { color: t.muted_on_dark } : {}),
+              ...landingTextStyleColorStyle(st?.gallery_subtitle),
+            }}
           >
             {subtitle}
           </p>
