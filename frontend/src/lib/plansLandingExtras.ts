@@ -107,6 +107,16 @@ export interface LandingGallery {
   items?: LandingGalleryItem[];
 }
 
+/** Secção de garantia (selo + textos), tipicamente após os planos. */
+export interface LandingGuarantee {
+  enabled?: boolean;
+  seal_image_url: string | null;
+  title: string | null;
+  lead: string | null;
+  body: string | null;
+  footer: string | null;
+}
+
 export type LandingSectionsEnabled = Partial<Record<LandingSectionId, boolean>>;
 
 export interface LandingExtrasPublic {
@@ -135,6 +145,7 @@ export interface LandingExtrasPublic {
   content_blocks: LandingContentBlock[] | null;
   testimonials: LandingTestimonials | null;
   gallery: LandingGallery | null;
+  guarantee: LandingGuarantee | null;
   section_order: LandingSectionId[] | null;
   sections_enabled: LandingSectionsEnabled | null;
   /** Cores / tipografia secções (tema escuro); ver editor Planos → Cores da landing. */
@@ -218,7 +229,8 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   content_blocks: null,
   testimonials: null,
   gallery: null,
-  section_order: ["features", "stats", "planos", "faq"],
+  guarantee: null,
+  section_order: ["features", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
   theme: null,
   text_styles: null,
@@ -529,6 +541,35 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     }
   }
 
+  let guarantee: LandingExtrasPublic["guarantee"] = null;
+  if (raw.guarantee !== null && raw.guarantee !== undefined && isPlainObject(raw.guarantee)) {
+    const g = raw.guarantee;
+    const sealRaw = typeof g.seal_image_url === "string" ? g.seal_image_url.trim() : "";
+    const seal_image_url =
+      sealRaw && (sealRaw.startsWith("/") || /^https?:\/\//i.test(sealRaw)) ? sealRaw : null;
+    const title = typeof g.title === "string" ? g.title : null;
+    const lead = typeof g.lead === "string" ? g.lead : null;
+    const body = typeof g.body === "string" ? g.body : null;
+    const footer = typeof g.footer === "string" ? g.footer : null;
+    const enabled = typeof g.enabled === "boolean" ? g.enabled : undefined;
+    const hasAny =
+      Boolean(title?.trim()) ||
+      Boolean(lead?.trim()) ||
+      Boolean(body?.trim()) ||
+      Boolean(footer?.trim()) ||
+      Boolean(seal_image_url);
+    if (hasAny || enabled === false) {
+      guarantee = {
+        ...(enabled !== undefined ? { enabled } : {}),
+        seal_image_url,
+        title,
+        lead,
+        body,
+        footer,
+      };
+    }
+  }
+
   let section_order: LandingExtrasPublic["section_order"] = null;
   if (Array.isArray(raw.section_order) && raw.section_order.length > 0) {
     const valid = new Set<string>([
@@ -538,6 +579,7 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
       "testimonials",
       "gallery",
       "planos",
+      "guarantee",
       "faq",
     ]);
     const filtered = raw.section_order.filter(
@@ -562,6 +604,7 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
       testimonials: pick("testimonials"),
       gallery: pick("gallery"),
       planos: pick("planos"),
+      guarantee: pick("guarantee"),
       faq: pick("faq"),
     };
     const hasAny = Object.values(sections_enabled).some((v) => v !== undefined);
@@ -625,6 +668,7 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     content_blocks,
     testimonials,
     gallery,
+    guarantee,
     section_order,
     sections_enabled,
     theme,

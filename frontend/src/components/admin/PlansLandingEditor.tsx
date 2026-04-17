@@ -27,6 +27,7 @@ import {
   Users,
   GripVertical,
   Loader2,
+  BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
@@ -457,6 +458,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const contentBlockImageFileInputRef = useRef<HTMLInputElement>(null);
   const contentBlockImagePickIndexRef = useRef<number | null>(null);
   const [contentBlockImageUploadBusy, setContentBlockImageUploadBusy] = useState(false);
+  const guaranteeSealInputRef = useRef<HTMLInputElement>(null);
+  const [guaranteeSealUploadBusy, setGuaranteeSealUploadBusy] = useState(false);
+  const [guaranteeEnabled, setGuaranteeEnabled] = useState(true);
+  const [guaranteeSealUrl, setGuaranteeSealUrl] = useState("");
+  const [guaranteeTitle, setGuaranteeTitle] = useState("");
+  const [guaranteeLead, setGuaranteeLead] = useState("");
+  const [guaranteeBody, setGuaranteeBody] = useState("");
+  const [guaranteeFooter, setGuaranteeFooter] = useState("");
   const [textStyles, setTextStyles] = useState<LandingTextStylesPublic>({});
 
   const patchTextStyle = (key: LandingTextStyleKey, block: LandingTextStyleBlock | undefined) => {
@@ -581,6 +590,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         testimonials: se.testimonials !== false,
         gallery: se.gallery !== false,
         planos: se.planos !== false,
+        guarantee: se.guarantee !== false,
         faq: se.faq !== false,
       });
     } else {
@@ -630,6 +640,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       loop: gc.loop,
       gap_px: gc.gap_px,
     });
+
+    const gu = ex.guarantee;
+    setGuaranteeEnabled(gu?.enabled !== false);
+    setGuaranteeSealUrl(gu?.seal_image_url?.trim() ?? "");
+    setGuaranteeTitle(gu?.title ?? "");
+    setGuaranteeLead(gu?.lead ?? "");
+    setGuaranteeBody(gu?.body ?? "");
+    setGuaranteeFooter(gu?.footer ?? "");
   }, [data]);
 
   const buildLandingExtrasPayload = (): Record<string, unknown> => {
@@ -796,6 +814,24 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
     const text_styles = Object.keys(textStyles).length ? textStyles : null;
 
+    const hasGuaranteePayload =
+      guaranteeTitle.trim() ||
+      guaranteeLead.trim() ||
+      guaranteeBody.trim() ||
+      guaranteeFooter.trim() ||
+      guaranteeSealUrl.trim() ||
+      !guaranteeEnabled;
+    const guarantee = hasGuaranteePayload
+      ? {
+          enabled: guaranteeEnabled,
+          seal_image_url: guaranteeSealUrl.trim() || null,
+          title: guaranteeTitle.trim() || null,
+          lead: guaranteeLead.trim() || null,
+          body: guaranteeBody.trim() || null,
+          footer: guaranteeFooter.trim() || null,
+        }
+      : null;
+
     return {
       appearance,
       plans_section_label: plansSectionLabel.trim() || null,
@@ -808,6 +844,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       content_blocks: content_blocks.length ? content_blocks : null,
       testimonials,
       gallery,
+      guarantee,
       section_order: sectionOrder,
       sections_enabled: {
         content_blocks: sectionsEnabled.content_blocks,
@@ -816,6 +853,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         testimonials: sectionsEnabled.testimonials,
         gallery: sectionsEnabled.gallery,
         planos: sectionsEnabled.planos,
+        guarantee: sectionsEnabled.guarantee,
         faq: sectionsEnabled.faq,
       },
       theme: themePayload,
@@ -851,6 +889,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       galleryItems,
       galleryDisplay,
       galleryCarouselOpts,
+      guaranteeEnabled,
+      guaranteeSealUrl,
+      guaranteeTitle,
+      guaranteeLead,
+      guaranteeBody,
+      guaranteeFooter,
       sectionOrder,
       sectionsEnabled,
     ],
@@ -1364,6 +1408,26 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   value={textStyles.gallery_subtitle}
                   onChange={(b) => patchTextStyle("gallery_subtitle", b)}
                 />
+                <PlansLandingTextStyleFields
+                  label="Garantia — título"
+                  value={textStyles.guarantee_title}
+                  onChange={(b) => patchTextStyle("guarantee_title", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Garantia — destaque / lead"
+                  value={textStyles.guarantee_lead}
+                  onChange={(b) => patchTextStyle("guarantee_lead", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Garantia — corpo"
+                  value={textStyles.guarantee_body}
+                  onChange={(b) => patchTextStyle("guarantee_body", b)}
+                />
+                <PlansLandingTextStyleFields
+                  label="Garantia — rodapé destacado"
+                  value={textStyles.guarantee_footer}
+                  onChange={(b) => patchTextStyle("guarantee_footer", b)}
+                />
               </div>
             </div>
 
@@ -1609,6 +1673,137 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
               ))}
+
+              <Separator />
+
+              <Collapsible defaultOpen className="rounded-md border border-border/50 bg-background/40">
+                <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]]:border-b border-border/50">
+                  <span className="flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4 text-primary" />
+                    Garantia / selo (abaixo dos planos)
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Secção em duas colunas: imagem do selo (opcional) e textos. A posição na página segue a ordem das secções
+                    (por defeito após «Planos»). Corpo e rodapé suportam Markdown (**negrito**, ligações).
+                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/15 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="guarantee-enabled"
+                        checked={guaranteeEnabled}
+                        onCheckedChange={setGuaranteeEnabled}
+                      />
+                      <Label htmlFor="guarantee-enabled" className="text-xs font-medium">
+                        Mostrar conteúdo desta secção
+                      </Label>
+                    </div>
+                  </div>
+                  <input
+                    ref={guaranteeSealInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    tabIndex={-1}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      setGuaranteeSealUploadBusy(true);
+                      try {
+                        const { data, error } = await adminService.uploadPlansGalleryImage(file);
+                        if (error || !data?.image_url) {
+                          toast.error(error || "Não foi possível carregar a imagem.");
+                          return;
+                        }
+                        setGuaranteeSealUrl(data.image_url);
+                        toast.success("Selo carregado. Guarde a landing para persistir.");
+                      } finally {
+                        setGuaranteeSealUploadBusy(false);
+                      }
+                    }}
+                  />
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <Label className="text-xs">URL da imagem do selo (ou carregue do PC)</Label>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                        disabled={guaranteeSealUploadBusy}
+                        onClick={() => guaranteeSealInputRef.current?.click()}
+                      >
+                        {guaranteeSealUploadBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        Carregar do PC
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="https://… ou use «Carregar do PC»"
+                      value={guaranteeSealUrl}
+                      onChange={(e) => setGuaranteeSealUrl(e.target.value)}
+                      maxLength={2000}
+                    />
+                    {guaranteeSealUrl.trim() ? (
+                      <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                        <img
+                          src={guaranteeSealUrl}
+                          alt=""
+                          className="mx-auto h-24 w-24 rounded-full object-cover md:h-28 md:w-28"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Título</Label>
+                    <Input
+                      placeholder="Ex.: 100% Livre de Riscos"
+                      value={guaranteeTitle}
+                      onChange={(e) => setGuaranteeTitle(e.target.value)}
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Destaque / lead</Label>
+                    <Textarea
+                      placeholder="Frase curta abaixo do título"
+                      value={guaranteeLead}
+                      onChange={(e) => setGuaranteeLead(e.target.value)}
+                      rows={2}
+                      maxLength={800}
+                      className="resize-y text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Corpo (Markdown)</Label>
+                    <Textarea
+                      placeholder="Texto principal — parágrafos, **negrito**, listas"
+                      value={guaranteeBody}
+                      onChange={(e) => setGuaranteeBody(e.target.value)}
+                      rows={5}
+                      maxLength={12000}
+                      className="resize-y font-mono text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Rodapé destacado (Markdown, ícone verde na página)</Label>
+                    <Textarea
+                      placeholder="Ex.: A decisão agora é sua — e o **risco é todo nosso.**"
+                      value={guaranteeFooter}
+                      onChange={(e) => setGuaranteeFooter(e.target.value)}
+                      rows={3}
+                      maxLength={8000}
+                      className="resize-y font-mono text-sm"
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               <Separator />
 
@@ -2740,8 +2935,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 Blocos de conteúdo (vídeo, imagem, texto)
               </CardTitle>
               <CardDescription>
-                Ordem de cima para baixo = ordem na página (após o texto introdutório). Pode adicionar vídeos, imagens ou secções de texto com tipografia e cores (estilo página de vendas). Vídeo:
-                YouTube, Vimeo ou ficheiro .mp4/.webm. Imagem: colar URL ou carregar do PC (JPG, PNG ou WebP, como na galeria). Texto: Markdown (negrito, listas, ligações). Guarde com o botão do cartão principal ou abaixo.
+                Ordem de cima para baixo = ordem na página (após o texto introdutório). Vídeos e imagens em sequência aparecem{" "}
+                <strong className="text-foreground/90">em fila (lado a lado)</strong>, com moldura vertical; blocos de texto
+                Markdown ocupam a largura completa. Vídeo: YouTube, Vimeo ou .mp4/.webm. Imagem: URL ou carregar do PC. Guarde
+                com o botão do cartão principal ou abaixo.
               </CardDescription>
             </div>
             <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />

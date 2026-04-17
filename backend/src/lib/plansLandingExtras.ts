@@ -79,6 +79,39 @@ export const landingExtrasTextStylesSchema = z
     testimonials_subtitle: landingTextStyleBlockSchema.optional(),
     gallery_title: landingTextStyleBlockSchema.optional(),
     gallery_subtitle: landingTextStyleBlockSchema.optional(),
+    guarantee_title: landingTextStyleBlockSchema.optional(),
+    guarantee_lead: landingTextStyleBlockSchema.optional(),
+    guarantee_body: landingTextStyleBlockSchema.optional(),
+    guarantee_footer: landingTextStyleBlockSchema.optional(),
+  })
+  .strict();
+
+const optionalUrlish = z
+  .string()
+  .max(2000)
+  .nullable()
+  .optional()
+  .refine((s) => {
+    if (s == null || s === undefined) return true;
+    const t = s.trim();
+    if (!t) return true;
+    if (t.startsWith("/")) return true;
+    try {
+      const u = new URL(t);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  });
+
+export const landingExtrasGuaranteeSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    seal_image_url: optionalUrlish,
+    title: z.string().max(200).nullable().optional(),
+    lead: z.string().max(800).nullable().optional(),
+    body: z.string().max(12000).nullable().optional(),
+    footer: z.string().max(8000).nullable().optional(),
   })
   .strict();
 
@@ -155,6 +188,7 @@ const landingSectionIdEnum = z.enum([
   "testimonials",
   "gallery",
   "planos",
+  "guarantee",
   "faq",
 ]);
 
@@ -248,6 +282,8 @@ export const landingExtrasSchema = z
       })
       .nullable()
       .optional(),
+    /** Garantia / selo (tipicamente abaixo dos planos). */
+    guarantee: landingExtrasGuaranteeSchema.nullable().optional(),
     /** Ordem das secções na página (ids únicos). */
     section_order: z.array(landingSectionIdEnum).max(12).nullable().optional(),
     /** Mostrar/ocultar secções (omitido = visível). */
@@ -259,6 +295,7 @@ export const landingExtrasSchema = z
         testimonials: z.boolean().optional(),
         gallery: z.boolean().optional(),
         planos: z.boolean().optional(),
+        guarantee: z.boolean().optional(),
         faq: z.boolean().optional(),
       })
       .nullable()
@@ -346,7 +383,8 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
   content_blocks: null,
   testimonials: null,
   gallery: null,
-  section_order: ["features", "stats", "planos", "faq"],
+  guarantee: null,
+  section_order: ["features", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
   theme: null,
   text_styles: null,
@@ -480,6 +518,27 @@ export function mergeLandingExtras(
             items:
               p.gallery.items !== undefined ? p.gallery.items : base.gallery?.items,
           };
+  const nextGuarantee =
+    p.guarantee === undefined
+      ? base.guarantee
+      : p.guarantee === null
+        ? null
+        : {
+            enabled:
+              p.guarantee.enabled !== undefined ? p.guarantee.enabled : base.guarantee?.enabled,
+            seal_image_url:
+              p.guarantee.seal_image_url !== undefined
+                ? p.guarantee.seal_image_url
+                : base.guarantee?.seal_image_url ?? null,
+            title:
+              p.guarantee.title !== undefined ? p.guarantee.title : base.guarantee?.title ?? null,
+            lead:
+              p.guarantee.lead !== undefined ? p.guarantee.lead : base.guarantee?.lead ?? null,
+            body:
+              p.guarantee.body !== undefined ? p.guarantee.body : base.guarantee?.body ?? null,
+            footer:
+              p.guarantee.footer !== undefined ? p.guarantee.footer : base.guarantee?.footer ?? null,
+          };
   const nextTheme =
     p.theme === undefined
       ? base.theme
@@ -521,6 +580,7 @@ export function mergeLandingExtras(
       : {}),
     ...(p.testimonials !== undefined ? { testimonials: nextTestimonials } : {}),
     ...(p.gallery !== undefined ? { gallery: nextGallery } : {}),
+    ...(p.guarantee !== undefined ? { guarantee: nextGuarantee } : {}),
     ...(p.section_order !== undefined
       ? { section_order: p.section_order === null ? null : p.section_order }
       : {}),

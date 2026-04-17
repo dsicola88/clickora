@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { resolveVideoEmbedUrl } from "@/lib/resolveVideoEmbed";
 import type { LandingContentBlock } from "@/lib/plansLandingExtras";
@@ -19,7 +20,16 @@ type Props = {
   className?: string;
 };
 
-function VideoEmbed({ url, salesDark }: { url: string; salesDark: boolean }) {
+function VideoEmbed({
+  url,
+  salesDark,
+  portrait,
+}: {
+  url: string;
+  salesDark: boolean;
+  /** Vídeos em fila (lado a lado) usam moldura vertical tipo «stories». */
+  portrait?: boolean;
+}) {
   const resolved = resolveVideoEmbedUrl(url);
   if (!resolved) {
     return (
@@ -35,25 +45,26 @@ function VideoEmbed({ url, salesDark }: { url: string; salesDark: boolean }) {
     );
   }
 
+  const frameCn = portrait
+    ? "relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-lg"
+    : "relative w-full overflow-hidden rounded-xl shadow-lg aspect-video bg-black";
+
   if (resolved.mode === "native") {
     return (
-      <video
-        className="w-full rounded-xl border border-white/10 bg-black shadow-lg"
-        controls
-        playsInline
-        preload="metadata"
-        src={resolved.src}
-      />
+      <div className={frameCn}>
+        <video
+          className={cn("absolute inset-0 h-full w-full", portrait ? "object-cover" : "object-contain")}
+          controls
+          playsInline
+          preload="metadata"
+          src={resolved.src}
+        />
+      </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "relative w-full overflow-hidden rounded-xl shadow-lg",
-        "aspect-video bg-black",
-      )}
-    >
+    <div className={frameCn}>
       <iframe
         title="Vídeo incorporado"
         src={resolved.src}
@@ -67,6 +78,103 @@ function VideoEmbed({ url, salesDark }: { url: string; salesDark: boolean }) {
   );
 }
 
+type MediaBlock = Extract<LandingContentBlock, { type: "video" | "image" }>;
+
+function MediaTile({
+  block,
+  salesDark,
+}: {
+  block: MediaBlock;
+  salesDark: boolean;
+}) {
+  const hasHeader = Boolean(block.title?.trim() || block.subtitle?.trim());
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {hasHeader ? (
+        <header className="space-y-1 text-center">
+          {block.title?.trim() ? (
+            <h2
+              className={cn(
+                "text-sm font-bold leading-snug md:text-base",
+                salesDark ? "text-white" : "text-foreground",
+              )}
+            >
+              {block.title}
+            </h2>
+          ) : null}
+          {block.subtitle?.trim() ? (
+            <p
+              className={cn(
+                "whitespace-pre-line text-[11px] leading-snug md:text-xs",
+                salesDark ? "text-white/75" : "text-muted-foreground",
+              )}
+            >
+              {block.subtitle}
+            </p>
+          ) : null}
+        </header>
+      ) : null}
+
+      {block.type === "video" ? (
+        <VideoEmbed url={block.url} salesDark={salesDark} portrait />
+      ) : (
+        <figure className="min-w-0">
+          <div
+            className={cn(
+              "relative aspect-[9/16] w-full overflow-hidden rounded-xl shadow-lg",
+              salesDark ? "ring-1 ring-white/10" : "border border-border/60",
+            )}
+          >
+            <img
+              src={block.src}
+              alt={block.alt?.trim() || ""}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          {block.caption?.trim() ? (
+            <figcaption
+              className={cn(
+                "mt-2 text-center text-[11px] leading-snug md:text-xs",
+                salesDark ? "text-white/60" : "text-muted-foreground",
+              )}
+            >
+              {block.caption}
+            </figcaption>
+          ) : null}
+        </figure>
+      )}
+    </div>
+  );
+}
+
+type Segment =
+  | { kind: "media_row"; blocks: MediaBlock[] }
+  | { kind: "rich_text"; block: Extract<LandingContentBlock, { type: "rich_text" }> };
+
+function buildSegments(list: LandingContentBlock[]): Segment[] {
+  const out: Segment[] = [];
+  let mediaBuf: MediaBlock[] = [];
+  const flush = () => {
+    if (mediaBuf.length) {
+      out.push({ kind: "media_row", blocks: mediaBuf });
+      mediaBuf = [];
+    }
+  };
+  for (const b of list) {
+    if (b.type === "rich_text") {
+      flush();
+      out.push({ kind: "rich_text", block: b });
+    } else {
+      mediaBuf.push(b);
+    }
+  }
+  flush();
+  return out;
+}
+
 export function LandingContentBlocks({ blocks, salesDark, salesTheme = null, className }: Props) {
   const list = blocks.filter((b) => {
     if (b.type === "video") return Boolean(b.url?.trim());
@@ -76,121 +184,65 @@ export function LandingContentBlocks({ blocks, salesDark, salesTheme = null, cla
   });
   if (!list.length) return null;
 
+  const segments = buildSegments(list);
+
   return (
     <div className={cn("space-y-12", className)}>
-      {list.map((block, i) => (
-        <article key={i} className="scroll-mt-24">
-          {block.type === "rich_text" ? (
+      {segments.map((seg, si) => (
+        <Fragment key={si}>
+          {seg.kind === "media_row" ? (
             <div
               className={cn(
-                "w-full",
-                block.layout === "wide" ? "max-w-none" : "mx-auto max-w-4xl",
-                richTextBlockWrapperClass(block.background_color),
+                "grid gap-3 sm:gap-4",
+                "[grid-template-columns:repeat(auto-fill,minmax(min(100%,160px),1fr))]",
               )}
-              style={
-                block.background_color?.trim()
-                  ? { backgroundColor: block.background_color.trim() }
-                  : undefined
-              }
             >
-              <LandingMarkdown
-                content={block.content}
-                surface={salesDark && !block.text_color?.trim() ? "dark_page" : "inherit"}
-                salesTheme={salesTheme}
-                sizeClassName={richTextFontSizeClass(block.font_size)}
-                className={cn(
-                  richTextFontFamilyClass(block.font_family),
-                  richTextFontWeightClass(block.font_weight),
-                  richTextAlignClass(block.text_align),
-                  "[&_p]:max-w-none [&_li]:text-inherit",
-                )}
-                colorOverrides={
-                  block.text_color?.trim()
-                    ? {
-                        body: block.text_color.trim(),
-                        heading: block.text_color.trim(),
-                        link: salesTheme?.link ?? block.text_color.trim(),
-                        border: salesTheme?.nav_border,
-                      }
-                    : null
-                }
-              />
+              {seg.blocks.map((block, bi) => (
+                <article key={`${si}-${bi}`} className="scroll-mt-24 min-w-0">
+                  <MediaTile block={block} salesDark={salesDark} />
+                </article>
+              ))}
             </div>
-          ) : null}
-          {(block.type === "video" || block.type === "image") &&
-          (block.title?.trim() || block.subtitle?.trim()) ? (
-            <header
-              className={cn(
-                "mb-4 max-w-3xl",
-                block.layout === "wide" ? "text-left" : "mx-auto text-center",
-              )}
-            >
-              {block.title?.trim() ? (
-                <h2
-                  className={cn(
-                    "text-xl font-bold tracking-tight md:text-2xl",
-                    salesDark ? "text-white" : "text-foreground",
-                  )}
-                >
-                  {block.title}
-                </h2>
-              ) : null}
-              {block.subtitle?.trim() ? (
-                <p
-                  className={cn(
-                    "mt-2 text-sm whitespace-pre-line",
-                    salesDark ? "text-white/75" : "text-muted-foreground",
-                  )}
-                >
-                  {block.subtitle}
-                </p>
-              ) : null}
-            </header>
-          ) : null}
-
-          {block.type === "video" ? (
-            <div
-              className={cn(
-                "w-full",
-                block.layout === "wide" ? "max-w-none" : "mx-auto max-w-4xl",
-              )}
-            >
-              <VideoEmbed url={block.url} salesDark={salesDark} />
-            </div>
-          ) : block.type === "image" ? (
-            <figure
-              className={cn(
-                "w-full",
-                block.layout === "wide" ? "max-w-none" : "mx-auto max-w-4xl",
-              )}
-            >
+          ) : (
+            <article className="scroll-mt-24">
               <div
                 className={cn(
-                  "overflow-hidden rounded-xl shadow-lg",
-                  salesDark ? "ring-1 ring-white/10" : "border border-border/60",
+                  "w-full",
+                  seg.block.layout === "wide" ? "max-w-none" : "mx-auto max-w-4xl",
+                  richTextBlockWrapperClass(seg.block.background_color),
                 )}
+                style={
+                  seg.block.background_color?.trim()
+                    ? { backgroundColor: seg.block.background_color.trim() }
+                    : undefined
+                }
               >
-                <img
-                  src={block.src}
-                  alt={block.alt?.trim() || ""}
-                  className="h-auto w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
+                <LandingMarkdown
+                  content={seg.block.content}
+                  surface={salesDark && !seg.block.text_color?.trim() ? "dark_page" : "inherit"}
+                  salesTheme={salesTheme}
+                  sizeClassName={richTextFontSizeClass(seg.block.font_size)}
+                  className={cn(
+                    richTextFontFamilyClass(seg.block.font_family),
+                    richTextFontWeightClass(seg.block.font_weight),
+                    richTextAlignClass(seg.block.text_align),
+                    "[&_p]:max-w-none [&_li]:text-inherit",
+                  )}
+                  colorOverrides={
+                    seg.block.text_color?.trim()
+                      ? {
+                          body: seg.block.text_color.trim(),
+                          heading: seg.block.text_color.trim(),
+                          link: salesTheme?.link ?? seg.block.text_color.trim(),
+                          border: salesTheme?.nav_border,
+                        }
+                      : null
+                  }
                 />
               </div>
-              {block.caption?.trim() ? (
-                <figcaption
-                  className={cn(
-                    "mt-3 text-center text-sm",
-                    salesDark ? "text-white/60" : "text-muted-foreground",
-                  )}
-                >
-                  {block.caption}
-                </figcaption>
-              ) : null}
-            </figure>
-          ) : null}
-        </article>
+            </article>
+          )}
+        </Fragment>
       ))}
     </div>
   );

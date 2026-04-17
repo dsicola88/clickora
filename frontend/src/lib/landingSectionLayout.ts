@@ -8,6 +8,7 @@ export const LANDING_SECTION_IDS = [
   "testimonials",
   "gallery",
   "planos",
+  "guarantee",
   "faq",
 ] as const;
 
@@ -20,6 +21,7 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   testimonials: "Testemunhos em vídeo",
   gallery: "Galeria / carrossel de imagens",
   planos: "Planos e preços",
+  guarantee: "Garantia / selo (abaixo dos planos)",
   faq: "FAQ",
 };
 
@@ -56,6 +58,7 @@ export function resolveSectionsEnabled(
     testimonials: raw?.testimonials !== false,
     gallery: raw?.gallery !== false,
     planos: raw?.planos !== false,
+    guarantee: raw?.guarantee !== false,
     faq: raw?.faq !== false,
   };
 }

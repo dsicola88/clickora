@@ -28,6 +28,7 @@ import type { LandingExtrasPublic } from "@/lib/plansLandingExtras";
 import { LandingContentBlocks } from "@/components/plans/LandingContentBlocks";
 import { LandingTestimonialsSection } from "@/components/plans/LandingTestimonialsSection";
 import { LandingGallerySection } from "@/components/plans/LandingGallerySection";
+import { LandingGuaranteeSection } from "@/components/plans/LandingGuaranteeSection";
 import {
   resolveSectionOrder,
   resolveSectionsEnabled,
@@ -586,6 +587,9 @@ export function LandingPageBodySections({
             </div>
           </section>
         );
+      case "guarantee":
+        if (!sectionsOn.guarantee) return null;
+        return <LandingGuaranteeSection extras={extras} className="mb-12" />;
       case "faq":
         if (!sectionsOn.faq || !salesDark || !(extras.faq?.items?.length ?? 0)) {
           return null;

@@ -49,6 +49,10 @@ export const LANDING_TEXT_STYLE_KEYS = [
   "testimonials_subtitle",
   "gallery_title",
   "gallery_subtitle",
+  "guarantee_title",
+  "guarantee_lead",
+  "guarantee_body",
+  "guarantee_footer",
 ] as const;
 
 export type LandingTextStyleKey = (typeof LANDING_TEXT_STYLE_KEYS)[number];
