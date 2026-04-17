@@ -454,6 +454,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const galleryPickIndexRef = useRef<number | null>(null);
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
+  const contentBlockImageFileInputRef = useRef<HTMLInputElement>(null);
+  const contentBlockImagePickIndexRef = useRef<number | null>(null);
+  const [contentBlockImageUploadBusy, setContentBlockImageUploadBusy] = useState(false);
   const [textStyles, setTextStyles] = useState<LandingTextStylesPublic>({});
 
   const patchTextStyle = (key: LandingTextStyleKey, block: LandingTextStyleBlock | undefined) => {
@@ -2738,7 +2741,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               </CardTitle>
               <CardDescription>
                 Ordem de cima para baixo = ordem na página (após o texto introdutório). Pode adicionar vídeos, imagens ou secções de texto com tipografia e cores (estilo página de vendas). Vídeo:
-                YouTube, Vimeo ou ficheiro .mp4/.webm. Imagem: URL https ou caminho a começar por /. Texto: Markdown (negrito, listas, ligações). Guarde com o botão do cartão principal ou abaixo.
+                YouTube, Vimeo ou ficheiro .mp4/.webm. Imagem: colar URL ou carregar do PC (JPG, PNG ou WebP, como na galeria). Texto: Markdown (negrito, listas, ligações). Guarde com o botão do cartão principal ou abaixo.
               </CardDescription>
             </div>
             <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -2746,6 +2749,36 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         </CardHeader>
         <CollapsibleContent>
       <CardContent className="space-y-4 p-6">
+        <input
+          ref={contentBlockImageFileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          tabIndex={-1}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            const idx = contentBlockImagePickIndexRef.current;
+            e.target.value = "";
+            contentBlockImagePickIndexRef.current = null;
+            if (file == null || idx === null) return;
+            setContentBlockImageUploadBusy(true);
+            try {
+              const { data, error } = await adminService.uploadPlansGalleryImage(file);
+              if (error || !data?.image_url) {
+                toast.error(error || "Não foi possível carregar a imagem.");
+                return;
+              }
+              setContentBlocks((prev) =>
+                prev.map((b, i) =>
+                  i === idx && b.type === "image" ? { ...b, src: data.image_url } : b,
+                ),
+              );
+              toast.success("Imagem carregada. Guarde a landing para persistir.");
+            } finally {
+              setContentBlockImageUploadBusy(false);
+            }
+          }}
+        />
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -3117,9 +3150,29 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     ) : (
                       <div className="space-y-3">
                         <div className="space-y-1.5">
-                          <Label className="text-xs">URL da imagem</Label>
+                          <div className="flex flex-wrap items-end justify-between gap-2">
+                            <Label className="text-xs">URL da imagem (ou carregue do PC)</Label>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs"
+                              disabled={contentBlockImageUploadBusy}
+                              onClick={() => {
+                                contentBlockImagePickIndexRef.current = index;
+                                contentBlockImageFileInputRef.current?.click();
+                              }}
+                            >
+                              {contentBlockImageUploadBusy ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="h-3.5 w-3.5" />
+                              )}
+                              Carregar do PC
+                            </Button>
+                          </div>
                           <Input
-                            placeholder="https://… ou /caminho/relativo.png"
+                            placeholder="https://… ou use «Carregar do PC»"
                             value={block.src}
                             onChange={(e) =>
                               setContentBlocks((prev) =>
@@ -3130,6 +3183,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             }
                             maxLength={2000}
                           />
+                          {block.src.trim() ? (
+                            <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                              <img
+                                src={block.src}
+                                alt=""
+                                className="max-h-28 w-full object-contain object-left"
+                              />
+                            </div>
+                          ) : null}
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1.5">
