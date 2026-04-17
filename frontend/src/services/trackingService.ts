@@ -8,6 +8,8 @@ export interface TrackClickPayload {
   referrer?: string;
   gclid?: string;
   fbclid?: string;
+  /** Cookie Meta _fbp (opcional). */
+  fbp?: string;
   ttclid?: string;
   utm_term?: string;
   utm_content?: string;

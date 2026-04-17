@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, RotateCcw, AlertTriangle } from "lucide-react";
+import { Search, RotateCcw, AlertTriangle, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,20 @@ function platformMatches(rowPlatform: string, selected: string) {
   return rowPlatform.toLowerCase().includes(selected.replace(/_/g, "").toLowerCase());
 }
 
+function triggerCsvDownload(blob: Blob, fallbackName: string, serverFilename: string | null) {
+  const safe =
+    (serverFilename && serverFilename.replace(/[/\\?%*:|"<>]/g, "_").trim()) || fallbackName;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = safe;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function Relatorios() {
   const initial = defaultDateRange();
   const [tab, setTab] = useState("acessos");
@@ -59,8 +73,55 @@ export default function Relatorios() {
   const [gclidFilter, setGclidFilter] = useState("");
   const [perPage, setPerPage] = useState("25");
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState<
+    null | "impression" | "click" | "conversions" | "no-gclid"
+  >(null);
 
   const pageSize = Math.min(Number(perPage) || 25, 100);
+  const exportBusy = exporting !== null;
+
+  const handleExportCsv = async (kind: "impression" | "click" | "conversions" | "no-gclid") => {
+    setExporting(kind);
+    try {
+      if (kind === "impression" || kind === "click") {
+        const { data, filename, error } = await analyticsService.downloadEventsCsv({
+          event_type: kind === "impression" ? "impression" : "click",
+          from: applied.from,
+          to: applied.to,
+        });
+        if (error || !data) {
+          toast.error(error || "Não foi possível exportar.");
+          return;
+        }
+        triggerCsvDownload(
+          data,
+          `tracking-events_${kind === "impression" ? "impressions" : "clicks"}_${applied.from}_${applied.to}.csv`,
+          filename,
+        );
+        toast.success("CSV descarregado.");
+        return;
+      }
+      const { data, filename, error } = await analyticsService.downloadConversionsCsv({
+        from: applied.from,
+        to: applied.to,
+        missing_gclid: kind === "no-gclid",
+      });
+      if (error || !data) {
+        toast.error(error || "Não foi possível exportar.");
+        return;
+      }
+      triggerCsvDownload(
+        data,
+        kind === "no-gclid"
+          ? `conversions_no-click-id_${applied.from}_${applied.to}.csv`
+          : `conversions_${applied.from}_${applied.to}.csv`,
+        filename,
+      );
+      toast.success("CSV descarregado.");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const impressionsQuery = useQuery({
     queryKey: ["relatorios", "events", "impression", applied.from, applied.to],
@@ -172,11 +233,15 @@ export default function Relatorios() {
       const keyword =
         e.utm_term || (typeof meta.utm_term === "string" ? meta.utm_term : "") || "";
       const dt = formatDateTime(e.created_at);
+      const utmCamp = e.utm_campaign || e.campaign || "";
+      const utmCont = e.utm_content || "";
       return {
         id: e.id,
         ip: e.ip_address || "—",
         clickId: "—",
         keyword: keyword || "—",
+        utm_campaign: utmCamp?.trim() || "—",
+        utm_content: utmCont?.trim() || "—",
         lastAccess: dt,
         device: e.device || "—",
         origin: originFromEvent(e),
@@ -195,11 +260,15 @@ export default function Relatorios() {
       const keyword =
         e.utm_term || (typeof meta.utm_term === "string" ? meta.utm_term : "") || "";
       const dt = formatDateTime(e.created_at);
+      const utmCamp = e.utm_campaign || e.campaign || "";
+      const utmCont = e.utm_content || "";
       return {
         id: e.id,
         ip: e.ip_address || "—",
         clickId: e.id,
         keyword: keyword || "—",
+        utm_campaign: utmCamp?.trim() || "—",
+        utm_content: utmCont?.trim() || "—",
         lastAccess: dt,
         device: e.device || "—",
         origin: originFromEvent(e),
@@ -216,12 +285,26 @@ export default function Relatorios() {
     rows = rows.filter((r) => platformMatches(r.platform, platform));
     const g = gclidFilter.trim().toLowerCase();
     if (g) {
-      rows = rows.filter(
-        (r) =>
-          (r.gclid && r.gclid.toLowerCase().includes(g)) ||
-          r.click_id.toLowerCase().includes(g) ||
-          r.keyword.toLowerCase().includes(g),
-      );
+      rows = rows.filter((r) => {
+        const hay = [
+          r.gclid,
+          r.click_id,
+          r.keyword,
+          r.origin,
+          r.utm_campaign,
+          r.utm_content,
+          r.utm_term,
+          r.postback_campaign,
+          r.utm_source,
+          r.utm_medium,
+          r.google_ads_sync,
+          r.meta_capi_sync,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(g);
+      });
     }
     return rows;
   }, [conversionsQuery.data, platform, gclidFilter]);
@@ -231,10 +314,25 @@ export default function Relatorios() {
     rows = rows.filter((r) => platformMatches(r.platform, platform));
     const g = gclidFilter.trim().toLowerCase();
     if (g) {
-      rows = rows.filter(
-        (r) =>
-          r.click_id.toLowerCase().includes(g) || r.keyword.toLowerCase().includes(g),
-      );
+      rows = rows.filter((r) => {
+        const hay = [
+          r.click_id,
+          r.keyword,
+          r.origin,
+          r.utm_campaign,
+          r.utm_content,
+          r.utm_term,
+          r.postback_campaign,
+          r.utm_source,
+          r.utm_medium,
+          r.google_ads_sync,
+          r.meta_capi_sync,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(g);
+      });
     }
     return rows;
   }, [noGclidQuery.data, platform, gclidFilter]);
@@ -248,10 +346,27 @@ export default function Relatorios() {
   };
 
   const accessDisplay = paginate(
-    filterBySearch(impressionRows, ["ip", "keyword", "device", "country", "origin"]),
+    filterBySearch(impressionRows, [
+      "ip",
+      "keyword",
+      "utm_campaign",
+      "utm_content",
+      "device",
+      "country",
+      "origin",
+    ]),
   );
   const clickDisplay = paginate(
-    filterBySearch(clickRows, ["ip", "clickId", "keyword", "device", "country", "origin"]),
+    filterBySearch(clickRows, [
+      "ip",
+      "clickId",
+      "keyword",
+      "utm_campaign",
+      "utm_content",
+      "device",
+      "country",
+      "origin",
+    ]),
   );
   const convDisplay = paginate(
     filterBySearch(
@@ -262,7 +377,19 @@ export default function Relatorios() {
             ? `${r.commission} ${r.currency}`
             : "—",
       })),
-      ["click_id", "keyword", "platform", "commissionStr"],
+      [
+        "click_id",
+        "keyword",
+        "origin",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "postback_campaign",
+        "platform",
+        "commissionStr",
+        "google_ads_sync",
+        "meta_capi_sync",
+      ],
     ),
   );
   const noGclidDisplay = paginate(
@@ -274,13 +401,47 @@ export default function Relatorios() {
             ? `${r.commission} ${r.currency}`
             : "—",
       })),
-      ["click_id", "keyword", "platform", "commissionStr"],
+      [
+        "click_id",
+        "keyword",
+        "origin",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "postback_campaign",
+        "platform",
+        "commissionStr",
+        "google_ads_sync",
+        "meta_capi_sync",
+      ],
     ),
   );
+
+  /** Resumo por campanha (UTM ou postback) no intervalo filtrado. */
+  const conversionByCampaign = useMemo(() => {
+    const m = new Map<string, { count: number; revenue: number; currency: string }>();
+    for (const r of conversionRowsFiltered) {
+      const label =
+        (r.utm_campaign && r.utm_campaign.trim()) ||
+        (r.postback_campaign && r.postback_campaign.trim()) ||
+        "(sem campanha)";
+      const cur = m.get(label) || { count: 0, revenue: 0, currency: r.currency || "USD" };
+      cur.count += 1;
+      if (r.commission != null && Number.isFinite(r.commission)) cur.revenue += r.commission;
+      cur.currency = r.currency || cur.currency;
+      m.set(label, cur);
+    }
+    return Array.from(m.entries())
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => b.revenue - a.revenue || b.count - a.count);
+  }, [conversionRowsFiltered]);
 
   const syncLabel = (sync: string | null) => {
     if (sync === "sent") return { ok: true, text: "Enviado" };
     if (!sync || sync === "skipped_pending") return { ok: false, text: "Pendente" };
+    if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem fbclid" };
+    if (sync === "skipped_no_gclid") return { ok: false, text: "Sem gclid" };
+    if (sync === "skipped_disabled") return { ok: false, text: "Desligado" };
     return { ok: false, text: sync };
   };
 
@@ -368,7 +529,7 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Relatórios"
-        description="Detalhe operacional: escolha o intervalo de datas e analise impressões, cliques e conversões em tabela. Complementa o resumo do painel (Resumo e guia) e o gráfico rápido em Analytics."
+        description="Impressões, cliques e conversões com atribuição completa (origem, UTMs, anúncio, postback). Endpoints autenticados: GET /api/analytics/events e /api/analytics/conversions (JSON). Para CSV (UTF-8 com BOM, adequado ao Excel), use format=csv — até 10 000 linhas por resposta; o cabeçalho X-Next-Cursor indica a página seguinte (parâmetro cursor). A exportação na app junta automaticamente todas as páginas num único ficheiro."
       />
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -406,6 +567,17 @@ export default function Relatorios() {
                   </SelectContent>
                 </Select>
                 <span className="text-sm text-muted-foreground">por página</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs shrink-0"
+                  disabled={exportBusy}
+                  onClick={() => void handleExportCsv("impression")}
+                >
+                  <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {exporting === "impression" ? "A exportar…" : "Exportar CSV"}
+                </Button>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -441,6 +613,12 @@ export default function Relatorios() {
                           Palavra chave
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Campanha UTM
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Anúncio (content)
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
@@ -466,7 +644,7 @@ export default function Relatorios() {
                     <tbody>
                       {accessDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -483,6 +661,12 @@ export default function Relatorios() {
                               {row.id.slice(0, 8)}…
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.keyword}</td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
+                              {row.utm_campaign}
+                            </td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
+                              {row.utm_content}
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {row.lastAccess}
                             </td>
@@ -561,21 +745,34 @@ export default function Relatorios() {
           <DateFilters />
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
-            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between">
-              <span className="text-sm text-muted-foreground">
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
+              <span className="text-sm text-muted-foreground min-w-0 flex-1">
                 Cliques com IP, palavra-chave (utm_term) e tipo de tráfego.
               </span>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filtrar tabela…"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setPage(1);
-                  }}
-                  className="pl-9 w-full sm:w-56"
-                />
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
+                  disabled={exportBusy}
+                  onClick={() => void handleExportCsv("click")}
+                >
+                  <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {exporting === "click" ? "A exportar…" : "Exportar CSV"}
+                </Button>
+                <div className="relative flex-1 sm:flex-initial min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar tabela…"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-9 w-full sm:w-56"
+                  />
+                </div>
               </div>
             </div>
             {clicksQuery.isLoading ? (
@@ -594,6 +791,12 @@ export default function Relatorios() {
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Palavra chave
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Campanha UTM
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Anúncio (content)
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
@@ -621,7 +824,7 @@ export default function Relatorios() {
                     <tbody>
                       {clickDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -638,6 +841,12 @@ export default function Relatorios() {
                               {row.clickId}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.keyword}</td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
+                              {row.utm_campaign}
+                            </td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
+                              {row.utm_content}
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {row.lastAccess}
                             </td>
@@ -714,22 +923,75 @@ export default function Relatorios() {
           <UsageLimitBar />
           <DateFilters showPlatformGclid />
 
+          {conversionByCampaign.length > 0 ? (
+            <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+              <div className="border-b border-border bg-muted/20 px-4 py-3">
+                <p className="text-sm font-medium text-foreground">Resumo por campanha (período filtrado)</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Usa o nome da campanha UTM; se não houver, o nome enviado pela plataforma de afiliados (postback).
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Campanha</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Vendas</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Comissão total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conversionByCampaign.map((row) => (
+                      <tr key={row.label} className="border-b border-border/50">
+                        <td className="py-2 px-3 max-w-[280px] truncate" title={row.label}>
+                          {row.label}
+                        </td>
+                        <td className="py-2 px-3 text-right tabular-nums">{row.count}</td>
+                        <td className="py-2 px-3 text-right tabular-nums font-medium text-success">
+                          {row.revenue.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {row.currency}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
-            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between">
-              <span className="text-sm text-muted-foreground">
-                Conversões registadas via postback (comissão e sync Google Ads).
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
+              <span className="text-sm text-muted-foreground min-w-0 flex-1">
+                Conversões com atribuição do clique (origem, campanha UTM, anúncio utm_content, palavra-chave) e postback
+                (plataforma).
               </span>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filtrar tabela…"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setPage(1);
-                  }}
-                  className="pl-9 w-full sm:w-56"
-                />
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
+                  disabled={exportBusy}
+                  onClick={() => void handleExportCsv("conversions")}
+                >
+                  <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {exporting === "conversions" ? "A exportar…" : "Exportar CSV"}
+                </Button>
+                <div className="relative flex-1 sm:flex-initial min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar tabela…"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-9 w-full sm:w-56"
+                  />
+                </div>
               </div>
             </div>
             {conversionsQuery.isLoading ? (
@@ -752,7 +1014,19 @@ export default function Relatorios() {
                           Click ID
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Palavra chave
+                          Origem (fonte/meio/campanha)
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Campanha UTM
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Anúncio (utm_content)
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Palavra-chave
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Campanha (plataforma)
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Comissão
@@ -763,18 +1037,22 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Sync Google Ads
                         </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Sync Meta CAPI
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {convDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
                       ) : (
                         convDisplay.slice.map((row) => {
                           const s = syncLabel(row.google_ads_sync);
+                          const m = syncLabel(row.meta_capi_sync);
                           return (
                             <tr
                               key={row.id}
@@ -786,7 +1064,21 @@ export default function Relatorios() {
                               <td className="py-2.5 px-3 font-mono text-xs text-primary max-w-[200px] truncate">
                                 {row.click_id}
                               </td>
-                              <td className="py-2.5 px-3 text-primary text-xs">{row.keyword}</td>
+                              <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate" title={row.origin}>
+                                {row.origin}
+                              </td>
+                              <td className="py-2.5 px-3 text-xs max-w-[160px] truncate" title={row.utm_campaign ?? ""}>
+                                {row.utm_campaign || "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-xs max-w-[160px] truncate" title={row.utm_content ?? ""}>
+                                {row.utm_content || "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-primary text-xs max-w-[140px] truncate">
+                                {row.utm_term || row.keyword}
+                              </td>
+                              <td className="py-2.5 px-3 text-xs max-w-[160px] truncate" title={row.postback_campaign ?? ""}>
+                                {row.postback_campaign || "—"}
+                              </td>
                               <td className="py-2.5 px-3 font-semibold text-success">
                                 {row.commissionStr}
                               </td>
@@ -798,6 +1090,15 @@ export default function Relatorios() {
                                   }`}
                                 >
                                   {s.text}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    m.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                                  }`}
+                                >
+                                  {m.text}
                                 </span>
                               </td>
                             </tr>
@@ -847,21 +1148,34 @@ export default function Relatorios() {
           <DateFilters showPlatformGclid />
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
-            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between">
-              <span className="text-sm text-muted-foreground">
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
+              <span className="text-sm text-muted-foreground min-w-0 flex-1">
                 Conversões em que o clique não tem gclid/gbraid/wbraid (upload Google Ads limitado).
               </span>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filtrar tabela…"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setPage(1);
-                  }}
-                  className="pl-9 w-full sm:w-56"
-                />
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
+                  disabled={exportBusy}
+                  onClick={() => void handleExportCsv("no-gclid")}
+                >
+                  <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {exporting === "no-gclid" ? "A exportar…" : "Exportar CSV"}
+                </Button>
+                <div className="relative flex-1 sm:flex-initial min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar tabela…"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-9 w-full sm:w-56"
+                  />
+                </div>
               </div>
             </div>
             {noGclidQuery.isLoading ? (
@@ -884,7 +1198,19 @@ export default function Relatorios() {
                           Click ID
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Palavra chave
+                          Origem
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Campanha UTM
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Anúncio (content)
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Palavra-chave
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Campanha (plataforma)
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Comissão
@@ -892,17 +1218,26 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Plataforma
                         </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Sync Google Ads
+                        </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Sync Meta CAPI
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {noGclidDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
                       ) : (
-                        noGclidDisplay.slice.map((row) => (
+                        noGclidDisplay.slice.map((row) => {
+                          const sg = syncLabel(row.google_ads_sync);
+                          const sm = syncLabel(row.meta_capi_sync);
+                          return (
                           <tr
                             key={row.id}
                             className="border-b border-border/50 hover:bg-muted/20 transition-colors"
@@ -910,12 +1245,39 @@ export default function Relatorios() {
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {formatDateTime(row.created_at)}
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-xs">{row.click_id}</td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.keyword}</td>
+                            <td className="py-2.5 px-3 font-mono text-xs max-w-[180px] truncate">{row.click_id}</td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[180px] truncate">
+                              {row.origin}
+                            </td>
+                            <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">{row.utm_campaign || "—"}</td>
+                            <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">{row.utm_content || "—"}</td>
+                            <td className="py-2.5 px-3 text-xs">{row.utm_term || row.keyword}</td>
+                            <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">
+                              {row.postback_campaign || "—"}
+                            </td>
                             <td className="py-2.5 px-3 font-semibold text-success">{row.commissionStr}</td>
                             <td className="py-2.5 px-3">{row.platform}</td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  sg.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                                }`}
+                              >
+                                {sg.text}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  sm.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                                }`}
+                              >
+                                {sm.text}
+                              </span>
+                            </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

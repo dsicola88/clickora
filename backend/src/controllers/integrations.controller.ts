@@ -17,6 +17,7 @@ import {
   isGoogleAdsClickUploadReadyForUser,
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
+import { isMetaCapiReadyForUser, syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
@@ -27,6 +28,7 @@ import {
   isWebPushConfigured,
   sendWebPushToUser,
 } from "../lib/webPush";
+import { decryptSecretField, encryptSecretField } from "../lib/fieldEncryption";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -141,6 +143,9 @@ export const integrationsController = {
           });
           void syncConversionToGoogleAds(createdConv.id).catch((err) =>
             console.error("[syncConversionToGoogleAds]", err),
+          );
+          void syncConversionToMetaCapi(createdConv.id).catch((err) =>
+            console.error("[syncConversionToMetaCapi]", err),
           );
         } catch (e) {
           if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -307,7 +312,7 @@ export const integrationsController = {
     }
     if (d.clear_google_ads_refresh_token) data.googleAdsRefreshToken = null;
     else if (d.google_ads_refresh_token !== undefined && d.google_ads_refresh_token.trim()) {
-      data.googleAdsRefreshToken = d.google_ads_refresh_token.trim();
+      data.googleAdsRefreshToken = encryptSecretField(d.google_ads_refresh_token.trim());
     }
 
     if (Object.keys(data).length > 0) {
@@ -339,6 +344,90 @@ export const integrationsController = {
       has_refresh_token: hasUserRefresh || hasEnvRefresh,
       api_env_configured: envOk,
       can_upload: isGoogleAdsClickUploadReadyForUser(user),
+    });
+  },
+
+  /** Meta Conversions API (Pixel server-side). */
+  async getMetaCapiSettings(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        metaCapiEnabled: true,
+        metaPixelId: true,
+        metaAccessToken: true,
+        metaCapiTestEventCode: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+
+    res.json({
+      meta_capi_enabled: user.metaCapiEnabled,
+      meta_pixel_id: user.metaPixelId ?? "",
+      has_access_token: Boolean(user.metaAccessToken?.trim()),
+      meta_capi_test_event_code: user.metaCapiTestEventCode ?? "",
+      can_send: isMetaCapiReadyForUser(user),
+    });
+  },
+
+  async patchMetaCapiSettings(req: Request, res: Response) {
+    const schema = z.object({
+      meta_capi_enabled: z.boolean().optional(),
+      meta_pixel_id: z.string().optional(),
+      meta_access_token: z.string().optional(),
+      meta_capi_test_event_code: z.string().optional(),
+      clear_meta_access_token: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+
+    const userId = req.user!.userId;
+    const d = parsed.data;
+    const data: {
+      metaCapiEnabled?: boolean;
+      metaPixelId?: string | null;
+      metaAccessToken?: string | null;
+      metaCapiTestEventCode?: string | null;
+    } = {};
+
+    if (d.meta_capi_enabled !== undefined) data.metaCapiEnabled = d.meta_capi_enabled;
+    if (d.meta_pixel_id !== undefined) {
+      const t = d.meta_pixel_id.replace(/\D/g, "");
+      data.metaPixelId = t || null;
+    }
+    if (d.clear_meta_access_token) data.metaAccessToken = null;
+    else if (d.meta_access_token !== undefined && d.meta_access_token.trim()) {
+      data.metaAccessToken = encryptSecretField(d.meta_access_token.trim());
+    }
+    if (d.meta_capi_test_event_code !== undefined) {
+      const c = d.meta_capi_test_event_code.trim();
+      data.metaCapiTestEventCode = c || null;
+    }
+
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { id: userId }, data });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        metaCapiEnabled: true,
+        metaPixelId: true,
+        metaAccessToken: true,
+        metaCapiTestEventCode: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+
+    res.json({
+      ok: true,
+      meta_capi_enabled: user.metaCapiEnabled,
+      meta_pixel_id: user.metaPixelId ?? "",
+      has_access_token: Boolean(user.metaAccessToken?.trim()),
+      meta_capi_test_event_code: user.metaCapiTestEventCode ?? "",
+      can_send: isMetaCapiReadyForUser(user),
     });
   },
 
@@ -412,7 +501,7 @@ export const integrationsController = {
 
     if (d.clear_telegram_bot_token) data.telegramBotToken = null;
     else if (d.telegram_bot_token !== undefined && d.telegram_bot_token.trim()) {
-      data.telegramBotToken = d.telegram_bot_token.trim();
+      data.telegramBotToken = encryptSecretField(d.telegram_bot_token.trim());
     }
 
     if (d.telegram_chat_id !== undefined) {
@@ -462,7 +551,7 @@ export const integrationsController = {
     });
     if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
 
-    const token = user.telegramBotToken?.trim();
+    const token = decryptSecretField(user.telegramBotToken)?.trim();
     const chat = user.telegramChatId?.trim();
     if (!token || !chat) {
       return res.status(400).json({

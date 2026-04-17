@@ -81,6 +81,14 @@ model User {
   googleAdsConversionActionId String? @map("google_ads_conversion_action_id")
   /** Conta gestora (MCC) se aplicável, só dígitos. */
   googleAdsLoginCustomerId   String?  @map("google_ads_login_customer_id")
+  /** Meta Conversions API (Pixel): envio server-side de Purchase após postback aprovado. */
+  metaCapiEnabled        Boolean @default(false) @map("meta_capi_enabled")
+  /** ID numérico do Pixel (Gestor de eventos / Pixel do Facebook). */
+  metaPixelId            String? @map("meta_pixel_id")
+  /** Token de acesso da API de Conversões (não é o Pixel client-side). */
+  metaAccessToken        String? @map("meta_access_token") @db.Text
+  /** Opcional: código de teste do Gestor de eventos (validação antes de produção). */
+  metaCapiTestEventCode  String? @map("meta_capi_test_event_code")
   /** Bot Telegram (@BotFather). Não expor em APIs públicas. */
   telegramBotToken String? @map("telegram_bot_token") @db.Text
   telegramChatId   String? @map("telegram_chat_id")
@@ -301,6 +309,10 @@ model Conversion {
   googleAdsSync       String?   @map("google_ads_sync")
   googleAdsSyncedAt   DateTime? @map("google_ads_synced_at")
   googleAdsSyncDetail Json?     @map("google_ads_sync_detail")
+  /** sent | failed | skipped_no_fbclid | skipped_disabled | skipped_no_config | skipped_pending */
+  metaCapiSync       String?   @map("meta_capi_sync")
+  metaCapiSyncedAt   DateTime? @map("meta_capi_synced_at")
+  metaCapiSyncDetail Json?     @map("meta_capi_sync_detail")
   createdAt DateTime @default(now()) @map("created_at")
 
   click TrackingEvent @relation(fields: [clickId], references: [id], onDelete: Cascade)

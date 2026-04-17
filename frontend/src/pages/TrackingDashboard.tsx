@@ -18,6 +18,10 @@ import {
   Globe,
   Building2,
   ChevronDown,
+  Share2,
+  CheckCircle2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -40,6 +44,113 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
 const GOOGLE_ADS_OAUTH_DOC = "https://developers.google.com/google-ads/api/docs/oauth/overview";
+
+const CHECKLIST_STORAGE_KEY = "dclickora_tracking_checklist_v1";
+
+function SyncHealthBanner({
+  dashboard,
+}: {
+  dashboard: {
+    sync_health?: { period_days: number; google_ads_failed: number; meta_capi_failed: number };
+  } | null;
+}) {
+  const sh = dashboard?.sync_health;
+  if (!sh) return null;
+  const total = sh.google_ads_failed + sh.meta_capi_failed;
+  if (total <= 0) return null;
+  const parts: string[] = [];
+  if (sh.google_ads_failed > 0) {
+    parts.push(`${sh.google_ads_failed} conversão(ões) com falha no Google Ads`);
+  }
+  if (sh.meta_capi_failed > 0) {
+    parts.push(`${sh.meta_capi_failed} conversão(ões) com falha na Meta CAPI`);
+  }
+  return (
+    <Alert className="border-amber-500/35 bg-amber-500/[0.07] text-foreground">
+      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+      <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envios para plataformas de anúncios</AlertTitle>
+      <AlertDescription className="text-sm text-muted-foreground">
+        Nos últimos {sh.period_days} dias (UTC): {parts.join(" · ")}. Veja o estado por venda em{" "}
+        <Link className="font-medium text-primary underline underline-offset-2" to="/tracking/relatorios">
+          Relatórios → Conversões
+        </Link>{" "}
+        (colunas de sync) e corrija tokens ou IDs nas secções Google Ads / Meta abaixo.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function TrackingSetupChecklist() {
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDismissed(localStorage.getItem(CHECKLIST_STORAGE_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
+  }, []);
+
+  if (dismissed) return null;
+
+  return (
+    <Card className="border-primary/25 bg-gradient-to-br from-primary/[0.06] to-transparent">
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Checklist — rastreio pronto para escala</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Para equipas e afiliados com tráfego pago: estes passos reduzem falhas de atribuição e suporte.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground"
+            onClick={() => {
+              try {
+                localStorage.setItem(CHECKLIST_STORAGE_KEY, "1");
+              } catch {
+                /* ignore */
+              }
+              setDismissed(true);
+            }}
+            aria-label="Dispensar checklist"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <ol className="space-y-2.5 text-sm text-muted-foreground list-decimal marker:font-semibold pl-5">
+          <li>
+            <strong className="text-foreground">Script na presell</strong> — use o snippet desta página (secção «Script e conversões») no HTML da página publicada.
+          </li>
+          <li>
+            <Link className="text-primary font-medium underline underline-offset-2" to="/tracking/integrations">
+              Webhook de afiliados
+            </Link>{" "}
+            configurado na rede para enviar vendas ao dclickora (dispara também Google/Meta se ativo).
+          </li>
+          <li>
+            <Link className="text-primary font-medium underline underline-offset-2" to="/tracking/links">
+              Links de tracking
+            </Link>{" "}
+            com UTMs; para Google use <span className="font-mono text-[11px]">gclid</span>, para Meta o anúncio deve passar{" "}
+            <span className="font-mono text-[11px]">fbclid</span> no clique.
+          </li>
+          <li>
+            <strong className="text-foreground">Opcional:</strong> blocos Google Ads e Meta CAPI nesta página para conversões server-side.
+          </li>
+        </ol>
+      </CardContent>
+    </Card>
+  );
+}
 
 /** Data local (YYYY-MM-DD) — evita deslocar o dia/ano vs UTC em <input type="date">. */
 function formatDateInput(d: Date): string {
@@ -272,6 +383,134 @@ function GoogleAdsConversionUploadCard({
         <strong className="text-foreground/90">Pronto para enviar</strong> quando o envio está ligado, os IDs estão corretos e existe refresh token (seu ou do
         servidor), com a API configurada no backend.
       </p>
+    </div>
+  );
+}
+
+const META_CAPI_DOC = "https://developers.facebook.com/docs/marketing-api/conversions-api/get-started";
+
+function MetaCapiIntegrationCard({
+  metaCapi,
+  metaEnabled,
+  setMetaEnabled,
+  metaPixelId,
+  setMetaPixelId,
+  metaToken,
+  setMetaToken,
+  metaTestCode,
+  setMetaTestCode,
+  saveMetaCapi,
+}: {
+  metaCapi:
+    | {
+        meta_capi_enabled: boolean;
+        meta_pixel_id: string;
+        has_access_token: boolean;
+        meta_capi_test_event_code: string;
+        can_send: boolean;
+      }
+    | undefined;
+  metaEnabled: boolean;
+  setMetaEnabled: (v: boolean) => void;
+  metaPixelId: string;
+  setMetaPixelId: (v: string) => void;
+  metaToken: string;
+  setMetaToken: (v: string) => void;
+  metaTestCode: string;
+  setMetaTestCode: (v: string) => void;
+  saveMetaCapi: { mutate: () => void; isPending: boolean };
+}) {
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
+          <Share2 className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-semibold text-card-foreground">Meta — Conversions API (CAPI)</h3>
+          <p className="text-xs text-muted-foreground">
+            Envio server-side do evento <span className="font-mono text-[11px]">Purchase</span> após cada venda aprovada no webhook de afiliados. O{" "}
+            <span className="font-mono text-[11px]">fbclid</span> vem do URL quando o utilizador clica no anúncio Meta (é obrigatório para atribuição). O{" "}
+            <span className="font-mono text-[11px]">fbp</span> (cookie <span className="font-mono text-[11px]">_fbp</span>, definido pelo Pixel no site) é opcional: melhora o matching na CAPI se estiver presente no metadata do clique.{" "}
+            <a
+              href={META_CAPI_DOC}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/90"
+            >
+              Documentação Meta
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Switch id="meta-capi-enabled" checked={metaEnabled} onCheckedChange={setMetaEnabled} />
+        <Label htmlFor="meta-capi-enabled" className="text-sm cursor-pointer">
+          Ativar envio após venda aprovada
+        </Label>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Pixel ID</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">ID numérico do Pixel (Gestor de eventos → Origens de dados).</p>
+          <Input
+            value={metaPixelId}
+            onChange={(e) => setMetaPixelId(e.target.value)}
+            placeholder="ex.: 123456789012345"
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Token de acesso (API de Conversões)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Gere em Ferramentas empresariais → Origens de dados → Pixel → «Gerar token» (permissões <em>ads_management</em> ou token de sistema).
+          </p>
+          <Input
+            type="password"
+            value={metaToken}
+            onChange={(e) => setMetaToken(e.target.value)}
+            placeholder={metaCapi?.has_access_token ? "•••••••• (cole um novo para substituir)" : "Cole o token"}
+            className="font-mono text-xs"
+            autoComplete="off"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Código de teste (opcional)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            No Gestor de eventos → Testar eventos — útil antes de produção. Remova quando validar.
+          </p>
+          <Input
+            value={metaTestCode}
+            onChange={(e) => setMetaTestCode(e.target.value)}
+            placeholder="TEST12345"
+            className="font-mono text-xs"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" onClick={() => saveMetaCapi.mutate()} disabled={saveMetaCapi.isPending} className="gap-2">
+          {saveMetaCapi.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Guardar Meta CAPI
+        </Button>
+        {metaCapi?.can_send ? (
+          <Badge variant="secondary" className="font-normal">
+            Pronto para enviar
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            Configuração incompleta
+          </Badge>
+        )}
+        {metaCapi?.has_access_token ? (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            Token guardado
+          </Badge>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -773,6 +1012,10 @@ export default function TrackingDashboard() {
   const [gaActionId, setGaActionId] = useState("");
   const [gaLoginMcc, setGaLoginMcc] = useState("");
   const [gaRefresh, setGaRefresh] = useState("");
+  const [metaEnabled, setMetaEnabled] = useState(false);
+  const [metaPixelId, setMetaPixelId] = useState("");
+  const [metaToken, setMetaToken] = useState("");
+  const [metaTestCode, setMetaTestCode] = useState("");
 
   const firstName = user?.name?.trim()?.split(/\s+/)[0];
 
@@ -817,6 +1060,24 @@ export default function TrackingDashboard() {
     setGaRefresh("");
   }, [googleAds]);
 
+  const { data: metaCapi } = useQuery({
+    queryKey: ["integrations-meta-capi"],
+    queryFn: async () => {
+      const { data, error: err } = await integrationsService.getMetaCapiSettings();
+      if (err) throw new Error(err);
+      if (!data) throw new Error("Resposta vazia");
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (!metaCapi) return;
+    setMetaEnabled(metaCapi.meta_capi_enabled);
+    setMetaPixelId(metaCapi.meta_pixel_id);
+    setMetaTestCode(metaCapi.meta_capi_test_event_code ?? "");
+    setMetaToken("");
+  }, [metaCapi]);
+
   const saveGoogleAds = useMutation({
     mutationFn: async () => {
       const { data, error: err } = await integrationsService.patchGoogleAdsSettings({
@@ -833,6 +1094,26 @@ export default function TrackingDashboard() {
       toast.success("Definições Google Ads guardadas.");
       await queryClient.invalidateQueries({ queryKey: ["integrations-google-ads"] });
       setGaRefresh("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveMetaCapi = useMutation({
+    mutationFn: async () => {
+      const { data, error: err } = await integrationsService.patchMetaCapiSettings({
+        meta_capi_enabled: metaEnabled,
+        meta_pixel_id: metaPixelId,
+        meta_capi_test_event_code: metaTestCode,
+        ...(metaToken.trim() ? { meta_access_token: metaToken.trim() } : {}),
+      });
+      if (err) throw new Error(err);
+      return data;
+    },
+    onSuccess: async () => {
+      toast.success("Definições Meta CAPI guardadas.");
+      await queryClient.invalidateQueries({ queryKey: ["integrations-meta-capi"] });
+      await queryClient.invalidateQueries({ queryKey: ["tracking-dashboard"] });
+      setMetaToken("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -968,6 +1249,9 @@ export default function TrackingDashboard() {
           greeting={firstName ? `Olá, ${firstName}` : "Bem-vindo"}
         />
 
+        <SyncHealthBanner dashboard={dashboard} />
+        <TrackingSetupChecklist />
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(
             [
@@ -1042,6 +1326,19 @@ export default function TrackingDashboard() {
           gaRefresh={gaRefresh}
           setGaRefresh={setGaRefresh}
           saveGoogleAds={saveGoogleAds}
+        />
+
+        <MetaCapiIntegrationCard
+          metaCapi={metaCapi}
+          metaEnabled={metaEnabled}
+          setMetaEnabled={setMetaEnabled}
+          metaPixelId={metaPixelId}
+          setMetaPixelId={setMetaPixelId}
+          metaToken={metaToken}
+          setMetaToken={setMetaToken}
+          metaTestCode={metaTestCode}
+          setMetaTestCode={setMetaTestCode}
+          saveMetaCapi={saveMetaCapi}
         />
 
         {showDetailSection ? (
@@ -1121,6 +1418,7 @@ export default function TrackingDashboard() {
                       { ok: dashboard.tracking_pipeline.campaign_tracking, label: "Rastreamento de campanha" },
                       { ok: dashboard.tracking_pipeline.sale_tracking, label: "Rastreamento de venda" },
                       { ok: dashboard.tracking_pipeline.google_ads_integration, label: "Integração Google Ads" },
+                      { ok: Boolean(dashboard.tracking_pipeline.meta_capi_integration), label: "Meta CAPI (Pixel)" },
                     ] as const
                   ).map((row) => (
                     <li key={row.label} className="flex items-center gap-2 text-xs text-foreground">
@@ -1157,6 +1455,9 @@ export default function TrackingDashboard() {
         }
       />
 
+      <SyncHealthBanner dashboard={dashboard} />
+      <TrackingSetupChecklist />
+
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Guia — instalação na presell</h2>
@@ -1168,6 +1469,11 @@ export default function TrackingDashboard() {
             <li>
               <strong className="text-foreground/90">Google Ads:</strong> na campanha, <strong className="text-foreground/90">URL final</strong> = URL
               público da presell — o Google acrescenta o <span className="font-mono text-[11px]">gclid</span> ao clicar no anúncio.
+            </li>
+            <li>
+              <strong className="text-foreground/90">Meta Ads:</strong> use o URL público da presell no anúncio — o Meta acrescenta{" "}
+              <span className="font-mono text-[11px]">fbclid</span> ao clicar (necessário para a CAPI). O cookie{" "}
+              <span className="font-mono text-[11px]">_fbp</span> (<span className="font-mono text-[11px]">fbp</span>) é opcional e reforça o matching se o Pixel estiver na página.
             </li>
             <li>
               <strong className="text-foreground/90">Rede de afiliados:</strong> em{" "}
@@ -1215,6 +1521,19 @@ export default function TrackingDashboard() {
           gaRefresh={gaRefresh}
           setGaRefresh={setGaRefresh}
           saveGoogleAds={saveGoogleAds}
+        />
+
+        <MetaCapiIntegrationCard
+          metaCapi={metaCapi}
+          metaEnabled={metaEnabled}
+          setMetaEnabled={setMetaEnabled}
+          metaPixelId={metaPixelId}
+          setMetaPixelId={setMetaPixelId}
+          metaToken={metaToken}
+          setMetaToken={setMetaToken}
+          metaTestCode={metaTestCode}
+          setMetaTestCode={setMetaTestCode}
+          saveMetaCapi={saveMetaCapi}
         />
       </section>
 

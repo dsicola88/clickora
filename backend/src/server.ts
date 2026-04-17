@@ -125,6 +125,7 @@ app.use(
     },
     credentials: true,
     optionsSuccessStatus: 204,
+    exposedHeaders: ["X-Next-Cursor", "Content-Disposition"],
   }),
 );
 

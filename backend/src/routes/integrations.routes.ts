@@ -14,6 +14,8 @@ authed.use(authenticate, tenantIsolation, requireActiveSubscription);
 authed.get("/affiliate-webhook-info", integrationsController.getAffiliateWebhookInfo);
 authed.get("/google-ads", integrationsController.getGoogleAdsSettings);
 authed.patch("/google-ads", integrationsController.patchGoogleAdsSettings);
+authed.get("/meta-capi", integrationsController.getMetaCapiSettings);
+authed.patch("/meta-capi", integrationsController.patchMetaCapiSettings);
 authed.post("/test-sale-email", integrationsController.testSaleNotificationEmail);
 authed.patch("/notification-email", integrationsController.patchNotificationEmail);
 authed.get("/telegram", integrationsController.getTelegramSettings);

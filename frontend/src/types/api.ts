@@ -132,6 +132,10 @@ export interface TrackingEvent {
   utm_source?: string | null;
   /** Palavra-chave (UTM term) quando enviada no clique/impressão. */
   utm_term?: string | null;
+  /** Criativo / anúncio (utm_content). */
+  utm_content?: string | null;
+  /** Nome da campanha UTM (coluna campaign ou metadata). */
+  utm_campaign?: string | null;
   gclid?: string | null;
   msclkid?: string | null;
   /** paid | organic — derivado de gclid/msclkid no evento. */

@@ -302,7 +302,7 @@ if(b)b.addEventListener("click",g);
 if(c)c.addEventListener("click",g);
 if(a)a.addEventListener("click",g);
 })();
-<\/script>`;
+</script>`;
 }
 
 function buildVslFallbackHtml(
@@ -329,7 +329,7 @@ function buildVslFallbackHtml(
 ${subtitle ? `<p class="pe-vsl-sub">${escapeHtml(subtitle)}</p>` : ""}
 ${excerpt ? `<p class="pe-vsl-ex">${escapeHtml(excerpt)}</p>` : ""}
 </div></div>
-${slides.length > 1 ? `<script>(function(){var root=document.getElementById("pe-vsl-fb");if(!root)return;var slides=root.querySelectorAll(".pe-vsl-slide");var n=slides.length;var i=0;setInterval(function(){slides[i].classList.remove("is-on");slides[i].classList.add("is-off");i=(i+1)%n;slides[i].classList.remove("is-off");slides[i].classList.add("is-on");},6000);})();<\/script>` : ""}`;
+${slides.length > 1 ? `<script>(function(){var root=document.getElementById("pe-vsl-fb");if(!root)return;var slides=root.querySelectorAll(".pe-vsl-slide");var n=slides.length;var i=0;setInterval(function(){slides[i].classList.remove("is-on");slides[i].classList.add("is-off");i=(i+1)%n;slides[i].classList.remove("is-off");slides[i].classList.add("is-on");},6000);})();</script>` : ""}`;
 }
 
 function buildDiscountModalHtml(
@@ -358,7 +358,7 @@ function buildDiscountModalHtml(
 var h=${JSON.stringify(href)};
 var bg=document.getElementById("pe-discount-bg");
 if(bg)bg.addEventListener("click",function(){if(h)location.href=h;});
-})();<\/script>`;
+})();</script>`;
 }
 
 function buildDiscountBarHtml(initialSeconds: number, language: string): string {
@@ -373,7 +373,7 @@ var el=document.getElementById("pe-discount-timer");
 var s=${Math.max(0, Math.floor(initialSeconds))};
 function tick(){if(s<=0)return;s--;var m=Math.floor(s/60);var r=s%60;el.textContent=String(m).padStart(2,"0")+":"+String(r).padStart(2,"0");}
 setInterval(tick,1000);
-})();<\/script>`;
+})();</script>`;
 }
 
 function buildGateScript(kind: InteractivePresellGateKind | null, settings: Record<string, unknown>, href: string): string {
@@ -401,7 +401,7 @@ function buildGateScript(kind: InteractivePresellGateKind | null, settings: Reco
     }
   })();
   if (!body) return "";
-  return `<script>(function(){${body}})();<\/script>`;
+  return `<script>(function(){${body}})();</script>`;
 }
 
 export type PresellExportFormat = "document" | "elementor";
@@ -578,7 +578,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const gateScript = buildGateScript(gateForCta, settings, href);
   const ghostScript = isGhost
-    ? `<script>(function(){var u=${JSON.stringify(href)};var d=0;function go(){if(d)return;d=1;if(u)location.href=u;}["mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();<\/script>`
+    ? `<script>(function(){var u=${JSON.stringify(href)};var d=0;function go(){if(d)return;d=1;if(u)location.href=u;}["mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
     : "";
 
   const inner =

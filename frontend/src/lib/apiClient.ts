@@ -27,6 +27,14 @@ class ApiClient {
     return headers;
   }
 
+  /** GET sem `Content-Type: json` — para CSV e outros binários. */
+  private getAuthHeaders(accept = "text/csv, application/json;q=0.5, */*;q=0.1"): HeadersInit {
+    const headers: Record<string, string> = { Accept: accept };
+    const token = this.getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+  }
+
   async request<T>(
     endpoint: string,
     options: {
@@ -88,6 +96,57 @@ class ApiClient {
 
   get<T>(endpoint: string) {
     return this.request<T>(endpoint, { method: "GET" });
+  }
+
+  /**
+   * Resposta bruta (ex.: CSV). Em erro, tenta JSON para a mensagem.
+   */
+  async getBlob(endpoint: string): Promise<{
+    data: Blob | null;
+    filename: string | null;
+    /** Próxima página em exportações CSV paginadas (base64url). */
+    nextCursor: string | null;
+    error: string | null;
+  }> {
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+        const message = errorData.message || errorData.error || `Erro ${response.status}`;
+        if (response.status === 401) {
+          localStorage.removeItem("clickora_token");
+          localStorage.removeItem("clickora_user");
+          window.dispatchEvent(new CustomEvent("auth:logout"));
+        }
+        return { data: null, filename: null, nextCursor: null, error: message };
+      }
+
+      const cd = response.headers.get("Content-Disposition");
+      let filename: string | null = null;
+      if (cd) {
+        const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(cd);
+        const plain = /filename="([^"]+)"/i.exec(cd) || /filename=([^;\s]+)/i.exec(cd);
+        const raw = star?.[1]?.trim() || plain?.[1]?.trim();
+        if (raw) {
+          try {
+            filename = decodeURIComponent(raw.replace(/^["']|["']$/g, ""));
+          } catch {
+            filename = raw.replace(/^["']|["']$/g, "");
+          }
+        }
+      }
+
+      const nextCursor = response.headers.get("X-Next-Cursor");
+      const blob = await response.blob();
+      return { data: blob, filename, nextCursor, error: null };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro de conexão com o servidor";
+      return { data: null, filename: null, nextCursor: null, error: message };
+    }
   }
 
   post<T>(endpoint: string, body?: unknown, headers?: Record<string, string>) {

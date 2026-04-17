@@ -25,6 +25,7 @@ const clickSchema = z.object({
   gbraid: z.string().optional(),
   wbraid: z.string().optional(),
   fbclid: z.string().optional(),
+  fbp: z.string().optional(),
   ttclid: z.string().optional(),
   utm_term: z.string().optional(),
   utm_content: z.string().optional(),
@@ -68,6 +69,8 @@ const redirectSchema = z.object({
   utm_term: z.string().optional(),
   utm_content: z.string().optional(),
   msclkid: z.string().optional(),
+  /** Cookie Meta _fbp (opcional) — pode vir em query se o lander o passar. */
+  fbp: z.string().optional(),
 });
 
 function sendTrackingPixelGif(res: Response) {
@@ -78,8 +81,8 @@ function sendTrackingPixelGif(res: Response) {
   return res.status(200).send(buffer);
 }
 
-/** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id. */
-const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};if(userId)payload.metadata={clickora_user_id:userId};try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
+/** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id; envia _fbp se existir. */
+const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;var cm=typeof document!=="undefined"&&document.cookie?document.cookie.match(/(?:^|;)_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
 export const trackController = {
   async redirect(req: Request, res: Response) {
@@ -96,6 +99,7 @@ export const trackController = {
       gbraid,
       wbraid,
       fbclid,
+      fbp,
       ttclid,
       utm_term,
       utm_content,
@@ -146,6 +150,7 @@ export const trackController = {
             gbraid,
             wbraid,
             fbclid,
+            fbp,
             ttclid,
             msclkid,
             utm_term,
@@ -235,6 +240,7 @@ export const trackController = {
       gbraid,
       wbraid,
       fbclid,
+      fbp,
       ttclid,
       utm_term,
       utm_content,
@@ -283,6 +289,7 @@ export const trackController = {
             gbraid,
             wbraid,
             fbclid,
+            fbp,
             ttclid,
             msclkid,
             utm_term,

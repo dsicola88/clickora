@@ -1,6 +1,32 @@
 import { apiClient } from "@/lib/apiClient";
 import type { AnalyticsSummary, TrackingEvent } from "@/types/api";
 
+const CSV_MAX_PAGES = 500;
+
+function stripUtf8Bom(text: string): string {
+  if (text.charCodeAt(0) === 0xfeff) return text.slice(1);
+  return text;
+}
+
+/** Junta vários CSV com o mesmo cabeçalho; a partir do 2.º ficheiro remove BOM e linha de cabeçalho. */
+async function mergeCsvBlobs(chunks: Blob[]): Promise<Blob> {
+  if (chunks.length === 0) return new Blob([], { type: "text/csv;charset=utf-8" });
+  if (chunks.length === 1) return chunks[0]!;
+
+  const parts: string[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    let text = stripUtf8Bom(await chunks[i]!.text());
+    if (i > 0) {
+      const lineEnd = text.search(/\r?\n/);
+      if (lineEnd === -1) continue;
+      text = text.slice(lineEnd + 1);
+      if (text.startsWith("\r")) text = text.slice(1);
+    }
+    parts.push(text);
+  }
+  return new Blob(parts, { type: "text/csv;charset=utf-8" });
+}
+
 export const analyticsService = {
   async getSummary(params?: { from?: string; to?: string; presell_id?: string }) {
     const query = new URLSearchParams();
@@ -45,6 +71,138 @@ export const analyticsService = {
     return apiClient.get<TrackingEvent[]>(`/analytics/events${qs ? `?${qs}` : ""}`);
   },
 
+  /**
+   * GET /api/analytics/events?format=csv — segue X-Next-Cursor até ao fim (um único ficheiro).
+   * Para uma única página (API manual), use mergeAllPages: false.
+   */
+  async downloadEventsCsv(params?: {
+    event_type?: string;
+    presell_id?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    mergeAllPages?: boolean;
+  }): Promise<{
+    data: Blob | null;
+    filename: string | null;
+    error: string | null;
+  }> {
+    const mergeAll = params?.mergeAllPages !== false;
+    const pageLimit = Math.min(params?.limit ?? 10000, 10000);
+
+    if (!mergeAll) {
+      const query = new URLSearchParams();
+      query.set("format", "csv");
+      if (params?.event_type) query.set("event_type", params.event_type);
+      if (params?.presell_id) query.set("presell_id", params.presell_id);
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
+      query.set("limit", String(pageLimit));
+      const qs = query.toString();
+      const r = await apiClient.getBlob(`/analytics/events?${qs}`);
+      return { data: r.data, filename: r.filename, error: r.error };
+    }
+
+    const chunks: Blob[] = [];
+    let cursor: string | undefined;
+    let filename: string | null = null;
+
+    for (let page = 0; ; page++) {
+      const query = new URLSearchParams();
+      query.set("format", "csv");
+      if (params?.event_type) query.set("event_type", params.event_type);
+      if (params?.presell_id) query.set("presell_id", params.presell_id);
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
+      query.set("limit", String(pageLimit));
+      if (cursor) query.set("cursor", cursor);
+
+      const { data, filename: fn, nextCursor, error } = await apiClient.getBlob(`/analytics/events?${query}`);
+      if (error || !data) {
+        return { data: null, filename: null, error: error ?? "Erro ao exportar." };
+      }
+      if (page === 0 && fn) filename = fn;
+      chunks.push(data);
+      if (!nextCursor) break;
+      if (page + 1 >= CSV_MAX_PAGES) {
+        return {
+          data: null,
+          filename: null,
+          error:
+            "Exportação excede o limite de paginação. Reduza o intervalo de datas ou utilize a API com o parâmetro cursor.",
+        };
+      }
+      cursor = nextCursor;
+    }
+
+    const merged = chunks.length === 1 ? chunks[0]! : await mergeCsvBlobs(chunks);
+    return { data: merged, filename, error: null };
+  },
+
+  /**
+   * GET /api/analytics/conversions?format=csv — segue X-Next-Cursor até ao fim.
+   */
+  async downloadConversionsCsv(params?: {
+    from?: string;
+    to?: string;
+    missing_gclid?: boolean;
+    limit?: number;
+    mergeAllPages?: boolean;
+  }): Promise<{
+    data: Blob | null;
+    filename: string | null;
+    error: string | null;
+  }> {
+    const mergeAll = params?.mergeAllPages !== false;
+    const pageLimit = Math.min(params?.limit ?? 10000, 10000);
+
+    if (!mergeAll) {
+      const query = new URLSearchParams();
+      query.set("format", "csv");
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
+      if (params?.missing_gclid) query.set("missing_gclid", "1");
+      query.set("limit", String(pageLimit));
+      const qs = query.toString();
+      const r = await apiClient.getBlob(`/analytics/conversions?${qs}`);
+      return { data: r.data, filename: r.filename, error: r.error };
+    }
+
+    const chunks: Blob[] = [];
+    let cursor: string | undefined;
+    let filename: string | null = null;
+
+    for (let page = 0; ; page++) {
+      const query = new URLSearchParams();
+      query.set("format", "csv");
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
+      if (params?.missing_gclid) query.set("missing_gclid", "1");
+      query.set("limit", String(pageLimit));
+      if (cursor) query.set("cursor", cursor);
+
+      const { data, filename: fn, nextCursor, error } = await apiClient.getBlob(`/analytics/conversions?${query}`);
+      if (error || !data) {
+        return { data: null, filename: null, error: error ?? "Erro ao exportar." };
+      }
+      if (page === 0 && fn) filename = fn;
+      chunks.push(data);
+      if (!nextCursor) break;
+      if (page + 1 >= CSV_MAX_PAGES) {
+        return {
+          data: null,
+          filename: null,
+          error:
+            "Exportação excede o limite de paginação. Reduza o intervalo de datas ou utilize a API com o parâmetro cursor.",
+        };
+      }
+      cursor = nextCursor;
+    }
+
+    const merged = chunks.length === 1 ? chunks[0]! : await mergeCsvBlobs(chunks);
+    return { data: merged, filename, error: null };
+  },
+
   async getConversions(params?: {
     from?: string;
     to?: string;
@@ -64,10 +222,18 @@ export const analyticsService = {
         click_id: string;
         presell_id: string;
         keyword: string;
+        utm_source: string | null;
+        utm_medium: string | null;
+        utm_campaign: string | null;
+        utm_term: string | null;
+        utm_content: string | null;
+        postback_campaign: string | null;
+        origin: string;
         commission: number | null;
         currency: string;
         platform: string;
         google_ads_sync: string | null;
+        meta_capi_sync: string | null;
         has_gclid: boolean;
         gclid: string | null;
       }>
@@ -105,6 +271,13 @@ export const analyticsService = {
         google_ads_integration: boolean;
         google_ads_api_env_configured: boolean;
         google_ads_metrics_available?: boolean;
+        meta_capi_integration?: boolean;
+      };
+      /** Falhas de envio (Google/Meta) em conversões aprovadas no período indicado. */
+      sync_health?: {
+        period_days: number;
+        google_ads_failed: number;
+        meta_capi_failed: number;
       };
       google_ads_metrics?: {
         impressions: number;

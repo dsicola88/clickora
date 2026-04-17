@@ -52,6 +52,33 @@ export const integrationsService = {
     }>("/integrations/google-ads", body);
   },
 
+  async getMetaCapiSettings() {
+    return apiClient.get<{
+      meta_capi_enabled: boolean;
+      meta_pixel_id: string;
+      has_access_token: boolean;
+      meta_capi_test_event_code: string;
+      can_send: boolean;
+    }>("/integrations/meta-capi");
+  },
+
+  async patchMetaCapiSettings(body: {
+    meta_capi_enabled?: boolean;
+    meta_pixel_id?: string;
+    meta_access_token?: string;
+    meta_capi_test_event_code?: string;
+    clear_meta_access_token?: boolean;
+  }) {
+    return apiClient.patch<{
+      ok: boolean;
+      meta_capi_enabled: boolean;
+      meta_pixel_id: string;
+      has_access_token: boolean;
+      meta_capi_test_event_code: string;
+      can_send: boolean;
+    }>("/integrations/meta-capi", body);
+  },
+
   async getTelegramSettings() {
     return apiClient.get<{
       telegram_chat_id: string;

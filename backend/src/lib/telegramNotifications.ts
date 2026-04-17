@@ -1,5 +1,6 @@
 import { systemPrisma } from "./prisma";
 import { sendTelegram } from "./telegram";
+import { decryptSecretField } from "./fieldEncryption";
 
 const TELEGRAM_USER_SELECT = {
   telegramBotToken: true,
@@ -20,7 +21,7 @@ export function notifyTelegramSale(
       select: TELEGRAM_USER_SELECT,
     });
     if (!user?.telegramNotifySale) return;
-    const token = user.telegramBotToken?.trim();
+    const token = decryptSecretField(user.telegramBotToken)?.trim();
     const chat = user.telegramChatId?.trim();
     if (!token || !chat) return;
     const lines = [
@@ -45,7 +46,7 @@ export function notifyTelegramPostbackWarning(
       select: TELEGRAM_USER_SELECT,
     });
     if (!user?.telegramNotifyPostbackError) return;
-    const token = user.telegramBotToken?.trim();
+    const token = decryptSecretField(user.telegramBotToken)?.trim();
     const chat = user.telegramChatId?.trim();
     if (!token || !chat) return;
     const text = [
@@ -70,7 +71,7 @@ export function notifyTelegramClick(
       select: TELEGRAM_USER_SELECT,
     });
     if (!user?.telegramNotifyClick) return;
-    const token = user.telegramBotToken?.trim();
+    const token = decryptSecretField(user.telegramBotToken)?.trim();
     const chat = user.telegramChatId?.trim();
     if (!token || !chat) return;
     const text = [

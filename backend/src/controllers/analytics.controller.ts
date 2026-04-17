@@ -10,6 +10,9 @@ import {
   isGoogleAdsMetricsReadyForUser,
 } from "../modules/googleAds/googleAds.service";
 import { countryIsoFromIp } from "../lib/countryFromIp";
+import { sendCsvDownload } from "../lib/csvExport";
+import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
+import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -19,6 +22,131 @@ type AnalyticsSummaryItem = {
   conversions: number;
   revenue: number;
 };
+
+function mapTrackingEventForApi(e: {
+  id: string;
+  presellPageId: string | null;
+  eventType: EventType;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  referrer: string | null;
+  country: string | null;
+  ipAddress: string | null;
+  device: string | null;
+  createdAt: Date;
+  metadata: Prisma.JsonValue;
+}) {
+  const metadata = (e.metadata || {}) as Record<string, unknown>;
+  const gclid = typeof metadata.gclid === "string" ? metadata.gclid : null;
+  const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
+  const paid = Boolean(gclid?.trim() || msclkid?.trim());
+  const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
+  const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
+  const utm_content =
+    typeof metadata.utm_content === "string" && metadata.utm_content.trim()
+      ? metadata.utm_content.trim()
+      : null;
+  const utm_campaign =
+    (e.campaign && String(e.campaign).trim()) ||
+    (typeof metadata.campaign === "string" && metadata.campaign.trim() ? metadata.campaign.trim() : null);
+  return {
+    id: e.id,
+    presell_id: e.presellPageId,
+    event_type: e.eventType,
+    source: e.source,
+    medium: e.medium,
+    campaign: e.campaign,
+    referrer: e.referrer,
+    country,
+    ip_address: e.ipAddress,
+    device: e.device,
+    created_at: e.createdAt.toISOString(),
+    metadata: e.metadata ?? {},
+    utm_source: typeof metadata.utm_source === "string" ? metadata.utm_source : (e.source ?? null),
+    utm_term: typeof metadata.utm_term === "string" ? metadata.utm_term : null,
+    utm_content,
+    utm_campaign: utm_campaign || null,
+    gclid,
+    msclkid,
+    traffic_type: paid ? "paid" : "organic",
+    is_bot: metadata.is_bot === true,
+    bot_label: typeof metadata.bot_label === "string" ? metadata.bot_label : null,
+  };
+}
+
+function mapConversionForApi(
+  c: Prisma.ConversionGetPayload<{
+    include: {
+      click: {
+        select: {
+          id: true;
+          metadata: true;
+          source: true;
+          medium: true;
+          campaign: true;
+          referrer: true;
+        };
+      };
+    };
+  }>,
+) {
+  const meta = (c.metadata || {}) as Record<string, unknown>;
+  const clickMeta = (c.click.metadata || {}) as Record<string, unknown>;
+  const gclid = typeof clickMeta.gclid === "string" ? clickMeta.gclid : null;
+  const wbraid = typeof clickMeta.wbraid === "string" ? clickMeta.wbraid : null;
+  const gbraid = typeof clickMeta.gbraid === "string" ? clickMeta.gbraid : null;
+  const hasClickId = Boolean(gclid?.trim() || gbraid?.trim() || wbraid?.trim());
+  const platform = typeof meta.platform === "string" ? meta.platform : "—";
+
+  const utm_term_raw =
+    (typeof clickMeta.utm_term === "string" && clickMeta.utm_term.trim() && clickMeta.utm_term.trim()) || "";
+  const utm_content_raw =
+    (typeof clickMeta.utm_content === "string" && clickMeta.utm_content.trim() && clickMeta.utm_content.trim()) || "";
+
+  const clickSource =
+    (c.click.source && String(c.click.source).trim()) ||
+    (typeof clickMeta.utm_source === "string" && clickMeta.utm_source.trim() ? clickMeta.utm_source.trim() : "") ||
+    null;
+  const clickMedium =
+    (c.click.medium && String(c.click.medium).trim()) ||
+    (typeof clickMeta.medium === "string" && clickMeta.medium.trim() ? clickMeta.medium.trim() : "") ||
+    null;
+  const clickCampaign =
+    (c.click.campaign && String(c.click.campaign).trim()) ||
+    (typeof clickMeta.campaign === "string" && clickMeta.campaign.trim() ? clickMeta.campaign.trim() : "") ||
+    null;
+
+  const postbackCampaign = typeof c.campaign === "string" && c.campaign.trim() ? c.campaign.trim() : null;
+
+  const keyword = utm_term_raw || postbackCampaign || "—";
+
+  const originParts = [clickSource, clickMedium, clickCampaign].filter(Boolean);
+  const origin = originParts.length ? originParts.join(" / ") : "—";
+
+  const amount = c.amount != null ? Number(c.amount) : null;
+  return {
+    id: c.id,
+    created_at: c.createdAt.toISOString(),
+    click_id: c.clickId,
+    presell_id: c.presellId,
+    keyword,
+    utm_source: clickSource,
+    utm_medium: clickMedium,
+    utm_campaign: clickCampaign,
+    utm_term: utm_term_raw || null,
+    utm_content: utm_content_raw || null,
+    postback_campaign: postbackCampaign,
+    origin,
+    commission: amount != null && Number.isFinite(amount) ? amount : null,
+    currency: c.currency ?? "USD",
+    platform,
+    google_ads_sync: c.googleAdsSync,
+    meta_capi_sync: c.metaCapiSync,
+    has_gclid: hasClickId,
+    gclid: gclid || null,
+  };
+}
 
 export const analyticsController = {
   async getSummary(req: Request, res: Response) {
@@ -99,8 +227,10 @@ export const analyticsController = {
   },
 
   async getEvents(req: Request, res: Response) {
-    const { event_type, presell_id, limit, from, to } = req.query;
+    const { event_type, presell_id, limit, from, to, format, cursor } = req.query;
     const userId = req.user!.userId;
+    const formatStr = typeof format === "string" ? format.toLowerCase() : "";
+    const wantCsv = formatStr === "csv" || formatStr === "text/csv";
 
     const where: Prisma.TrackingEventWhereInput = { userId };
     if (event_type && typeof event_type === "string") where.eventType = event_type as EventType;
@@ -119,109 +249,318 @@ export const analyticsController = {
       }
     }
 
-    const take = Math.min(Number(limit) || 200, 500);
+    if (wantCsv) {
+      const decoded = typeof cursor === "string" ? decodeTimeIdCursor(cursor) : null;
+      if (cursor && typeof cursor === "string" && !decoded) {
+        return res.status(400).json({ error: "cursor inválido" });
+      }
+      if (decoded) {
+        where.AND = [whereOlderThanTimeIdCursor(decoded)];
+      }
 
+      const pageSize = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
+      const events = await prisma.trackingEvent.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: pageSize + 1,
+      });
+
+      const hasMore = events.length > pageSize;
+      const page = hasMore ? events.slice(0, pageSize) : events;
+      const rows = page.map((e) => mapTrackingEventForApi(e));
+
+      const last = page.length > 0 ? page[page.length - 1]! : null;
+      const nextCursor = hasMore && last ? encodeTimeIdCursor(last.createdAt, last.id) : null;
+
+      const evLabel = event_type && typeof event_type === "string" ? String(event_type) : "all";
+      const fromS = from && typeof from === "string" ? from : "start";
+      const toS = to && typeof to === "string" ? to : "end";
+      const filename = `tracking-events_${evLabel}_${fromS}_${toS}.csv`;
+      const headers = [
+        "id",
+        "presell_id",
+        "event_type",
+        "created_at",
+        "country",
+        "source",
+        "medium",
+        "campaign",
+        "referrer",
+        "utm_source",
+        "utm_term",
+        "utm_content",
+        "utm_campaign",
+        "device",
+        "ip_address",
+        "traffic_type",
+        "gclid",
+        "msclkid",
+        "is_bot",
+        "bot_label",
+        "metadata_json",
+      ];
+      const dataRows = rows.map((r) => {
+        const metaJson = JSON.stringify(r.metadata ?? {});
+        return [
+          r.id,
+          r.presell_id,
+          r.event_type,
+          r.created_at,
+          r.country,
+          r.source,
+          r.medium,
+          r.campaign,
+          r.referrer,
+          r.utm_source,
+          r.utm_term,
+          r.utm_content,
+          r.utm_campaign,
+          r.device,
+          r.ip_address,
+          r.traffic_type,
+          r.gclid,
+          r.msclkid,
+          r.is_bot,
+          r.bot_label,
+          metaJson,
+        ];
+      });
+      return sendCsvDownload(res, filename, headers, dataRows, { nextCursor });
+    }
+
+    const take = Math.min(Number(limit) || 200, 500);
     const events = await prisma.trackingEvent.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take,
     });
-
-    res.json(
-      events.map((e) => {
-        const metadata = (e.metadata || {}) as Record<string, unknown>;
-        const gclid = typeof metadata.gclid === "string" ? metadata.gclid : null;
-        const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
-        const paid = Boolean(gclid?.trim() || msclkid?.trim());
-        const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
-        const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
-        return {
-          id: e.id,
-          presell_id: e.presellPageId,
-          event_type: e.eventType,
-          source: e.source,
-          medium: e.medium,
-          campaign: e.campaign,
-          referrer: e.referrer,
-          country,
-          ip_address: e.ipAddress,
-          device: e.device,
-          created_at: e.createdAt.toISOString(),
-          metadata: e.metadata ?? {},
-          utm_source: typeof metadata.utm_source === "string" ? metadata.utm_source : (e.source ?? null),
-          utm_term: typeof metadata.utm_term === "string" ? metadata.utm_term : null,
-          gclid,
-          msclkid,
-          traffic_type: paid ? "paid" : "organic",
-          is_bot: metadata.is_bot === true,
-          bot_label: typeof metadata.bot_label === "string" ? metadata.bot_label : null,
-        };
-      }),
-    );
+    const rows = events.map((e) => mapTrackingEventForApi(e));
+    res.json(rows);
   },
 
-  /** Lista conversões aprovadas (postback) com dados do clique e sync Google Ads. */
+  /** Lista conversões aprovadas (postback) com dados do clique e sync Google Ads / Meta CAPI. */
   async listConversions(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { from, to, missing_gclid, limit } = req.query;
+    const { from, to, missing_gclid, limit, format, cursor } = req.query;
+    const formatStr = typeof format === "string" ? format.toLowerCase() : "";
+    const wantCsv = formatStr === "csv" || formatStr === "text/csv";
+    const wantMissingGclid = missing_gclid === "1" || missing_gclid === "true";
 
-    const where: Prisma.ConversionWhereInput = { userId, status: "approved" };
-    if (from || to) {
-      where.createdAt = {};
+    const csvHeaders = [
+      "id",
+      "created_at",
+      "click_id",
+      "presell_id",
+      "origin",
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "postback_campaign",
+      "keyword",
+      "commission",
+      "currency",
+      "platform",
+      "google_ads_sync",
+      "meta_capi_sync",
+      "has_gclid",
+      "gclid",
+    ];
+
+    const buildConversionWhere = (): Prisma.ConversionWhereInput => {
+      const where: Prisma.ConversionWhereInput = { userId, status: "approved" };
+      if (from || to) {
+        where.createdAt = {};
+        if (from && typeof from === "string") {
+          const d = new Date(from);
+          d.setHours(0, 0, 0, 0);
+          if (!Number.isNaN(d.getTime())) where.createdAt.gte = d;
+        }
+        if (to && typeof to === "string") {
+          const d = new Date(to);
+          d.setHours(23, 59, 59, 999);
+          if (!Number.isNaN(d.getTime())) where.createdAt.lte = d;
+        }
+      }
+      return where;
+    };
+
+    const clickInclude = {
+      click: {
+        select: {
+          id: true,
+          metadata: true,
+          source: true,
+          medium: true,
+          campaign: true,
+          referrer: true,
+        },
+      },
+    } as const;
+
+    /** CSV + sem gclid: filtro em SQL + cursor (não depende de pós-filtro na memória). */
+    if (wantCsv && wantMissingGclid) {
+      const decoded = typeof cursor === "string" ? decodeTimeIdCursor(cursor) : null;
+      if (cursor && typeof cursor === "string" && !decoded) {
+        return res.status(400).json({ error: "cursor inválido" });
+      }
+
+      const pageSize = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
+
+      let fromD: Date | undefined;
+      let toD: Date | undefined;
       if (from && typeof from === "string") {
         const d = new Date(from);
         d.setHours(0, 0, 0, 0);
-        if (!Number.isNaN(d.getTime())) where.createdAt.gte = d;
+        if (!Number.isNaN(d.getTime())) fromD = d;
       }
       if (to && typeof to === "string") {
         const d = new Date(to);
         d.setHours(23, 59, 59, 999);
-        if (!Number.isNaN(d.getTime())) where.createdAt.lte = d;
+        if (!Number.isNaN(d.getTime())) toD = d;
       }
+
+      const cursorSql = decoded
+        ? Prisma.sql`AND (
+            c.created_at < ${new Date(decoded.t)}::timestamptz
+            OR (c.created_at = ${new Date(decoded.t)}::timestamptz AND c.id < ${decoded.id}::uuid)
+          )`
+        : Prisma.sql``;
+
+      const fromSql = fromD ? Prisma.sql`AND c.created_at >= ${fromD}::timestamptz` : Prisma.sql``;
+      const toSql = toD ? Prisma.sql`AND c.created_at <= ${toD}::timestamptz` : Prisma.sql``;
+
+      const idRows = await prisma.$queryRaw<{ id: string; created_at: Date }[]>(Prisma.sql`
+        SELECT c.id, c.created_at
+        FROM conversions c
+        INNER JOIN tracking_events t ON t.id = c.click_id
+        WHERE c.user_id = ${userId}::uuid
+        AND c.status = 'approved'
+        AND (
+          NULLIF(TRIM(COALESCE(t.metadata->>'gclid', '')), '') IS NULL
+          AND NULLIF(TRIM(COALESCE(t.metadata->>'gbraid', '')), '') IS NULL
+          AND NULLIF(TRIM(COALESCE(t.metadata->>'wbraid', '')), '') IS NULL
+        )
+        ${fromSql}
+        ${toSql}
+        ${cursorSql}
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT ${pageSize + 1}
+      `);
+
+      const hasMore = idRows.length > pageSize;
+      const slice = idRows.slice(0, pageSize);
+      const ids = slice.map((r) => r.id);
+
+      const fromS = from && typeof from === "string" ? from : "start";
+      const toS = to && typeof to === "string" ? to : "end";
+      const filename = `conversions_no-click-id_${fromS}_${toS}.csv`;
+
+      if (ids.length === 0) {
+        return sendCsvDownload(res, filename, csvHeaders, [], { nextCursor: null });
+      }
+
+      const convRows = await prisma.conversion.findMany({
+        where: { id: { in: ids } },
+        include: clickInclude,
+      });
+      const order = new Map(ids.map((id, i) => [id, i]));
+      convRows.sort((a, b) => (order.get(a.id)! - order.get(b.id)!));
+
+      const filtered = convRows.map((c) => mapConversionForApi(c));
+      const dataRows = filtered.map((r) => [
+        r.id,
+        r.created_at,
+        r.click_id,
+        r.presell_id,
+        r.origin,
+        r.utm_source,
+        r.utm_medium,
+        r.utm_campaign,
+        r.utm_term,
+        r.utm_content,
+        r.postback_campaign,
+        r.keyword,
+        r.commission,
+        r.currency,
+        r.platform,
+        r.google_ads_sync,
+        r.meta_capi_sync,
+        r.has_gclid,
+        r.gclid,
+      ]);
+
+      const last = slice[slice.length - 1]!;
+      const nextCursor = hasMore ? encodeTimeIdCursor(new Date(last.created_at), last.id) : null;
+      return sendCsvDownload(res, filename, csvHeaders, dataRows, { nextCursor });
     }
 
-    const wantMissingGclid = missing_gclid === "1" || missing_gclid === "true";
+    if (wantCsv && !wantMissingGclid) {
+      const decoded = typeof cursor === "string" ? decodeTimeIdCursor(cursor) : null;
+      if (cursor && typeof cursor === "string" && !decoded) {
+        return res.status(400).json({ error: "cursor inválido" });
+      }
+
+      const where = buildConversionWhere();
+      if (decoded) {
+        where.AND = [whereOlderThanTimeIdCursor(decoded)];
+      }
+
+      const pageSize = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
+      const rows = await prisma.conversion.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: pageSize + 1,
+        include: clickInclude,
+      });
+
+      const hasMore = rows.length > pageSize;
+      const page = hasMore ? rows.slice(0, pageSize) : rows;
+      const filtered = page.map((c) => mapConversionForApi(c));
+
+      const last = page.length > 0 ? page[page.length - 1]! : null;
+      const nextCursor = hasMore && last ? encodeTimeIdCursor(last.createdAt, last.id) : null;
+
+      const fromS = from && typeof from === "string" ? from : "start";
+      const toS = to && typeof to === "string" ? to : "end";
+      const filename = `conversions_${fromS}_${toS}.csv`;
+      const dataRows = filtered.map((r) => [
+        r.id,
+        r.created_at,
+        r.click_id,
+        r.presell_id,
+        r.origin,
+        r.utm_source,
+        r.utm_medium,
+        r.utm_campaign,
+        r.utm_term,
+        r.utm_content,
+        r.postback_campaign,
+        r.keyword,
+        r.commission,
+        r.currency,
+        r.platform,
+        r.google_ads_sync,
+        r.meta_capi_sync,
+        r.has_gclid,
+        r.gclid,
+      ]);
+      return sendCsvDownload(res, filename, csvHeaders, dataRows, { nextCursor });
+    }
+
+    const where = buildConversionWhere();
     const take = Math.min(Number(limit) || (wantMissingGclid ? 2000 : 200), wantMissingGclid ? 3000 : 500);
 
     const rows = await prisma.conversion.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take,
-      include: {
-        click: { select: { id: true, metadata: true } },
-      },
+      include: clickInclude,
     });
 
-    const out = rows.map((c) => {
-      const meta = (c.metadata || {}) as Record<string, unknown>;
-      const clickMeta = (c.click.metadata || {}) as Record<string, unknown>;
-      const gclid = typeof clickMeta.gclid === "string" ? clickMeta.gclid : null;
-      const wbraid = typeof clickMeta.wbraid === "string" ? clickMeta.wbraid : null;
-      const gbraid = typeof clickMeta.gbraid === "string" ? clickMeta.gbraid : null;
-      const hasClickId = Boolean(gclid?.trim() || gbraid?.trim() || wbraid?.trim());
-      const platform = typeof meta.platform === "string" ? meta.platform : "—";
-      const keyword =
-        (typeof clickMeta.utm_term === "string" && clickMeta.utm_term) ||
-        (typeof c.campaign === "string" && c.campaign) ||
-        "—";
-      const amount = c.amount != null ? Number(c.amount) : null;
-      return {
-        id: c.id,
-        created_at: c.createdAt.toISOString(),
-        click_id: c.clickId,
-        presell_id: c.presellId,
-        keyword,
-        commission: amount != null && Number.isFinite(amount) ? amount : null,
-        currency: c.currency ?? "USD",
-        platform,
-        google_ads_sync: c.googleAdsSync,
-        has_gclid: hasClickId,
-        gclid: gclid || null,
-      };
-    });
-
+    const out = rows.map((c) => mapConversionForApi(c));
     const filtered = wantMissingGclid ? out.filter((r) => !r.has_gclid) : out;
-
     res.json(filtered);
   },
 
@@ -330,13 +669,16 @@ export const analyticsController = {
       `),
     ]);
 
-    /** Colunas Google Ads em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
+    /** Colunas de integração em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
     type PipelineUser = {
       googleAdsEnabled: boolean;
       googleAdsCustomerId: string | null;
       googleAdsConversionActionId: string | null;
       googleAdsLoginCustomerId: string | null;
       googleAdsRefreshToken: string | null;
+      metaCapiEnabled: boolean;
+      metaPixelId: string | null;
+      metaAccessToken: string | null;
     };
     let pipelineUser: PipelineUser | null = null;
     try {
@@ -348,6 +690,9 @@ export const analyticsController = {
           googleAdsConversionActionId: true,
           googleAdsLoginCustomerId: true,
           googleAdsRefreshToken: true,
+          metaCapiEnabled: true,
+          metaPixelId: true,
+          metaAccessToken: true,
         },
       });
     } catch (e) {
@@ -395,6 +740,7 @@ export const analyticsController = {
     const postbackToken = createPostbackToken(userId);
 
     const googleAdsLive = pipelineUser ? isGoogleAdsClickUploadReadyForUser(pipelineUser) : false;
+    const metaCapiLive = pipelineUser ? isMetaCapiReadyForUser(pipelineUser) : false;
 
     let google_ads_metrics: {
       impressions: number;
@@ -425,6 +771,34 @@ export const analyticsController = {
       return { country_code, clicks: Number(row.ct) };
     });
 
+    /** Observabilidade: conversões com envio Google/Meta falhado nos últimos 7 dias (UTC). */
+    const syncHealthStart = new Date();
+    syncHealthStart.setUTCDate(syncHealthStart.getUTCDate() - 7);
+    syncHealthStart.setUTCHours(0, 0, 0, 0);
+    let sync_health: {
+      period_days: number;
+      google_ads_failed: number;
+      meta_capi_failed: number;
+    } = { period_days: 7, google_ads_failed: 0, meta_capi_failed: 0 };
+    try {
+      const [sh] = await systemPrisma.$queryRaw<Array<{ g: bigint | null; m: bigint | null }>>(Prisma.sql`
+        SELECT
+          COUNT(*) FILTER (WHERE google_ads_sync = 'failed')::bigint AS g,
+          COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m
+        FROM conversions
+        WHERE user_id = ${userId}::uuid
+          AND status = 'approved'
+          AND created_at >= ${syncHealthStart}
+      `);
+      sync_health = {
+        period_days: 7,
+        google_ads_failed: Number(sh?.g ?? 0),
+        meta_capi_failed: Number(sh?.m ?? 0),
+      };
+    } catch (e) {
+      console.warn("[analytics.getDashboard] sync_health indisponível (colunas ou BD)", e);
+    }
+
     res.json({
       total_clicks: clicks,
       total_impressions: impressions,
@@ -454,10 +828,12 @@ export const analyticsController = {
         google_ads_integration: googleAdsLive,
         google_ads_api_env_configured: Boolean(getGoogleAdsApiClientConfigFromEnv()),
         google_ads_metrics_available: pipelineUser ? isGoogleAdsMetricsReadyForUser(pipelineUser) : false,
+        meta_capi_integration: metaCapiLive,
       },
       google_ads_metrics,
       google_ads_metrics_error,
       clicks_by_country,
+      sync_health,
     });
     } catch (e) {
       console.error("[analytics.getDashboard]", e);

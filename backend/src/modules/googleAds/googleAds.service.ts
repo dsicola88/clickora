@@ -3,6 +3,8 @@ import type { User } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../../lib/prisma";
 import { pickOrderIdFromPayload } from "../../lib/affiliatePostbackParsers";
+import { decryptSecretField } from "../../lib/fieldEncryption";
+import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
 
 const DIGITS_ONLY = /^\d+$/;
 
@@ -67,8 +69,9 @@ export function buildGoogleAdsCredentialsForUser(user: Pick<User, "googleAdsRefr
 }
 
 export function resolveUserGoogleAdsRefreshToken(user: Pick<User, "googleAdsRefreshToken">): string | null {
-  const fromUser = user.googleAdsRefreshToken?.trim();
-  if (fromUser) return fromUser;
+  const raw = user.googleAdsRefreshToken?.trim();
+  const fromUser = raw ? decryptSecretField(raw) : null;
+  if (fromUser?.trim()) return fromUser.trim();
   return process.env.GOOGLE_ADS_REFRESH_TOKEN?.trim() || null;
 }
 
@@ -509,6 +512,11 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
         message: result.error.slice(0, 500),
         payload: { ...payloadLog, error: result.error, raw: result.raw } as Prisma.InputJsonValue,
       },
+    });
+    notifyUserConversionSyncFailure(user.id, {
+      platform: "google_ads",
+      conversionId: conv.id,
+      error: result.error,
     });
   }
 }
