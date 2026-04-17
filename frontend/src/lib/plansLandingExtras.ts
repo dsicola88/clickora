@@ -10,6 +10,8 @@ export type LandingExtrasAppearance = "default" | "sales_dark";
 export interface LandingExtrasCard {
   title: string;
   body: string;
+  /** Imagem opcional acima do título (URL ou caminho absoluto). */
+  image_url?: string | null;
 }
 
 export interface LandingExtrasStat {
@@ -261,9 +263,12 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
             if (!isPlainObject(c)) return null;
             const title = typeof c.title === "string" ? c.title : "";
             const body = typeof c.body === "string" ? c.body : "";
-            return { title, body };
+            const imgRaw = typeof c.image_url === "string" ? c.image_url.trim() : "";
+            const image_url =
+              imgRaw && (imgRaw.startsWith("/") || /^https?:\/\//i.test(imgRaw)) ? imgRaw : null;
+            return { title, body, image_url: image_url ?? undefined };
           })
-          .filter((c) => c && (c.title.trim() || c.body.trim()))
+          .filter((c) => c && (c.title.trim() || c.body.trim() || c.image_url))
       : [];
     features = {
       title: typeof f.title === "string" ? f.title : null,

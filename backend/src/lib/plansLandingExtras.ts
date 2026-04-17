@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-export const landingExtrasCardSchema = z.object({
-  title: z.string().max(200),
-  body: z.string().max(2000),
-});
-
 export const landingExtrasStatSchema = z.object({
   value: z.string().max(80),
   label: z.string().max(120),
@@ -103,6 +98,12 @@ const optionalUrlish = z
       return false;
     }
   });
+
+export const landingExtrasCardSchema = z.object({
+  title: z.string().max(200),
+  body: z.string().max(2000),
+  image_url: optionalUrlish,
+});
 
 export const landingExtrasGuaranteeSchema = z
   .object({

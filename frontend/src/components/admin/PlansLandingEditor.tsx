@@ -385,10 +385,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [featTitle, setFeatTitle] = useState("");
   const [featSubtitle, setFeatSubtitle] = useState("");
   const [featCards, setFeatCards] = useState(() => [
-    { title: "", body: "" },
-    { title: "", body: "" },
-    { title: "", body: "" },
+    { title: "", body: "", image_url: "" },
+    { title: "", body: "", image_url: "" },
+    { title: "", body: "", image_url: "" },
   ]);
+  const featureImageInputRef = useRef<HTMLInputElement>(null);
+  const featureImagePickIndexRef = useRef<number | null>(null);
+  const [featureImageUploadBusy, setFeatureImageUploadBusy] = useState(false);
   const [statTitle, setStatTitle] = useState("");
   const [statSubtitle, setStatSubtitle] = useState("");
   const [statItems, setStatItems] = useState(() => [
@@ -510,9 +513,21 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     setFeatSubtitle(ex.features?.subtitle ?? "");
     const fc = ex.features?.cards ?? [];
     setFeatCards([
-      { title: fc[0]?.title ?? "", body: fc[0]?.body ?? "" },
-      { title: fc[1]?.title ?? "", body: fc[1]?.body ?? "" },
-      { title: fc[2]?.title ?? "", body: fc[2]?.body ?? "" },
+      {
+        title: fc[0]?.title ?? "",
+        body: fc[0]?.body ?? "",
+        image_url: fc[0]?.image_url?.trim() ?? "",
+      },
+      {
+        title: fc[1]?.title ?? "",
+        body: fc[1]?.body ?? "",
+        image_url: fc[1]?.image_url?.trim() ?? "",
+      },
+      {
+        title: fc[2]?.title ?? "",
+        body: fc[2]?.body ?? "",
+        image_url: fc[2]?.image_url?.trim() ?? "",
+      },
     ]);
     setStatTitle(ex.stats?.title ?? "");
     setStatSubtitle(ex.stats?.subtitle ?? "");
@@ -652,8 +667,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const buildLandingExtrasPayload = (): Record<string, unknown> => {
     const cards = featCards
-      .map((c) => ({ title: c.title.trim(), body: c.body.trim() }))
-      .filter((c) => c.title || c.body);
+      .map((c) => ({
+        title: c.title.trim(),
+        body: c.body.trim(),
+        image_url: c.image_url?.trim() || null,
+      }))
+      .filter((c) => c.title || c.body || c.image_url);
     const features =
       cards.length || featTitle.trim() || featSubtitle.trim()
         ? {
@@ -1562,6 +1581,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               <Separator />
 
               <p className="text-xs font-medium text-foreground">Cartões de destaque (até 3)</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Layout em faixa clara: imagem opcional por cartão (16:9), título e texto alinhados à esquerda — como uma secção de
+                benefícios.
+              </p>
               <div className="space-y-1.5">
                 <Label className="text-xs">Título do bloco</Label>
                 <Input value={featTitle} onChange={(e) => setFeatTitle(e.target.value)} maxLength={200} />
@@ -1570,9 +1593,79 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 <Label className="text-xs">Subtítulo do bloco</Label>
                 <Input value={featSubtitle} onChange={(e) => setFeatSubtitle(e.target.value)} maxLength={500} />
               </div>
+              <input
+                ref={featureImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                tabIndex={-1}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  const idx = featureImagePickIndexRef.current;
+                  e.target.value = "";
+                  featureImagePickIndexRef.current = null;
+                  if (file == null || idx === null) return;
+                  setFeatureImageUploadBusy(true);
+                  try {
+                    const { data, error } = await adminService.uploadPlansGalleryImage(file);
+                    if (error || !data?.image_url) {
+                      toast.error(error || "Não foi possível carregar a imagem.");
+                      return;
+                    }
+                    setFeatCards((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, image_url: data.image_url } : c)),
+                    );
+                    toast.success("Imagem do cartão carregada. Guarde a landing para persistir.");
+                  } finally {
+                    setFeatureImageUploadBusy(false);
+                  }
+                }}
+              />
               {featCards.map((card, idx) => (
                 <div key={idx} className="rounded-md border border-border/60 bg-background/80 p-3 space-y-2">
                   <p className="text-[11px] font-medium text-muted-foreground">Cartão {idx + 1}</p>
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <Label className="text-xs">Imagem (opcional, URL ou PC)</Label>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                        disabled={featureImageUploadBusy}
+                        onClick={() => {
+                          featureImagePickIndexRef.current = idx;
+                          featureImageInputRef.current?.click();
+                        }}
+                      >
+                        {featureImageUploadBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        Carregar
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="https://…"
+                      value={card.image_url}
+                      onChange={(e) =>
+                        setFeatCards((prev) =>
+                          prev.map((c, i) => (i === idx ? { ...c, image_url: e.target.value } : c)),
+                        )
+                      }
+                      maxLength={2000}
+                    />
+                    {card.image_url.trim() ? (
+                      <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                        <img
+                          src={card.image_url}
+                          alt=""
+                          className="mx-auto max-h-24 w-full max-w-sm object-contain"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                   <Input
                     placeholder="Título"
                     value={card.title}
@@ -2936,8 +3029,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               </CardTitle>
               <CardDescription>
                 Ordem de cima para baixo = ordem na página (após o texto introdutório). Vídeos e imagens em sequência aparecem{" "}
-                <strong className="text-foreground/90">em fila (lado a lado)</strong>, com moldura vertical; blocos de texto
-                Markdown ocupam a largura completa. Vídeo: YouTube, Vimeo ou .mp4/.webm. Imagem: URL ou carregar do PC. Guarde
+                <strong className="text-foreground/90">em fila (lado a lado)</strong>, com proporção 16:9 que se adapta ao
+                ecrã; blocos de texto Markdown ocupam a largura completa. Vídeo: YouTube, Vimeo ou .mp4/.webm. Imagem: URL ou
+                carregar do PC. Guarde
                 com o botão do cartão principal ou abaixo.
               </CardDescription>
             </div>

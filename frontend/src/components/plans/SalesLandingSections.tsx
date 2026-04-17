@@ -25,21 +25,26 @@ export function SalesLandingFeatures({ extras, className }: Props) {
   const t = useLandingSalesTheme();
   const f = extras.features;
   const st = extras.text_styles;
-  const cards = f?.cards?.filter((c) => c.title.trim() || c.body.trim()) ?? [];
+  const cards =
+    f?.cards?.filter((c) => c.title.trim() || c.body.trim() || c.image_url?.trim()) ?? [];
   if (!cards.length) return null;
 
+  /** Faixa clara tipo landing de produto: texto escuro por defeito; tipografia opcional sobrepõe. */
+  const bandClass =
+    "rounded-2xl border border-stone-200/90 bg-[#f4f1e9] px-4 py-10 shadow-sm md:px-8 md:py-12 dark:border-stone-200/90";
+
   return (
-    <section className={cn("space-y-6", className)}>
+    <section className={cn(bandClass, "space-y-8 md:space-y-10", className)}>
       {(f?.title?.trim() || f?.subtitle?.trim()) && (
-        <div className="text-center space-y-2 max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl space-y-2 text-center">
           {f?.title?.trim() ? (
             <h2
               className={cn(
-                "text-2xl font-bold tracking-tight md:text-3xl",
+                "text-2xl font-bold tracking-tight text-slate-900 md:text-3xl",
                 st?.features_title && landingTextStyleTitleClasses(st.features_title),
               )}
               style={{
-                ...(!st?.features_title?.color ? { color: t.heading_on_dark } : {}),
+                ...(!st?.features_title?.color ? { color: "#0f172a" } : {}),
                 ...landingTextStyleColorStyle(st?.features_title),
               }}
             >
@@ -48,9 +53,12 @@ export function SalesLandingFeatures({ extras, className }: Props) {
           ) : null}
           {f?.subtitle?.trim() ? (
             <p
-              className={cn("whitespace-pre-line", st?.features_subtitle && landingTextStyleBodyClasses(st.features_subtitle))}
+              className={cn(
+                "whitespace-pre-line text-slate-600",
+                st?.features_subtitle && landingTextStyleBodyClasses(st.features_subtitle),
+              )}
               style={{
-                ...(!st?.features_subtitle?.color ? { color: t.muted_on_dark } : {}),
+                ...(!st?.features_subtitle?.color ? { color: "#475569" } : {}),
                 ...landingTextStyleColorStyle(st?.features_subtitle),
               }}
             >
@@ -59,43 +67,55 @@ export function SalesLandingFeatures({ extras, className }: Props) {
           ) : null}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {cards.map((card, i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-xl p-6 text-slate-900 shadow-lg transition-all duration-300",
-              "hover:-translate-y-1 hover:shadow-2xl",
-            )}
-            style={{ backgroundColor: t.card_surface }}
-          >
-            <div
-              className="mb-3 h-10 w-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: `${t.accent}22` }}
-            >
-              <Check className="h-5 w-5" style={{ color: t.accent }} aria-hidden />
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6 lg:gap-8">
+        {cards.map((card, i) => {
+          const img = card.image_url?.trim();
+          return (
+            <div key={i} className="flex min-w-0 flex-col text-left">
+              {img ? (
+                <div className="mb-4 aspect-video w-full overflow-hidden rounded-lg bg-stone-200/80 ring-1 ring-stone-300/60">
+                  <img
+                    src={img}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    sizes="(max-width:768px) 100vw, 33vw"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="mb-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${t.accent}22` }}
+                >
+                  <Check className="h-5 w-5" style={{ color: t.accent }} aria-hidden />
+                </div>
+              )}
+              {card.title.trim() ? (
+                <h3
+                  className={cn(
+                    "mb-2 text-lg font-bold leading-snug text-slate-900 md:text-xl",
+                    st?.feature_card_title && landingTextStyleTitleClasses(st.feature_card_title),
+                  )}
+                  style={landingTextStyleColorStyle(st?.feature_card_title)}
+                >
+                  {card.title}
+                </h3>
+              ) : null}
+              {card.body.trim() ? (
+                <div
+                  className={cn(
+                    "text-slate-700 [&_a]:text-slate-900 [&_a]:underline",
+                    st?.feature_card_body && landingTextStyleBodyClasses(st.feature_card_body),
+                  )}
+                  style={landingTextStyleColorStyle(st?.feature_card_body)}
+                >
+                  <LandingMarkdown content={card.body} surface="light_card" />
+                </div>
+              ) : null}
             </div>
-            {card.title.trim() ? (
-              <h3
-                className={cn(
-                  "font-bold text-slate-900 mb-2 text-lg",
-                  st?.feature_card_title && landingTextStyleTitleClasses(st.feature_card_title),
-                )}
-                style={landingTextStyleColorStyle(st?.feature_card_title)}
-              >
-                {card.title}
-              </h3>
-            ) : null}
-            {card.body.trim() ? (
-              <div
-                className={cn(st?.feature_card_body && landingTextStyleBodyClasses(st.feature_card_body))}
-                style={landingTextStyleColorStyle(st?.feature_card_body)}
-              >
-                <LandingMarkdown content={card.body} surface="light_card" />
-              </div>
-            ) : null}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
