@@ -12,6 +12,13 @@ const PLANS_LANDING_COLUMNS_SQL = [
   `ALTER TABLE "plans_landing_config" ADD COLUMN IF NOT EXISTS "landing_extras" JSONB`,
 ] as const;
 
+/** Migração Meta CAPI em `conversions` — idempotente se migrate deploy ainda não passou. */
+const CONVERSIONS_META_CAPI_SQL = [
+  `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "meta_capi_sync" TEXT`,
+  `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "meta_capi_synced_at" TIMESTAMP(3)`,
+  `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "meta_capi_sync_detail" JSONB`,
+] as const;
+
 export async function repairPlanSchemaColumns(): Promise<void> {
   for (const sql of PLAN_COLUMNS_SQL) {
     try {
@@ -25,6 +32,13 @@ export async function repairPlanSchemaColumns(): Promise<void> {
       await systemPrisma.$executeRawUnsafe(sql);
     } catch (e) {
       console.warn("[schemaRepair] plans_landing_config (ignorado):", e);
+    }
+  }
+  for (const sql of CONVERSIONS_META_CAPI_SQL) {
+    try {
+      await systemPrisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[schemaRepair] conversions meta_capi (ignorado):", e);
     }
   }
 }

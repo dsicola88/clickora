@@ -20,6 +20,11 @@ const USERS_INTEGRATION_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_click" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_empty_user_agent" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_bot_clicks" BOOLEAN NOT NULL DEFAULT false`,
+  /** Meta CAPI (migração 20260417130000) — se `migrate deploy` não correu, o seed não falha com P2022. */
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_capi_enabled" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_pixel_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_access_token" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_capi_test_event_code" TEXT`,
 ] as const;
 
 async function ensureUsersIntegrationColumns() {
