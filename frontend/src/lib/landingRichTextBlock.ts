@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 export type RichTextFontFamily = "sans" | "serif" | "mono";
 export type RichTextFontSize = "xs" | "sm" | "base" | "lg" | "xl" | "2xl";
-export type RichTextFontWeight = "normal" | "medium" | "semibold" | "bold";
+export type RichTextFontWeight = "normal" | "medium" | "semibold" | "bold" | "extrabold";
 export type RichTextAlign = "left" | "center" | "right";
 
 export function richTextFontSizeClass(size: RichTextFontSize | undefined): string {
@@ -43,6 +43,8 @@ export function richTextFontWeightClass(weight: RichTextFontWeight | undefined):
       return "font-semibold";
     case "bold":
       return "font-bold";
+    case "extrabold":
+      return "font-extrabold";
     default:
       return "font-normal";
   }

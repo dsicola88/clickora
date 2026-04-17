@@ -32,7 +32,7 @@ export interface LandingExtrasLink {
 export type LandingRichTextTypography = {
   font_family?: "sans" | "serif" | "mono";
   font_size?: "xs" | "sm" | "base" | "lg" | "xl" | "2xl";
-  font_weight?: "normal" | "medium" | "semibold" | "bold";
+  font_weight?: "normal" | "medium" | "semibold" | "bold" | "extrabold";
   text_align?: "left" | "center" | "right";
   /** Cor CSS (hex, rgba). Vazio = tema da página. */
   text_color?: string | null;
@@ -387,6 +387,7 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
           fw === "medium" ||
           fw === "semibold" ||
           fw === "bold" ||
+          fw === "extrabold" ||
           fw === "normal"
             ? fw
             : "normal";

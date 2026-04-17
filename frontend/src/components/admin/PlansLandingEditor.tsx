@@ -63,6 +63,23 @@ import {
   type LandingSectionId,
 } from "@/lib/landingSectionLayout";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { PlansLandingSortableBlockShell } from "@/components/admin/PlansLandingSortableBlockShell";
+import { PlansLandingWidgetPalette, type LandingWidgetKind } from "@/components/admin/PlansLandingWidgetPalette";
 import { PlansLandingTextStyleFields } from "@/components/admin/PlansLandingTextStyleFields";
 import type { LandingTextStyleBlock, LandingTextStyleKey, LandingTextStylesPublic } from "@/lib/plansLandingTextStyles";
 import {
@@ -101,7 +118,7 @@ type EditorRichTextBlock = {
   content: string;
   font_family: "sans" | "serif" | "mono";
   font_size: "xs" | "sm" | "base" | "lg" | "xl" | "2xl";
-  font_weight: "normal" | "medium" | "semibold" | "bold";
+  font_weight: "normal" | "medium" | "semibold" | "bold" | "extrabold";
   text_align: "left" | "center" | "right";
   text_color: string;
   background_color: string;
@@ -109,6 +126,16 @@ type EditorRichTextBlock = {
 };
 
 type EditorContentBlock = EditorVideoBlock | EditorImageBlock | EditorRichTextBlock;
+
+/** ID estável só no cliente (não vai para a API). */
+type EditorContentBlockWithKey = EditorContentBlock & { _key: string };
+
+function newLandingContentBlockKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `lb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 const OPT_FONT = [
   { value: "sans", label: "Sans (UI)" },
@@ -410,7 +437,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     { label: "", href: "" },
     { label: "", href: "" },
   ]);
-  const [contentBlocks, setContentBlocks] = useState<EditorContentBlock[]>([]);
+  const [contentBlocks, setContentBlocks] = useState<EditorContentBlockWithKey[]>([]);
+
+  const contentBlockListSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const [sectionOrder, setSectionOrder] = useState<LandingSectionId[]>(() => [
     ...DEFAULT_LANDING_SECTION_ORDER,
   ]);
@@ -558,6 +590,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     if (blocks?.length) {
       setContentBlocks(
         blocks.map((b) => {
+          const key = newLandingContentBlockKey();
           if (b.type === "rich_text") {
             return {
               type: "rich_text" as const,
@@ -569,6 +602,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               text_color: b.text_color?.trim() ?? "",
               background_color: b.background_color?.trim() ?? "",
               layout: b.layout === "wide" ? "wide" : "contained",
+              _key: key,
             };
           }
           if (b.type === "image") {
@@ -580,6 +614,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               alt: b.alt ?? "",
               caption: b.caption ?? "",
               layout: b.layout === "wide" ? "wide" : "contained",
+              _key: key,
             };
           }
           return {
@@ -588,6 +623,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             subtitle: b.subtitle ?? "",
             url: b.url,
             layout: b.layout === "wide" ? "wide" : "contained",
+            _key: key,
           };
         }),
       );
@@ -921,7 +957,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const previewSalesThemed = useMemo(() => resolveLandingPageTheme(landingTheme), [landingTheme]);
 
-  const addContentBlock = (kind: "video" | "image" | "rich_text") => {
+  const addContentBlock = (kind: LandingWidgetKind) => {
+    const key = newLandingContentBlockKey();
     setContentBlocks((prev) => [
       ...prev,
       kind === "rich_text"
@@ -935,6 +972,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             text_color: "",
             background_color: "",
             layout: "contained",
+            _key: key,
           }
         : kind === "video"
           ? {
@@ -943,6 +981,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               subtitle: "",
               url: "",
               layout: "contained",
+              _key: key,
             }
           : {
               type: "image",
@@ -952,8 +991,20 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               alt: "",
               caption: "",
               layout: "contained",
+              _key: key,
             },
     ]);
+  };
+
+  const handleContentBlocksDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setContentBlocks((items) => {
+      const oldIndex = items.findIndex((b) => b._key === active.id);
+      const newIndex = items.findIndex((b) => b._key === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
   };
 
   const moveContentBlock = (index: number, delta: -1 | 1) => {
@@ -3024,22 +3075,21 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
             <div className="min-w-0 space-y-1.5">
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Video className="h-5 w-5 text-primary" />
-                Blocos de conteúdo (vídeo, imagem, texto)
+                <LayoutTemplate className="h-5 w-5 text-primary" />
+                Construtor de conteúdo
               </CardTitle>
               <CardDescription>
-                Ordem de cima para baixo = ordem na página (após o texto introdutório). Vídeos e imagens em sequência aparecem{" "}
-                <strong className="text-foreground/90">em fila (lado a lado)</strong>, com proporção 16:9 que se adapta ao
-                ecrã; blocos de texto Markdown ocupam a largura completa. Vídeo: YouTube, Vimeo ou .mp4/.webm. Imagem: URL ou
-                carregar do PC. Guarde
-                com o botão do cartão principal ou abaixo.
+                Painel à esquerda com widgets (estilo page builder). A ordem de cima para baixo corresponde à página (após o
+                intro). Vídeos e imagens seguidos aparecem <strong className="text-foreground/90">em fila</strong> (16:9); texto
+                Markdown em largura completa. Reordene com o ícone de grelha (arrastar, com animação) ou com as setas; também
+                funciona com teclado. Guarde no cartão principal ou abaixo.
               </CardDescription>
             </div>
             <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
         </CardHeader>
         <CollapsibleContent>
-      <CardContent className="space-y-4 p-6">
+      <CardContent className="space-y-4 p-4 sm:p-6">
         <input
           ref={contentBlockImageFileInputRef}
           type="file"
@@ -3070,53 +3120,62 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             }
           }}
         />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => addContentBlock("video")}
-          >
-            <Plus className="h-4 w-4" />
-            Vídeo
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => addContentBlock("image")}
-          >
-            <Plus className="h-4 w-4" />
-            Imagem
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => addContentBlock("rich_text")}
-          >
-            <Plus className="h-4 w-4" />
-            <Type className="h-4 w-4" />
-            Texto
-          </Button>
-        </div>
+        <div className="grid gap-6 xl:grid-cols-[minmax(260px,300px)_1fr]">
+          <PlansLandingWidgetPalette
+            onAddWidget={addContentBlock}
+            className="xl:sticky xl:top-4 xl:self-start"
+          />
+          <div className="min-w-0 space-y-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-2">
+              <span className="text-xs text-muted-foreground">Atalhos rápidos:</span>
+              <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addContentBlock("video")}>
+                <Plus className="h-3.5 w-3.5" />
+                Vídeo
+              </Button>
+              <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addContentBlock("image")}>
+                <Plus className="h-3.5 w-3.5" />
+                Imagem
+              </Button>
+              <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addContentBlock("rich_text")}>
+                <Plus className="h-3.5 w-3.5" />
+                Texto
+              </Button>
+            </div>
 
         {contentBlocks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum bloco. Adicione vídeo, imagem ou secções de texto para mostrar na landing.
-          </p>
+          <div className="rounded-xl border border-border/60 bg-muted/10 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-foreground">Nenhum bloco ainda</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Escolha um widget no painel «Elementos» ou use os atalhos acima.
+            </p>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {contentBlocks.map((block, index) => (
-              <div
-                key={`cb-${index}`}
-                className="rounded-lg border border-border/80 bg-background/80 p-4 space-y-3"
-              >
+          <DndContext
+            sensors={contentBlockListSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleContentBlocksDragEnd}
+          >
+            <SortableContext
+              items={contentBlocks.map((b) => b._key)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {contentBlocks.map((block, index) => (
+                  <PlansLandingSortableBlockShell key={block._key} id={block._key}>
+                    {({ setNodeRef, style, isDragging, dragHandleProps }) => (
+                      <div
+                        ref={setNodeRef}
+                        style={style}
+                        className={cn(
+                          "rounded-lg border border-border/80 bg-background/80 p-4 space-y-3 transition-shadow",
+                          isDragging && "opacity-[0.92] shadow-lg ring-2 ring-primary/20",
+                        )}
+                      >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="inline-flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <button {...dragHandleProps} title="Arrastar para reordenar">
+                      <GripVertical className="h-4 w-4" aria-hidden />
+                    </button>
                     {block.type === "video" ? (
                       <>
                         <Video className="h-3.5 w-3.5" /> Vídeo
@@ -3521,9 +3580,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   </>
                 )}
               </div>
-            ))}
-          </div>
+                    )}
+                  </PlansLandingSortableBlockShell>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
+          </div>
+        </div>
 
         <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveTexts()}>
           <Save className="h-4 w-4" />
