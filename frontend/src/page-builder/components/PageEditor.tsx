@@ -60,9 +60,9 @@ export function PageEditor() {
 
   if (preview) {
     return (
-      <div className="flex h-screen flex-col">
+      <div className="flex h-full min-h-0 flex-col">
         <EditorTopbar />
-        <div className="flex-1 overflow-auto bg-editor-canvas">
+        <div className="min-h-0 flex-1 overflow-auto bg-editor-canvas">
           <Canvas />
         </div>
       </div>
@@ -71,9 +71,9 @@ export function PageEditor() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex h-screen flex-col bg-editor-bg">
+      <div className="flex h-full min-h-0 flex-col bg-editor-bg">
         <EditorTopbar />
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           <WidgetSidebar />
           <Canvas />
           <PropertyPanel />

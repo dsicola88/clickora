@@ -38,11 +38,13 @@ export function TextareaField({
   value,
   onChange,
   rows = 4,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -50,6 +52,7 @@ export function TextareaField({
       <textarea
         value={value}
         rows={rows}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={`${inputCls} font-mono`}
       />

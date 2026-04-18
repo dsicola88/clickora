@@ -282,18 +282,23 @@ function WidgetContentTab({
       );
     case "video":
       return (
-        <Section title="Vídeo">
+        <Section title="Ligação do vídeo">
+          <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1 mb-1">
+            O URL cola-se aqui no painel à direita (não no bloco no canvas). Certifica-te de que estás na aba{" "}
+            <span className="font-semibold text-editor-fg">Conteúdo</span>.
+          </p>
           <TextareaField
-            label="URL do vídeo"
+            label="YouTube ou Bunny.net (Stream)"
             value={(c.url as string) ?? ""}
             onChange={(v) => setContent({ url: v })}
-            rows={3}
-            placeholder="YouTube (watch, youtu.be, shorts) ou Bunny Stream: link Play ou iframe embed"
+            rows={4}
+            placeholder="Ex.: https://www.youtube.com/watch?v=… ou https://video.bunnycdn.com/play/…/…"
           />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-            <span className="font-semibold text-editor-fg">YouTube:</span> qualquer link normal do vídeo.{" "}
-            <span className="font-semibold text-editor-fg">Bunny.net / Bunny Stream:</span> cole o URL da página
-            Play (video.bunnycdn.com/play/…) ou o URL completo do iframe (iframe.mediadelivery.net/embed/…).
+            <span className="font-semibold text-editor-fg">YouTube:</span> link do vídeo (youtube.com, youtu.be ou
+            Shorts).{" "}
+            <span className="font-semibold text-editor-fg">Bunny.net:</span> página Play (video.bunnycdn.com/play/…) ou
+            iframe (iframe.mediadelivery.net/embed/…).
           </p>
         </Section>
       );

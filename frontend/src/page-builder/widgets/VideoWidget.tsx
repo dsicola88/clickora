@@ -41,7 +41,7 @@ export function VideoWidget({ widget, device }: { widget: WidgetNode; device: De
         >
           {url.trim()
             ? "URL não reconhecida. Use um link do YouTube ou do Bunny Stream (Play ou iframe embed)."
-            : "Cole no painel uma URL do YouTube ou do Bunny (video.bunnycdn.com/play/… ou iframe.mediadelivery.net/embed/…)."}
+            : "Seleciona este bloco «Vídeo» → no painel à direita, aba «Conteúdo» → campo «YouTube ou Bunny.net» e cola o link."}
         </div>
       )}
     </div>
