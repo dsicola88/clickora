@@ -88,14 +88,20 @@ npm run db:migrate:resolve-rolled-back:railway-typo-meta
 npx prisma migrate deploy
 ```
 
-(equivalente: `npx prisma migrate resolve --rolled-back "20240417130000_meta_copi_integration"`.) Se o CLI recusar porque o nome não está em `prisma/migrations/`, último recurso no **Query** do Postgres (faz backup se tens dúvida):
+(equivalente: `npx prisma migrate resolve --rolled-back "20240417130000_meta_copi_integration"`.) Se o `resolve` falhar porque esse nome **não existe** em `prisma/migrations/`, a Railway **não tem painel SQL integrado** no Postgres — usa uma destas formas para executar o SQL abaixo (faz backup se tens dúvida):
+
+- **Railway CLI** (com `psql` instalado no Mac): na raiz do projecto ligado à Railway, `railway connect postgres` e cola o `DELETE` (ver [railway connect](https://docs.railway.com/cli/connect)).
+- **`psql` com URL pública:** no serviço Postgres → **Variables** ou **Connect**, copia a URL **externa** (TCP proxy, muitas vezes com host `*.proxy.rlwy.net` ou parecido) e: `psql "COPIAR_DATABASE_URL_AQUI" -c "DELETE FROM ..."`
+- **Cliente gráfico** (TablePlus, DBeaver, Postico): nova ligação Postgres com o host/porta/user/password das variáveis `PG*` ou `DATABASE_URL`.
+
+SQL a correr:
 
 ```sql
 DELETE FROM "_prisma_migrations"
 WHERE migration_name = '20240417130000_meta_copi_integration';
 ```
 
-Depois `npx prisma migrate deploy` (local ou `railway run`) para aplicar a migração correcta **`20260417130000_meta_capi_integration`** do Git.
+Depois `npx prisma migrate deploy` (local com a mesma URL, ou `railway run` a partir do repo) para aplicar a migração correcta **`20260417130000_meta_capi_integration`** do Git.
 
 **Um comando (no teu PC):** com `DATABASE_URL` da Railway na variável de ambiente, na pasta `backend/`:
 
