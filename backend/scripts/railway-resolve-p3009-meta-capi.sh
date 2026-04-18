@@ -4,18 +4,21 @@
 #
 # Nome correcto no Git:
 MIGRATION_REPO="20260417130000_meta_capi_integration"
-# Typo que alguns deploys Railway registaram na BD (não há pasta no repo):
+# Nomes fantasma que alguns deploys Railway registaram na BD (não há pastas no repo):
 MIGRATION_TYPO="20240417130000_meta_copi_integration"
+MIGRATION_ALT_FAILED="20240417130800_meta_capi_integration"
 
 cd "$(dirname "$0")/.." || exit 1
 
 echo "=== Prisma P3009 (Meta CAPI / Railway) ==="
 echo ""
-echo "Se o log da Railway citar o TYPO: $MIGRATION_TYPO"
-echo "  cd backend && DATABASE_URL=... npx prisma migrate resolve --rolled-back \"$MIGRATION_TYPO\""
+echo "Se o log da Railway citar um destes nomes (não existem no Git):"
+echo "  $MIGRATION_ALT_FAILED"
+echo "  $MIGRATION_TYPO"
+echo "  cd backend && DATABASE_URL=... npx prisma migrate resolve --rolled-back \"<nome-exacto-do-log>\""
 echo "  npx prisma migrate deploy"
 echo "Se o CLI não aceitar: psql / railway connect postgres / cliente gráfico — SQL:"
-echo "  DELETE FROM \"_prisma_migrations\" WHERE migration_name = '$MIGRATION_TYPO';"
+echo "  DELETE FROM \"_prisma_migrations\" WHERE migration_name IN ('$MIGRATION_ALT_FAILED', '$MIGRATION_TYPO');"
 echo ""
 echo "Migração correcta no repositório: $MIGRATION_REPO"
 echo ""

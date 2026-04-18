@@ -33,18 +33,22 @@ case "$DATABASE_URL" in
 esac
 
 TYPO="20240417130000_meta_copi_integration"
+# Log Railway às vezes mostra este nome (não há pasta no Git; o correcto é 20260417130000_meta_capi_integration).
+ALT_FAILED="20240417130800_meta_capi_integration"
 
-echo "=== 1) Tentar prisma migrate resolve --rolled-back ($TYPO) ==="
+echo "=== 1) Tentar prisma migrate resolve --rolled-back (nomes fantasma na BD) ==="
 set +e
+npx prisma migrate resolve --rolled-back "$ALT_FAILED"
+r_alt=$?
 npx prisma migrate resolve --rolled-back "$TYPO"
-resolve_ok=$?
+r_typo=$?
 set -e
 
-if [ "$resolve_ok" != 0 ]; then
-  echo "=== resolve falhou (esperado se o nome não existe em prisma/migrations). SQL directo ==="
+if [ "$r_alt" != 0 ] && [ "$r_typo" != 0 ]; then
+  echo "=== resolve falhou para ambos (normal se o registo não existir). SQL directo ==="
   npx prisma db execute --schema prisma/schema.prisma --file scripts/delete-railway-typo-migration.sql
 else
-  echo "=== resolve OK ==="
+  echo "=== resolve OK (pelo menos um nome foi aceite) ==="
 fi
 
 echo "=== 2) prisma migrate deploy ==="
