@@ -23,4 +23,13 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
+case "$DATABASE_URL" in
+  *railway.internal*)
+    echo "ERRO: DATABASE_URL aponta para *.railway.internal — do teu Mac não há rota para esse host."
+    echo "  Railway → Postgres → Connect → copia a URL **pública** (proxy / TCP), não a «Private Networking»."
+    echo "  Depois: npm run db:railway:check"
+    exit 1
+    ;;
+esac
+
 exec sh scripts/fix-railway-p3009-typo.sh

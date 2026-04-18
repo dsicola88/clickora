@@ -17,6 +17,7 @@
     "db:migrate:resolve-rolled-back:railway-typo-meta": "prisma migrate resolve --rolled-back 20240417130000_meta_copi_integration",
     "db:migrate:fix-railway-p3009-typo": "sh scripts/fix-railway-p3009-typo.sh",
     "db:migrate:railway-p3009": "sh scripts/migrate-railway-p3009-from-railway-env.sh",
+    "db:railway:check": "sh scripts/railway-db-check-connection.sh",
     "test:custom-domain": "tsx scripts/test-custom-domain-flow.ts",
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts"

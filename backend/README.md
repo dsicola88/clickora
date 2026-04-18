@@ -115,6 +115,8 @@ npm run db:migrate:fix-railway-p3009-typo
 cd backend && npm run db:migrate:railway-p3009
 ```
 
+**Da tua rede (casa / 4G):** o `DATABASE_URL` tem de ser o **TCP público** do Postgres na Railway (host tipo `*.proxy.rlwy.net`). URLs com **`postgres.railway.internal`** só funcionam **dentro** da Railway — o script `db:migrate:railway-p3009` recusa-as para evitar confusão. Teste de ligação: `npm run db:railway:check`.
+
 Substitui **toda** a URL pela que o Railway mostra (uma linha só, com `postgres`, password, host e porta reais). **Não** uses texto de exemplo tipo `…PUBLICO…` — isso gera `P1001` com host estranho no erro.
 
 O script tenta `migrate resolve`; se falhar, executa o SQL `scripts/delete-railway-typo-migration.sql` e de seguida `migrate deploy`.
