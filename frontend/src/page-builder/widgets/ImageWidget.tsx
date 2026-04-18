@@ -9,13 +9,36 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
   const css = stylesToCss(widget.styles, device);
   const { width, height, ...wrapperRest } = css;
 
-  const img = (
+  const hasSrc = src.trim().length > 0;
+
+  const inner = hasSrc ? (
     <img
       src={src}
       alt={alt}
       style={{ width, height, maxWidth: "100%", display: "block" }}
       loading="lazy"
     />
+  ) : (
+    <div
+      style={{
+        minHeight: 120,
+        maxWidth: "100%",
+        width: width ?? "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        background: "#f1f5f9",
+        color: "#64748b",
+        fontSize: 12,
+        textAlign: "center",
+        lineHeight: 1.45,
+        borderRadius: 8,
+        border: "1px dashed #cbd5e1",
+      }}
+    >
+      Sem imagem — no painel: URL ou «Carregar do PC»
+    </div>
   );
 
   return (
@@ -26,7 +49,7 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
         justifyContent: alignToFlexJustify(align),
       }}
     >
-      {img}
+      {inner}
     </div>
   );
 }

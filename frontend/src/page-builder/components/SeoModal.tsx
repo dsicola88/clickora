@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useBuilder } from "../store";
 import type { PageSeo } from "../types";
 import { Search, X, Globe2, FileImage } from "lucide-react";
+import { BuilderImageUrlField } from "./PropertyControls";
 
 const labelCls = "block text-[11px] font-medium text-editor-fg-muted mb-1";
 const inputCls =
@@ -120,15 +121,14 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
             </h3>
 
             <div>
-              <label className={labelCls}>Open Graph image (URL)</label>
-              <input
+              <BuilderImageUrlField
+                label="Open Graph image (og:image)"
                 value={seo.ogImage ?? ""}
-                onChange={(e) => set("ogImage", e.target.value)}
-                className={inputCls}
-                placeholder="https://.../share-image.png (1200x630)"
+                onChange={(v) => set("ogImage", v)}
+                placeholder="https://… ou Carregar do PC (recomendado 1200×630)"
               />
               <p className="mt-1 text-[10px] text-editor-fg-muted">
-                Tamanho recomendado: 1200×630px.
+                Tamanho recomendado: 1200×630px. O upload grava na API (sessão iniciada).
               </p>
             </div>
 

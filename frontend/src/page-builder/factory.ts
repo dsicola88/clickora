@@ -78,7 +78,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   image: () => ({
     content: {
-      src: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&q=80",
+      src: "",
       alt: "Imagem",
       link: "",
     },
@@ -158,7 +158,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
           id: id("t_"),
           name: "Ana Silva",
           role: "CEO, Acme Inc.",
-          avatar: "https://i.pravatar.cc/120?img=47",
+          avatar: "",
           quote: "Resultados surpreendentes. Em 30 dias dobramos nossas conversões.",
           rating: 5,
         },
@@ -166,7 +166,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
           id: id("t_"),
           name: "Carlos Mendes",
           role: "Diretor de Marketing",
-          avatar: "https://i.pravatar.cc/120?img=12",
+          avatar: "",
           quote: "Ferramenta indispensável. Recomendo para qualquer time de growth.",
           rating: 5,
         },
@@ -174,7 +174,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
           id: id("t_"),
           name: "Joana Costa",
           role: "Founder, Studio J",
-          avatar: "https://i.pravatar.cc/120?img=32",
+          avatar: "",
           quote: "Atendimento perfeito e produto excelente. Vale cada centavo.",
           rating: 5,
         },
@@ -240,44 +240,8 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   gallery: () => ({
     content: {
-      images: [
-        {
-          id: id("g_"),
-          src: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&q=80",
-          alt: "Imagem 1",
-          caption: "",
-        },
-        {
-          id: id("g_"),
-          src: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=800&q=80",
-          alt: "Imagem 2",
-          caption: "",
-        },
-        {
-          id: id("g_"),
-          src: "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=800&q=80",
-          alt: "Imagem 3",
-          caption: "",
-        },
-        {
-          id: id("g_"),
-          src: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=800&q=80",
-          alt: "Imagem 4",
-          caption: "",
-        },
-        {
-          id: id("g_"),
-          src: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&q=80",
-          alt: "Imagem 5",
-          caption: "",
-        },
-        {
-          id: id("g_"),
-          src: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&q=80",
-          alt: "Imagem 6",
-          caption: "",
-        },
-      ],
+      /** Sem imagens de exemplo — o utilizador adiciona URL ou upload do PC no painel. */
+      images: [],
       columns: 3,
       gap: 12,
       borderRadius: 8,
@@ -378,6 +342,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       primaryBg: "#e63946",
       primaryColor: "#ffffff",
       borderRadius: 16,
+      imageUrl: "",
     },
     styles: {
       padding: r(spacing(0, 0, 0, 0)),

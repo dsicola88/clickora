@@ -283,11 +283,18 @@ function WidgetContentTab({
     case "video":
       return (
         <Section title="Vídeo">
-          <TextField
-            label="URL do YouTube"
+          <TextareaField
+            label="URL do vídeo"
             value={(c.url as string) ?? ""}
             onChange={(v) => setContent({ url: v })}
+            rows={3}
+            placeholder="YouTube (watch, youtu.be, shorts) ou Bunny Stream: link Play ou iframe embed"
           />
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+            <span className="font-semibold text-editor-fg">YouTube:</span> qualquer link normal do vídeo.{" "}
+            <span className="font-semibold text-editor-fg">Bunny.net / Bunny Stream:</span> cole o URL da página
+            Play (video.bunnycdn.com/play/…) ou o URL completo do iframe (iframe.mediadelivery.net/embed/…).
+          </p>
         </Section>
       );
     case "icon":
@@ -1732,15 +1739,23 @@ function GalleryContentEditor({
   const isCarousel = (content.layout as string) === "carousel" || isDedicatedCarousel;
   return (
     <>
+      <div className="border-b border-editor-border px-3 py-2.5">
+        <p className="text-[11px] leading-relaxed text-editor-fg-muted">
+          <span className="font-semibold text-editor-fg">As tuas imagens:</span> clica em «+ Adicionar» para cada
+          foto. Em cada linha, cola um <span className="font-mono text-[10px]">https://…</span> ou usa{" "}
+          <span className="font-semibold text-editor-fg">«Carregar do PC»</span> (é preciso sessão iniciada na conta).
+          Podes repetir para várias imagens e reordenar com o ícone à esquerda.
+        </p>
+      </div>
       <ListEditor
         title="Imagens"
         items={images}
         onChange={(next) => setContent({ images: next })}
-        itemLabel={(it, i) => it.alt || `Imagem ${i + 1}`}
+        itemLabel={(it, i) => it.alt || (it.src ? `Imagem ${i + 1}` : `Slide ${i + 1} (sem URL)`)}
         newItem={() => ({
           id: `g_${nanoid(6)}`,
-          src: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&q=80",
-          alt: "Nova imagem",
+          src: "",
+          alt: "",
           caption: "",
         })}
         renderFields={(item, update) => (
@@ -2193,10 +2208,11 @@ function CtaBoxContentEditor({
           ]}
           onChange={(v) => setContent({ layout: v })}
         />
-        <TextField
-          label="URL da imagem (split)"
+        <BuilderImageUrlField
+          label="Imagem (layout dividido)"
           value={(content.imageUrl as string) ?? ""}
           onChange={(v) => setContent({ imageUrl: v })}
+          placeholder="https://… ou Carregar do PC"
         />
       </Section>
       <Section title="Aparência">

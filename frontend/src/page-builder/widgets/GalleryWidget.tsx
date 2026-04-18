@@ -52,6 +52,23 @@ const ratioMap: Record<string, string> = {
   portrait: "3 / 4",
 };
 
+function slideHasSrc(src: unknown): boolean {
+  return typeof src === "string" && src.trim().length > 0;
+}
+
+const emptySlideBox: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 100,
+  color: "#64748b",
+  fontSize: 11,
+  textAlign: "center",
+  padding: 10,
+  boxSizing: "border-box",
+  background: "#f1f5f9",
+};
+
 function slidesToShowForDevice(c: Partial<GalleryContent>, device: DeviceType): number {
   const d =
     typeof c.carouselSlidesDesktop === "number" && c.carouselSlidesDesktop >= 1
@@ -209,8 +226,9 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   if (images.length === 0) {
     return (
       <div style={stylesToCss(widget.styles, device)}>
-        <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
-          Adicione imagens no painel de propriedades.
+        <p style={{ textAlign: "center", color: "#64748b", fontSize: 13, lineHeight: 1.55, maxWidth: 320, margin: "0 auto" }}>
+          Sem imagens ainda. No painel à direita, use «+ Adicionar» e depois cole um URL ou «Carregar do PC» em cada
+          slide.
         </p>
       </div>
     );
@@ -348,7 +366,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                 <button
                   type="button"
                   onClick={(e) => {
-                    if (!enableLightbox) return;
+                    if (!enableLightbox || !slideHasSrc(img.src)) return;
                     e.stopPropagation();
                     setLightbox(i);
                   }}
@@ -358,19 +376,25 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                     padding: 0,
                     border: "none",
                     background: "transparent",
-                    cursor: enableLightbox ? "zoom-in" : "default",
+                    cursor: enableLightbox && slideHasSrc(img.src) ? "zoom-in" : "default",
                     position: "relative",
                     borderRadius: Math.max(0, borderRadius - 2),
                     overflow: "hidden",
                   }}
                   aria-label={img.alt || `Imagem ${i + 1} de ${images.length}`}
                 >
-                  <img
-                    src={img.src}
-                    alt={img.alt}
-                    loading={i < slidesToShow + 2 ? "eager" : "lazy"}
-                    style={imgStyleCarousel}
-                  />
+                  {slideHasSrc(img.src) ? (
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      loading={i < slidesToShow + 2 ? "eager" : "lazy"}
+                      style={imgStyleCarousel}
+                    />
+                  ) : (
+                    <div style={{ ...imgStyleCarousel, ...emptySlideBox }}>
+                      Sem imagem — no painel à direita: URL ou «Carregar do PC»
+                    </div>
+                  )}
                   {img.caption ? (
                     <span
                       style={{
@@ -490,7 +514,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             key={im.id}
             type="button"
             onClick={(e) => {
-              if (!enableLightbox) return;
+              if (!enableLightbox || !slideHasSrc(im.src)) return;
               e.stopPropagation();
               setLightbox(i);
             }}
@@ -498,7 +522,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
               padding: 0,
               border: "none",
               background: "transparent",
-              cursor: enableLightbox ? "zoom-in" : "default",
+              cursor: enableLightbox && slideHasSrc(im.src) ? "zoom-in" : "default",
               borderRadius,
               overflow: "hidden",
               display: "block",
@@ -506,7 +530,13 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             }}
             aria-label={im.alt || `Imagem ${i + 1}`}
           >
-            <img src={im.src} alt={im.alt} loading="lazy" style={imgStyleGrid} />
+            {slideHasSrc(im.src) ? (
+              <img src={im.src} alt={im.alt} loading="lazy" style={imgStyleGrid} />
+            ) : (
+              <div style={{ ...imgStyleGrid, ...emptySlideBox, aspectRatio: ratioMap[aspectRatio] }}>
+                Sem imagem — painel à direita: URL ou «Carregar do PC»
+              </div>
+            )}
             {im.caption && (
               <span
                 style={{
