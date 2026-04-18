@@ -109,6 +109,12 @@ Depois `npx prisma migrate deploy` (local com a mesma URL, ou `railway run` a pa
 npm run db:migrate:fix-railway-p3009-typo
 ```
 
+**Sem `export` na shell:** cria `backend/railway.env` (não vai para o git — copia de `railway.env.example`) com uma linha `DATABASE_URL="postgresql://..."` e corre:
+
+```bash
+cd backend && npm run db:migrate:railway-p3009
+```
+
 Substitui **toda** a URL pela que o Railway mostra (uma linha só, com `postgres`, password, host e porta reais). **Não** uses texto de exemplo tipo `…PUBLICO…` — isso gera `P1001` com host estranho no erro.
 
 O script tenta `migrate resolve`; se falhar, executa o SQL `scripts/delete-railway-typo-migration.sql` e de seguida `migrate deploy`.

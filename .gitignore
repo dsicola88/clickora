@@ -39,6 +39,7 @@ build_dpa/
 
 # Secrets (nunca enviar para o GitHub)
 backend/.env
+backend/railway.env
 frontend/.env
 .env
 .env.*
