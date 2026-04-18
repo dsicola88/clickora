@@ -77,6 +77,28 @@ npm start      # Production
 
 ✅ = JWT required | 🔒 = JWT + admin role required
 
+## Railway: erro Prisma **P3009** (migração falhada)
+
+Se o deploy parar em `migrate deploy` com *failed migrations* na migração **`20260417130000_meta_capi_integration`** (Meta CAPI), o Prisma não aplica migrações novas até resolveres o estado. Se o log mostrar outro nome (ex. typo `202404...`), usa **exatamente** o nome que o Prisma imprimir no `migrate resolve`.
+
+1. Liga o mesmo `DATABASE_URL` que o serviço usa (no Railway: Postgres → variável, ou `railway run`).
+2. Na pasta **`backend/`**, corre **uma** destas sequências:
+
+   - **Repetir a migração:** a BD não tem (ou não queres manter) o SQL desta migração.
+     ```bash
+     npm run db:migrate:resolve-rolled-back:meta-capi
+     npx prisma migrate deploy
+     ```
+   - **Só alinhar o histórico:** as colunas `meta_*` já existem (por exemplo após `ALTER` manual ou o repair do seed), mas o Prisma ainda marca a migração como falhada.
+     ```bash
+     npm run db:migrate:resolve-applied:meta-capi
+     npx prisma migrate deploy
+     ```
+
+3. Volta a fazer **Redeploy** do serviço `clickora`.
+
+Mais detalhe: `sh scripts/railway-resolve-p3009-meta-capi.sh` (mensagens iguais às de cima).
+
 ## Hotmart setup
 
 Fluxo (compra → acesso isolado):

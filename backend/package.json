@@ -12,6 +12,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "db:migrate:resolve-rolled-back:meta-capi": "prisma migrate resolve --rolled-back 20260417130000_meta_capi_integration",
+    "db:migrate:resolve-applied:meta-capi": "prisma migrate resolve --applied 20260417130000_meta_capi_integration",
     "test:custom-domain": "tsx scripts/test-custom-domain-flow.ts",
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts"
