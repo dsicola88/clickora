@@ -16,6 +16,22 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
+# Evita copiar o texto de exemplo da documentação (…PUBLICO… ou reticências Unicode).
+case "$DATABASE_URL" in
+  *PUBLICO*|*publico*)
+    echo "ERRO: DATABASE_URL ainda contém o placeholder «PUBLICO»."
+    echo "  No Railway → Postgres → Connect, copia a linha COMPLETA (postgresql://postgres:PASSWORD@HOST:PORT/railway?...)."
+    echo "  Não uses «…» nem «PUBLICO» — substitui tudo pela URL real."
+    exit 1
+    ;;
+esac
+case "$DATABASE_URL" in
+  *$'\342\200\246'*) # U+2026 …
+    echo "ERRO: DATABASE_URL contém reticências «…» (placeholder). Cola a URL inteira do Railway."
+    exit 1
+    ;;
+esac
+
 TYPO="20240417130000_meta_copi_integration"
 
 echo "=== 1) Tentar prisma migrate resolve --rolled-back ($TYPO) ==="

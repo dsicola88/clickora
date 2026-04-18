@@ -103,6 +103,8 @@ Depois `npx prisma migrate deploy` (local ou `railway run`) para aplicar a migra
 npm run db:migrate:fix-railway-p3009-typo
 ```
 
+Substitui **toda** a URL pela que o Railway mostra (uma linha só, com `postgres`, password, host e porta reais). **Não** uses texto de exemplo tipo `…PUBLICO…` — isso gera `P1001` com host estranho no erro.
+
 O script tenta `migrate resolve`; se falhar, executa o SQL `scripts/delete-railway-typo-migration.sql` e de seguida `migrate deploy`.
 
 Se o log mostrar **outro** nome, usa **exatamente** esse nome no `migrate resolve` ou no `DELETE`.
