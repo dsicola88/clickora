@@ -15,6 +15,7 @@
     "db:migrate:resolve-rolled-back:meta-capi": "prisma migrate resolve --rolled-back 20260417130000_meta_capi_integration",
     "db:migrate:resolve-applied:meta-capi": "prisma migrate resolve --applied 20260417130000_meta_capi_integration",
     "db:migrate:resolve-rolled-back:railway-typo-meta": "prisma migrate resolve --rolled-back 20240417130000_meta_copi_integration",
+    "db:migrate:fix-railway-p3009-typo": "sh scripts/fix-railway-p3009-typo.sh",
     "test:custom-domain": "tsx scripts/test-custom-domain-flow.ts",
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts"

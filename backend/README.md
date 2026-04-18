@@ -97,6 +97,14 @@ WHERE migration_name = '20240417130000_meta_copi_integration';
 
 Depois `npx prisma migrate deploy` (local ou `railway run`) para aplicar a migração correcta **`20260417130000_meta_capi_integration`** do Git.
 
+**Um comando (no teu PC):** com `DATABASE_URL` da Railway na variável de ambiente, na pasta `backend/`:
+
+```bash
+npm run db:migrate:fix-railway-p3009-typo
+```
+
+O script tenta `migrate resolve`; se falhar, executa o SQL `scripts/delete-railway-typo-migration.sql` e de seguida `migrate deploy`.
+
 Se o log mostrar **outro** nome, usa **exatamente** esse nome no `migrate resolve` ou no `DELETE`.
 
 1. Liga o mesmo `DATABASE_URL` que o serviço usa (no Railway: Postgres → variável, ou `railway run`).
