@@ -35,7 +35,7 @@ export default function Home() {
             <h2 className="text-xl font-bold text-card-foreground">Criador de Presell</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-            Crie a página, publique e copie o link para os anúncios.
+            Presell automática (URL do produto) ou manual (editor visual). Publique e use o link /p/… nos anúncios.
           </p>
           <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
             Acessar <ArrowRight className="h-4 w-4" />

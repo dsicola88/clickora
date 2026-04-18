@@ -216,6 +216,7 @@ model PresellPage {
   userId      String        @map("user_id")
   title       String
   slug        String
+  /// Modelo da página: cookies, vsl, tsl, desconto, …, ou `builder` (editor visual; ver `content.pageDocument`).
   type        String        @default("cookies")
   category    String?
   language    String?       @default("pt")

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -31,6 +32,8 @@ import AdminPanel from "./pages/AdminPanel";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import PublicPresell from "./pages/PublicPresell";
+
+const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
@@ -75,6 +78,22 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/p/:id" element={<PublicPresell />} />
+              <Route
+                path="/presell/builder/:id?"
+                element={
+                  <ProtectedRoute>
+                    <Suspense
+                      fallback={
+                        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
+                          Carregando editor…
+                        </div>
+                      }
+                    >
+                      <PresellManualBuilderPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
               {/* Landing de planos (acessível com ou sem login; a raiz redireciona logados para /inicio) */}
               <Route path="/plans" element={<Plans />} />
               <Route path="/planos" element={<Plans />} />

@@ -6,6 +6,8 @@ interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryActionLabel?: string;
+  secondaryOnAction?: () => void;
   icon?: React.ReactNode;
 }
 
@@ -14,6 +16,8 @@ export function EmptyState({
   description = "Comece criando seu primeiro item.",
   actionLabel,
   onAction,
+  secondaryActionLabel,
+  secondaryOnAction,
   icon,
 }: EmptyStateProps) {
   return (
@@ -25,11 +29,20 @@ export function EmptyState({
         <h3 className="text-lg font-semibold text-foreground">{title}</h3>
         <p className="text-sm text-muted-foreground mt-1 max-w-sm">{description}</p>
       </div>
-      {actionLabel && onAction && (
-        <Button onClick={onAction} className="gap-2">
-          {actionLabel}
-        </Button>
-      )}
+      {(actionLabel && onAction) || (secondaryActionLabel && secondaryOnAction) ? (
+        <div className="flex flex-col sm:flex-row gap-2">
+          {actionLabel && onAction ? (
+            <Button onClick={onAction} className="gap-2">
+              {actionLabel}
+            </Button>
+          ) : null}
+          {secondaryActionLabel && secondaryOnAction ? (
+            <Button variant="outline" onClick={secondaryOnAction} className="gap-2">
+              {secondaryActionLabel}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

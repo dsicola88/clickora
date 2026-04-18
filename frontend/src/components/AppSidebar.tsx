@@ -14,6 +14,7 @@ import {
   ShieldBan,
   Home,
   Sparkles,
+  LayoutGrid,
   LinkIcon,
   Plug,
   Settings,
@@ -61,6 +62,12 @@ type NavItem = {
 
 const presellNavItems: NavItem[] = [
   { title: "Minhas Presells", url: "/presell/dashboard", icon: FileText },
+  {
+    title: "Editor manual",
+    url: "/presell/builder",
+    icon: LayoutGrid,
+    hint: "Construtor visual (tipo Elementor); a página pública usa o mesmo link /p/… que as presells automáticas.",
+  },
   { title: "Templates", url: "/presell/templates", icon: Sparkles },
 ];
 
@@ -144,10 +151,17 @@ function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
     <SidebarMenuSub>
       {items.map((item) => (
         <SidebarMenuSubItem key={item.url}>
-          <SidebarMenuSubButton asChild isActive={path === item.url} size="md">
+          <SidebarMenuSubButton
+            asChild
+            isActive={
+              path === item.url ||
+              (item.url === "/presell/builder" && path.startsWith("/presell/builder"))
+            }
+            size="md"
+          >
             <NavLink
               to={item.url}
-              end
+              end={item.url !== "/presell/builder"}
               title={item.hint ?? item.title}
               className={({ isActive: a }) =>
                 cn("no-underline", a && "bg-sidebar-accent text-sidebar-accent-foreground font-medium")

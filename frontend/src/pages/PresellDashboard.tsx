@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -9,20 +10,17 @@ import {
   Check,
   Trash2,
   Settings,
-  ChevronDown,
-  ChevronRight,
   Pencil,
   Code2,
   Download,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale } from "@/lib/presellUiStrings";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { presellService } from "@/services/presellService";
@@ -43,24 +41,13 @@ import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
+import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { exportPageToHtml } from "@/page-builder/export-html";
 import type { Presell } from "@/types/api";
+import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
+import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 
-type PresellSettings = Record<string, string | boolean>;
-
-const DEFAULT_PRESELL_CONFIG_SETTINGS = {
-  exitPopup: false,
-  countdownTimer: false,
-  socialProof: false,
-  googleTrackingCode: "",
-  googleConversionEvent: "",
-  fbPixelId: "",
-  fbTrackName: "",
-  fbConversionApi: "disabled",
-  headerCode: "",
-  bodyCode: "",
-  footerCode: "",
-  customCss: "",
-};
+type PresellSettings = PresellConfigSettings;
 
 function sanitizeSlug(raw: string): string {
   const s = raw
@@ -94,7 +81,13 @@ const presellTypes = [
   { id: "modelos", name: "Modelos" },
 ];
 
+function presellTypeLabel(type: string): string {
+  if (type === "builder") return "Manual (editor)";
+  return presellTypes.find((t) => t.id === type)?.name ?? type;
+}
+
 export default function PresellDashboard() {
+  const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   /** Isola cache React Query por conta (evita mostrar dados da sessão anterior). */
@@ -106,7 +99,6 @@ export default function PresellDashboard() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   /** A carregar HTML (copiar Elementor ou descarregar .html completo). */
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
-  const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
 
@@ -254,8 +246,7 @@ export default function PresellDashboard() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   /** Quando false, o slug segue o «Nome da página»; ao editar o slug à mão, passa a true (edição/alteração manual). */
   const [slugTouchedByUser, setSlugTouchedByUser] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const toggleSection = (key: string) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
 
   const presellUrlPreview = useMemo(() => {
     const origin = getPublicPresellOriginForPresell(customDomains, formData.customDomainId || null).replace(
@@ -360,6 +351,10 @@ export default function PresellDashboard() {
         toast.error(error || "Não foi possível carregar a página.");
         return;
       }
+      if (data.type === "builder") {
+        navigate(`/presell/builder/${data.id}`);
+        return;
+      }
       setEditingId(data.id);
       setEditingPage(data);
       populateFormFromPresell(data);
@@ -386,14 +381,26 @@ export default function PresellDashboard() {
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
-      const html = buildPresellStandaloneHtml(data, {
-        apiBase: getApiBaseUrl(),
-        publicPageUrl: publicUrl,
-        format: "elementor",
-      });
+      let html: string;
+      if (data.type === "builder") {
+        const doc = parsePresellBuilderPageDocument(data.content);
+        if (!doc) {
+          toast.error("Documento do editor em falta.");
+          return;
+        }
+        html = exportPageToHtml(doc);
+      } else {
+        html = buildPresellStandaloneHtml(data, {
+          apiBase: getApiBaseUrl(),
+          publicPageUrl: publicUrl,
+          format: "elementor",
+        });
+      }
       await navigator.clipboard.writeText(html);
       toast.success(
-        "HTML copiado (mesmo layout que a página pública). Cola no Elementor no widget «HTML».",
+        data.type === "builder"
+          ? "HTML copiado a partir do layout do editor manual."
+          : "HTML copiado (mesmo layout que a página pública). Cola no Elementor no widget «HTML».",
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível copiar o HTML.");
@@ -411,11 +418,21 @@ export default function PresellDashboard() {
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
-      const html = buildPresellStandaloneHtml(data, {
-        apiBase: getApiBaseUrl(),
-        publicPageUrl: publicUrl,
-        format: "document",
-      });
+      let html: string;
+      if (data.type === "builder") {
+        const doc = parsePresellBuilderPageDocument(data.content);
+        if (!doc) {
+          toast.error("Documento do editor em falta.");
+          return;
+        }
+        html = exportPageToHtml(doc);
+      } else {
+        html = buildPresellStandaloneHtml(data, {
+          apiBase: getApiBaseUrl(),
+          publicPageUrl: publicUrl,
+          format: "document",
+        });
+      }
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -594,7 +611,7 @@ export default function PresellDashboard() {
             isAdmin
               ? isEditing
                 ? "Altere nome, slug, tipo, link de afiliado e opções. O texto e as imagens já importados mantêm-se; para voltar a extrair tudo da URL, duplique a página na lista ou crie uma presell nova."
-                : "Cole o link do produto, escolha idioma e tipo, nome e endereço. O restante é gerado para você."
+                : "Cole o link do produto, escolha idioma e tipo, nome e endereço — o restante é gerado automaticamente. Para uma página feita à mão (editor visual), volte à lista e use «Editor manual»; o link público /p/id é o mesmo."
               : undefined
           }
           actions={
@@ -659,6 +676,11 @@ export default function PresellDashboard() {
                   <li>
                     O link público (com <span className="font-mono text-[11px]">/p/</span>) fica copiado após criar; na lista
                     pode voltar a <span className="text-foreground font-medium">Copiar</span> para anúncios.
+                  </li>
+                  <li>
+                    Quem preferir desenhar a página no editor visual (tipo Elementor) deve usar{" "}
+                    <span className="text-foreground font-medium">Editor manual</span> na lista — não este assistente por
+                    URL. O mesmo limite de presells da conta aplica-se aos dois modos.
                   </li>
                 </ol>
               </>
@@ -924,181 +946,14 @@ export default function PresellDashboard() {
         )}
 
         <div className="space-y-2">
-          <Collapsible open={openSections["advanced"]} onOpenChange={() => toggleSection("advanced")}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 bg-card rounded-xl px-4 py-4 sm:px-6 border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer text-left min-w-0">
-              <span className="font-medium text-card-foreground">Opcional: configurações e rastreamento</span>
-              {openSections["advanced"] ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="bg-card rounded-b-xl px-4 py-4 sm:px-6 border-x border-b border-border/50 space-y-6 w-full min-w-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">Popup de saída</p>
-                    <p className="text-xs text-muted-foreground">Ao tentar sair da página</p>
-                  </div>
-                  <Switch
-                    checked={configSettings.exitPopup}
-                    onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, exitPopup: v }))}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">Contagem regressiva</p>
-                    <p className="text-xs text-muted-foreground">Urgência com timer</p>
-                  </div>
-                  <Switch
-                    checked={configSettings.countdownTimer}
-                    onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, countdownTimer: v }))}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">Prova social</p>
-                    <p className="text-xs text-muted-foreground">Notificações de compras</p>
-                  </div>
-                  <Switch
-                    checked={configSettings.socialProof}
-                    onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, socialProof: v }))}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div className="space-y-2 min-w-0">
-                    <Label>Google Analytics / tag</Label>
-                    <Input
-                      placeholder="ID ou snippet curto"
-                      value={configSettings.googleTrackingCode}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, googleTrackingCode: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2 min-w-0">
-                    <Label>Conversão Google Ads (opcional)</Label>
-                    <Input
-                      placeholder="AW-…/…"
-                      value={configSettings.googleConversionEvent}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, googleConversionEvent: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2 min-w-0">
-                    <Label>Pixel Facebook</Label>
-                    <Input
-                      placeholder="ID do pixel"
-                      value={configSettings.fbPixelId}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, fbPixelId: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 border-t border-border/50 pt-6">
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">Scripts na página pública</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      O script Clickora da conta é aplicado ao <span className="text-foreground/90">head</span> ao guardar
-                      (atualiza com o teu utilizador e o URL da API). Podes acrescentar aqui outros scripts (ex. SmartClick). Os{" "}
-                      <span className="text-foreground/90">&lt;script&gt;</span> executam na presell — cabeçalho, início do
-                      corpo e rodapé no fim do <span className="text-foreground/90">documento</span>.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-                    <div className="space-y-2 min-w-0">
-                      <Label className="text-sm">Script Clickora (rastreamento)</Label>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Este <span className="font-mono text-[11px]">&lt;script&gt;</span> é o mesmo que vai para{" "}
-                        <span className="font-medium text-foreground/90">Código no &lt;head&gt;</span> ao guardar (conta
-                        impressões, cliques e conversões; <span className="font-mono text-[11px]">data-id</span> = o teu
-                        utilizador). Copia só se precisares noutro sítio.
-                      </p>
-                      {trackingEmbedScript ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            readOnly
-                            rows={3}
-                            value={trackingEmbedScript}
-                            className="font-mono text-xs min-h-[4.5rem] bg-muted/30 border-border/80"
-                            aria-label="Script de rastreamento Clickora"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => {
-                              navigator.clipboard.writeText(trackingEmbedScript);
-                              setCopiedTrackingScript(true);
-                              setTimeout(() => setCopiedTrackingScript(false), 2000);
-                              toast.success("Script copiado.");
-                            }}
-                          >
-                            {copiedTrackingScript ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                            {copiedTrackingScript ? "Copiado" : "Copiar script"}
-                          </Button>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2">
-                          Inicia sessão para gerar o teu script de rastreamento.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 min-w-0 lg:border-l lg:border-border/50 lg:pl-8">
-                      <Label htmlFor="headerCode" className="text-sm">
-                        Código no &lt;head&gt;
-                      </Label>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        O Clickora é antecipado automaticamente; edita ou acrescenta outros scripts (pixels, SmartClick,
-                        etc.) se precisares.
-                      </p>
-                      <Textarea
-                        id="headerCode"
-                        rows={3}
-                        placeholder={`<script src="…/track/v2/clickora.min.js" data-id="…"></script>`}
-                        value={configSettings.headerCode}
-                        onChange={(e) => setConfigSettings((p) => ({ ...p, headerCode: e.target.value }))}
-                        className="font-mono text-xs min-h-[4.5rem]"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2 min-w-0">
-                    <Label htmlFor="bodyCode">Código no início do conteúdo</Label>
-                    <Textarea
-                      id="bodyCode"
-                      rows={2}
-                      placeholder="Opcional — pixels ou scripts que costumam ir logo após &lt;body&gt;"
-                      value={configSettings.bodyCode}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, bodyCode: e.target.value }))}
-                      className="font-mono text-xs min-h-[3.5rem]"
-                    />
-                  </div>
-                  <div className="space-y-2 min-w-0">
-                    <Label htmlFor="footerCode">Código no rodapé (fim da página)</Label>
-                    <Textarea
-                      id="footerCode"
-                      rows={3}
-                      placeholder={`Opcional — ex.: segundo script ou tag antes de </body>`}
-                      value={configSettings.footerCode}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, footerCode: e.target.value }))}
-                      className="font-mono text-xs min-h-[4.5rem]"
-                    />
-                  </div>
-                  <div className="space-y-2 min-w-0">
-                    <Label htmlFor="customCss">CSS personalizado (opcional)</Label>
-                    <Textarea
-                      id="customCss"
-                      rows={3}
-                      placeholder=".minha-classe { ... }"
-                      value={configSettings.customCss}
-                      onChange={(e) => setConfigSettings((p) => ({ ...p, customCss: e.target.value }))}
-                      className="font-mono text-xs min-h-[3.5rem]"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <PresellAdvancedTrackingCollapsible
+            open={advancedSettingsOpen}
+            onOpenChange={setAdvancedSettingsOpen}
+            configSettings={configSettings}
+            setConfigSettings={setConfigSettings}
+            trackingEmbedScript={trackingEmbedScript}
+            surface="dashboard"
+          />
         </div>
 
         <Button
@@ -1125,12 +980,18 @@ export default function PresellDashboard() {
     return (
       <EmptyState
         title="Nenhuma presell criada"
-        description={isAdmin ? "Cole o link do produto, escolha idioma e tipo — a página completa é gerada automaticamente." : "Crie a primeira página para começar."}
-        actionLabel="Criar presell"
+        description={
+          isAdmin
+            ? "Automática: cole o URL do produto e escolha o tipo. Manual: abra «Editor manual» para o construtor visual. Ambas usam o link público /p/id."
+            : "Crie a primeira página (automática ou manual) para começar."
+        }
+        actionLabel="Criar presell (automática)"
         onAction={() => {
           resetForm({ presetCustomDomain: true });
           setShowCreator(true);
         }}
+        secondaryActionLabel="Editor manual (tipo Elementor)"
+        secondaryOnAction={() => navigate("/presell/builder")}
         icon={<FileText className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -1142,15 +1003,20 @@ export default function PresellDashboard() {
         title="Lista de páginas Presell"
         description={isAdmin ? "Gerencie, duplique e publique suas páginas em um único lugar." : undefined}
         actions={
-          <Button
-            onClick={() => {
-              resetForm({ presetCustomDomain: true });
-              setShowCreator(true);
-            }}
-            className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" /> Criar nova Presell
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => {
+                resetForm({ presetCustomDomain: true });
+                setShowCreator(true);
+              }}
+              className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" /> Presell automática
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
+              <LayoutGrid className="h-4 w-4" /> Editor manual
+            </Button>
+          </div>
         }
       />
 
@@ -1192,7 +1058,9 @@ export default function PresellDashboard() {
         <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
         <span className="font-medium text-card-foreground">Copiar HTML</span> (bloco para o Elementor);{" "}
         <Download className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
-        <span className="font-medium text-card-foreground">Descarregar .html</span> (página completa com &lt;html&gt;).
+        <span className="font-medium text-card-foreground">Descarregar .html</span> (página completa com &lt;html&gt;). Nas
+        presells <span className="font-medium text-card-foreground">manuais</span>, o HTML exportado corresponde ao layout
+        do editor (não ao modelo importado por URL).
       </p>
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -1217,7 +1085,7 @@ export default function PresellDashboard() {
                       {page.title}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">{page.type}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{presellTypeLabel(page.type)}</td>
                   <td className="py-3 px-4 max-w-[min(100vw,22rem)]">
                     <div className="flex flex-col gap-1">
                       <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">

@@ -171,7 +171,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       {
         title: "Formatos de presell reais no editor",
         body:
-          "Tipos como VSL, TSL, DTC, VSL+TSL, e gates (cookies, desconto, idade, país, captcha, entre outros). Vídeo em incorporação (ex.: YouTube) onde o layout o permitir — não é um construtor genérico de «dezenas de páginas», é o que a plataforma expõe hoje.",
+          "Tipos como VSL, TSL, DTC, VSL+TSL, gates (cookies, desconto, idade, país, captcha, entre outros) e presell manual no editor visual (secções e widgets). Vídeo em incorporação (ex.: YouTube) onde o layout o permitir.",
       },
       {
         title: "Tracking e proteção configuráveis",

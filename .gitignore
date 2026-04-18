@@ -34,6 +34,9 @@ test-results/
 frontend/playwright-report/
 frontend/test-results/
 
+# Cópia local do construtor Lovable (código integrado em frontend/src/page-builder)
+build_dpa/
+
 # Secrets (nunca enviar para o GitHub)
 backend/.env
 frontend/.env

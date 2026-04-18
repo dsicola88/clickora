@@ -5,12 +5,15 @@ import type { Presell } from "@/types/api";
 import {
   getInteractiveGateKind,
   getPresellGateKind,
+  isBuilderPresellType,
   isDiscountPresellType,
   isGhostPresellType,
   isVideoPresellType,
   isVslOnlyPresellType,
   type InteractivePresellGateKind,
 } from "@/lib/presellTypeMeta";
+import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { exportPageToHtml } from "@/page-builder/export-html";
 import {
   getPresellUiStrings,
   htmlLangForLocale,
@@ -413,11 +416,47 @@ export type PresellExportOptions = {
   format?: PresellExportFormat;
 };
 
+/** Injeta `settings` da presell (head/body/footer/CSS) no HTML exportado do editor manual. */
+function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string {
+  const settings = (page.settings || {}) as Record<string, unknown>;
+  let out = html;
+  const customCss = String(settings.customCss ?? "").trim();
+  if (customCss) {
+    out = out.replace("</head>", `<style>/* clickora presell */\n${customCss}\n</style>\n</head>`);
+  }
+  const headerCode = String(settings.headerCode ?? "").trim();
+  if (headerCode) {
+    out = out.replace("</head>", `${headerCode}\n</head>`);
+  }
+  const bodyCode = String(settings.bodyCode ?? "").trim();
+  if (bodyCode) {
+    out = out.replace(/<body([^>]*)>/i, `<body$1><div data-presell-inject="body-start">${bodyCode}</div>`);
+  }
+  const footerCode = String(settings.footerCode ?? "").trim();
+  if (footerCode) {
+    out = out.replace("</body>", `${footerCode}\n</body>`);
+  }
+  return out;
+}
+
 /**
  * HTML alinhado à página pública (`PublicPresell`): layout, CTA, desconto, VSL fallback, cookies, gates.
  */
 export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOptions): string {
   const format: PresellExportFormat = opts.format ?? "elementor";
+
+  if (isBuilderPresellType(page.type)) {
+    const doc = parsePresellBuilderPageDocument(page.content);
+    const note = `<!-- Presell Clickora (editor manual). Público: ${escapeHtml(opts.publicPageUrl)} -->\n`;
+    if (!doc) {
+      return format === "document"
+        ? `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Presell</title></head><body>${note}<p>Documento do editor em falta.</p></body></html>`
+        : `${note}<!-- Documento do editor em falta -->`;
+    }
+    const merged = injectPresellSettingsIntoFullHtml(exportPageToHtml(doc), page);
+    return `${note}${merged}`;
+  }
+
   const content = (page.content || {}) as Record<string, unknown>;
   const settings = (page.settings || {}) as Record<string, unknown>;
   const affiliateLink = (content.affiliateLink as string) || "#";

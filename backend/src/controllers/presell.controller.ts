@@ -32,6 +32,8 @@ const createSchema = z.object({
     "captcha",
     "modelos",
     "desconto",
+    /** Editor visual (Elementor-style) — documento em `content.pageDocument`. */
+    "builder",
   ]).optional(),
   category: z.string().optional(),
   language: z.string().optional(),

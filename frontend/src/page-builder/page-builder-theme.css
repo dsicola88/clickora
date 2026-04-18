@@ -1,0 +1,33 @@
+/**
+ * Tema do editor visual (ex-build_dpa) — variáveis usadas pelas classes Tailwind `editor-*`.
+ * Aplicar no contentor do editor: `className="page-builder-scope"`.
+ */
+.page-builder-scope {
+  --editor-bg: oklch(0.18 0.01 260);
+  --editor-panel: oklch(0.22 0.012 260);
+  --editor-panel-2: oklch(0.26 0.012 260);
+  --editor-border: oklch(0.32 0.012 260);
+  --editor-fg: oklch(0.96 0.005 260);
+  --editor-fg-muted: oklch(0.68 0.012 260);
+  --editor-canvas: oklch(0.94 0.005 260);
+  --editor-accent: oklch(0.62 0.21 27);
+  --editor-accent-fg: oklch(0.985 0 0);
+  --editor-section: oklch(0.55 0.18 145);
+  --editor-column: oklch(0.6 0.16 250);
+  --editor-widget: oklch(0.62 0.21 27);
+}
+
+.page-builder-scope .editor-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.page-builder-scope .editor-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.page-builder-scope .editor-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--editor-border);
+  border-radius: 4px;
+}
+.page-builder-scope .editor-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--editor-fg-muted);
+}

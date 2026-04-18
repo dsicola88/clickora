@@ -19,6 +19,8 @@ import {
   isVideoPresellType,
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
+import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { PublicBuilderPresellView } from "@/components/presell/PublicBuilderPresellView";
 import { getApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import {
@@ -389,6 +391,29 @@ export default function PublicPresell() {
   const ratingStars = typeof content.ratingStars === "number" ? content.ratingStars : 5;
   const urgencyTimerSeconds =
     typeof content.urgencyTimerSeconds === "number" ? content.urgencyTimerSeconds : 649;
+
+  const builderDoc = parsePresellBuilderPageDocument(page.content);
+  if (page.type === "builder") {
+    if (!builderDoc) {
+      return (
+        <ErrorState
+          message="Esta presell manual não tem um documento válido. Edite-a de novo no painel ou contacte o suporte."
+          onRetry={() => refetch()}
+        />
+      );
+    }
+    return (
+      <div className="min-h-screen bg-background pb-12">
+        <div
+          ref={bodyCodeMountRef}
+          className="sr-only pointer-events-none absolute h-0 w-0 overflow-hidden"
+          aria-hidden
+          data-presell-inject="body-start"
+        />
+        <PublicBuilderPresellView doc={builderDoc} />
+      </div>
+    );
+  }
 
   const pageBody = (
     <>

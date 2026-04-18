@@ -10,6 +10,7 @@
  * | vsl_tsl     | Mesmo hero VSL + secção TSL abaixo (texto importado completo, CTA intercalado). |
  * | tsl, dtc, review | Layout padrão (hero claro): texto e imagens importados. |
  * | sexo, idade, grupo_*, pais, captcha, modelos | Formulário antes do CTA; CTA só ativo com dados válidos. |
+ * | builder     | Layout do editor visual (`content.pageDocument`); sem gate automático. |
  */
 export type PresellGateKind =
   | "none"
@@ -62,6 +63,11 @@ export function isDiscountPresellType(presellType: string): boolean {
 /** Presell “fantasma”: redireciona ao primeiro movimento do rato/toque/scroll. */
 export function isGhostPresellType(presellType: string): boolean {
   return presellType === "fantasma";
+}
+
+/** Presell montada no editor visual (secções/widgets), não pelo import automático. */
+export function isBuilderPresellType(presellType: string): boolean {
+  return presellType === "builder";
 }
 
 /** Tipos que exibem formulário antes do CTA (idade, sexo, país, etc.). */
