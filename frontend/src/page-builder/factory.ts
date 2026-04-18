@@ -288,6 +288,12 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       carouselIntervalMs: 4500,
       carouselShowDots: true,
       carouselShowArrows: true,
+      carouselSlidesDesktop: 3,
+      carouselSlidesTablet: 2,
+      carouselSlidesMobile: 1,
+      carouselSlidesToScroll: 1,
+      carouselObjectFit: "contain",
+      carouselThumbWidthPx: 0,
     },
     styles: {
       padding: r(spacing(0, 0, 0, 0)),

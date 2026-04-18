@@ -1773,6 +1773,84 @@ function GalleryContentEditor({
         </Section>
       ) : (
         <Section title="Carrossel">
+          <NumberField
+            label="Espaço entre slides (px)"
+            value={(content.gap as number) ?? 12}
+            min={0}
+            max={48}
+            onChange={(v) => setContent({ gap: v })}
+          />
+          <SelectField
+            label="Navegação"
+            value={(() => {
+              const a = (content.carouselShowArrows as boolean) !== false;
+              const d = (content.carouselShowDots as boolean) !== false;
+              if (a && d) return "both";
+              if (a) return "arrows";
+              if (d) return "dots";
+              return "none";
+            })()}
+            options={[
+              { value: "both", label: "Setas e pontos" },
+              { value: "arrows", label: "Só setas" },
+              { value: "dots", label: "Só pontos" },
+              { value: "none", label: "Nenhuma" },
+            ]}
+            onChange={(v) => {
+              if (v === "both") setContent({ carouselShowArrows: true, carouselShowDots: true });
+              else if (v === "arrows") setContent({ carouselShowArrows: true, carouselShowDots: false });
+              else if (v === "dots") setContent({ carouselShowArrows: false, carouselShowDots: true });
+              else setContent({ carouselShowArrows: false, carouselShowDots: false });
+            }}
+          />
+          <NumberField
+            label="Slides visíveis (desktop)"
+            value={(content.carouselSlidesDesktop as number) ?? 1}
+            min={1}
+            max={12}
+            onChange={(v) => setContent({ carouselSlidesDesktop: v })}
+          />
+          <NumberField
+            label="Slides visíveis (tablet)"
+            value={(content.carouselSlidesTablet as number) ?? 1}
+            min={1}
+            max={8}
+            onChange={(v) => setContent({ carouselSlidesTablet: v })}
+          />
+          <NumberField
+            label="Slides visíveis (mobile)"
+            value={(content.carouselSlidesMobile as number) ?? 1}
+            min={1}
+            max={4}
+            onChange={(v) => setContent({ carouselSlidesMobile: v })}
+          />
+          <NumberField
+            label="Slides a rolar de cada vez"
+            value={(content.carouselSlidesToScroll as number) ?? 1}
+            min={1}
+            max={6}
+            onChange={(v) => setContent({ carouselSlidesToScroll: v })}
+          />
+          <SelectField
+            label="Preencher slide (imagem)"
+            value={(content.carouselObjectFit as string) === "contain" ? "contain" : "cover"}
+            options={[
+              { value: "cover", label: "Sim (cobre o espaço)" },
+              { value: "contain", label: "Não (miniatura, sem cortar)" },
+            ]}
+            onChange={(v) => setContent({ carouselObjectFit: v })}
+          />
+          <NumberField
+            label="Largura fixa miniatura (px, 0 = automático)"
+            value={(content.carouselThumbWidthPx as number) ?? 0}
+            min={0}
+            max={400}
+            onChange={(v) => setContent({ carouselThumbWidthPx: v })}
+          />
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+            Com largura fixa (ex.: 150), cabem tantas miniaturas quanto o ecrã permitir; o número de slides visíveis
+            funciona como limite máximo.
+          </p>
           <SelectField
             label="Avanço automático"
             value={((content.carouselAutoplay as boolean) ?? true) ? "yes" : "no"}
@@ -1789,24 +1867,6 @@ function GalleryContentEditor({
             max={12000}
             step={500}
             onChange={(v) => setContent({ carouselIntervalMs: v })}
-          />
-          <SelectField
-            label="Indicadores (pontos)"
-            value={((content.carouselShowDots as boolean) ?? true) ? "yes" : "no"}
-            options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
-            ]}
-            onChange={(v) => setContent({ carouselShowDots: v === "yes" })}
-          />
-          <SelectField
-            label="Setas laterais"
-            value={((content.carouselShowArrows as boolean) ?? true) ? "yes" : "no"}
-            options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
-            ]}
-            onChange={(v) => setContent({ carouselShowArrows: v === "yes" })}
           />
         </Section>
       )}

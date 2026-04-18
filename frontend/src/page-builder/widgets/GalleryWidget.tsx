@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useLayoutEffect,
+  type CSSProperties,
+} from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCss } from "../style-utils";
 
@@ -22,6 +29,16 @@ export interface GalleryContent {
   carouselIntervalMs?: number;
   carouselShowDots?: boolean;
   carouselShowArrows?: boolean;
+  /** Slides visíveis por dispositivo (estilo Elementor). Omisso = 1. */
+  carouselSlidesDesktop?: number;
+  carouselSlidesTablet?: number;
+  carouselSlidesMobile?: number;
+  /** Quantos slides avançar por clique / tecla / auto-play. */
+  carouselSlidesToScroll?: number;
+  /** `contain` ≈ não esticar (miniaturas); `cover` preenche o slide. */
+  carouselObjectFit?: "cover" | "contain";
+  /** Largura fixa do slide em px (ex. 150); 0 = largura calculada a partir dos slides visíveis. */
+  carouselThumbWidthPx?: number;
 }
 
 const ratioMap: Record<string, string> = {
@@ -30,6 +47,23 @@ const ratioMap: Record<string, string> = {
   landscape: "16 / 9",
   portrait: "3 / 4",
 };
+
+function slidesToShowForDevice(c: Partial<GalleryContent>, device: DeviceType): number {
+  const d =
+    typeof c.carouselSlidesDesktop === "number" && c.carouselSlidesDesktop >= 1
+      ? Math.round(c.carouselSlidesDesktop)
+      : 1;
+  const t =
+    typeof c.carouselSlidesTablet === "number" && c.carouselSlidesTablet >= 1
+      ? Math.round(c.carouselSlidesTablet)
+      : 1;
+  const m =
+    typeof c.carouselSlidesMobile === "number" && c.carouselSlidesMobile >= 1
+      ? Math.round(c.carouselSlidesMobile)
+      : 1;
+  const raw = device === "mobile" ? m : device === "tablet" ? t : d;
+  return Math.max(1, Math.min(12, raw));
+}
 
 export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const c = widget.content as Partial<GalleryContent>;
@@ -44,29 +78,91 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   const carouselIntervalMs = c.carouselIntervalMs ?? 4500;
   const carouselShowDots = c.carouselShowDots ?? true;
   const carouselShowArrows = c.carouselShowArrows ?? true;
+  const thumbW = typeof c.carouselThumbWidthPx === "number" ? c.carouselThumbWidthPx : 0;
+  const objectFit: "cover" | "contain" = c.carouselObjectFit === "contain" ? "contain" : "cover";
+  const slidesToScrollCfg = Math.max(
+    1,
+    Math.min(6, typeof c.carouselSlidesToScroll === "number" ? Math.round(c.carouselSlidesToScroll) : 1),
+  );
 
   const columns = device === "mobile" ? 1 : device === "tablet" ? Math.min(2, baseColumns) : baseColumns;
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  /** Índice do primeiro slide visível (carrossel multi-slide). */
+  const [carouselStart, setCarouselStart] = useState(0);
+  /** Métricas medidas no viewport (px reais para transform + flex). */
+  const [metrics, setMetrics] = useState({ vw: 0, slidePx: 0, nShow: 1 });
+  const viewportRef = useRef<HTMLDivElement>(null);
 
-  const goNext = useCallback(
-    () => setCarouselIndex((i) => (images.length ? (i + 1) % images.length : 0)),
-    [images.length],
-  );
-  const goPrev = useCallback(
-    () => setCarouselIndex((i) => (images.length ? (i - 1 + images.length) % images.length : 0)),
-    [images.length],
-  );
+  const userSlidesToShow = slidesToShowForDevice(c, device);
+
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el || layout !== "carousel") return;
+    const measure = () => {
+      const rawW = el.getBoundingClientRect().width;
+      const vw = rawW > 4 ? rawW : 0;
+      if (images.length === 0) {
+        setMetrics({ vw, slidePx: 0, nShow: 1 });
+        return;
+      }
+      let nShow: number;
+      let slidePx: number;
+      if (thumbW > 0) {
+        if (vw > 4) {
+          const nFit = Math.max(1, Math.floor((vw + gap) / (thumbW + gap)));
+          nShow = Math.min(images.length, nFit, Math.max(1, userSlidesToShow));
+        } else {
+          nShow = Math.min(images.length, Math.max(1, userSlidesToShow));
+        }
+        slidePx = thumbW;
+      } else {
+        nShow = Math.min(images.length, Math.max(1, userSlidesToShow));
+        const vwEff = vw > 4 ? vw : 0;
+        slidePx =
+          nShow > 0 ? (Math.max(vwEff, 280) - (nShow - 1) * gap) / nShow : 0;
+      }
+      setMetrics({ vw, slidePx, nShow });
+    };
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [layout, device, images.length, gap, thumbW, userSlidesToShow]);
+
+  const slidesToShow = metrics.nShow;
+  const slideW = metrics.slidePx;
+
+  const slidesToScroll = Math.min(slidesToScrollCfg, slidesToShow, images.length || 1);
+
+  const maxStart = Math.max(0, images.length - slidesToShow);
+
+  const goNext = useCallback(() => {
+    setCarouselStart((s) => {
+      if (maxStart <= 0) return 0;
+      const next = s + slidesToScroll;
+      if (next > maxStart) return 0;
+      return next;
+    });
+  }, [maxStart, slidesToScroll]);
+
+  const goPrev = useCallback(() => {
+    setCarouselStart((s) => {
+      if (maxStart <= 0) return 0;
+      const prev = s - slidesToScroll;
+      if (prev < 0) return maxStart;
+      return prev;
+    });
+  }, [maxStart, slidesToScroll]);
 
   useEffect(() => {
-    setCarouselIndex((i) => (images.length ? Math.min(i, images.length - 1) : 0));
-  }, [images.length]);
+    setCarouselStart((s) => Math.min(s, maxStart));
+  }, [maxStart, images.length, slidesToShow, metrics.vw]);
 
   useEffect(() => {
-    if (layout !== "carousel" || !carouselAutoplay || images.length < 2) return;
+    if (layout !== "carousel" || !carouselAutoplay || images.length < 2 || maxStart <= 0) return;
     const t = window.setInterval(goNext, Math.max(2000, carouselIntervalMs));
     return () => window.clearInterval(t);
-  }, [layout, carouselAutoplay, carouselIntervalMs, images.length, goNext]);
+  }, [layout, carouselAutoplay, carouselIntervalMs, images.length, goNext, maxStart]);
 
   useEffect(() => {
     if (lightbox === null) return;
@@ -101,15 +197,6 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   }
 
   const outer = stylesToCss(widget.styles, device);
-
-  const imgStyle: CSSProperties = {
-    width: "100%",
-    height: aspectRatio === "auto" ? "auto" : "100%",
-    aspectRatio: ratioMap[aspectRatio],
-    objectFit: "cover",
-    display: "block",
-    transition: "transform 0.3s ease",
-  };
 
   const lightboxModal =
     enableLightbox && lightbox !== null ? (
@@ -190,67 +277,111 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
     ) : null;
 
   if (layout === "carousel") {
-    const img = images[carouselIndex];
+    const imgStyleCarousel: CSSProperties = {
+      width: "100%",
+      height: aspectRatio === "auto" ? "auto" : "100%",
+      aspectRatio: ratioMap[aspectRatio],
+      objectFit,
+      display: "block",
+      background: objectFit === "contain" ? "#f1f5f9" : undefined,
+    };
+    const slideWSafe = Math.max(slideW, 1);
+    const step = slideWSafe + gap;
+    const translatePx = carouselStart > 0 ? -(carouselStart * step) : 0;
+    const dotCount = maxStart + 1;
+    const showNav = maxStart > 0;
+
     return (
       <div style={outer}>
         <div
+          ref={viewportRef}
           style={{
             position: "relative",
             borderRadius,
             overflow: "hidden",
             background: "#f8fafc",
             boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+            width: "100%",
           }}
         >
-          <button
-            type="button"
-            onClick={(e) => {
-              if (!enableLightbox) return;
-              e.stopPropagation();
-              setLightbox(carouselIndex);
-            }}
+          <div
             style={{
-              display: "block",
-              width: "100%",
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              cursor: enableLightbox ? "zoom-in" : "default",
-              position: "relative",
+              display: "flex",
+              gap,
+              transition: "transform 0.45s cubic-bezier(0.25, 0.1, 0.25, 1)",
+              transform: `translateX(${translatePx}px)`,
+              willChange: "transform",
             }}
-            aria-label={img.alt || `Imagem ${carouselIndex + 1} de ${images.length}`}
           >
-            <img src={img.src} alt={img.alt} loading="lazy" style={imgStyle} />
-            {img.caption ? (
-              <span
+            {images.map((img, i) => (
+              <div
+                key={img.id}
                 style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: "linear-gradient(to top, rgba(0,0,0,0.75), transparent)",
-                  color: "#fff",
-                  fontSize: 13,
-                  padding: "18px 14px 10px",
-                  textAlign: "left",
+                  flex: `0 0 ${slideWSafe}px`,
+                  width: slideWSafe,
+                  minWidth: 0,
+                  boxSizing: "border-box",
                 }}
               >
-                {img.caption}
-              </span>
-            ) : null}
-          </button>
-          {carouselShowArrows && images.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (!enableLightbox) return;
+                    e.stopPropagation();
+                    setLightbox(i);
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    cursor: enableLightbox ? "zoom-in" : "default",
+                    position: "relative",
+                    borderRadius: Math.max(0, borderRadius - 2),
+                    overflow: "hidden",
+                  }}
+                  aria-label={img.alt || `Imagem ${i + 1} de ${images.length}`}
+                >
+                  <img
+                    src={img.src}
+                    alt={img.alt}
+                    loading={i < slidesToShow + 2 ? "eager" : "lazy"}
+                    style={imgStyleCarousel}
+                  />
+                  {img.caption ? (
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: "linear-gradient(to top, rgba(0,0,0,0.75), transparent)",
+                        color: "#fff",
+                        fontSize: 12,
+                        padding: "14px 8px 8px",
+                        textAlign: "left",
+                      }}
+                    >
+                      {img.caption}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+            ))}
+          </div>
+          {carouselShowArrows && showNav ? (
             <>
               <button
                 type="button"
-                aria-label="Imagem anterior"
+                aria-label="Anterior"
                 onClick={(e) => {
                   e.stopPropagation();
                   goPrev();
                 }}
                 style={{
                   ...navBtnCarousel("left"),
-                  background: "rgba(15,23,42,0.45)",
+                  background: "rgba(15,23,42,0.5)",
                   color: "#fff",
                 }}
               >
@@ -258,14 +389,14 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
               </button>
               <button
                 type="button"
-                aria-label="Imagem seguinte"
+                aria-label="Seguinte"
                 onClick={(e) => {
                   e.stopPropagation();
                   goNext();
                 }}
                 style={{
                   ...navBtnCarousel("right"),
-                  background: "rgba(15,23,42,0.45)",
+                  background: "rgba(15,23,42,0.5)",
                   color: "#fff",
                 }}
               >
@@ -274,7 +405,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             </>
           ) : null}
         </div>
-        {carouselShowDots && images.length > 1 ? (
+        {carouselShowDots && showNav && dotCount > 1 ? (
           <div
             style={{
               display: "flex",
@@ -283,32 +414,45 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
               marginTop: 12,
               flexWrap: "wrap",
             }}
+            role="navigation"
+            aria-label="Posição do carrossel"
           >
-            {images.map((_, i) => (
-              <button
-                key={images[i].id}
-                type="button"
-                aria-label={`Ir para imagem ${i + 1}`}
-                aria-current={i === carouselIndex}
-                onClick={() => setCarouselIndex(i)}
-                style={{
-                  width: i === carouselIndex ? 22 : 8,
-                  height: 8,
-                  borderRadius: 999,
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  background: i === carouselIndex ? "#e63946" : "#cbd5e1",
-                  transition: "width 0.2s ease, background 0.2s ease",
-                }}
-              />
-            ))}
+            {Array.from({ length: dotCount }, (_, page) => {
+              const active = carouselStart === page;
+              return (
+                <button
+                  key={`dot-${page}`}
+                  type="button"
+                  aria-label={`Ir para posição ${page + 1}`}
+                  aria-current={active}
+                  onClick={() => setCarouselStart(page)}
+                  style={{
+                    width: active ? 22 : 8,
+                    height: 8,
+                    borderRadius: 999,
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    background: active ? "#e63946" : "#cbd5e1",
+                    transition: "width 0.2s ease, background 0.2s ease",
+                  }}
+                />
+              );
+            })}
           </div>
         ) : null}
         {lightboxModal}
       </div>
     );
   }
+
+  const imgStyleGrid: CSSProperties = {
+    width: "100%",
+    height: aspectRatio === "auto" ? "auto" : "100%",
+    aspectRatio: ratioMap[aspectRatio],
+    objectFit: "cover",
+    display: "block",
+  };
 
   return (
     <div style={outer}>
@@ -340,7 +484,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             }}
             aria-label={im.alt || `Imagem ${i + 1}`}
           >
-            <img src={im.src} alt={im.alt} loading="lazy" style={imgStyle} />
+            <img src={im.src} alt={im.alt} loading="lazy" style={imgStyleGrid} />
             {im.caption && (
               <span
                 style={{
@@ -391,12 +535,12 @@ function navBtnCarousel(side: "left" | "right"): CSSProperties {
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    [side]: 10,
-    width: 44,
-    height: 44,
+    [side]: 6,
+    width: 40,
+    height: 40,
     borderRadius: "50%",
     border: "none",
-    fontSize: 26,
+    fontSize: 22,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
