@@ -75,7 +75,7 @@ export function PageEditor() {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="flex h-full min-h-0 flex-col bg-editor-bg">
         <EditorTopbar />
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
           <WidgetSidebar />
           <Canvas />
           {structurePanelOpen ? <StructureNavigator /> : null}

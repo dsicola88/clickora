@@ -13,7 +13,7 @@ import type {
 } from "../types";
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { Settings2, Trash2, Plus, GripVertical } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { nanoid } from "nanoid";
 import type { FormField } from "../widgets/FormWidget";
 import type { SocialNetwork } from "../widgets/SocialIconsWidget";
@@ -156,6 +156,11 @@ function WidgetPanel({
   const [tab, setTab] = useState<Tab>("content");
   const updateWidget = useBuilder((s) => s.updateWidget);
   const def = WIDGET_REGISTRY[widget.type];
+
+  /** Ao mudar de widget, o painel reutiliza o mesmo estado — voltar a «Conteúdo» para não ficar preso em «Estilo» sem o campo do vídeo/URL. */
+  useEffect(() => {
+    setTab("content");
+  }, [widget.id]);
 
   const setContent = (patch: Record<string, unknown>) =>
     updateWidget(section.id, column.id, widget.id, {
@@ -415,6 +420,15 @@ function WidgetStyleTab({
         </Section>
       ) : (
         <>
+          {widget.type === "video" ? (
+            <div className="border-b border-editor-border px-3 pb-3">
+              <p className="text-[11px] leading-relaxed text-editor-fg-muted">
+                <span className="font-semibold text-editor-fg">Link do YouTube ou Bunny:</span> está na aba{" "}
+                <span className="font-semibold text-editor-fg">Conteúdo</span> (primeiro separador em cima). Aqui só
+                defines fundo e margens do bloco.
+              </p>
+            </div>
+          ) : null}
           <Section title="Cores">
             {widget.type !== "image" &&
             widget.type !== "video" &&
@@ -489,6 +503,9 @@ function ColumnPanel({
   device: DeviceType;
 }) {
   const [tab, setTab] = useState<Tab>("style");
+  useEffect(() => {
+    setTab("style");
+  }, [column.id]);
   const updateColumn = useBuilder((s) => s.updateColumn);
   const setStyles = (patch: Partial<BaseStyles & ResponsiveStyles>) =>
     updateColumn(section.id, column.id, { styles: { ...column.styles, ...patch } });
@@ -549,6 +566,9 @@ function ColumnPanel({
 
 function SectionPanel({ section, device }: { section: SectionNode; device: DeviceType }) {
   const [tab, setTab] = useState<Tab>("content");
+  useEffect(() => {
+    setTab("content");
+  }, [section.id]);
   const updateSection = useBuilder((s) => s.updateSection);
   const setStyles = (patch: Partial<BaseStyles & ResponsiveStyles>) =>
     updateSection(section.id, { styles: { ...section.styles, ...patch } });
