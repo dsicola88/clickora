@@ -14,6 +14,7 @@ import {
   LayoutTemplate,
   Search,
   BarChart3,
+  ListTree,
 } from "lucide-react";
 import type { DeviceType } from "../types";
 import { TemplatesModal } from "./TemplatesModal";
@@ -38,6 +39,8 @@ export function EditorTopbar() {
   const doc = useBuilder((s) => s.doc);
   const canUndo = useBuilder((s) => s.history.length > 0);
   const canRedo = useBuilder((s) => s.future.length > 0);
+  const structurePanelOpen = useBuilder((s) => s.structurePanelOpen);
+  const toggleStructurePanel = useBuilder((s) => s.toggleStructurePanel);
 
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -85,6 +88,20 @@ export function EditorTopbar() {
         >
           <LayoutTemplate className="h-3.5 w-3.5" />
           Templates
+        </button>
+
+        <button
+          type="button"
+          onClick={() => toggleStructurePanel()}
+          className={`flex h-8 items-center gap-1.5 rounded px-3 text-xs font-medium transition-colors ${
+            structurePanelOpen
+              ? "bg-editor-accent text-editor-accent-fg"
+              : "bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
+          }`}
+          title="Árvore da página: secções, colunas e widgets"
+        >
+          <ListTree className="h-3.5 w-3.5" />
+          Estrutura
         </button>
 
         <div className="flex items-center gap-1 rounded-md bg-editor-panel-2 p-1">

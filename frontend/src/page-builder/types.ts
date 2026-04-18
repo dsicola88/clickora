@@ -127,6 +127,8 @@ export interface SectionNode {
   contentWidth: number; // px, used when boxed
   /** Stack direction inside section. */
   columnGap: ResponsiveValue<number>;
+  /** YouTube ou Bunny Stream — vídeo em autoplay silencioso atrás do conteúdo da seção. */
+  backgroundVideoUrl?: string;
   styles: BaseStyles & ResponsiveStyles;
   columns: ColumnNode[];
 }

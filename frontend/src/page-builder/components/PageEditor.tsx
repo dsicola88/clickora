@@ -12,9 +12,11 @@ import { EditorTopbar } from "./EditorTopbar";
 import { WidgetSidebar } from "./WidgetSidebar";
 import { Canvas } from "./Canvas";
 import { PropertyPanel } from "./PropertyPanel";
+import { StructureNavigator } from "./StructureNavigator";
 
 export function PageEditor() {
   const preview = useBuilder((s) => s.preview);
+  const structurePanelOpen = useBuilder((s) => s.structurePanelOpen);
   const insertWidgetNode = useBuilder((s) => s.insertWidgetNode);
   const addSection = useBuilder((s) => s.addSection);
   const doc = useBuilder((s) => s.doc);
@@ -76,6 +78,7 @@ export function PageEditor() {
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <WidgetSidebar />
           <Canvas />
+          {structurePanelOpen ? <StructureNavigator /> : null}
           <PropertyPanel />
         </div>
       </div>

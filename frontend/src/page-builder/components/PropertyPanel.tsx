@@ -609,6 +609,27 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               value={section.styles.background ?? ""}
               onChange={(v) => setStyles({ background: v })}
             />
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+              Com vídeo de fundo, podes usar um fundo semitransparente (ex.{" "}
+              <span className="font-mono">rgba(0,0,0,0.45)</span>) para escurecer o vídeo por baixo do conteúdo.
+            </p>
+          </Section>
+          <Section title="Vídeo de fundo (opcional)">
+            <TextareaField
+              label="YouTube ou Bunny.net"
+              value={(section.backgroundVideoUrl as string | undefined) ?? ""}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundVideoUrl: v.trim() ? v : undefined,
+                })
+              }
+              rows={3}
+              placeholder="https://www.youtube.com/watch?v=… ou video.bunnycdn.com/play/…"
+            />
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+              Autoplay silencioso em loop atrás das colunas (mesmos formatos que o widget Vídeo). Deixa vazio para
+              desativar.
+            </p>
           </Section>
           <SpacingSection styles={section.styles} device={device} setStyles={setStyles} />
         </>

@@ -10,6 +10,7 @@ import type {
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { stylesToCss } from "../style-utils";
 import { Plus, Copy, Trash2, GripVertical, Columns3 } from "lucide-react";
+import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 
 const DEVICE_WIDTHS: Record<DeviceType, string> = {
   desktop: "100%",
@@ -120,20 +121,27 @@ function SectionView({
     selection?.kind === "section" && (selection as Extract<SelectionTarget, { kind: "section" }>).id === section.id;
   const sectionStyle = stylesToCss(section.styles, device);
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
+  const bgVideo = (section.backgroundVideoUrl ?? "").trim();
+  const hasBgVideo = bgVideo.length > 0;
 
   return (
     <div
       className={`group/section relative ${!preview ? "transition-all" : ""}`}
-      style={sectionStyle}
+      style={{
+        ...sectionStyle,
+        ...(hasBgVideo ? { position: "relative", overflow: "hidden" as const } : {}),
+      }}
       onClick={(e) => {
         if (preview) return;
         e.stopPropagation();
         select({ kind: "section", id: section.id });
       }}
     >
+      {hasBgVideo ? <SectionBackgroundVideo rawUrl={bgVideo} pointerEventsNone /> : null}
+
       {!preview && (
         <div
-          className={`pointer-events-none absolute inset-0 border-2 transition-colors ${
+          className={`pointer-events-none absolute inset-0 z-[5] border-2 transition-colors ${
             isSelected
               ? "border-editor-section"
               : "border-transparent group-hover/section:border-editor-section/40"
@@ -189,7 +197,7 @@ function SectionView({
       )}
 
       <div
-        className="relative mx-auto flex"
+        className="relative z-[1] mx-auto flex"
         style={{
           maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
           gap: `${gap}px`,

@@ -26,12 +26,15 @@ interface BuilderState {
   selection: SelectionTarget;
   device: DeviceType;
   preview: boolean;
+  /** Painel «Estrutura» (árvore) entre canvas e propriedades. */
+  structurePanelOpen: boolean;
   history: PageDocument[];
   future: PageDocument[];
 
   // Mutators
   setDevice: (d: DeviceType) => void;
   togglePreview: () => void;
+  toggleStructurePanel: () => void;
   select: (s: SelectionTarget) => void;
 
   addSection: (columnCount?: number, atIndex?: number) => string;
@@ -148,11 +151,19 @@ export const useBuilder = create<BuilderState>((set, get) => {
     selection: null,
     device: "desktop",
     preview: false,
+    structurePanelOpen: false,
     history: [],
     future: [],
 
     setDevice: (d) => set({ device: d }),
-    togglePreview: () => set({ preview: !get().preview, selection: null }),
+    togglePreview: () =>
+      set((s) => ({
+        preview: !s.preview,
+        selection: null,
+        structurePanelOpen: s.preview ? s.structurePanelOpen : false,
+      })),
+    toggleStructurePanel: () =>
+      set((s) => ({ structurePanelOpen: !s.structurePanelOpen })),
     select: (s) => set({ selection: s }),
 
     addSection: (columnCount = 1, atIndex) => {
@@ -312,14 +323,14 @@ export const useBuilder = create<BuilderState>((set, get) => {
     reset: () => {
       const fresh = createEmptyPage();
       persist(fresh);
-      set({ doc: fresh, history: [], future: [], selection: null });
+      set({ doc: fresh, history: [], future: [], selection: null, structurePanelOpen: false });
     },
     loadFromStorage: () => set({ doc: loadInitial() }),
     hydrateDocument: (doc) => {
       const next = clone(doc);
       next.updatedAt = Date.now();
       persist(next);
-      set({ doc: next, history: [], future: [], selection: null });
+      set({ doc: next, history: [], future: [], selection: null, structurePanelOpen: false });
     },
   };
 });

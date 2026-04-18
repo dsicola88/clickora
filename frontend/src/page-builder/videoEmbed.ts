@@ -75,3 +75,33 @@ export function resolvePageBuilderVideoUrl(raw: string): ResolvedVideoEmbed | nu
 
   return null;
 }
+
+/** Parâmetros de autoplay/loop/mudo para vídeo de fundo de secção (sem controlos). */
+export function embedUrlForSectionBackground(resolved: ResolvedVideoEmbed): string {
+  const base = resolved.embedUrl;
+  if (resolved.kind === "youtube") {
+    const idMatch = base.match(/\/embed\/([\w-]{11})/);
+    const vid = idMatch?.[1];
+    const q = new URLSearchParams();
+    q.set("autoplay", "1");
+    q.set("mute", "1");
+    q.set("controls", "0");
+    q.set("playsinline", "1");
+    q.set("modestbranding", "1");
+    q.set("rel", "0");
+    if (vid) {
+      q.set("loop", "1");
+      q.set("playlist", vid);
+    }
+    return base.includes("?") ? `${base}&${q}` : `${base}?${q}`;
+  }
+  try {
+    const url = new URL(base);
+    url.searchParams.set("autoplay", "true");
+    url.searchParams.set("muted", "true");
+    url.searchParams.set("loop", "true");
+    return url.toString();
+  } catch {
+    return base;
+  }
+}

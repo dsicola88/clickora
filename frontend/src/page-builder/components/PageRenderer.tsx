@@ -2,6 +2,7 @@ import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types
 import { resolveResponsive } from "../store";
 import { stylesToCss } from "../style-utils";
 import { WIDGET_REGISTRY } from "../widget-registry";
+import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 
 /**
  * Read-only renderer for a PageDocument.
@@ -32,11 +33,21 @@ export function PageRenderer({
 function SectionRender({ section, device }: { section: SectionNode; device: DeviceType }) {
   const sectionStyle = stylesToCss(section.styles, device);
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
+  const bgVideo = (section.backgroundVideoUrl ?? "").trim();
+  const hasBgVideo = bgVideo.length > 0;
 
   return (
-    <section style={sectionStyle}>
+    <section
+      style={{
+        ...sectionStyle,
+        ...(hasBgVideo ? { position: "relative", overflow: "hidden" as const } : {}),
+      }}
+    >
+      {hasBgVideo ? <SectionBackgroundVideo rawUrl={bgVideo} pointerEventsNone /> : null}
       <div
         style={{
+          position: "relative",
+          zIndex: 1,
           maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
           marginLeft: "auto",
           marginRight: "auto",
