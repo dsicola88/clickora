@@ -21,7 +21,11 @@ export type WidgetType =
   | "priceTable"
   | "ctaBox"
   | "flipBox"
-  | "progressTracker";
+  | "progressTracker"
+  | "alert"
+  | "tabs"
+  | "socialIcons"
+  | "iconList";
 
 export interface PageSeo {
   title?: string;

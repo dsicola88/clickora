@@ -283,6 +283,11 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       borderRadius: 8,
       enableLightbox: true,
       aspectRatio: "square",
+      layout: "grid",
+      carouselAutoplay: true,
+      carouselIntervalMs: 4500,
+      carouselShowDots: true,
+      carouselShowArrows: true,
     },
     styles: {
       padding: r(spacing(0, 0, 0, 0)),
@@ -398,6 +403,105 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     },
     styles: {
       padding: r(spacing(20, 0, 20, 0)),
+    },
+  }),
+  alert: () => ({
+    content: {
+      variant: "info",
+      title: "Informação importante",
+      message: "<p>Use este bloco para destacar avisos, garantias ou políticas sem perder conversões.</p>",
+      showIcon: true,
+      dismissible: false,
+      borderRadius: 10,
+    },
+    styles: {
+      margin: r(spacing(0, 0, 16, 0)),
+    },
+  }),
+  tabs: () => ({
+    content: {
+      tabs: [
+        {
+          id: id("tab_"),
+          label: "Benefícios",
+          html: "<p>Liste aqui os principais benefícios do produto ou serviço.</p>",
+        },
+        {
+          id: id("tab_"),
+          label: "Como funciona",
+          html: "<p>Explique o processo em passos simples para reduzir dúvidas.</p>",
+        },
+        {
+          id: id("tab_"),
+          label: "Garantia",
+          html: "<p>Reforce garantia, suporte e formas de contacto.</p>",
+        },
+      ],
+      tabBg: "#f1f5f9",
+      tabActiveBg: "#ffffff",
+      tabTextColor: "#64748b",
+      tabActiveTextColor: "#0f172a",
+      accentColor: "#e63946",
+      panelBg: "#ffffff",
+      panelTextColor: "#334155",
+      borderColor: "#e2e8f0",
+      borderRadius: 12,
+    },
+    styles: {
+      margin: r(spacing(0, 0, 20, 0)),
+    },
+  }),
+  socialIcons: () => ({
+    content: {
+      items: [
+        { id: id("soc_"), network: "instagram", url: "https://instagram.com" },
+        { id: id("soc_"), network: "facebook", url: "https://facebook.com" },
+        { id: id("soc_"), network: "youtube", url: "https://youtube.com" },
+      ],
+      iconSize: 22,
+      gap: 16,
+      variant: "filled",
+      iconBg: "#0f172a",
+      iconColor: "#ffffff",
+    },
+    styles: {
+      align: r("center" as const),
+      padding: r(spacing(12, 0, 12, 0)),
+    },
+  }),
+  iconList: () => ({
+    content: {
+      items: [
+        {
+          id: id("il_"),
+          iconName: "check",
+          title: "Entrega rápida",
+          description: "<p>Receba em poucos dias com rastreamento.</p>",
+          href: "",
+        },
+        {
+          id: id("il_"),
+          iconName: "shield",
+          title: "Compra segura",
+          description: "<p>Pagamento encriptado e dados protegidos.</p>",
+          href: "",
+        },
+        {
+          id: id("il_"),
+          iconName: "headphones",
+          title: "Suporte humano",
+          description: "<p>Equipa disponível para ajudar quando precisar.</p>",
+          href: "",
+        },
+      ],
+      iconSize: 22,
+      iconColor: "#e63946",
+      gap: 16,
+      titleColor: "#0f172a",
+      descColor: "#64748b",
+    },
+    styles: {
+      padding: r(spacing(0, 0, 0, 0)),
     },
   }),
 };

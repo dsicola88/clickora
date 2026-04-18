@@ -20,6 +20,10 @@ import {
   Megaphone,
   RotateCcw,
   Gauge,
+  Bell,
+  LayoutList,
+  Share2,
+  ListChecks,
 } from "lucide-react";
 import { HeadingWidget } from "./widgets/HeadingWidget";
 import { TextWidget } from "./widgets/TextWidget";
@@ -40,6 +44,10 @@ import { PriceTableWidget } from "./widgets/PriceTableWidget";
 import { CtaBoxWidget } from "./widgets/CtaBoxWidget";
 import { FlipBoxWidget } from "./widgets/FlipBoxWidget";
 import { ProgressTrackerWidget } from "./widgets/ProgressTrackerWidget";
+import { AlertWidget } from "./widgets/AlertWidget";
+import { TabsWidget } from "./widgets/TabsWidget";
+import { SocialIconsWidget } from "./widgets/SocialIconsWidget";
+import { IconListWidget } from "./widgets/IconListWidget";
 
 export interface WidgetDefinition {
   type: WidgetType;
@@ -158,6 +166,34 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
     category: "pro",
     icon: Gauge,
     Render: ProgressTrackerWidget,
+  },
+  alert: {
+    type: "alert",
+    label: "Alerta",
+    category: "basic",
+    icon: Bell,
+    Render: AlertWidget,
+  },
+  tabs: {
+    type: "tabs",
+    label: "Abas",
+    category: "pro",
+    icon: LayoutList,
+    Render: TabsWidget,
+  },
+  socialIcons: {
+    type: "socialIcons",
+    label: "Redes sociais",
+    category: "basic",
+    icon: Share2,
+    Render: SocialIconsWidget,
+  },
+  iconList: {
+    type: "iconList",
+    label: "Lista com ícones",
+    category: "pro",
+    icon: ListChecks,
+    Render: IconListWidget,
   },
 };
 

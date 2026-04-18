@@ -15,6 +15,8 @@ import { Settings2, Trash2, Plus, GripVertical } from "lucide-react";
 import { useState } from "react";
 import { nanoid } from "nanoid";
 import type { FormField } from "../widgets/FormWidget";
+import type { SocialNetwork } from "../widgets/SocialIconsWidget";
+import type { TabItem } from "../widgets/TabsWidget";
 import {
   ColorField,
   NumberField,
@@ -361,6 +363,14 @@ function WidgetContentTab({
       return <FlipBoxContentEditor content={c} setContent={setContent} />;
     case "progressTracker":
       return <ProgressTrackerContentEditor content={c} setContent={setContent} />;
+    case "alert":
+      return <AlertContentEditor content={c} setContent={setContent} />;
+    case "tabs":
+      return <TabsContentEditor content={c} setContent={setContent} />;
+    case "socialIcons":
+      return <SocialIconsContentEditor content={c} setContent={setContent} />;
+    case "iconList":
+      return <IconListContentEditor content={c} setContent={setContent} />;
     default:
       return null;
   }
@@ -390,7 +400,12 @@ function WidgetStyleTab({
       ) : (
         <>
           <Section title="Cores">
-            {widget.type !== "image" && widget.type !== "video" && (
+            {widget.type !== "image" &&
+            widget.type !== "video" &&
+            widget.type !== "alert" &&
+            widget.type !== "tabs" &&
+            widget.type !== "socialIcons" &&
+            widget.type !== "iconList" && (
               <ColorField
                 label="Cor do texto"
                 value={widget.styles.color ?? ""}
@@ -415,7 +430,10 @@ function WidgetStyleTab({
           {(widget.type === "image" ||
             widget.type === "button" ||
             widget.type === "icon" ||
-            widget.type === "divider") && (
+            widget.type === "divider" ||
+            widget.type === "socialIcons" ||
+            widget.type === "iconList" ||
+            widget.type === "tabs") && (
             <Section title="Alinhamento">
               <SelectField
                 label={`Alinhamento (${device})`}
@@ -1369,6 +1387,327 @@ function CountdownContentEditor({
   );
 }
 
+const SOCIAL_NETWORK_OPTIONS: { value: SocialNetwork; label: string }[] = [
+  { value: "instagram", label: "Instagram" },
+  { value: "facebook", label: "Facebook" },
+  { value: "youtube", label: "YouTube" },
+  { value: "twitter", label: "X / Twitter" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "email", label: "E-mail" },
+  { value: "link", label: "Website" },
+];
+
+function AlertContentEditor({
+  content,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  return (
+    <>
+      <Section title="Conteúdo">
+        <SelectField
+          label="Tipo"
+          value={(content.variant as string) ?? "info"}
+          options={[
+            { value: "info", label: "Informação" },
+            { value: "success", label: "Sucesso" },
+            { value: "warning", label: "Aviso" },
+            { value: "danger", label: "Erro / urgência" },
+          ]}
+          onChange={(v) => setContent({ variant: v })}
+        />
+        <TextField label="Título" value={(content.title as string) ?? ""} onChange={(v) => setContent({ title: v })} />
+        <TextareaField
+          label="Mensagem (HTML permitido)"
+          value={(content.message as string) ?? ""}
+          onChange={(v) => setContent({ message: v })}
+          rows={5}
+        />
+        <SelectField
+          label="Mostrar ícone"
+          value={((content.showIcon as boolean) ?? true) ? "yes" : "no"}
+          options={[
+            { value: "yes", label: "Sim" },
+            { value: "no", label: "Não" },
+          ]}
+          onChange={(v) => setContent({ showIcon: v === "yes" })}
+        />
+        <SelectField
+          label="Permitir fechar"
+          value={((content.dismissible as boolean) ?? false) ? "yes" : "no"}
+          options={[
+            { value: "no", label: "Não" },
+            { value: "yes", label: "Sim" },
+          ]}
+          onChange={(v) => setContent({ dismissible: v === "yes" })}
+        />
+        <NumberField
+          label="Raio das bordas (px)"
+          value={(content.borderRadius as number) ?? 10}
+          min={0}
+          max={32}
+          onChange={(v) => setContent({ borderRadius: v })}
+        />
+      </Section>
+    </>
+  );
+}
+
+function TabsContentEditor({
+  content,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  const tabs = (content.tabs as TabItem[]) ?? [];
+  return (
+    <>
+      <ListEditor
+        title="Separadores"
+        items={tabs}
+        onChange={(next) => setContent({ tabs: next })}
+        itemLabel={(it) => it.label || "Separador"}
+        newItem={() => ({
+          id: `tab_${nanoid(6)}`,
+          label: "Novo separador",
+          html: "<p>Conteúdo deste separador.</p>",
+        })}
+        renderFields={(item, update) => (
+          <>
+            <TextField label="Rótulo" value={item.label} onChange={(v) => update({ label: v })} />
+            <TextareaField
+              label="Conteúdo (HTML)"
+              value={item.html}
+              onChange={(v) => update({ html: v })}
+              rows={4}
+            />
+          </>
+        )}
+      />
+      <Section title="Cores">
+        <ColorField
+          label="Fundo das abas inativas"
+          value={(content.tabBg as string) ?? "#f1f5f9"}
+          onChange={(v) => setContent({ tabBg: v })}
+        />
+        <ColorField
+          label="Fundo da aba ativa"
+          value={(content.tabActiveBg as string) ?? "#ffffff"}
+          onChange={(v) => setContent({ tabActiveBg: v })}
+        />
+        <ColorField
+          label="Texto inativo"
+          value={(content.tabTextColor as string) ?? "#64748b"}
+          onChange={(v) => setContent({ tabTextColor: v })}
+        />
+        <ColorField
+          label="Texto ativo"
+          value={(content.tabActiveTextColor as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ tabActiveTextColor: v })}
+        />
+        <ColorField
+          label="Destaque (barra)"
+          value={(content.accentColor as string) ?? "#e63946"}
+          onChange={(v) => setContent({ accentColor: v })}
+        />
+        <ColorField
+          label="Fundo do painel"
+          value={(content.panelBg as string) ?? "#ffffff"}
+          onChange={(v) => setContent({ panelBg: v })}
+        />
+        <ColorField
+          label="Texto do painel"
+          value={(content.panelTextColor as string) ?? "#334155"}
+          onChange={(v) => setContent({ panelTextColor: v })}
+        />
+        <ColorField
+          label="Borda"
+          value={(content.borderColor as string) ?? "#e2e8f0"}
+          onChange={(v) => setContent({ borderColor: v })}
+        />
+        <NumberField
+          label="Raio geral (px)"
+          value={(content.borderRadius as number) ?? 12}
+          min={0}
+          max={28}
+          onChange={(v) => setContent({ borderRadius: v })}
+        />
+      </Section>
+    </>
+  );
+}
+
+function SocialIconsContentEditor({
+  content,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  const items =
+    (content.items as Array<{ id: string; network: SocialNetwork; url: string }>) ?? [];
+  return (
+    <>
+      <ListEditor
+        title="Ligações"
+        items={items}
+        onChange={(next) => setContent({ items: next })}
+        itemLabel={(it) => SOCIAL_NETWORK_OPTIONS.find((o) => o.value === it.network)?.label ?? "Rede"}
+        newItem={() => ({
+          id: `soc_${nanoid(6)}`,
+          network: "instagram" as SocialNetwork,
+          url: "",
+        })}
+        renderFields={(item, update) => (
+          <>
+            <SelectField
+              label="Rede"
+              value={item.network}
+              options={SOCIAL_NETWORK_OPTIONS}
+              onChange={(v) => update({ network: v as SocialNetwork })}
+            />
+            <TextField
+              label="URL ou contacto"
+              value={item.url}
+              onChange={(v) => update({ url: v })}
+              placeholder="https://… ou e-mail / telefone (WhatsApp)"
+            />
+          </>
+        )}
+      />
+      <Section title="Ícones">
+        <NumberField
+          label="Tamanho (px)"
+          value={(content.iconSize as number) ?? 22}
+          min={14}
+          max={40}
+          onChange={(v) => setContent({ iconSize: v })}
+        />
+        <NumberField
+          label="Espaço entre ícones (px)"
+          value={(content.gap as number) ?? 16}
+          min={4}
+          max={40}
+          onChange={(v) => setContent({ gap: v })}
+        />
+        <SelectField
+          label="Estilo"
+          value={(content.variant as string) ?? "filled"}
+          options={[
+            { value: "filled", label: "Preenchido" },
+            { value: "outline", label: "Contorno" },
+            { value: "mono", label: "Linha simples" },
+          ]}
+          onChange={(v) => setContent({ variant: v })}
+        />
+        <ColorField
+          label="Fundo (preenchido)"
+          value={(content.iconBg as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ iconBg: v })}
+        />
+        <ColorField
+          label="Cor do ícone"
+          value={(content.iconColor as string) ?? "#ffffff"}
+          onChange={(v) => setContent({ iconColor: v })}
+        />
+      </Section>
+    </>
+  );
+}
+
+function IconListContentEditor({
+  content,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  const items =
+    (content.items as Array<{
+      id: string;
+      iconName: string;
+      title: string;
+      description: string;
+      href: string;
+    }>) ?? [];
+  return (
+    <>
+      <ListEditor
+        title="Itens"
+        items={items}
+        onChange={(next) => setContent({ items: next })}
+        itemLabel={(it) => it.title || "Item"}
+        newItem={() => ({
+          id: `il_${nanoid(6)}`,
+          iconName: "check",
+          title: "Novo item",
+          description: "<p>Descrição breve.</p>",
+          href: "",
+        })}
+        renderFields={(item, update) => (
+          <>
+            <TextField
+              label="Ícone (lucide-react)"
+              value={item.iconName}
+              onChange={(v) => update({ iconName: v })}
+              placeholder="check, shield, star…"
+            />
+            <TextField label="Título" value={item.title} onChange={(v) => update({ title: v })} />
+            <TextareaField
+              label="Descrição (HTML)"
+              value={item.description}
+              onChange={(v) => update({ description: v })}
+              rows={3}
+            />
+            <TextField
+              label="Link (opcional)"
+              value={item.href}
+              onChange={(v) => update({ href: v })}
+              placeholder="https://…"
+            />
+          </>
+        )}
+      />
+      <Section title="Aparência">
+        <NumberField
+          label="Tamanho do ícone"
+          value={(content.iconSize as number) ?? 22}
+          min={12}
+          max={40}
+          onChange={(v) => setContent({ iconSize: v })}
+        />
+        <NumberField
+          label="Espaço entre itens (px)"
+          value={(content.gap as number) ?? 16}
+          min={4}
+          max={40}
+          onChange={(v) => setContent({ gap: v })}
+        />
+        <ColorField
+          label="Cor do ícone"
+          value={(content.iconColor as string) ?? "#e63946"}
+          onChange={(v) => setContent({ iconColor: v })}
+        />
+        <ColorField
+          label="Cor do título"
+          value={(content.titleColor as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ titleColor: v })}
+        />
+        <ColorField
+          label="Cor da descrição"
+          value={(content.descColor as string) ?? "#64748b"}
+          onChange={(v) => setContent({ descColor: v })}
+        />
+      </Section>
+    </>
+  );
+}
+
 function GalleryContentEditor({
   content,
   setContent,
@@ -1378,6 +1717,7 @@ function GalleryContentEditor({
 }) {
   const images =
     (content.images as Array<{ id: string; src: string; alt: string; caption?: string }>) ?? [];
+  const isCarousel = (content.layout as string) === "carousel";
   return (
     <>
       <ListEditor
@@ -1403,21 +1743,74 @@ function GalleryContentEditor({
           </>
         )}
       />
-      <Section title="Layout">
-        <NumberField
-          label="Colunas"
-          value={(content.columns as number) ?? 3}
-          min={1}
-          max={6}
-          onChange={(v) => setContent({ columns: v })}
+      <Section title="Modo de exibição">
+        <SelectField
+          label="Tipo"
+          value={isCarousel ? "carousel" : "grid"}
+          options={[
+            { value: "grid", label: "Grelha" },
+            { value: "carousel", label: "Carrossel" },
+          ]}
+          onChange={(v) => setContent({ layout: v })}
         />
-        <NumberField
-          label="Espaço entre imagens (px)"
-          value={(content.gap as number) ?? 12}
-          min={0}
-          max={48}
-          onChange={(v) => setContent({ gap: v })}
-        />
+      </Section>
+      {!isCarousel ? (
+        <Section title="Grelha">
+          <NumberField
+            label="Colunas"
+            value={(content.columns as number) ?? 3}
+            min={1}
+            max={6}
+            onChange={(v) => setContent({ columns: v })}
+          />
+          <NumberField
+            label="Espaço entre imagens (px)"
+            value={(content.gap as number) ?? 12}
+            min={0}
+            max={48}
+            onChange={(v) => setContent({ gap: v })}
+          />
+        </Section>
+      ) : (
+        <Section title="Carrossel">
+          <SelectField
+            label="Avanço automático"
+            value={((content.carouselAutoplay as boolean) ?? true) ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ carouselAutoplay: v === "yes" })}
+          />
+          <NumberField
+            label="Intervalo (ms)"
+            value={(content.carouselIntervalMs as number) ?? 4500}
+            min={2000}
+            max={12000}
+            step={500}
+            onChange={(v) => setContent({ carouselIntervalMs: v })}
+          />
+          <SelectField
+            label="Indicadores (pontos)"
+            value={((content.carouselShowDots as boolean) ?? true) ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ carouselShowDots: v === "yes" })}
+          />
+          <SelectField
+            label="Setas laterais"
+            value={((content.carouselShowArrows as boolean) ?? true) ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ carouselShowArrows: v === "yes" })}
+          />
+        </Section>
+      )}
+      <Section title="Aparência">
         <NumberField
           label="Raio das bordas (px)"
           value={(content.borderRadius as number) ?? 8}
@@ -1438,7 +1831,7 @@ function GalleryContentEditor({
         />
         <SelectField
           label="Lightbox ao clicar"
-          value={(content.enableLightbox as boolean) ?? true ? "yes" : "no"}
+          value={((content.enableLightbox as boolean) ?? true) ? "yes" : "no"}
           options={[
             { value: "yes", label: "Sim" },
             { value: "no", label: "Não" },
