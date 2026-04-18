@@ -294,11 +294,30 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       carouselSlidesToScroll: 1,
       carouselObjectFit: "contain",
       carouselThumbWidthPx: 0,
+      carouselTransitionMs: 450,
+      carouselPauseOnHover: true,
     },
     styles: {
       padding: r(spacing(0, 0, 0, 0)),
     },
   }),
+  imageCarousel: () => {
+    const base = widgetDefaults.gallery();
+    return {
+      content: {
+        ...base.content,
+        layout: "carousel",
+        carouselThumbWidthPx: 150,
+        carouselSlidesDesktop: 4,
+        carouselSlidesTablet: 3,
+        carouselSlidesMobile: 2,
+        carouselObjectFit: "contain",
+        carouselTransitionMs: 500,
+        carouselPauseOnHover: true,
+      },
+      styles: { ...base.styles },
+    };
+  },
   animatedHeadline: () => ({
     content: {
       prefix: "Construa páginas",

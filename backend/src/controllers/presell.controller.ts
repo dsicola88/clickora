@@ -1,7 +1,13 @@
+import fs from "fs";
+import path from "path";
 import { Request, Response } from "express";
 import type { PresellPage } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
+import {
+  getPresellBuilderMediaDir,
+  isSafeBuilderMediaFilename,
+} from "../lib/presellBuilderMediaUpload";
 import {
   assertPresellAllowedOnRequestHost,
   isMainOrPreviewHostname,
@@ -236,6 +242,45 @@ export const presellController = {
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
     return res.json({ id: page.id });
+  },
+
+  async uploadBuilderMedia(req: Request, res: Response) {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: "Envie um ficheiro no campo image." });
+    }
+    const userId = req.user!.userId;
+    const rawProto = req.get("x-forwarded-proto") || req.protocol || "https";
+    const proto = rawProto.split(",")[0].trim();
+    const host = req.get("host");
+    if (!host) {
+      return res.status(500).json({ error: "Host desconhecido." });
+    }
+    const url = `${proto}://${host}/api/public/presell-builder/${encodeURIComponent(userId)}/${encodeURIComponent(file.filename)}`;
+    return res.json({ url });
+  },
+
+  /** Servir imagens do editor de presells (URL pública para `<img src>`). */
+  async getBuilderMediaFile(req: Request, res: Response) {
+    const userId = typeof req.params.userId === "string" ? req.params.userId.trim() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+    if (!userId || !filename || !isSafeBuilderMediaFilename(filename)) {
+      return res.status(404).end();
+    }
+    const resolvedBase = path.resolve(path.join(getPresellBuilderMediaDir(), userId));
+    const resolvedFile = path.resolve(path.join(resolvedBase, filename));
+    if (!resolvedFile.startsWith(resolvedBase + path.sep)) {
+      return res.status(404).end();
+    }
+    if (!fs.existsSync(resolvedFile)) {
+      return res.status(404).end();
+    }
+    const ext = path.extname(filename).slice(1).toLowerCase();
+    const mime =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=604800");
+    return res.sendFile(resolvedFile);
   },
 
   async getAll(req: Request, res: Response) {

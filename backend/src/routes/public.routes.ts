@@ -15,3 +15,7 @@ publicRouter.get("/plans-landing", plansLandingController.getPublic);
 publicRouter.get("/plans-landing/hero-image", plansLandingController.getHeroImage);
 publicRouter.get("/plans-landing/gallery-image/:filename", plansLandingController.getGalleryImage);
 publicRouter.get("/avatar/:userId", publicAvatarController.getByUserId);
+publicRouter.get(
+  "/presell-builder/:userId/:filename",
+  presellController.getBuilderMediaFile,
+);

@@ -39,6 +39,10 @@ export interface GalleryContent {
   carouselObjectFit?: "cover" | "contain";
   /** Largura fixa do slide em px (ex. 150); 0 = largura calculada a partir dos slides visíveis. */
   carouselThumbWidthPx?: number;
+  /** Duração da animação de deslize (ms). */
+  carouselTransitionMs?: number;
+  /** Pausar auto-play quando o rato está sobre o carrossel. */
+  carouselPauseOnHover?: boolean;
 }
 
 const ratioMap: Record<string, string> = {
@@ -80,6 +84,11 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   const carouselShowArrows = c.carouselShowArrows ?? true;
   const thumbW = typeof c.carouselThumbWidthPx === "number" ? c.carouselThumbWidthPx : 0;
   const objectFit: "cover" | "contain" = c.carouselObjectFit === "contain" ? "contain" : "cover";
+  const transitionMs =
+    typeof c.carouselTransitionMs === "number" && c.carouselTransitionMs >= 0
+      ? Math.min(2000, Math.round(c.carouselTransitionMs))
+      : 450;
+  const pauseOnHover = (c.carouselPauseOnHover as boolean | undefined) !== false;
   const slidesToScrollCfg = Math.max(
     1,
     Math.min(6, typeof c.carouselSlidesToScroll === "number" ? Math.round(c.carouselSlidesToScroll) : 1),
@@ -91,6 +100,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   const [carouselStart, setCarouselStart] = useState(0);
   /** Métricas medidas no viewport (px reais para transform + flex). */
   const [metrics, setMetrics] = useState({ vw: 0, slidePx: 0, nShow: 1 });
+  const [carouselHover, setCarouselHover] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const userSlidesToShow = slidesToShowForDevice(c, device);
@@ -160,9 +170,19 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
 
   useEffect(() => {
     if (layout !== "carousel" || !carouselAutoplay || images.length < 2 || maxStart <= 0) return;
+    if (pauseOnHover && carouselHover) return;
     const t = window.setInterval(goNext, Math.max(2000, carouselIntervalMs));
     return () => window.clearInterval(t);
-  }, [layout, carouselAutoplay, carouselIntervalMs, images.length, goNext, maxStart]);
+  }, [
+    layout,
+    carouselAutoplay,
+    carouselIntervalMs,
+    images.length,
+    goNext,
+    maxStart,
+    pauseOnHover,
+    carouselHover,
+  ]);
 
   useEffect(() => {
     if (lightbox === null) return;
@@ -295,6 +315,8 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
       <div style={outer}>
         <div
           ref={viewportRef}
+          onMouseEnter={() => pauseOnHover && setCarouselHover(true)}
+          onMouseLeave={() => setCarouselHover(false)}
           style={{
             position: "relative",
             borderRadius,
@@ -308,7 +330,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             style={{
               display: "flex",
               gap,
-              transition: "transform 0.45s cubic-bezier(0.25, 0.1, 0.25, 1)",
+              transition: `transform ${transitionMs}ms cubic-bezier(0.25, 0.1, 0.25, 1)`,
               transform: `translateX(${translatePx}px)`,
               willChange: "transform",
             }}

@@ -9,6 +9,7 @@ import type {
   SpacingValue,
   TypographyValue,
   WidgetNode,
+  WidgetType,
 } from "../types";
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { Settings2, Trash2, Plus, GripVertical } from "lucide-react";
@@ -24,6 +25,7 @@ import {
   SpacingField,
   TextField,
   TextareaField,
+  BuilderImageUrlField,
 } from "./PropertyControls";
 
 type Tab = "content" | "style" | "advanced";
@@ -236,10 +238,11 @@ function WidgetContentTab({
     case "image":
       return (
         <Section title="Imagem">
-          <TextField
+          <BuilderImageUrlField
             label="URL da imagem"
             value={(c.src as string) ?? ""}
             onChange={(v) => setContent({ src: v })}
+            placeholder="https://…"
           />
           <TextField
             label="Texto alternativo"
@@ -352,7 +355,8 @@ function WidgetContentTab({
     case "countdown":
       return <CountdownContentEditor content={c} setContent={setContent} />;
     case "gallery":
-      return <GalleryContentEditor content={c} setContent={setContent} />;
+    case "imageCarousel":
+      return <GalleryContentEditor widgetType={widget.type} content={c} setContent={setContent} />;
     case "animatedHeadline":
       return <AnimatedHeadlineContentEditor content={c} setContent={setContent} />;
     case "priceTable":
@@ -1166,7 +1170,12 @@ function TestimonialsContentEditor({
           <>
             <TextField label="Nome" value={item.name} onChange={(v) => update({ name: v })} />
             <TextField label="Cargo / empresa" value={item.role} onChange={(v) => update({ role: v })} />
-            <TextField label="URL do avatar" value={item.avatar} onChange={(v) => update({ avatar: v })} />
+            <BuilderImageUrlField
+              label="URL do avatar"
+              value={item.avatar}
+              onChange={(v) => update({ avatar: v })}
+              placeholder="https://…"
+            />
             <TextareaField label="Depoimento" value={item.quote} onChange={(v) => update({ quote: v })} rows={3} />
             <NumberField
               label="Estrelas (0-5)"
@@ -1711,13 +1720,16 @@ function IconListContentEditor({
 function GalleryContentEditor({
   content,
   setContent,
+  widgetType,
 }: {
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
+  widgetType: WidgetType;
 }) {
   const images =
     (content.images as Array<{ id: string; src: string; alt: string; caption?: string }>) ?? [];
-  const isCarousel = (content.layout as string) === "carousel";
+  const isDedicatedCarousel = widgetType === "imageCarousel";
+  const isCarousel = (content.layout as string) === "carousel" || isDedicatedCarousel;
   return (
     <>
       <ListEditor
@@ -1733,7 +1745,12 @@ function GalleryContentEditor({
         })}
         renderFields={(item, update) => (
           <>
-            <TextField label="URL" value={item.src} onChange={(v) => update({ src: v })} />
+            <BuilderImageUrlField
+              label="URL da imagem"
+              value={item.src}
+              onChange={(v) => update({ src: v })}
+              placeholder="https://… ou carregue do PC"
+            />
             <TextField label="Texto alternativo" value={item.alt} onChange={(v) => update({ alt: v })} />
             <TextField
               label="Legenda (opcional)"
@@ -1744,15 +1761,22 @@ function GalleryContentEditor({
         )}
       />
       <Section title="Modo de exibição">
-        <SelectField
-          label="Tipo"
-          value={isCarousel ? "carousel" : "grid"}
-          options={[
-            { value: "grid", label: "Grelha" },
-            { value: "carousel", label: "Carrossel" },
-          ]}
-          onChange={(v) => setContent({ layout: v })}
-        />
+        {isDedicatedCarousel ? (
+          <p className="text-xs leading-relaxed text-editor-fg-muted">
+            Este bloco é sempre um carrossel (setas, pontos e configuração de movimento). Para grelha de imagens,
+            use o widget «Galeria».
+          </p>
+        ) : (
+          <SelectField
+            label="Tipo"
+            value={isCarousel ? "carousel" : "grid"}
+            options={[
+              { value: "grid", label: "Grelha" },
+              { value: "carousel", label: "Carrossel" },
+            ]}
+            onChange={(v) => setContent({ layout: v })}
+          />
+        )}
       </Section>
       {!isCarousel ? (
         <Section title="Grelha">
@@ -1867,6 +1891,23 @@ function GalleryContentEditor({
             max={12000}
             step={500}
             onChange={(v) => setContent({ carouselIntervalMs: v })}
+          />
+          <NumberField
+            label="Velocidade da transição (ms)"
+            value={(content.carouselTransitionMs as number) ?? 450}
+            min={100}
+            max={2000}
+            step={50}
+            onChange={(v) => setContent({ carouselTransitionMs: v })}
+          />
+          <SelectField
+            label="Pausar ao passar o rato"
+            value={((content.carouselPauseOnHover as boolean) ?? true) ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ carouselPauseOnHover: v === "yes" })}
           />
         </Section>
       )}

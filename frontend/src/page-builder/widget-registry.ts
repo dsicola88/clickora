@@ -15,6 +15,7 @@ import {
   HelpCircle,
   Timer,
   Images,
+  GalleryHorizontal,
   Sparkles,
   Tag,
   Megaphone,
@@ -130,6 +131,13 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
     label: "Galeria",
     category: "pro",
     icon: Images,
+    Render: GalleryWidget,
+  },
+  imageCarousel: {
+    type: "imageCarousel",
+    label: "Carrossel de imagens com setas configuracao de movimentos",
+    category: "pro",
+    icon: GalleryHorizontal,
     Render: GalleryWidget,
   },
   animatedHeadline: {

@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/apiClient";
+import { getApiBaseUrl } from "@/lib/apiOrigin";
 import type { Presell } from "@/types/api";
 
 export const presellService = {
@@ -66,5 +67,31 @@ export const presellService = {
 
   async getCount() {
     return apiClient.get<{ count: number }>("/presells/count");
+  },
+
+  /** Upload de imagem para o editor manual (galeria, imagem, depoimentos, etc.). */
+  async uploadBuilderMedia(file: File) {
+    const form = new FormData();
+    form.append("image", file);
+    const token = localStorage.getItem("clickora_token");
+    const base = getApiBaseUrl().replace(/\/$/, "");
+    try {
+      const res = await fetch(`${base}/presells/builder-media`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; url?: string };
+      if (!res.ok) {
+        return { data: null as { url: string } | null, error: body.error || `Erro ${res.status}` };
+      }
+      if (!body.url) {
+        return { data: null, error: "Resposta inválida do servidor." };
+      }
+      return { data: { url: body.url }, error: null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro de rede";
+      return { data: null, error: msg };
+    }
   },
 };

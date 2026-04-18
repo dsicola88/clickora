@@ -17,6 +17,7 @@ export type WidgetType =
   | "faq"
   | "countdown"
   | "gallery"
+  | "imageCarousel"
   | "animatedHeadline"
   | "priceTable"
   | "ctaBox"
