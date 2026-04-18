@@ -112,8 +112,11 @@ npm run db:migrate:fix-railway-p3009-typo
 **Sem `export` na shell:** cria `backend/railway.env` (não vai para o git — copia de `railway.env.example`) com uma linha `DATABASE_URL="postgresql://..."` e corre:
 
 ```bash
-cd backend && npm run db:migrate:railway-p3009
+cd backend
+npm run db:migrate:railway-p3009
 ```
+
+No **zsh**, não colas no terminal comentários com parênteses vindos de tutoriais — o zsh interpreta `( … )` como glob e responde `zsh: no matches found`.
 
 **Da tua rede (casa / 4G):** o `DATABASE_URL` tem de ser o **TCP público** do Postgres na Railway (host tipo `*.proxy.rlwy.net`). URLs com **`postgres.railway.internal`** só funcionam **dentro** da Railway — o script `db:migrate:railway-p3009` recusa-as para evitar confusão. Teste de ligação: `npm run db:railway:check`.
 

@@ -19,7 +19,8 @@ set -a
 set +a
 
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "ERRO: $ENV_FILE tem de definir DATABASE_URL=..."
+  echo "ERRO: DATABASE_URL em $ENV_FILE está vazio."
+  echo "  Abre o ficheiro no editor e cola a URL pública do Postgres entre as aspas."
   exit 1
 fi
 

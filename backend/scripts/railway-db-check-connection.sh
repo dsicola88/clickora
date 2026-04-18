@@ -15,7 +15,9 @@ set -a
 set +a
 
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "ERRO: $ENV_FILE não define DATABASE_URL."
+  echo "ERRO: DATABASE_URL em $ENV_FILE está vazio ou não existe."
+  echo "  Abre $ENV_FILE no Cursor/VS Code e preenche: DATABASE_URL=\"postgresql://...\""
+  echo "  Copia a URL pública do Postgres na Railway; não deixes só linhas com #."
   exit 1
 fi
 
