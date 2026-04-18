@@ -44,6 +44,8 @@ export function EditorTopbar() {
   const [seoOpen, setSeoOpen] = useState(false);
   const [trackingOpen, setTrackingOpen] = useState(false);
 
+  const presellEmbed = usePresellBuilderEmbedOptional();
+
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
