@@ -79,7 +79,25 @@ npm start      # Production
 
 ## Railway: erro Prisma **P3009** (migração falhada)
 
-Se o deploy parar em `migrate deploy` com *failed migrations* na migração **`20260417130000_meta_capi_integration`** (Meta CAPI), o Prisma não aplica migrações novas até resolveres o estado. Se o log mostrar outro nome (ex. typo `202404...`), usa **exatamente** o nome que o Prisma imprimir no `migrate resolve`.
+Se o deploy parar em `migrate deploy` com *failed migrations* na migração **`20260417130000_meta_capi_integration`** (Meta CAPI), o Prisma não aplica migrações novas até resolveres o estado.
+
+**Nome errado só na base (Railway):** alguns logs mostram **`20240417130000_meta_copi_integration`** (ano `202404` e `meta_copi`). Esse nome **não existe** no repositório — foi typo / deploy antigo. Na pasta `backend/`, com `DATABASE_URL` da Railway:
+
+```bash
+npm run db:migrate:resolve-rolled-back:railway-typo-meta
+npx prisma migrate deploy
+```
+
+(equivalente: `npx prisma migrate resolve --rolled-back "20240417130000_meta_copi_integration"`.) Se o CLI recusar porque o nome não está em `prisma/migrations/`, último recurso no **Query** do Postgres (faz backup se tens dúvida):
+
+```sql
+DELETE FROM "_prisma_migrations"
+WHERE migration_name = '20240417130000_meta_copi_integration';
+```
+
+Depois `npx prisma migrate deploy` (local ou `railway run`) para aplicar a migração correcta **`20260417130000_meta_capi_integration`** do Git.
+
+Se o log mostrar **outro** nome, usa **exatamente** esse nome no `migrate resolve` ou no `DELETE`.
 
 1. Liga o mesmo `DATABASE_URL` que o serviço usa (no Railway: Postgres → variável, ou `railway run`).
 2. Na pasta **`backend/`**, corre **uma** destas sequências:
