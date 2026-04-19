@@ -28,7 +28,7 @@ export function Canvas() {
 
   return (
     <div
-      className="editor-scrollbar min-w-0 flex-1 overflow-auto bg-editor-canvas"
+      className="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto bg-editor-canvas"
       onClick={() => select(null)}
     >
       <div className="flex min-h-full justify-center p-4">

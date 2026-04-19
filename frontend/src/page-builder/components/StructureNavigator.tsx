@@ -26,7 +26,7 @@ export function StructureNavigator() {
     selection.id === widgetId;
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-l border-editor-border bg-editor-panel text-editor-fg">
+    <aside className="flex h-full min-h-0 w-56 shrink-0 flex-col border-l border-editor-border bg-editor-panel text-editor-fg">
       <div className="flex items-center gap-2 border-b border-editor-border px-3 py-2">
         <ListTree className="h-4 w-4 text-editor-fg-muted" />
         <h2 className="text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">Estrutura</h2>

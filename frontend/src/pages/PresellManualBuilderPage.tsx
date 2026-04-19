@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Activity, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { PresellBuilderEmbedProvider } from "@/contexts/PresellBuilderEmbedConte
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
+import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
@@ -34,6 +35,19 @@ import "@/page-builder/page-builder-theme.css";
 const PageEditor = lazy(() =>
   import("@/page-builder/components/PageEditor").then((m) => ({ default: m.PageEditor })),
 );
+
+const BUILDER_HEALTH_VISIBLE_KEY = "clickora:builder:trackingHealthVisible";
+
+function readTrackingHealthVisible(): boolean {
+  try {
+    const v = localStorage.getItem(BUILDER_HEALTH_VISIBLE_KEY);
+    if (v === "0") return false;
+    if (v === "1") return true;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
 
 function sanitizeSlug(raw: string): string {
   const s = raw
@@ -60,6 +74,27 @@ export default function PresellManualBuilderPage() {
   }));
   /** Nova página manual: abre «Opcional» para o afiliado colar logo o script de conversão. */
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(!routeId);
+  const [trackingHealthVisible, setTrackingHealthVisible] = useState(readTrackingHealthVisible);
+
+  const persistTrackingHealthVisible = useCallback((visible: boolean) => {
+    setTrackingHealthVisible(visible);
+    try {
+      localStorage.setItem(BUILDER_HEALTH_VISIBLE_KEY, visible ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const trackingHealthScore = useMemo(
+    () =>
+      computePresellTrackingHealth({
+        configSettings,
+        hasTrackingEmbedScript: Boolean(trackingEmbedScript?.trim()),
+        affiliateLinkTrimmed: affiliateDraft.trim(),
+        hasPublishedPageId: Boolean(routeId),
+      }).readyScore,
+    [configSettings, trackingEmbedScript, affiliateDraft, routeId],
+  );
 
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
@@ -314,41 +349,71 @@ export default function PresellManualBuilderPage() {
           ) : null}
         </div>
 
-        <div className="shrink-0 border-b border-editor-border bg-editor-panel-2 px-3 py-2 space-y-2 max-h-[min(40vh,22rem)] overflow-y-auto editor-scrollbar">
-          <p className="text-[11px] leading-relaxed text-editor-fg-muted">
-            <span className="font-medium text-editor-fg">Presell automática vs manual:</span> aqui montas o layout no
-            editor (secções e widgets). O <span className="text-editor-fg">link público</span> é o mesmo formato{" "}
-            <span className="font-mono text-[10px]">/p/&lt;id&gt;</span> que na lista de presells. Usa «Guardar na conta»
-            no topo do editor para publicar. Em «Opcional» podes colar o{" "}
-            <span className="font-medium text-editor-fg">script de conversão</span> (vai para o &lt;head&gt; na ordem
-            certa) e o restante código extra, como na criação automática.
-          </p>
-          {trackingEmbedScript ? (
-            <div className="rounded border border-editor-border bg-editor-panel px-2 py-1.5 text-[11px] text-editor-fg-muted leading-relaxed">
-              <span className="font-medium text-editor-fg">Clickora:</span> o script da conta entra no head ao guardar;
-              podes acrescentar pixels em «Opcional».
-            </div>
-          ) : (
-            <div className="rounded border border-dashed border-editor-border px-2 py-1.5 text-[11px] text-editor-fg-muted">
-              Inicia sessão para incluir o rastreamento Clickora ao guardar.
-            </div>
-          )}
-          <PresellTrackingHealthPanel
-            configSettings={configSettings}
-            trackingEmbedScript={trackingEmbedScript}
-            affiliateLink={affiliateDraft}
-            publishedPageId={routeId ?? null}
-            publicPageUrl={publicPresellTestUrl}
-            isEditor
-          />
-          <PresellAdvancedTrackingCollapsible
-            open={advancedSettingsOpen}
-            onOpenChange={setAdvancedSettingsOpen}
-            configSettings={configSettings}
-            setConfigSettings={setConfigSettings}
-            trackingEmbedScript={trackingEmbedScript}
-            surface="editor"
-          />
+        <div
+          className={
+            trackingHealthVisible
+              ? "shrink-0 border-b border-editor-border bg-editor-panel-2 max-h-[min(36vh,18rem)] overflow-y-auto editor-scrollbar"
+              : "shrink-0 border-b border-editor-border bg-editor-panel-2 max-h-[min(22vh,11rem)] overflow-y-auto editor-scrollbar"
+          }
+        >
+          <div className="space-y-2 px-3 py-2">
+            <p className="text-[11px] leading-relaxed text-editor-fg-muted line-clamp-3 sm:line-clamp-none">
+              <span className="font-medium text-editor-fg">Presell automática vs manual:</span> aqui montas o layout no
+              editor (secções e widgets). O <span className="text-editor-fg">link público</span> é o mesmo formato{" "}
+              <span className="font-mono text-[10px]">/p/&lt;id&gt;</span> que na lista de presells. Usa «Guardar na conta»
+              no topo do editor para publicar. Em «Opcional» podes colar o{" "}
+              <span className="font-medium text-editor-fg">script de conversão</span> (vai para o &lt;head&gt; na ordem
+              certa) e o restante código extra, como na criação automática.
+            </p>
+            {trackingEmbedScript ? (
+              <div className="rounded border border-editor-border bg-editor-panel px-2 py-1.5 text-[11px] text-editor-fg-muted leading-relaxed">
+                <span className="font-medium text-editor-fg">Clickora:</span> o script da conta entra no head ao guardar;
+                podes acrescentar pixels em «Opcional».
+              </div>
+            ) : (
+              <div className="rounded border border-dashed border-editor-border px-2 py-1.5 text-[11px] text-editor-fg-muted">
+                Inicia sessão para incluir o rastreamento Clickora ao guardar.
+              </div>
+            )}
+            {trackingHealthVisible ? (
+              <PresellTrackingHealthPanel
+                configSettings={configSettings}
+                trackingEmbedScript={trackingEmbedScript}
+                affiliateLink={affiliateDraft}
+                publishedPageId={routeId ?? null}
+                publicPageUrl={publicPresellTestUrl}
+                isEditor
+                onRequestHide={() => persistTrackingHealthVisible(false)}
+              />
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-editor-border/80 bg-editor-panel px-2.5 py-2">
+                <div className="flex min-w-0 items-center gap-2 text-[11px] text-editor-fg-muted">
+                  <Activity className="h-3.5 w-3.5 shrink-0 text-editor-fg-muted" aria-hidden />
+                  <span>
+                    Painel de saúde oculto — pontuação{" "}
+                    <span className="tabular-nums font-semibold text-editor-fg">{trackingHealthScore}</span>
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 border-editor-border bg-editor-panel text-editor-fg text-xs hover:bg-editor-border/80"
+                  onClick={() => persistTrackingHealthVisible(true)}
+                >
+                  Mostrar saúde
+                </Button>
+              </div>
+            )}
+            <PresellAdvancedTrackingCollapsible
+              open={advancedSettingsOpen}
+              onOpenChange={setAdvancedSettingsOpen}
+              configSettings={configSettings}
+              setConfigSettings={setConfigSettings}
+              trackingEmbedScript={trackingEmbedScript}
+              surface="editor"
+            />
+          </div>
         </div>
 
         <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">

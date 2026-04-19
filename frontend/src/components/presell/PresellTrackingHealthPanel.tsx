@@ -16,6 +16,8 @@ type Props = {
   publishedPageId?: string | null;
   publicPageUrl?: string | null;
   isEditor?: boolean;
+  /** No editor manual: permite ocultar o painel inteiro (mais espaço para o canvas). */
+  onRequestHide?: () => void;
 };
 
 function StatusIcon({ status }: { status: TrackingHealthItem["status"] }) {
@@ -34,6 +36,7 @@ export function PresellTrackingHealthPanel({
   publishedPageId,
   publicPageUrl,
   isEditor,
+  onRequestHide,
 }: Props) {
   const { items, readyScore } = useMemo(
     () =>
@@ -56,12 +59,12 @@ export function PresellTrackingHealthPanel({
   return (
     <div
       className={cn(
-        "rounded-xl border p-3 sm:p-4 space-y-3",
-        isEditor ? "border-editor-accent/35 bg-editor-panel-2/90" : "border-primary/20 bg-card/80",
+        "rounded-xl border space-y-2.5 sm:space-y-3",
+        isEditor ? "border-editor-accent/30 bg-editor-panel-2/80 p-2.5 sm:p-3" : "border-primary/20 bg-card/80 p-3 sm:p-4",
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h3 className={cn("text-sm font-semibold", isEditor ? "text-editor-fg" : "text-foreground")}>
             Saúde do rastreamento
           </h3>
@@ -69,22 +72,35 @@ export function PresellTrackingHealthPanel({
             Checklist antes de escalar tráfego pago — específico desta página.
           </p>
         </div>
-        <div
-          className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums",
-            readyScore >= 80
-              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-              : readyScore >= 55
-                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                : "bg-slate-500/15 text-slate-600 dark:text-slate-400",
-          )}
-          title="Pontuação indicativa"
-        >
-          {readyScore}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {isEditor && onRequestHide ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-[11px] text-editor-fg-muted hover:text-editor-fg"
+              onClick={onRequestHide}
+            >
+              Ocultar
+            </Button>
+          ) : null}
+          <div
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tabular-nums sm:h-10 sm:w-10 sm:text-sm",
+              readyScore >= 80
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : readyScore >= 55
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                  : "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+            )}
+            title="Pontuação indicativa"
+          >
+            {readyScore}
+          </div>
         </div>
       </div>
 
-      <ul className="space-y-2">
+      <ul className={cn("space-y-1.5 sm:space-y-2", isEditor && "max-h-[min(28vh,11rem)] overflow-y-auto pr-0.5 editor-scrollbar")}>
         {items.map((it) => (
           <li key={it.id} className="flex gap-2 text-left">
             <span className="mt-0.5">
