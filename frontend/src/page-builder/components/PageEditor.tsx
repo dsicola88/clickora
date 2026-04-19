@@ -22,8 +22,9 @@ import { Canvas } from "./Canvas";
 import { PropertyPanel } from "./PropertyPanel";
 import { StructureNavigator } from "./StructureNavigator";
 
+/** Separadores entre colunas: linha central, ~11px de área ativa, cursor este/oeste. */
 const EDITOR_RESIZE_HANDLE =
-  "group relative w-1.5 max-w-[6px] shrink-0 rounded-sm border-0 bg-editor-border/70 outline-none transition-colors hover:bg-editor-accent/40 data-[resize-handle-state=drag]:bg-editor-accent/55 data-[panel-group-direction=horizontal]:cursor-col-resize focus-visible:ring-2 focus-visible:ring-editor-accent focus-visible:ring-offset-1 focus-visible:ring-offset-editor-bg";
+  "group relative z-10 flex w-[11px] max-w-[11px] shrink-0 select-none items-stretch justify-center overflow-visible border-0 bg-transparent outline-none transition-colors data-[panel-group-direction=horizontal]:cursor-ew-resize focus-visible:ring-2 focus-visible:ring-editor-accent focus-visible:ring-offset-1 focus-visible:ring-offset-editor-bg before:pointer-events-none before:absolute before:inset-y-1 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:bg-editor-border/95 before:transition-all hover:before:bg-editor-accent/75 hover:before:w-0.5 data-[resize-handle-state=drag]:before:w-1 data-[resize-handle-state=drag]:before:bg-editor-accent";
 
 export function PageEditor() {
   const { id: routePresellId } = useParams<{ id?: string }>();
@@ -123,7 +124,10 @@ export function PageEditor() {
           >
             <WidgetSidebar />
           </ResizablePanel>
-          <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
+          <ResizableHandle
+            title="Arrastar para ajustar a largura dos painéis"
+            className={EDITOR_RESIZE_HANDLE}
+          />
           <ResizablePanel
             id="page-builder-canvas"
             defaultSize={58}
@@ -132,7 +136,10 @@ export function PageEditor() {
           >
             <Canvas />
           </ResizablePanel>
-          <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
+          <ResizableHandle
+            title="Arrastar para ajustar a largura dos painéis"
+            className={EDITOR_RESIZE_HANDLE}
+          />
           <ResizablePanel
             ref={structurePanelRef}
             id="page-builder-structure"
@@ -147,7 +154,10 @@ export function PageEditor() {
           >
             <StructureNavigator />
           </ResizablePanel>
-          <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
+          <ResizableHandle
+            title="Arrastar para ajustar a largura dos painéis"
+            className={EDITOR_RESIZE_HANDLE}
+          />
           <ResizablePanel
             id="page-builder-properties"
             defaultSize={24}

@@ -30,11 +30,20 @@ import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import type { Presell } from "@/types/api";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import "@/page-builder/page-builder-theme.css";
 
 const PageEditor = lazy(() =>
   import("@/page-builder/components/PageEditor").then((m) => ({ default: m.PageEditor })),
 );
+
+/** Separador horizontal entre zona superior (slug + ajuda) e o editor — cursor e área de arrasto. */
+const BUILDER_CHROME_RESIZE_HANDLE =
+  "group relative z-10 h-2.5 min-h-[10px] max-h-3 shrink-0 select-none rounded-sm border-0 bg-editor-border/75 outline-none transition-colors hover:bg-editor-accent/45 data-[resize-handle-state=drag]:bg-editor-accent/60 data-[panel-group-direction=vertical]:cursor-row-resize focus-visible:ring-2 focus-visible:ring-editor-accent focus-visible:ring-offset-1 focus-visible:ring-offset-editor-bg";
 
 const BUILDER_HEALTH_VISIBLE_KEY = "clickora:builder:trackingHealthVisible";
 
@@ -102,6 +111,11 @@ export default function PresellManualBuilderPage() {
         hasPublishedPageId: Boolean(routeId),
       }).readyScore,
     [configSettings, trackingEmbedScript, affiliateDraft, routeId],
+  );
+
+  const builderChromeLayoutSaveId = useMemo(
+    () => `clickora-pb-chrome:${(routeId ?? "").trim() || "new"}`,
+    [routeId],
   );
 
   useEffect(() => {
@@ -297,138 +311,158 @@ export default function PresellManualBuilderPage() {
 
   return (
     <PresellBuilderEmbedProvider value={embedValue}>
-      <div className="page-builder-scope fixed inset-0 z-[100] flex flex-col bg-editor-bg text-editor-fg">
-        <div className="flex flex-wrap items-center gap-2 border-b border-editor-border bg-editor-panel px-3 py-2 text-xs shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
-            onClick={() => navigate("/presell/dashboard")}
-          >
-            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Voltar
-          </Button>
-          <div className="h-6 w-px bg-editor-border hidden sm:block" />
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Label className="text-editor-fg-muted shrink-0">Slug</Label>
-            <Input
-              value={slugDraft}
-              onChange={(e) => setSlugDraft(e.target.value)}
-              className="h-8 w-36 sm:w-44 bg-editor-bg border-editor-border text-editor-fg text-xs"
-              placeholder="minha_pagina"
-            />
-          </div>
-          <div className="flex flex-1 min-w-[12rem] items-center gap-1.5">
-            <Label className="text-editor-fg-muted shrink-0 hidden md:inline">Oferta (cliques)</Label>
-            <Input
-              value={affiliateDraft}
-              onChange={(e) => setAffiliateDraft(e.target.value)}
-              className="h-8 flex-1 min-w-0 bg-editor-bg border-editor-border text-editor-fg text-xs"
-              placeholder="https://… (link de afiliado para rastrear cliques)"
-            />
-          </div>
-          {hasVerifiedCustomDomain ? (
-            <Select
-              value={customDomainId || "default"}
-              onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
-            >
-              <SelectTrigger className="h-8 w-[10rem] sm:w-52 bg-editor-bg border-editor-border text-editor-fg text-xs">
-                <SelectValue placeholder="Domínio" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Domínio padrão</SelectItem>
-                {customDomains
-                  .filter((d) => d.status === "verified")
-                  .map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.hostname}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-        </div>
-
-        <div
-          className={
-            trackingHealthVisible
-              ? "shrink-0 border-b border-editor-border bg-editor-panel-2 max-h-[min(36vh,18rem)] overflow-y-auto editor-scrollbar"
-              : "shrink-0 border-b border-editor-border bg-editor-panel-2 max-h-[min(22vh,11rem)] overflow-y-auto editor-scrollbar"
-          }
+      <div className="page-builder-scope fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-editor-bg text-editor-fg">
+        <ResizablePanelGroup
+          direction="vertical"
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          autoSaveId={builderChromeLayoutSaveId}
         >
-          <div className="space-y-2 px-3 py-2">
-            <p className="text-[11px] leading-relaxed text-editor-fg-muted line-clamp-3 sm:line-clamp-none">
-              <span className="font-medium text-editor-fg">Presell automática vs manual:</span> aqui montas o layout no
-              editor (secções e widgets). O <span className="text-editor-fg">link público</span> é o mesmo formato{" "}
-              <span className="font-mono text-[10px]">/p/&lt;id&gt;</span> que na lista de presells. Usa «Guardar na conta»
-              no topo do editor para publicar. Em «Opcional» podes colar o{" "}
-              <span className="font-medium text-editor-fg">script de conversão</span> (vai para o &lt;head&gt; na ordem
-              certa) e o restante código extra, como na criação automática.
-            </p>
-            {trackingEmbedScript ? (
-              <div className="rounded border border-editor-border bg-editor-panel px-2 py-1.5 text-[11px] text-editor-fg-muted leading-relaxed">
-                <span className="font-medium text-editor-fg">Clickora:</span> o script da conta entra no head ao guardar;
-                podes acrescentar pixels em «Opcional».
-              </div>
-            ) : (
-              <div className="rounded border border-dashed border-editor-border px-2 py-1.5 text-[11px] text-editor-fg-muted">
-                Inicia sessão para incluir o rastreamento Clickora ao guardar.
-              </div>
-            )}
-            {trackingHealthVisible ? (
-              <PresellTrackingHealthPanel
-                configSettings={configSettings}
-                trackingEmbedScript={trackingEmbedScript}
-                affiliateLink={affiliateDraft}
-                publishedPageId={routeId ?? null}
-                publicPageUrl={publicPresellTestUrl}
-                isEditor
-                onRequestHide={() => persistTrackingHealthVisible(false)}
-              />
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-editor-border/80 bg-editor-panel px-2.5 py-2">
-                <div className="flex min-w-0 items-center gap-2 text-[11px] text-editor-fg-muted">
-                  <Activity className="h-3.5 w-3.5 shrink-0 text-editor-fg-muted" aria-hidden />
-                  <span>
-                    Painel de saúde oculto — pontuação{" "}
-                    <span className="tabular-nums font-semibold text-editor-fg">{trackingHealthScore}</span>
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 shrink-0 border-editor-border bg-editor-panel text-editor-fg text-xs hover:bg-editor-border/80"
-                  onClick={() => persistTrackingHealthVisible(true)}
-                >
-                  Mostrar saúde
-                </Button>
-              </div>
-            )}
-            <PresellAdvancedTrackingCollapsible
-              open={advancedSettingsOpen}
-              onOpenChange={setAdvancedSettingsOpen}
-              configSettings={configSettings}
-              setConfigSettings={setConfigSettings}
-              trackingEmbedScript={trackingEmbedScript}
-              surface="editor"
-            />
-          </div>
-        </div>
-
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          <Suspense
-            fallback={
-              <div className="flex h-full items-center justify-center text-editor-fg-muted text-sm">
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                A carregar o editor…
-              </div>
-            }
+          <ResizablePanel
+            id="presell-builder-chrome"
+            defaultSize={26}
+            minSize={18}
+            maxSize={46}
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden"
           >
-            <PageEditor />
-          </Suspense>
-        </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-editor-border bg-editor-panel px-3 py-2 text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
+                onClick={() => navigate("/presell/dashboard")}
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                Voltar
+              </Button>
+              <div className="h-6 w-px bg-editor-border hidden sm:block" />
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Label className="shrink-0 text-editor-fg-muted">Slug</Label>
+                <Input
+                  value={slugDraft}
+                  onChange={(e) => setSlugDraft(e.target.value)}
+                  className="h-8 w-36 bg-editor-bg text-xs text-editor-fg border-editor-border sm:w-44"
+                  placeholder="minha_pagina"
+                />
+              </div>
+              <div className="flex min-w-[12rem] flex-1 items-center gap-1.5">
+                <Label className="hidden shrink-0 text-editor-fg-muted md:inline">Oferta (cliques)</Label>
+                <Input
+                  value={affiliateDraft}
+                  onChange={(e) => setAffiliateDraft(e.target.value)}
+                  className="h-8 min-w-0 flex-1 bg-editor-bg text-xs text-editor-fg border-editor-border"
+                  placeholder="https://… (link de afiliado para rastrear cliques)"
+                />
+              </div>
+              {hasVerifiedCustomDomain ? (
+                <Select
+                  value={customDomainId || "default"}
+                  onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
+                >
+                  <SelectTrigger className="h-8 w-[10rem] bg-editor-bg text-xs text-editor-fg border-editor-border sm:w-52">
+                    <SelectValue placeholder="Domínio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Domínio padrão</SelectItem>
+                    {customDomains
+                      .filter((d) => d.status === "verified")
+                      .map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.hostname}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto border-b border-editor-border bg-editor-panel-2 editor-scrollbar">
+              <div className="space-y-2 px-3 py-2">
+                <p className="text-[11px] leading-relaxed text-editor-fg-muted line-clamp-3 sm:line-clamp-none">
+                  <span className="font-medium text-editor-fg">Presell automática vs manual:</span> aqui montas o layout no
+                  editor (secções e widgets). O <span className="text-editor-fg">link público</span> é o mesmo formato{" "}
+                  <span className="font-mono text-[10px]">/p/&lt;id&gt;</span> que na lista de presells. Usa «Guardar na
+                  conta» no topo do editor para publicar. Em «Opcional» podes colar o{" "}
+                  <span className="font-medium text-editor-fg">script de conversão</span> (vai para o &lt;head&gt; na ordem
+                  certa) e o restante código extra, como na criação automática.
+                </p>
+                {trackingEmbedScript ? (
+                  <div className="rounded border border-editor-border bg-editor-panel px-2 py-1.5 text-[11px] leading-relaxed text-editor-fg-muted">
+                    <span className="font-medium text-editor-fg">Clickora:</span> o script da conta entra no head ao
+                    guardar; podes acrescentar pixels em «Opcional».
+                  </div>
+                ) : (
+                  <div className="rounded border border-dashed border-editor-border px-2 py-1.5 text-[11px] text-editor-fg-muted">
+                    Inicia sessão para incluir o rastreamento Clickora ao guardar.
+                  </div>
+                )}
+                {trackingHealthVisible ? (
+                  <PresellTrackingHealthPanel
+                    configSettings={configSettings}
+                    trackingEmbedScript={trackingEmbedScript}
+                    affiliateLink={affiliateDraft}
+                    publishedPageId={routeId ?? null}
+                    publicPageUrl={publicPresellTestUrl}
+                    isEditor
+                    onRequestHide={() => persistTrackingHealthVisible(false)}
+                  />
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-editor-border/80 bg-editor-panel px-2.5 py-2">
+                    <div className="flex min-w-0 items-center gap-2 text-[11px] text-editor-fg-muted">
+                      <Activity className="h-3.5 w-3.5 shrink-0 text-editor-fg-muted" aria-hidden />
+                      <span>
+                        Painel de saúde oculto — pontuação{" "}
+                        <span className="tabular-nums font-semibold text-editor-fg">{trackingHealthScore}</span>
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 border-editor-border bg-editor-panel text-editor-fg text-xs hover:bg-editor-border/80"
+                      onClick={() => persistTrackingHealthVisible(true)}
+                    >
+                      Mostrar saúde
+                    </Button>
+                  </div>
+                )}
+                <PresellAdvancedTrackingCollapsible
+                  open={advancedSettingsOpen}
+                  onOpenChange={setAdvancedSettingsOpen}
+                  configSettings={configSettings}
+                  setConfigSettings={setConfigSettings}
+                  trackingEmbedScript={trackingEmbedScript}
+                  surface="editor"
+                />
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle
+            title="Arrastar para ajustar a altura da barra superior"
+            className={BUILDER_CHROME_RESIZE_HANDLE}
+          />
+
+          <ResizablePanel
+            id="presell-builder-workspace"
+            defaultSize={74}
+            minSize={54}
+            className="min-h-0 min-w-0 flex flex-col overflow-hidden"
+          >
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-sm text-editor-fg-muted">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    A carregar o editor…
+                  </div>
+                }
+              >
+                <PageEditor />
+              </Suspense>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </PresellBuilderEmbedProvider>
   );
