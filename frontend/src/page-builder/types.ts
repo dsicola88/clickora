@@ -26,7 +26,12 @@ export type WidgetType =
   | "alert"
   | "tabs"
   | "socialIcons"
-  | "iconList";
+  | "iconList"
+  | "backToTop"
+  | "readingProgress"
+  | "stickyVideo"
+  | "phoneCall"
+  | "dateWidget";
 
 export interface PageSeo {
   title?: string;

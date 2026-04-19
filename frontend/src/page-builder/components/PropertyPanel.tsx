@@ -27,6 +27,13 @@ import {
   TextareaField,
   BuilderImageUrlField,
 } from "./PropertyControls";
+import {
+  BackToTopContentEditor,
+  DateContentEditor,
+  PhoneCallContentEditor,
+  ReadingProgressContentEditor,
+  StickyVideoContentEditor,
+} from "./extra-widgets-editors";
 
 type Tab = "content" | "style" | "advanced";
 
@@ -392,6 +399,16 @@ function WidgetContentTab({
       return <SocialIconsContentEditor content={c} setContent={setContent} />;
     case "iconList":
       return <IconListContentEditor content={c} setContent={setContent} />;
+    case "backToTop":
+      return <BackToTopContentEditor content={c} setContent={setContent} />;
+    case "readingProgress":
+      return <ReadingProgressContentEditor content={c} setContent={setContent} />;
+    case "stickyVideo":
+      return <StickyVideoContentEditor content={c} setContent={setContent} />;
+    case "phoneCall":
+      return <PhoneCallContentEditor content={c} setContent={setContent} />;
+    case "dateWidget":
+      return <DateContentEditor content={c} setContent={setContent} />;
     default:
       return null;
   }
@@ -420,7 +437,7 @@ function WidgetStyleTab({
         </Section>
       ) : (
         <>
-          {widget.type === "video" ? (
+          {widget.type === "video" || widget.type === "stickyVideo" ? (
             <div className="border-b border-editor-border px-3 pb-3">
               <p className="text-[11px] leading-relaxed text-editor-fg-muted">
                 <span className="font-semibold text-editor-fg">Link do YouTube ou Bunny:</span> está na aba{" "}
@@ -432,6 +449,7 @@ function WidgetStyleTab({
           <Section title="Cores">
             {widget.type !== "image" &&
             widget.type !== "video" &&
+            widget.type !== "stickyVideo" &&
             widget.type !== "alert" &&
             widget.type !== "tabs" &&
             widget.type !== "socialIcons" &&

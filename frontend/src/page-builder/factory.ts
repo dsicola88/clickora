@@ -494,6 +494,66 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       padding: r(spacing(0, 0, 0, 0)),
     },
   }),
+  backToTop: () => ({
+    content: {
+      threshold: 300,
+      position: "right",
+      bg: "#0f172a",
+      color: "#ffffff",
+      size: 48,
+      shape: "circle",
+    },
+    styles: { margin: r(spacing(0, 0, 0, 0)) },
+  }),
+  readingProgress: () => ({
+    content: {
+      height: 4,
+      bg: "transparent",
+      fillColor: "#e63946",
+      position: "top",
+    },
+    styles: { margin: r(spacing(0, 0, 0, 0)) },
+  }),
+  stickyVideo: () => ({
+    content: {
+      url: "",
+      position: "bottom-right",
+      width: 320,
+      aspectRatio: "16/9",
+      borderRadius: 8,
+      showCloseButton: true,
+      inlineHeight: 360,
+    },
+    styles: { margin: r(spacing(0, 0, 16, 0)) },
+  }),
+  phoneCall: () => ({
+    content: {
+      number: "+351910000000",
+      displayText: "Ligar agora",
+      variant: "button",
+      bg: "#10b981",
+      color: "#ffffff",
+      borderRadius: 8,
+      showIcon: true,
+      fontSize: 16,
+      position: "right",
+    },
+    styles: { align: r("center" as const), margin: r(spacing(0, 0, 16, 0)) },
+  }),
+  dateWidget: () => ({
+    content: {
+      source: "now",
+      fixedDate: "",
+      format: "long",
+      locale: "pt-BR",
+      prefix: "",
+      suffix: "",
+      fontSize: 16,
+      color: "#0f172a",
+      fontWeight: 500,
+    },
+    styles: { margin: r(spacing(0, 0, 12, 0)) },
+  }),
 };
 
 export function createWidget(type: WidgetType): WidgetNode {

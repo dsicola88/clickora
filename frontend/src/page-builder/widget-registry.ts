@@ -25,6 +25,11 @@ import {
   LayoutList,
   Share2,
   ListChecks,
+  ArrowUpToLine,
+  BookMarked,
+  PictureInPicture,
+  Phone,
+  CalendarDays,
 } from "lucide-react";
 import { HeadingWidget } from "./widgets/HeadingWidget";
 import { TextWidget } from "./widgets/TextWidget";
@@ -49,6 +54,11 @@ import { AlertWidget } from "./widgets/AlertWidget";
 import { TabsWidget } from "./widgets/TabsWidget";
 import { SocialIconsWidget } from "./widgets/SocialIconsWidget";
 import { IconListWidget } from "./widgets/IconListWidget";
+import { BackToTopWidget } from "./widgets/BackToTopWidget";
+import { ReadingProgressWidget } from "./widgets/ReadingProgressWidget";
+import { StickyVideoWidget } from "./widgets/StickyVideoWidget";
+import { PhoneCallWidget } from "./widgets/PhoneCallWidget";
+import { DateWidget } from "./widgets/DateWidget";
 
 export interface WidgetDefinition {
   type: WidgetType;
@@ -202,6 +212,41 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
     category: "pro",
     icon: ListChecks,
     Render: IconListWidget,
+  },
+  backToTop: {
+    type: "backToTop",
+    label: "Voltar ao topo",
+    category: "pro",
+    icon: ArrowUpToLine,
+    Render: BackToTopWidget,
+  },
+  readingProgress: {
+    type: "readingProgress",
+    label: "Barra de leitura",
+    category: "pro",
+    icon: BookMarked,
+    Render: ReadingProgressWidget,
+  },
+  stickyVideo: {
+    type: "stickyVideo",
+    label: "Vídeo sticky (VSL)",
+    category: "media",
+    icon: PictureInPicture,
+    Render: StickyVideoWidget,
+  },
+  phoneCall: {
+    type: "phoneCall",
+    label: "Chamada telefónica",
+    category: "basic",
+    icon: Phone,
+    Render: PhoneCallWidget,
+  },
+  dateWidget: {
+    type: "dateWidget",
+    label: "Data / hora",
+    category: "basic",
+    icon: CalendarDays,
+    Render: DateWidget,
   },
 };
 
