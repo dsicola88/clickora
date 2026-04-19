@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { usePresellBuilderEmbedOptional } from "@/contexts/PresellBuilderEmbedContext";
 import { useBuilder } from "../store";
+import { downloadHtml } from "../export-html";
+import { slugify } from "../published";
 import {
   Monitor,
   Tablet,
@@ -15,8 +17,19 @@ import {
   Search,
   BarChart3,
   ListTree,
+  FolderOpen,
+  ChevronDown,
+  FileJson,
 } from "lucide-react";
 import type { DeviceType } from "../types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { AutosaveStatus } from "./AutosaveStatus";
+import { PagesLibraryModal } from "./PagesLibraryModal";
 import { TemplatesModal } from "./TemplatesModal";
 import { PublishModal } from "./PublishModal";
 import { SeoModal } from "./SeoModal";
@@ -43,13 +56,14 @@ export function EditorTopbar() {
   const toggleStructurePanel = useBuilder((s) => s.toggleStructurePanel);
 
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [pagesLibraryOpen, setPagesLibraryOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
   const [trackingOpen, setTrackingOpen] = useState(false);
 
   const presellEmbed = usePresellBuilderEmbedOptional();
 
-  const handleExport = () => {
+  const handleExportJson = () => {
     const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -59,15 +73,20 @@ export function EditorTopbar() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportHtml = () => {
+    downloadHtml(doc, slugify(doc.name));
+  };
+
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-editor-border bg-editor-panel px-3 text-editor-fg">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 pr-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-editor-accent text-xs font-bold text-editor-accent-fg">
+        <div className="flex min-w-0 items-center gap-2 pr-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-editor-accent text-xs font-bold text-editor-accent-fg">
             L
           </div>
-          <span className="text-sm font-medium">{doc.name}</span>
+          <span className="truncate text-sm font-medium">{doc.name}</span>
         </div>
+        <AutosaveStatus />
         <div className="h-6 w-px bg-editor-border" />
         <div className="flex items-center gap-1">
           <IconBtn label="Desfazer" onClick={undo} disabled={!canUndo}>
@@ -80,6 +99,16 @@ export function EditorTopbar() {
       </div>
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setPagesLibraryOpen(true)}
+          className="flex h-8 items-center gap-1.5 rounded border border-editor-border bg-editor-panel-2 px-3 text-xs font-medium text-editor-fg transition-colors hover:bg-editor-border"
+          title="Páginas guardadas, importar e exportar"
+        >
+          <FolderOpen className="h-3.5 w-3.5" />
+          Páginas
+        </button>
+
         <button
           type="button"
           onClick={() => setTemplatesOpen(true)}
@@ -130,9 +159,37 @@ export function EditorTopbar() {
         <IconBtn label="Tracking & Analytics" onClick={() => setTrackingOpen(true)}>
           <BarChart3 className="h-4 w-4" />
         </IconBtn>
-        <IconBtn label="Exportar JSON" onClick={handleExport}>
-          <Download className="h-4 w-4" />
-        </IconBtn>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-editor-fg-muted transition-colors hover:bg-editor-panel-2 hover:text-editor-fg"
+              title="Exportar ficheiro"
+            >
+              <Download className="h-4 w-4" />
+              <ChevronDown className="h-3 w-3 opacity-70" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="z-[220] min-w-[12rem] border-editor-border bg-editor-panel text-editor-fg"
+          >
+            <DropdownMenuItem
+              className="cursor-pointer text-sm focus:bg-editor-border focus:text-editor-fg"
+              onClick={handleExportHtml}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar HTML completo
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer text-sm focus:bg-editor-border focus:text-editor-fg"
+              onClick={handleExportJson}
+            >
+              <FileJson className="mr-2 h-4 w-4" />
+              Exportar JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <IconBtn
           label="Limpar página"
           onClick={() => {
@@ -175,6 +232,7 @@ export function EditorTopbar() {
         )}
       </div>
       <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
+      <PagesLibraryModal open={pagesLibraryOpen} onClose={() => setPagesLibraryOpen(false)} />
       {!presellEmbed ? <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} /> : null}
       <SeoModal open={seoOpen} onClose={() => setSeoOpen(false)} />
       <TrackingModal open={trackingOpen} onClose={() => setTrackingOpen(false)} />

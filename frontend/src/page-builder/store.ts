@@ -10,6 +10,7 @@ import type {
   WidgetNode,
   WidgetType,
 } from "./types";
+import { syncLibraryDocument } from "./library-storage";
 import { createColumn, createEmptyPage, createSection, createWidget, id } from "./factory";
 
 const DEFAULT_STORAGE_KEY = "clickora:page-builder:doc:v1";
@@ -21,6 +22,11 @@ export function setPageBuilderStorageKey(key: string) {
   activeStorageKey = key || DEFAULT_STORAGE_KEY;
 }
 
+export interface HydrateDocumentOptions {
+  /** Se definido, alterações sincronizam esta entrada da biblioteca local. */
+  linkedLibraryId?: string | null;
+}
+
 interface BuilderState {
   doc: PageDocument;
   selection: SelectionTarget;
@@ -30,6 +36,11 @@ interface BuilderState {
   structurePanelOpen: boolean;
   history: PageDocument[];
   future: PageDocument[];
+  /** Última gravação no armazenamento local (autosave). */
+  lastPersistedAt: number;
+  /** Biblioteca local: entrada ligada para sincronizar a cada edição. */
+  linkedLibraryId: string | null;
+  setLinkedLibraryId: (id: string | null) => void;
 
   // Mutators
   setDevice: (d: DeviceType) => void;
@@ -88,7 +99,7 @@ interface BuilderState {
   reset: () => void;
   loadFromStorage: () => void;
   /** Substitui o documento (ex.: ao abrir presell «builder» guardada no Clickora). */
-  hydrateDocument: (doc: PageDocument) => void;
+  hydrateDocument: (doc: PageDocument, options?: HydrateDocumentOptions) => void;
 }
 
 function storageKey() {
@@ -129,6 +140,8 @@ function persist(doc: PageDocument) {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 export const useBuilder = create<BuilderState>((set, get) => {
+  const initialDoc = loadInitial();
+
   /** Wrap a mutation with history snapshot + persistence. */
   const mutate = (fn: (doc: PageDocument) => void) => {
     const prev = get().doc;
@@ -137,7 +150,11 @@ export const useBuilder = create<BuilderState>((set, get) => {
     next.updatedAt = Date.now();
     const history = [...get().history, prev].slice(-HISTORY_LIMIT);
     persist(next);
-    set({ doc: next, history, future: [] });
+    const libId = get().linkedLibraryId;
+    if (libId) {
+      syncLibraryDocument(libId, next, true);
+    }
+    set({ doc: next, history, future: [], lastPersistedAt: Date.now() });
   };
 
   const findSection = (doc: PageDocument, sectionId: string) =>
@@ -147,13 +164,16 @@ export const useBuilder = create<BuilderState>((set, get) => {
     findSection(doc, sectionId)?.columns.find((c) => c.id === columnId);
 
   return {
-    doc: loadInitial(),
+    doc: initialDoc,
     selection: null,
     device: "desktop",
     preview: false,
     structurePanelOpen: false,
     history: [],
     future: [],
+    lastPersistedAt: initialDoc.updatedAt ?? Date.now(),
+    linkedLibraryId: null,
+    setLinkedLibraryId: (linkedLibraryId) => set({ linkedLibraryId }),
 
     setDevice: (d) => set({ device: d }),
     togglePreview: () =>
@@ -306,31 +326,69 @@ export const useBuilder = create<BuilderState>((set, get) => {
       }),
 
     undo: () => {
-      const { history, doc, future } = get();
+      const { history, doc, future, linkedLibraryId } = get();
       if (history.length === 0) return;
       const prev = history[history.length - 1];
       const newHistory = history.slice(0, -1);
       persist(prev);
-      set({ doc: prev, history: newHistory, future: [doc, ...future].slice(0, HISTORY_LIMIT) });
+      if (linkedLibraryId) {
+        syncLibraryDocument(linkedLibraryId, prev, true);
+      }
+      set({
+        doc: prev,
+        history: newHistory,
+        future: [doc, ...future].slice(0, HISTORY_LIMIT),
+        lastPersistedAt: Date.now(),
+      });
     },
     redo: () => {
-      const { history, doc, future } = get();
+      const { history, doc, future, linkedLibraryId } = get();
       if (future.length === 0) return;
       const [next, ...rest] = future;
       persist(next);
-      set({ doc: next, history: [...history, doc].slice(-HISTORY_LIMIT), future: rest });
+      if (linkedLibraryId) {
+        syncLibraryDocument(linkedLibraryId, next, true);
+      }
+      set({
+        doc: next,
+        history: [...history, doc].slice(-HISTORY_LIMIT),
+        future: rest,
+        lastPersistedAt: Date.now(),
+      });
     },
     reset: () => {
       const fresh = createEmptyPage();
       persist(fresh);
-      set({ doc: fresh, history: [], future: [], selection: null, structurePanelOpen: false });
+      set({
+        doc: fresh,
+        history: [],
+        future: [],
+        selection: null,
+        structurePanelOpen: false,
+        linkedLibraryId: null,
+        lastPersistedAt: Date.now(),
+      });
     },
-    loadFromStorage: () => set({ doc: loadInitial() }),
-    hydrateDocument: (doc) => {
+    loadFromStorage: () =>
+      set({ doc: loadInitial(), linkedLibraryId: null, lastPersistedAt: Date.now() }),
+    hydrateDocument: (doc, options) => {
       const next = clone(doc);
       next.updatedAt = Date.now();
       persist(next);
-      set({ doc: next, history: [], future: [], selection: null, structurePanelOpen: false });
+      const linked =
+        options && "linkedLibraryId" in options ? options.linkedLibraryId ?? null : null;
+      if (linked) {
+        syncLibraryDocument(linked, next, true);
+      }
+      set({
+        doc: next,
+        history: [],
+        future: [],
+        selection: null,
+        structurePanelOpen: false,
+        linkedLibraryId: linked,
+        lastPersistedAt: Date.now(),
+      });
     },
   };
 });

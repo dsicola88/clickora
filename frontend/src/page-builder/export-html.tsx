@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { EXPORTED_HTML_SCRIPT_ID } from "./document-import";
 import type { PageDocument } from "./types";
 import { PageRenderer } from "./components/PageRenderer";
 import { buildTrackingBodyScripts, buildTrackingHeadScripts } from "./tracking";
@@ -48,6 +49,9 @@ export function exportPageToHtml(doc: PageDocument): string {
   const trackingHead = doc.tracking ? buildTrackingHeadScripts(doc.tracking) : "";
   const trackingBody = doc.tracking ? buildTrackingBodyScripts(doc.tracking) : "";
 
+  /** Reimportação: JSON embutido (evita `</script>` no payload). */
+  const embeddedDocJson = JSON.stringify(doc).replace(/</g, "\\u003c");
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -66,6 +70,9 @@ export function exportPageToHtml(doc: PageDocument): string {
 </head>
 <body>
 ${body}
+<script type="application/json" id="${EXPORTED_HTML_SCRIPT_ID}">
+${embeddedDocJson}
+</script>
 ${trackingBody}
 </body>
 </html>`;
