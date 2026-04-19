@@ -86,6 +86,13 @@ export default function PresellManualBuilderPage() {
     }
   }, []);
 
+  const trackingEmbedScript = useMemo(() => {
+    const uid = user?.id;
+    if (!uid) return "";
+    const base = getApiBaseUrl().replace(/\/$/, "");
+    return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
+  }, [user?.id]);
+
   const trackingHealthScore = useMemo(
     () =>
       computePresellTrackingHealth({
@@ -96,13 +103,6 @@ export default function PresellManualBuilderPage() {
       }).readyScore,
     [configSettings, trackingEmbedScript, affiliateDraft, routeId],
   );
-
-  const trackingEmbedScript = useMemo(() => {
-    const uid = user?.id;
-    if (!uid) return "";
-    const base = getApiBaseUrl().replace(/\/$/, "");
-    return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
-  }, [user?.id]);
 
   useEffect(() => {
     setConfigSettings((prev) => {
