@@ -14,7 +14,7 @@ import {
   plansLandingIntroClasses,
 } from "@/lib/plansLandingTypography";
 
-/** Bloco de tipografia opcional (tipo Elementor) por zona de texto. */
+/** Bloco de tipografia opcional por zona de texto. */
 export type LandingTextStyleBlock = {
   font_family?: PlansFontFamily | "display";
   font_size?: "xs" | "sm" | "base" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";

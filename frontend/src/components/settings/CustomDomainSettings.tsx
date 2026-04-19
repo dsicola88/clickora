@@ -194,7 +194,7 @@ export function CustomDomainSettings() {
           role="status"
         >
           {quota.max_custom_domains === 0
-            ? "O seu plano não inclui domínios personalizados. O plano Premium permite até 2 domínios; no Pro use exportação HTML para WordPress (Elementor) no domínio dclickora."
+            ? "O seu plano não inclui domínios personalizados. O plano Premium permite até 2 domínios; no Pro use exportação HTML para WordPress (bloco HTML personalizado) no domínio dclickora."
             : `Limite atingido (${quota.used}/${quota.max_custom_domains}). Remova um domínio abaixo para libertar um lugar.`}
         </div>
       ) : null}

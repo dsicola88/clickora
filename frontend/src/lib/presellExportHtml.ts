@@ -407,12 +407,12 @@ function buildGateScript(kind: InteractivePresellGateKind | null, settings: Reco
   return `<script>(function(){${body}})();</script>`;
 }
 
-export type PresellExportFormat = "document" | "elementor";
+export type PresellExportFormat = "document" | "htmlWidget";
 
 export type PresellExportOptions = {
   apiBase: string;
   publicPageUrl: string;
-  /** `elementor` = &lt;style&gt; + fragment + scripts (colar no widget HTML). `document` = página completa. */
+  /** `htmlWidget` = &lt;style&gt; + fragment + scripts (colar no widget HTML). `document` = página completa. */
   format?: PresellExportFormat;
 };
 
@@ -443,7 +443,7 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
  * HTML alinhado à página pública (`PublicPresell`): layout, CTA, desconto, VSL fallback, cookies, gates.
  */
 export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOptions): string {
-  const format: PresellExportFormat = opts.format ?? "elementor";
+  const format: PresellExportFormat = opts.format ?? "htmlWidget";
 
   if (isBuilderPresellType(page.type)) {
     const doc = parsePresellBuilderPageDocument(page.content);
@@ -632,7 +632,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const styleBlock = `<style>${EXPORT_STYLES}${customCss ? `\n/* CSS personalizado */\n${customCss}` : ""}</style>`;
 
-  if (format === "elementor") {
+  if (format === "htmlWidget") {
     return `${fontLink}
 ${styleBlock}
 ${headerCode ? `${headerCode}\n` : ""}

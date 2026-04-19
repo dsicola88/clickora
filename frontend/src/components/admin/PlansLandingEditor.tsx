@@ -1354,7 +1354,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.06] p-4 space-y-3">
               <p className="text-sm font-semibold text-foreground">Tipografia por zona (opcional)</p>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Cor, tipo de letra, tamanho, peso e alinhamento por bloco — como no Elementor. Sobrepõem o tema escuro e os
+                Cor, tipo de letra, tamanho, peso e alinhamento por bloco. Sobrepõem o tema escuro e os
                 campos base ao lado quando preenchidos. Use «Repor» para voltar ao padrão de cada zona.
               </p>
               <div className="max-h-[min(480px,50vh)] space-y-3 overflow-y-auto pr-1">
@@ -1509,7 +1509,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 Tema e secções (estilo página de vendas)
               </p>
               <p className="text-xs text-muted-foreground">
-                Ative o fundo escuro (tipo Smart Click), títulos da secção de planos, até 3 cartões de destaque, números, FAQ e rodapé
+                Ative o fundo escuro (estilo landing de vendas), títulos da secção de planos, até 3 cartões de destaque, números, FAQ e rodapé
                 legal. Deixe vazio o que não quiser mostrar.
               </p>
               <div className="space-y-1.5">
@@ -1536,7 +1536,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   <span className="font-medium text-foreground">ordem e visibilidade das secções</span>,{" "}
                   <span className="font-medium text-foreground">cores</span> e{" "}
                   <span className="font-medium text-foreground">posição do recorte</span> da foto. Isto não é um page
-                  builder por arrastar blocos como o Elementor em WordPress — aqui tudo passa por estes campos e
+                  builder por arrastar blocos como em alguns temas WordPress — aqui tudo passa por estes campos e
                   pré-visualização ao lado.
                 </p>
                 {appearance === "sales_dark" ? (

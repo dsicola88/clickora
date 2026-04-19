@@ -73,7 +73,7 @@ const presellNavItems: NavItem[] = [
     title: "Editor manual",
     url: "/presell/builder",
     icon: LayoutGrid,
-    hint: "Construtor visual (tipo Elementor); a página pública usa o mesmo link /p/… que as presells automáticas.",
+    hint: "Construtor visual de páginas; a página pública usa o mesmo link /p/… que as presells automáticas.",
   },
   { title: "Templates", url: "/presell/templates", icon: Sparkles },
 ];

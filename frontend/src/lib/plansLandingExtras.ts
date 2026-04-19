@@ -87,7 +87,7 @@ export interface LandingGalleryItem {
   caption: string | null;
 }
 
-/** Opções do carrossel (estilo «Image Carousel» / Elementor). */
+/** Opções do carrossel de imagens (autoplay, setas, pontos). */
 export interface LandingGalleryCarouselOptions {
   autoplay?: boolean;
   interval_ms?: number;

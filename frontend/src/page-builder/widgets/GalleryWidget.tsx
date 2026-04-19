@@ -29,7 +29,7 @@ export interface GalleryContent {
   carouselIntervalMs?: number;
   carouselShowDots?: boolean;
   carouselShowArrows?: boolean;
-  /** Slides visíveis por dispositivo (estilo Elementor). Omisso = 1. */
+  /** Slides visíveis por dispositivo (responsivo). Omisso = 1. */
   carouselSlidesDesktop?: number;
   carouselSlidesTablet?: number;
   carouselSlidesMobile?: number;

@@ -97,7 +97,7 @@ export default function PresellDashboard() {
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  /** A carregar HTML (copiar Elementor ou descarregar .html completo). */
+  /** A carregar HTML (copiar fragmento para widget ou descarregar .html completo). */
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
@@ -183,14 +183,14 @@ export default function PresellDashboard() {
               const html = buildPresellStandaloneHtml(full, {
                 apiBase: getApiBaseUrl(),
                 publicPageUrl: publicUrl,
-                format: "elementor",
+                format: "htmlWidget",
               });
               await navigator.clipboard.writeText(html);
             } else {
               await navigator.clipboard.writeText(publicUrl);
             }
             toast.success(
-              "Página criada. HTML completo copiado (igual à pré-visualização pública) — cola no Elementor (widget HTML). O link público está no comentário no topo do código.",
+              "Página criada. HTML completo copiado (igual à pré-visualização pública) — cola no teu site no bloco ou widget «HTML». O link público está no comentário no topo do código.",
               { duration: 12000 },
             );
           } catch {
@@ -393,14 +393,14 @@ export default function PresellDashboard() {
         html = buildPresellStandaloneHtml(data, {
           apiBase: getApiBaseUrl(),
           publicPageUrl: publicUrl,
-          format: "elementor",
+          format: "htmlWidget",
         });
       }
       await navigator.clipboard.writeText(html);
       toast.success(
         data.type === "builder"
           ? "HTML copiado a partir do layout do editor manual."
-          : "HTML copiado (mesmo layout que a página pública). Cola no Elementor no widget «HTML».",
+          : "HTML copiado (mesmo layout que a página pública). Cola no teu site no bloco ou widget «HTML».",
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível copiar o HTML.");
@@ -678,7 +678,7 @@ export default function PresellDashboard() {
                     pode voltar a <span className="text-foreground font-medium">Copiar</span> para anúncios.
                   </li>
                   <li>
-                    Quem preferir desenhar a página no editor visual (tipo Elementor) deve usar{" "}
+                    Quem preferir desenhar a página no editor visual por blocos deve usar{" "}
                     <span className="text-foreground font-medium">Editor manual</span> na lista — não este assistente por
                     URL. O mesmo limite de presells da conta aplica-se aos dois modos.
                   </li>
@@ -990,7 +990,7 @@ export default function PresellDashboard() {
           resetForm({ presetCustomDomain: true });
           setShowCreator(true);
         }}
-        secondaryActionLabel="Editor manual (tipo Elementor)"
+        secondaryActionLabel="Editor manual (por blocos)"
         secondaryOnAction={() => navigate("/presell/builder")}
         icon={<FileText className="h-8 w-8 text-muted-foreground" />}
       />
@@ -1056,7 +1056,7 @@ export default function PresellDashboard() {
         verificado, o dclickora ou o que estiver na conta). O «endereço» (slug) no formulário é só nome interno. O link do
         produto (afiliado) não substitui este URL — fica no botão da presell.{" "}
         <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
-        <span className="font-medium text-card-foreground">Copiar HTML</span> (bloco para o Elementor);{" "}
+        <span className="font-medium text-card-foreground">Copiar HTML</span> (fragmento para colar num widget HTML);{" "}
         <Download className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
         <span className="font-medium text-card-foreground">Descarregar .html</span> (página completa com &lt;html&gt;). Nas
         presells <span className="font-medium text-card-foreground">manuais</span>, o HTML exportado corresponde ao layout
@@ -1140,7 +1140,7 @@ export default function PresellDashboard() {
                         onClick={() => handleCopyHtml(page)}
                         disabled={htmlExportBusyId === page.id}
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        title="Copiar HTML para colar no Elementor (widget HTML)"
+                        title="Copiar HTML para colar no widget HTML do teu site"
                       >
                         <Code2 className="h-4 w-4" />
                       </button>

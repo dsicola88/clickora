@@ -168,7 +168,7 @@ export const landingExtrasGalleryItemSchema = z.object({
   caption: z.string().max(500).nullable().optional(),
 });
 
-/** Opções tipo «Image Carousel» (Elementor): autoplay, setas, dots, slides visíveis. */
+/** Opções de carrossel de imagens: autoplay, setas, dots, slides visíveis. */
 export const landingExtrasGalleryCarouselSchema = z
   .object({
     autoplay: z.boolean().optional(),

@@ -147,7 +147,7 @@ export function PresellAdvancedTrackingCollapsible({
                 </p>
                 <p className={cn("text-xs mt-1", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
                   O script Clickora da conta é aplicado ao <span className="opacity-90">head</span> ao guardar. Podes
-                  acrescentar outros scripts (pixels, SmartClick). Executam na presell publicada em{" "}
+                  acrescentar outros scripts (pixels de anúncios, ferramentas de terceiros). Executam na presell publicada em{" "}
                   <span className="opacity-90">&lt;head&gt;</span>, início do corpo e rodapé.
                 </p>
               </div>
@@ -206,8 +206,8 @@ export function PresellAdvancedTrackingCollapsible({
                     Código no &lt;head&gt;
                   </Label>
                   <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    O Clickora é antecipado automaticamente; edita ou acrescenta outros scripts (pixels, SmartClick,
-                    etc.) se precisares.
+                    O Clickora é antecipado automaticamente; edita ou acrescenta outros scripts (pixels, ferramentas de
+                    terceiros, etc.) se precisares.
                   </p>
                   <Textarea
                     id={isEditor ? "presell-adv-head-editor" : "headerCode"}

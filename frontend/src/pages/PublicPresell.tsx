@@ -622,7 +622,7 @@ export default function PublicPresell() {
   return (
     <div className="min-h-screen bg-background pb-12">
       <PresellLanguageSelector override={override} onModeChange={setMode} />
-      {/* Montagem de scripts “início do corpo” (pixels, SmartClick, etc.) */}
+      {/* Montagem de scripts “início do corpo” (pixels, scripts de terceiros, etc.) */}
       <div
         ref={bodyCodeMountRef}
         className="sr-only pointer-events-none absolute h-0 w-0 overflow-hidden"
