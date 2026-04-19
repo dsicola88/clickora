@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface DateWidgetContent {
   source: "now" | "fixed";
@@ -57,7 +57,7 @@ export function DateWidget({ widget, device }: { widget: WidgetNode; device: Dev
   const text = Number.isNaN(date.getTime()) ? "—" : fmt(date, format, locale);
 
   return (
-    <div style={{ fontSize, color, fontWeight, ...stylesToCss(widget.styles, device) }}>
+    <div style={{ fontSize, color, fontWeight, ...stylesToCssWidgetContent(widget.styles, device) }}>
       {c.prefix ? `${c.prefix} ` : ""}
       {text}
       {c.suffix ? ` ${c.suffix}` : ""}

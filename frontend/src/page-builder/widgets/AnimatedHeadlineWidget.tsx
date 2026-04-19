@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface AnimatedHeadlineContent {
   prefix: string;
@@ -58,7 +58,7 @@ export function AnimatedHeadlineWidget({
     return () => clearInterval(t);
   }, [index, animation, words]);
 
-  const css = stylesToCss(widget.styles, device);
+  const css = stylesToCssWidgetContent(widget.styles, device);
   const word = words[index] ?? "";
 
   const renderWord = () => {

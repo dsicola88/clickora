@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss, alignToFlexJustify } from "../style-utils";
+import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import {
   Facebook,
@@ -86,7 +86,7 @@ export function SocialIconsWidget({ widget, device }: { widget: WidgetNode; devi
   const iconColor = (c.iconColor as string) ?? "#ffffff";
 
   const align = resolveResponsive(widget.styles.align, device);
-  const outer = stylesToCss(widget.styles, device);
+  const outer = stylesToCssWidgetContent(widget.styles, device);
 
   const visible = items.filter((it) => resolveHref(it.network, it.url ?? ""));
 

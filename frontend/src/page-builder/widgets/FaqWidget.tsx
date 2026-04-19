@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface FaqItem {
   id: string;
@@ -48,7 +48,7 @@ export function FaqWidget({ widget, device }: { widget: WidgetNode; device: Devi
 
   if (items.length === 0) {
     return (
-      <div style={stylesToCss(widget.styles, device)}>
+      <div style={stylesToCssWidgetContent(widget.styles, device)}>
         <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
           Adicione perguntas no painel de propriedades.
         </p>
@@ -62,7 +62,7 @@ export function FaqWidget({ widget, device }: { widget: WidgetNode; device: Devi
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        ...stylesToCss(widget.styles, device),
+        ...stylesToCssWidgetContent(widget.styles, device),
       }}
     >
       {items.map((item, idx) => {

@@ -20,6 +20,7 @@ import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
+import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 import {
   getPublicPresellFullUrl,
   resolveDefaultCustomDomainIdForAccount,
@@ -57,7 +58,8 @@ export default function PresellManualBuilderPage() {
   const [configSettings, setConfigSettings] = useState<PresellConfigSettings>(() => ({
     ...DEFAULT_PRESELL_CONFIG_SETTINGS,
   }));
-  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
+  /** Nova página manual: abre «Opcional» para o afiliado colar logo o script de conversão. */
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(!routeId);
 
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
@@ -86,6 +88,11 @@ export default function PresellManualBuilderPage() {
   });
 
   const hasVerifiedCustomDomain = customDomains.some((d) => d.status === "verified");
+
+  const publicPresellTestUrl = useMemo(() => {
+    if (!routeId) return null;
+    return getPublicPresellFullUrl(customDomains, customDomainId || null, { id: routeId });
+  }, [routeId, customDomains, customDomainId]);
 
   useEffect(() => {
     const uid = user?.id || "anon";
@@ -143,9 +150,11 @@ export default function PresellManualBuilderPage() {
         fbTrackName: String(s.fbTrackName ?? ""),
         fbConversionApi: String(s.fbConversionApi ?? "disabled"),
         headerCode: String(s.headerCode ?? ""),
+        conversionTrackingScript: String(s.conversionTrackingScript ?? ""),
         bodyCode: String(s.bodyCode ?? ""),
         footerCode: String(s.footerCode ?? ""),
         customCss: String(s.customCss ?? ""),
+        countdownDurationMinutes: String(s.countdownDurationMinutes ?? "15"),
       });
       setEditorReady(true);
     };
@@ -162,7 +171,7 @@ export default function PresellManualBuilderPage() {
     setCustomDomainId((prev) => prev || resolveDefaultCustomDomainIdForAccount(customDomains) || "");
   }, [routeId, hasVerifiedCustomDomain, customDomains]);
 
-  const buildSettingsPayload = useCallback((): PresellSettings => {
+  const buildSettingsPayload = useCallback((): PresellConfigSettings => {
     return {
       ...configSettings,
       headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
@@ -310,8 +319,9 @@ export default function PresellManualBuilderPage() {
             <span className="font-medium text-editor-fg">Presell automática vs manual:</span> aqui montas o layout no
             editor (secções e widgets). O <span className="text-editor-fg">link público</span> é o mesmo formato{" "}
             <span className="font-mono text-[10px]">/p/&lt;id&gt;</span> que na lista de presells. Usa «Guardar na conta»
-            no topo do editor para publicar. Abaixo, as mesmas opções de rastreamento e código extra que na criação
-            automática.
+            no topo do editor para publicar. Em «Opcional» podes colar o{" "}
+            <span className="font-medium text-editor-fg">script de conversão</span> (vai para o &lt;head&gt; na ordem
+            certa) e o restante código extra, como na criação automática.
           </p>
           {trackingEmbedScript ? (
             <div className="rounded border border-editor-border bg-editor-panel px-2 py-1.5 text-[11px] text-editor-fg-muted leading-relaxed">
@@ -323,6 +333,14 @@ export default function PresellManualBuilderPage() {
               Inicia sessão para incluir o rastreamento Clickora ao guardar.
             </div>
           )}
+          <PresellTrackingHealthPanel
+            configSettings={configSettings}
+            trackingEmbedScript={trackingEmbedScript}
+            affiliateLink={affiliateDraft}
+            publishedPageId={routeId ?? null}
+            publicPageUrl={publicPresellTestUrl}
+            isEditor
+          />
           <PresellAdvancedTrackingCollapsible
             open={advancedSettingsOpen}
             onOpenChange={setAdvancedSettingsOpen}

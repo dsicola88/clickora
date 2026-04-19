@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface FlipBoxContent {
   frontTitle: string;
@@ -62,7 +62,7 @@ export function FlipBoxWidget({ widget, device }: { widget: WidgetNode; device: 
   };
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <div
         style={{
           perspective: 1200,

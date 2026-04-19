@@ -1,6 +1,6 @@
 import { Phone } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss, alignToFlexJustify } from "../style-utils";
+import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 
 export interface PhoneCallContent {
@@ -30,7 +30,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
 
   if (variant === "floating") {
     return (
-      <div style={stylesToCss(widget.styles, device)}>
+      <div style={stylesToCssWidgetContent(widget.styles, device)}>
         <a
           href={`tel:${number.replace(/\D/g, "")}`}
           aria-label={displayText}
@@ -70,7 +70,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
         style={{
           display: "flex",
           justifyContent: alignToFlexJustify(align),
-          ...stylesToCss(widget.styles, device),
+          ...stylesToCssWidgetContent(widget.styles, device),
         }}
       >
         <a
@@ -97,7 +97,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
       style={{
         display: "flex",
         justifyContent: alignToFlexJustify(align),
-        ...stylesToCss(widget.styles, device),
+        ...stylesToCssWidgetContent(widget.styles, device),
       }}
     >
       <a

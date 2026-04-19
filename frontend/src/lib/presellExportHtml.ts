@@ -13,6 +13,7 @@ import {
   type InteractivePresellGateKind,
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import {
   getPresellUiStrings,
@@ -424,13 +425,20 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
   if (customCss) {
     out = out.replace("</head>", `<style>/* clickora presell */\n${customCss}\n</style>\n</head>`);
   }
+  const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
+  const conversionTrackingScript = String(settings.conversionTrackingScript ?? "").trim();
   const headerCode = String(settings.headerCode ?? "").trim();
-  if (headerCode) {
-    out = out.replace("</head>", `${headerCode}\n</head>`);
+  const headScripts = [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
+    .filter(Boolean)
+    .join("\n");
+  if (headScripts) {
+    out = out.replace("</head>", `${headScripts}\n</head>`);
   }
   const bodyCode = String(settings.bodyCode ?? "").trim();
-  if (bodyCode) {
-    out = out.replace(/<body([^>]*)>/i, `<body$1><div data-presell-inject="body-start">${bodyCode}</div>`);
+  const bodyOptional = optionalMarketing.bodyHtml.trim();
+  const bodyMerged = [bodyOptional, bodyCode].filter(Boolean).join("");
+  if (bodyMerged) {
+    out = out.replace(/<body([^>]*)>/i, `<body$1><div data-presell-inject="body-start">${bodyMerged}</div>`);
   }
   const footerCode = String(settings.footerCode ?? "").trim();
   if (footerCode) {
@@ -472,7 +480,13 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
   const customCss = typeof settings.customCss === "string" ? settings.customCss.trim() : "";
+  const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
+  const conversionTrackingScript =
+    typeof settings.conversionTrackingScript === "string" ? settings.conversionTrackingScript.trim() : "";
   const headerCode = typeof settings.headerCode === "string" ? settings.headerCode.trim() : "";
+  const headInjectSnippets = [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
+    .filter(Boolean)
+    .join("\n");
   const bodyCode = typeof settings.bodyCode === "string" ? settings.bodyCode.trim() : "";
   const footerCode = typeof settings.footerCode === "string" ? settings.footerCode.trim() : "";
 
@@ -632,11 +646,12 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const styleBlock = `<style>${EXPORT_STYLES}${customCss ? `\n/* CSS personalizado */\n${customCss}` : ""}</style>`;
 
+  const bodyStartExport = [optionalMarketing.bodyHtml.trim(), bodyCode].filter(Boolean).join("");
   if (format === "htmlWidget") {
     return `${fontLink}
 ${styleBlock}
-${headerCode ? `${headerCode}\n` : ""}
-${bodyCode ? `<div data-presell-inject="body-start" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${bodyCode}</div>\n` : ""}
+${headInjectSnippets ? `${headInjectSnippets}\n` : ""}
+${bodyStartExport ? `<div data-presell-inject="body-start" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${bodyStartExport}</div>\n` : ""}
 ${inner}
 ${footerCode ? `${footerCode}\n` : ""}`;
   }
@@ -654,10 +669,10 @@ ${footerCode ? `${footerCode}\n` : ""}`;
 <title>${escapeHtml(buildExportDocumentTitle(page, opts.publicPageUrl))}</title>
 ${fontLink}
 ${styleBlock}
-${headerCode ? headerCode : ""}
+${headInjectSnippets ? headInjectSnippets : ""}
 </head>
 <body class="pe-export-body" style="margin:0;">
-${bodyCode ? `<div data-presell-inject="body-start">${bodyCode}</div>` : ""}
+${bodyStartExport ? `<div data-presell-inject="body-start">${bodyStartExport}</div>` : ""}
 ${inner}
 ${footerCode ? footerCode : ""}
 </body>

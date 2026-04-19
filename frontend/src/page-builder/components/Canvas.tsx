@@ -8,7 +8,8 @@ import type {
   WidgetNode,
 } from "../types";
 import { WIDGET_REGISTRY } from "../widget-registry";
-import { stylesToCss } from "../style-utils";
+import { stylesToCss, stylesToCssWidgetShell } from "../style-utils";
+import { WidgetInlineStyle } from "../widget-custom-css";
 import { Plus, Copy, Trash2, GripVertical, Columns3 } from "lucide-react";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 
@@ -250,6 +251,10 @@ function ColumnView({
       className="group/column relative min-h-[60px]"
       style={{
         flexBasis: device === "mobile" ? "100%" : `${widthPct}%`,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        minWidth: 0,
         ...colStyle,
       }}
       onClick={(e) => {
@@ -327,13 +332,19 @@ function WidgetView({
   const duplicateWidget = useBuilder((s) => s.duplicateWidget);
 
   const def = WIDGET_REGISTRY[widget.type];
+  const shell = stylesToCssWidgetShell(widget.styles, device);
   const isSelected =
     selection?.kind === "widget" &&
     (selection as Extract<SelectionTarget, { kind: "widget" }>).id === widget.id;
 
+  const wid = widget.cssId?.trim();
+  const wcls = widget.cssClasses?.trim();
+
   return (
     <div
-      className="group/widget relative"
+      className={`group/widget relative${wcls ? ` ${wcls}` : ""}`}
+      id={wid || undefined}
+      style={shell}
       onClick={(e) => {
         if (preview) return;
         e.stopPropagation();
@@ -385,6 +396,7 @@ function WidgetView({
         </div>
       )}
 
+      <WidgetInlineStyle widget={widget} />
       <def.Render widget={widget} device={device} />
     </div>
   );

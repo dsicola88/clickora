@@ -1,5 +1,5 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface CtaBoxContent {
   title: string;
@@ -92,7 +92,7 @@ export function CtaBoxWidget({ widget, device }: { widget: WidgetNode; device: D
   );
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <div
         style={{
           background: containerBg,

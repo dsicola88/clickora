@@ -1,5 +1,5 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface TickerContent {
   items: string[];
@@ -37,7 +37,7 @@ export function TickerWidget({ widget, device }: { widget: WidgetNode; device: D
   const doubled = [...items, ...items];
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <div className={cls}>
         <div>

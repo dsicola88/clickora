@@ -1,6 +1,6 @@
 import { useState, useId } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface TabItem {
   id: string;
@@ -26,7 +26,7 @@ export function TabsWidget({ widget, device }: { widget: WidgetNode; device: Dev
   const safeIndex = tabs.length ? Math.min(active, tabs.length - 1) : 0;
   const current = tabs[safeIndex];
 
-  const outer = stylesToCss(widget.styles, device);
+  const outer = stylesToCssWidgetContent(widget.styles, device);
 
   if (!tabs.length) {
     return (

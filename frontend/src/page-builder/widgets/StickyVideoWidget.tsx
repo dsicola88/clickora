@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import { resolvePageBuilderVideoUrl } from "../videoEmbed";
 
 export interface StickyVideoContent {
@@ -70,7 +70,7 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
   );
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <div
         ref={ref}
         style={{

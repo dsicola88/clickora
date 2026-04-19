@@ -83,11 +83,20 @@ export interface BorderValue {
 export interface TypographyValue {
   fontFamily?: string;
   fontSize: number;
+  /** Predefinição `px` quando omitido (documentos antigos). */
+  fontSizeUnit?: "px" | "em" | "rem" | "vw";
   fontWeight: number;
   lineHeight: number;
+  /** Vazio = multiplicador sem unidade (ex.: 1,5). Caso contrário, `lineHeight` usa esta unidade. */
+  lineHeightUnit?: "" | "px" | "em" | "rem";
   letterSpacing: number;
+  letterSpacingUnit?: "px" | "em";
+  wordSpacing?: number;
+  wordSpacingUnit?: "px" | "em";
   textAlign: "left" | "center" | "right" | "justify";
   textTransform: "none" | "uppercase" | "lowercase" | "capitalize";
+  fontStyle?: "normal" | "italic" | "oblique";
+  textDecoration?: "none" | "underline" | "overline" | "line-through";
 }
 
 /** Style rules that can vary per device. */
@@ -99,6 +108,12 @@ export interface ResponsiveStyles {
   height?: ResponsiveValue<string>;
   align?: ResponsiveValue<"left" | "center" | "right">;
   visibility?: ResponsiveValue<boolean>;
+  position?: ResponsiveValue<"static" | "relative" | "absolute" | "fixed" | "sticky">;
+  zIndex?: ResponsiveValue<number>;
+  alignSelf?: ResponsiveValue<"auto" | "flex-start" | "center" | "flex-end" | "stretch">;
+  order?: ResponsiveValue<number>;
+  flexGrow?: ResponsiveValue<number>;
+  flexShrink?: ResponsiveValue<number>;
 }
 
 /** Non-responsive style rules. */
@@ -116,8 +131,12 @@ export interface WidgetNode {
   /** Free-form widget content (text, src, href, etc). Shape depends on type. */
   content: Record<string, unknown>;
   styles: BaseStyles & ResponsiveStyles;
+  /** Atributo `id` HTML (aba Avançado). */
+  cssId?: string;
   /** Custom CSS class names (advanced tab). */
   cssClasses?: string;
+  /** CSS cru injetado num `<style>` dentro do invólucro do widget (aba Avançado). */
+  customCss?: string;
 }
 
 export interface ColumnNode {

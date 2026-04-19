@@ -7,7 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface GalleryImage {
   id: string;
@@ -225,7 +225,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
 
   if (images.length === 0) {
     return (
-      <div style={stylesToCss(widget.styles, device)}>
+      <div style={stylesToCssWidgetContent(widget.styles, device)}>
         <p style={{ textAlign: "center", color: "#64748b", fontSize: 13, lineHeight: 1.55, maxWidth: 320, margin: "0 auto" }}>
           Sem imagens ainda. No painel à direita, use «+ Adicionar» e depois cole um URL ou «Carregar do PC» em cada
           slide.
@@ -234,7 +234,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
     );
   }
 
-  const outer = stylesToCss(widget.styles, device);
+  const outer = stylesToCssWidgetContent(widget.styles, device);
 
   const lightboxModal =
     enableLightbox && lightbox !== null ? (

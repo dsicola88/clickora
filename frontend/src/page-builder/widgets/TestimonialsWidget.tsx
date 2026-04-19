@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface TestimonialItem {
   id: string;
@@ -45,7 +45,7 @@ export function TestimonialsWidget({ widget, device }: { widget: WidgetNode; dev
 
   if (items.length === 0) {
     return (
-      <div style={stylesToCss(widget.styles, device)}>
+      <div style={stylesToCssWidgetContent(widget.styles, device)}>
         <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
           Adicione depoimentos no painel de propriedades.
         </p>
@@ -56,7 +56,7 @@ export function TestimonialsWidget({ widget, device }: { widget: WidgetNode; dev
   const current = items[Math.min(active, items.length - 1)];
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <div
         style={{
           background: cardBg,

@@ -1,6 +1,6 @@
 import { AlertCircle, Play } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import { resolvePageBuilderVideoUrl } from "../videoEmbed";
 
 function VideoPlaceholder({
@@ -83,7 +83,7 @@ function VideoPlaceholder({
 export function VideoWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const url = (widget.content.url as string) ?? "";
   const resolved = resolvePageBuilderVideoUrl(url);
-  const css = stylesToCss(widget.styles, device);
+  const css = stylesToCssWidgetContent(widget.styles, device);
 
   return (
     <div style={{ ...css, position: "relative", paddingBottom: "56.25%", height: 0 }}>

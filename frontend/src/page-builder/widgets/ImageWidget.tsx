@@ -1,12 +1,12 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss, alignToFlexJustify } from "../style-utils";
+import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 
 export function ImageWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const src = (widget.content.src as string) ?? "";
   const alt = (widget.content.alt as string) ?? "";
   const align = resolveResponsive(widget.styles.align, device);
-  const css = stylesToCss(widget.styles, device);
+  const css = stylesToCssWidgetContent(widget.styles, device);
   const { width, height, ...wrapperRest } = css;
 
   const hasSrc = src.trim().length > 0;

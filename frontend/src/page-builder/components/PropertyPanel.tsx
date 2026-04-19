@@ -18,6 +18,7 @@ import { nanoid } from "nanoid";
 import type { FormField } from "../widgets/FormWidget";
 import type { SocialNetwork } from "../widgets/SocialIconsWidget";
 import type { TabItem } from "../widgets/TabsWidget";
+import { ButtonWidgetEditor } from "./editors/ButtonWidgetEditor";
 import {
   ColorField,
   NumberField,
@@ -202,12 +203,19 @@ function WidgetPanel({
       {tab === "advanced" && (
         <AdvancedTab
           styles={widget.styles}
+          cssId={widget.cssId}
           cssClasses={widget.cssClasses}
+          widgetCustomCss={widget.customCss}
           device={device}
           onStyles={setStyles}
+          onCssId={(v) => updateWidget(section.id, column.id, widget.id, { cssId: v })}
           onClasses={(v) =>
             updateWidget(section.id, column.id, widget.id, { cssClasses: v })
           }
+          onWidgetCustomCss={(v) =>
+            updateWidget(section.id, column.id, widget.id, { customCss: v })
+          }
+          showLayout
         />
       )}
     </PanelShell>
@@ -225,16 +233,46 @@ function WidgetContentTab({
   switch (widget.type) {
     case "heading":
       return (
-        <Section title="Conteúdo">
+        <Section title="Título">
           <TextareaField
-            label="Texto do título"
+            label="Título"
             value={(c.text as string) ?? ""}
             onChange={(v) => setContent({ text: v })}
+            placeholder="Adicione o texto do seu título aqui"
+          />
+          <TextField
+            label="Link (opcional)"
+            value={(c.link as string) ?? ""}
+            onChange={(v) => setContent({ link: v })}
+            placeholder="https://…"
+          />
+          <SelectField
+            label="Abrir link"
+            value={((c.linkTarget as string) ?? "_self") as string}
+            options={[
+              { value: "_self", label: "Mesma janela" },
+              { value: "_blank", label: "Nova janela" },
+            ]}
+            onChange={(v) => setContent({ linkTarget: v })}
+          />
+          <SelectField
+            label="Rel nofollow"
+            value={(c.linkNofollow as boolean) ? "yes" : "no"}
+            options={[
+              { value: "no", label: "Não" },
+              { value: "yes", label: "Sim (nofollow)" },
+            ]}
+            onChange={(v) => setContent({ linkNofollow: v === "yes" })}
           />
           <SelectField
             label="Tag HTML"
             value={(c.tag as string) ?? "h2"}
-            options={["h1", "h2", "h3", "h4", "h5", "h6"].map((t) => ({ value: t, label: t.toUpperCase() }))}
+            options={[
+              ...["h1", "h2", "h3", "h4", "h5", "h6"].map((t) => ({ value: t, label: t.toUpperCase() })),
+              { value: "p", label: "P" },
+              { value: "div", label: "DIV" },
+              { value: "span", label: "SPAN" },
+            ]}
             onChange={(v) => setContent({ tag: v })}
           />
         </Section>
@@ -272,29 +310,7 @@ function WidgetContentTab({
         </Section>
       );
     case "button":
-      return (
-        <Section title="Botão">
-          <TextField
-            label="Texto"
-            value={(c.text as string) ?? ""}
-            onChange={(v) => setContent({ text: v })}
-          />
-          <TextField
-            label="Link (URL)"
-            value={(c.href as string) ?? ""}
-            onChange={(v) => setContent({ href: v })}
-          />
-          <SelectField
-            label="Abrir em"
-            value={(c.target as string) ?? "_self"}
-            options={[
-              { value: "_self", label: "Mesma aba" },
-              { value: "_blank", label: "Nova aba" },
-            ]}
-            onChange={(v) => setContent({ target: v })}
-          />
-        </Section>
-      );
+      return <ButtonWidgetEditor widget={widget} setContent={setContent} />;
     case "video":
       return (
         <Section title="Ligação do vídeo">
@@ -484,14 +500,31 @@ function WidgetStyleTab({
 
           <SpacingSection styles={widget.styles} device={device} setStyles={setStyles} />
 
+          {widget.type === "button" ? (
+            <Section title="Sombra">
+              <TextareaField
+                label="Box shadow (CSS)"
+                value={widget.styles.boxShadow ?? ""}
+                onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
+                rows={2}
+                placeholder="0 4px 14px rgba(15, 23, 42, 0.12)"
+              />
+            </Section>
+          ) : null}
+
           {(widget.type === "image" ||
             widget.type === "button" ||
+            widget.type === "heading" ||
+            widget.type === "text" ||
             widget.type === "icon" ||
             widget.type === "divider" ||
             widget.type === "socialIcons" ||
             widget.type === "iconList" ||
             widget.type === "tabs") && (
-            <Section title="Alinhamento">
+            <Section title="Alinhamento do bloco">
+              <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
+                Posiciona o elemento na coluna (independente do alinhamento do texto na tipografia).
+              </p>
               <SelectField
                 label={`Alinhamento (${device})`}
                 value={(resolveResponsive(widget.styles.align, device) as string) ?? "left"}
@@ -713,42 +746,146 @@ function TypographySection({
     letterSpacing: 0,
     textAlign: "left" as const,
     textTransform: "none" as const,
+    fontStyle: "normal" as const,
+    textDecoration: "none" as const,
+    wordSpacing: 0,
   };
   const update = (patch: Partial<TypographyValue>) =>
     setStyles({
       typography: setResponsive(styles.typography, device, { ...t, ...patch }),
     });
 
+  const lineUnit = t.lineHeightUnit ?? "";
+  const fsUnit = t.fontSizeUnit ?? "px";
+
   return (
     <Section title={`Tipografia (${device})`}>
-      <NumberField label="Tamanho (px)" value={t.fontSize} min={8} max={200} onChange={(v) => update({ fontSize: v })} />
+      <TextField
+        label="Família (font-family)"
+        value={t.fontFamily ?? ""}
+        onChange={(v) => update({ fontFamily: v.trim() ? v : undefined })}
+        placeholder="Ex.: Roboto, system-ui, sans-serif"
+      />
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <NumberField label="Tamanho" value={t.fontSize} min={0} max={500} onChange={(v) => update({ fontSize: v })} />
+        <SelectField
+          label="Un."
+          value={fsUnit}
+          options={[
+            { value: "px", label: "px" },
+            { value: "em", label: "em" },
+            { value: "rem", label: "rem" },
+            { value: "vw", label: "vw" },
+          ]}
+          onChange={(v) => update({ fontSizeUnit: v as TypographyValue["fontSizeUnit"] })}
+        />
+      </div>
       <SelectField
         label="Peso"
         value={String(t.fontWeight)}
-        options={[300, 400, 500, 600, 700, 800, 900].map((w) => ({
+        options={[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => ({
           value: String(w),
-          label: String(w),
+          label: w === 400 ? "400 (normal)" : w === 700 ? "700 (negrito)" : String(w),
         }))}
         onChange={(v) => update({ fontWeight: Number(v) })}
       />
-      <NumberField
-        label="Altura da linha"
-        value={t.lineHeight}
-        min={0.5}
-        max={3}
-        step={0.1}
-        onChange={(v) => update({ lineHeight: v })}
-      />
-      <NumberField
-        label="Espaçamento de letras"
-        value={t.letterSpacing}
-        min={-5}
-        max={20}
-        step={0.5}
-        onChange={(v) => update({ letterSpacing: v })}
+      <SelectField
+        label="Transformação"
+        value={t.textTransform}
+        options={[
+          { value: "none", label: "Normal" },
+          { value: "uppercase", label: "MAIÚSCULAS" },
+          { value: "lowercase", label: "minúsculas" },
+          { value: "capitalize", label: "Capitalizar palavras" },
+        ]}
+        onChange={(v) => update({ textTransform: v as TypographyValue["textTransform"] })}
       />
       <SelectField
-        label="Alinhamento"
+        label="Estilo"
+        value={t.fontStyle ?? "normal"}
+        options={[
+          { value: "normal", label: "Normal" },
+          { value: "italic", label: "Itálico" },
+          { value: "oblique", label: "Oblíquo" },
+        ]}
+        onChange={(v) => update({ fontStyle: v as TypographyValue["fontStyle"] })}
+      />
+      <SelectField
+        label="Decoração"
+        value={t.textDecoration ?? "none"}
+        options={[
+          { value: "none", label: "Nenhuma" },
+          { value: "underline", label: "Sublinhado" },
+          { value: "overline", label: "Linha acima" },
+          { value: "line-through", label: "Riscado" },
+        ]}
+        onChange={(v) => update({ textDecoration: v as TypographyValue["textDecoration"] })}
+      />
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <NumberField
+          label="Altura da linha"
+          value={t.lineHeight}
+          min={0}
+          max={lineUnit === "" ? 4 : 200}
+          step={lineUnit === "" ? 0.05 : 1}
+          onChange={(v) => update({ lineHeight: v })}
+        />
+        <SelectField
+          label="Un."
+          value={lineUnit === "" ? "unitless" : lineUnit}
+          options={[
+            { value: "unitless", label: "sem unidade" },
+            { value: "px", label: "px" },
+            { value: "em", label: "em" },
+            { value: "rem", label: "rem" },
+          ]}
+          onChange={(v) =>
+            update({
+              lineHeightUnit: v === "unitless" ? "" : (v as TypographyValue["lineHeightUnit"]),
+            })
+          }
+        />
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <NumberField
+          label="Espaçamento entre letras"
+          value={t.letterSpacing}
+          min={-20}
+          max={40}
+          step={0.5}
+          onChange={(v) => update({ letterSpacing: v })}
+        />
+        <SelectField
+          label="Un."
+          value={t.letterSpacingUnit ?? "px"}
+          options={[
+            { value: "px", label: "px" },
+            { value: "em", label: "em" },
+          ]}
+          onChange={(v) => update({ letterSpacingUnit: v as TypographyValue["letterSpacingUnit"] })}
+        />
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <NumberField
+          label="Espaçamento entre palavras"
+          value={t.wordSpacing ?? 0}
+          min={-20}
+          max={80}
+          step={0.5}
+          onChange={(v) => update({ wordSpacing: v })}
+        />
+        <SelectField
+          label="Un."
+          value={t.wordSpacingUnit ?? "px"}
+          options={[
+            { value: "px", label: "px" },
+            { value: "em", label: "em" },
+          ]}
+          onChange={(v) => update({ wordSpacingUnit: v as TypographyValue["wordSpacingUnit"] })}
+        />
+      </div>
+      <SelectField
+        label="Alinhamento do texto"
         value={t.textAlign}
         options={[
           { value: "left", label: "Esquerda" },
@@ -757,17 +894,6 @@ function TypographySection({
           { value: "justify", label: "Justificado" },
         ]}
         onChange={(v) => update({ textAlign: v as TypographyValue["textAlign"] })}
-      />
-      <SelectField
-        label="Transformar"
-        value={t.textTransform}
-        options={[
-          { value: "none", label: "Nenhum" },
-          { value: "uppercase", label: "MAIÚSCULAS" },
-          { value: "lowercase", label: "minúsculas" },
-          { value: "capitalize", label: "Capitalizado" },
-        ]}
-        onChange={(v) => update({ textTransform: v as TypographyValue["textTransform"] })}
       />
     </Section>
   );
@@ -816,19 +942,137 @@ function AdvancedTab({
   styles,
   device,
   onStyles,
+  cssId,
+  onCssId,
   cssClasses,
   onClasses,
+  widgetCustomCss,
+  onWidgetCustomCss,
   hideClasses,
+  showLayout,
 }: {
   styles: BaseStyles & ResponsiveStyles;
   device: DeviceType;
   onStyles: (p: Partial<BaseStyles & ResponsiveStyles>) => void;
+  cssId?: string;
+  onCssId?: (v: string) => void;
   cssClasses: string | undefined;
   onClasses: (v: string) => void;
+  widgetCustomCss?: string;
+  onWidgetCustomCss?: (v: string) => void;
   hideClasses?: boolean;
+  /** Controles de layout (largura, posição, flex) — widgets de página. */
+  showLayout?: boolean;
 }) {
+  const clearableZ = resolveResponsive(styles.zIndex, device);
+  const zStr =
+    clearableZ !== undefined && clearableZ !== null && !Number.isNaN(clearableZ)
+      ? String(clearableZ)
+      : "";
+
   return (
     <>
+      {showLayout ? (
+        <Section title="Layout">
+          <TextField
+            label={`Largura (${device})`}
+            value={(resolveResponsive(styles.width, device) as string) ?? ""}
+            onChange={(v) => {
+              const t = v.trim();
+              if (!t) onStyles({ width: undefined });
+              else onStyles({ width: setResponsive(styles.width, device, t) });
+            }}
+            placeholder="vazio = automático, ex.: 100%, 320px"
+          />
+          <TextField
+            label={`Altura (${device})`}
+            value={(resolveResponsive(styles.height, device) as string) ?? ""}
+            onChange={(v) => {
+              const t = v.trim();
+              if (!t) onStyles({ height: undefined });
+              else onStyles({ height: setResponsive(styles.height, device, t) });
+            }}
+            placeholder="vazio = automático"
+          />
+          <SelectField
+            label={`Posição (${device})`}
+            value={(resolveResponsive(styles.position, device) as string) ?? "static"}
+            options={[
+              { value: "static", label: "Padrão (static)" },
+              { value: "relative", label: "Relativa" },
+              { value: "absolute", label: "Absoluta" },
+              { value: "fixed", label: "Fixa" },
+              { value: "sticky", label: "Sticky" },
+            ]}
+            onChange={(v) =>
+              onStyles({
+                position: setResponsive(
+                  styles.position,
+                  device,
+                  v as NonNullable<typeof styles.position>["desktop"],
+                ),
+              })
+            }
+          />
+          <TextField
+            label={`Z-index (${device})`}
+            value={zStr}
+            onChange={(v) => {
+              const t = v.trim();
+              if (!t) {
+                onStyles({ zIndex: undefined });
+                return;
+              }
+              const n = Number(t);
+              if (!Number.isNaN(n)) onStyles({ zIndex: setResponsive(styles.zIndex, device, n) });
+            }}
+            placeholder="vazio = automático"
+          />
+          <SelectField
+            label={`Alinhar-se (align-self, ${device})`}
+            value={(resolveResponsive(styles.alignSelf, device) as string) ?? "auto"}
+            options={[
+              { value: "auto", label: "Automático" },
+              { value: "flex-start", label: "Início" },
+              { value: "center", label: "Centro" },
+              { value: "flex-end", label: "Fim" },
+              { value: "stretch", label: "Esticar" },
+            ]}
+            onChange={(v) =>
+              onStyles({
+                alignSelf: setResponsive(
+                  styles.alignSelf,
+                  device,
+                  v as NonNullable<typeof styles.alignSelf>["desktop"],
+                ),
+              })
+            }
+          />
+          <NumberField
+            label={`Ordem flex (${device})`}
+            value={resolveResponsive(styles.order, device) ?? 0}
+            min={-999}
+            max={9999}
+            onChange={(v) => onStyles({ order: setResponsive(styles.order, device, v) })}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label={`Flex grow (${device})`}
+              value={resolveResponsive(styles.flexGrow, device) ?? 0}
+              min={0}
+              max={99}
+              onChange={(v) => onStyles({ flexGrow: setResponsive(styles.flexGrow, device, v) })}
+            />
+            <NumberField
+              label={`Flex shrink (${device})`}
+              value={resolveResponsive(styles.flexShrink, device) ?? 1}
+              min={0}
+              max={99}
+              onChange={(v) => onStyles({ flexShrink: setResponsive(styles.flexShrink, device, v) })}
+            />
+          </div>
+        </Section>
+      ) : null}
       <Section title="Bordas">
         <NumberField
           label="Espessura"
@@ -896,11 +1140,34 @@ function AdvancedTab({
       </Section>
       {!hideClasses && (
         <Section title="CSS">
+          {onCssId ? (
+            <TextField
+              label="ID CSS"
+              value={cssId ?? ""}
+              onChange={onCssId}
+              placeholder="identificador-único"
+            />
+          ) : null}
           <TextField
             label="Classes CSS adicionais"
             value={cssClasses ?? ""}
             onChange={onClasses}
           />
+          {onWidgetCustomCss ? (
+            <TextareaField
+              label="CSS personalizado (só este widget)"
+              value={widgetCustomCss ?? ""}
+              onChange={onWidgetCustomCss}
+              rows={5}
+              placeholder={'#meu-id { border-radius: 8px; }\n.meu-widget .btn { ... }'}
+            />
+          ) : null}
+          {onWidgetCustomCss ? (
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+              Preferência: usa o ID CSS acima como seletor (ex. <span className="font-mono">#promo-box</span>) para não
+              afetar outros blocos.
+            </p>
+          ) : null}
         </Section>
       )}
     </>

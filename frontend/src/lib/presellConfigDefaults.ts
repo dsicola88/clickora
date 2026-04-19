@@ -11,7 +11,11 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   fbTrackName: "",
   fbConversionApi: "disabled",
   headerCode: "",
+  /** Snippet opcional (Google Ads / gtag / rede) — injeta no &lt;head&gt; da página publicada antes do restante código. */
+  conversionTrackingScript: "",
   bodyCode: "",
   footerCode: "",
   customCss: "",
+  /** Minutos para a barra de contagem regressiva (opcional presell). */
+  countdownDurationMinutes: "15",
 };

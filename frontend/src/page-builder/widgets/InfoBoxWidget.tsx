@@ -1,5 +1,5 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import * as Icons from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -49,7 +49,7 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
         gap: 16,
         background: c.bg ?? "transparent",
         borderRadius: c.borderRadius ?? 0,
-        ...stylesToCss(widget.styles, device),
+        ...stylesToCssWidgetContent(widget.styles, device),
       }}
     >
       <div

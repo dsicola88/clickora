@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface ProgressBarItem {
   id: string;
@@ -65,7 +65,7 @@ export function ProgressTrackerWidget({
   }, [animate, visible]);
 
   return (
-    <div ref={ref} style={stylesToCss(widget.styles, device)}>
+    <div ref={ref} style={stylesToCssWidgetContent(widget.styles, device)}>
       {variant === "bar" ? (
         <div style={{ display: "flex", flexDirection: "column", gap }}>
           {items.map((it) => {

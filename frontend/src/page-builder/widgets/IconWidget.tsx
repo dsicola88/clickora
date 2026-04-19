@@ -1,5 +1,5 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss, alignToFlexJustify } from "../style-utils";
+import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import * as Icons from "lucide-react";
 import type { ComponentType } from "react";
@@ -8,7 +8,7 @@ export function IconWidget({ widget, device }: { widget: WidgetNode; device: Dev
   const name = (widget.content.name as string) ?? "star";
   const size = (widget.content.size as number) ?? 48;
   const align = resolveResponsive(widget.styles.align, device);
-  const css = stylesToCss(widget.styles, device);
+  const css = stylesToCssWidgetContent(widget.styles, device);
 
   // Convert "star" -> "Star" to look up the lucide component
   const compName = name.charAt(0).toUpperCase() + name.slice(1);

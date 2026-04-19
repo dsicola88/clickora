@@ -30,6 +30,8 @@ import {
 import { PresellCta } from "@/components/presell/PresellCta";
 import { VslProductVideoFallback } from "@/components/presell/VslProductVideoFallback";
 import { injectWithCleanup } from "@/lib/injectPresellCustomCode";
+import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
+import { PresellMarketingOverlays } from "@/components/presell/PresellMarketingOverlays";
 import { isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import {
   DEFAULT_BROWSER_TAB_TITLE,
@@ -231,11 +233,14 @@ export default function PublicPresell() {
   const settingsInjectKey = useMemo(() => {
     if (!page?.settings) return "";
     const s = page.settings as Record<string, unknown>;
+    const opt = buildPresellOptionalSettingsMarketing(s);
     return JSON.stringify({
       h: s.headerCode ?? "",
+      conv: s.conversionTrackingScript ?? "",
       b: s.bodyCode ?? "",
       f: s.footerCode ?? "",
       c: s.customCss ?? "",
+      m: opt.cacheKey,
     });
   }, [page?.settings]);
 
@@ -243,10 +248,12 @@ export default function PublicPresell() {
   useLayoutEffect(() => {
     if (!page?.id) return;
     const s = (page.settings || {}) as Record<string, unknown>;
+    const conversionTrackingScript = String(s.conversionTrackingScript ?? "").trim();
     const headerCode = String(s.headerCode ?? "").trim();
     const bodyCode = String(s.bodyCode ?? "").trim();
     const footerCode = String(s.footerCode ?? "").trim();
     const customCss = String(s.customCss ?? "").trim();
+    const optionalMarketing = buildPresellOptionalSettingsMarketing(s);
 
     const cleanups: (() => void)[] = [];
 
@@ -257,7 +264,15 @@ export default function PublicPresell() {
       document.head.appendChild(style);
       cleanups.push(() => style.remove());
     }
+    if (conversionTrackingScript)
+      cleanups.push(injectWithCleanup(conversionTrackingScript, document.head));
+    if (optionalMarketing.headHtml.trim()) {
+      cleanups.push(injectWithCleanup(optionalMarketing.headHtml, document.head));
+    }
     if (headerCode) cleanups.push(injectWithCleanup(headerCode, document.head));
+    if (optionalMarketing.bodyHtml.trim()) {
+      cleanups.push(injectWithCleanup(optionalMarketing.bodyHtml, document.body));
+    }
     if (bodyCode && bodyCodeMountRef.current) {
       cleanups.push(injectWithCleanup(bodyCode, bodyCodeMountRef.current));
     }
@@ -404,6 +419,12 @@ export default function PublicPresell() {
     }
     return (
       <div className="min-h-screen bg-background pb-12">
+        <PresellMarketingOverlays
+          pageId={page.id}
+          settings={settings}
+          trackHref={href}
+          language={uiLang}
+        />
         <div
           ref={bodyCodeMountRef}
           className="sr-only pointer-events-none absolute h-0 w-0 overflow-hidden"
@@ -621,6 +642,12 @@ export default function PublicPresell() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
+      <PresellMarketingOverlays
+        pageId={page.id}
+        settings={settings}
+        trackHref={href}
+        language={uiLang}
+      />
       <PresellLanguageSelector override={override} onModeChange={setMode} />
       {/* Montagem de scripts “início do corpo” (pixels, scripts de terceiros, etc.) */}
       <div

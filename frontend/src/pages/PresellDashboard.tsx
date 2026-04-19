@@ -46,6 +46,7 @@ import { exportPageToHtml } from "@/page-builder/export-html";
 import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
+import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 
 type PresellSettings = PresellConfigSettings;
 
@@ -330,9 +331,11 @@ export default function PresellDashboard() {
       fbTrackName: String(settings.fbTrackName ?? ""),
       fbConversionApi: String(settings.fbConversionApi ?? "disabled"),
       headerCode: String(settings.headerCode ?? ""),
+      conversionTrackingScript: String(settings.conversionTrackingScript ?? ""),
       bodyCode: String(settings.bodyCode ?? ""),
       footerCode: String(settings.footerCode ?? ""),
       customCss: String(settings.customCss ?? ""),
+      countdownDurationMinutes: String(settings.countdownDurationMinutes ?? "15"),
     });
   };
 
@@ -944,6 +947,18 @@ export default function PresellDashboard() {
             Inicia sessão para associar o rastreamento Clickora à presell ao guardar.
           </div>
         )}
+
+        <PresellTrackingHealthPanel
+          configSettings={configSettings}
+          trackingEmbedScript={trackingEmbedScript}
+          affiliateLink={formData.productLink}
+          publishedPageId={editingId}
+          publicPageUrl={
+            editingId
+              ? getPublicPresellFullUrl(customDomains, formData.customDomainId || null, { id: editingId })
+              : null
+          }
+        />
 
         <div className="space-y-2">
           <PresellAdvancedTrackingCollapsible

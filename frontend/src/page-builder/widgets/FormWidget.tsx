@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import { trackEvent } from "../tracking";
 
 export interface FormField {
@@ -113,7 +113,7 @@ export function FormWidget({ widget, device }: { widget: WidgetNode; device: Dev
     }
   };
 
-  const containerStyle = stylesToCss(widget.styles, device);
+  const containerStyle = stylesToCssWidgetContent(widget.styles, device);
 
   if (status === "success") {
     return (

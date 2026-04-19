@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
+import { PresellProfessionalDocStrip } from "@/components/presell/PresellProfessionalDocStrip";
 
 type Surface = "dashboard" | "editor";
 
@@ -68,6 +69,23 @@ export function PresellAdvancedTrackingCollapsible({
                 : "bg-card border-border/50 text-card-foreground",
             )}
           >
+            <PresellProfessionalDocStrip isEditor={isEditor} />
+
+            <p
+              className={cn(
+                "text-[11px] leading-relaxed rounded-md border px-2.5 py-2",
+                isEditor
+                  ? "border-editor-border/80 bg-editor-bg/50 text-editor-fg-muted"
+                  : "border-border/60 bg-muted/30 text-muted-foreground",
+              )}
+            >
+              <span className={cn("font-medium", isEditor ? "text-editor-fg" : "text-foreground")}>
+                Multi-conta:{" "}
+              </span>
+              estes valores aplicam-se só a esta presell. Cada afiliado ou página tem os seus próprios IDs e scripts —
+              nada é misturado entre contas.
+            </p>
+
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
@@ -96,6 +114,28 @@ export function PresellAdvancedTrackingCollapsible({
                 onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, countdownTimer: v }))}
               />
             </div>
+            {configSettings.countdownTimer ? (
+              <div
+                className={cn(
+                  "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-dashed px-3 py-2",
+                  isEditor ? "border-editor-border bg-editor-panel-2/50" : "border-border/60 bg-muted/20",
+                )}
+              >
+                <Label className={cn("text-xs shrink-0", isEditor ? "text-editor-fg" : "")}>
+                  Duração do timer (minutos)
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  className={cn("max-w-[8rem] sm:max-w-[10rem]", isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "")}
+                  value={String(configSettings.countdownDurationMinutes ?? "15")}
+                  onChange={(e) =>
+                    setConfigSettings((p) => ({ ...p, countdownDurationMinutes: e.target.value }))
+                  }
+                />
+              </div>
+            ) : null}
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
@@ -113,8 +153,13 @@ export function PresellAdvancedTrackingCollapsible({
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               <div className="space-y-2 min-w-0">
                 <Label>Google Analytics / tag</Label>
+                <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                  Measurement ID <span className="font-mono">G-…</span>, contentor{" "}
+                  <span className="font-mono">GTM-…</span>, ou cola um <span className="font-mono">&lt;script&gt;</span>{" "}
+                  completo. A app injeta no head na ordem correta.
+                </p>
                 <Input
-                  placeholder="ID ou snippet curto"
+                  placeholder="G-XXXXXXXX ou GTM-XXXX ou &lt;script&gt;…"
                   value={String(configSettings.googleTrackingCode ?? "")}
                   onChange={(e) => setConfigSettings((p) => ({ ...p, googleTrackingCode: e.target.value }))}
                   className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
@@ -122,22 +167,46 @@ export function PresellAdvancedTrackingCollapsible({
               </div>
               <div className="space-y-2 min-w-0">
                 <Label>Conversão Google Ads (opcional)</Label>
+                <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                  Formato <span className="font-mono">AW-123456789/AbCdEfGh</span> (copiado de Conversões em Google Ads).
+                  Combinado com o campo acima, dispara <span className="font-mono">gtag('event','conversion')</span>.
+                </p>
                 <Input
-                  placeholder="AW-…/…"
+                  placeholder="AW-123456789/AbCdEfGh"
                   value={String(configSettings.googleConversionEvent ?? "")}
                   onChange={(e) => setConfigSettings((p) => ({ ...p, googleConversionEvent: e.target.value }))}
                   className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                 />
               </div>
               <div className="space-y-2 min-w-0">
-                <Label>Pixel Facebook</Label>
+                <Label>Pixel Facebook (Meta)</Label>
+                <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                  Só dígitos (Gestor de eventos → Pixel). O PageView dispara na carga; opcionalmente um evento extra
+                  abaixo.
+                </p>
                 <Input
-                  placeholder="ID do pixel"
+                  placeholder="ex.: 1234567890123456"
+                  inputMode="numeric"
                   value={String(configSettings.fbPixelId ?? "")}
                   onChange={(e) => setConfigSettings((p) => ({ ...p, fbPixelId: e.target.value }))}
                   className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                 />
               </div>
+            </div>
+            <div className="space-y-2 max-w-lg">
+              <Label htmlFor={isEditor ? "presell-fb-track-editor" : "fbTrackName"}>
+                Nome do evento Meta (opcional)
+              </Label>
+              <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                Se preencheres, dispara <span className="font-mono">trackCustom</span> com este nome após o PageView.
+              </p>
+              <Input
+                id={isEditor ? "presell-fb-track-editor" : "fbTrackName"}
+                placeholder="ex.: Lead ou Subscribe"
+                value={String(configSettings.fbTrackName ?? "")}
+                onChange={(e) => setConfigSettings((p) => ({ ...p, fbTrackName: e.target.value }))}
+                className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+              />
             </div>
 
             <div className={cn("space-y-4 border-t pt-6", isEditor ? "border-editor-border" : "border-border/50")}>
@@ -150,6 +219,36 @@ export function PresellAdvancedTrackingCollapsible({
                   acrescentar outros scripts (pixels de anúncios, ferramentas de terceiros). Executam na presell publicada em{" "}
                   <span className="opacity-90">&lt;head&gt;</span>, início do corpo e rodapé.
                 </p>
+              </div>
+
+              <div
+                className={cn(
+                  "rounded-xl border px-3 py-3 space-y-2",
+                  isEditor ? "border-editor-accent/40 bg-editor-panel-2/80" : "border-primary/25 bg-muted/20",
+                )}
+              >
+                <Label className={cn("text-sm", isEditor ? "text-editor-fg" : "")}>
+                  Script de rastreamento de conversões (opcional)
+                </Label>
+                <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                  Cola aqui o snippet da rede (Google Ads, etiqueta global gtag, etc.). Na página publicada é injetado no{" "}
+                  <span className="font-mono text-[11px]">&lt;head&gt;</span>{" "}
+                  <span className="font-medium">antes</span> do campo «Código no &lt;head&gt;», para respeitar a ordem
+                  habitual de medição de conversões.
+                </p>
+                <Textarea
+                  rows={4}
+                  placeholder={`<!-- Ex.: evento de conversão Google Ads -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=AW-…"></script>\n<script>…</script>`}
+                  value={String(configSettings.conversionTrackingScript ?? "")}
+                  onChange={(e) =>
+                    setConfigSettings((p) => ({ ...p, conversionTrackingScript: e.target.value }))
+                  }
+                  className={cn(
+                    "font-mono text-xs min-h-[5rem]",
+                    isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "",
+                  )}
+                  id={isEditor ? "presell-conversion-head-editor" : "conversionTrackingScript"}
+                />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">

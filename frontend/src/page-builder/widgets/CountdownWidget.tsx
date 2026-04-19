@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface CountdownContent {
   /** ISO date string for the deadline. */
@@ -51,7 +51,7 @@ export function CountdownWidget({ widget, device }: { widget: WidgetNode; device
 
   if (parts.expired) {
     return (
-      <div style={stylesToCss(widget.styles, device)}>
+      <div style={stylesToCssWidgetContent(widget.styles, device)}>
         <div
           style={{
             textAlign: "center",
@@ -87,7 +87,7 @@ export function CountdownWidget({ widget, device }: { widget: WidgetNode; device
         alignItems: "center",
         gap: 8,
         flexWrap: "wrap",
-        ...stylesToCss(widget.styles, device),
+        ...stylesToCssWidgetContent(widget.styles, device),
       }}
     >
       {visible.map((u, i) => (

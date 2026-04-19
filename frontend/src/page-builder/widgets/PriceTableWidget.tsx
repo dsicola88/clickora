@@ -1,5 +1,5 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import { Check, X } from "lucide-react";
 
 export interface PriceFeature {
@@ -52,7 +52,7 @@ export function PriceTableWidget({ widget, device }: { widget: WidgetNode; devic
   const borderRadius = c.borderRadius ?? 12;
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <div
         style={{
           background: cardBg,

@@ -29,6 +29,9 @@ const typography = (overrides: Partial<TypographyValue> = {}): TypographyValue =
   letterSpacing: 0,
   textAlign: "left",
   textTransform: "none",
+  fontStyle: "normal",
+  textDecoration: "none",
+  wordSpacing: 0,
   ...overrides,
 });
 

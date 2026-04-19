@@ -238,6 +238,16 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
         </header>
 
         <div className="space-y-4 px-5 py-4">
+          <div
+            className="rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] leading-snug text-editor-fg"
+            role="note"
+          >
+            <span className="font-semibold text-amber-100/95">Atenção:</span> esta biblioteca guarda só{" "}
+            <span className="font-medium">neste dispositivo</span>. Não cria página na conta nem em «Páginas criadas».
+            Para publicar no servidor e obter o link <span className="font-mono text-[10px]">/p/…</span>, fecha aqui e
+            usa <span className="font-medium">«Guardar na conta»</span> na barra de cima (com o link da oferta
+            preenchido).
+          </div>
           <div className="rounded-lg border border-editor-border bg-editor-bg/80 p-3">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-editor-fg-muted">Nova cópia</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

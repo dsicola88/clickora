@@ -1,10 +1,10 @@
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export function DividerWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const weight = (widget.content.weight as number) ?? 1;
   const style = (widget.content.style as string) ?? "solid";
-  const css = stylesToCss(widget.styles, device);
+  const css = stylesToCssWidgetContent(widget.styles, device);
   const { color, width, ...rest } = css;
   return (
     <div style={rest}>

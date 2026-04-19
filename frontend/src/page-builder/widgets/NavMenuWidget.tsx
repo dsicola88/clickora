@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface NavItem {
   id: string;
@@ -45,7 +45,7 @@ ${underlineOnHover ? `.${cls} a::after{content:"";position:absolute;left:0;botto
 `;
 
   return (
-    <nav style={stylesToCss(widget.styles, device)}>
+    <nav style={stylesToCssWidgetContent(widget.styles, device)}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <ul className={cls}>
         {items.map((item) => (

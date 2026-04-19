@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 export interface BackToTopContent {
   threshold: number;
@@ -31,7 +31,7 @@ export function BackToTopWidget({ widget, device }: { widget: WidgetNode; device
   }, [threshold]);
 
   return (
-    <div style={stylesToCss(widget.styles, device)}>
+    <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <button
         type="button"
         aria-label="Voltar ao topo"

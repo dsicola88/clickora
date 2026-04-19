@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import * as Icons from "lucide-react";
 
 export interface IconListItem {
@@ -20,7 +20,7 @@ export function IconListWidget({ widget, device }: { widget: WidgetNode; device:
   const titleColor = (c.titleColor as string) ?? "#0f172a";
   const descColor = (c.descColor as string) ?? "#64748b";
 
-  const outer = stylesToCss(widget.styles, device);
+  const outer = stylesToCssWidgetContent(widget.styles, device);
 
   if (!items.length) {
     return (

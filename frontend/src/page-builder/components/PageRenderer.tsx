@@ -1,8 +1,9 @@
 import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types";
 import { resolveResponsive } from "../store";
-import { stylesToCss } from "../style-utils";
+import { stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
+import { WidgetInlineStyle } from "../widget-custom-css";
 
 /**
  * Read-only renderer for a PageDocument.
@@ -71,6 +72,10 @@ function ColumnRender({ column, device }: { column: ColumnNode; device: DeviceTy
     <div
       style={{
         flexBasis: device === "mobile" ? "100%" : `${widthPct}%`,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        minWidth: 0,
         ...colStyle,
       }}
     >
@@ -78,7 +83,20 @@ function ColumnRender({ column, device }: { column: ColumnNode; device: DeviceTy
         const def = WIDGET_REGISTRY[widget.type];
         if (!def) return null;
         const Render = def.Render;
-        return <Render key={widget.id} widget={widget} device={device} />;
+        const shell = stylesToCssWidgetShell(widget.styles, device);
+        const wid = widget.cssId?.trim();
+        const wcls = widget.cssClasses?.trim();
+        return (
+          <div
+            key={widget.id}
+            id={wid || undefined}
+            className={wcls || undefined}
+            style={shell}
+          >
+            <WidgetInlineStyle widget={widget} />
+            <Render widget={widget} device={device} />
+          </div>
+        );
       })}
     </div>
   );

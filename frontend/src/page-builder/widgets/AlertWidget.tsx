@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCss } from "../style-utils";
+import { stylesToCssWidgetContent } from "../style-utils";
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
 type AlertVariant = "info" | "success" | "warning" | "danger";
@@ -52,7 +52,7 @@ export function AlertWidget({ widget, device }: { widget: WidgetNode; device: De
   const borderRadius = typeof c.borderRadius === "number" ? c.borderRadius : 10;
   const [dismissed, setDismissed] = useState(false);
 
-  const outer = stylesToCss(widget.styles, device);
+  const outer = stylesToCssWidgetContent(widget.styles, device);
 
   if (dismissed) return null;
 
