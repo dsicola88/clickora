@@ -5,7 +5,8 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useParams } from "react-router-dom";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
   ResizableHandle,
@@ -25,6 +26,13 @@ const EDITOR_RESIZE_HANDLE =
   "group relative w-1.5 max-w-[6px] shrink-0 rounded-sm border-0 bg-editor-border/70 outline-none transition-colors hover:bg-editor-accent/40 data-[resize-handle-state=drag]:bg-editor-accent/55 data-[panel-group-direction=horizontal]:cursor-col-resize focus-visible:ring-2 focus-visible:ring-editor-accent focus-visible:ring-offset-1 focus-visible:ring-offset-editor-bg";
 
 export function PageEditor() {
+  const { id: routePresellId } = useParams<{ id?: string }>();
+  /** Larguras guardadas no localStorage por página (evita misturar presells diferentes). */
+  const panelLayoutAutoSaveId = useMemo(
+    () => `clickora-pb-panels:${routePresellId?.trim() || "new"}`,
+    [routePresellId],
+  );
+
   const preview = useBuilder((s) => s.preview);
   const structurePanelOpen = useBuilder((s) => s.structurePanelOpen);
   const structurePanelRef = useRef<ImperativePanelHandle>(null);
@@ -101,8 +109,13 @@ export function PageEditor() {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="flex h-full min-h-0 flex-col bg-editor-bg">
         <EditorTopbar />
-        <ResizablePanelGroup direction="horizontal" className="min-h-0 min-w-0 flex-1">
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="min-h-0 min-w-0 flex-1"
+          autoSaveId={panelLayoutAutoSaveId}
+        >
           <ResizablePanel
+            id="page-builder-widgets"
             defaultSize={18}
             minSize={12}
             maxSize={38}
@@ -111,7 +124,12 @@ export function PageEditor() {
             <WidgetSidebar />
           </ResizablePanel>
           <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
-          <ResizablePanel defaultSize={58} minSize={32} className="min-h-0 min-w-0 overflow-hidden">
+          <ResizablePanel
+            id="page-builder-canvas"
+            defaultSize={58}
+            minSize={32}
+            className="min-h-0 min-w-0 overflow-hidden"
+          >
             <Canvas />
           </ResizablePanel>
           <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
@@ -130,7 +148,13 @@ export function PageEditor() {
             <StructureNavigator />
           </ResizablePanel>
           <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
-          <ResizablePanel defaultSize={24} minSize={14} maxSize={44} className="min-h-0 min-w-0 overflow-hidden">
+          <ResizablePanel
+            id="page-builder-properties"
+            defaultSize={24}
+            minSize={14}
+            maxSize={44}
+            className="min-h-0 min-w-0 overflow-hidden"
+          >
             <PropertyPanel />
           </ResizablePanel>
         </ResizablePanelGroup>
