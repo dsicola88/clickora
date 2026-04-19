@@ -100,7 +100,6 @@ export function AlertWidget({ widget, device }: { widget: WidgetNode; device: De
                 lineHeight: 1.55,
                 color: palette.body,
               }}
-              // eslint-disable-next-line react/no-danger -- author-controlled rich text
               dangerouslySetInnerHTML={{ __html: message }}
             />
           ) : null}

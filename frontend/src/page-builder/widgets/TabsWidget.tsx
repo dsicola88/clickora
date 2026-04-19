@@ -113,7 +113,6 @@ export function TabsWidget({ widget, device }: { widget: WidgetNode; device: Dev
         >
           {current?.html ? (
             <div
-              // eslint-disable-next-line react/no-danger -- author-controlled rich text
               dangerouslySetInnerHTML={{ __html: current.html }}
             />
           ) : (

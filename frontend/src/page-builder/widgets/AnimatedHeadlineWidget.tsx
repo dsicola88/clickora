@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCss } from "../style-utils";
 
@@ -21,7 +21,10 @@ export function AnimatedHeadlineWidget({
 }) {
   const c = widget.content as Partial<AnimatedHeadlineContent>;
   const prefix = c.prefix ?? "Construa páginas";
-  const words = c.rotatingWords?.length ? c.rotatingWords : ["incríveis", "rápidas", "que vendem"];
+  const words = useMemo(
+    () => (c.rotatingWords?.length ? c.rotatingWords : ["incríveis", "rápidas", "que vendem"]),
+    [c.rotatingWords],
+  );
   const suffix = c.suffix ?? "em minutos.";
   const animation = c.animation ?? "fade";
   const intervalMs = c.intervalMs ?? 2200;

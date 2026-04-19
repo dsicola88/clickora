@@ -85,7 +85,6 @@ export function IconListWidget({ widget, device }: { widget: WidgetNode; device:
                 {item.description ? (
                   <span
                     style={{ display: "block", fontSize: 14, lineHeight: 1.55, color: descColor }}
-                    // eslint-disable-next-line react/no-danger -- author-controlled rich text
                     dangerouslySetInnerHTML={{ __html: item.description }}
                   />
                 ) : null}

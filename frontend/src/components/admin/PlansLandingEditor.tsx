@@ -916,8 +916,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     };
   };
 
+  /* buildLandingExtrasPayload() usa apenas estados já listados; a referência da função muda a cada render. */
   const previewExtras = useMemo(
     () => coerceLandingExtras(buildLandingExtrasPayload()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       appearance,
       landingTheme,
