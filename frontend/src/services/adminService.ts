@@ -194,7 +194,10 @@ export const adminService = {
           "Content-Type": "application/json",
         },
       });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      const body = (await res.json().catch(() => ({}))) as PlansLandingPublic & {
+        error?: string;
+        message?: string;
+      };
       if (!res.ok) {
         return { data: null, error: body.error || `Erro ${res.status}` };
       }

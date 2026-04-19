@@ -91,6 +91,7 @@ import {
   resolvedHeroTitleClassNameFixed,
   resolvedIntroClasses,
 } from "@/lib/plansLandingTextStyles";
+import type { PlansLandingPublic } from "@/types/api";
 
 const ADMIN_KEY = ["admin-plans-landing"] as const;
 const PUBLIC_KEY = ["plans-landing-public"] as const;
@@ -1056,7 +1057,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     }
     setSaving(true);
     try {
-      const { error } = await adminService.patchPlansLanding({
+      const { data: patched, error } = await adminService.patchPlansLanding({
         badge_text: badgeText.trim() === "" ? null : badgeText.trim(),
         hero_title: heroTitle.trim(),
         hero_subtitle: heroSubtitle.trim() === "" ? null : heroSubtitle.trim(),
@@ -1092,8 +1093,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         toast.error(error);
         return;
       }
+      /** Evita corrida: refetches antigos do GET não podem sobrescrever resposta fresca do PATCH. */
+      await queryClient.cancelQueries({ queryKey: ADMIN_KEY });
+      if (patched) {
+        const { ok: _ok, ...row } = patched as PlansLandingPublic & { ok?: boolean };
+        queryClient.setQueryData(ADMIN_KEY, row as PlansLandingPublic);
+      }
       toast.success("Landing de planos atualizada.");
-      queryClient.invalidateQueries({ queryKey: ADMIN_KEY });
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
     } finally {
@@ -1108,8 +1114,16 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         toast.error(result.error);
         return;
       }
+      const at = result.data?.updated_at;
+      if (at) {
+        void queryClient.cancelQueries({ queryKey: ADMIN_KEY });
+        queryClient.setQueryData(ADMIN_KEY, (prev) =>
+          prev
+            ? { ...prev, has_hero_image: true, updated_at: at }
+            : prev,
+        );
+      }
       toast.success(result.data?.message ?? "Imagem publicada.");
-      queryClient.invalidateQueries({ queryKey: ADMIN_KEY });
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
     },
@@ -1122,8 +1136,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         toast.error(result.error);
         return;
       }
+      const row = result.data;
+      if (row?.updated_at) {
+        void queryClient.cancelQueries({ queryKey: ADMIN_KEY });
+        const { message: _m, ...rest } = row as PlansLandingPublic & { message?: string };
+        queryClient.setQueryData(ADMIN_KEY, rest as PlansLandingPublic);
+      }
       toast.success("Imagem do hero removida.");
-      queryClient.invalidateQueries({ queryKey: ADMIN_KEY });
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
     },

@@ -350,7 +350,7 @@ export const plansLandingController = {
 
   async clearHero(_req: Request, res: Response) {
     removeExistingPlansHero();
-    await prismaAdmin.plansLandingConfig.upsert({
+    const row = await prismaAdmin.plansLandingConfig.upsert({
       where: { id: "default" },
       create: {
         id: "default",
@@ -360,6 +360,6 @@ export const plansLandingController = {
       },
       update: { heroImageExt: null, heroImageMime: null },
     });
-    return res.json({ message: "Imagem do hero removida." });
+    return res.json({ message: "Imagem do hero removida.", ...mapRow(row as Row) });
   },
 };
