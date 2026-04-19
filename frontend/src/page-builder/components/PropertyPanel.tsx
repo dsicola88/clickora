@@ -30,10 +30,13 @@ import {
 import {
   BackToTopContentEditor,
   DateContentEditor,
+  InfoBoxContentEditor,
   PhoneCallContentEditor,
   ReadingProgressContentEditor,
   StickyVideoContentEditor,
+  TickerContentEditor,
 } from "./extra-widgets-editors";
+import type { NavItem } from "../widgets/NavMenuWidget";
 
 type Tab = "content" | "style" | "advanced";
 
@@ -409,6 +412,12 @@ function WidgetContentTab({
       return <PhoneCallContentEditor content={c} setContent={setContent} />;
     case "dateWidget":
       return <DateContentEditor content={c} setContent={setContent} />;
+    case "navMenu":
+      return <NavMenuContentEditor content={c} setContent={setContent} />;
+    case "ticker":
+      return <TickerContentEditor content={c} setContent={setContent} />;
+    case "infoBox":
+      return <InfoBoxContentEditor content={c} setContent={setContent} />;
     default:
       return null;
   }
@@ -1203,6 +1212,59 @@ function ListEditor<T extends ListItem>({
         </button>
       </div>
     </Section>
+  );
+}
+
+function NavMenuContentEditor({
+  content,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  const items = (content.items as NavItem[]) ?? [];
+  return (
+    <>
+      <ListEditor
+        title="Links do menu"
+        items={items}
+        onChange={(next) => setContent({ items: next })}
+        itemLabel={(it) => it.label || "Link"}
+        newItem={() => ({ id: `nav_${nanoid(6)}`, label: "Novo link", href: "#" })}
+        renderFields={(item, update) => (
+          <>
+            <TextField label="Texto" value={item.label} onChange={(v) => update({ label: v })} />
+            <TextField label="URL / âncora" value={item.href} onChange={(v) => update({ href: v })} />
+          </>
+        )}
+      />
+      <Section title="Aparência">
+        <SelectField
+          label="Alinhamento"
+          value={(content.align as string) ?? "center"}
+          options={[
+            { value: "left", label: "Esquerda" },
+            { value: "center", label: "Centro" },
+            { value: "right", label: "Direita" },
+          ]}
+          onChange={(v) => setContent({ align: v })}
+        />
+        <ColorField label="Cor dos links" value={(content.color as string) ?? "#0f172a"} onChange={(v) => setContent({ color: v })} />
+        <ColorField label="Cor ao passar o rato" value={(content.hoverColor as string) ?? "#e63946"} onChange={(v) => setContent({ hoverColor: v })} />
+        <NumberField label="Tamanho da fonte" value={(content.fontSize as number) ?? 15} onChange={(v) => setContent({ fontSize: v })} min={10} max={24} />
+        <NumberField label="Peso da fonte" value={(content.fontWeight as number) ?? 500} onChange={(v) => setContent({ fontWeight: v })} min={400} max={800} step={100} />
+        <NumberField label="Espaço entre links" value={(content.gap as number) ?? 24} onChange={(v) => setContent({ gap: v })} min={8} max={48} />
+        <SelectField
+          label="Sublinhado ao hover"
+          value={(content.underlineOnHover as boolean) !== false ? "yes" : "no"}
+          options={[
+            { value: "yes", label: "Sim" },
+            { value: "no", label: "Não" },
+          ]}
+          onChange={(v) => setContent({ underlineOnHover: v === "yes" })}
+        />
+      </Section>
+    </>
   );
 }
 

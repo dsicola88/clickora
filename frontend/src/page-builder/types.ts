@@ -31,7 +31,10 @@ export type WidgetType =
   | "readingProgress"
   | "stickyVideo"
   | "phoneCall"
-  | "dateWidget";
+  | "dateWidget"
+  | "navMenu"
+  | "ticker"
+  | "infoBox";
 
 export interface PageSeo {
   title?: string;

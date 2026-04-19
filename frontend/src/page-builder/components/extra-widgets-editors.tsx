@@ -235,3 +235,113 @@ export function DateContentEditor({
     </Section>
   );
 }
+
+export function TickerContentEditor({
+  content: c,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  const items = (c.items as string[]) ?? [];
+  const text = items.join("\n");
+  return (
+    <Section title="Faixa (ticker)">
+      <TextareaField
+        label="Mensagens (uma por linha)"
+        value={text}
+        onChange={(v) =>
+          setContent({
+            items: v
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          })
+        }
+        rows={5}
+        placeholder={"Linha 1\nLinha 2\nLinha 3"}
+      />
+      <NumberField label="Segundos por ciclo (velocidade)" value={(c.speed as number) ?? 25} onChange={(v) => setContent({ speed: v })} min={8} max={90} />
+      <SelectField
+        label="Direção"
+        value={(c.direction as string) ?? "left"}
+        options={[
+          { value: "left", label: "← Esquerda" },
+          { value: "right", label: "Direita →" },
+        ]}
+        onChange={(v) => setContent({ direction: v })}
+      />
+      <TextField label="Separador entre itens" value={(c.separator as string) ?? "•"} onChange={(v) => setContent({ separator: v })} />
+      <NumberField label="Tamanho do texto" value={(c.fontSize as number) ?? 16} onChange={(v) => setContent({ fontSize: v })} min={10} max={28} />
+      <ColorField label="Cor do texto" value={(c.color as string) ?? "#0f172a"} onChange={(v) => setContent({ color: v })} />
+      <ColorField label="Fundo da faixa" value={(c.bg as string) ?? "transparent"} onChange={(v) => setContent({ bg: v })} />
+      <NumberField label="Padding vertical" value={(c.paddingY as number) ?? 12} onChange={(v) => setContent({ paddingY: v })} min={4} max={32} />
+      <NumberField label="Espaço entre mensagens" value={(c.gap as number) ?? 40} onChange={(v) => setContent({ gap: v })} min={16} max={80} />
+    </Section>
+  );
+}
+
+export function InfoBoxContentEditor({
+  content: c,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  return (
+    <>
+      <Section title="Ícone (lucide-react)">
+        <TextField
+          label="Nome do ícone"
+          value={(c.iconName as string) ?? "sparkles"}
+          onChange={(v) => setContent({ iconName: v.toLowerCase().trim() })}
+          placeholder="sparkles, shield, zap…"
+        />
+        <ColorField label="Cor do ícone" value={(c.iconColor as string) ?? "#e63946"} onChange={(v) => setContent({ iconColor: v })} />
+        <ColorField label="Fundo do ícone" value={(c.iconBg as string) ?? "#fef2f2"} onChange={(v) => setContent({ iconBg: v })} />
+        <SelectField
+          label="Forma do fundo"
+          value={(c.iconShape as string) ?? "circle"}
+          options={[
+            { value: "circle", label: "Círculo" },
+            { value: "square", label: "Quadrado" },
+            { value: "none", label: "Nenhum" },
+          ]}
+          onChange={(v) => setContent({ iconShape: v })}
+        />
+      </Section>
+      <Section title="Conteúdo">
+        <TextField label="Título" value={(c.title as string) ?? ""} onChange={(v) => setContent({ title: v })} />
+        <TextareaField label="Descrição" value={(c.description as string) ?? ""} onChange={(v) => setContent({ description: v })} rows={3} />
+        <TextField label="Texto do link" value={(c.ctaText as string) ?? ""} onChange={(v) => setContent({ ctaText: v })} />
+        <TextField label="URL do link" value={(c.ctaHref as string) ?? ""} onChange={(v) => setContent({ ctaHref: v })} />
+      </Section>
+      <Section title="Layout">
+        <SelectField
+          label="Disposição"
+          value={(c.layout as string) ?? "stacked"}
+          options={[
+            { value: "stacked", label: "Empilhado" },
+            { value: "side", label: "Ícone ao lado (desktop)" },
+          ]}
+          onChange={(v) => setContent({ layout: v })}
+        />
+        <SelectField
+          label="Alinhamento"
+          value={(c.align as string) ?? "center"}
+          options={[
+            { value: "left", label: "Esquerda" },
+            { value: "center", label: "Centro" },
+            { value: "right", label: "Direita" },
+          ]}
+          onChange={(v) => setContent({ align: v })}
+        />
+        <ColorField label="Cor do título" value={(c.titleColor as string) ?? "#0f172a"} onChange={(v) => setContent({ titleColor: v })} />
+        <ColorField label="Cor da descrição" value={(c.descColor as string) ?? "#475569"} onChange={(v) => setContent({ descColor: v })} />
+        <ColorField label="Cor do link" value={(c.ctaColor as string) ?? "#e63946"} onChange={(v) => setContent({ ctaColor: v })} />
+        <ColorField label="Fundo do bloco" value={(c.bg as string) ?? "transparent"} onChange={(v) => setContent({ bg: v })} />
+        <NumberField label="Raio dos cantos" value={(c.borderRadius as number) ?? 0} onChange={(v) => setContent({ borderRadius: v })} min={0} max={24} />
+      </Section>
+    </>
+  );
+}

@@ -30,6 +30,9 @@ import {
   PictureInPicture,
   Phone,
   CalendarDays,
+  PanelTop,
+  Newspaper,
+  Info,
 } from "lucide-react";
 import { HeadingWidget } from "./widgets/HeadingWidget";
 import { TextWidget } from "./widgets/TextWidget";
@@ -59,6 +62,9 @@ import { ReadingProgressWidget } from "./widgets/ReadingProgressWidget";
 import { StickyVideoWidget } from "./widgets/StickyVideoWidget";
 import { PhoneCallWidget } from "./widgets/PhoneCallWidget";
 import { DateWidget } from "./widgets/DateWidget";
+import { NavMenuWidget } from "./widgets/NavMenuWidget";
+import { TickerWidget } from "./widgets/TickerWidget";
+import { InfoBoxWidget } from "./widgets/InfoBoxWidget";
 
 export interface WidgetDefinition {
   type: WidgetType;
@@ -247,6 +253,27 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
     category: "basic",
     icon: CalendarDays,
     Render: DateWidget,
+  },
+  navMenu: {
+    type: "navMenu",
+    label: "Menu de navegação",
+    category: "basic",
+    icon: PanelTop,
+    Render: NavMenuWidget,
+  },
+  ticker: {
+    type: "ticker",
+    label: "Faixa de mensagens (ticker)",
+    category: "basic",
+    icon: Newspaper,
+    Render: TickerWidget,
+  },
+  infoBox: {
+    type: "infoBox",
+    label: "Caixa de informação",
+    category: "pro",
+    icon: Info,
+    Render: InfoBoxWidget,
   },
 };
 

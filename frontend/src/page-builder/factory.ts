@@ -554,6 +554,57 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     },
     styles: { margin: r(spacing(0, 0, 12, 0)) },
   }),
+  navMenu: () => ({
+    content: {
+      items: [
+        { id: id("nav_"), label: "Início", href: "#" },
+        { id: id("nav_"), label: "Benefícios", href: "#beneficios" },
+        { id: id("nav_"), label: "Contacto", href: "#contato" },
+      ],
+      align: "center",
+      color: "#0f172a",
+      hoverColor: "#e63946",
+      fontSize: 15,
+      fontWeight: 500,
+      gap: 24,
+      underlineOnHover: true,
+    },
+    styles: { padding: r(spacing(8, 0, 8, 0)) },
+  }),
+  ticker: () => ({
+    content: {
+      items: ["Envio seguro", "Garantia", "Pagamento protegido"],
+      speed: 25,
+      direction: "left",
+      separator: "•",
+      fontSize: 15,
+      color: "#334155",
+      bg: "#f1f5f9",
+      paddingY: 10,
+      gap: 36,
+    },
+    styles: { margin: r(spacing(0, 0, 0, 0)) },
+  }),
+  infoBox: () => ({
+    content: {
+      iconName: "sparkles",
+      iconColor: "#e63946",
+      iconBg: "#fef2f2",
+      iconShape: "circle",
+      title: "Benefício principal",
+      description: "Explique em uma frase o valor para o visitante.",
+      ctaText: "Saber mais",
+      ctaHref: "#",
+      layout: "stacked",
+      align: "center",
+      titleColor: "#0f172a",
+      descColor: "#475569",
+      ctaColor: "#e63946",
+      bg: "transparent",
+      borderRadius: 0,
+    },
+    styles: { padding: r(spacing(12, 12, 12, 12)) },
+  }),
 };
 
 export function createWidget(type: WidgetType): WidgetNode {
