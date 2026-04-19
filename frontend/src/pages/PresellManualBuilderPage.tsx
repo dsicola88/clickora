@@ -46,7 +46,8 @@ function readTrackingHealthVisible(): boolean {
   } catch {
     /* ignore */
   }
-  return true;
+  /* Sem preferência guardada: oculto por defeito para dar mais espaço ao canvas. */
+  return false;
 }
 
 function sanitizeSlug(raw: string): string {
