@@ -76,7 +76,7 @@ export function PropertyPanel() {
 
 function EmptyPanel() {
   return (
-    <aside className="flex w-80 shrink-0 flex-col items-center justify-center gap-3 border-l border-editor-border bg-editor-panel p-6 text-center text-editor-fg-muted">
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center gap-3 border-l border-editor-border bg-editor-panel p-6 text-center text-editor-fg-muted">
       <div className="rounded-full bg-editor-panel-2 p-4">
         <Settings2 className="h-6 w-6" />
       </div>
@@ -105,7 +105,7 @@ function PanelShell({
   children: React.ReactNode;
 }) {
   return (
-    <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col border-l border-editor-border bg-editor-panel text-editor-fg">
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-editor-border bg-editor-panel text-editor-fg">
       <div className="border-b border-editor-border p-3">
         <div className="flex items-center gap-2">
           <span

@@ -10,7 +10,7 @@ export function WidgetSidebar() {
     : WIDGET_LIST;
 
   return (
-    <aside className="flex h-full min-h-0 w-64 shrink-0 flex-col border-r border-editor-border bg-editor-panel text-editor-fg">
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-r border-editor-border bg-editor-panel text-editor-fg">
       <div className="border-b border-editor-border p-3">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
           Elementos

@@ -5,6 +5,13 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { useCallback, useLayoutEffect, useRef } from "react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { useBuilder } from "../store";
 import type { WidgetType } from "../types";
 import { createWidget, createSection } from "../factory";
@@ -14,9 +21,28 @@ import { Canvas } from "./Canvas";
 import { PropertyPanel } from "./PropertyPanel";
 import { StructureNavigator } from "./StructureNavigator";
 
+const EDITOR_RESIZE_HANDLE =
+  "group relative w-1.5 max-w-[6px] shrink-0 rounded-sm border-0 bg-editor-border/70 outline-none transition-colors hover:bg-editor-accent/40 data-[resize-handle-state=drag]:bg-editor-accent/55 data-[panel-group-direction=horizontal]:cursor-col-resize focus-visible:ring-2 focus-visible:ring-editor-accent focus-visible:ring-offset-1 focus-visible:ring-offset-editor-bg";
+
 export function PageEditor() {
   const preview = useBuilder((s) => s.preview);
   const structurePanelOpen = useBuilder((s) => s.structurePanelOpen);
+  const structurePanelRef = useRef<ImperativePanelHandle>(null);
+
+  const syncStructurePanelOpen = useCallback((open: boolean) => {
+    useBuilder.setState({ structurePanelOpen: open });
+  }, []);
+
+  useLayoutEffect(() => {
+    const p = structurePanelRef.current;
+    if (!p) return;
+    try {
+      if (structurePanelOpen) p.expand(12);
+      else p.collapse();
+    } catch {
+      /* painel ainda não disponível */
+    }
+  }, [structurePanelOpen]);
   const insertWidgetNode = useBuilder((s) => s.insertWidgetNode);
   const addSection = useBuilder((s) => s.addSection);
   const doc = useBuilder((s) => s.doc);
@@ -75,12 +101,39 @@ export function PageEditor() {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="flex h-full min-h-0 flex-col bg-editor-bg">
         <EditorTopbar />
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <WidgetSidebar />
-          <Canvas />
-          {structurePanelOpen ? <StructureNavigator /> : null}
-          <PropertyPanel />
-        </div>
+        <ResizablePanelGroup direction="horizontal" className="min-h-0 min-w-0 flex-1">
+          <ResizablePanel
+            defaultSize={18}
+            minSize={12}
+            maxSize={38}
+            className="min-h-0 min-w-0 overflow-hidden"
+          >
+            <WidgetSidebar />
+          </ResizablePanel>
+          <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
+          <ResizablePanel defaultSize={58} minSize={32} className="min-h-0 min-w-0 overflow-hidden">
+            <Canvas />
+          </ResizablePanel>
+          <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
+          <ResizablePanel
+            ref={structurePanelRef}
+            id="page-builder-structure"
+            collapsible
+            collapsedSize={0}
+            defaultSize={0}
+            minSize={10}
+            maxSize={28}
+            className="min-h-0 min-w-0 overflow-hidden"
+            onCollapse={() => syncStructurePanelOpen(false)}
+            onExpand={() => syncStructurePanelOpen(true)}
+          >
+            <StructureNavigator />
+          </ResizablePanel>
+          <ResizableHandle className={EDITOR_RESIZE_HANDLE} />
+          <ResizablePanel defaultSize={24} minSize={14} maxSize={44} className="min-h-0 min-w-0 overflow-hidden">
+            <PropertyPanel />
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </DndContext>
   );
