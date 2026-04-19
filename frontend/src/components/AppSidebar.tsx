@@ -15,6 +15,7 @@ import {
   Home,
   Sparkles,
   LayoutGrid,
+  FileStack,
   LinkIcon,
   Plug,
   Settings,
@@ -62,6 +63,12 @@ type NavItem = {
 
 const presellNavItems: NavItem[] = [
   { title: "Minhas Presells", url: "/presell/dashboard", icon: FileText },
+  {
+    title: "Páginas criadas",
+    url: "/presell/paginas-criadas",
+    icon: FileStack,
+    hint: "Só páginas do editor manual da sua conta: visualizar, editar, exportar ou remover.",
+  },
   {
     title: "Editor manual",
     url: "/presell/builder",

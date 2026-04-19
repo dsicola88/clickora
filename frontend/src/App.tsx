@@ -13,6 +13,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import PresellDashboard from "./pages/PresellDashboard";
+import PresellManualPagesPage from "./pages/PresellManualPagesPage";
 import PresellCreator from "./pages/PresellCreator";
 import TrackingDashboard from "./pages/TrackingDashboard";
 import Vendas from "./pages/Vendas";
@@ -40,6 +41,7 @@ const appRoutes = [
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminPanel /> },
   { path: "/presell/dashboard", element: <PresellDashboard /> },
+  { path: "/presell/paginas-criadas", element: <PresellManualPagesPage /> },
   { path: "/presell/templates", element: <PresellCreator /> },
   { path: "/tracking/dashboard", element: <TrackingDashboard /> },
   { path: "/tracking/plataformas", element: <Plataformas /> },
