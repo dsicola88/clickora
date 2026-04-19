@@ -76,6 +76,7 @@ export type PresellUiStrings = {
   cookieAccept: string;
   cookiePolicy: string;
   midCta: string;
+  /** Texto neutro para o visitante (sem mencionar afiliado ou rastreamento). */
   footerNote: string;
   discountUrgency: string;
   discountSocial: string;
