@@ -69,7 +69,7 @@ function sanitizeSlug(raw: string): string {
 }
 
 export default function PresellManualBuilderPage() {
-  const { id: routeId } = useParams<{ id: string }>();
+  const { id: routeId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();

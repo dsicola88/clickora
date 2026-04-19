@@ -43,14 +43,19 @@ export function PageEditor() {
   }, []);
 
   useLayoutEffect(() => {
-    const p = structurePanelRef.current;
-    if (!p) return;
-    try {
-      if (structurePanelOpen) p.expand(12);
-      else p.collapse();
-    } catch {
-      /* painel ainda não disponível */
-    }
+    const apply = () => {
+      const p = structurePanelRef.current;
+      if (!p) return;
+      try {
+        if (structurePanelOpen) p.expand(12);
+        else p.collapse();
+      } catch {
+        /* painel ainda não disponível */
+      }
+    };
+    apply();
+    const raf = requestAnimationFrame(apply);
+    return () => cancelAnimationFrame(raf);
   }, [structurePanelOpen]);
   const insertWidgetNode = useBuilder((s) => s.insertWidgetNode);
   const addSection = useBuilder((s) => s.addSection);
