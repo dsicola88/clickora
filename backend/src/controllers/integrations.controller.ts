@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
 import { createPostbackToken, verifyPostbackToken } from "../lib/postbackToken";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
-import { sendTransactionalEmail } from "../lib/mailer";
+import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
 import {
   extractClickIdFromPayload,
   flattenAffiliatePayload,
@@ -52,7 +52,7 @@ export const integrationsController = {
       hook_url,
       sale_notify_email: user.saleNotifyEmail ?? "",
       fallback_account_email: user.email,
-      smtp_configured: Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM),
+      smtp_configured: isTransactionalEmailConfigured(),
     });
   },
 
@@ -212,10 +212,10 @@ export const integrationsController = {
     });
     if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_FROM) {
+    if (!isTransactionalEmailConfigured()) {
       return res.status(503).json({
         error:
-          "SMTP não configurado no servidor. O administrador deve definir SMTP_HOST e SMTP_FROM na API.",
+          "SMTP não configurado no servidor. Defina SMTP_FROM e (SMTP_HOST ou RESEND_API_KEY) na API.",
       });
     }
 
