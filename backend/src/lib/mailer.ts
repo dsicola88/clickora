@@ -12,9 +12,68 @@ export function isTransactionalEmailConfigured(): boolean {
 }
 
 /**
- * Envio transacional via SMTP (opcional). Sem variáveis de ambiente, devolve erro claro.
- * Suporta Resend: `RESEND_API_KEY` + `SMTP_FROM` (usa smtp.resend.com:587 STARTTLS, user `resend`).
- * Ou SMTP genérico: `SMTP_HOST`, `SMTP_FROM`, e opcionalmente `SMTP_USER` / `SMTP_PASS` (a pass pode ser `RESEND_API_KEY`).
+ * Resend: API HTTPS (recomendado em cloud — evita timeouts de SMTP outbound).
+ * @see https://resend.com/docs/api-reference/emails/send-email
+ */
+async function sendViaResendHttpApi(params: {
+  apiKey: string;
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+}): Promise<SendMailResult> {
+  const controller = new AbortController();
+  const kill = setTimeout(() => controller.abort(), 22_000);
+  try {
+    const htmlBody =
+      params.html ?? `<pre style="font-family:system-ui,sans-serif">${escapeHtml(params.text)}</pre>`;
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: params.from,
+        to: [params.to],
+        subject: params.subject,
+        text: params.text,
+        html: htmlBody,
+      }),
+      signal: controller.signal,
+    });
+    const raw = await res.text();
+    if (!res.ok) {
+      let msg = `Resend API HTTP ${res.status}`;
+      try {
+        const j = JSON.parse(raw) as { message?: string };
+        if (j.message) msg = `${msg}: ${j.message}`;
+        else if (raw) msg = `${msg}: ${raw.slice(0, 280)}`;
+      } catch {
+        if (raw) msg = `${msg}: ${raw.slice(0, 280)}`;
+      }
+      return { sent: false, reason: msg };
+    }
+    return { sent: true };
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      return {
+        sent: false,
+        reason:
+          "Timeout ao contactar api.resend.com (HTTPS). Verifique rede ou tente SMTP explícito (SMTP_HOST=smtp.resend.com).",
+      };
+    }
+    const msg = e instanceof Error ? e.message : "Erro ao enviar via Resend API";
+    return { sent: false, reason: msg };
+  } finally {
+    clearTimeout(kill);
+  }
+}
+
+/**
+ * Envio transacional: com só `RESEND_API_KEY` + `SMTP_FROM` usa **API HTTPS Resend** (sem SMTP).
+ * Com `SMTP_HOST` definido usa Nodemailer (Gmail, Resend SMTP, etc.).
  */
 export async function sendTransactionalEmail(params: {
   to: string;
@@ -24,28 +83,40 @@ export async function sendTransactionalEmail(params: {
 }): Promise<SendMailResult> {
   const from = process.env.SMTP_FROM?.trim();
   const resendKey = process.env.RESEND_API_KEY?.trim();
-  let host = process.env.SMTP_HOST?.trim();
+  const explicitHost = process.env.SMTP_HOST?.trim();
+
+  if (!from) {
+    return {
+      sent: false,
+      reason:
+        "Servidor sem remetente. Defina SMTP_FROM e (RESEND_API_KEY ou SMTP_HOST) no .env da API.",
+    };
+  }
+
+  if (resendKey && !explicitHost) {
+    return sendViaResendHttpApi({
+      apiKey: resendKey,
+      from,
+      to: params.to,
+      subject: params.subject,
+      text: params.text,
+      html: params.html,
+    });
+  }
+
+  if (!explicitHost) {
+    return {
+      sent: false,
+      reason:
+        "Servidor sem SMTP/API. Defina SMTP_FROM e (RESEND_API_KEY ou SMTP_HOST) no .env da API.",
+    };
+  }
+
+  let host = explicitHost;
   let port = Number(process.env.SMTP_PORT || "587");
   let secure = process.env.SMTP_SECURE === "true" || port === 465;
   let user = process.env.SMTP_USER?.trim();
   let pass = process.env.SMTP_PASS?.trim() || resendKey;
-
-  if (!host && from && resendKey) {
-    host = "smtp.resend.com";
-    /* 587 + STARTTLS costuma ser menos bloqueado em cloud (ex. Railway) do que 465 SSL. */
-    port = 587;
-    secure = false;
-    user = "resend";
-    pass = resendKey;
-  }
-
-  if (!from || !host) {
-    return {
-      sent: false,
-      reason:
-        "Servidor sem SMTP configurado. Defina SMTP_FROM e (SMTP_HOST ou RESEND_API_KEY) no .env da API. Opcionalmente SMTP_PORT, SMTP_USER, SMTP_PASS.",
-    };
-  }
 
   if (!user && pass && host.includes("resend.com")) {
     user = "resend";
