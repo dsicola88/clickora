@@ -1,5 +1,15 @@
 import { apiClient } from "@/lib/apiClient";
 
+/** Timeout longo: envio SMTP no servidor pode demorar; evita spinner infinito no browser. */
+function signalWithTimeout(ms: number): AbortSignal {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+}
+
 export const integrationsService = {
   async getAffiliateWebhookInfo() {
     return apiClient.get<{
@@ -16,8 +26,13 @@ export const integrationsService = {
     });
   },
 
-   async testSaleEmail() {
-    return apiClient.post<{ ok: boolean; sent_to: string }>("/integrations/test-sale-email");
+  async testSaleEmail() {
+    return apiClient.post<{ ok: boolean; sent_to: string }>(
+      "/integrations/test-sale-email",
+      undefined,
+      undefined,
+      signalWithTimeout(55_000),
+    );
   },
 
   async getGoogleAdsSettings() {

@@ -41,15 +41,18 @@ class ApiClient {
       method?: string;
       body?: unknown;
       headers?: Record<string, string>;
+      /** Cancela o pedido (ex.: timeout em operações lentas como envio SMTP). */
+      signal?: AbortSignal;
     } = {}
   ): Promise<{ data: T | null; error: string | null }> {
-    const { method = "GET", body, headers } = options;
+    const { method = "GET", body, headers, signal } = options;
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method,
         headers: this.getHeaders(headers),
         body: body ? JSON.stringify(body) : undefined,
+        signal,
       });
 
       if (!response.ok) {
@@ -89,6 +92,16 @@ class ApiClient {
       const data = await response.json().catch(() => null);
       return { data: data as T, error: null };
     } catch (err: unknown) {
+      const aborted =
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError");
+      if (aborted) {
+        return {
+          data: null,
+          error:
+            "Pedido cancelado ou expirou (timeout). Verifique se a API responde ou tente de novo dentro de instantes.",
+        };
+      }
       const message = err instanceof Error ? err.message : "Erro de conexão com o servidor";
       return { data: null, error: message };
     }
@@ -149,8 +162,8 @@ class ApiClient {
     }
   }
 
-  post<T>(endpoint: string, body?: unknown, headers?: Record<string, string>) {
-    return this.request<T>(endpoint, { method: "POST", body, headers });
+  post<T>(endpoint: string, body?: unknown, headers?: Record<string, string>, signal?: AbortSignal) {
+    return this.request<T>(endpoint, { method: "POST", body, headers, signal });
   }
 
   put<T>(endpoint: string, body?: unknown) {

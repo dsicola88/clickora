@@ -13,7 +13,7 @@ export function isTransactionalEmailConfigured(): boolean {
 
 /**
  * Envio transacional via SMTP (opcional). Sem variáveis de ambiente, devolve erro claro.
- * Suporta Resend: `RESEND_API_KEY` + `SMTP_FROM` (usa smtp.resend.com:465, user `resend`).
+ * Suporta Resend: `RESEND_API_KEY` + `SMTP_FROM` (usa smtp.resend.com:587 STARTTLS, user `resend`).
  * Ou SMTP genérico: `SMTP_HOST`, `SMTP_FROM`, e opcionalmente `SMTP_USER` / `SMTP_PASS` (a pass pode ser `RESEND_API_KEY`).
  */
 export async function sendTransactionalEmail(params: {
@@ -32,8 +32,9 @@ export async function sendTransactionalEmail(params: {
 
   if (!host && from && resendKey) {
     host = "smtp.resend.com";
-    port = 465;
-    secure = true;
+    /* 587 + STARTTLS costuma ser menos bloqueado em cloud (ex. Railway) do que 465 SSL. */
+    port = 587;
+    secure = false;
     user = "resend";
     pass = resendKey;
   }
@@ -56,6 +57,9 @@ export async function sendTransactionalEmail(params: {
       port,
       secure,
       auth: user && pass ? { user, pass } : undefined,
+      connectionTimeout: 12_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 25_000,
     });
 
     await transporter.sendMail({
