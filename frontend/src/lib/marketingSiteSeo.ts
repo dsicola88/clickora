@@ -15,6 +15,27 @@ const PLANS_TITLE = "Planos e preços — dclickora | Presell, tracking e conver
 const PLANS_DESCRIPTION =
   "Compare planos dclickora: presell pages, rastreador de cliques e conversões, links rastreados e relatórios para afiliados e marketing de performance.";
 
+/** Landing com intenção comercial — presell / afiliados. */
+const INTENT_PRESELL_TITLE =
+  "Presell pages para afiliados — criar páginas que convertem | dclickora";
+
+const INTENT_PRESELL_DESCRIPTION =
+  "Ferramenta de presell com editor, VSL, prova social e CTA rastreado. Ideal para afiliados que precisam de página de pré-venda profissional e mensagem alinhada ao tráfego pago.";
+
+/** Landing com intenção comercial — tracking / ROI. */
+const INTENT_TRACKING_TITLE =
+  "Rastreamento de conversões, cliques e links para afiliados | dclickora";
+
+const INTENT_TRACKING_DESCRIPTION =
+  "Rastreador de cliques e UTMs, relatórios e integrações num painel. Para afiliados e media buyers que querem medir ROI de presells, campanhas e links em tempo real.";
+
+/** Página-recurso (guia) — cobre várias queries long-tail num só URL. */
+const GUIDE_TITLE =
+  "Guia: criar presell rápido, rastrear cliques e ferramenta para afiliados | dclickora";
+
+const GUIDE_DESCRIPTION =
+  "Como criar presell que converte, rastrear cliques no marketing digital, evitar erros comuns e substituir click trackers genéricos. Guia prático para afiliados que usam tráfego pago.";
+
 const AUTH_TITLE = "Entrar ou criar conta — dclickora | Presell e tracking para afiliados";
 
 const AUTH_DESCRIPTION =
@@ -122,6 +143,15 @@ function landingPathInfo(pathname: string): { title: string; description: string
   if (p === "/plans" || p === "/planos") {
     return { title: PLANS_TITLE, description: PLANS_DESCRIPTION };
   }
+  if (p === "/presell-para-afiliados") {
+    return { title: INTENT_PRESELL_TITLE, description: INTENT_PRESELL_DESCRIPTION };
+  }
+  if (p === "/rastreamento-afiliados") {
+    return { title: INTENT_TRACKING_TITLE, description: INTENT_TRACKING_DESCRIPTION };
+  }
+  if (p === "/guia-vendas-afiliados") {
+    return { title: GUIDE_TITLE, description: GUIDE_DESCRIPTION };
+  }
   return { title: MARKETING_DEFAULT_TITLE, description: MARKETING_DEFAULT_DESCRIPTION };
 }
 
@@ -142,11 +172,13 @@ export function applyMarketingLandingHead(pathname: string): () => void {
   const canonical = canonicalWithoutSearchHash();
   const ogImageAbs = `${origin}/placeholder.svg`;
   const robots = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+  const pathNorm = pathname.replace(/\/+$/, "") || "/";
+  const isGuideArticle = pathNorm === "/guia-vendas-afiliados";
 
   document.title = title;
   setMetaName("description", description);
   setMetaName("robots", robots);
-  setMetaProperty("og:type", "website");
+  setMetaProperty("og:type", isGuideArticle ? "article" : "website");
   setMetaProperty("og:title", title);
   setMetaProperty("og:description", description);
   setMetaProperty("og:url", canonical);
@@ -174,10 +206,11 @@ export function applyMarketingLandingHead(pathname: string): () => void {
   hreflang.setAttribute("data-marketing-seo", "1");
   document.head.appendChild(hreflang);
 
-  const jsonLd = JSON.stringify(buildMarketingJsonLd(origin, title, description, canonical)).replace(
-    /</g,
-    "\\u003c",
-  );
+  const jsonLd = JSON.stringify(
+    isGuideArticle
+      ? buildGuideArticleJsonLd(origin, title, description, canonical)
+      : buildMarketingJsonLd(origin, title, description, canonical),
+  ).replace(/</g, "\\u003c");
   const script = document.createElement("script");
   script.type = "application/ld+json";
   script.setAttribute("data-marketing-seo", "1");
@@ -231,6 +264,44 @@ export function applyMarketingAuthHead(): () => void {
   document.head.appendChild(script);
 
   return () => restoreMarketingHeadSnapshot(before);
+}
+
+function buildGuideArticleJsonLd(
+  origin: string,
+  headline: string,
+  description: string,
+  pageUrl: string,
+): { "@context": string; "@graph": Record<string, unknown>[] } {
+  const orgId = `${origin}/#organization`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": orgId,
+        name: "dclickora",
+        url: origin,
+        logo: {
+          "@type": "ImageObject",
+          url: `${origin}/favicon.svg`,
+        },
+      },
+      {
+        "@type": "Article",
+        "@id": `${pageUrl}#article`,
+        headline,
+        description,
+        url: pageUrl,
+        inLanguage: "pt-BR",
+        author: { "@id": orgId },
+        publisher: { "@id": orgId },
+        mainEntityOfPage: {
+          "@type": "WebPage",
+          "@id": pageUrl,
+        },
+      },
+    ],
+  };
 }
 
 function buildMarketingJsonLd(

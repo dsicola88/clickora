@@ -250,6 +250,58 @@ export default function Plans() {
         </nav>
       </div>
 
+      <nav
+        className={cn(
+          "mb-4 flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3",
+          salesDark ? "border-white/10 bg-white/[0.03]" : "border-border/50 bg-muted/35",
+        )}
+        aria-label="Soluções por objetivo"
+      >
+        <span
+          className={cn(
+            "text-center text-[0.7rem] font-semibold uppercase tracking-wider sm:text-left",
+            salesDark ? "text-white/50" : "text-muted-foreground",
+          )}
+        >
+          Por objetivo
+        </span>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+          <Link
+            to="/presell-para-afiliados"
+            className={cn(
+              "underline-offset-4 hover:underline",
+              salesDark ? "font-medium text-white" : "font-medium text-primary",
+            )}
+          >
+            Presell para afiliados
+          </Link>
+          <span className={salesDark ? "text-white/35" : "text-muted-foreground/50"} aria-hidden>
+            ·
+          </span>
+          <Link
+            to="/rastreamento-afiliados"
+            className={cn(
+              "underline-offset-4 hover:underline",
+              salesDark ? "font-medium text-white" : "font-medium text-primary",
+            )}
+          >
+            Rastreamento e conversões
+          </Link>
+          <span className={salesDark ? "text-white/35" : "text-muted-foreground/50"} aria-hidden>
+            ·
+          </span>
+          <Link
+            to="/guia-vendas-afiliados"
+            className={cn(
+              "underline-offset-4 hover:underline",
+              salesDark ? "font-medium text-white" : "font-medium text-primary",
+            )}
+          >
+            Guia: presell e tracking
+          </Link>
+        </div>
+      </nav>
+
       {isSuperAdmin && (
         <div
           className={cn(

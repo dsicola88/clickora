@@ -33,6 +33,8 @@ import AdminPanel from "./pages/AdminPanel";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import PublicPresell from "./pages/PublicPresell";
+import IntentConversionPage from "./pages/IntentConversionPage";
+import AffiliateGuidePage from "./pages/AffiliateGuidePage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -99,6 +101,9 @@ const App = () => (
               {/* Landing de planos (acessível com ou sem login; a raiz redireciona logados para /inicio) */}
               <Route path="/plans" element={<Plans />} />
               <Route path="/planos" element={<Plans />} />
+              <Route path="/presell-para-afiliados" element={<IntentConversionPage />} />
+              <Route path="/rastreamento-afiliados" element={<IntentConversionPage />} />
+              <Route path="/guia-vendas-afiliados" element={<AffiliateGuidePage />} />
               <Route path="/" element={<LandingRoot />} />
               <Route path="/tracking/vendas" element={<AppLayout><Vendas /></AppLayout>} />
               {/* Protected routes */}

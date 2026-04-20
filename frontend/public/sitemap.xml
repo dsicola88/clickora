@@ -16,6 +16,21 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.dclickora.com/presell-para-afiliados</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.dclickora.com/rastreamento-afiliados</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.dclickora.com/guia-vendas-afiliados</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.dclickora.com/auth</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
