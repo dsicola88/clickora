@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   /** @deprecated Usar `VITE_PUBLIC_API_URL` */
   readonly VITE_API_URL?: string;
   readonly VITE_PUBLIC_APP_URL?: string;
+  /** Origem pública do site (HTTPS, sem barra final), ex. `https://www.dclickora.com` — OG, sitemap, links canónicos. */
+  readonly VITE_PUBLIC_SITE_ORIGIN?: string;
   /** OAuth Web client ID (Google Cloud Console) — igual a GOOGLE_OAUTH_CLIENT_ID na API */
   readonly VITE_GOOGLE_CLIENT_ID?: string;
 }

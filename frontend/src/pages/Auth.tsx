@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { applyMarketingAuthHead } from "@/lib/marketingSiteSeo";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -160,6 +161,10 @@ export default function Auth() {
   useEffect(() => {
     if (trialIntent) setMode("register");
   }, [trialIntent]);
+
+  useEffect(() => {
+    return applyMarketingAuthHead();
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

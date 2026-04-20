@@ -1,6 +1,6 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { plansService } from "@/services/plansService";
 import { plansLandingService } from "@/services/plansLandingService";
@@ -34,9 +34,15 @@ import {
 } from "@/lib/landingPageTheme";
 import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
+import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
 
 export default function Plans() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    return applyMarketingLandingHead(pathname);
+  }, [pathname]);
   const { user, userPlan, isSuperAdmin } = useAuth();
 
   const { data: landing } = useQuery({

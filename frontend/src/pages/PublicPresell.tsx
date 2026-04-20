@@ -33,10 +33,8 @@ import { injectWithCleanup } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { PresellMarketingOverlays } from "@/components/presell/PresellMarketingOverlays";
 import { isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
-import {
-  DEFAULT_BROWSER_TAB_TITLE,
-  resolvePublicPresellDocumentTitle,
-} from "@/lib/publicPresellDocumentTitle";
+import { applyPublicPresellHeadMetadata } from "@/lib/publicPresellSeo";
+import { getPresellSeoPrimaryTitle } from "@/lib/publicPresellDocumentTitle";
 import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
 import { PresellLanguageSelector } from "@/components/presell/PresellLanguageSelector";
 import { getPresellUiStrings, htmlLangForLocale, isRtlLocale } from "@/lib/presellUiStrings";
@@ -189,13 +187,7 @@ export default function PublicPresell() {
 
   useEffect(() => {
     if (!page) return;
-    const t = resolvePublicPresellDocumentTitle(page);
-    document.title = t;
-    document.querySelector('meta[property="og:title"]')?.setAttribute("content", t);
-    document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", t);
-    return () => {
-      document.title = DEFAULT_BROWSER_TAB_TITLE;
-    };
+    return applyPublicPresellHeadMetadata(page);
   }, [page]);
 
   const search = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -379,6 +371,8 @@ export default function PublicPresell() {
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
 
+  const primarySeoLabel = getPresellSeoPrimaryTitle(page);
+
   const heroImage = productImages[0];
   const galleryImages = productImages.slice(1, 10);
   const textBlocks = salesText
@@ -478,7 +472,7 @@ export default function PublicPresell() {
             <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-4 shadow-sm border border-border/40 mx-auto max-w-2xl">
               <img
                 src={heroImage}
-                alt=""
+                alt={primarySeoLabel}
                 className="w-full max-h-[min(420px,55vh)] object-contain mx-auto rounded-lg"
                 loading="eager"
                 decoding="async"
@@ -594,7 +588,7 @@ export default function PublicPresell() {
               >
                 <img
                   src={src}
-                  alt=""
+                  alt={`${primarySeoLabel} — ${i + 2}`}
                   className="w-full object-cover max-h-80"
                   loading="lazy"
                   decoding="async"

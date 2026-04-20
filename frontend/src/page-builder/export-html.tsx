@@ -28,6 +28,10 @@ export function exportPageToHtml(doc: PageDocument): string {
   if (description) metaTags.push(`<meta name="description" content="${escapeHtml(description)}" />`);
   if (keywords) metaTags.push(`<meta name="keywords" content="${escapeHtml(keywords)}" />`);
   if (noindex) metaTags.push(`<meta name="robots" content="noindex,nofollow" />`);
+  else
+    metaTags.push(
+      `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`,
+    );
   if (canonical) metaTags.push(`<link rel="canonical" href="${escapeAttr(canonical)}" />`);
   if (favicon) metaTags.push(`<link rel="icon" href="${escapeAttr(favicon)}" />`);
 
@@ -45,6 +49,18 @@ export function exportPageToHtml(doc: PageDocument): string {
   if (description)
     metaTags.push(`<meta name="twitter:description" content="${escapeHtml(description)}" />`);
   if (ogImage) metaTags.push(`<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`);
+
+  if (canonical && (description || title)) {
+    const jsonLd = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: title,
+      description: description || title,
+      url: canonical,
+      ...(ogImage ? { image: ogImage } : {}),
+    }).replace(/</g, "\\u003c");
+    metaTags.push(`<script type="application/ld+json">${jsonLd}</script>`);
+  }
 
   const trackingHead = doc.tracking ? buildTrackingHeadScripts(doc.tracking) : "";
   const trackingBody = doc.tracking ? buildTrackingBodyScripts(doc.tracking) : "";

@@ -1,4 +1,8 @@
-import { buildExportDocumentTitle } from "@/lib/publicPresellDocumentTitle";
+import {
+  buildExportDocumentTitle,
+  getPresellSeoPrimaryTitle,
+} from "@/lib/publicPresellDocumentTitle";
+import { resolvePublicPresellMetaDescription, resolvePublicPresellOgImageUrl } from "@/lib/publicPresellSeo";
 import { resolveApiUrl } from "@/lib/apiOrigin";
 import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
@@ -537,7 +541,8 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   }
 
   if (heroImage && !hideHeroImageForVslFallback) {
-    heroInner.push(`<div class="pe-img-card"><img src="${escapeAttr(heroImage)}" alt="" loading="eager" decoding="async" /></div>`);
+    const heroAlt = escapeHtml(getPresellSeoPrimaryTitle(page));
+    heroInner.push(`<div class="pe-img-card"><img src="${escapeAttr(heroImage)}" alt="${heroAlt}" loading="eager" decoding="async" /></div>`);
   }
 
   heroInner.push(`<h1 class="pe-h1 ${isVslLayout ? "pe-h1--vsl" : ""}">${escapeHtml(title)}</h1>`);
@@ -583,7 +588,10 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let gallerySection = "";
   if (galleryImages.length > 0 && !showVslFallback) {
-    gallerySection = `<section class="pe-gallery">${galleryImages.map((src) => `<div><img src="${escapeAttr(src)}" alt="" loading="lazy" decoding="async" /></div>`).join("")}</section>`;
+    gallerySection = `<section class="pe-gallery">${galleryImages.map((src, i) => {
+      const galAlt = escapeHtml(`${getPresellSeoPrimaryTitle(page)} — ${i + 2}`);
+      return `<div><img src="${escapeAttr(src)}" alt="${galAlt}" loading="lazy" decoding="async" /></div>`;
+    }).join("")}</section>`;
   }
 
   let salesSection = "";
@@ -660,13 +668,63 @@ ${footerCode ? `${footerCode}\n` : ""}`;
   const htmlLang = htmlLangForLocale(loc);
   const htmlDir = isRtlLocale(loc) ? "rtl" : "ltr";
 
+  const exportCanonical = (() => {
+    try {
+      const u = new URL(opts.publicPageUrl);
+      u.search = "";
+      u.hash = "";
+      return u.toString();
+    } catch {
+      return opts.publicPageUrl;
+    }
+  })();
+  const docTitle = buildExportDocumentTitle(page, opts.publicPageUrl);
+  const metaDesc = resolvePublicPresellMetaDescription(page);
+  const ogImageRaw = resolvePublicPresellOgImageUrl(page);
+  const ogImageAbs = (() => {
+    if (!ogImageRaw?.trim()) return "";
+    try {
+      return new URL(ogImageRaw.trim(), exportCanonical).href;
+    } catch {
+      return ogImageRaw.trim();
+    }
+  })();
+  const robotsExport =
+    page.status === "published"
+      ? "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+      : "noindex, nofollow";
+  const twitterCardExport = ogImageAbs ? "summary_large_image" : "summary";
+  const primarySeo = getPresellSeoPrimaryTitle(page);
+  const jsonLdExport = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: primarySeo,
+    description: metaDesc,
+    url: exportCanonical,
+    ...(ogImageAbs ? { image: ogImageAbs } : {}),
+  }).replace(/</g, "\\u003c");
+
+  const seoBlock = `<meta name="description" content="${escapeHtml(metaDesc)}" />
+<meta name="robots" content="${escapeAttr(robotsExport)}" />
+<link rel="canonical" href="${escapeAttr(exportCanonical)}" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${escapeHtml(docTitle)}" />
+<meta property="og:description" content="${escapeHtml(metaDesc)}" />
+<meta property="og:url" content="${escapeAttr(exportCanonical)}" />
+<meta property="og:locale" content="pt_BR" />
+${ogImageAbs ? `<meta property="og:image" content="${escapeAttr(ogImageAbs)}" />\n` : ""}<meta name="twitter:card" content="${escapeAttr(twitterCardExport)}" />
+<meta name="twitter:title" content="${escapeHtml(docTitle)}" />
+<meta name="twitter:description" content="${escapeHtml(metaDesc)}" />
+${ogImageAbs ? `<meta name="twitter:image" content="${escapeAttr(ogImageAbs)}" />\n` : ""}<script type="application/ld+json">${jsonLdExport}</script>`;
+
   return `<!DOCTYPE html>
 <html lang="${escapeAttr(htmlLang)}" dir="${escapeAttr(htmlDir)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="Clickora Presell Export">
-<title>${escapeHtml(buildExportDocumentTitle(page, opts.publicPageUrl))}</title>
+<title>${escapeHtml(docTitle)}</title>
+${seoBlock}
 ${fontLink}
 ${styleBlock}
 ${headInjectSnippets ? headInjectSnippets : ""}
