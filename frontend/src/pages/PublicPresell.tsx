@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useInsertionEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { presellService } from "@/services/presellService";
@@ -21,6 +30,10 @@ import {
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { PublicBuilderPresellView } from "@/components/presell/PublicBuilderPresellView";
 import { getApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
+import {
+  getPublicPresellPrefetchResult,
+  startPublicPresellPrefetchForParam,
+} from "@/lib/publicPresellEarlyPrefetch";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import {
   DiscountPresellOverlay,
@@ -168,6 +181,10 @@ export default function PublicPresell() {
   const rawId = useParams().id ?? "";
   const id = useMemo(() => normalizePresellRouteParam(rawId), [rawId]);
 
+  useInsertionEffect(() => {
+    if (id) startPublicPresellPrefetchForParam(id);
+  }, [id]);
+
   useLayoutEffect(() => {
     if (!id) return;
     const t = document.title.trim();
@@ -180,6 +197,9 @@ export default function PublicPresell() {
     queryKey: ["public-presell", id],
     queryFn: async () => {
       const param = id;
+      const pref = await getPublicPresellPrefetchResult(param);
+      if (pref) return pref;
+
       if (isPresellUuidParam(param)) {
         const { data, error } = await presellService.getPublicById(param);
         if (data) return data;
@@ -486,6 +506,7 @@ export default function PublicPresell() {
                 className="w-full max-h-[min(420px,55vh)] object-contain mx-auto rounded-lg"
                 loading="eager"
                 decoding="async"
+                fetchPriority="high"
               />
             </div>
           ) : null}

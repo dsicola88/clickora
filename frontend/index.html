@@ -13,6 +13,17 @@
           var p = location.pathname || "";
           if (/^\/p\/[^/]+/.test(p)) {
             document.title = "\u00A0";
+            document
+              .querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')
+              .forEach(function (el) {
+                el.parentNode && el.parentNode.removeChild(el);
+              });
+            var st = document.createElement("style");
+            st.setAttribute("data-presell-shell", "1");
+            st.textContent =
+              "html,body{margin:0;min-height:100%;background-color:hsl(40 33% 98%);}" +
+              "#root{min-height:100%;}";
+            document.head.appendChild(st);
           }
         } catch (e) {}
       })();
