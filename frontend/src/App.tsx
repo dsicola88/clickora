@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,6 +37,13 @@ import IntentConversionPage from "./pages/IntentConversionPage";
 import AffiliateGuidePage from "./pages/AffiliateGuidePage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
+
+/** Evita pedido extra e troca de favicon antes da presell pública carregar. */
+function BrandingFaviconGate() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/p/")) return null;
+  return <BrandingFavicon />;
+}
 
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
@@ -75,7 +82,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <BrandingFavicon />
+          <BrandingFaviconGate />
           <AuthProvider>
             <Routes>
               {/* Public routes */}

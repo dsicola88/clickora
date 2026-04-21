@@ -7,6 +7,16 @@
     <meta name="theme-color" content="#0f172a" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
+    <script>
+      (function () {
+        try {
+          var p = location.pathname || "";
+          if (/^\/p\/[^/]+/.test(p)) {
+            document.title = "\u00A0";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>dclickora — Presell pages, rastreamento de conversões e ferramenta para afiliados</title>
     <meta name="description" content="Crie presell pages profissionais, rastreie cliques, leads e vendas com links rastreados. Plataforma de tracking, conversões e gestão de URLs para marketing de afiliados digitais." />
     <meta name="author" content="dclickora" />

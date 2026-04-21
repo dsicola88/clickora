@@ -92,89 +92,87 @@ type TokenSection = {
   items: TokenPick[];
 };
 
+/**
+ * Uma secção = uma plataforma de anúncios. Tudo de Google junto; Meta separado de Microsoft/Bing; ordem fixa para navegação previsível.
+ */
 const TOKEN_SECTIONS: TokenSection[] = [
   {
-    id: "google_click",
-    title: "Google Ads · Clique e medição (conversões)",
+    id: "google",
+    title: "Google Ads · ValueTrack (só parâmetros Google)",
     items: [
-      { token: "{gclid}", label: "ID do clique no Google", search: "gclid clique google id" },
-      { token: "{gbraid}", label: "ID do clique (campanhas de app / iOS)", search: "gbraid app ios" },
-      { token: "{wbraid}", label: "ID do clique (Web para apps)", search: "wbraid" },
-    ],
-  },
-  {
-    id: "google_campaign",
-    title: "Google Ads · Campanha, anúncio e palavras-chave",
-    items: [
-      { token: "{keyword}", label: "Palavra-chave que originou o clique", search: "keyword palavra chave" },
-      { token: "{campaignid}", label: "Número da campanha", search: "campaign campanha id" },
-      { token: "{adgroupid}", label: "Número do grupo de anúncios", search: "adgroup grupo" },
-      { token: "{creative}", label: "Identificador do anúncio (criativo)", search: "creative anúncio criativo" },
-      { token: "{device}", label: "Tipo de dispositivo", search: "device telemóvel mobile" },
-      { token: "{network}", label: "Rede (pesquisa, Display, etc.)", search: "network rede" },
-      { token: "{placement}", label: "Onde o anúncio foi mostrado", search: "placement posição" },
-      { token: "{matchtype}", label: "Tipo de correspondência da palavra-chave", search: "match correspondência" },
-      { token: "{extensionid}", label: "Extensão associada ao clique", search: "extension extensão" },
-      { token: "{target}", label: "Alvo do anúncio", search: "target alvo" },
-      { token: "{loc_physical_ms}", label: "Local físico (código avançado)", search: "local físico location" },
-      { token: "{loc_interest_ms}", label: "Interesse de localização (código avançado)", search: "interesse local" },
-    ],
-  },
-  {
-    id: "microsoft",
-    title: "Microsoft / Bing Ads · Clique e campanha",
-    items: [
-      { token: "{msclkid}", label: "ID do clique na Microsoft / Bing", search: "msclkid bing microsoft clique" },
-      { token: "{keyword}", label: "Palavra-chave", search: "keyword" },
-      { token: "{QueryString}", label: "Texto pesquisado (consulta)", search: "query pesquisa" },
-      { token: "{CampaignId}", label: "Número da campanha", search: "campaign" },
-      { token: "{AdGroupId}", label: "Número do grupo de anúncios", search: "adgroup" },
-      { token: "{AdId}", label: "Número do anúncio", search: "ad anúncio" },
-      { token: "{Device}", label: "Dispositivo", search: "device" },
-      { token: "{MatchType}", label: "Tipo de correspondência", search: "match" },
-      { token: "{Network}", label: "Rede", search: "network" },
-      { token: "{feeditemid}", label: "ID do feed", search: "feed" },
+      { token: "{gclid}", label: "ID do clique (gclid)", search: "gclid clique google ads conversão" },
+      { token: "{gbraid}", label: "ID do clique iOS / app (gbraid)", search: "gbraid google app ios" },
+      { token: "{wbraid}", label: "ID Web-to-app (wbraid)", search: "wbraid google" },
+      { token: "{keyword}", label: "Palavra-chave (Google)", search: "keyword palavra chave google ads" },
+      { token: "{campaignid}", label: "ID da campanha", search: "campaign campanha google" },
+      { token: "{adgroupid}", label: "ID do grupo de anúncios", search: "adgroup grupo google" },
+      { token: "{creative}", label: "ID do criativo / anúncio", search: "creative anúncio google" },
+      { token: "{device}", label: "Tipo de dispositivo", search: "device telemóvel google" },
+      { token: "{network}", label: "Rede (Pesquisa, Display…)", search: "network rede google" },
+      { token: "{placement}", label: "Posição / site (placement)", search: "placement posição google" },
+      { token: "{matchtype}", label: "Tipo de correspondência da keyword", search: "match correspondência google" },
+      { token: "{extensionid}", label: "Extensão associada ao clique", search: "extension extensão google" },
+      { token: "{target}", label: "Alvo do anúncio", search: "target alvo google" },
+      { token: "{loc_physical_ms}", label: "Local físico (avançado)", search: "local físico google" },
+      { token: "{loc_interest_ms}", label: "Interesse de localização (avançado)", search: "interesse local google" },
     ],
   },
   {
     id: "facebook",
-    title: "Meta (Facebook / Instagram)",
+    title: "Meta Ads · Facebook e Instagram (só parâmetros Meta)",
     items: [
-      { token: "{{campaign.name}}", label: "Nome da campanha", search: "meta facebook campanha nome" },
-      { token: "{{adset.name}}", label: "Nome do conjunto de anúncios", search: "conjunto adset" },
-      { token: "{{ad.name}}", label: "Nome do anúncio", search: "anúncio ad" },
-      { token: "{{campaign.id}}", label: "Número da campanha", search: "id campanha" },
-      { token: "{{adset.id}}", label: "Número do conjunto", search: "adset id" },
-      { token: "{{ad.id}}", label: "Número do anúncio", search: "ad id" },
-      { token: "{{placement}}", label: "Onde o anúncio apareceu", search: "placement posição" },
-      { token: "{{site_source_name}}", label: "Origem do site / aplicação", search: "origem source" },
+      { token: "{fbclid}", label: "ID do clique (fbclid)", search: "fbclid meta facebook instagram clique" },
+      { token: "{{campaign.name}}", label: "Nome da campanha", search: "meta facebook instagram campanha nome" },
+      { token: "{{adset.name}}", label: "Nome do conjunto de anúncios", search: "meta conjunto adset" },
+      { token: "{{ad.name}}", label: "Nome do anúncio", search: "meta anúncio ad" },
+      { token: "{{campaign.id}}", label: "ID da campanha", search: "meta id campanha" },
+      { token: "{{adset.id}}", label: "ID do conjunto", search: "meta adset id" },
+      { token: "{{ad.id}}", label: "ID do anúncio", search: "meta ad id" },
+      { token: "{{placement}}", label: "Onde o anúncio apareceu", search: "meta placement posição" },
+      { token: "{{site_source_name}}", label: "Origem do site / app", search: "meta origem source instagram" },
+    ],
+  },
+  {
+    id: "microsoft",
+    title: "Microsoft Advertising (Bing) · modelo de URL (só Bing)",
+    items: [
+      { token: "{msclkid}", label: "ID do clique (msclkid)", search: "msclkid bing microsoft clique" },
+      { token: "{keyword}", label: "Palavra-chave (Bing — não confundir com Google)", search: "keyword bing microsoft palavra" },
+      { token: "{QueryString}", label: "Texto da pesquisa (consulta)", search: "query bing pesquisa microsoft" },
+      { token: "{CampaignId}", label: "ID da campanha (Bing)", search: "campaign bing microsoft" },
+      { token: "{AdGroupId}", label: "ID do grupo de anúncios (Bing)", search: "adgroup bing microsoft" },
+      { token: "{AdId}", label: "ID do anúncio (Bing)", search: "ad anúncio bing" },
+      { token: "{Device}", label: "Dispositivo (Bing)", search: "device bing" },
+      { token: "{MatchType}", label: "Tipo de correspondência (Bing)", search: "match bing" },
+      { token: "{Network}", label: "Rede (Bing)", search: "network bing" },
+      { token: "{feeditemid}", label: "ID do feed", search: "feed bing microsoft" },
     ],
   },
   {
     id: "tiktok",
     title: "TikTok Ads",
     items: [
-      { token: "{ttclid}", label: "ID do clique no TikTok", search: "ttclid tiktok clique" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "campanha" },
-      { token: "{campaign_id}", label: "Número da campanha", search: "id" },
-      { token: "{adgroup_name}", label: "Nome do grupo de anúncios", search: "grupo" },
-      { token: "{adgroup_id}", label: "Número do grupo", search: "adgroup id" },
-      { token: "{ad_name}", label: "Nome do anúncio", search: "anúncio" },
-      { token: "{ad_id}", label: "Número do anúncio", search: "ad id" },
-      { token: "{placement}", label: "Posicionamento", search: "placement" },
+      { token: "{ttclid}", label: "ID do clique (ttclid)", search: "ttclid tiktok clique" },
+      { token: "{campaign_name}", label: "Nome da campanha", search: "tiktok campanha" },
+      { token: "{campaign_id}", label: "ID da campanha", search: "tiktok id campanha" },
+      { token: "{adgroup_name}", label: "Nome do grupo de anúncios", search: "tiktok grupo" },
+      { token: "{adgroup_id}", label: "ID do grupo", search: "tiktok adgroup" },
+      { token: "{ad_name}", label: "Nome do anúncio", search: "tiktok anúncio" },
+      { token: "{ad_id}", label: "ID do anúncio", search: "tiktok ad id" },
+      { token: "{placement}", label: "Posicionamento", search: "tiktok placement" },
     ],
   },
   {
     id: "taboola",
     title: "Taboola",
     items: [
-      { token: "{click_id}", label: "ID do clique Taboola", search: "clique click taboola" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "campanha" },
-      { token: "{campaign_id}", label: "Número da campanha", search: "id" },
-      { token: "{site}", label: "Site", search: "site" },
-      { token: "{site_id}", label: "ID do site", search: "site id" },
-      { token: "{thumbnail}", label: "Miniatura", search: "thumbnail" },
-      { token: "{title}", label: "Título", search: "título title" },
+      { token: "{click_id}", label: "ID do clique Taboola", search: "clique taboola" },
+      { token: "{campaign_name}", label: "Nome da campanha", search: "taboola campanha" },
+      { token: "{campaign_id}", label: "ID da campanha", search: "taboola id" },
+      { token: "{site}", label: "Site", search: "taboola site" },
+      { token: "{site_id}", label: "ID do site", search: "taboola site id" },
+      { token: "{thumbnail}", label: "Miniatura", search: "taboola thumbnail" },
+      { token: "{title}", label: "Título", search: "taboola título" },
     ],
   },
   {
@@ -182,11 +180,11 @@ const TOKEN_SECTIONS: TokenSection[] = [
     title: "Outbrain",
     items: [
       { token: "{ob_click_id}", label: "ID do clique Outbrain", search: "clique outbrain" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "campanha" },
-      { token: "{campaign_id}", label: "Número da campanha", search: "id" },
-      { token: "{publisher_name}", label: "Nome do editor", search: "publisher" },
-      { token: "{publisher_id}", label: "ID do editor", search: "publisher id" },
-      { token: "{section_name}", label: "Nome da secção", search: "secção" },
+      { token: "{campaign_name}", label: "Nome da campanha", search: "outbrain campanha" },
+      { token: "{campaign_id}", label: "ID da campanha", search: "outbrain id" },
+      { token: "{publisher_name}", label: "Nome do editor", search: "outbrain publisher" },
+      { token: "{publisher_id}", label: "ID do editor", search: "outbrain publisher id" },
+      { token: "{section_name}", label: "Nome da secção", search: "outbrain secção" },
     ],
   },
   {
@@ -194,22 +192,38 @@ const TOKEN_SECTIONS: TokenSection[] = [
     title: "Kwai Ads",
     items: [
       { token: "{click_id}", label: "ID do clique Kwai", search: "clique kwai" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "campanha" },
-      { token: "{campaign_id}", label: "Número da campanha", search: "id" },
-      { token: "{adgroup_name}", label: "Nome do grupo de anúncios", search: "grupo" },
-      { token: "{creative_id}", label: "Número do criativo", search: "criativo" },
+      { token: "{campaign_name}", label: "Nome da campanha", search: "kwai campanha" },
+      { token: "{campaign_id}", label: "ID da campanha", search: "kwai id" },
+      { token: "{adgroup_name}", label: "Nome do grupo de anúncios", search: "kwai grupo" },
+      { token: "{creative_id}", label: "ID do criativo", search: "kwai criativo" },
     ],
+  },
+  {
+    id: "pinterest",
+    title: "Pinterest Ads",
+    items: [
+      { token: "{epik}", label: "ID do clique (epik)", search: "pinterest epik clique" },
+      { token: "{campaign_name}", label: "Nome da campanha", search: "pinterest campanha" },
+      { token: "{campaign_id}", label: "ID da campanha", search: "pinterest id" },
+    ],
+  },
+  {
+    id: "twitter",
+    title: "X (Twitter) Ads",
+    items: [{ token: "{twclid}", label: "ID do clique (twclid)", search: "twitter x twclid clique" }],
   },
 ];
 
 const PLATFORM_SECTION_BOOST: Record<string, string> = {
-  "Google Ads": "google_click",
-  "Bing Ads": "microsoft",
+  "Google Ads": "google",
   "Facebook Ads": "facebook",
+  "Bing Ads": "microsoft",
   "TikTok Ads": "tiktok",
   Taboola: "taboola",
   Outbrain: "outbrain",
   "Kwai Ads": "kwai",
+  "Pinterest Ads": "pinterest",
+  "Twitter Ads": "twitter",
 };
 
 function orderedTokenSections(selectedPlatform: string): TokenSection[] {
@@ -630,8 +644,8 @@ export default function UrlBuilder() {
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0 text-left space-y-2">
             <DialogTitle className="text-lg">Escolher valor dinâmico</DialogTitle>
             <p className="text-sm text-muted-foreground font-normal leading-relaxed">
-              Isto são marcadores: a rede troca pelo dado real quando alguém clica. Pesquisa pelo nome em português; o valor técnico do link
-              aparece por baixo e é esse que fica guardado.
+              Marcadores agrupados por rede (Google, Meta, Bing, etc.) — usa só os da plataforma onde vais criar o anúncio. A rede substitui pelo
+              valor real no clique. Pesquisa pelo nome; o valor técnico aparece por baixo.
             </p>
           </DialogHeader>
           <div className="px-6 pb-6 flex-1 min-h-0 flex flex-col gap-3">

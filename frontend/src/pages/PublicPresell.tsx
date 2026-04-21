@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { presellService } from "@/services/presellService";
-import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import {
   CookieConsentModal,
@@ -168,6 +167,15 @@ function normalizePresellRouteParam(raw: string): string {
 export default function PublicPresell() {
   const rawId = useParams().id ?? "";
   const id = useMemo(() => normalizePresellRouteParam(rawId), [rawId]);
+
+  useLayoutEffect(() => {
+    if (!id) return;
+    const t = document.title.trim();
+    if (!t || /dclickora|clickora/i.test(t)) {
+      document.title = "\u00A0";
+    }
+  }, [id]);
+
   const { data: page, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ["public-presell", id],
     queryFn: async () => {
@@ -340,7 +348,9 @@ export default function PublicPresell() {
     };
   }, [page?.id, page?.type, href]);
 
-  if (isLoading) return <LoadingState message="Carregando página..." />;
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="A carregar página" />;
+  }
   if (isError || !page) {
     const raw =
       loadError instanceof Error ? loadError.message : "Página indisponível.";

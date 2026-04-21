@@ -1,6 +1,11 @@
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  clearCachedRootPresellId,
+  readCachedRootPresellId,
+  writeCachedRootPresellId,
+} from "@/lib/customDomainRootPresellCache";
 import { presellService } from "@/services/presellService";
 import Plans from "@/pages/Plans";
 
@@ -20,23 +25,30 @@ function CustomDomainRootRedirect() {
   const mainSite =
     import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["public-custom-domain-root-presell", typeof window !== "undefined" ? window.location.hostname : ""],
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const cachedId = hostname ? readCachedRootPresellId(hostname) : null;
+
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["public-custom-domain-root-presell", hostname],
     queryFn: async () => {
       const { data: payload, error } = await presellService.getRootPresellIdForHost();
-      if (payload?.id) return payload.id;
+      if (payload?.id) {
+        if (hostname) writeCachedRootPresellId(hostname, payload.id);
+        return payload.id;
+      }
+      if (hostname) clearCachedRootPresellId(hostname);
       if (error) throw new Error(error);
       return null;
     },
+    initialData: cachedId ?? undefined,
+    /** Com cache em sessionStorage, força refetch no mount para refletir mudanças no painel. */
+    initialDataUpdatedAt: cachedId ? 0 : undefined,
+    staleTime: 60_000,
     retry: 1,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      </div>
-    );
+  if (isPending && !cachedId) {
+    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="A carregar" />;
   }
 
   if (data) {
