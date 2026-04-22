@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BarChart3, Bot, Building2, Link2, RefreshCw, Settings2, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Link } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { analyticsService, GoogleAdsInsightsRequestError } from "@/services/analyticsService";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
@@ -10,12 +10,88 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { countryDisplayLabel, countryFlagEmoji } from "@/lib/countryDisplay";
+import { cn } from "@/lib/utils";
+
+const ANALYTICS_BASE = "/tracking/analytics";
+
+const GOOGLE_INSIGHT_TABS = ["keywords", "search_terms", "demographics"] as const;
+type GoogleInsightTab = (typeof GOOGLE_INSIGHT_TABS)[number];
+
+function isGoogleInsightTab(s: string | undefined): s is GoogleInsightTab {
+  return !!s && (GOOGLE_INSIGHT_TABS as readonly string[]).includes(s);
+}
+
+function AnalyticsSectionNav() {
+  const loc = useLocation();
+  const onGoogle = loc.pathname.includes(`${ANALYTICS_BASE}/google-ads`);
+
+  return (
+    <nav className="mb-6 space-y-3" aria-label="Secções de analytics">
+      <p className="text-sm text-muted-foreground">
+        Cada bloco tem URL próprio para favoritos. Google Ads inclui três relatórios API no mesmo intervalo de datas.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <NavLink
+          to={`${ANALYTICS_BASE}/presells`}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex items-center rounded-lg border px-3 py-2 text-sm transition-colors",
+              isActive
+                ? "border-primary bg-primary/10 font-medium text-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted/60",
+            )
+          }
+        >
+          Presells (dclickora)
+        </NavLink>
+        <NavLink
+          to={`${ANALYTICS_BASE}/google-ads/keywords`}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex items-center rounded-lg border px-3 py-2 text-sm transition-colors",
+              isActive || onGoogle
+                ? "border-primary bg-primary/10 font-medium text-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted/60",
+            )
+          }
+        >
+          Google Ads
+        </NavLink>
+      </div>
+      {onGoogle ? (
+        <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
+          {(
+            [
+              { seg: "keywords" as const, label: "Palavras-chave" },
+              { seg: "search_terms" as const, label: "Termos de pesquisa" },
+              { seg: "demographics" as const, label: "Demografia" },
+            ] as const
+          ).map(({ seg, label }) => (
+            <NavLink
+              key={seg}
+              to={`${ANALYTICS_BASE}/google-ads/${seg}`}
+              className={({ isActive }) =>
+                cn(
+                  "inline-flex items-center rounded-md border px-2.5 py-1.5 text-xs sm:text-sm transition-colors",
+                  isActive
+                    ? "border-primary/80 bg-primary/15 font-medium text-foreground"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/70",
+                )
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
+    </nav>
+  );
+}
 
 function deviceDisplayLabel(device: string | null | undefined): string {
   if (!device) return "—";
@@ -244,6 +320,15 @@ function GoogleAdsInsightsPanel() {
   const initial = useMemo(() => defaultDateRange(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
+  const { insight: insightParam } = useParams<{ insight: string }>();
+  const navigate = useNavigate();
+  const insight: GoogleInsightTab = isGoogleInsightTab(insightParam) ? insightParam : "keywords";
+
+  useEffect(() => {
+    if (insightParam !== undefined && !isGoogleInsightTab(insightParam)) {
+      navigate(`${ANALYTICS_BASE}/google-ads/keywords`, { replace: true });
+    }
+  }, [insightParam, navigate]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["analytics-google-ads-insights", from, to],
@@ -374,14 +459,9 @@ function GoogleAdsInsightsPanel() {
             Sincronizado: {new Date(data.synced_at).toLocaleString("pt-PT")} · Período pedido: {data.period.from} →{" "}
             {data.period.to}
           </p>
-          <Tabs defaultValue="keywords" className="w-full">
-            <TabsList className="flex flex-wrap h-auto gap-1 w-full sm:w-auto justify-start">
-              <TabsTrigger value="keywords">Palavras-chave</TabsTrigger>
-              <TabsTrigger value="search_terms">Termos de pesquisa</TabsTrigger>
-              <TabsTrigger value="demographics">Demografia</TabsTrigger>
-            </TabsList>
 
-            <TabsContent value="keywords" className="mt-4">
+          {insight === "keywords" ? (
+            <div className="mt-4">
               {data.keywords.ok ? (
                 <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
                   <table className="w-full text-sm">
@@ -430,9 +510,9 @@ function GoogleAdsInsightsPanel() {
               <p className="text-[10px] text-muted-foreground mt-2">
                 *Custo em unidades da conta (micros → valor; moeda da conta Google Ads).
               </p>
-            </TabsContent>
-
-            <TabsContent value="search_terms" className="mt-4">
+            </div>
+          ) : insight === "search_terms" ? (
+            <div className="mt-4">
               {data.search_terms.ok ? (
                 <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
                   <table className="w-full text-sm">
@@ -478,9 +558,9 @@ function GoogleAdsInsightsPanel() {
                   <AlertDescription className="text-sm">{data.search_terms.error}</AlertDescription>
                 </Alert>
               )}
-            </TabsContent>
-
-            <TabsContent value="demographics" className="mt-4">
+            </div>
+          ) : insight === "demographics" ? (
+            <div className="mt-4">
               {data.demographics.ok ? (
                 <div className="grid gap-6 md:grid-cols-2">
                   <div>
@@ -568,8 +648,8 @@ function GoogleAdsInsightsPanel() {
                   <AlertDescription className="text-sm">{data.demographics.error}</AlertDescription>
                 </Alert>
               )}
-            </TabsContent>
-          </Tabs>
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>
@@ -581,21 +661,18 @@ export default function Analytics() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Analytics"
-        description="Presells no dclickora e, em separado, relatórios da conta Google Ads (mesmo intervalo de datas nos três separadores)."
+        description="Presells no dclickora e, em separado, relatórios da conta Google Ads (mesmo intervalo de datas em cada relatório)."
       />
 
-      <Tabs defaultValue="presells" className="space-y-6">
-        <TabsList className="flex flex-wrap h-auto gap-1 justify-start">
-          <TabsTrigger value="presells">Presells (dclickora)</TabsTrigger>
-          <TabsTrigger value="google_ads">Google Ads</TabsTrigger>
-        </TabsList>
-        <TabsContent value="presells" className="mt-0 space-y-0">
-          <PresellsAnalyticsBody />
-        </TabsContent>
-        <TabsContent value="google_ads" className="mt-0">
-          <GoogleAdsInsightsPanel />
-        </TabsContent>
-      </Tabs>
+      <AnalyticsSectionNav />
+
+      <Routes>
+        <Route index element={<Navigate to="presells" replace />} />
+        <Route path="presells" element={<PresellsAnalyticsBody />} />
+        <Route path="google-ads" element={<Navigate to="/tracking/analytics/google-ads/keywords" replace />} />
+        <Route path="google-ads/:insight" element={<GoogleAdsInsightsPanel />} />
+        <Route path="*" element={<Navigate to="/tracking/analytics/presells" replace />} />
+      </Routes>
     </div>
   );
 }

@@ -100,6 +100,8 @@ export const analyticsService = {
       rotator_id: string | null;
       rotator_arm_id: string | null;
       sub_ids: { sub1?: unknown; sub2?: unknown; sub3?: unknown } | null;
+      sub_path: string | null;
+      path_segments: string[] | null;
       redirect_to: string | null;
     }>(`/analytics/tracking-click/${encodeURIComponent(eventId.trim())}`);
   },

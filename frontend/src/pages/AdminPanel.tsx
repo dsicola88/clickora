@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { adminService } from "@/services/adminService";
 import { brandingService } from "@/services/brandingService";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Users,
@@ -33,7 +32,7 @@ import {
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
@@ -48,10 +47,36 @@ const PUBLIC_BRANDING_KEY = ["public-branding"] as const;
 const ADMIN_TABS_SUPER = ["overview", "users", "plans", "brand"] as const;
 const ADMIN_TABS_BASIC = ["overview", "users", "plans"] as const;
 
+const ADMIN_BASE = "/admin";
+
 function normalizeAdminTab(tab: string | null, isSuperAdmin: boolean): string {
   const allowed = isSuperAdmin ? ADMIN_TABS_SUPER : ADMIN_TABS_BASIC;
   if (tab && (allowed as readonly string[]).includes(tab)) return tab;
   return "overview";
+}
+
+export function AdminEntryRedirect() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isAdmin, isSuperAdmin, loading } = useAuth();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAdmin) {
+      navigate("/inicio", { replace: true });
+      return;
+    }
+    const q = searchParams.get("tab");
+    if (q !== null) {
+      navigate(`${ADMIN_BASE}/${normalizeAdminTab(q, isSuperAdmin)}`, { replace: true });
+    } else {
+      navigate(`${ADMIN_BASE}/overview`, { replace: true });
+    }
+  }, [loading, isAdmin, isSuperAdmin, searchParams, navigate]);
+
+  if (loading) return <LoadingState />;
+  if (!isAdmin) return null;
+  return <LoadingState message="A abrir o painel…" />;
 }
 
 function formatMoneyCents(cents: number) {
@@ -69,8 +94,24 @@ export default function AdminPanel() {
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = normalizeAdminTab(searchParams.get("tab"), isSuperAdmin);
+  const { tab: tabParam } = useParams<{ tab: string }>();
+  const [searchParams] = useSearchParams();
+  const activeTab = normalizeAdminTab(tabParam ?? null, isSuperAdmin);
+
+  useEffect(() => {
+    const q = searchParams.get("tab");
+    if (q !== null) {
+      navigate(`${ADMIN_BASE}/${normalizeAdminTab(q, isSuperAdmin)}`, { replace: true });
+    }
+  }, [searchParams, isSuperAdmin, navigate]);
+
+  useEffect(() => {
+    if (!tabParam) return;
+    const normalized = normalizeAdminTab(tabParam, isSuperAdmin);
+    if (normalized !== tabParam) {
+      navigate(`${ADMIN_BASE}/${normalized}`, { replace: true });
+    }
+  }, [tabParam, isSuperAdmin, navigate]);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [subscriptionUser, setSubscriptionUser] = useState<AdminUser | null>(null);
@@ -267,45 +308,68 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            if (v === "overview") next.delete("tab");
-            else next.set("tab", v);
-            return next;
-          });
-        }}
-        className="space-y-6"
+      <nav
+        className={cn(
+          "grid w-full max-w-3xl gap-1 bg-muted/60 p-1 h-auto rounded-lg",
+          isSuperAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3",
+        )}
+        aria-label="Secções do painel"
       >
-        <TabsList
-          className={cn(
-            "grid w-full max-w-3xl gap-1 bg-muted/60 p-1 h-auto",
-            isSuperAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3",
-          )}
+        <NavLink
+          to={`${ADMIN_BASE}/overview`}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+            )
+          }
         >
-          <TabsTrigger value="overview" className="gap-1.5">
-            <Sparkles className="h-4 w-4" />
-            Visão geral
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5">
-            <Users className="h-4 w-4" />
-            Assinantes
-          </TabsTrigger>
-          <TabsTrigger value="plans" className="gap-1.5">
-            <CreditCard className="h-4 w-4" />
-            Planos
-          </TabsTrigger>
-          {isSuperAdmin && (
-            <TabsTrigger value="brand" className="gap-1.5">
-              <ImageIcon className="h-4 w-4" />
-              Marca
-            </TabsTrigger>
-          )}
-        </TabsList>
+          <Sparkles className="h-4 w-4" />
+          Visão geral
+        </NavLink>
+        <NavLink
+          to={`${ADMIN_BASE}/users`}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+            )
+          }
+        >
+          <Users className="h-4 w-4" />
+          Assinantes
+        </NavLink>
+        <NavLink
+          to={`${ADMIN_BASE}/plans`}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+            )
+          }
+        >
+          <CreditCard className="h-4 w-4" />
+          Planos
+        </NavLink>
+        {isSuperAdmin && (
+          <NavLink
+            to={`${ADMIN_BASE}/brand`}
+            className={({ isActive }) =>
+              cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )
+            }
+          >
+            <ImageIcon className="h-4 w-4" />
+            Marca
+          </NavLink>
+        )}
+      </nav>
 
-        <TabsContent value="overview" className="space-y-6 mt-6">
+      <div className="space-y-6">
+        {activeTab === "overview" ? (
+        <div className="space-y-6 mt-6">
           {overviewLoading || !overview ? (
             <LoadingState message="A carregar métricas…" />
           ) : (
@@ -497,9 +561,11 @@ export default function AdminPanel() {
               </div>
             </>
           )}
-        </TabsContent>
+        </div>
+        ) : null}
 
-        <TabsContent value="users" className="space-y-4 mt-6">
+        {activeTab === "users" ? (
+        <div className="space-y-4 mt-6">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -651,9 +717,11 @@ export default function AdminPanel() {
               </TableBody>
             </Table>
           </div>
-        </TabsContent>
+        </div>
+        ) : null}
 
-        <TabsContent value="plans" className="space-y-4 mt-6">
+        {activeTab === "plans" ? (
+        <div className="space-y-4 mt-6">
           {isSuperAdmin ? (
             <>
               <PlansLandingEditor onInvalidateAdmin={invalidateAdmin} />
@@ -722,10 +790,11 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
+        </div>
+        ) : null}
 
-        {isSuperAdmin && (
-          <TabsContent value="brand" className="space-y-4 mt-6">
+        {activeTab === "brand" && isSuperAdmin ? (
+          <div className="space-y-4 mt-6">
             <Card className="border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -801,9 +870,9 @@ export default function AdminPanel() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

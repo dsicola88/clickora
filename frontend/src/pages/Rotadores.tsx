@@ -9,6 +9,9 @@ import {
   Shuffle,
   ExternalLink,
   Loader2,
+  Trophy,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +44,11 @@ import {
   type TrafficRotatorMode,
   type RotatorDeviceRule,
 } from "@/services/trafficRotatorsService";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -64,10 +72,168 @@ function parseIsoList(raw: string): string[] | null {
 
 const MODE_LABELS: Record<TrafficRotatorMode, string> = {
   random: "Aleatório — reparte igualmente pelos destinos elegíveis",
-  weighted: "Ponderado — probabilidade por peso (A/B com %) ",
+  weighted: "Ponderado — probabilidade por peso (A/B; peso 0 = braço desactivado)",
   sequential: "Sequencial — round-robin entre destinos elegíveis",
   fill_order: "Preenchimento — enche o 1.º até ao limite, depois o seguinte",
 };
+
+function RotatorAbPanel({ rotatorId }: { rotatorId: string }) {
+  const [open, setOpen] = useState(false);
+  const [lookback, setLookback] = useState(30);
+  const [metric, setMetric] = useState<"conversion_rate" | "revenue">("conversion_rate");
+  const qc = useQueryClient();
+
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ["traffic-rotator-ab-stats", rotatorId, lookback] as const,
+    queryFn: async () => {
+      const { data: d, error } = await trafficRotatorsService.abStats(rotatorId, { lookback_days: lookback });
+      if (error) throw new Error(error);
+      if (!d) throw new Error("Resposta vazia");
+      return d;
+    },
+    enabled: open,
+  });
+
+  const promoteMut = useMutation({
+    mutationFn: async () => {
+      const { data: d, error } = await trafficRotatorsService.promoteWinner(rotatorId, {
+        metric,
+        lookback_days: lookback,
+        min_clicks_per_arm: 0,
+      });
+      if (error) throw new Error(error);
+      return d;
+    },
+    onSuccess: (payload) => {
+      qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
+      qc.invalidateQueries({ queryKey: ["traffic-rotator-ab-stats", rotatorId] });
+      const label = payload?.winner_label?.trim() || payload?.winner_arm_id?.slice(0, 8) || "—";
+      toast.success(`Vencedor: ${label}. Tráfego concentrado neste braço (peso 100; restantes 0).`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="border-t border-border/50 pt-3 mt-3">
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full justify-between h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Trophy className="h-3.5 w-3.5 opacity-70" />
+            Teste A/B — estatísticas e promover vencedor
+          </span>
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-3 pt-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Dias de histórico</Label>
+            <Input
+              type="number"
+              min={1}
+              max={730}
+              className="h-8 w-24 text-xs"
+              value={lookback}
+              onChange={(e) => setLookback(Math.max(1, Math.min(730, parseInt(e.target.value, 10) || 30)))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Métrica do vencedor</Label>
+            <Select value={metric} onValueChange={(v) => setMetric(v as "conversion_rate" | "revenue")}>
+              <SelectTrigger className="h-8 w-[200px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="conversion_rate">Taxa de conversão (conversões / cliques)</SelectItem>
+                <SelectItem value="revenue">Receita (soma de conversões)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Actualizar"}
+          </Button>
+        </div>
+        {isLoading ? (
+          <p className="text-xs text-muted-foreground">A carregar…</p>
+        ) : isError ? (
+          <p className="text-xs text-destructive">Não foi possível carregar estatísticas.</p>
+        ) : data ? (
+          <>
+            <p className="text-[11px] text-muted-foreground">
+              Desde {new Date(data.lookback_from).toLocaleString("pt-PT", { dateStyle: "short" })} · cliques
+              atribuídos a braço (excl. recurso)
+            </p>
+            <div className="overflow-x-auto rounded-md border border-border/60 text-xs">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-muted/30 text-muted-foreground">
+                    <th className="py-1.5 px-2 font-medium">Braço</th>
+                    <th className="py-1.5 px-2 font-medium">Peso</th>
+                    <th className="py-1.5 px-2 font-medium">Cliques</th>
+                    <th className="py-1.5 px-2 font-medium">Conv.</th>
+                    <th className="py-1.5 px-2 font-medium">Tx</th>
+                    <th className="py-1.5 px-2 font-medium">Receita</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.arms.map((row) => (
+                    <tr key={row.arm_id} className="border-t border-border/50">
+                      <td className="py-1.5 px-2 max-w-[140px] truncate" title={row.label || row.arm_id}>
+                        {row.label || "—"}
+                      </td>
+                      <td className="py-1.5 px-2 tabular-nums">{row.current_weight}</td>
+                      <td className="py-1.5 px-2 tabular-nums">{row.clicks.toLocaleString("pt-PT")}</td>
+                      <td className="py-1.5 px-2 tabular-nums">{row.conversions.toLocaleString("pt-PT")}</td>
+                      <td className="py-1.5 px-2 tabular-nums">
+                        {(row.conversion_rate * 100).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%
+                      </td>
+                      <td className="py-1.5 px-2 tabular-nums">{row.revenue}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <strong className="text-foreground/90">Promover vencedor</strong> ajusta o modo para ponderado, define o
+              braço vencedor com peso 100 e os outros com 0 (sem tráfego). Pode editar de novo no diálogo do rotador.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              disabled={promoteMut.isPending}
+              onClick={() => {
+                if (
+                  !confirm(
+                    "Concentrar 100% do tráfego no braço vencedor (segundo a métrica e o período escolhidos)?",
+                  )
+                ) {
+                  return;
+                }
+                promoteMut.mutate();
+              }}
+            >
+              {promoteMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trophy className="h-3.5 w-3.5" />}
+              Aplicar vencedor
+            </Button>
+          </>
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 type ArmForm = {
   destination_url: string;
@@ -111,7 +277,9 @@ function armsToPayload(arms: ArmForm[]): TrafficRotatorArmInput[] | null {
   arms.forEach((a, i) => {
     const url = a.destination_url.trim();
     if (!url) return;
-    const w = Math.max(1, parseInt(a.weight, 10) || 100);
+    const wRaw = a.weight.trim();
+    const wParsed = wRaw === "" ? 100 : parseInt(wRaw, 10);
+    const w = Number.isNaN(wParsed) ? 100 : Math.max(0, Math.min(100_000, wParsed));
     const maxRaw = a.max_clicks.trim();
     const maxClicks = maxRaw ? Math.max(1, parseInt(maxRaw, 10) || 0) : null;
     out.push({
@@ -302,7 +470,7 @@ export default function Rotadores() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Rotadores de tráfego"
-        description="Um único link público distribui visitantes por vários destinos (modos aleatório, ponderado, sequencial ou preenchimento). Filtros por país e dispositivo por destino. Use sub1–sub3 na query para segmentar no relatório. A presell de contexto liga conversões por postback ao mesmo fluxo legal."
+        description="Um link público distribui por vários destinos: A/B ponderado, geo (permitir/excluir países), mobile vs desktop por braço, URL de recurso. sub1–sub3 e sufixo de caminho no URL (ex.: /rot/UUID/fb/campanha) segmentam nos relatórios. A presell de contexto liga conversões por postback."
         actions={
           <Button
             type="button"
@@ -315,12 +483,18 @@ export default function Rotadores() {
         }
       />
 
-      <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground mb-6">
+      <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground mb-6 space-y-2">
         <p>
           <strong className="text-foreground/90">URL público:</strong>{" "}
-          <span className="font-mono text-xs">{apiBase}/track/rot/`{"{"}uuid{"}"}`</span> — acrescente os mesmos parâmetros
-          que no redirect da presell (gclid, utm_*, <span className="text-foreground/85">sub1, sub2, sub3</span>
-          ). Código opcional: <span className="font-mono text-xs">?access_code=…</span>
+          <span className="font-mono text-xs">{apiBase}/track/rot/`{"{"}uuid{"}"}`</span> — parâmetros como no redirect
+          (gclid, utm_*, <span className="text-foreground/85">sub1–sub3</span>
+          ). Opcional: <span className="font-mono text-xs">…/rot/UUID/fonte/campanha/criativo</span> para drill-down no
+          caminho. Código: <span className="font-mono text-xs">?access_code=…</span>
+        </p>
+        <p>
+          <strong className="text-foreground/90">A/B:</strong> modo <em>ponderado</em> + tabela abaixo em cada cartão;{" "}
+          <strong className="text-foreground/90">Promover vencedor</strong> concentra tráfego no melhor braço (taxa de
+          conversão ou receita).
         </p>
       </div>
 
@@ -412,6 +586,7 @@ export default function Rotadores() {
                   </div>
                 ))}
               </div>
+              <RotatorAbPanel rotatorId={r.id} />
             </div>
           ))}
         </div>
@@ -586,7 +761,7 @@ export default function Rotadores() {
                     />
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Peso"
+                        placeholder="Peso (0 = off)"
                         className="w-24"
                         value={arm.weight}
                         onChange={(e) =>

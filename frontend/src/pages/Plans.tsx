@@ -316,7 +316,7 @@ export default function Plans() {
             painel — separador <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>Planos</span>, bloco no topo.
           </p>
           <Button variant="secondary" size="sm" className="shrink-0 gap-2" asChild>
-            <Link to="/admin?tab=plans">
+            <Link to="/admin/plans">
               <LayoutTemplate className="h-4 w-4" />
               Abrir editor da landing
             </Link>

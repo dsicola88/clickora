@@ -30,7 +30,7 @@ import Settings from "./pages/Settings";
 import Logs from "./pages/Logs";
 import Plans from "./pages/Plans";
 import { LandingRoot } from "./components/LandingRoot";
-import AdminPanel from "./pages/AdminPanel";
+import AdminPanel, { AdminEntryRedirect } from "./pages/AdminPanel";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import PublicPresell from "./pages/PublicPresell";
@@ -49,15 +49,18 @@ function BrandingFaviconGate() {
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
   { path: "/conta", element: <Account /> },
-  { path: "/admin", element: <AdminPanel /> },
+  { path: "/admin", element: <AdminEntryRedirect /> },
+  { path: "/admin/:tab", element: <AdminPanel /> },
   { path: "/presell/dashboard", element: <PresellDashboard /> },
   { path: "/presell/paginas-criadas", element: <PresellManualPagesPage /> },
-  { path: "/presell/templates", element: <PresellCreator /> },
+  { path: "/presell/templates", element: <Navigate to="/presell/templates/editor" replace /> },
+  { path: "/presell/templates/:tab", element: <PresellCreator /> },
   { path: "/tracking/dashboard", element: <TrackingDashboard /> },
   { path: "/tracking/plataformas", element: <Plataformas /> },
   { path: "/tracking/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
   { path: "/tracking/relatorios/:tab", element: <Relatorios /> },
-  { path: "/tracking/analytics", element: <Analytics /> },
+  { path: "/tracking/analytics", element: <Navigate to="/tracking/analytics/presells" replace /> },
+  { path: "/tracking/analytics/*", element: <Analytics /> },
   { path: "/tracking/links", element: <Links /> },
   { path: "/tracking/rotadores", element: <Rotadores /> },
   { path: "/tracking/tools/*", element: <TrackingTools /> },

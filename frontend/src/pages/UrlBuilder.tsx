@@ -491,7 +491,8 @@ export default function UrlBuilder() {
               Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da presell (ex.{" "}
               <span className="font-mono text-[10px]">https://dclickora.com/p/&lt;uuid-da-presell&gt;</span>
               ), não o link direto da rede. O script da presell e o redirect <span className="font-mono">/track/r/…</span> tratam do
-              resto.
+              resto. Para ver estatística por anúncio, pode sufixar o link de clique:{" "}
+              <span className="font-mono text-[10px]">…/track/r/&lt;uuid&gt;/fb/meu-anuncio?to=…</span> (até 10 níveis).
             </p>
           </CollapsibleContent>
         </Collapsible>

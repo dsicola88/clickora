@@ -9,6 +9,8 @@ export const trafficRotatorsRouter = Router();
 trafficRotatorsRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
 
 trafficRotatorsRouter.get("/", trafficRotatorsController.list);
+trafficRotatorsRouter.get("/:id/ab-stats", trafficRotatorsController.abStats);
+trafficRotatorsRouter.post("/:id/promote-winner", trafficRotatorsController.promoteWinner);
 trafficRotatorsRouter.get("/:id", trafficRotatorsController.getOne);
 trafficRotatorsRouter.post("/", trafficRotatorsController.create);
 trafficRotatorsRouter.patch("/:id", trafficRotatorsController.update);

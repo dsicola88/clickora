@@ -108,7 +108,7 @@ export default function Links() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Links"
-        description="Links de redirect com UTMs. Opcional na query: sub1, sub2, sub3 (segmentação nos relatórios). Para vários destinos no mesmo link, use Rotadores."
+        description="Redirect com UTMs. Query: sub1, sub2, sub3. Ou sufixe o caminho: …/track/r/{presellId}/fonte/campanha/criativo?to=… (drill-down estilo ClickMagick). Vários destinos, geo e A/B: Rotadores."
         actions={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

@@ -171,13 +171,15 @@ function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
               path === item.url ||
               (item.url === "/presell/builder" && path.startsWith("/presell/builder")) ||
               (item.url === "/tracking/relatorios" && path.startsWith("/tracking/relatorios")) ||
+              (item.url === "/tracking/analytics" && path.startsWith("/tracking/analytics")) ||
+              (item.url === "/presell/templates" && path.startsWith("/presell/templates")) ||
               (item.url === "/tracking/tools" && path.startsWith("/tracking/tools"))
             }
             size="md"
           >
             <NavLink
               to={item.url}
-              end={item.url !== "/presell/builder"}
+              end={item.url !== "/presell/builder" && item.url !== "/presell/templates"}
               title={item.hint ?? item.title}
               className={({ isActive: a }) =>
                 cn("no-underline", a && "bg-sidebar-accent text-sidebar-accent-foreground font-medium")
@@ -343,8 +345,8 @@ export function AppSidebar() {
               </SidebarMenuItem>
               {isAdmin && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={path === "/admin"} tooltip="Admin">
-                    <NavLink to="/admin" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
+                  <SidebarMenuButton asChild isActive={path.startsWith("/admin")} tooltip="Admin">
+                    <NavLink to="/admin/overview" className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
                       <ShieldAlert className="h-4 w-4 flex-shrink-0" />
                       {!collapsed && <span>Admin Panel</span>}
                     </NavLink>

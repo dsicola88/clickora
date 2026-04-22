@@ -14,6 +14,7 @@ import { detectBot } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
+import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -143,6 +144,12 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   return { referrer, source, medium, campaign, metadata };
 }
 
+function expressWildcardPathSuffix(req: Request): string | undefined {
+  const p = req.params as Record<string, string | undefined>;
+  const t = p["0"];
+  return typeof t === "string" && t.length > 0 ? t : undefined;
+}
+
 /** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id; envia _fbp se existir. */
 const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;var cm=typeof document!=="undefined"&&document.cookie?document.cookie.match(/(?:^|;)_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
@@ -167,10 +174,24 @@ export const trackController = {
       utm_content,
       msclkid,
       utm_source,
-      sub1,
-      sub2,
-      sub3,
+      sub1: qSub1,
+      sub2: qSub2,
+      sub3: qSub3,
     } = parsed.data;
+
+    const pathTail = expressWildcardPathSuffix(req);
+    if (pathTail != null && pathTail.trim() !== "" && !parsePublicPathSubTail(pathTail)) {
+      return res.status(400).json({
+        error:
+          "Sufixo de caminho inválido. Use apenas letras, números, ponto, _ e hífen por segmento (até 10 níveis, ex.: /fb/campanha/anuncio).",
+      });
+    }
+    const pathSub = parsePublicPathSubTail(pathTail);
+    const { sub1, sub2, sub3, pathMeta } = mergeSubIdsWithPath(
+      { sub1: qSub1, sub2: qSub2, sub3: qSub3 },
+      pathSub,
+    );
+    const pathMetaJson = pathSubForMetadata(pathMeta) as Record<string, string | string[]>;
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -226,9 +247,10 @@ export const trackController = {
             medium,
             campaign,
             redirect_to: to,
-            ...(sub1?.trim() ? { sub1: sub1.trim() } : {}),
-            ...(sub2?.trim() ? { sub2: sub2.trim() } : {}),
-            ...(sub3?.trim() ? { sub3: sub3.trim() } : {}),
+            ...(sub1 ? { sub1 } : {}),
+            ...(sub2 ? { sub2 } : {}),
+            ...(sub3 ? { sub3 } : {}),
+            ...pathMetaJson,
             ...botMeta,
           } as Prisma.InputJsonValue,
         },
@@ -276,11 +298,25 @@ export const trackController = {
       utm_content,
       msclkid,
       utm_source,
-      sub1,
-      sub2,
-      sub3,
+      sub1: rSub1,
+      sub2: rSub2,
+      sub3: rSub3,
       access_code,
     } = q;
+
+    const rPathTail = expressWildcardPathSuffix(req);
+    if (rPathTail != null && rPathTail.trim() !== "" && !parsePublicPathSubTail(rPathTail)) {
+      return res.status(400).json({
+        error:
+          "Sufixo de caminho inválido. Use apenas letras, números, ponto, _ e hífen por segmento (até 10 níveis, ex.: /fb/campanha/anuncio).",
+      });
+    }
+    const rPathSub = parsePublicPathSubTail(rPathTail);
+    const { sub1, sub2, sub3, pathMeta: rotPathMeta } = mergeSubIdsWithPath(
+      { sub1: rSub1, sub2: rSub2, sub3: rSub3 },
+      rPathSub,
+    );
+    const rotPathMetaJson = pathSubForMetadata(rotPathMeta) as Record<string, string | string[]>;
 
     const rot = await systemPrisma.trafficRotator.findFirst({
       where: { id: rotatorId, isActive: true },
@@ -366,9 +402,10 @@ export const trackController = {
           rotator_id: rotatorId,
           rotator_arm_id: armIdForMeta,
           rotator_used_backup: pick.usedBackup,
-          ...(sub1?.trim() ? { sub1: sub1.trim() } : {}),
-          ...(sub2?.trim() ? { sub2: sub2.trim() } : {}),
-          ...(sub3?.trim() ? { sub3: sub3.trim() } : {}),
+          ...(sub1 ? { sub1 } : {}),
+          ...(sub2 ? { sub2 } : {}),
+          ...(sub3 ? { sub3 } : {}),
+          ...rotPathMetaJson,
           ...rotBotMeta,
         } as Prisma.InputJsonValue,
       },

@@ -113,13 +113,28 @@ export async function pickRotatorDestination(
         data: { sequenceCursor: rot.sequenceCursor + 1 },
       });
     } else if (mode === "weighted") {
-      const weights = eligible.map((a) => Math.max(1, a.weight));
+      const weightPositive = eligible.filter((a) => (a.weight ?? 0) > 0);
+      if (weightPositive.length === 0) {
+        const bu = rot.backupUrl?.trim();
+        if (bu) {
+          return {
+            ok: true,
+            destinationUrl: bu,
+            armId: null,
+            armLabel: null,
+            usedBackup: true,
+          };
+        }
+        return { ok: false, reason: "no_destination" };
+      }
+      const weights = weightPositive.map((a) => a.weight);
       const sum = weights.reduce((s, w) => s + w, 0);
       let r = Math.random() * sum;
-      for (let i = 0; i < eligible.length; i++) {
+      chosen = weightPositive[weightPositive.length - 1]!;
+      for (let i = 0; i < weightPositive.length; i++) {
         r -= weights[i]!;
         if (r <= 0) {
-          chosen = eligible[i]!;
+          chosen = weightPositive[i]!;
           break;
         }
       }

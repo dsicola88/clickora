@@ -54,6 +54,23 @@ export type CreateTrafficRotatorBody = {
   arms: TrafficRotatorArmInput[];
 };
 
+export type RotatorAbArmStats = {
+  arm_id: string;
+  label: string | null;
+  order_index: number;
+  current_weight: number;
+  clicks: number;
+  conversions: number;
+  revenue: string;
+  conversion_rate: number;
+};
+
+export type RotatorAbStatsResponse = {
+  rotator_id: string;
+  lookback_from: string;
+  arms: RotatorAbArmStats[];
+};
+
 export const trafficRotatorsService = {
   list() {
     return apiClient.get<TrafficRotatorDto[]>("/traffic-rotators");
@@ -73,5 +90,25 @@ export const trafficRotatorsService = {
 
   remove(id: string) {
     return apiClient.delete<unknown>(`/traffic-rotators/${encodeURIComponent(id)}`);
+  },
+
+  abStats(id: string, params?: { lookback_days?: number }) {
+    const q = new URLSearchParams();
+    if (params?.lookback_days != null) q.set("lookback_days", String(params.lookback_days));
+    const suffix = q.toString() ? `?${q.toString()}` : "";
+    return apiClient.get<RotatorAbStatsResponse>(`/traffic-rotators/${encodeURIComponent(id)}/ab-stats${suffix}`);
+  },
+
+  promoteWinner(
+    id: string,
+    body: { metric?: "conversion_rate" | "revenue"; lookback_days?: number; min_clicks_per_arm?: number },
+  ) {
+    return apiClient.post<{
+      ok: true;
+      winner_arm_id: string;
+      winner_label: string | null;
+      metric: string;
+      summary: { candidates_evaluated: number; lookback_from: string };
+    }>(`/traffic-rotators/${encodeURIComponent(id)}/promote-winner`, body);
   },
 };

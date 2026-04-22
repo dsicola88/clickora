@@ -1136,6 +1136,10 @@ export const analyticsController = {
         typeof meta.sub1 === "string" || typeof meta.sub2 === "string" || typeof meta.sub3 === "string"
           ? { sub1: meta.sub1, sub2: meta.sub2, sub3: meta.sub3 }
           : null,
+      sub_path: typeof meta.sub_path === "string" ? meta.sub_path : null,
+      path_segments: Array.isArray(meta.path_segments)
+        ? meta.path_segments.filter((x): x is string => typeof x === "string")
+        : null,
       redirect_to: typeof meta.redirect_to === "string" ? meta.redirect_to : null,
     });
   },

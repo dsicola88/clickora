@@ -676,7 +676,7 @@ function GoogleAdsOfflineFileExportCard({
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = filename?.replace(/[^\w.\-]+/g, "_") || "google-ads-offline-gclid.csv";
+      a.download = filename?.replace(/[^\w.-]+/g, "_") || "google-ads-offline-gclid.csv";
       document.body.appendChild(a);
       a.click();
       a.remove();

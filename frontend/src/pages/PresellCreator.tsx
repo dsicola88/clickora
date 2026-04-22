@@ -1,14 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Eye, Save, Layout, Sparkles, ArrowRight } from "lucide-react";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { cn } from "@/lib/utils";
+
+const TEMPLATES_BASE = "/presell/templates";
+
+const CREATOR_TABS = ["templates", "editor", "preview"] as const;
+type CreatorTab = (typeof CREATOR_TABS)[number];
+
+function isCreatorTab(s: string | undefined): s is CreatorTab {
+  return !!s && (CREATOR_TABS as readonly string[]).includes(s);
+}
 
 const templates = [
   { id: "vsl", name: "VSL (Video Sales Letter)", description: "Página com vídeo de vendas + CTA forte", color: "from-primary to-accent" },
@@ -17,6 +27,10 @@ const templates = [
 ];
 
 export default function PresellCreator() {
+  const { tab: tabParam } = useParams<{ tab: string }>();
+  const navigate = useNavigate();
+  const tab: CreatorTab = isCreatorTab(tabParam) ? tabParam : "editor";
+
   const [formData, setFormData] = useState({
     title: "",
     subtitle: "",
@@ -27,7 +41,11 @@ export default function PresellCreator() {
     videoUrl: "",
   });
 
-  const [activeTab, setActiveTab] = useState("editor");
+  useEffect(() => {
+    if (tabParam !== undefined && !isCreatorTab(tabParam)) {
+      navigate(`${TEMPLATES_BASE}/editor`, { replace: true });
+    }
+  }, [tabParam, navigate]);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -48,7 +66,7 @@ export default function PresellCreator() {
         description="Monte sua página de presell em minutos"
         actions={
           <>
-            <Button variant="outline" onClick={() => setActiveTab("preview")} className="gap-2">
+            <Button variant="outline" onClick={() => navigate(`${TEMPLATES_BASE}/preview`)} className="gap-2">
               <Eye className="h-4 w-4" /> Pré-visualizar
             </Button>
             <Button onClick={handleSave} className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
@@ -58,21 +76,42 @@ export default function PresellCreator() {
         }
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="templates" className="gap-2"><Sparkles className="h-4 w-4" /> Templates</TabsTrigger>
-          <TabsTrigger value="editor" className="gap-2"><FileText className="h-4 w-4" /> Editor</TabsTrigger>
-          <TabsTrigger value="preview" className="gap-2"><Eye className="h-4 w-4" /> Preview</TabsTrigger>
-        </TabsList>
+      <nav className="flex flex-wrap gap-2 mb-6" aria-label="Secções do criador">
+        {(
+          [
+            { seg: "templates" as const, label: "Templates", icon: Sparkles },
+            { seg: "editor" as const, label: "Editor", icon: FileText },
+            { seg: "preview" as const, label: "Preview", icon: Eye },
+          ] as const
+        ).map(({ seg, label, icon: Icon }) => (
+          <NavLink
+            key={seg}
+            to={`${TEMPLATES_BASE}/${seg}`}
+            className={({ isActive }) =>
+              cn(
+                "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                isActive
+                  ? "border-primary bg-primary/10 font-medium text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted/60",
+              )
+            }
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
 
-        <TabsContent value="templates" className="mt-6">
+      {tab === "templates" ? (
+        <div className="mt-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {templates.map((t) => (
               <button
                 key={t.id}
+                type="button"
                 onClick={() => {
                   updateField("template", t.id);
-                  setActiveTab("editor");
+                  navigate(`${TEMPLATES_BASE}/editor`);
                 }}
                 className={`relative overflow-hidden rounded-xl border-2 p-6 text-left transition-all duration-200 hover:shadow-card-hover ${formData.template === t.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"}`}
               >
@@ -88,9 +127,11 @@ export default function PresellCreator() {
               </button>
             ))}
           </div>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="editor" className="mt-6">
+      {tab === "editor" ? (
+        <div className="mt-0">
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -106,16 +147,20 @@ export default function PresellCreator() {
             <div className="space-y-2">
               <Label htmlFor="template-select">Tipo da Presell</Label>
               <Select value={formData.template} onValueChange={(v) => updateField("template", v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
                 <SelectContent>
                   {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {(formData.template === "vsl") && (
+            {formData.template === "vsl" && (
               <div className="space-y-2">
                 <Label htmlFor="video">URL do Vídeo (YouTube/Vimeo)</Label>
                 <Input id="video" placeholder="https://youtube.com/watch?v=..." value={formData.videoUrl} onChange={(e) => updateField("videoUrl", e.target.value)} />
@@ -138,9 +183,11 @@ export default function PresellCreator() {
               </div>
             </div>
           </div>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="preview" className="mt-6">
+      {tab === "preview" ? (
+        <div className="mt-0">
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center gap-2">
               <div className="flex gap-1.5">
@@ -151,12 +198,8 @@ export default function PresellCreator() {
               <span className="text-xs text-muted-foreground ml-2">https://dclickora.com/p/sua-presell</span>
             </div>
             <div className="p-6 sm:p-8 md:p-12 w-full max-w-4xl mx-auto text-center space-y-6">
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
-                {formData.title || "Seu Título Aparecerá Aqui"}
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                {formData.subtitle || "Seu subtítulo persuasivo aqui"}
-              </p>
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">{formData.title || "Seu Título Aparecerá Aqui"}</h1>
+              <p className="text-lg text-muted-foreground">{formData.subtitle || "Seu subtítulo persuasivo aqui"}</p>
               {formData.template === "vsl" && (
                 <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
                   <span className="text-muted-foreground text-sm">🎬 Player de Vídeo</span>
@@ -165,13 +208,16 @@ export default function PresellCreator() {
               <p className="text-foreground/80 leading-relaxed whitespace-pre-line">
                 {formData.salesText || "Seu texto de vendas aparecerá aqui. Escreva algo persuasivo para converter seus visitantes..."}
               </p>
-              <button className="inline-flex items-center gap-2 gradient-primary text-primary-foreground px-8 py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 gradient-primary text-primary-foreground px-8 py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg"
+              >
                 {formData.ctaText || "Botão CTA"} <ArrowRight className="h-5 w-5" />
               </button>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      ) : null}
     </div>
   );
 }

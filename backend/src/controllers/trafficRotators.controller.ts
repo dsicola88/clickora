@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma, RotatorDeviceRule, TrafficRotatorMode } from "@prisma/client";
 import { systemPrisma } from "../lib/prisma";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
+import { getRotatorAbStats, promoteRotatorWinner } from "../lib/rotatorAbStats.service";
 
 const slugRegex = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 
@@ -10,7 +11,7 @@ const armSchema = z.object({
   destination_url: z.string().url().max(8000),
   label: z.string().max(120).optional().nullable(),
   order_index: z.number().int().min(0).max(99),
-  weight: z.number().int().min(1).max(100000).optional(),
+  weight: z.number().int().min(0).max(100000).optional(),
   max_clicks: z.number().int().min(1).max(1_000_000_000).optional().nullable(),
   countries_allow: z.array(z.string().length(2)).max(200).optional().nullable(),
   countries_deny: z.array(z.string().length(2)).max(200).optional().nullable(),
@@ -196,7 +197,7 @@ export const trafficRotatorsController = {
               destinationUrl: a.destination_url.trim(),
               label: a.label?.trim() || null,
               orderIndex: a.order_index,
-              weight: a.weight ?? 100,
+              weight: typeof a.weight === "number" ? a.weight : 100,
               maxClicks: a.max_clicks ?? null,
               countriesAllow: j.countriesAllow,
               countriesDeny: j.countriesDeny,
@@ -272,7 +273,7 @@ export const trafficRotatorsController = {
                       destinationUrl: a.destination_url.trim(),
                       label: a.label?.trim() || null,
                       orderIndex: a.order_index,
-                      weight: a.weight ?? 100,
+                      weight: typeof a.weight === "number" ? a.weight : 100,
                       maxClicks: a.max_clicks ?? null,
                       clicksDelivered: 0,
                       countriesAllow: j.countriesAllow,
@@ -304,5 +305,44 @@ export const trafficRotatorsController = {
     const del = await systemPrisma.trafficRotator.deleteMany({ where: { id, userId } });
     if (del.count === 0) return res.status(404).json({ error: "Rotador não encontrado." });
     res.status(204).end();
+  },
+
+  async abStats(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const id = req.params.id?.trim();
+    if (!id) return res.status(400).json({ error: "ID em falta." });
+    const lookbackQ = z.coerce.number().int().min(1).max(730).optional().safeParse(req.query.lookback_days);
+    const lookbackDays = lookbackQ.success && lookbackQ.data != null ? lookbackQ.data : 30;
+    const stats = await getRotatorAbStats({ userId, rotatorId: id, lookbackDays });
+    if (!stats) return res.status(404).json({ error: "Rotador não encontrado." });
+    res.json(stats);
+  },
+
+  async promoteWinner(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const id = req.params.id?.trim();
+    if (!id) return res.status(400).json({ error: "ID em falta." });
+    const bodySchema = z.object({
+      metric: z.enum(["conversion_rate", "revenue"]).default("conversion_rate"),
+      lookback_days: z.coerce.number().int().min(1).max(730).optional().default(30),
+      min_clicks_per_arm: z.coerce.number().int().min(0).max(1_000_000).optional().default(0),
+    });
+    const parsed = bodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const { metric, lookback_days, min_clicks_per_arm } = parsed.data;
+    const result = await promoteRotatorWinner({
+      userId,
+      rotatorId: id,
+      metric,
+      lookbackDays: lookback_days,
+      minClicksPerArm: min_clicks_per_arm,
+    });
+    if (!result.ok) {
+      if (result.error === "not_found") return res.status(404).json({ error: "Rotador não encontrado." });
+      return res.status(400).json({ error: result.message ?? "Sem dados para promover um vencedor." });
+    }
+    res.json(result);
   },
 };
