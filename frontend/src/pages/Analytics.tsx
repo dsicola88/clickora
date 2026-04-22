@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Bot, RefreshCw, TrendingUp } from "lucide-react";
+import { ArrowRight, BarChart3, Bot, RefreshCw, Settings2, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
 import { analyticsService } from "@/services/analyticsService";
@@ -31,6 +31,15 @@ function deviceDisplayLabel(device: string | null | undefined): string {
     default:
       return device;
   }
+}
+
+/** Mensagem 503 quando falta Customer ID, OAuth ou credenciais API (alinhada ao backend). */
+function isGoogleAdsReportingSetupMessage(message: string): boolean {
+  const t = message.trim();
+  return (
+    t.startsWith("Não é possível obter estes relatórios:") ||
+    (t.includes("Customer ID") && t.includes("OAuth") && t.includes("Resumo e guia"))
+  );
 }
 
 function defaultDateRange() {
@@ -234,43 +243,73 @@ function GoogleAdsInsightsPanel() {
   });
 
   const errMsg = error instanceof Error ? error.message : "Erro ao carregar.";
+  const setupNeeded = isError && isGoogleAdsReportingSetupMessage(errMsg);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">De</Label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-44" />
+    <div className="space-y-5">
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="space-y-1.5 min-w-0 sm:w-44">
+              <Label className="text-xs font-medium text-muted-foreground">Data inicial</Label>
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full bg-background" />
+            </div>
+            <div className="space-y-1.5 min-w-0 sm:w-44">
+              <Label className="text-xs font-medium text-muted-foreground">Data final</Label>
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full bg-background" />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="gap-2 w-full sm:w-auto shrink-0"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Atualizar relatórios
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Até</Label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-44" />
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          className="gap-2"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-          Atualizar
-        </Button>
+        <p className="mt-4 text-xs text-muted-foreground leading-relaxed max-w-3xl">
+          Relatórios em tempo real via <span className="text-foreground/90 font-medium">Google Ads API</span> para o intervalo
+          selecionado: palavras-chave, termos de pesquisa e demografia. É necessário configurar o{" "}
+          <span className="text-foreground/90 font-medium">Customer ID</span> e a ligação{" "}
+          <span className="text-foreground/90 font-medium">OAuth</span> em{" "}
+          <Link to="/tracking/dashboard" className="text-primary font-medium underline underline-offset-2">
+            Resumo e guia — Google Ads
+          </Link>
+          . Até <span className="text-foreground/90 font-medium">2000</span> linhas por relatório após agregação no período.
+        </p>
       </div>
 
-      <p className="text-xs text-muted-foreground leading-relaxed">
-        Dados em tempo real da <strong className="text-foreground/90">Google Ads API</strong> para o intervalo acima (palavras-chave, termos de pesquisa e demografia). Requer{" "}
-        <strong className="text-foreground/90">Customer ID</strong> e <strong className="text-foreground/90">OAuth</strong> em{" "}
-        <Link to="/tracking/dashboard" className="text-primary font-medium underline underline-offset-2">
-          Resumo e guia → Google Ads
-        </Link>
-        . Até <strong className="text-foreground/90">2000</strong> linhas por relatório após agregação no período.
-      </p>
-
       {isLoading ? <LoadingState message="A carregar Google Ads…" /> : null}
-      {isError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Não foi possível carregar</AlertTitle>
+      {isError && setupNeeded ? (
+        <div
+          className="rounded-xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-500/10 p-5 sm:p-6 max-w-2xl"
+          role="status"
+        >
+          <div className="flex gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400">
+              <Settings2 className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Configuração da Google Ads necessária</h3>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{errMsg}</p>
+              </div>
+              <Button asChild className="gap-2 w-full sm:w-auto">
+                <Link to="/tracking/dashboard">
+                  Abrir Resumo e guia
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isError && !setupNeeded ? (
+        <Alert variant="destructive" className="max-w-2xl">
+          <AlertTitle>Não foi possível obter os dados</AlertTitle>
           <AlertDescription className="text-sm">{errMsg}</AlertDescription>
         </Alert>
       ) : null}
