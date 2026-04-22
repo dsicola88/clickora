@@ -29,6 +29,13 @@ import {
   sendWebPushToUser,
 } from "../lib/webPush";
 import { decryptSecretField, encryptSecretField } from "../lib/fieldEncryption";
+import {
+  buildGoogleAdsAuthorizeUrl,
+  exchangeGoogleAdsAuthorizationCode,
+  getPrimaryFrontendOrigin,
+  signGoogleAdsOAuthState,
+  verifyGoogleAdsOAuthState,
+} from "../lib/googleAdsOAuthFlow";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -345,6 +352,68 @@ export const integrationsController = {
       api_env_configured: envOk,
       can_upload: isGoogleAdsClickUploadReadyForUser(user),
     });
+  },
+
+  /**
+   * Inicia OAuth Google Ads (multi-tenant: cada utilizador guarda o seu refresh token).
+   * Resposta: URL para redirecionar o browser (conta Google do anunciante).
+   */
+  async beginGoogleAdsOAuth(req: Request, res: Response) {
+    if (!getGoogleAdsApiClientConfigFromEnv()) {
+      return res.status(503).json({
+        error:
+          "Credenciais Google Ads API em falta no servidor (GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET).",
+      });
+    }
+    if (!process.env.JWT_SECRET?.trim()) {
+      return res.status(503).json({ error: "JWT_SECRET em falta no servidor." });
+    }
+    try {
+      const state = signGoogleAdsOAuthState(req.user!.userId);
+      const { authorizeUrl } = buildGoogleAdsAuthorizeUrl(state);
+      return res.json({ authorize_url: authorizeUrl });
+    } catch (e) {
+      console.error("[beginGoogleAdsOAuth]", e);
+      return res.status(500).json({
+        error:
+          e instanceof Error
+            ? e.message
+            : "Falha ao construir o URL de autorização. Confirme API_PUBLIC_URL ou GOOGLE_ADS_OAUTH_REDIRECT_URI.",
+      });
+    }
+  },
+
+  /**
+   * Callback público OAuth: troca o código por refresh token e grava só no utilizador do `state` assinado.
+   */
+  async googleAdsOAuthCallback(req: Request, res: Response) {
+    const frontend = getPrimaryFrontendOrigin();
+    const dashboard = `${frontend}/tracking/dashboard`;
+    const redirectFail = (reason: string) =>
+      res.redirect(`${dashboard}?google_ads_oauth=error&reason=${encodeURIComponent(reason)}`);
+    const redirectOk = () => res.redirect(`${dashboard}?google_ads_oauth=success`);
+
+    const oauthErr = req.query.error?.toString();
+    if (oauthErr) return redirectFail(oauthErr);
+
+    const code = req.query.code?.toString();
+    const state = req.query.state?.toString();
+    if (!code || !state) return redirectFail("missing_code_or_state");
+
+    const decoded = verifyGoogleAdsOAuthState(state);
+    if (!decoded) return redirectFail("invalid_or_expired_state");
+
+    const result = await exchangeGoogleAdsAuthorizationCode(code);
+    if (result.error || !result.refresh_token) {
+      return redirectFail(result.error || "exchange_failed");
+    }
+
+    await systemPrisma.user.update({
+      where: { id: decoded.userId },
+      data: { googleAdsRefreshToken: encryptSecretField(result.refresh_token) },
+    });
+
+    return redirectOk();
   },
 
   /** Meta Conversions API (Pixel server-side). */

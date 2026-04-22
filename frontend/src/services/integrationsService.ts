@@ -47,6 +47,10 @@ export const integrationsService = {
     }>("/integrations/google-ads");
   },
 
+  async beginGoogleAdsOAuth() {
+    return apiClient.post<{ authorize_url: string }>("/integrations/google-ads/oauth/begin");
+  },
+
   async patchGoogleAdsSettings(body: {
     google_ads_enabled?: boolean;
     google_ads_customer_id?: string;

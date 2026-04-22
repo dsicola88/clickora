@@ -8,12 +8,14 @@ export const integrationsRouter = Router();
 
 integrationsRouter.get("/affiliate-webhook", integrationsController.affiliateWebhook);
 integrationsRouter.post("/affiliate-webhook", integrationsController.affiliateWebhook);
+integrationsRouter.get("/google-ads/oauth/callback", integrationsController.googleAdsOAuthCallback);
 
 const authed = Router();
 authed.use(authenticate, tenantIsolation, requireActiveSubscription);
 authed.get("/affiliate-webhook-info", integrationsController.getAffiliateWebhookInfo);
 authed.get("/google-ads", integrationsController.getGoogleAdsSettings);
 authed.patch("/google-ads", integrationsController.patchGoogleAdsSettings);
+authed.post("/google-ads/oauth/begin", integrationsController.beginGoogleAdsOAuth);
 authed.get("/meta-capi", integrationsController.getMetaCapiSettings);
 authed.patch("/meta-capi", integrationsController.patchMetaCapiSettings);
 authed.post("/test-sale-email", integrationsController.testSaleNotificationEmail);

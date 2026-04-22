@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ShoppingCart,
@@ -205,6 +205,19 @@ function GoogleAdsConversionUploadCard({
   setGaRefresh: (v: string) => void;
   saveGoogleAds: { mutate: () => void; isPending: boolean };
 }) {
+  const beginGoogleAdsOAuth = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await integrationsService.beginGoogleAdsOAuth();
+      if (error) throw new Error(error);
+      if (!data?.authorize_url) throw new Error("Resposta inválida do servidor.");
+      return data.authorize_url;
+    },
+    onSuccess: (authorizeUrl) => {
+      window.location.assign(authorizeUrl);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
       <div className="flex items-start gap-3">
@@ -245,7 +258,8 @@ function GoogleAdsConversionUploadCard({
             >
               Google Cloud Console → Credenciais
             </a>{" "}
-            (projeto com Google Ads API ativa). É o mesmo fluxo descrito em «Onde obtenho o refresh token?» abaixo.
+            (projeto com Google Ads API ativa). O botão <strong className="text-foreground/90">Ligar com Google</strong> abaixo faz esse passo pelo browser;
+            a secção rebatível é a alternativa manual (Playground).
           </p>
           <p>
             O <span className="font-mono text-[11px]">GOOGLE_ADS_DEVELOPER_TOKEN</span> vem do{" "}
@@ -395,9 +409,9 @@ function GoogleAdsConversionUploadCard({
                 Cole o <strong className="text-foreground/90">Customer ID</strong> e o <strong className="text-foreground/90">ID da ação de conversão</strong>{" "}
                 nos campos abaixo (os mesmos valores do passo anterior).
               </li>
-              <li>
-                Obtenha o <strong className="text-foreground/90">refresh token</strong> OAuth (secção «Onde obtenho o refresh token?») com a mesma conta Google do Ads.
-              </li>
+                <li>
+                  Use <strong className="text-foreground/90">Ligar com Google</strong> (recomendado) ou cole o refresh token manualmente em baixo — com a mesma conta Google do Ads.
+                </li>
               <li>
                 Ative <strong className="text-foreground/90">importação automática no Google Ads</strong> e clique em{" "}
                 <strong className="text-foreground/90">Guardar Google Ads</strong>.
@@ -472,11 +486,37 @@ function GoogleAdsConversionUploadCard({
 
       {!googleAds?.api_env_configured && (
         <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
-          Variáveis <span className="font-mono">GOOGLE_ADS_DEVELOPER_TOKEN</span>, <span className="font-mono">CLIENT_ID</span> e{" "}
-          <span className="font-mono">CLIENT_SECRET</span> são obrigatórias no servidor; o refresh pode vir do utilizador abaixo ou de{" "}
-          <span className="font-mono">GOOGLE_ADS_REFRESH_TOKEN</span> no ambiente.
+          Variáveis <span className="font-mono">GOOGLE_ADS_DEVELOPER_TOKEN</span>, <span className="font-mono">GOOGLE_ADS_CLIENT_ID</span> e{" "}
+          <span className="font-mono">GOOGLE_ADS_CLIENT_SECRET</span> são obrigatórias no servidor. O refresh pode vir de{" "}
+          <strong className="font-medium text-foreground/90">Ligar com Google</strong> (por utilizador), do campo manual abaixo ou de{" "}
+          <span className="font-mono">GOOGLE_ADS_REFRESH_TOKEN</span> no ambiente (legado).
         </p>
       )}
+      {googleAds?.api_env_configured ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.07] px-3 py-3 space-y-2">
+          <p className="text-sm font-medium text-foreground">Ligar conta Google Ads (recomendado)</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Um login com a <strong className="text-foreground/90">mesma conta Google</strong> do anúncio. O token fica guardado só no{" "}
+            <strong className="text-foreground/90">seu utilizador</strong> (multi-inquilino). No projeto Google Cloud, o tipo de cliente OAuth tem de ser{" "}
+            <strong className="text-foreground/90">Aplicação Web</strong> e o URI de redireccionamento autorizado tem de coincidir com o callback da API
+            (veja <span className="font-mono text-[11px]">GOOGLE_ADS_OAUTH_REDIRECT_URI</span> ou{" "}
+            <span className="font-mono text-[11px]">API_PUBLIC_URL</span> no servidor).
+          </p>
+          <Button
+            type="button"
+            className="gap-2"
+            disabled={beginGoogleAdsOAuth.isPending}
+            onClick={() => beginGoogleAdsOAuth.mutate()}
+          >
+            {beginGoogleAdsOAuth.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Link2 className="h-4 w-4" />
+            )}
+            Ligar com Google
+          </Button>
+        </div>
+      ) : null}
       <div className="flex items-center gap-3">
         <Switch id="ga-enabled" checked={gaEnabled} onCheckedChange={setGaEnabled} />
         <Label htmlFor="ga-enabled" className="text-sm cursor-pointer">
@@ -524,9 +564,9 @@ function GoogleAdsConversionUploadCard({
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Refresh token OAuth (opcional)</Label>
+          <Label className="text-xs">Refresh token manual (opcional)</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
-            Liga a sua conta Google Ads a este envio. Deixe vazio para manter o token já guardado.
+            Só se não usar «Ligar com Google». Deixe vazio para manter o token já guardado na sua conta.
           </p>
           <Input
             type="password"
@@ -537,7 +577,7 @@ function GoogleAdsConversionUploadCard({
           />
           <Collapsible className="rounded-md border border-border/60 bg-muted/30">
             <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-medium text-foreground hover:bg-muted/50 [&[data-state=open]>svg]:rotate-180">
-              Onde obtenho o refresh token?
+              OAuth Playground (alternativa manual ao «Ligar com Google»)
               <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200" />
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -1208,9 +1248,20 @@ function DashboardHeroMetrics({
   );
 }
 
+const GOOGLE_ADS_OAUTH_ERROR_HINTS: Record<string, string> = {
+  no_refresh_token:
+    "O Google não devolveu um novo token. Em myaccount.google.com/permissions revogue o acesso ao dclickora e volte a usar «Ligar com Google».",
+  access_denied: "Autorização cancelada no Google.",
+  invalid_or_expired_state: "A ligação expirou. Use «Ligar com Google» outra vez.",
+  missing_code_or_state: "Resposta inválida do Google. Tente ligar de novo.",
+  server_config: "API Google Ads mal configurada no servidor.",
+  redirect_uri_config: "URL de callback OAuth mal configurada (API_PUBLIC_URL ou GOOGLE_ADS_OAUTH_REDIRECT_URI).",
+};
+
 export default function TrackingDashboard() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const apiBase = getApiBaseUrl();
   /** Alinhado ao botão «Últimos 30 dias» (intervalo inicial ao abrir a página). */
   const initialRange = useMemo(() => defaultDateRange(), []);
@@ -1261,6 +1312,24 @@ export default function TrackingDashboard() {
       return data;
     },
   });
+
+  useEffect(() => {
+    const o = searchParams.get("google_ads_oauth");
+    if (!o) return;
+    const reasonRaw = searchParams.get("reason") || "";
+    const reason = reasonRaw ? decodeURIComponent(reasonRaw) : "";
+    if (o === "success") {
+      toast.success("Conta Google Ads ligada — o refresh token da sua conta foi guardado.");
+      void queryClient.invalidateQueries({ queryKey: ["integrations-google-ads"] });
+    } else if (o === "error") {
+      const hint = GOOGLE_ADS_OAUTH_ERROR_HINTS[reason] || reason || "Não foi possível ligar o Google Ads.";
+      toast.error(hint);
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("google_ads_oauth");
+    next.delete("reason");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, queryClient]);
 
   useEffect(() => {
     if (!googleAds) return;
