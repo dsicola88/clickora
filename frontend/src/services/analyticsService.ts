@@ -1,6 +1,42 @@
 import { apiClient } from "@/lib/apiClient";
 import type { AnalyticsSummary, TrackingEvent } from "@/types/api";
 
+export type GoogleAdsInsightsKeywordRow = {
+  campaign: string;
+  ad_group: string;
+  keyword: string;
+  impressions: number;
+  clicks: number;
+  cost_micros: number;
+};
+
+export type GoogleAdsInsightsSearchTermRow = {
+  campaign: string;
+  ad_group: string;
+  search_term: string;
+  impressions: number;
+  clicks: number;
+  cost_micros: number;
+};
+
+export type GoogleAdsInsightsDemoRow = {
+  campaign: string;
+  ad_group: string;
+  segment_label: string;
+  impressions: number;
+  clicks: number;
+};
+
+export type GoogleAdsInsightsBundle = {
+  period: { from: string; to: string };
+  synced_at: string;
+  keywords: { ok: true; rows: GoogleAdsInsightsKeywordRow[] } | { ok: false; error: string };
+  search_terms: { ok: true; rows: GoogleAdsInsightsSearchTermRow[] } | { ok: false; error: string };
+  demographics:
+    | { ok: true; gender: GoogleAdsInsightsDemoRow[]; age: GoogleAdsInsightsDemoRow[] }
+    | { ok: false; error: string };
+};
+
 const CSV_MAX_PAGES = 500;
 
 function stripUtf8Bom(text: string): string {
@@ -288,5 +324,13 @@ export const analyticsService = {
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
     }>(`/analytics/dashboard${qs ? `?${qs}` : ""}`);
+  },
+
+  async getGoogleAdsInsights(params?: { from?: string; to?: string }) {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const qs = query.toString();
+    return apiClient.get<GoogleAdsInsightsBundle>(`/analytics/google-ads-insights${qs ? `?${qs}` : ""}`);
   },
 };

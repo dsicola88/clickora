@@ -9,6 +9,7 @@ import {
   isGoogleAdsClickUploadReadyForUser,
   isGoogleAdsMetricsReadyForUser,
 } from "../modules/googleAds/googleAds.service";
+import { fetchGoogleAdsInsightsBundle } from "../modules/googleAds/googleAdsInsights.service";
 import { countryIsoFromIp } from "../lib/countryFromIp";
 import { sendCsvDownload } from "../lib/csvExport";
 import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
@@ -842,10 +843,74 @@ export const analyticsController = {
     } catch (e) {
       console.error("[analytics.getDashboard]", e);
       return res.status(503).json({
-        error: "Indisponível de momento. Tente novamente.",
+        error: "O painel de analytics não está disponível de momento. Tente novamente dentro de alguns instantes.",
         code: "dashboard_unavailable",
       });
     }
+  },
+
+  /**
+   * Relatórios Google Ads (GAQL): palavras-chave, termos de pesquisa, demografia.
+   * Mesmo intervalo `from`/`to` (YYYY-MM-DD) para os três blocos; dados em tempo real da API (sem cache).
+   */
+  async getGoogleAdsInsights(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const fromQ = req.query.from?.toString();
+    const toQ = req.query.to?.toString();
+
+    const endOfDay = (d: Date) => {
+      const x = new Date(d);
+      x.setHours(23, 59, 59, 999);
+      return x;
+    };
+
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    if (fromQ && toQ) {
+      rangeStart = new Date(fromQ);
+      rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = endOfDay(new Date(toQ));
+      if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime()) || rangeStart > rangeEnd) {
+        return res.status(400).json({
+          error:
+            "O intervalo de datas não é válido. Utilize «from» e «to» no formato YYYY-MM-DD, com data de início anterior ou igual à data de fim.",
+          code: "google_ads_insights_invalid_range",
+        });
+      }
+    } else {
+      rangeEnd = endOfDay(new Date());
+      rangeStart = new Date(rangeEnd);
+      rangeStart.setDate(rangeStart.getDate() - 30);
+      rangeStart.setHours(0, 0, 0, 0);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        googleAdsCustomerId: true,
+        googleAdsLoginCustomerId: true,
+        googleAdsRefreshToken: true,
+      },
+    });
+    if (!user) {
+      return res.status(404).json({
+        error: "Não foi possível localizar a conta de utilizador.",
+        code: "user_not_found",
+      });
+    }
+
+    const bundle = await fetchGoogleAdsInsightsBundle({
+      user,
+      from: rangeStart,
+      to: rangeEnd,
+    });
+    if (!bundle.ok) {
+      return res.status(503).json({
+        error: bundle.error,
+        code: "google_ads_insights_unavailable",
+      });
+    }
+    return res.json(bundle.data);
   },
 
   /** Tentativas bloqueadas: blacklist ou regras de tracking (rate limit, whitelist, UA, bots). */

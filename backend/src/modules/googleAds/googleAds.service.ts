@@ -5,6 +5,7 @@ import { systemPrisma } from "../../lib/prisma";
 import { pickOrderIdFromPayload } from "../../lib/affiliatePostbackParsers";
 import { decryptSecretField } from "../../lib/fieldEncryption";
 import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
+import { GOOGLE_ADS_REPORTING_SETUP_REQUIRED, humanizeGoogleAdsApiError } from "./googleAdsApiErrors";
 
 const DIGITS_ONLY = /^\d+$/;
 
@@ -96,7 +97,7 @@ export function isGoogleAdsClickUploadReadyForUser(user: GoogleAdsUserSettings):
 }
 
 /** GAQL: datas como YYYYMMDD (UTC alinhado ao intervalo do dashboard). */
-function formatGaqlDate(d: Date): string {
+export function formatGaqlDate(d: Date): string {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
@@ -127,10 +128,16 @@ export async function fetchGoogleAdsAccountMetrics(input: {
   to: Date;
 }): Promise<{ ok: true; metrics: GoogleAdsAccountMetrics } | { ok: false; error: string }> {
   if (!isGoogleAdsMetricsReadyForUser(input.user)) {
-    return { ok: false, error: "Customer ID OAuth/API em falta." };
+    return { ok: false, error: GOOGLE_ADS_REPORTING_SETUP_REQUIRED };
   }
   const creds = buildGoogleAdsCredentialsForUser(input.user);
-  if (!creds) return { ok: false, error: "Credenciais OAuth em falta." };
+  if (!creds) {
+    return {
+      ok: false,
+      error:
+        "Faltam credenciais para a Google Ads API (OAuth ou variáveis GOOGLE_ADS_* no servidor). Consulte «Resumo e guia» ou o administrador do sistema.",
+    };
+  }
 
   const customerId = onlyDigits(input.user.googleAdsCustomerId)!;
   const login = onlyDigits(input.user.googleAdsLoginCustomerId);
@@ -184,7 +191,7 @@ export async function fetchGoogleAdsAccountMetrics(input: {
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg.slice(0, 500) };
+    return { ok: false, error: humanizeGoogleAdsApiError(msg) };
   }
 }
 
