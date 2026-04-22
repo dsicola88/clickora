@@ -169,7 +169,9 @@ function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
             asChild
             isActive={
               path === item.url ||
-              (item.url === "/presell/builder" && path.startsWith("/presell/builder"))
+              (item.url === "/presell/builder" && path.startsWith("/presell/builder")) ||
+              (item.url === "/tracking/relatorios" && path.startsWith("/tracking/relatorios")) ||
+              (item.url === "/tracking/tools" && path.startsWith("/tracking/tools"))
             }
             size="md"
           >

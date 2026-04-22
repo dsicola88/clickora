@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search, RotateCcw, AlertTriangle, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,13 @@ function platformMatches(rowPlatform: string, selected: string) {
   return rowPlatform.toLowerCase().includes(selected.replace(/_/g, "").toLowerCase());
 }
 
+const RELATORIO_TABS = ["acessos", "cliques", "conversoes", "sem-gclid"] as const;
+type RelatorioTab = (typeof RELATORIO_TABS)[number];
+
+function isRelatorioTab(s: string | undefined): s is RelatorioTab {
+  return !!s && (RELATORIO_TABS as readonly string[]).includes(s);
+}
+
 function triggerCsvDownload(blob: Blob, fallbackName: string, serverFilename: string | null) {
   const safe =
     (serverFilename && serverFilename.replace(/[/\\?%*:|"<>]/g, "_").trim()) || fallbackName;
@@ -87,8 +95,17 @@ function triggerCsvDownload(blob: Blob, fallbackName: string, serverFilename: st
 }
 
 export default function Relatorios() {
+  const { tab: tabParam } = useParams<{ tab: string }>();
+  const navigate = useNavigate();
+  const tab: RelatorioTab = isRelatorioTab(tabParam) ? tabParam : "acessos";
+
+  useEffect(() => {
+    if (tabParam !== undefined && !isRelatorioTab(tabParam)) {
+      navigate("/tracking/relatorios/acessos", { replace: true });
+    }
+  }, [tabParam, navigate]);
+
   const initial = defaultDateRange();
-  const [tab, setTab] = useState("acessos");
   const [startDate, setStartDate] = useState(initial.from);
   const [endDate, setEndDate] = useState(initial.to);
   const [applied, setApplied] = useState(initial);
@@ -631,15 +648,27 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Relatórios"
-        description="Consulte acessos, cliques e conversões no período que escolher. Pode filtrar a tabela e descarregar os dados quando existirem registos."
+        description="Cada separador tem o seu URL (/tracking/relatorios/acessos, cliques, conversoes, sem-gclid) para favoritos ou partilha. Filtre por período, exporte CSV e use sub-IDs nos links de tracking."
       />
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="acessos">Acessos</TabsTrigger>
-          <TabsTrigger value="cliques">Cliques</TabsTrigger>
-          <TabsTrigger value="conversoes">Conversões</TabsTrigger>
-          <TabsTrigger value="sem-gclid">Conversões sem Click ID</TabsTrigger>
+      <Tabs value={tab} onValueChange={(v) => navigate(`/tracking/relatorios/${v}`)}>
+        <TabsList className="bg-card border border-border flex flex-wrap h-auto gap-1 p-1 w-full justify-start sm:w-auto">
+          <TabsTrigger value="acessos" className="shrink-0">
+            Acessos
+          </TabsTrigger>
+          <TabsTrigger value="cliques" className="shrink-0">
+            Cliques
+          </TabsTrigger>
+          <TabsTrigger value="conversoes" className="shrink-0">
+            Conversões
+          </TabsTrigger>
+          <TabsTrigger
+            value="sem-gclid"
+            title="Conversões sem Click ID (GCLID / gbraid / wbraid)"
+            className="shrink-0 max-w-[200px] sm:max-w-none text-left leading-tight"
+          >
+            Sem Click ID
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="acessos" className="mt-6 space-y-4">

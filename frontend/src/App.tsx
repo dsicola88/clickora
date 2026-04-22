@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,11 +55,12 @@ const appRoutes = [
   { path: "/presell/templates", element: <PresellCreator /> },
   { path: "/tracking/dashboard", element: <TrackingDashboard /> },
   { path: "/tracking/plataformas", element: <Plataformas /> },
-  { path: "/tracking/relatorios", element: <Relatorios /> },
+  { path: "/tracking/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
+  { path: "/tracking/relatorios/:tab", element: <Relatorios /> },
   { path: "/tracking/analytics", element: <Analytics /> },
   { path: "/tracking/links", element: <Links /> },
   { path: "/tracking/rotadores", element: <Rotadores /> },
-  { path: "/tracking/tools", element: <TrackingTools /> },
+  { path: "/tracking/tools/*", element: <TrackingTools /> },
   { path: "/tracking/blacklist", element: <Blacklist /> },
   { path: "/tracking/url-builder", element: <UrlBuilder /> },
   { path: "/tracking/integrations", element: <Integrations /> },
