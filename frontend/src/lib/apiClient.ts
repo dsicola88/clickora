@@ -48,11 +48,17 @@ class ApiClient {
     const { method = "GET", body, headers, signal } = options;
 
     try {
+      const isPublicPresellGet =
+        method === "GET" &&
+        (endpoint.startsWith("/public/presells/") ||
+          endpoint === "/public/custom-domain/root-presell");
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method,
         headers: this.getHeaders(headers),
         body: body ? JSON.stringify(body) : undefined,
         signal,
+        ...(isPublicPresellGet ? { cache: "no-store" as RequestCache } : {}),
       });
 
       if (!response.ok) {

@@ -1,11 +1,9 @@
-import { lazy, Suspense, useEffect } from "react";
+import { useEffect } from "react";
+import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import type { PageDocument } from "@/page-builder/types";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
 
-const PageRenderer = lazy(() =>
-  import("@/page-builder/components/PageRenderer").then((m) => ({ default: m.PageRenderer })),
-);
-
+/** Renderização síncrona (sem lazy) para a vista pública: evita o flash «Carregando página…» e o segundo desenho. */
 export function PublicBuilderPresellView({ doc }: { doc: PageDocument }) {
   useEffect(() => {
     const t = doc.tracking;
@@ -14,15 +12,5 @@ export function PublicBuilderPresellView({ doc }: { doc: PageDocument }) {
     return () => cleanup();
   }, [doc]);
 
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[50vh] items-center justify-center bg-background text-muted-foreground text-sm">
-          Carregando página…
-        </div>
-      }
-    >
-      <PageRenderer doc={doc} device="desktop" />
-    </Suspense>
-  );
+  return <PageRenderer doc={doc} device="desktop" />;
 }

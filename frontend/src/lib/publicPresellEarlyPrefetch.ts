@@ -66,6 +66,7 @@ async function fetchPublicPresellJson(param: string): Promise<Presell | null> {
   try {
     const res = await fetch(url, {
       credentials: "omit",
+      cache: "no-store",
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return null;
