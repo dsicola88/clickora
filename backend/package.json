@@ -16,6 +16,7 @@
     "db:migrate:resolve-applied:meta-capi": "prisma migrate resolve --applied 20260417130000_meta_capi_integration",
     "db:migrate:resolve-rolled-back:auto-blacklist": "prisma migrate resolve --rolled-back 20260422120000_user_auto_blacklist_click_limit",
     "db:migrate:resolve-applied:auto-blacklist": "prisma migrate resolve --applied 20260422120000_user_auto_blacklist_click_limit",
+    "db:migrate:fix-railway-p3009:auto-blacklist": "sh scripts/fix-p3009-auto-blacklist-railway-env.sh",
     "db:migrate:resolve-rolled-back:railway-typo-meta": "prisma migrate resolve --rolled-back 20240417130000_meta_copi_integration",
     "db:migrate:fix-railway-p3009-typo": "sh scripts/fix-railway-p3009-typo.sh",
     "db:migrate:railway-p3009": "sh scripts/migrate-railway-p3009-from-railway-env.sh",

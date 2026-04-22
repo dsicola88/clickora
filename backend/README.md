@@ -85,16 +85,16 @@ O Prisma bloqueia `migrate deploy` enquanto existir uma migração marcada como 
 
 Na pasta **`backend/`**, com `DATABASE_URL` apontando para o **mesmo Postgres** que o serviço Railway usa (URL **pública** / proxy se fores do teu PC; ver secção abaixo sobre `postgres.railway.internal`):
 
-- **Colunas `auto_blacklist_click_threshold` e `auto_blacklist_click_window_hours` já existem** (ex.: o seed aplicou `ALTER … IF NOT EXISTS`): marca a migração como aplicada e sincroniza o resto:
+- **Atalho (recomendado):** com `DATABASE_URL` público no ficheiro `backend/railway.env` (uma linha, ver `railway.env.example`):
   ```bash
-  npm run db:migrate:resolve-applied:auto-blacklist
-  npx prisma migrate deploy
+  cd backend
+  npm run db:migrate:fix-railway-p3009:auto-blacklist
   ```
-- **Queres desfazer e voltar a aplicar** (colunas em falta ou migração a meio): marca como revertida e reaplica:
+  Isto corre `migrate resolve --applied` e `migrate deploy`. Se o Prisma disser que não pode marcar como aplicada, usa a variante com `rolled-back`:
   ```bash
-  npm run db:migrate:resolve-rolled-back:auto-blacklist
-  npx prisma migrate deploy
+  npm run db:migrate:fix-railway-p3009:auto-blacklist -- rolled-back
   ```
+- **À mão:** `npm run db:migrate:resolve-applied:auto-blacklist` (ou `resolve-rolled-back`) e depois `npx prisma migrate deploy`.
 
 Depois **Redeploy** do serviço `clickora`.
 
