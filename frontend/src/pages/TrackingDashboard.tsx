@@ -640,6 +640,109 @@ function GoogleAdsConversionUploadCard({
 
 const META_CAPI_DOC = "https://developers.facebook.com/docs/marketing-api/conversions-api/get-started";
 
+/** Ficheiro CSV no formato esperado pelo upload manual de conversões (GCLID) no Google Ads. */
+function GoogleAdsOfflineFileExportCard({
+  startDate,
+  endDate,
+  conversionActionIdHint,
+}: {
+  startDate: string;
+  endDate: string;
+  conversionActionIdHint: string;
+}) {
+  const [conversionName, setConversionName] = useState("");
+  const [includeAffiliate, setIncludeAffiliate] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const handleDownload = async () => {
+    const name = conversionName.trim();
+    if (!name) {
+      toast.error("Indique o nome exacto da ação de conversão (como aparece em Google Ads → Conversões).");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data, error, filename } = await analyticsService.downloadGoogleAdsOfflineImportCsv({
+        from: startDate,
+        to: endDate,
+        conversion_name: name,
+        include_affiliate: includeAffiliate,
+      });
+      if (error || !data) {
+        toast.error(error || "Não foi possível gerar o ficheiro.");
+        return;
+      }
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename?.replace(/[^\w.\-]+/g, "_") || "google-ads-offline-gclid.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("CSV descarregado. No Google Ads: Conversões → Uploads → importar ficheiro (conversões a partir de cliques).");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+          <FileDown className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-semibold text-card-foreground">CSV para upload manual no Google Ads</h3>
+          <p className="text-xs text-muted-foreground">
+            Gera um ficheiro com <strong className="text-foreground/90">Google Click ID</strong>, nome da conversão, data/hora (UTC),
+            valor e moeda — o mesmo tipo de fluxo que outras plataformas: abre no Excel e carrega em{" "}
+            <strong className="text-foreground/90">Google Ads → Conversões</strong> (importação a partir de cliques / GCLID). A
+            acção de conversão tem de estar criada como <strong className="text-foreground/90">origem offline / importação</strong>{" "}
+            e o <strong className="text-foreground/90">nome</strong> tem de coincidir com o que indicar abaixo.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Nome da conversão no Google Ads</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Texto exacto da coluna «Conversão» / nome da ação (não é o ID numérico
+            {conversionActionIdHint ? (
+              <>
+                {" "}
+                — na dclickora o ID da ação é <span className="font-mono text-[10px]">{conversionActionIdHint}</span>
+              </>
+            ) : null}
+            ).
+          </p>
+          <Input
+            value={conversionName}
+            onChange={(e) => setConversionName(e.target.value)}
+            placeholder='ex.: "Compra (upload offline)"'
+            className="text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-3 sm:col-span-2">
+          <Switch id="ga-offline-include-aff" checked={includeAffiliate} onCheckedChange={setIncludeAffiliate} />
+          <Label htmlFor="ga-offline-include-aff" className="text-sm cursor-pointer">
+            Incluir vendas aprovadas (postback de afiliados) com GCLID no clique
+          </Label>
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground leading-snug">
+        Período usado: <span className="font-mono text-[10px]">{startDate}</span> →{" "}
+        <span className="font-mono text-[10px]">{endDate}</span> (o mesmo intervalo do gráfico acima, se aplicável). Linhas sem GCLID
+        não entram no ficheiro. A Google pode demorar algumas horas a refletir as conversões importadas.
+      </p>
+      <Button type="button" className="gap-2" onClick={() => void handleDownload()} disabled={busy}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+        Descarregar CSV para o Google
+      </Button>
+    </div>
+  );
+}
+
 function MetaCapiIntegrationCard({
   metaCapi,
   metaEnabled,
@@ -1608,6 +1711,12 @@ export default function TrackingDashboard() {
           saveGoogleAds={saveGoogleAds}
         />
 
+        <GoogleAdsOfflineFileExportCard
+          startDate={startDate}
+          endDate={endDate}
+          conversionActionIdHint={gaActionId}
+        />
+
         <MetaCapiIntegrationCard
           metaCapi={metaCapi}
           metaEnabled={metaEnabled}
@@ -1801,6 +1910,12 @@ export default function TrackingDashboard() {
           gaRefresh={gaRefresh}
           setGaRefresh={setGaRefresh}
           saveGoogleAds={saveGoogleAds}
+        />
+
+        <GoogleAdsOfflineFileExportCard
+          startDate={startDate}
+          endDate={endDate}
+          conversionActionIdHint={gaActionId}
         />
 
         <MetaCapiIntegrationCard

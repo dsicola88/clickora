@@ -352,4 +352,21 @@ export const analyticsService = {
     }
     return { data, error: null, errorCode: null };
   },
+
+  /**
+   * CSV (GCLID) para o assistente de importação manual em Google Ads → Conversões.
+   */
+  downloadGoogleAdsOfflineImportCsv(params: {
+    from: string;
+    to: string;
+    conversion_name: string;
+    include_affiliate?: boolean;
+  }) {
+    const q = new URLSearchParams();
+    q.set("from", params.from);
+    q.set("to", params.to);
+    q.set("conversion_name", params.conversion_name);
+    if (params.include_affiliate === false) q.set("include_affiliate", "0");
+    return apiClient.getBlob(`/analytics/google-ads-offline-import.csv?${q.toString()}`);
+  },
 };
