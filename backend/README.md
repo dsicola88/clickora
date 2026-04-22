@@ -79,7 +79,28 @@ npm start      # Production
 
 ## Railway: erro Prisma **P3009** (migração falhada)
 
-Se o deploy parar em `migrate deploy` com *failed migrations* na migração **`20260417130000_meta_capi_integration`** (Meta CAPI), o Prisma não aplica migrações novas até resolveres o estado.
+O Prisma bloqueia `migrate deploy` enquanto existir uma migração marcada como **falhada** na tabela `_prisma_migrations`. Tens de correr `migrate resolve` (ou limpar a linha com SQL) com o **nome exacto** que aparece no log, depois `migrate deploy` de novo.
+
+### Migração **`20260422120000_user_auto_blacklist_click_limit`** (limite de cliques → blacklist)
+
+Na pasta **`backend/`**, com `DATABASE_URL` apontando para o **mesmo Postgres** que o serviço Railway usa (URL **pública** / proxy se fores do teu PC; ver secção abaixo sobre `postgres.railway.internal`):
+
+- **Colunas `auto_blacklist_click_threshold` e `auto_blacklist_click_window_hours` já existem** (ex.: o seed aplicou `ALTER … IF NOT EXISTS`): marca a migração como aplicada e sincroniza o resto:
+  ```bash
+  npm run db:migrate:resolve-applied:auto-blacklist
+  npx prisma migrate deploy
+  ```
+- **Queres desfazer e voltar a aplicar** (colunas em falta ou migração a meio): marca como revertida e reaplica:
+  ```bash
+  npm run db:migrate:resolve-rolled-back:auto-blacklist
+  npx prisma migrate deploy
+  ```
+
+Depois **Redeploy** do serviço `clickora`.
+
+---
+
+Se o deploy parar com *failed migrations* na migração **`20260417130000_meta_capi_integration`** (Meta CAPI), o Prisma não aplica migrações novas até resolveres o estado.
 
 **Nome errado só na base (Railway):** alguns logs mostram **`20240417130000_meta_copi_integration`** (ano `202404` e `meta_copi`). Esse nome **não existe** no repositório — foi typo / deploy antigo. Na pasta `backend/`, com `DATABASE_URL` da Railway:
 
