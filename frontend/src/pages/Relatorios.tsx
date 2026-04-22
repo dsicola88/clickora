@@ -4,6 +4,7 @@ import { Search, RotateCcw, AlertTriangle, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -19,6 +20,7 @@ import {
   countryFlagEmoji,
   normalizeIsoCountryCode,
 } from "@/lib/countryDisplay";
+import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 
 function CountryCell({ code }: { code: string }) {
   const iso = normalizeIsoCountryCode(code === "—" ? "" : code);
@@ -96,8 +98,10 @@ export default function Relatorios() {
   const [perPage, setPerPage] = useState("25");
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState<
-    null | "impression" | "click" | "conversions" | "no-gclid"
+    null | "impression" | "click" | "conversions" | "no-gclid" | "google-ads"
   >(null);
+  const [googleAdsConversionName, setGoogleAdsConversionName] = useState("");
+  const [selectedConversionIds, setSelectedConversionIds] = useState<string[]>([]);
 
   const pageSize = Math.min(Number(perPage) || 25, 100);
   const exportBusy = exporting !== null;
@@ -120,7 +124,7 @@ export default function Relatorios() {
           `tracking-events_${kind === "impression" ? "impressions" : "clicks"}_${applied.from}_${applied.to}.csv`,
           filename,
         );
-        toast.success("CSV descarregado.");
+        toast.success("Ficheiro descarregado.");
         return;
       }
       const { data, filename, error } = await analyticsService.downloadConversionsCsv({
@@ -139,7 +143,40 @@ export default function Relatorios() {
           : `conversions_${applied.from}_${applied.to}.csv`,
         filename,
       );
-      toast.success("CSV descarregado.");
+      toast.success("Ficheiro descarregado.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportGoogleAds = async () => {
+    const name = googleAdsConversionName.trim();
+    if (!name) {
+      toast.error("Indique o nome da conversão tal como está em Google Ads → Conversões.");
+      return;
+    }
+    if (selectedConversionIds.length === 0) {
+      toast.error("Seleccione pelo menos uma linha com GCLID.");
+      return;
+    }
+    setExporting("google-ads");
+    try {
+      const { data, filename, error } = await analyticsService.downloadGoogleAdsOfflineImportCsv({
+        from: applied.from,
+        to: applied.to,
+        conversion_name: name,
+        conversion_ids: selectedConversionIds,
+      });
+      if (error || !data) {
+        toast.error(error || "Não foi possível exportar.");
+        return;
+      }
+      triggerCsvDownload(
+        data,
+        `google-ads-offline-gclid_${applied.from}_${applied.to}_selecao.csv`,
+        filename,
+      );
+      toast.success("Ficheiro pronto. Importe em Google Ads → Conversões → importar por cliques.");
     } finally {
       setExporting(null);
     }
@@ -204,6 +241,23 @@ export default function Relatorios() {
     enabled: tab === "sem-gclid",
   });
 
+  /** Só permite descarregar quando a API já devolveu linhas no período (evita ficheiros vazios). */
+  const canExportImpressions =
+    impressionsQuery.isSuccess &&
+    Array.isArray(impressionsQuery.data) &&
+    impressionsQuery.data.length > 0;
+  const canExportClicks =
+    clicksQuery.isSuccess && Array.isArray(clicksQuery.data) && clicksQuery.data.length > 0;
+  const canExportConversionsReport =
+    conversionsQuery.isSuccess &&
+    Array.isArray(conversionsQuery.data) &&
+    conversionsQuery.data.length > 0;
+  const canExportNoGclid =
+    noGclidQuery.isSuccess && Array.isArray(noGclidQuery.data) && noGclidQuery.data.length > 0;
+  const periodHasGclidConversions =
+    conversionsQuery.isSuccess &&
+    (conversionsQuery.data ?? []).some((r) => typeof r.gclid === "string" && r.gclid.trim().length > 0);
+
   const currentTime = new Date().toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
@@ -234,6 +288,8 @@ export default function Relatorios() {
     setPlatform("all");
     setGclidFilter("");
     setPage(1);
+    setSelectedConversionIds([]);
+    setGoogleAdsConversionName("");
   };
 
   const filterBySearch = <T extends Record<string, unknown>>(rows: T[], fields: (keyof T)[]) => {
@@ -246,6 +302,10 @@ export default function Relatorios() {
 
   useEffect(() => {
     setPage(1);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== "conversoes") setSelectedConversionIds([]);
   }, [tab]);
 
   const impressionRows = useMemo(() => {
@@ -331,6 +391,11 @@ export default function Relatorios() {
     return rows;
   }, [conversionsQuery.data, platform, gclidFilter]);
 
+  useEffect(() => {
+    const allowed = new Set(conversionRowsFiltered.map((r) => r.id));
+    setSelectedConversionIds((prev) => prev.filter((id) => allowed.has(id)));
+  }, [conversionRowsFiltered]);
+
   const noGclidRowsFiltered = useMemo(() => {
     let rows = Array.isArray(noGclidQuery.data) ? noGclidQuery.data : [];
     rows = rows.filter((r) => platformMatches(r.platform, platform));
@@ -414,6 +479,21 @@ export default function Relatorios() {
       ],
     ),
   );
+  const convPageSelectableIds = convDisplay.slice
+    .filter((r) => Boolean(r.gclid?.trim()))
+    .map((r) => r.id);
+  const allConvPageSelected =
+    convPageSelectableIds.length > 0 &&
+    convPageSelectableIds.every((id) => selectedConversionIds.includes(id));
+
+  const toggleConvPageSelection = () => {
+    if (allConvPageSelected) {
+      setSelectedConversionIds((prev) => prev.filter((id) => !convPageSelectableIds.includes(id)));
+    } else {
+      setSelectedConversionIds((prev) => [...new Set([...prev, ...convPageSelectableIds])]);
+    }
+  };
+
   const noGclidDisplay = paginate(
     filterBySearch(
       noGclidRowsFiltered.map((r) => ({
@@ -551,7 +631,7 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Relatórios"
-        description="Impressões, cliques e conversões com atribuição completa (origem, UTMs, anúncio, postback). Endpoints autenticados: GET /api/analytics/events e /api/analytics/conversions (JSON). Para CSV (UTF-8 com BOM, adequado ao Excel), use format=csv — até 10 000 linhas por resposta; o cabeçalho X-Next-Cursor indica a página seguinte (parâmetro cursor). A exportação na app junta automaticamente todas as páginas num único ficheiro."
+        description="Consulte acessos, cliques e conversões no período que escolher. Pode filtrar a tabela e descarregar os dados quando existirem registos."
       />
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -594,11 +674,21 @@ export default function Relatorios() {
                   variant="outline"
                   size="sm"
                   className="h-8 gap-1.5 text-xs shrink-0"
-                  disabled={exportBusy}
+                  disabled={
+                    exportBusy ||
+                    impressionsQuery.isLoading ||
+                    impressionsQuery.isError ||
+                    !canExportImpressions
+                  }
+                  title={
+                    impressionsQuery.isSuccess && !canExportImpressions
+                      ? "Não há acessos neste período."
+                      : undefined
+                  }
                   onClick={() => void handleExportCsv("impression")}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "impression" ? "A exportar…" : "Exportar CSV"}
+                  {exporting === "impression" ? "A descarregar…" : "Descarregar"}
                 </Button>
               </div>
               <div className="relative">
@@ -770,20 +860,23 @@ export default function Relatorios() {
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
-              <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Cliques com IP, palavra-chave (utm_term) e tipo de tráfego.
-              </span>
+              <span className="text-sm text-muted-foreground min-w-0 flex-1">Cliques no período seleccionado.</span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
-                  disabled={exportBusy}
+                  disabled={
+                    exportBusy || clicksQuery.isLoading || clicksQuery.isError || !canExportClicks
+                  }
+                  title={
+                    clicksQuery.isSuccess && !canExportClicks ? "Não há cliques neste período." : undefined
+                  }
                   onClick={() => void handleExportCsv("click")}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "click" ? "A exportar…" : "Exportar CSV"}
+                  {exporting === "click" ? "A descarregar…" : "Descarregar"}
                 </Button>
                 <div className="relative flex-1 sm:flex-initial min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -991,33 +1084,103 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Conversões com atribuição do clique (origem, campanha UTM, anúncio utm_content, palavra-chave) e postback
-                (plataforma).
+                Conversões aprovadas no período. O descarregar inclui o período completo; os filtros só alteram a lista.
               </span>
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
-                  disabled={exportBusy}
-                  onClick={() => void handleExportCsv("conversions")}
-                >
-                  <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "conversions" ? "A exportar…" : "Exportar CSV"}
-                </Button>
-                <div className="relative flex-1 sm:flex-initial min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Filtrar tabela…"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setPage(1);
-                    }}
-                    className="pl-9 w-full sm:w-56"
-                  />
+              <div className="flex flex-col gap-3 w-full">
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
+                    disabled={
+                      exportBusy ||
+                      conversionsQuery.isLoading ||
+                      conversionsQuery.isError ||
+                      !canExportConversionsReport
+                    }
+                    title={
+                      conversionsQuery.isSuccess && !canExportConversionsReport
+                        ? "Não há conversões neste período."
+                        : undefined
+                    }
+                    onClick={() => void handleExportCsv("conversions")}
+                  >
+                    <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {exporting === "conversions" ? "A descarregar…" : "Descarregar"}
+                  </Button>
+                  <div className="relative flex-1 sm:flex-initial min-w-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar tabela…"
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setPage(1);
+                      }}
+                      className="pl-9 w-full sm:w-56"
+                    />
+                  </div>
                 </div>
+                {!conversionsQuery.isLoading && conversionsQuery.isSuccess && periodHasGclidConversions ? (
+                  <div className="flex flex-col gap-2 pt-3 border-t border-border/60 sm:flex-row sm:flex-wrap sm:items-end">
+                    <div className="flex-1 min-w-[min(100%,240px)] space-y-1">
+                      <Label htmlFor="rel-google-ads-conv-name" className="text-xs">
+                        Nome da conversão no Google Ads
+                      </Label>
+                      <Input
+                        id="rel-google-ads-conv-name"
+                        placeholder="Igual ao nome em Google Ads → Conversões"
+                        value={googleAdsConversionName}
+                        onChange={(e) => setGoogleAdsConversionName(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                      <ul className="mt-2 space-y-1.5 text-[11px] text-muted-foreground leading-snug list-disc pl-4 marker:text-muted-foreground/70">
+                        <li>
+                          O nome é obrigatório e tem de ser o mesmo que em{" "}
+                          <span className="text-foreground/85">Ferramentas → Medição → Conversões</span> (maiúsculas
+                          e espaços contam).
+                        </li>
+                        <li>
+                          A <span className="text-foreground/85">data e hora</span> de cada conversão entram no ficheiro
+                          automaticamente em UTC (coluna Conversion Time).
+                        </li>
+                        <li>
+                          A acção na sua conta tem de estar configurada para{" "}
+                          <span className="text-foreground/85">importação por cliques</span> (offline).{" "}
+                          <a
+                            href={GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline underline-offset-2 hover:text-primary/90"
+                          >
+                            Guia oficial do Google
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
+                      disabled={
+                        exportBusy ||
+                        selectedConversionIds.length === 0 ||
+                        !googleAdsConversionName.trim()
+                      }
+                      onClick={() => void handleExportGoogleAds()}
+                    >
+                      <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {exporting === "google-ads" ? "A gerar…" : "Ficheiro para Google Ads"}
+                    </Button>
+                  </div>
+                ) : null}
+                {!conversionsQuery.isLoading && conversionsQuery.isSuccess && !periodHasGclidConversions ? (
+                  <p className="text-xs text-muted-foreground pt-3 border-t border-border/60">
+                    Neste período não há conversões com GCLID; o upload manual no Google Ads não se aplica a estas linhas.
+                  </p>
+                ) : null}
               </div>
             </div>
             {conversionsQuery.isLoading ? (
@@ -1033,6 +1196,15 @@ export default function Relatorios() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
+                        <th className="w-10 py-3 px-2 text-center font-medium text-muted-foreground">
+                          <span className="sr-only">Seleccionar</span>
+                          <Checkbox
+                            checked={allConvPageSelected}
+                            disabled={convPageSelectableIds.length === 0 || exportBusy}
+                            onCheckedChange={() => toggleConvPageSelection()}
+                            aria-label="Seleccionar todas com GCLID nesta página"
+                          />
+                        </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
@@ -1071,7 +1243,7 @@ export default function Relatorios() {
                     <tbody>
                       {convDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1084,6 +1256,31 @@ export default function Relatorios() {
                               key={row.id}
                               className="border-b border-border/50 hover:bg-muted/20 transition-colors"
                             >
+                              <td className="py-2.5 px-2 text-center align-middle">
+                                <Checkbox
+                                  checked={selectedConversionIds.includes(row.id)}
+                                  disabled={!row.gclid?.trim() || exportBusy}
+                                  title={
+                                    row.gclid?.trim()
+                                      ? "Incluir no ficheiro GCLID para Google Ads"
+                                      : "Sem GCLID no clique — use apenas cliques com etiquetagem automática (GCLID)"
+                                  }
+                                  onCheckedChange={(v) => {
+                                    if (!row.gclid?.trim()) return;
+                                    const on = v === true;
+                                    setSelectedConversionIds((prev) =>
+                                      on
+                                        ? [...new Set([...prev, row.id])]
+                                        : prev.filter((x) => x !== row.id),
+                                    );
+                                  }}
+                                  aria-label={
+                                    row.gclid?.trim()
+                                      ? "Seleccionar conversão para exportação Google Ads"
+                                      : "Conversão sem GCLID"
+                                  }
+                                />
+                              </td>
                               <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                                 {formatDateTime(row.created_at)}
                               </td>
@@ -1176,7 +1373,7 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Conversões em que o clique não tem gclid/gbraid/wbraid (upload Google Ads limitado).
+                Conversões em que o clique não tem identificador Google (gclid / gbraid / wbraid).
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                 <Button
@@ -1184,11 +1381,21 @@ export default function Relatorios() {
                   variant="outline"
                   size="sm"
                   className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
-                  disabled={exportBusy}
+                  disabled={
+                    exportBusy ||
+                    noGclidQuery.isLoading ||
+                    noGclidQuery.isError ||
+                    !canExportNoGclid
+                  }
+                  title={
+                    noGclidQuery.isSuccess && !canExportNoGclid
+                      ? "Não há conversões sem Click ID neste período."
+                      : undefined
+                  }
                   onClick={() => void handleExportCsv("no-gclid")}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "no-gclid" ? "A exportar…" : "Exportar CSV"}
+                  {exporting === "no-gclid" ? "A descarregar…" : "Descarregar"}
                 </Button>
                 <div className="relative flex-1 sm:flex-initial min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

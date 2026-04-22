@@ -40,6 +40,7 @@ import { integrationsService } from "@/services/integrationsService";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
+import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
@@ -630,9 +631,9 @@ function GoogleAdsConversionUploadCard({
         ) : null}
       </div>
       <p className="text-[11px] text-muted-foreground leading-snug">
-        <strong className="text-foreground/90">Pronto para enviar</strong> quando a importação automática está ligada, os IDs batem certo com a ação por
-        clique, existe refresh token (seu ou do servidor) e a API está configurada no backend. Ficheiros CSV para o Google são outro fluxo (upload manual na
-        conta Google Ads); o URL CSV em Integrações não substitui este envio.
+        <strong className="text-foreground/90">Envio automático</strong> quando a integração está ligada e a API configurada. O{" "}
+        <strong className="text-foreground/90">ficheiro para Google Ads</strong> (upload manual na conta) é independente; o URL em Integrações não substitui
+        este envio.
       </p>
     </div>
   );
@@ -640,7 +641,7 @@ function GoogleAdsConversionUploadCard({
 
 const META_CAPI_DOC = "https://developers.facebook.com/docs/marketing-api/conversions-api/get-started";
 
-/** Ficheiro CSV no formato esperado pelo upload manual de conversões (GCLID) no Google Ads. */
+/** Gera o ficheiro (.csv) para importação por cliques (GCLID) no Google Ads. */
 function GoogleAdsOfflineFileExportCard({
   startDate,
   endDate,
@@ -657,7 +658,7 @@ function GoogleAdsOfflineFileExportCard({
   const handleDownload = async () => {
     const name = conversionName.trim();
     if (!name) {
-      toast.error("Indique o nome exacto da ação de conversão (como aparece em Google Ads → Conversões).");
+      toast.error("Indique o nome da conversão tal como está em Google Ads → Conversões.");
       return;
     }
     setBusy(true);
@@ -680,9 +681,7 @@ function GoogleAdsOfflineFileExportCard({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success(
-        "Ficheiro exportado. Abra no Excel, confira as linhas e carregue no Google Ads (Conversões → importar a partir de cliques / GCLID).",
-      );
+      toast.success("Ficheiro pronto. Importe em Google Ads → Conversões → importar por cliques.");
     } finally {
       setBusy(false);
     }
@@ -695,53 +694,78 @@ function GoogleAdsOfflineFileExportCard({
           <FileDown className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Exportar conversões para o Google Ads</h3>
-          <p className="text-xs text-muted-foreground">
-            Fluxo igual ao de outras ferramentas: <strong className="text-foreground/90">1)</strong> indica abaixo a conversão (o
-            mesmo nome que vê em Google Ads → Conversões); <strong className="text-foreground/90">2)</strong> exporta o período
-            (usa as datas do gráfico nesta página); <strong className="text-foreground/90">3)</strong> abre o ficheiro no{" "}
-            <strong className="text-foreground/90">Excel</strong> (formato .csv, compatível com Excel);{" "}
-            <strong className="text-foreground/90">4)</strong> no Google Ads, em Conversões, use a opção de{" "}
-            <strong className="text-foreground/90">importar conversões a partir de cliques</strong> (GCLID) e carregue o ficheiro. A
-            acção tem de ser do tipo <strong className="text-foreground/90">offline / importação</strong>.
+          <h3 className="font-semibold text-card-foreground">Importação manual no Google Ads</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Período igual ao do gráfico. O ficheiro segue o modelo do Google (GCLID, nome da conversão, data/hora UTC,
+            valor, moeda ISO). Só entram linhas com GCLID. Depois do upload, a Google pode demorar algumas horas a
+            atualizar estatísticas.
           </p>
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Conversão a exportar (nome no Google Ads)</Label>
+          <Label className="text-xs">Nome da conversão no Google Ads</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
-            Use o nome exacto da ação em Google Ads → Conversões (não o ID numérico).
+            O mesmo texto que vê em Conversões (não o ID numérico).
             {conversionActionIdHint ? (
               <>
                 {" "}
-                Referência: na dclickora o ID da ação é{" "}
-                <span className="font-mono text-[10px]">{conversionActionIdHint}</span>.
+                Referência na dclickora: <span className="font-mono text-[10px]">{conversionActionIdHint}</span>.
               </>
             ) : null}
           </p>
           <Input
             value={conversionName}
             onChange={(e) => setConversionName(e.target.value)}
-            placeholder='ex.: "Compra (upload offline)"'
+            placeholder="Igual ao nome em Google Ads → Conversões"
             className="text-sm"
           />
+          <ul className="mt-2 space-y-1.5 text-[11px] text-muted-foreground leading-snug list-disc pl-4 marker:text-muted-foreground/70">
+            <li>
+              O nome é obrigatório e tem de coincidir com{" "}
+              <span className="text-foreground/85">Ferramentas → Medição → Conversões</span> (maiúsculas e espaços
+              contam).
+            </li>
+            <li>
+              A data e hora de cada conversão são preenchidas automaticamente em UTC; o valor e a moeda seguem o que
+              tem na dclickora (até 2 decimais).
+            </li>
+            <li>
+              A acção na conta tem de aceitar{" "}
+              <span className="text-foreground/85">importação por cliques</span>.{" "}
+              <a
+                href={GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:text-primary/90"
+              >
+                Guia oficial do Google
+              </a>
+            </li>
+          </ul>
         </div>
-        <div className="flex items-center gap-3 sm:col-span-2">
+        <div className="flex items-center gap-3 sm:col-span-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
           <Switch id="ga-offline-include-aff" checked={includeAffiliate} onCheckedChange={setIncludeAffiliate} />
-          <Label htmlFor="ga-offline-include-aff" className="text-sm cursor-pointer">
-            Incluir vendas aprovadas (postback de afiliados) com GCLID no clique
+          <Label htmlFor="ga-offline-include-aff" className="text-sm cursor-pointer leading-snug">
+            Incluir também vendas aprovadas (postback) com GCLID no clique
           </Label>
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground leading-snug">
-        Período usado: <span className="font-mono text-[10px]">{startDate}</span> →{" "}
-        <span className="font-mono text-[10px]">{endDate}</span> (o mesmo intervalo do gráfico acima, se aplicável). Linhas sem GCLID
-        não entram no ficheiro. A Google pode demorar algumas horas a refletir as conversões importadas.
+        Intervalo do ficheiro:{" "}
+        <span className="font-mono text-[10px] text-foreground/80">{startDate}</span>
+        {" → "}
+        <span className="font-mono text-[10px] text-foreground/80">{endDate}</span>.
       </p>
-      <Button type="button" className="gap-2" onClick={() => void handleDownload()} disabled={busy}>
+      <Button
+        type="button"
+        variant="secondary"
+        className="gap-2"
+        onClick={() => void handleDownload()}
+        disabled={busy || !conversionName.trim()}
+      >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-        Exportar conversões
+        {busy ? "A gerar…" : "Ficheiro para Google Ads"}
       </Button>
     </div>
   );
@@ -939,7 +963,7 @@ function DashboardGoogleGeoSection({
             </dl>
           ) : !err && !canGoogle ? (
             <p className="text-xs text-muted-foreground">
-              Configure o envio no bloco Google Ads em Meu rastreamento ou a importação CSV em Integrações.
+              Configure o envio automático em Meu rastreamento ou o URL de conversões em Integrações.
             </p>
           ) : !err && canGoogle && !g ? (
             <p className="text-xs text-muted-foreground">Sem dados da API para este período.</p>
@@ -1342,7 +1366,7 @@ function DashboardHeroMetrics({
             </dl>
           ) : !err && !canGoogle ? (
             <p className="text-xs text-muted-foreground">
-              Configure o envio no bloco Google Ads em Meu rastreamento ou a importação CSV em Integrações.
+              Configure o envio automático em Meu rastreamento ou o URL de conversões em Integrações.
             </p>
           ) : !err && canGoogle && !g ? (
             <p className="text-xs text-muted-foreground">Sem dados da API Google para este período.</p>

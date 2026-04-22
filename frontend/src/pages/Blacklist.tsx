@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldBan, ShieldCheck, Search, Trash2, AlertTriangle, Bot, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,8 @@ export default function Blacklist() {
   const [newIp, setNewIp] = useState("");
   const [newWlIp, setNewWlIp] = useState("");
   const [newWlNote, setNewWlNote] = useState("");
+  const [autoClickLimit, setAutoClickLimit] = useState(0);
+  const [autoClickWindowH, setAutoClickWindowH] = useState(24);
 
   const { data: guards, isLoading: loadingGuards } = useQuery({
     queryKey: ["integrations-tracking-guards"],
@@ -27,6 +30,14 @@ export default function Blacklist() {
       return data ?? null;
     },
   });
+
+  useEffect(() => {
+    if (!guards) return;
+    setAutoClickLimit(guards.auto_blacklist_click_threshold ?? 0);
+    const whAllowed = [6, 12, 24, 48, 72, 168] as const;
+    const wh = guards.auto_blacklist_click_window_hours ?? 24;
+    setAutoClickWindowH(whAllowed.includes(wh as (typeof whAllowed)[number]) ? wh : 24);
+  }, [guards]);
 
   const { data: whitelist, isLoading: loadingWl } = useQuery({
     queryKey: ["integrations-whitelist"],
@@ -82,7 +93,12 @@ export default function Blacklist() {
   });
 
   const patchGuardsMutation = useMutation({
-    mutationFn: async (body: { block_empty_user_agent?: boolean; block_bot_clicks?: boolean }) => {
+    mutationFn: async (body: {
+      block_empty_user_agent?: boolean;
+      block_bot_clicks?: boolean;
+      auto_blacklist_click_threshold?: number;
+      auto_blacklist_click_window_hours?: number;
+    }) => {
       const { data, error } = await integrationsService.patchTrackingGuards(body);
       if (error) throw new Error(error);
       return data;
@@ -158,6 +174,10 @@ export default function Blacklist() {
           <li>Whitelist — se existir pelo menos um IP permitido, só esses IPs passam; restantes → 403.</li>
           <li>User-Agent vazio — se a regra estiver ativa → 403.</li>
           <li>Bot (UA) — se a regra estiver ativa → 403.</li>
+          <li>
+            Limite de cliques por IP (opcional) — se activo, conta só eventos de <strong className="text-foreground/90">clique</strong>{" "}
+            rastreados na janela; ao exceder o máximo, o IP é colocado na blacklist e os pedidos seguintes → 403.
+          </li>
         </ol>
         <p className="text-xs border-t border-border/50 pt-2 mt-2">
           Isto não substitui WAF/CDN (Cloudflare, etc.). IPv6 e intervalos CIDR não são suportados nas listas — apenas um IPv4 por linha. Importação em massa e bloqueio por país seriam evoluções à parte.
@@ -195,6 +215,68 @@ export default function Blacklist() {
             disabled={patchGuardsMutation.isPending}
             onCheckedChange={(v) => patchGuardsMutation.mutate({ block_bot_clicks: v })}
           />
+        </div>
+
+        <div className="rounded-lg border border-border/60 p-4 space-y-4">
+          <div className="space-y-1">
+            <Label>Bloqueio automático: repetir cliques no anúncio (mesmo IPv4)</Label>
+            <p className="text-xs text-muted-foreground">
+              Conta apenas cliques já gravados (redirect, API ou evento <span className="font-mono text-[10px]">click</span>).
+              Com <strong className="text-foreground/90">0</strong> fica desligado. Com N ≥ 1, permite no máximo N cliques por IP na
+              janela; no pedido seguinte o IP entra na blacklist com motivo automático e deixa de contar tráfego. Impressões não entram na
+              conta.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:items-end">
+            <div className="space-y-1.5 flex-1 min-w-[140px]">
+              <Label htmlFor="auto-click-limit-input" className="text-xs text-muted-foreground">
+                Máximo de cliques por IP (0 = desativado)
+              </Label>
+              <Input
+                id="auto-click-limit-input"
+                type="number"
+                min={0}
+                max={5000}
+                inputMode="numeric"
+                value={autoClickLimit}
+                onChange={(e) => setAutoClickLimit(Math.max(0, Math.min(5000, Number(e.target.value) || 0)))}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5 flex-1 min-w-[160px]">
+              <Label className="text-xs text-muted-foreground">Janela (horas)</Label>
+              <Select
+                value={String(autoClickWindowH)}
+                onValueChange={(v) => setAutoClickWindowH(Number(v))}
+                disabled={patchGuardsMutation.isPending}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[6, 12, 24, 48, 72, 168].map((h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {h} h
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full sm:w-auto shrink-0"
+              disabled={patchGuardsMutation.isPending}
+              onClick={() =>
+                patchGuardsMutation.mutate({
+                  auto_blacklist_click_threshold: autoClickLimit,
+                  auto_blacklist_click_window_hours: autoClickWindowH,
+                })
+              }
+            >
+              Guardar limite
+            </Button>
+          </div>
         </div>
       </div>
 

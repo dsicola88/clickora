@@ -99,6 +99,13 @@ model User {
   blockEmptyUserAgent Boolean @default(false) @map("block_empty_user_agent")
   /** Opt-in: bloqueia cliques/impressões identificados como bot (UA). */
   blockBotClicks      Boolean @default(false) @map("block_bot_clicks")
+  /**
+   * 0 = desligado. N > 0: máximo de eventos `click` rastreados por IPv4 neste IP na janela;
+   * ao exceder, o pedido seguinte recebe 403 e o IP é acrescentado à blacklist.
+   */
+  autoBlacklistClickThreshold     Int @default(0) @map("auto_blacklist_click_threshold")
+  /** Janela deslizante em horas para contar cliques (1–168; por defeito 24). */
+  autoBlacklistClickWindowHours   Int @default(24) @map("auto_blacklist_click_window_hours")
   workspaceId String   @default(uuid()) @map("workspace_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

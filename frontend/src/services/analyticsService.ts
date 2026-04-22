@@ -361,12 +361,15 @@ export const analyticsService = {
     to: string;
     conversion_name: string;
     include_affiliate?: boolean;
+    /** UUIDs de conversões aprovadas (postback); exporta só estas linhas no formato GCLID. */
+    conversion_ids?: string[];
   }) {
     const q = new URLSearchParams();
     q.set("from", params.from);
     q.set("to", params.to);
     q.set("conversion_name", params.conversion_name);
     if (params.include_affiliate === false) q.set("include_affiliate", "0");
+    if (params.conversion_ids?.length) q.set("conversion_ids", params.conversion_ids.join(","));
     return apiClient.getBlob(`/analytics/google-ads-offline-import.csv?${q.toString()}`);
   },
 };

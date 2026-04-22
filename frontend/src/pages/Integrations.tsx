@@ -31,6 +31,7 @@ import {
   hasLocalWebPushSubscription,
 } from "@/lib/webPushClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 
 function SectionShell({
   accent,
@@ -479,12 +480,25 @@ export default function Integrations() {
 
               <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-5">
                 <li>
-                  Para exportar conversões (ficheiro para Excel e depois upload no Google Ads), use{" "}
-                  <strong className="text-foreground/90">Resumo e guia → Exportar conversões para o Google Ads</strong>.
+                  O ficheiro para o Google Ads (GCLID) gera-se em{" "}
+                  <strong className="text-foreground/90">Meu rastreamento</strong> ou em{" "}
+                  <strong className="text-foreground/90">Relatórios → Conversões</strong>, com o nome exacto da acção em
+                  Conversões na conta Google.
                 </li>
-                <li>Esta URL serve para enviar CSV <em>para</em> o dclickora (POST), não é o ficheiro que o Google pede no ecrã de importação.</li>
-                <li>Use apenas a URL fornecida; aceder ao link no browser pode invalidar o contexto esperado pelo Google.</li>
-                <li>Confirme que o fuso horário e o formato de ficheiro no Google Ads correspondem à sua conta.</li>
+                <li>Esta URL serve para enviar dados <em>para</em> o dclickora (POST), não substitui o ficheiro do assistente de importação do Google.</li>
+                <li>Use apenas a URL fornecida; abri-la no browser pode não ser o fluxo que o Google espera.</li>
+                <li>
+                  Formato e requisitos:{" "}
+                  <a
+                    href={GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/90"
+                  >
+                    documentação Google
+                  </a>
+                  .
+                </li>
               </ul>
             </AccordionContent>
           </SectionShell>

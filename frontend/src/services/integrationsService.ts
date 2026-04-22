@@ -127,13 +127,22 @@ export const integrationsService = {
     return apiClient.get<{
       block_empty_user_agent: boolean;
       block_bot_clicks: boolean;
+      auto_blacklist_click_threshold: number;
+      auto_blacklist_click_window_hours: number;
     }>("/integrations/tracking-guards");
   },
 
-  async patchTrackingGuards(body: { block_empty_user_agent?: boolean; block_bot_clicks?: boolean }) {
+  async patchTrackingGuards(body: {
+    block_empty_user_agent?: boolean;
+    block_bot_clicks?: boolean;
+    auto_blacklist_click_threshold?: number;
+    auto_blacklist_click_window_hours?: number;
+  }) {
     return apiClient.patch<{
       block_empty_user_agent: boolean;
       block_bot_clicks: boolean;
+      auto_blacklist_click_threshold: number;
+      auto_blacklist_click_window_hours: number;
     }>("/integrations/tracking-guards", body);
   },
 

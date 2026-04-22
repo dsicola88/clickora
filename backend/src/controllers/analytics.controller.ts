@@ -24,10 +24,19 @@ type AnalyticsSummaryItem = {
   revenue: number;
 };
 
-/** Data/hora em UTC para ficheiros de importação offline (GCLID) no Google Ads — ver ajuda Google «Import conversions from ad clicks using files». */
+/**
+ * Data/hora em UTC para importação por cliques (GCLID), formato aceite pelo assistente de ficheiros do Google Ads
+ * (ex.: yyyy-MM-dd HH:mm:ss+0000). Ver https://support.google.com/google-ads/answer/7014069
+ */
 function formatGoogleAdsOfflineImportCellTime(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}+00:00`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}+0000`;
+}
+
+/** Valor numérico até 2 casas decimais, como na documentação de «Conversion Value». */
+function roundGoogleAdsOfflineImportValue(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
 }
 
 function mapTrackingEventForApi(e: {
@@ -920,8 +929,9 @@ export const analyticsController = {
   },
 
   /**
-   * CSV para upload manual em Google Ads → Conversões → importar de ficheiro (cliques / GCLID).
-   * Colunas alinhadas ao formato legacy: Google Click ID, Conversion Name, Conversion Time, Value, Currency.
+   * CSV para Google Ads → Conversões → importar conversões a partir de cliques (GCLID).
+   * Cabeçalhos: Google Click ID, Conversion Name, Conversion Time, Conversion Value, Conversion Currency.
+   * @see https://support.google.com/google-ads/answer/7014069
    */
   async getGoogleAdsOfflineImportCsv(req: Request, res: Response) {
     const userId = req.user!.userId;
@@ -929,6 +939,25 @@ export const analyticsController = {
     const toQ = req.query.to?.toString();
     const conversionNameRaw = req.query.conversion_name?.toString()?.trim();
     const includeAffiliate = req.query.include_affiliate !== "0" && req.query.include_affiliate !== "false";
+
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const conversionIdsRaw = req.query.conversion_ids;
+    let selectedConversionIds: string[] | null = null;
+    if (conversionIdsRaw !== undefined && conversionIdsRaw !== null) {
+      const raw = Array.isArray(conversionIdsRaw) ? conversionIdsRaw.join(",") : String(conversionIdsRaw);
+      const parts = raw
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      selectedConversionIds = [...new Set(parts.filter((id) => uuidRe.test(id)))].slice(0, 500);
+      if (selectedConversionIds.length === 0) {
+        return res.status(400).json({
+          error:
+            "Indique conversion_ids com UUIDs de conversões (máx. 500), separados por vírgula, no mesmo intervalo de datas.",
+        });
+      }
+    }
 
     if (!fromQ || !toQ) {
       return res.status(400).json({ error: "Indique from e to em formato YYYY-MM-DD." });
@@ -951,45 +980,28 @@ export const analyticsController = {
     type Row = { gclid: string; at: Date; value: number; currency: string };
     const out: Row[] = [];
 
-    const trackingConversions = await prisma.trackingEvent.findMany({
-      where: {
-        userId,
-        eventType: "conversion",
-        createdAt: { gte: rangeStart, lte: rangeEnd },
-      },
-      select: { createdAt: true, metadata: true },
-    });
-
-    for (const e of trackingConversions) {
-      const meta = (e.metadata || {}) as Record<string, unknown>;
-      const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
-      if (!gclid) continue;
-      const rawVal = meta.value;
-      const value =
-        typeof rawVal === "number"
-          ? rawVal
-          : Number.parseFloat(String(rawVal ?? "0").replace(",", ".")) || 0;
-      const cur =
-        typeof meta.currency === "string" && meta.currency.trim()
-          ? meta.currency.trim().toUpperCase().slice(0, 3)
-          : "USD";
-      out.push({ gclid, at: e.createdAt, value, currency: cur });
-    }
-
-    if (includeAffiliate) {
+    if (selectedConversionIds) {
       const sales = await prisma.conversion.findMany({
         where: {
           userId,
           status: "approved",
+          id: { in: selectedConversionIds },
           createdAt: { gte: rangeStart, lte: rangeEnd },
         },
         select: {
+          id: true,
           createdAt: true,
           amount: true,
           currency: true,
           click: { select: { metadata: true } },
         },
       });
+      if (sales.length !== selectedConversionIds.length) {
+        return res.status(400).json({
+          error:
+            "Uma ou mais conversões não existem, não estão aprovadas ou não pertencem ao intervalo de datas indicado.",
+        });
+      }
       for (const c of sales) {
         const meta = (c.click.metadata || {}) as Record<string, unknown>;
         const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
@@ -997,6 +1009,61 @@ export const analyticsController = {
         const value = c.amount != null ? Number(c.amount) : 0;
         const cur = (c.currency || "USD").toUpperCase().slice(0, 3);
         out.push({ gclid, at: c.createdAt, value, currency: cur });
+      }
+      if (out.length === 0) {
+        return res.status(400).json({
+          error:
+            "Nenhuma conversão seleccionada tem GCLID no clique associado. Só linhas com identificador Google podem ser importadas por ficheiro.",
+        });
+      }
+    } else {
+      const trackingConversions = await prisma.trackingEvent.findMany({
+        where: {
+          userId,
+          eventType: "conversion",
+          createdAt: { gte: rangeStart, lte: rangeEnd },
+        },
+        select: { createdAt: true, metadata: true },
+      });
+
+      for (const e of trackingConversions) {
+        const meta = (e.metadata || {}) as Record<string, unknown>;
+        const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
+        if (!gclid) continue;
+        const rawVal = meta.value;
+        const value =
+          typeof rawVal === "number"
+            ? rawVal
+            : Number.parseFloat(String(rawVal ?? "0").replace(",", ".")) || 0;
+        const cur =
+          typeof meta.currency === "string" && meta.currency.trim()
+            ? meta.currency.trim().toUpperCase().slice(0, 3)
+            : "USD";
+        out.push({ gclid, at: e.createdAt, value, currency: cur });
+      }
+
+      if (includeAffiliate) {
+        const sales = await prisma.conversion.findMany({
+          where: {
+            userId,
+            status: "approved",
+            createdAt: { gte: rangeStart, lte: rangeEnd },
+          },
+          select: {
+            createdAt: true,
+            amount: true,
+            currency: true,
+            click: { select: { metadata: true } },
+          },
+        });
+        for (const c of sales) {
+          const meta = (c.click.metadata || {}) as Record<string, unknown>;
+          const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
+          if (!gclid) continue;
+          const value = c.amount != null ? Number(c.amount) : 0;
+          const cur = (c.currency || "USD").toUpperCase().slice(0, 3);
+          out.push({ gclid, at: c.createdAt, value, currency: cur });
+        }
       }
     }
 
@@ -1013,11 +1080,14 @@ export const analyticsController = {
       r.gclid,
       conversionNameRaw,
       formatGoogleAdsOfflineImportCellTime(r.at),
-      r.value,
+      roundGoogleAdsOfflineImportValue(r.value),
       r.currency,
     ]);
 
-    const filename = `google-ads-offline-gclid_${fromQ}_${toQ}.csv`;
+    const filename =
+      selectedConversionIds != null
+        ? `google-ads-offline-gclid_${fromQ}_${toQ}_selecao.csv`
+        : `google-ads-offline-gclid_${fromQ}_${toQ}.csv`;
     sendCsvDownload(res, filename, headers, rows);
   },
 

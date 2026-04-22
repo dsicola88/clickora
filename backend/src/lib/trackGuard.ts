@@ -49,6 +49,8 @@ export async function enforceTrackingRules(args: {
   ip: string;
   userAgent: string;
   channel: TrackingGuardChannel;
+  /** Só para `click`: aplica limite configurável na conta (auto-blacklist por IP). */
+  recordedEventType?: "click" | "other";
 }): Promise<
   | { ok: true; ipKey: string }
   | {
@@ -56,7 +58,13 @@ export async function enforceTrackingRules(args: {
       status: number;
       error: string;
       /** Para logs / métricas */
-      reason: "rate_limit" | "blacklist" | "whitelist" | "empty_user_agent" | "bot_blocked";
+      reason:
+        | "rate_limit"
+        | "blacklist"
+        | "whitelist"
+        | "empty_user_agent"
+        | "bot_blocked"
+        | "auto_blacklist_clicks";
     }
 > {
   const { ownerUserId, presellPageId, userAgent, channel } = args;
@@ -101,6 +109,8 @@ export async function enforceTrackingRules(args: {
     select: {
       blockEmptyUserAgent: true,
       blockBotClicks: true,
+      autoBlacklistClickThreshold: true,
+      autoBlacklistClickWindowHours: true,
       _count: { select: { whitelistedIps: true } },
     },
   });
@@ -165,6 +175,62 @@ export async function enforceTrackingRules(args: {
         status: 403,
         error: "Pedido identificado como bot",
         reason: "bot_blocked",
+      };
+    }
+  }
+
+  const threshold = owner.autoBlacklistClickThreshold;
+  if (
+    args.recordedEventType === "click" &&
+    threshold > 0 &&
+    ipKey.includes(".") &&
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(ipKey)
+  ) {
+    const windowH = Math.min(Math.max(owner.autoBlacklistClickWindowHours || 24, 1), 168);
+    const since = new Date(Date.now() - windowH * 60 * 60 * 1000);
+    const countRows = await systemPrisma.$queryRaw<Array<{ c: bigint }>>(
+      Prisma.sql`
+        SELECT COUNT(*)::bigint AS c
+        FROM tracking_events
+        WHERE user_id = ${ownerUserId}::uuid
+          AND event_type = 'click'::"EventType"
+          AND created_at >= ${since}
+          AND ip_address IS NOT NULL
+          AND TRIM(ip_address) <> ''
+          AND (
+            TRIM(ip_address) = ${ipKey}
+            OR (
+              TRIM(ip_address) LIKE ${"::ffff:%"}
+              AND SUBSTRING(TRIM(ip_address) FROM 8) = ${ipKey}
+            )
+          )
+      `,
+    );
+    const clickCount = Number(countRows[0]?.c ?? 0);
+    if (clickCount >= threshold) {
+      const reasonLabel = `Auto: ${threshold} clique(s) máx. / ${windowH}h`;
+      await systemPrisma.blacklistedIp.upsert({
+        where: { userId_ipAddress: { userId: ownerUserId, ipAddress: ipKey } },
+        create: {
+          userId: ownerUserId,
+          ipAddress: ipKey,
+          reason: reasonLabel,
+        },
+        update: { reason: reasonLabel },
+      });
+      void logGuardBlock({
+        ownerUserId,
+        presellPageId,
+        channel,
+        reason: "auto_blacklist_clicks",
+        detail: `Limite de cliques por IP excedido (${threshold} em ${windowH}h). IP adicionado à blacklist.`,
+        ip: ipKey,
+      });
+      return {
+        ok: false,
+        status: 403,
+        error: "IP bloqueado (limite de cliques no anúncio)",
+        reason: "auto_blacklist_clicks",
       };
     }
   }

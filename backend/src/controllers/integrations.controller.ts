@@ -803,12 +803,19 @@ export const integrationsController = {
     const userId = req.user!.userId;
     const u = await prisma.user.findUnique({
       where: { id: userId },
-      select: { blockEmptyUserAgent: true, blockBotClicks: true },
+      select: {
+        blockEmptyUserAgent: true,
+        blockBotClicks: true,
+        autoBlacklistClickThreshold: true,
+        autoBlacklistClickWindowHours: true,
+      },
     });
     if (!u) return res.status(404).json({ error: "Utilizador não encontrado" });
     res.json({
       block_empty_user_agent: u.blockEmptyUserAgent,
       block_bot_clicks: u.blockBotClicks,
+      auto_blacklist_click_threshold: u.autoBlacklistClickThreshold,
+      auto_blacklist_click_window_hours: u.autoBlacklistClickWindowHours,
     });
   },
 
@@ -816,14 +823,21 @@ export const integrationsController = {
     const schema = z.object({
       block_empty_user_agent: z.boolean().optional(),
       block_bot_clicks: z.boolean().optional(),
+      auto_blacklist_click_threshold: z.number().int().min(0).max(5000).optional(),
+      auto_blacklist_click_window_hours: z.number().int().min(1).max(168).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
     const d = parsed.data;
-    if (d.block_empty_user_agent === undefined && d.block_bot_clicks === undefined) {
-      return res.status(400).json({ error: "Envie block_empty_user_agent e/ou block_bot_clicks" });
+    if (
+      d.block_empty_user_agent === undefined &&
+      d.block_bot_clicks === undefined &&
+      d.auto_blacklist_click_threshold === undefined &&
+      d.auto_blacklist_click_window_hours === undefined
+    ) {
+      return res.status(400).json({ error: "Nenhum campo para atualizar" });
     }
     const userId = req.user!.userId;
     await prisma.user.update({
@@ -831,15 +845,28 @@ export const integrationsController = {
       data: {
         ...(d.block_empty_user_agent !== undefined ? { blockEmptyUserAgent: d.block_empty_user_agent } : {}),
         ...(d.block_bot_clicks !== undefined ? { blockBotClicks: d.block_bot_clicks } : {}),
+        ...(d.auto_blacklist_click_threshold !== undefined
+          ? { autoBlacklistClickThreshold: d.auto_blacklist_click_threshold }
+          : {}),
+        ...(d.auto_blacklist_click_window_hours !== undefined
+          ? { autoBlacklistClickWindowHours: d.auto_blacklist_click_window_hours }
+          : {}),
       },
     });
     const u = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { blockEmptyUserAgent: true, blockBotClicks: true },
+      select: {
+        blockEmptyUserAgent: true,
+        blockBotClicks: true,
+        autoBlacklistClickThreshold: true,
+        autoBlacklistClickWindowHours: true,
+      },
     });
     res.json({
       block_empty_user_agent: u.blockEmptyUserAgent,
       block_bot_clicks: u.blockBotClicks,
+      auto_blacklist_click_threshold: u.autoBlacklistClickThreshold,
+      auto_blacklist_click_window_hours: u.autoBlacklistClickWindowHours,
     });
   },
 

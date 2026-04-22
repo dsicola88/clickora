@@ -175,6 +175,7 @@ export const trackController = {
       ip,
       userAgent,
       channel: "redirect",
+      recordedEventType: "click",
     });
     if (!guard.ok) {
       return res.status(guard.status).json({ error: guard.error });
@@ -249,6 +250,7 @@ export const trackController = {
       ip,
       userAgent,
       channel: "pixel",
+      recordedEventType: "other",
     });
     if (!guard.ok) {
       return sendTrackingPixelGif(res);
@@ -324,6 +326,7 @@ export const trackController = {
       ip,
       userAgent,
       channel: "api_click",
+      recordedEventType: "click",
     });
     if (!guard.ok) {
       return res.status(guard.status).json({ error: guard.error });
@@ -398,6 +401,7 @@ export const trackController = {
       ip,
       userAgent,
       channel: "impression_api",
+      recordedEventType: "other",
     });
     if (!guard.ok) {
       return res.status(guard.status).json({ error: guard.error });
@@ -450,6 +454,7 @@ export const trackController = {
       ip: evIp,
       userAgent: evUa,
       channel: "track_event",
+      recordedEventType: event_type === "click" ? "click" : "other",
     });
     if (!evGuard.ok) {
       return res.status(evGuard.status).json({ error: evGuard.error });
