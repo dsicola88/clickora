@@ -6,6 +6,7 @@ import { tenantIsolation } from "../middleware/tenantIsolation";
 export const trackRouter = Router();
 
 // Track routes are public (called from presell pages)
+trackRouter.get("/rot/:rotatorId", trackController.rotatorRedirect);
 trackRouter.get("/r/:presellId", trackController.redirect);
 trackRouter.get("/pixel/:presellId.gif", trackController.pixel);
 trackRouter.get("/v2/clickora.min.js", trackController.serveClickoraEmbed);

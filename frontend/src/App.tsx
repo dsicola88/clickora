@@ -21,6 +21,7 @@ import Plataformas from "./pages/Plataformas";
 import Relatorios from "./pages/Relatorios";
 import Analytics from "./pages/Analytics";
 import Links from "./pages/Links";
+import Rotadores from "./pages/Rotadores";
 import TrackingTools from "./pages/TrackingTools";
 import Blacklist from "./pages/Blacklist";
 import UrlBuilder from "./pages/UrlBuilder";
@@ -57,6 +58,7 @@ const appRoutes = [
   { path: "/tracking/relatorios", element: <Relatorios /> },
   { path: "/tracking/analytics", element: <Analytics /> },
   { path: "/tracking/links", element: <Links /> },
+  { path: "/tracking/rotadores", element: <Rotadores /> },
   { path: "/tracking/tools", element: <TrackingTools /> },
   { path: "/tracking/blacklist", element: <Blacklist /> },
   { path: "/tracking/url-builder", element: <UrlBuilder /> },

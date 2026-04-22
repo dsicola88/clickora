@@ -83,6 +83,27 @@ export const analyticsService = {
     return apiClient.get<AnalyticsSummary[]>(`/analytics${qs ? `?${qs}` : ""}`);
   },
 
+  async getTrackingClick(eventId: string) {
+    return apiClient.get<{
+      id: string;
+      created_at: string;
+      presell_id: string | null;
+      source: string | null;
+      medium: string | null;
+      campaign: string | null;
+      referrer: string | null;
+      country: string | null;
+      device: string | null;
+      ip: string | null;
+      user_agent: string | null;
+      metadata: Record<string, unknown>;
+      rotator_id: string | null;
+      rotator_arm_id: string | null;
+      sub_ids: { sub1?: unknown; sub2?: unknown; sub3?: unknown } | null;
+      redirect_to: string | null;
+    }>(`/analytics/tracking-click/${encodeURIComponent(eventId.trim())}`);
+  },
+
   async getBlacklistBlocks(params?: { limit?: number }) {
     const query = new URLSearchParams();
     if (params?.limit) query.set("limit", String(params.limit));

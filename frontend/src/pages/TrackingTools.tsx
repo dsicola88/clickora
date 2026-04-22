@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { trackingService } from "@/services/trackingService";
+import { analyticsService } from "@/services/analyticsService";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { countryDisplayLabel, countryFlagEmoji } from "@/lib/countryDisplay";
@@ -32,6 +33,9 @@ export default function Tracking() {
   } | null>(null);
   const [gclidResult, setGclidResult] = useState<null | { campaignId: string; adGroupId: string; keyword: string; network: string }>(null);
   const [loadingGclid, setLoadingGclid] = useState(false);
+  const [clickIdInput, setClickIdInput] = useState("");
+  const [clickLookupLoading, setClickLookupLoading] = useState(false);
+  const [clickLookup, setClickLookup] = useState<null | Record<string, unknown>>(null);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [postbackTemplates, setPostbackTemplates] = useState<null | {
     token: string;
@@ -97,6 +101,27 @@ export default function Tracking() {
     setTimeout(() => setCopiedField(null), 1500);
   };
 
+  const handleLookupClick = async () => {
+    const id = clickIdInput.trim();
+    if (!id) {
+      toast.error("Cole o UUID do clique (Relatórios → Click ID).");
+      return;
+    }
+    setClickLookupLoading(true);
+    setClickLookup(null);
+    try {
+      const { data, error } = await analyticsService.getTrackingClick(id);
+      if (error || !data) throw new Error(error || "Clique não encontrado");
+      setClickLookup(data as unknown as Record<string, unknown>);
+      toast.success("Clique encontrado.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Falha na consulta";
+      toast.error(message);
+    } finally {
+      setClickLookupLoading(false);
+    }
+  };
+
   const handleDecodeGclid = async () => {
     if (!gclidInput) { toast.error("Insira um GCLID."); return; }
     setLoadingGclid(true);
@@ -123,13 +148,14 @@ export default function Tracking() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Tracking Tools"
-        description="Ferramentas de diagnóstico (IP, GCLID, postbacks): não substituem Relatórios nem Analytics — servem para investigar um IP, um clique ou os últimos postbacks recebidos."
+        description="Diagnóstico (IP, GCLID, UUID de clique, postbacks). Não substituem Relatórios nem Analytics."
       />
 
       <Tabs defaultValue="ip">
         <TabsList className="bg-card border border-border">
           <TabsTrigger value="ip" className="gap-2"><MapPin className="h-4 w-4" /> Rastrear IP</TabsTrigger>
           <TabsTrigger value="gclid" className="gap-2"><Key className="h-4 w-4" /> GCLID Decoder</TabsTrigger>
+          <TabsTrigger value="clickid" className="gap-2"><Search className="h-4 w-4" /> Clique (UUID)</TabsTrigger>
           <TabsTrigger value="postbacks" className="gap-2"><Globe className="h-4 w-4" /> Postbacks</TabsTrigger>
         </TabsList>
 
@@ -305,6 +331,41 @@ export default function Tracking() {
                 </div>
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="clickid" className="mt-6">
+          <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Consulta um evento de <span className="text-foreground/90">clique</span> pelo UUID (coluna Click ID nos
+              Relatórios). Útil para confirmar destino do rotador, sub-IDs, GCLID e IP.
+            </p>
+            <div className="flex flex-col sm:flex-row items-end gap-4">
+              <div className="space-y-2 flex-1">
+                <Label>UUID do clique</Label>
+                <Input
+                  placeholder="ex.: a1b2c3d4-…"
+                  value={clickIdInput}
+                  onChange={(e) => setClickIdInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleLookupClick()}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={handleLookupClick}
+                disabled={clickLookupLoading}
+                className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+              >
+                {clickLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                {clickLookupLoading ? "A consultar…" : "Consultar"}
+              </Button>
+            </div>
+            {clickLookup ? (
+              <pre className="text-xs bg-muted/40 border border-border/50 rounded-lg p-4 overflow-x-auto max-h-[420px] overflow-y-auto">
+                {JSON.stringify(clickLookup, null, 2)}
+              </pre>
+            ) : null}
           </div>
         </TabsContent>
 

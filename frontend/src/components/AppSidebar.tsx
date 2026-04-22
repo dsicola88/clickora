@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   FileStack,
   LinkIcon,
+  Shuffle,
   Plug,
   Settings,
   ScrollText,
@@ -114,6 +115,12 @@ const trackingNavItems: NavItem[] = [
     url: "/tracking/links",
     icon: Link2,
     hint: "Gerar links de redirect com UTMs ligados à presell.",
+  },
+  {
+    title: "Rotadores",
+    url: "/tracking/rotadores",
+    icon: Shuffle,
+    hint: "Distribuir cliques por vários destinos (A/B, geo, dispositivo) — URL público único.",
   },
   {
     title: "Tracking Tools",

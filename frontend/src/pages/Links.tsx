@@ -108,7 +108,7 @@ export default function Links() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Links"
-        description="Gerencie e compartilhe seus links de tracking com parâmetros UTM."
+        description="Links de redirect com UTMs. Opcional na query: sub1, sub2, sub3 (segmentação nos relatórios). Para vários destinos no mesmo link, use Rotadores."
         actions={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

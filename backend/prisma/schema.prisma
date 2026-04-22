@@ -46,6 +46,21 @@ enum EventType {
   pageview
 }
 
+/** Distribuição de cliques entre vários destinos (estilo rotador ClickMagick). */
+enum TrafficRotatorMode {
+  random
+  weighted
+  sequential
+  fill_order
+}
+
+/** Filtro por tipo de dispositivo por destino do rotador. */
+enum RotatorDeviceRule {
+  all
+  mobile
+  desktop
+}
+
 enum SubscriptionStatus {
   active
   canceled
@@ -120,6 +135,7 @@ model User {
   webPushSubscriptions WebPushSubscription[]
   customDomains        CustomDomain[]
   whitelistedIps WhitelistedIp[]
+  trafficRotators      TrafficRotator[]
 
   @@map("users")
 }
@@ -247,6 +263,8 @@ model PresellPage {
   trackingEvents TrackingEvent[]
   postbackLogs PostbackLog[]
   linkedConversions Conversion[]
+  /** Presells usadas como contexto de relatório/conversão em rotadores de tráfego. */
+  trafficRotatorsAsContext TrafficRotator[] @relation("RotatorContextPresell")
 
   @@unique([userId, slug])
   @@index([userId])
@@ -300,6 +318,59 @@ model TrackingEvent {
   @@index([createdAt])
   @@index([userId, eventType, createdAt])
   @@map("tracking_events")
+}
+
+/**
+ * Rotador de tráfego: um URL público reparte cliques entre vários destinos (A/B, sequência, preenchimento).
+ * O `contextPresellId` liga conversões por postback ao mesmo fluxo que uma presell publicada.
+ */
+model TrafficRotator {
+  id               String             @id @default(uuid())
+  userId           String             @map("user_id")
+  name             String
+  /** Identificador curto único por conta (etiqueta interna / futuros links curtos). */
+  slug             String
+  mode             TrafficRotatorMode
+  backupUrl        String?            @map("backup_url") @db.Text
+  contextPresellId String             @map("context_presell_id")
+  /** Cursor para modo `sequential` (round-robin entre destinos elegíveis). */
+  sequenceCursor   Int                @default(0) @map("sequence_cursor")
+  /** Se definido, o visitante tem de passar `?access_code=` igual. */
+  accessCode       String?            @map("access_code") @db.VarChar(256)
+  isActive         Boolean            @default(true) @map("is_active")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextPresell PresellPage          @relation("RotatorContextPresell", fields: [contextPresellId], references: [id], onDelete: Restrict)
+  arms           TrafficRotatorArm[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@index([contextPresellId])
+  @@map("traffic_rotators")
+}
+
+model TrafficRotatorArm {
+  id              String            @id @default(uuid())
+  rotatorId       String            @map("rotator_id")
+  destinationUrl  String            @map("destination_url") @db.Text
+  label           String?
+  orderIndex      Int               @map("order_index")
+  weight          Int               @default(100)
+  maxClicks       Int?              @map("max_clicks")
+  clicksDelivered Int               @default(0) @map("clicks_delivered")
+  /** JSON: lista de códigos ISO2 permitidos; null/vazio = qualquer país (sujeito a `countriesDeny`). */
+  countriesAllow  Json?             @map("countries_allow")
+  countriesDeny   Json?             @map("countries_deny")
+  deviceRule      RotatorDeviceRule @default(all) @map("device_rule")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  rotator TrafficRotator @relation(fields: [rotatorId], references: [id], onDelete: Cascade)
+
+  @@index([rotatorId, orderIndex])
+  @@map("traffic_rotator_arms")
 }
 
 /** Conversão ligada a um clique (ex.: postback de afiliado com clickora_click_id). */

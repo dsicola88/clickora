@@ -13,6 +13,7 @@ import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
 import { detectBot } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
+import { pickRotatorDestination } from "../lib/trafficRotator.service";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -71,7 +72,17 @@ const redirectSchema = z.object({
   msclkid: z.string().optional(),
   /** Cookie Meta _fbp (opcional) — pode vir em query se o lander o passar. */
   fbp: z.string().optional(),
+  /** Sub-IDs (estilo ClickMagick) para segmentar fontes no relatório. */
+  sub1: z.string().max(512).optional(),
+  sub2: z.string().max(512).optional(),
+  sub3: z.string().max(512).optional(),
 });
+
+/** Query pública do rotador: mesma atribuição que o redirect, sem `to`; opcional `access_code`. */
+const rotatorPublicQuerySchema = redirectSchema
+  .omit({ to: true })
+  .extend({ access_code: z.string().max(256).optional() })
+  .passthrough();
 
 function sendTrackingPixelGif(res: Response) {
   const pixelBase64 = "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
@@ -156,6 +167,9 @@ export const trackController = {
       utm_content,
       msclkid,
       utm_source,
+      sub1,
+      sub2,
+      sub3,
     } = parsed.data;
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
@@ -212,6 +226,9 @@ export const trackController = {
             medium,
             campaign,
             redirect_to: to,
+            ...(sub1?.trim() ? { sub1: sub1.trim() } : {}),
+            ...(sub2?.trim() ? { sub2: sub2.trim() } : {}),
+            ...(sub3?.trim() ? { sub3: sub3.trim() } : {}),
             ...botMeta,
           } as Prisma.InputJsonValue,
         },
@@ -230,6 +247,140 @@ export const trackController = {
     });
 
     const redirectTo = appendClickIdToAffiliateUrl(to, click.id);
+    return res.redirect(302, redirectTo);
+  },
+
+  async rotatorRedirect(req: Request, res: Response) {
+    const rotatorId = req.params.rotatorId;
+    if (!z.string().uuid().safeParse(rotatorId).success) {
+      return res.status(404).json({ error: "Rotador não encontrado" });
+    }
+
+    const parsed = rotatorPublicQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
+    }
+    const q = parsed.data;
+    const {
+      source,
+      medium,
+      campaign,
+      referrer,
+      gclid,
+      gbraid,
+      wbraid,
+      fbclid,
+      fbp,
+      ttclid,
+      utm_term,
+      utm_content,
+      msclkid,
+      utm_source,
+      sub1,
+      sub2,
+      sub3,
+      access_code,
+    } = q;
+
+    const rot = await systemPrisma.trafficRotator.findFirst({
+      where: { id: rotatorId, isActive: true },
+      include: { contextPresell: { select: { id: true, userId: true, title: true, status: true } } },
+    });
+    if (!rot || rot.contextPresell.status !== "published") {
+      return res.status(404).json({ error: "Rotador não encontrado" });
+    }
+
+    if (rot.accessCode && rot.accessCode.length > 0) {
+      const ok = (access_code || "").trim() === rot.accessCode.trim();
+      if (!ok) {
+        return res.status(403).json({ error: "Código de acesso inválido ou em falta (?access_code=)" });
+      }
+    }
+
+    if (!(await assertPresellAllowedOnRequestHost(req, rot.userId))) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
+
+    const accessCheck = await validateOwnerCanTrack(rot.userId);
+    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+
+    const ip = extractClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+    const guard = await enforceTrackingRules({
+      ownerUserId: rot.userId,
+      presellPageId: rot.contextPresellId,
+      ip,
+      userAgent,
+      channel: "rotator_redirect",
+      recordedEventType: "click",
+    });
+    if (!guard.ok) {
+      return res.status(guard.status).json({ error: guard.error });
+    }
+
+    const country = countryIsoFromIp(ip) ?? null;
+    const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent);
+    const pick = await pickRotatorDestination(rotatorId, { country, device });
+    if (!pick.ok) {
+      return res.status(503).json({
+        error:
+          pick.reason === "not_found"
+            ? "Rotador indisponível."
+            : "Nenhum destino elegível. Configure um URL de recurso ou braços do rotador.",
+        code: pick.reason,
+      });
+    }
+
+    const finalUrl = pick.destinationUrl;
+
+    const armIdForMeta = pick.usedBackup ? null : pick.armId;
+
+    const click = await systemPrisma.trackingEvent.create({
+      data: {
+        userId: rot.userId,
+        presellPageId: rot.contextPresellId,
+        eventType: "click",
+        source,
+        medium,
+        campaign,
+        referrer,
+        country,
+        ipAddress: ip,
+        userAgent,
+        device,
+        metadata: {
+          gclid,
+          gbraid,
+          wbraid,
+          fbclid,
+          fbp,
+          ttclid,
+          msclkid,
+          utm_term,
+          utm_content,
+          utm_source: utm_source ?? source,
+          source,
+          medium,
+          campaign,
+          redirect_to: finalUrl,
+          rotator_id: rotatorId,
+          rotator_arm_id: armIdForMeta,
+          rotator_used_backup: pick.usedBackup,
+          ...(sub1?.trim() ? { sub1: sub1.trim() } : {}),
+          ...(sub2?.trim() ? { sub2: sub2.trim() } : {}),
+          ...(sub3?.trim() ? { sub3: sub3.trim() } : {}),
+          ...rotBotMeta,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    notifyTelegramClick(rot.userId, {
+      presellTitle: `${rot.name} → ${rot.contextPresell.title}`,
+      clickId: click.id,
+      campaign,
+    });
+
+    const redirectTo = appendClickIdToAffiliateUrl(finalUrl, click.id);
     return res.redirect(302, redirectTo);
   },
 

@@ -34,6 +34,7 @@ export async function logBlacklistBlock(params: {
 
 export type TrackingGuardChannel =
   | "redirect"
+  | "rotator_redirect"
   | "api_click"
   | "pixel"
   | "impression_api"

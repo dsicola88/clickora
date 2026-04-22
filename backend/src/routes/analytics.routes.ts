@@ -9,6 +9,7 @@ export const analyticsRouter = Router();
 analyticsRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
 
 analyticsRouter.get("/", analyticsController.getSummary);
+analyticsRouter.get("/tracking-click/:eventId", analyticsController.getTrackingClick);
 analyticsRouter.get("/events", analyticsController.getEvents);
 analyticsRouter.get("/conversions", analyticsController.listConversions);
 analyticsRouter.get("/dashboard", analyticsController.getDashboard);

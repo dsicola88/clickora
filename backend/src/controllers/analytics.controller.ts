@@ -1091,6 +1091,55 @@ export const analyticsController = {
     sendCsvDownload(res, filename, headers, rows);
   },
 
+  /** Detalhe de um evento de clique (lookup estilo ferramentas de tracking). */
+  async getTrackingClick(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const eventId = req.params.eventId?.trim();
+    if (!eventId) return res.status(400).json({ error: "ID em falta." });
+
+    const ev = await prisma.trackingEvent.findFirst({
+      where: { id: eventId, userId, eventType: "click" },
+      select: {
+        id: true,
+        createdAt: true,
+        presellPageId: true,
+        source: true,
+        medium: true,
+        campaign: true,
+        referrer: true,
+        country: true,
+        device: true,
+        ipAddress: true,
+        userAgent: true,
+        metadata: true,
+      },
+    });
+    if (!ev) return res.status(404).json({ error: "Clique não encontrado." });
+
+    const meta = (ev.metadata || {}) as Record<string, unknown>;
+    res.json({
+      id: ev.id,
+      created_at: ev.createdAt.toISOString(),
+      presell_id: ev.presellPageId,
+      source: ev.source,
+      medium: ev.medium,
+      campaign: ev.campaign,
+      referrer: ev.referrer,
+      country: ev.country,
+      device: ev.device,
+      ip: ev.ipAddress,
+      user_agent: ev.userAgent,
+      metadata: meta,
+      rotator_id: typeof meta.rotator_id === "string" ? meta.rotator_id : null,
+      rotator_arm_id: typeof meta.rotator_arm_id === "string" ? meta.rotator_arm_id : null,
+      sub_ids:
+        typeof meta.sub1 === "string" || typeof meta.sub2 === "string" || typeof meta.sub3 === "string"
+          ? { sub1: meta.sub1, sub2: meta.sub2, sub3: meta.sub3 }
+          : null,
+      redirect_to: typeof meta.redirect_to === "string" ? meta.redirect_to : null,
+    });
+  },
+
   /** Tentativas bloqueadas: blacklist ou regras de tracking (rate limit, whitelist, UA, bots). */
   async getBlacklistBlocks(req: Request, res: Response) {
     const userId = req.user!.userId;
