@@ -20,6 +20,9 @@ const USERS_INTEGRATION_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_notify_click" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_empty_user_agent" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_bot_clicks" BOOLEAN NOT NULL DEFAULT false`,
+  /** Auto-blacklist por cliques/IP (migração 20260422120000) — alinha BD se `migrate deploy` ainda não correu. */
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "auto_blacklist_click_threshold" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "auto_blacklist_click_window_hours" INTEGER NOT NULL DEFAULT 24`,
   /** Meta CAPI (migração 20260417130000) — se `migrate deploy` não correu, o seed não falha com P2022. */
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_capi_enabled" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_pixel_id" TEXT`,
