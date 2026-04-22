@@ -1082,11 +1082,11 @@ export default function Relatorios() {
           ) : null}
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
-            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
-              <span className="text-sm text-muted-foreground min-w-0 flex-1">
+            <div className="p-4 border-b border-border flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-start">
+              <p className="text-sm text-muted-foreground min-w-0 w-full lg:flex-1 lg:pr-4">
                 Conversões aprovadas no período. O descarregar inclui o período completo; os filtros só alteram a lista.
-              </span>
-              <div className="flex flex-col gap-3 w-full">
+              </p>
+              <div className="flex flex-col gap-3 w-full lg:w-auto lg:min-w-0 lg:max-w-xl xl:max-w-2xl lg:shrink-0">
                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                   <Button
                     type="button"
