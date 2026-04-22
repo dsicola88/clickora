@@ -136,8 +136,10 @@ export default function Tracking() {
         <TabsContent value="ip" className="mt-6">
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
             <p className="text-sm text-muted-foreground">
-              Consulta aproximada via <span className="text-foreground/90">GeoLite2</span> no servidor (cidade, país,
-              fuso horário). Para testar, usa um IP público (ex.: <span className="font-mono text-xs">8.8.8.8</span>).
+              Consulta aproximada via <span className="text-foreground/90">GeoLite2</span> no servidor. Os dados são
+              indicativos (não substituem prova legal); cidade e coordenadas podem errar, sobretudo em IPs de operadoras
+              ou VPN. Em <span className="font-mono text-xs">IPv6</span> a base costuma ter só país, sem cidade. Para
+              testar: <span className="font-mono text-xs">8.8.8.8</span>.
             </p>
             <div className="flex flex-col sm:flex-row items-end gap-4">
               <div className="space-y-2 flex-1">
@@ -162,11 +164,27 @@ export default function Tracking() {
 
             {ipLookup ? (
               <div className="space-y-4">
-                <div className="rounded-xl border border-border/50 bg-muted/30 p-5 space-y-1">
+                <div className="rounded-xl border border-border/50 bg-muted/30 p-5 space-y-2">
                   <h3 className="font-semibold text-card-foreground flex items-center gap-2">
                     <Globe className="h-4 w-4 text-primary" /> IP consultado
                   </h3>
-                  <p className="font-mono text-sm font-medium text-card-foreground">{ipLookup.ip}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-mono text-sm font-medium text-card-foreground">{ipLookup.ip}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => copyText("ip-consultado", ipLookup.ip)}
+                    >
+                      {copiedField === "ip-consultado" ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      Copiar IP
+                    </Button>
+                  </div>
                 </div>
 
                 {!ipLookup.found ? (
@@ -206,7 +224,21 @@ export default function Tracking() {
                               : "—",
                         },
                         { label: "União Europeia", value: ipLookup.geo.eu ? "Sim" : "Não" },
-                        { label: "Raio aprox. (km)", value: String(ipLookup.geo.area_km ?? "—") },
+                        {
+                          label: "Precisão estimada (km)",
+                          value:
+                            ipLookup.geo.area_km != null && ipLookup.geo.area_km > 0
+                              ? String(ipLookup.geo.area_km)
+                              : "—",
+                        },
+                        ...(ipLookup.geo.metro > 0
+                          ? [
+                              {
+                                label: "Metro / DMA (EUA)",
+                                value: String(ipLookup.geo.metro),
+                              },
+                            ]
+                          : []),
                       ].map((row) => (
                         <div key={row.label} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                           <p className="text-xs text-muted-foreground">{row.label}</p>
@@ -214,6 +246,20 @@ export default function Tracking() {
                         </div>
                       ))}
                     </div>
+                    {ipLookup.geo.latitude != null && ipLookup.geo.longitude != null ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" asChild>
+                          <a
+                            href={`https://www.openstreetmap.org/?mlat=${ipLookup.geo.latitude}&mlon=${ipLookup.geo.longitude}&zoom=11`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
+                            Ver no mapa (OpenStreetMap)
+                          </a>
+                        </Button>
+                      </div>
+                    ) : null}
                     <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
                       <Smartphone className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
                       <p>

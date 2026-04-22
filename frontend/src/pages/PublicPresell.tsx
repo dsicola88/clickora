@@ -90,6 +90,33 @@ function makeTrackClickUrl(
   return clickUrl.toString();
 }
 
+/** Pixel de impressão: envia UTMs e IDs de clique da URL da presell (alinhado com /track/r/…). */
+function buildImpressionPixelUrl(apiBase: string, pageId: string, pageSearch: URLSearchParams): string {
+  const params = new URLSearchParams();
+  const ref = typeof document !== "undefined" ? document.referrer?.trim() : "";
+  if (ref) params.set("referrer", ref);
+  const keys = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "gclid",
+    "gbraid",
+    "wbraid",
+    "fbclid",
+    "ttclid",
+    "msclkid",
+  ] as const;
+  for (const k of keys) {
+    const v = pageSearch.get(k);
+    if (v) params.set(k, v);
+  }
+  const u = resolveApiUrl(apiBase, `/track/pixel/${pageId}.gif`);
+  u.search = params.toString();
+  return u.toString();
+}
+
 function looksLikeSectionHeading(block: string): boolean {
   const t = block.trim();
   if (/^#{2,3}\s/.test(t)) return true;
@@ -245,9 +272,8 @@ export default function PublicPresell() {
   useEffect(() => {
     if (!page?.id) return;
     const pixel = new Image();
-    const referrer = encodeURIComponent(document.referrer || "");
-    pixel.src = `${apiBase}/track/pixel/${page.id}.gif?referrer=${referrer}`;
-  }, [page?.id, apiBase]);
+    pixel.src = buildImpressionPixelUrl(apiBase, page.id, search);
+  }, [page?.id, apiBase, search]);
 
   const bodyCodeMountRef = useRef<HTMLDivElement>(null);
   const settingsInjectKey = useMemo(() => {

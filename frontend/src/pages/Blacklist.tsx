@@ -150,6 +150,20 @@ export default function Blacklist() {
         description="Rate limit global no servidor, lista opcional de permitidos, blacklist, e regras opcionais (UA vazio / bots). IPv4 só."
       />
 
+      <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm text-muted-foreground space-y-2">
+        <p className="font-medium text-foreground/90">Ordem em que o servidor avalia cada pedido de tracking</p>
+        <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm leading-relaxed">
+          <li>Limite de frequência por IP (anti-spam em memória; por defeito ~240 pedidos por minuto por IP — ajustável no servidor com TRACK_RATE_LIMIT_*).</li>
+          <li>Blacklist — IP bloqueado → 403.</li>
+          <li>Whitelist — se existir pelo menos um IP permitido, só esses IPs passam; restantes → 403.</li>
+          <li>User-Agent vazio — se a regra estiver ativa → 403.</li>
+          <li>Bot (UA) — se a regra estiver ativa → 403.</li>
+        </ol>
+        <p className="text-xs border-t border-border/50 pt-2 mt-2">
+          Isto não substitui WAF/CDN (Cloudflare, etc.). IPv6 e intervalos CIDR não são suportados nas listas — apenas um IPv4 por linha. Importação em massa e bloqueio por país seriam evoluções à parte.
+        </p>
+      </div>
+
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-5 w-5 text-primary" />
@@ -221,6 +235,7 @@ export default function Blacklist() {
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">IP</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nota</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Adicionado</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Ação</th>
                 </tr>
               </thead>
@@ -229,6 +244,9 @@ export default function Blacklist() {
                   <tr key={item.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                     <td className="py-2.5 px-4 font-mono text-xs text-card-foreground">{item.ip}</td>
                     <td className="py-2.5 px-4 text-muted-foreground text-xs">{item.note || "—"}</td>
+                    <td className="py-2.5 px-4 text-muted-foreground text-xs whitespace-nowrap">
+                      {new Date(item.added_at).toLocaleString("pt-PT")}
+                    </td>
                     <td className="py-2.5 px-4 text-right">
                       <button
                         type="button"

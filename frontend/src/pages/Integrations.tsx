@@ -263,6 +263,29 @@ export default function Integrations() {
         }
       />
 
+      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
+        <p className="text-sm font-medium text-foreground">Outras ligações no dclickora</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Postbacks de afiliado, URLs de conversão para Google/Microsoft e modelos de macros estão em{" "}
+          <strong className="font-medium text-foreground/90">Tracking Tools</strong>. Redes de afiliados, e-mail da rede e
+          o postback completo por plataforma estão em <strong className="font-medium text-foreground/90">Plataformas</strong>.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <Button variant="outline" size="sm" className="justify-between gap-2 sm:flex-1" asChild>
+            <Link to="/tracking/tools">
+              Abrir Tracking Tools
+              <ArrowRight className="h-4 w-4 shrink-0 opacity-70" />
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="justify-between gap-2 sm:flex-1" asChild>
+            <Link to="/tracking/plataformas">
+              Abrir Plataformas
+              <ArrowRight className="h-4 w-4 shrink-0 opacity-70" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+
       <Accordion type="multiple" defaultValue={["webpush", "google", "telegram"]} className="space-y-4">
         <AccordionItem value="webpush" className="border-0">
           <SectionShell accent="violet">

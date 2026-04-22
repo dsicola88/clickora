@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { Copy, Check, Plus, X, ChevronsUpDown } from "lucide-react";
+import { Copy, Check, Plus, X, ChevronsUpDown, ChevronDown, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
@@ -28,6 +29,15 @@ import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 
 /** Plataformas (Integrações) + redes de tráfego + Personalizado — ver `marketingPlatforms.ts`. */
 const URL_BUILDER_PLATFORMS = getUrlBuilderPlatformList();
+
+function isAbsoluteHttpUrl(s: string): boolean {
+  try {
+    const u = new URL(s.trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 /** Chaves de ID de clique — negrito + sublinhado no URL final. */
 const CLICK_ID_QUERY_KEYS = new Set([
@@ -453,20 +463,38 @@ export default function UrlBuilder() {
         description="Monta o URL da presell com parâmetros da rede (UTMs, gclid, etc.). Alinha com Integrações → Plataformas e o webhook de postback de afiliados."
       />
 
-      <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5">
-        <p className="text-sm font-semibold text-foreground mb-2">Fluxo: tracking → oferta → postback</p>
-        <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-          {flowSteps.map((s, i) => (
-            <li key={i} className="pl-1 marker:text-primary marker:font-medium">
-              {s}
-            </li>
-          ))}
-        </ol>
-        <p className="mt-3 text-[11px] text-muted-foreground leading-snug">
-          Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da presell (ex.{" "}
-          <span className="font-mono text-[10px]">https://dclickora.com/p/&lt;uuid-da-presell&gt;</span>
-          ), não o link direto da rede. O script da presell e o redirect <span className="font-mono">/track/r/…</span> tratam do resto.
+      <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
+        <p className="text-sm font-semibold text-foreground">Fluxo: tracking → oferta → postback</p>
+        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+          Montas o link público da presell com UTMs e macros; no clique a rede preenche os IDs; o redirect acrescenta{" "}
+          <span className="font-mono text-[11px]">clickora_click_id</span> na oferta; o postback em Integrações fecha a conversão.
         </p>
+        <Collapsible defaultOpen={false} className="space-y-2">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg border border-primary/15 bg-background/60 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-background/90 transition-colors [&[data-state=open]>svg]:rotate-180"
+            >
+              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" aria-hidden />
+              Ver passo a passo detalhado (8 pontos) e nota sobre URL final na rede
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 data-[state=closed]:animate-none">
+            <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {flowSteps.map((s, i) => (
+                <li key={i} className="pl-1 marker:text-primary marker:font-medium">
+                  {s}
+                </li>
+              ))}
+            </ol>
+            <p className="text-[11px] text-muted-foreground leading-snug border-t border-primary/10 pt-3">
+              Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da presell (ex.{" "}
+              <span className="font-mono text-[10px]">https://dclickora.com/p/&lt;uuid-da-presell&gt;</span>
+              ), não o link direto da rede. O script da presell e o redirect <span className="font-mono">/track/r/…</span> tratam do
+              resto.
+            </p>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
@@ -625,10 +653,17 @@ export default function UrlBuilder() {
               {generatedUrl ? (
                 highlightGeneratedUrlPreview(generatedUrl)
               ) : (
-                "Preencha com uma URL válida"
+                "Indica o URL base da presell (https://…/p/…). Opcional: escolhe a plataforma para carregar UTMs e IDs de clique."
               )}
             </div>
-            <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy}>
+            {generatedUrl && isAbsoluteHttpUrl(generatedUrl) ? (
+              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" asChild title="Abrir num separador (teste)">
+                <a href={generatedUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            ) : null}
+            <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title="Copiar URL">
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>

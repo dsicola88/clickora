@@ -14,6 +14,26 @@ import { analyticsService } from "@/services/analyticsService";
 import type { TrackingEvent } from "@/types/api";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import {
+  countryDisplayLabel,
+  countryFlagEmoji,
+  normalizeIsoCountryCode,
+} from "@/lib/countryDisplay";
+
+function CountryCell({ code }: { code: string }) {
+  const iso = normalizeIsoCountryCode(code === "—" ? "" : code);
+  if (!iso) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5" title={countryDisplayLabel(iso)}>
+      <span className="text-base leading-none" aria-hidden>
+        {countryFlagEmoji(iso)}
+      </span>
+      <span className="font-mono text-xs">{iso}</span>
+    </span>
+  );
+}
 
 function defaultDateRange() {
   const end = new Date();
@@ -40,7 +60,9 @@ function paidLabel(e: TrackingEvent) {
   const meta = e.metadata || {};
   const g = typeof meta.gclid === "string" ? meta.gclid : "";
   const m = typeof meta.msclkid === "string" ? meta.msclkid : "";
-  return g.trim() || m.trim() ? "Pago" : "Orgânico";
+  const f = typeof meta.fbclid === "string" ? meta.fbclid : "";
+  const t = typeof meta.ttclid === "string" ? meta.ttclid : "";
+  return g.trim() || m.trim() || f.trim() || t.trim() ? "Pago" : "Orgânico";
 }
 
 function platformMatches(rowPlatform: string, selected: string) {
@@ -685,7 +707,9 @@ export default function Relatorios() {
                                 {row.type}
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.country}</td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs">
+                              <CountryCell code={row.country} />
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
                             <td className="py-2.5 px-3">
                               <span
@@ -865,7 +889,9 @@ export default function Relatorios() {
                                 {row.type}
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.country}</td>
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs">
+                              <CountryCell code={row.country} />
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
                             <td className="py-2.5 px-3">
                               <span

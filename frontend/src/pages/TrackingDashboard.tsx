@@ -44,6 +44,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
 const GOOGLE_ADS_OAUTH_DOC = "https://developers.google.com/google-ads/api/docs/oauth/overview";
+const GOOGLE_CLOUD_CREDENTIALS = "https://console.cloud.google.com/apis/credentials";
 
 const CHECKLIST_STORAGE_KEY = "dclickora_tracking_checklist_v1";
 
@@ -211,10 +212,202 @@ function GoogleAdsConversionUploadCard({
           <Target className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Google Ads</h3>
+          <h3 className="font-semibold text-card-foreground">Google Ads — importação automática</h3>
           <p className="text-xs text-muted-foreground">
-            Envio automático de conversões offline (API de upload de cliques) após venda aprovada no webhook de afiliados.
+            O servidor envia cada conversão para a <strong className="font-medium text-foreground/90">API do Google Ads</strong> (upload por clique){" "}
+            <strong className="font-medium text-foreground/90">logo após</strong> a rede de afiliados confirmar uma{" "}
+            <strong className="font-medium text-foreground/90">venda aprovada</strong> no postback. Não passa por ficheiros CSV nem pelo URL de CSV em Integrações.
           </p>
+        </div>
+      </div>
+
+      <Alert className="border-sky-500/35 bg-sky-500/[0.07]">
+        <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+        <AlertTitle className="text-sm text-foreground">Porque não vê «OAuth» dentro do Google Ads</AlertTitle>
+        <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
+          <p>
+            Em <strong className="text-foreground/90">ads.google.com</strong> configura <strong className="text-foreground/90">campanhas, conversões e o ID da conta</strong>.
+            O <strong className="text-foreground/90">refresh token</strong> <em>não</em> é um menu lá: obtém-se no{" "}
+            <a
+              href={GOOGLE_OAUTH_PLAYGROUND}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-medium underline underline-offset-2 hover:text-primary/90"
+            >
+              OAuth 2.0 Playground
+            </a>
+            , com um <strong className="text-foreground/90">Client ID e Client Secret</strong> criados no{" "}
+            <a
+              href={GOOGLE_CLOUD_CREDENTIALS}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-medium underline underline-offset-2 hover:text-primary/90"
+            >
+              Google Cloud Console → Credenciais
+            </a>{" "}
+            (projeto com Google Ads API ativa). É o mesmo fluxo descrito em «Onde obtenho o refresh token?» abaixo.
+          </p>
+          <p>
+            O <span className="font-mono text-[11px]">GOOGLE_ADS_DEVELOPER_TOKEN</span> vem do{" "}
+            <strong className="text-foreground/90">Centro da API</strong> do Google Ads (costuma estar em{" "}
+            <strong className="text-foreground/90">Ferramentas e definições</strong> → <strong className="text-foreground/90">Configuração</strong> →{" "}
+            <strong className="text-foreground/90">Centro da API</strong>, ou pesquise «API» na caixa de pesquisa do Google Ads). Quem gere o servidor cola-o nas variáveis de ambiente — não aparece como campo nesta página.
+          </p>
+        </AlertDescription>
+      </Alert>
+
+      <Collapsible className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md py-1.5 text-left text-sm font-medium text-foreground hover:opacity-90 [&[data-state=open]>svg]:rotate-180">
+          <span className="inline-flex items-center gap-2">
+            <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+            Mapa: onde fica cada exigência (Ads · Cloud · dclickora)
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-border/50 mt-2 space-y-3">
+            <div>
+              <p className="font-medium text-foreground">Só no Google Ads (interface de anúncios)</p>
+              <ul className="list-disc pl-4 mt-1 space-y-1">
+                <li>
+                  <strong className="text-foreground/90">Customer ID</strong> — canto superior direito (ou menu do perfil / selector de conta).
+                </li>
+                <li>
+                  <strong className="text-foreground/90">Ações de conversão e ID (ctId / ctld)</strong> — ícone{" "}
+                  <strong className="text-foreground/90">Metas</strong> → <strong className="text-foreground/90">Conversões</strong> →{" "}
+                  <strong className="text-foreground/90">Resumo</strong>; abra o nome da ação e veja a barra de endereço. (Em contas antigas, «Ferramentas → Conversões» pode abrir o mesmo sítio.)
+                </li>
+                <li>
+                  <strong className="text-foreground/90">Etiquetagem automática</strong> — para existir <span className="font-mono text-[10px]">gclid</span>:{" "}
+                  <strong className="text-foreground/90">Ferramentas e definições</strong> (ícone de chave) → definições da conta → procure{" "}
+                  <strong className="text-foreground/90">Etiquetagem automática</strong>, ou use a pesquisa no topo do Google Ads.
+                </li>
+                <li>
+                  <strong className="text-foreground/90">Developer token</strong> (para o backend) —{" "}
+                  <strong className="text-foreground/90">Centro da API</strong> no Google Ads; o texto amarelo desta página lista o nome da variável.
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Fora do Google Ads (ligação à API / OAuth)</p>
+              <ul className="list-disc pl-4 mt-1 space-y-1">
+                <li>
+                  <strong className="text-foreground/90">Client ID e Client Secret</strong> —{" "}
+                  <a
+                    href={GOOGLE_CLOUD_CREDENTIALS}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/90"
+                  >
+                    console.cloud.google.com
+                  </a>
+                  , tipo «ID do cliente OAuth».
+                </li>
+                <li>
+                  <strong className="text-foreground/90">Refresh token</strong> —{" "}
+                  <a
+                    href={GOOGLE_OAUTH_PLAYGROUND}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/90"
+                  >
+                    OAuth Playground
+                  </a>{" "}
+                  com âmbito Google Ads API (<span className="font-mono text-[10px]">…/auth/adwords</span>), como na secção rebatível abaixo.
+                </li>
+                <li>
+                  Documentação:{" "}
+                  <a
+                    href={GOOGLE_ADS_OAUTH_DOC}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/90"
+                  >
+                    OAuth na Google Ads API
+                  </a>
+                  .
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Nesta página (dclickora)</p>
+              <ul className="list-disc pl-4 mt-1 space-y-1">
+                <li>
+                  Colar <strong className="text-foreground/90">Customer ID</strong>, <strong className="text-foreground/90">ID da ação</strong>,{" "}
+                  <strong className="text-foreground/90">Login MCC</strong> se aplicável, <strong className="text-foreground/90">refresh token</strong>, ativar o interruptor e <strong className="text-foreground/90">Guardar</strong>.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
+        <p className="font-medium text-foreground mb-1.5">Para o automático funcionar, tem de existir:</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>
+            <strong className="text-foreground/90">Clique com ID do Google</strong> (<span className="font-mono text-[10px]">gclid</span> /{" "}
+            <span className="font-mono text-[10px]">gbraid</span> / <span className="font-mono text-[10px]">wbraid</span>) — o script na presell regista o clique.
+          </li>
+          <li>
+            <strong className="text-foreground/90">Postback</strong> da plataforma em <strong className="text-foreground/90">Plataformas</strong> a marcar a venda como aprovada no dclickora.
+          </li>
+          <li>
+            <strong className="text-foreground/90">Ação de conversão</strong> no Google Ads compatível com <strong className="text-foreground/90">importação por clique</strong> (não só chamadas).
+          </li>
+          <li>
+            <strong className="text-foreground/90">OAuth + API</strong> em baixo e credenciais da API ativas no serviço (mensagem em amarelo, se faltar algo no servidor).
+          </li>
+        </ul>
+      </div>
+
+      <div className="rounded-xl border border-primary/25 bg-primary/[0.06] px-3 py-3 sm:px-4 space-y-3">
+        <p className="text-sm font-semibold text-foreground">Configurar a importação automática (Google Ads ↔ dclickora)</p>
+        <div className="grid gap-4 sm:grid-cols-2 text-xs text-muted-foreground leading-relaxed">
+          <div className="space-y-2">
+            <p className="font-medium text-foreground">No Google Ads</p>
+            <ol className="list-decimal pl-4 space-y-2">
+              <li>
+                Ícone <strong className="text-foreground/90">Metas</strong> → <strong className="text-foreground/90">Conversões</strong> →{" "}
+                <strong className="text-foreground/90">Resumo</strong> (o mesmo sítio onde vê «+ Criar ação de conversão»).
+              </li>
+              <li>
+                <strong className="text-foreground/90">+ Criar ação de conversão</strong> → <strong className="text-foreground/90">Importar</strong> →{" "}
+                <strong className="text-foreground/90">Importação manual com a API ou carregamentos</strong>. Use uma ação por{" "}
+                <strong className="text-foreground/90">clique (GCLID)</strong>, não conversões só de chamadas.
+              </li>
+              <li>
+                <strong className="text-foreground/90">Customer ID:</strong> número no canto superior direito da conta — no dclickora use{" "}
+                <strong className="text-foreground/90">só os 10 dígitos, sem hífenes</strong>.
+              </li>
+              <li>
+                <strong className="text-foreground/90">ID da ação de conversão:</strong> no <strong className="text-foreground/90">Resumo</strong>, clique no{" "}
+                <strong className="text-foreground/90">nome da ação</strong> → na barra de endereço procure{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">ctId=</code> (ou parâmetro parecido, ex.{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">ctld=</code>) e copie o número.
+              </li>
+            </ol>
+          </div>
+          <div className="space-y-2">
+            <p className="font-medium text-foreground">No dclickora (esta página)</p>
+            <ol className="list-decimal pl-4 space-y-2">
+              <li>
+                Cole o <strong className="text-foreground/90">Customer ID</strong> e o <strong className="text-foreground/90">ID da ação de conversão</strong>{" "}
+                nos campos abaixo (os mesmos valores do passo anterior).
+              </li>
+              <li>
+                Obtenha o <strong className="text-foreground/90">refresh token</strong> OAuth (secção «Onde obtenho o refresh token?») com a mesma conta Google do Ads.
+              </li>
+              <li>
+                Ative <strong className="text-foreground/90">importação automática no Google Ads</strong> e clique em{" "}
+                <strong className="text-foreground/90">Guardar Google Ads</strong>.
+              </li>
+              <li>
+                Confirme o <strong className="text-foreground/90">script</strong> na presell (secção acima nesta página) e o <strong className="text-foreground/90">postback</strong> da rede em{" "}
+                <strong className="text-foreground/90">Plataformas</strong> — sem isso não há venda aprovada para enviar.
+              </li>
+            </ol>
+          </div>
         </div>
       </div>
 
@@ -222,14 +415,28 @@ function GoogleAdsConversionUploadCard({
         <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md py-1.5 text-left text-sm font-medium text-foreground hover:opacity-90 [&[data-state=open]>svg]:rotate-180">
           <span className="inline-flex items-center gap-2">
             <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-            Como funciona o envio automático
+            Ordem do envio automático (o que acontece em cadeia)
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200" />
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-blue-500/15 mt-2">
-            Com anúncios bem configurados e script na presell, o Google envia <span className="font-mono text-[11px]">gclid</span> no clique; quando a
-            rede confirma a venda, o dclickora pode registar a conversão na sua conta Google Ads. Detalhe técnico:{" "}
+          <ol className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-blue-500/15 mt-2 list-decimal pl-4 space-y-1.5">
+            <li>
+              Utilizador clica no anúncio; com etiquetagem automática, o URL traz <span className="font-mono text-[11px]">gclid</span> (ou equivalente).
+            </li>
+            <li>
+              A presell com o <strong className="text-foreground/90">script dclickora</strong> regista o clique e guarda esse ID.
+            </li>
+            <li>
+              A rede envia o <strong className="text-foreground/90">postback</strong>; o dclickora cria a conversão <strong className="text-foreground/90">aprovada</strong>.
+            </li>
+            <li>
+              Se esta secção estiver ligada e bem configurada, o <strong className="text-foreground/90">servidor</strong> chama a{" "}
+              <strong className="text-foreground/90">Google Ads API</strong> e associa a conversão à ação que indicou.
+            </li>
+          </ol>
+          <p className="text-xs text-muted-foreground leading-relaxed pt-2">
+            Documentação Google:{" "}
             <a
               href={GOOGLE_ADS_OAUTH_DOC}
               target="_blank"
@@ -273,14 +480,15 @@ function GoogleAdsConversionUploadCard({
       <div className="flex items-center gap-3">
         <Switch id="ga-enabled" checked={gaEnabled} onCheckedChange={setGaEnabled} />
         <Label htmlFor="ga-enabled" className="text-sm cursor-pointer">
-          Ativar envio após venda aprovada
+          Ativar importação automática no Google Ads após venda aprovada
         </Label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs">Customer ID</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
-            Conta Google Ads onde criaste a ação de conversão (10 dígitos, só números). Em MCC: conta <em>cliente</em>, não a gestora.
+            Igual ao número no canto superior direito do Google Ads (10 dígitos, <strong className="text-foreground/90">sem hífenes</strong>). Em MCC: conta{" "}
+            <em>cliente</em> onde está a campanha, não a gestora.
           </p>
           <Input
             value={gaCustomerId}
@@ -292,12 +500,14 @@ function GoogleAdsConversionUploadCard({
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs">ID da ação de conversão</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
-            ID numérico da ação (Ferramentas → Conversões). Deve ser compatível com <strong className="text-foreground/90">conversões offline / importação por clique</strong> (gclid).
+            Número na URL ao abrir a ação em <strong className="text-foreground/90">Metas → Conversões → Resumo</strong> (geralmente após{" "}
+            <code className="rounded bg-muted px-0.5 text-[10px]">ctId=</code> ou <code className="rounded bg-muted px-0.5 text-[10px]">ctld=</code>). Ação de{" "}
+            <strong className="text-foreground/90">importação por clique</strong>, não só chamadas.
           </p>
           <Input
             value={gaActionId}
             onChange={(e) => setGaActionId(e.target.value)}
-            placeholder="número em Ferramentas → Conversões"
+            placeholder="ID numérico da ação (URL ou suporte Google)"
             className="font-mono text-xs"
           />
         </div>
@@ -380,8 +590,9 @@ function GoogleAdsConversionUploadCard({
         ) : null}
       </div>
       <p className="text-[11px] text-muted-foreground leading-snug">
-        <strong className="text-foreground/90">Pronto para enviar</strong> quando o envio está ligado, os IDs estão corretos e existe refresh token (seu ou do
-        servidor), com a API configurada no backend.
+        <strong className="text-foreground/90">Pronto para enviar</strong> quando a importação automática está ligada, os IDs batem certo com a ação por
+        clique, existe refresh token (seu ou do servidor) e a API está configurada no backend. Ficheiros CSV para o Google são outro fluxo (upload manual na
+        conta Google Ads); o URL CSV em Integrações não substitui este envio.
       </p>
     </div>
   );

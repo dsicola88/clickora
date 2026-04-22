@@ -40,7 +40,11 @@ function mapTrackingEventForApi(e: {
   const metadata = (e.metadata || {}) as Record<string, unknown>;
   const gclid = typeof metadata.gclid === "string" ? metadata.gclid : null;
   const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
-  const paid = Boolean(gclid?.trim() || msclkid?.trim());
+  const fbclid = typeof metadata.fbclid === "string" ? metadata.fbclid : null;
+  const ttclid = typeof metadata.ttclid === "string" ? metadata.ttclid : null;
+  const paid = Boolean(
+    gclid?.trim() || msclkid?.trim() || fbclid?.trim() || ttclid?.trim(),
+  );
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
   const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
   const utm_content =

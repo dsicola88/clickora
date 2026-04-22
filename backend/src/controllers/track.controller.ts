@@ -81,6 +81,57 @@ function sendTrackingPixelGif(res: Response) {
   return res.status(200).send(buffer);
 }
 
+function firstQueryString(q: Request["query"], key: string): string | undefined {
+  const v = q[key];
+  if (typeof v === "string" && v.trim()) return v.trim();
+  if (Array.isArray(v) && typeof v[0] === "string" && v[0].trim()) return v[0].trim();
+  return undefined;
+}
+
+function compactTrackingMeta(obj: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue;
+    if (typeof v === "string" && !v.trim()) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/** Query string do GET /track/pixel/… — mesma atribuição que o redirect de clique (UTMs + IDs de rede). */
+function impressionAttributionFromPixelQuery(query: Request["query"]) {
+  const referrer = firstQueryString(query, "referrer");
+  const utm_source = firstQueryString(query, "utm_source");
+  const utm_medium = firstQueryString(query, "utm_medium");
+  const utm_campaign = firstQueryString(query, "utm_campaign");
+  const utm_term = firstQueryString(query, "utm_term");
+  const utm_content = firstQueryString(query, "utm_content");
+  const gclid = firstQueryString(query, "gclid");
+  const gbraid = firstQueryString(query, "gbraid");
+  const wbraid = firstQueryString(query, "wbraid");
+  const fbclid = firstQueryString(query, "fbclid");
+  const ttclid = firstQueryString(query, "ttclid");
+  const msclkid = firstQueryString(query, "msclkid");
+  const source = utm_source || firstQueryString(query, "source");
+  const medium = utm_medium || firstQueryString(query, "medium");
+  const campaign = utm_campaign || firstQueryString(query, "campaign");
+  const metadata = compactTrackingMeta({
+    gclid,
+    gbraid,
+    wbraid,
+    fbclid,
+    ttclid,
+    msclkid,
+    utm_term,
+    utm_content,
+    utm_source: utm_source ?? source,
+    source,
+    medium,
+    campaign,
+  });
+  return { referrer, source, medium, campaign, metadata };
+}
+
 /** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id; envia _fbp se existir. */
 const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;var cm=typeof document!=="undefined"&&document.cookie?document.cookie.match(/(?:^|;)_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
@@ -183,7 +234,7 @@ export const trackController = {
 
   async pixel(req: Request, res: Response) {
     const presellId = req.params.presellId;
-    const referrer = req.query.referrer?.toString();
+    const attr = impressionAttributionFromPixelQuery(req.query);
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page || page.status !== "published") return res.status(404).end();
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) return res.status(404).end();
@@ -204,18 +255,25 @@ export const trackController = {
     }
 
     const { device, botMeta } = deviceAndBotMeta(userAgent);
+    const metadataMerged = { ...attr.metadata, ...botMeta };
+    const metadata =
+      Object.keys(metadataMerged).length > 0 ? (metadataMerged as Prisma.InputJsonValue) : undefined;
+
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
           userId: page.userId,
           presellPageId: page.id,
           eventType: "impression",
-          referrer,
+          source: attr.source || undefined,
+          medium: attr.medium || undefined,
+          campaign: attr.campaign || undefined,
+          referrer: attr.referrer || undefined,
           country: countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
-          metadata: Object.keys(botMeta).length ? (botMeta as Prisma.InputJsonValue) : undefined,
+          metadata,
         },
       }),
       systemPrisma.presellPage.update({
