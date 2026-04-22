@@ -81,6 +81,17 @@ npm start      # Production
 
 O Prisma bloqueia `migrate deploy` enquanto existir uma migração marcada como **falhada** na tabela `_prisma_migrations`. Tens de correr `migrate resolve` (ou limpar a linha com SQL) com o **nome exacto** que aparece no log, depois `migrate deploy` de novo.
 
+### Typo na Railway: **`20240422120000_user_auto_blacklist_click_limit`**
+
+Alguns logs mostram **`20240422`** (ano **2024**) em vez de **`20260422`** (2026). Esse nome **não existe** no repositório; só na tabela `_prisma_migrations` da base. Com `DATABASE_URL` público, na pasta **`backend/`**:
+
+```bash
+npm run db:migrate:resolve-rolled-back:auto-blacklist-railway-typo
+npx prisma migrate deploy
+```
+
+Se o `resolve` falhar, executa o SQL em `scripts/delete-railway-typo-auto-blacklist-migration.sql` (via `psql` / TablePlus) e de seguida `npx prisma migrate deploy`.
+
 ### Migração **`20260422120000_user_auto_blacklist_click_limit`** (limite de cliques → blacklist)
 
 Na pasta **`backend/`**, com `DATABASE_URL` apontando para o **mesmo Postgres** que o serviço Railway usa (URL **pública** / proxy se fores do teu PC; ver secção abaixo sobre `postgres.railway.internal`):
