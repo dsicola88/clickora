@@ -16,7 +16,8 @@ Arquitetura: **frontend estático** na Vercel (`dclickora.com`), **API Node** na
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
-| `DATABASE_URL` | Sim | PostgreSQL (muitas vezes plugin Postgres na Railway). |
+| `DATABASE_URL` | Sim | PostgreSQL (muitas vezes plugin Postgres na Railway). Preferir **Reference** ao serviço Postgres para `DATABASE_URL` ficar correcto na rede privada. |
+| `DATABASE_URL_MIGRATE` | Opcional | Se `prisma migrate deploy` falhar com **P1001** para `postgres.railway.internal` no contentor, define esta variável com a **URL pública** do Postgres (Connect na Railway, host tipo `*.proxy.rlwy.net`) e `?sslmode=require`. Só as migrações usam este valor; a API continua com `DATABASE_URL`. |
 | `JWT_SECRET` | Sim | Segredo para tokens. |
 | `NODE_ENV` | Sim | `production`. |
 | `FRONTEND_URL` | Sim (com API direta) | Origens do site, vírgula-separadas: `https://www.dclickora.com,https://dclickora.com`. Usado para CORS. Se o frontend chama a API noutro domínio (Railway), o CORS **tem** de incluir o origin do site. |

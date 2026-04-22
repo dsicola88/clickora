@@ -32,11 +32,36 @@ if [ -n "${VAPID_KEYS_JSON_B64:-}" ]; then
 fi
 
 echo "=== prisma migrate deploy ==="
-if ! npx prisma migrate deploy; then
-  echo "ERROR: prisma migrate deploy failed."
-  echo "Check: (1) DATABASE_URL points to Postgres (Railway: use the variable from the Postgres plugin, often postgres.railway.internal)."
-  echo "       (2) Public/proxy URLs often need ?sslmode=require at the end."
-  echo "       (3) If Railway gives a pooled URL, use the direct/private URL for migrations (see Prisma directUrl)."
+APP_DATABASE_URL="$DATABASE_URL"
+MIGRATE_URL="$APP_DATABASE_URL"
+if [ -n "${DATABASE_URL_MIGRATE:-}" ]; then
+  MIGRATE_URL="$DATABASE_URL_MIGRATE"
+  echo "INFO: DATABASE_URL_MIGRATE definido — só as migrações usam esta URL; a API continua com DATABASE_URL."
+fi
+
+migrate_ok=0
+attempt=1
+max_attempts=15
+while [ "$attempt" -le "$max_attempts" ]; do
+  export DATABASE_URL="$MIGRATE_URL"
+  if npx prisma migrate deploy; then
+    migrate_ok=1
+    break
+  fi
+  echo "WARN: migrate deploy falhou (tentativa $attempt/$max_attempts). Nova tentativa em 2s…"
+  attempt=$((attempt + 1))
+  sleep 2
+done
+
+export DATABASE_URL="$APP_DATABASE_URL"
+
+if [ "$migrate_ok" != 1 ]; then
+  echo "ERROR: prisma migrate deploy falhou após $max_attempts tentativas."
+  echo "Railway / Postgres:"
+  echo "  (1) No serviço da API: Variables → liga o Postgres com «Reference» (variável DATABASE_URL do plugin), não copies URLs à mão se possível."
+  echo "  (2) Se vês P1001 com postgres.railway.internal: rede privada ou arranque do Postgres — espera e redeploy; ou define DATABASE_URL_MIGRATE com a URL pública (proxy *.rlwy.net) + ?sslmode=require só para migrações."
+  echo "  (3) URLs públicas: acrescenta ?sslmode=require ao fim se a Railway o exigir."
+  echo "  (4) P3009: migração falhada — ver backend/README (fix-railway-p3009:auto-blacklist)."
   exit 1
 fi
 echo "=== prisma migrate deploy OK ==="
