@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BarChart3, Bot, RefreshCw, Settings2, TrendingUp } from "lucide-react";
+import { ArrowRight, BarChart3, Bot, Building2, Link2, RefreshCw, Settings2, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
-import { analyticsService } from "@/services/analyticsService";
+import { analyticsService, GoogleAdsInsightsRequestError } from "@/services/analyticsService";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
@@ -33,12 +33,26 @@ function deviceDisplayLabel(device: string | null | undefined): string {
   }
 }
 
-/** Mensagem 503 quando falta Customer ID, OAuth ou credenciais API (alinhada ao backend). */
+const GOOGLE_ADS_INSIGHT_UNAVAILABLE_CODES = [
+  "google_ads_platform_not_configured",
+  "google_ads_oauth_required",
+  "google_ads_customer_id_required",
+] as const;
+
+function isGoogleAdsInsightsUnavailableCode(code: string | null | undefined): boolean {
+  return GOOGLE_ADS_INSIGHT_UNAVAILABLE_CODES.includes(
+    code as (typeof GOOGLE_ADS_INSIGHT_UNAVAILABLE_CODES)[number],
+  );
+}
+
+/** Compatibilidade com respostas antigas sem `code` no JSON. */
 function isGoogleAdsReportingSetupMessage(message: string): boolean {
   const t = message.trim();
   return (
-    t.startsWith("Não é possível obter estes relatórios:") ||
-    (t.includes("Customer ID") && t.includes("OAuth") && t.includes("Resumo e guia"))
+    t.startsWith("Os relatórios Google Ads ainda não estão ativos neste ambiente") ||
+    t.startsWith("Para ver estes relatórios, ligue primeiro") ||
+    t.startsWith("Para ver estes relatórios, indique o Customer ID") ||
+    t.startsWith("Não é possível obter estes relatórios:")
   );
 }
 
@@ -234,16 +248,20 @@ function GoogleAdsInsightsPanel() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["analytics-google-ads-insights", from, to],
     queryFn: async () => {
-      const { data: d, error: err } = await analyticsService.getGoogleAdsInsights({ from, to });
-      if (err) throw new Error(err);
-      if (!d) throw new Error("Resposta vazia");
+      const { data: d, error: err, errorCode } = await analyticsService.getGoogleAdsInsights({ from, to });
+      if (err) throw new GoogleAdsInsightsRequestError(err, errorCode ?? null);
+      if (!d) throw new GoogleAdsInsightsRequestError("Resposta vazia", null);
       return d;
     },
     retry: 1,
   });
 
+  const insightErr = error instanceof GoogleAdsInsightsRequestError ? error : null;
+  const errCode = insightErr?.errorCode ?? null;
   const errMsg = error instanceof Error ? error.message : "Erro ao carregar.";
-  const setupNeeded = isError && isGoogleAdsReportingSetupMessage(errMsg);
+  const softUnavailable =
+    isError &&
+    (isGoogleAdsInsightsUnavailableCode(errCode) || (errCode == null && isGoogleAdsReportingSetupMessage(errMsg)));
 
   return (
     <div className="space-y-5">
@@ -271,43 +289,62 @@ function GoogleAdsInsightsPanel() {
           </div>
         </div>
         <p className="mt-4 text-xs text-muted-foreground leading-relaxed max-w-3xl">
-          Relatórios em tempo real via <span className="text-foreground/90 font-medium">Google Ads API</span> para o intervalo
-          selecionado: palavras-chave, termos de pesquisa e demografia. É necessário configurar o{" "}
-          <span className="text-foreground/90 font-medium">Customer ID</span> e a ligação{" "}
-          <span className="text-foreground/90 font-medium">OAuth</span> em{" "}
+          Com a integração Google Ads ativa na sua conta, estes relatórios mostram dados em tempo real via{" "}
+          <span className="text-foreground/90 font-medium">Google Ads API</span> (palavras-chave, termos de pesquisa e
+          demografia) para o intervalo selecionado. A configuração faz-se em{" "}
           <Link to="/tracking/dashboard" className="text-primary font-medium underline underline-offset-2">
-            Resumo e guia — Google Ads
+            Resumo e guia
           </Link>
           . Até <span className="text-foreground/90 font-medium">2000</span> linhas por relatório após agregação no período.
         </p>
       </div>
 
       {isLoading ? <LoadingState message="A carregar Google Ads…" /> : null}
-      {isError && setupNeeded ? (
+      {isError && softUnavailable ? (
         <div
           className="rounded-xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-500/10 p-5 sm:p-6 max-w-2xl"
           role="status"
         >
           <div className="flex gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400">
-              <Settings2 className="h-5 w-5" aria-hidden />
+              {errCode === "google_ads_platform_not_configured" ? (
+                <Building2 className="h-5 w-5" aria-hidden />
+              ) : errCode === "google_ads_oauth_required" ? (
+                <Link2 className="h-5 w-5" aria-hidden />
+              ) : (
+                <Settings2 className="h-5 w-5" aria-hidden />
+              )}
             </div>
             <div className="min-w-0 space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Configuração da Google Ads necessária</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  {errCode === "google_ads_platform_not_configured"
+                    ? "Relatórios Google Ads indisponíveis neste ambiente"
+                    : errCode === "google_ads_oauth_required"
+                      ? "Ligue a sua conta Google"
+                      : errCode === "google_ads_customer_id_required"
+                        ? "Indique o Customer ID da conta"
+                        : "Configuração Google Ads necessária"}
+                </h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{errMsg}</p>
               </div>
-              <Button asChild className="gap-2 w-full sm:w-auto">
-                <Link to="/tracking/dashboard">
-                  Abrir Resumo e guia
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Link>
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button
+                  asChild
+                  variant={errCode === "google_ads_platform_not_configured" ? "outline" : "default"}
+                  className="gap-2 w-full sm:w-auto"
+                >
+                  <Link to="/tracking/dashboard">
+                    {errCode === "google_ads_platform_not_configured" ? "Abrir Resumo e guia" : "Ir para Resumo e guia"}
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       ) : null}
-      {isError && !setupNeeded ? (
+      {isError && !softUnavailable ? (
         <Alert variant="destructive" className="max-w-2xl">
           <AlertTitle>Não foi possível obter os dados</AlertTitle>
           <AlertDescription className="text-sm">{errMsg}</AlertDescription>

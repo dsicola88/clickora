@@ -1,6 +1,16 @@
 import { apiClient } from "@/lib/apiClient";
 import type { AnalyticsSummary, TrackingEvent } from "@/types/api";
 
+/** Resposta 503 de insights com `code` (plataforma vs. passos do utilizador). */
+export class GoogleAdsInsightsRequestError extends Error {
+  readonly errorCode: string | null;
+  constructor(message: string, errorCode: string | null = null) {
+    super(message);
+    this.name = "GoogleAdsInsightsRequestError";
+    this.errorCode = errorCode;
+  }
+}
+
 export type GoogleAdsInsightsKeywordRow = {
   campaign: string;
   ad_group: string;
@@ -331,6 +341,15 @@ export const analyticsService = {
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     const qs = query.toString();
-    return apiClient.get<GoogleAdsInsightsBundle>(`/analytics/google-ads-insights${qs ? `?${qs}` : ""}`);
+    const { data, error, errorCode } = await apiClient.get<GoogleAdsInsightsBundle>(
+      `/analytics/google-ads-insights${qs ? `?${qs}` : ""}`,
+    );
+    if (error) {
+      return { data: null, error, errorCode: errorCode ?? null };
+    }
+    if (!data) {
+      return { data: null, error: "Resposta vazia", errorCode: null };
+    }
+    return { data, error: null, errorCode: null };
   },
 };

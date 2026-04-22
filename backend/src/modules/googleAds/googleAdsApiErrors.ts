@@ -1,10 +1,21 @@
 /**
  * Mensagens de utilizador final para falhas Google Ads API (relatórios / GAQL).
  * Tom institucional, em português europeu.
+ *
+ * Nota: mensagens de «setup» estão separadas entre plataforma (admin) e conta do utilizador.
  */
 
-export const GOOGLE_ADS_REPORTING_SETUP_REQUIRED =
-  "Não é possível obter estes relatórios: confirme o Customer ID, conclua a ligação OAuth à Google e as credenciais da API no servidor. Consulte «Resumo e guia» → Google Ads.";
+/** Variáveis GOOGLE_ADS_* em falta no servidor — não pedir ao utilizador final que «configure a API». */
+export const GOOGLE_ADS_REPORTING_PLATFORM_NOT_READY =
+  "Os relatórios Google Ads ainda não estão ativos neste ambiente. Se a sua subscrição incluir esta funcionalidade, contacte o suporte ou o administrador da plataforma.";
+
+/** Utilizador ainda não autorizou a app junto da Google. */
+export const GOOGLE_ADS_REPORTING_USER_OAUTH_REQUIRED =
+  "Para ver estes relatórios, ligue primeiro a sua conta Google em «Resumo e guia» → Google Ads (utilize «Ligar com Google»).";
+
+/** Customer ID em falta no perfil do utilizador. */
+export const GOOGLE_ADS_REPORTING_USER_CUSTOMER_ID_REQUIRED =
+  "Para ver estes relatórios, indique o Customer ID da sua conta Google Ads em «Resumo e guia» → Google Ads.";
 
 const MAX_API_ERROR_LEN = 480;
 

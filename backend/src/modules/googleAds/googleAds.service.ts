@@ -5,7 +5,12 @@ import { systemPrisma } from "../../lib/prisma";
 import { pickOrderIdFromPayload } from "../../lib/affiliatePostbackParsers";
 import { decryptSecretField } from "../../lib/fieldEncryption";
 import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
-import { GOOGLE_ADS_REPORTING_SETUP_REQUIRED, humanizeGoogleAdsApiError } from "./googleAdsApiErrors";
+import {
+  GOOGLE_ADS_REPORTING_PLATFORM_NOT_READY,
+  GOOGLE_ADS_REPORTING_USER_CUSTOMER_ID_REQUIRED,
+  GOOGLE_ADS_REPORTING_USER_OAUTH_REQUIRED,
+  humanizeGoogleAdsApiError,
+} from "./googleAdsApiErrors";
 
 const DIGITS_ONLY = /^\d+$/;
 
@@ -104,15 +109,39 @@ export function formatGaqlDate(d: Date): string {
   return `${y}${m}${day}`;
 }
 
+/** Código estável para o cliente distinguir plataforma vs. passos do utilizador (evita mensagens genéricas). */
+export type GoogleAdsReportingUnavailableCode =
+  | "google_ads_platform_not_configured"
+  | "google_ads_oauth_required"
+  | "google_ads_customer_id_required";
+
+/**
+ * Porque os relatórios GAQL / métricas de conta não estão disponíveis, com mensagem adequada ao público.
+ * `null` quando pode pedir-se dados à API.
+ */
+export function getGoogleAdsReportingUnavailability(user: GoogleAdsUserSettings): {
+  message: string;
+  code: GoogleAdsReportingUnavailableCode;
+} | null {
+  if (!getGoogleAdsApiClientConfigFromEnv()) {
+    return { message: GOOGLE_ADS_REPORTING_PLATFORM_NOT_READY, code: "google_ads_platform_not_configured" };
+  }
+  if (!resolveUserGoogleAdsRefreshToken(user)) {
+    return { message: GOOGLE_ADS_REPORTING_USER_OAUTH_REQUIRED, code: "google_ads_oauth_required" };
+  }
+  const cid = onlyDigits(user.googleAdsCustomerId);
+  if (!cid || !DIGITS_ONLY.test(cid)) {
+    return { message: GOOGLE_ADS_REPORTING_USER_CUSTOMER_ID_REQUIRED, code: "google_ads_customer_id_required" };
+  }
+  return null;
+}
+
 /**
  * Métricas da conta (relatórios) — não exige `googleAdsEnabled` nem ação de conversão;
  * só customer ID + OAuth + credenciais API no servidor.
  */
 export function isGoogleAdsMetricsReadyForUser(user: GoogleAdsUserSettings): boolean {
-  if (!getGoogleAdsApiClientConfigFromEnv()) return false;
-  if (!resolveUserGoogleAdsRefreshToken(user)) return false;
-  const cid = onlyDigits(user.googleAdsCustomerId);
-  return Boolean(cid && DIGITS_ONLY.test(cid));
+  return getGoogleAdsReportingUnavailability(user) === null;
 }
 
 export type GoogleAdsAccountMetrics = {
@@ -127,8 +156,9 @@ export async function fetchGoogleAdsAccountMetrics(input: {
   from: Date;
   to: Date;
 }): Promise<{ ok: true; metrics: GoogleAdsAccountMetrics } | { ok: false; error: string }> {
-  if (!isGoogleAdsMetricsReadyForUser(input.user)) {
-    return { ok: false, error: GOOGLE_ADS_REPORTING_SETUP_REQUIRED };
+  const block = getGoogleAdsReportingUnavailability(input.user);
+  if (block) {
+    return { ok: false, error: block.message };
   }
   const creds = buildGoogleAdsCredentialsForUser(input.user);
   if (!creds) {

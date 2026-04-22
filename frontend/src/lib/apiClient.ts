@@ -44,7 +44,7 @@ class ApiClient {
       /** Cancela o pedido (ex.: timeout em operações lentas como envio SMTP). */
       signal?: AbortSignal;
     } = {}
-  ): Promise<{ data: T | null; error: string | null }> {
+  ): Promise<{ data: T | null; error: string | null; errorCode?: string | null }> {
     const { method = "GET", body, headers, signal } = options;
 
     try {
@@ -64,11 +64,13 @@ class ApiClient {
             error:
               fromBody ||
               "O pedido expirou no proxy (Vercel → API). Tente «Verificar» de novo; se persistir, defina VITE_PUBLIC_API_URL no build com o URL direto da API (Railway …/api) para contornar o proxy, ou confirme que o serviço na Railway está em execução.",
+            errorCode: null,
           };
         }
         const errorData = (await response.json().catch(() => ({}))) as {
           message?: string;
           error?: string;
+          code?: string;
           details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
         };
         let message = errorData.message || errorData.error || `Erro ${response.status}`;
@@ -86,7 +88,8 @@ class ApiClient {
           window.dispatchEvent(new CustomEvent("auth:logout"));
         }
 
-        return { data: null, error: message };
+        const errCode = typeof errorData.code === "string" ? errorData.code : null;
+        return { data: null, error: message, errorCode: errCode };
       }
 
       const data = await response.json().catch(() => null);
@@ -100,10 +103,11 @@ class ApiClient {
           data: null,
           error:
             "Pedido cancelado ou expirou (timeout). Verifique se a API responde ou tente de novo dentro de instantes.",
+          errorCode: null,
         };
       }
       const message = err instanceof Error ? err.message : "Erro de conexão com o servidor";
-      return { data: null, error: message };
+      return { data: null, error: message, errorCode: null };
     }
   }
 

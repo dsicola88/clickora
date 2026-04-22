@@ -3,10 +3,11 @@ import type { User } from "@prisma/client";
 import {
   buildGoogleAdsCredentialsForUser,
   formatGaqlDate,
-  isGoogleAdsMetricsReadyForUser,
+  getGoogleAdsReportingUnavailability,
+  type GoogleAdsReportingUnavailableCode,
   type GoogleAdsUserSettings,
 } from "./googleAds.service";
-import { GOOGLE_ADS_REPORTING_SETUP_REQUIRED, humanizeGoogleAdsApiError } from "./googleAdsApiErrors";
+import { humanizeGoogleAdsApiError } from "./googleAdsApiErrors";
 
 const DIGITS_ONLY = /^\d+$/;
 
@@ -134,9 +135,8 @@ export async function fetchGoogleAdsKeywordInsights(input: {
   from: Date;
   to: Date;
 }): Promise<{ ok: true; rows: GoogleAdsKeywordRow[] } | { ok: false; error: string }> {
-  if (!isGoogleAdsMetricsReadyForUser(input.user)) {
-    return { ok: false, error: GOOGLE_ADS_REPORTING_SETUP_REQUIRED };
-  }
+  const block = getGoogleAdsReportingUnavailability(input.user);
+  if (block) return { ok: false, error: block.message };
   const c = await adsCustomer(input.user);
   if (!c.ok) return { ok: false, error: c.error };
   const fromStr = formatGaqlDate(input.from);
@@ -200,9 +200,8 @@ export async function fetchGoogleAdsSearchTermInsights(input: {
   from: Date;
   to: Date;
 }): Promise<{ ok: true; rows: GoogleAdsSearchTermRow[] } | { ok: false; error: string }> {
-  if (!isGoogleAdsMetricsReadyForUser(input.user)) {
-    return { ok: false, error: GOOGLE_ADS_REPORTING_SETUP_REQUIRED };
-  }
+  const block = getGoogleAdsReportingUnavailability(input.user);
+  if (block) return { ok: false, error: block.message };
   const c = await adsCustomer(input.user);
   if (!c.ok) return { ok: false, error: c.error };
   const fromStr = formatGaqlDate(input.from);
@@ -272,9 +271,8 @@ export async function fetchGoogleAdsDemographicInsights(input: {
     }
   | { ok: false; error: string }
 > {
-  if (!isGoogleAdsMetricsReadyForUser(input.user)) {
-    return { ok: false, error: GOOGLE_ADS_REPORTING_SETUP_REQUIRED };
-  }
+  const block = getGoogleAdsReportingUnavailability(input.user);
+  if (block) return { ok: false, error: block.message };
   const c = await adsCustomer(input.user);
   if (!c.ok) return { ok: false, error: c.error };
   const fromStr = formatGaqlDate(input.from);
@@ -394,10 +392,14 @@ export async function fetchGoogleAdsInsightsBundle(input: {
   >;
   from: Date;
   to: Date;
-}): Promise<{ ok: true; data: GoogleAdsInsightsBundle } | { ok: false; error: string }> {
+}): Promise<
+  | { ok: true; data: GoogleAdsInsightsBundle }
+  | { ok: false; error: string; code: GoogleAdsReportingUnavailableCode }
+> {
   const user = input.user as GoogleAdsUserSettings;
-  if (!isGoogleAdsMetricsReadyForUser(user)) {
-    return { ok: false, error: GOOGLE_ADS_REPORTING_SETUP_REQUIRED };
+  const block = getGoogleAdsReportingUnavailability(user);
+  if (block) {
+    return { ok: false, error: block.message, code: block.code };
   }
   const [kw, st, demo] = await Promise.all([
     fetchGoogleAdsKeywordInsights({ user, from: input.from, to: input.to }),

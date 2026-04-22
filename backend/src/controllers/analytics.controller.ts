@@ -907,7 +907,7 @@ export const analyticsController = {
     if (!bundle.ok) {
       return res.status(503).json({
         error: bundle.error,
-        code: "google_ads_insights_unavailable",
+        code: bundle.code,
       });
     }
     return res.json(bundle.data);
