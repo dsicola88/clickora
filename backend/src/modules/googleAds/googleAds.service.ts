@@ -54,8 +54,11 @@ export type GoogleAdsClientEnv = Pick<GoogleAdsApiCredentials, "developerToken" 
 /** Cliente OAuth + developer token (obrigatório no servidor). O refresh token pode vir do utilizador. */
 export function getGoogleAdsApiClientConfigFromEnv(): GoogleAdsClientEnv | null {
   const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN?.trim();
-  const clientId = process.env.GOOGLE_ADS_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET?.trim();
+  /** Preferir GOOGLE_ADS_*; CLIENT_ID / CLIENT_SECRET são fallback para deploys onde só o par OAuth foi colocado com nomes curtos. */
+  const clientId =
+    process.env.GOOGLE_ADS_CLIENT_ID?.trim() || process.env.CLIENT_ID?.trim();
+  const clientSecret =
+    process.env.GOOGLE_ADS_CLIENT_SECRET?.trim() || process.env.CLIENT_SECRET?.trim();
   const loginCustomerId = onlyDigits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.trim());
   if (!developerToken || !clientId || !clientSecret) return null;
   return { developerToken, clientId, clientSecret, loginCustomerId: loginCustomerId ?? undefined };
