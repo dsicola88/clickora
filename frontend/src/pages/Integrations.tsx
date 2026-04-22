@@ -479,8 +479,8 @@ export default function Integrations() {
 
               <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-5">
                 <li>
-                  Para o fluxo clássico (descarregar CSV e carregar no assistente do Google Ads), use{" "}
-                  <strong className="text-foreground/90">Resumo e guia → CSV para upload manual no Google Ads</strong>.
+                  Para exportar conversões (ficheiro para Excel e depois upload no Google Ads), use{" "}
+                  <strong className="text-foreground/90">Resumo e guia → Exportar conversões para o Google Ads</strong>.
                 </li>
                 <li>Esta URL serve para enviar CSV <em>para</em> o dclickora (POST), não é o ficheiro que o Google pede no ecrã de importação.</li>
                 <li>Use apenas a URL fornecida; aceder ao link no browser pode invalidar o contexto esperado pelo Google.</li>

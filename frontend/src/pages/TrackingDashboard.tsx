@@ -680,7 +680,9 @@ function GoogleAdsOfflineFileExportCard({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success("CSV descarregado. No Google Ads: Conversões → Uploads → importar ficheiro (conversões a partir de cliques).");
+      toast.success(
+        "Ficheiro exportado. Abra no Excel, confira as linhas e carregue no Google Ads (Conversões → importar a partir de cliques / GCLID).",
+      );
     } finally {
       setBusy(false);
     }
@@ -693,28 +695,30 @@ function GoogleAdsOfflineFileExportCard({
           <FileDown className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">CSV para upload manual no Google Ads</h3>
+          <h3 className="font-semibold text-card-foreground">Exportar conversões para o Google Ads</h3>
           <p className="text-xs text-muted-foreground">
-            Gera um ficheiro com <strong className="text-foreground/90">Google Click ID</strong>, nome da conversão, data/hora (UTC),
-            valor e moeda — o mesmo tipo de fluxo que outras plataformas: abre no Excel e carrega em{" "}
-            <strong className="text-foreground/90">Google Ads → Conversões</strong> (importação a partir de cliques / GCLID). A
-            acção de conversão tem de estar criada como <strong className="text-foreground/90">origem offline / importação</strong>{" "}
-            e o <strong className="text-foreground/90">nome</strong> tem de coincidir com o que indicar abaixo.
+            Fluxo igual ao de outras ferramentas: <strong className="text-foreground/90">1)</strong> indica abaixo a conversão (o
+            mesmo nome que vê em Google Ads → Conversões); <strong className="text-foreground/90">2)</strong> exporta o período
+            (usa as datas do gráfico nesta página); <strong className="text-foreground/90">3)</strong> abre o ficheiro no{" "}
+            <strong className="text-foreground/90">Excel</strong> (formato .csv, compatível com Excel);{" "}
+            <strong className="text-foreground/90">4)</strong> no Google Ads, em Conversões, use a opção de{" "}
+            <strong className="text-foreground/90">importar conversões a partir de cliques</strong> (GCLID) e carregue o ficheiro. A
+            acção tem de ser do tipo <strong className="text-foreground/90">offline / importação</strong>.
           </p>
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Nome da conversão no Google Ads</Label>
+          <Label className="text-xs">Conversão a exportar (nome no Google Ads)</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
-            Texto exacto da coluna «Conversão» / nome da ação (não é o ID numérico
+            Use o nome exacto da ação em Google Ads → Conversões (não o ID numérico).
             {conversionActionIdHint ? (
               <>
                 {" "}
-                — na dclickora o ID da ação é <span className="font-mono text-[10px]">{conversionActionIdHint}</span>
+                Referência: na dclickora o ID da ação é{" "}
+                <span className="font-mono text-[10px]">{conversionActionIdHint}</span>.
               </>
             ) : null}
-            ).
           </p>
           <Input
             value={conversionName}
@@ -737,7 +741,7 @@ function GoogleAdsOfflineFileExportCard({
       </p>
       <Button type="button" className="gap-2" onClick={() => void handleDownload()} disabled={busy}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-        Descarregar CSV para o Google
+        Exportar conversões
       </Button>
     </div>
   );
