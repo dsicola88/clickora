@@ -455,7 +455,7 @@ export const analyticsController = {
         SELECT c.id, c.created_at
         FROM conversions c
         INNER JOIN tracking_events t ON t.id = c.click_id
-        WHERE c.user_id = ${userId}::uuid
+        WHERE c.user_id = ${userId}
         AND c.status = 'approved'
         AND (
           NULLIF(TRIM(COALESCE(t.metadata->>'gclid', '')), '') IS NULL
@@ -806,7 +806,7 @@ export const analyticsController = {
           COUNT(*) FILTER (WHERE google_ads_sync = 'failed')::bigint AS g,
           COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m
         FROM conversions
-        WHERE user_id = ${userId}::uuid
+        WHERE user_id = ${userId}
           AND status = 'approved'
           AND created_at >= ${syncHealthStart}
       `);

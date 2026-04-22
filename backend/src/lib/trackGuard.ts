@@ -192,7 +192,7 @@ export async function enforceTrackingRules(args: {
       Prisma.sql`
         SELECT COUNT(*)::bigint AS c
         FROM tracking_events
-        WHERE user_id = ${ownerUserId}::uuid
+        WHERE user_id = ${ownerUserId}
           AND event_type = 'click'::"EventType"
           AND created_at >= ${since}
           AND ip_address IS NOT NULL
