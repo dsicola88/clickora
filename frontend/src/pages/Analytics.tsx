@@ -327,6 +327,23 @@ function GoogleAdsInsightsPanel() {
                         : "Configuração Google Ads necessária"}
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{errMsg}</p>
+                {errCode === "google_ads_platform_not_configured" ? (
+                  <details className="mt-3 rounded-lg border border-amber-500/20 bg-background/60 px-3 py-2 text-[11px] text-muted-foreground">
+                    <summary className="cursor-pointer select-none font-medium text-foreground/85">
+                      Se gere o servidor da API (Railway, etc.)
+                    </summary>
+                    <p className="mt-2 leading-relaxed">
+                      Os relatórios só funcionam depois de definir no <strong className="text-foreground/90">mesmo serviço</strong> que
+                      corre o backend:{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">GOOGLE_ADS_DEVELOPER_TOKEN</code>,{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">GOOGLE_ADS_CLIENT_ID</code> e{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">GOOGLE_ADS_CLIENT_SECRET</code>
+                      (ver <code className="rounded bg-muted px-1 py-0.5 text-[10px]">backend/.env.example</code>). Faça{" "}
+                      <strong className="text-foreground/90">redeploy</strong>. Em seguida, cada conta liga OAuth e Customer ID em
+                      Resumo e guia.
+                    </p>
+                  </details>
+                ) : null}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button
