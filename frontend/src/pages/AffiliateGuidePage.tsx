@@ -1,8 +1,9 @@
 import { type CSSProperties, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
+import { useAuth } from "@/contexts/AuthContext";
 
 const TOC: { id: string; label: string }[] = [
   { id: "criar-presell-rapido", label: "Criar presell rápido" },
@@ -40,14 +41,30 @@ export default function AffiliateGuidePage() {
             dclickora
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-              <Link to="/planos">Planos</Link>
-            </Button>
-            <Button size="sm" className="gap-1.5" asChild>
-              <Link to="/auth?trial=1">
-                Começar <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
+            {user ? (
+              <>
+                <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                  <Link to="/ajuda">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Guia no painel
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                  <Link to="/inicio">Início</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                  <Link to="/planos">Planos</Link>
+                </Button>
+                <Button size="sm" className="gap-1.5" asChild>
+                  <Link to="/auth?trial=1">
+                    Começar <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>

@@ -1077,6 +1077,12 @@ function TrackingScriptCsvBlocks({
             <h3 className="font-semibold text-card-foreground">Script da presell</h3>
           </div>
         </div>
+        <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+          <strong className="text-foreground/90">Link público na app</strong> (<span className="font-mono">/p/…</span>): não é obrigatório colar este
+          script — impressões e cliques já usam o pixel e os URLs <span className="font-mono">/track/</span> da página.{" "}
+          <strong className="text-foreground/90">HTML noutro domínio</strong>: copie e cole o snippet abaixo para associar pageviews a esta conta /
+          presell.
+        </p>
         {showTechnicalNotes && embedSrcWasPatched && (
           <p className="mb-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
             URL do script ajustada via <span className="font-mono">VITE_API_URL</span>. Em produção define <span className="font-mono">API_PUBLIC_URL</span> no servidor.

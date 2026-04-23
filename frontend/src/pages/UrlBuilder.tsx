@@ -20,6 +20,14 @@ import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 import { orderedAdNetworkTokenSections } from "@/lib/adNetworkDynamicTokens";
 import { AdNetworkTokensPickerPanel } from "@/components/tracking/AdNetworkTokensPickerPanel";
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 /** Plataformas (Integrações) + redes de tráfego + Personalizado — ver `marketingPlatforms.ts`. */
 const URL_BUILDER_PLATFORMS = getUrlBuilderPlatformList();
@@ -102,6 +110,9 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
     { key: "utm_campaign", value: "{campaignid}" },
     { key: "utm_content", value: "{creative}" },
     { key: "utm_term", value: "{keyword}" },
+    { key: "sub1", value: "{matchtype}" },
+    { key: "sub2", value: "{device}" },
+    { key: "sub3", value: "{network}" },
     { key: "gclid", value: "{gclid}", highlight: true },
     { key: "gbraid", value: "{gbraid}" },
     { key: "wbraid", value: "{wbraid}" },
@@ -213,6 +224,18 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
 
 type ParamRow = { key: string; value: string; highlight?: boolean };
 
+/** Query string (sem `?`) — valores com `{macro}` não são encodeados (Google ValueTrack). */
+function buildTrackingQueryString(rows: ParamRow[]): string {
+  const valid = rows.filter((p) => p.key.trim());
+  if (valid.length === 0) return "";
+  return valid
+    .map((p) => {
+      const encVal = (v: string) => (v.includes("{") ? v : encodeURIComponent(v));
+      return `${encodeURIComponent(p.key.trim())}=${encVal(p.value)}`;
+    })
+    .join("&");
+}
+
 /** Presets específicos em falta: sub + UUID do clique (o servidor aceita `subid1`/`clickora_click_id` como UUID). */
 const GENERIC_AFFILIATE_PARAM_DEFAULTS: ParamRow[] = [
   { key: "sub1", value: "" },
@@ -226,6 +249,7 @@ export default function UrlBuilder() {
   const [baseUrl, setBaseUrl] = useState("");
   const [params, setParams] = useState<ParamRow[]>([]);
   const [copied, setCopied] = useState(false);
+  const [copiedGoogleSuffix, setCopiedGoogleSuffix] = useState(false);
   const [tokenDialog, setTokenDialog] = useState<{ open: boolean; rowIndex: number }>({ open: false, rowIndex: -1 });
   const [macrosReferenceOpen, setMacrosReferenceOpen] = useState(false);
 
@@ -262,19 +286,14 @@ export default function UrlBuilder() {
     setTokenDialog({ open: false, rowIndex: -1 });
   };
 
+  const trackingQueryString = useMemo(() => buildTrackingQueryString(params), [params]);
+
   const generatedUrl = useMemo(() => {
     if (!baseUrl) return "";
-    const validParams = params.filter(p => p.key.trim());
-    if (validParams.length === 0) return baseUrl;
-    const queryString = validParams
-      .map((p) => {
-        const encVal = (v: string) => (v.includes("{") ? v : encodeURIComponent(v));
-        return `${encodeURIComponent(p.key.trim())}=${encVal(p.value)}`;
-      })
-      .join("&");
+    if (!trackingQueryString) return baseUrl;
     const separator = baseUrl.includes("?") ? "&" : "?";
-    return `${baseUrl}${separator}${queryString}`;
-  }, [baseUrl, params]);
+    return `${baseUrl}${separator}${trackingQueryString}`;
+  }, [baseUrl, trackingQueryString]);
 
   const handleCopy = () => {
     if (!generatedUrl) { toast.error("Preencha com uma URL válida"); return; }
@@ -282,6 +301,17 @@ export default function UrlBuilder() {
     setCopied(true);
     toast.success("URL copiada!");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyGoogleAdsSuffix = () => {
+    if (!trackingQueryString) {
+      toast.error("Adicione parâmetros ou escolha Google Ads para gerar o sufixo.");
+      return;
+    }
+    navigator.clipboard.writeText(trackingQueryString);
+    setCopiedGoogleSuffix(true);
+    toast.success("Sufixo copiado — cole no Google Ads (sufixo do URL final).");
+    setTimeout(() => setCopiedGoogleSuffix(false), 2000);
   };
 
   const tokenSectionsOrdered = useMemo(() => orderedAdNetworkTokenSections(platform), [platform]);
@@ -415,8 +445,10 @@ export default function UrlBuilder() {
                 Usa o URL da página presell no teu site (rota <span className="font-mono">/p/…</span>). Os parâmetros abaixo incluem{" "}
                 <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
                   gclid=&#123;gclid&#125;
-                </strong>{" "}
-                para o Google preencher no clique.
+                </strong>
+                , ValueTrack em <span className="font-mono">utm_*</span> e <span className="font-mono">sub1–sub3</span> (
+                <span className="font-mono">matchtype</span>, <span className="font-mono">device</span>, <span className="font-mono">network</span>
+                ) para o Google preencher no clique.
               </p>
             )}
           </div>
@@ -497,6 +529,39 @@ export default function UrlBuilder() {
             </Button>
           </div>
         )}
+
+        {platform === "Google Ads" && trackingQueryString ? (
+          <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-4 space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Sufixo para colar no Google Ads</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                No Google Ads, no <strong className="text-foreground/90">URL final</strong> use só o endereço da presell (ex.{" "}
+                <span className="font-mono text-[10px]">https://…/p/…</span> <strong className="text-foreground/90">sem</strong> parâmetros). Em{" "}
+                <strong className="text-foreground/90">Opções do URL da campanha</strong> (ou do grupo / anúncio) abra{" "}
+                <strong className="text-foreground/90">Sufixo do URL final</strong> e cole a linha abaixo —{" "}
+                <strong className="text-foreground/90">sem</strong> <span className="font-mono">?</span> no início. O Google junta isto ao URL
+                final no clique e substitui <span className="font-mono">{"{…}"}</span> pelos valores ValueTrack.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+              <div
+                className="flex min-h-[4.5rem] flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground break-all shadow-sm"
+                role="status"
+              >
+                {trackingQueryString}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0 gap-2 sm:self-start"
+                onClick={handleCopyGoogleAdsSuffix}
+              >
+                {copiedGoogleSuffix ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                {copiedGoogleSuffix ? "Copiado" : "Copiar sufixo"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {/* Generated URL */}
         <div className="space-y-2">

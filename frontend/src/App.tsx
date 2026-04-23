@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import PublicPresell from "./pages/PublicPresell";
 import IntentConversionPage from "./pages/IntentConversionPage";
 import AffiliateGuidePage from "./pages/AffiliateGuidePage";
+import InAppUserGuidePage from "./pages/InAppUserGuidePage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -48,6 +49,7 @@ function BrandingFaviconGate() {
 
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
+  { path: "/ajuda", element: <InAppUserGuidePage /> },
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminEntryRedirect /> },
   { path: "/admin/:tab", element: <AdminPanel /> },

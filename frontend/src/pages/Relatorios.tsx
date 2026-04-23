@@ -173,7 +173,7 @@ export default function Relatorios() {
       return;
     }
     if (selectedConversionIds.length === 0) {
-      toast.error("Seleccione pelo menos uma linha com GCLID.");
+      toast.error("Selecione pelo menos uma linha com GCLID.");
       return;
     }
     setExporting("google-ads");

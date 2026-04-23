@@ -87,6 +87,12 @@ function makeTrackClickUrl(
   if (utmTerm) clickUrl.searchParams.set("utm_term", utmTerm);
   if (utmContent) clickUrl.searchParams.set("utm_content", utmContent);
   if (msclkid) clickUrl.searchParams.set("msclkid", msclkid);
+  const sub1 = queryParam(search, "sub1");
+  const sub2 = queryParam(search, "sub2");
+  const sub3 = queryParam(search, "sub3");
+  if (sub1) clickUrl.searchParams.set("sub1", sub1);
+  if (sub2) clickUrl.searchParams.set("sub2", sub2);
+  if (sub3) clickUrl.searchParams.set("sub3", sub3);
   return clickUrl.toString();
 }
 
@@ -107,6 +113,9 @@ function buildImpressionPixelUrl(apiBase: string, pageId: string, pageSearch: UR
     "fbclid",
     "ttclid",
     "msclkid",
+    "sub1",
+    "sub2",
+    "sub3",
   ] as const;
   for (const k of keys) {
     const v = pageSearch.get(k);

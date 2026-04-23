@@ -125,6 +125,9 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   const fbclid = firstQueryString(query, "fbclid");
   const ttclid = firstQueryString(query, "ttclid");
   const msclkid = firstQueryString(query, "msclkid");
+  const sub1 = firstQueryString(query, "sub1");
+  const sub2 = firstQueryString(query, "sub2");
+  const sub3 = firstQueryString(query, "sub3");
   const source = utm_source || firstQueryString(query, "source");
   const medium = utm_medium || firstQueryString(query, "medium");
   const campaign = utm_campaign || firstQueryString(query, "campaign");
@@ -141,6 +144,9 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
     source,
     medium,
     campaign,
+    ...(sub1 ? { sub1 } : {}),
+    ...(sub2 ? { sub2 } : {}),
+    ...(sub3 ? { sub3 } : {}),
   });
   return { referrer, source, medium, campaign, metadata };
 }

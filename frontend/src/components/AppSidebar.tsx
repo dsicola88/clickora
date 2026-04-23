@@ -19,6 +19,7 @@ import {
   LinkIcon,
   Shuffle,
   Plug,
+  BookOpen,
   Settings,
   ScrollText,
   CreditCard,
@@ -240,6 +241,14 @@ export function AppSidebar() {
                   <NavLink to="/inicio" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
                     <Home className="h-4 w-4 flex-shrink-0" />
                     {!collapsed && <span>Escolher área</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={path === "/ajuda"} tooltip="Guia e passos no painel">
+                  <NavLink to="/ajuda" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
+                    <BookOpen className="h-4 w-4 flex-shrink-0" />
+                    {!collapsed && <span>Guia da app</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

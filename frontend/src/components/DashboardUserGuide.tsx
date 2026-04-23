@@ -24,8 +24,12 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Página e medição de cliques",
     body: (
       <>
-        Publique uma presell ou página onde vai colar o <strong className="text-foreground">script</strong> do dclickora (no dashboard de
-        rastreamento, secção «Script e conversões»). Sem o script, cliques e conversões na página não são contados.
+        Se o tráfego abre o <strong className="text-foreground">link público da app</strong>{" "}
+        (<span className="font-mono text-[11px]">/p/…</span>), <strong className="text-foreground">não precisa de colar o script</strong>: no
+        carregamento regista-se a impressão (pixel) e os CTAs já apontam para o redirect de tracking. Para validar, na rede do navegador veja pedidos
+        a <span className="font-mono text-[11px]">/track/pixel/</span> e, ao clicar, a <span className="font-mono text-[11px]">/track/r/</span>.
+        Cole o <strong className="text-foreground">script</strong> da secção «Script da presell» (neste dashboard){" "}
+        <strong className="text-foreground">só se publicar o HTML noutro sítio</strong> — aí o snippet liga medições à mesma presell.
       </>
     ),
     links: [
@@ -140,8 +144,9 @@ const HOME_STEPS: GuideStep[] = [
     title: "Presell + tracking",
     body: (
       <>
-        Depois de publicar a presell, no <strong className="text-foreground">dashboard de Rastreamento</strong> copie o script e cole no HTML da
-        página para contar cliques e conversões.
+        Com o link <span className="font-mono text-[11px]">/p/…</span>, o rastreamento base já vem na página publicada. No{" "}
+        <strong className="text-foreground">dashboard de Rastreamento</strong> use o script apenas para HTML alojado fora da app; aí copie e cole no{" "}
+        <span className="font-mono text-[11px]">head</span> ou antes de <span className="font-mono text-[11px]">&lt;/body&gt;</span>.
       </>
     ),
     links: [{ to: "/tracking/dashboard", label: "Abrir dashboard de rastreamento" }],
@@ -152,15 +157,17 @@ const HOME_STEPS: GuideStep[] = [
     body: (
       <>
         No <strong className="text-foreground">dashboard de Rastreamento</strong> há o guia em passos (script, links, plataformas, integrações).
-        Para <strong className="text-foreground">palavra-chave e parâmetros dinâmicos</strong> das redes (estilo profissional), use{" "}
-        <strong className="text-foreground">Links</strong> ou o <strong className="text-foreground">Construtor de URL</strong> e o botão de{" "}
-        <strong className="text-foreground">macros</strong>. Guia escrito para afiliados na página pública.
+        Para <strong className="text-foreground">palavra-chave e parâmetros dinâmicos</strong> das redes, use{" "}
+        <strong className="text-foreground">Links</strong> ou o <strong className="text-foreground">Construtor de URL</strong> (macros). O
+        <strong className="text-foreground"> guia completo no painel</strong> (passo a passo) está em{" "}
+        <span className="text-foreground">Ajuda</span> — quem quiser ainda pode abrir o artigo longo (SEO) no site.
       </>
     ),
     links: [
+      { to: "/ajuda", label: "Guia no painel" },
       { to: "/tracking/dashboard", label: "Dashboard de rastreamento" },
       { to: "/tracking/links", label: "Links e macros" },
-      { to: "/guia-vendas-afiliados", label: "Guia de vendas (público)" },
+      { to: "/guia-vendas-afiliados", label: "Artigo longo (público)" },
     ],
   },
 ];
@@ -182,21 +189,26 @@ export type DashboardUserGuideProps = {
   /** `tracking`: guia longo com opção de ocultar. `home`: versão curta na entrada da app. */
   variant?: "tracking" | "home";
   className?: string;
+  /**
+   * Só aplica a `variant="tracking"`. Se `false`, o bloco nunca fica oculto e não há botão de fechar
+   * (útil na rota /ajuda).
+   */
+  allowDismiss?: boolean;
 };
 
-export function DashboardUserGuide({ variant = "tracking", className }: DashboardUserGuideProps) {
+export function DashboardUserGuide({ variant = "tracking", className, allowDismiss = true }: DashboardUserGuideProps) {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (variant !== "tracking") return;
+    if (variant !== "tracking" || !allowDismiss) return;
     try {
       setDismissed(localStorage.getItem(DASHBOARD_USER_GUIDE_DISMISSED_KEY) === "1");
     } catch {
       setDismissed(false);
     }
-  }, [variant]);
+  }, [variant, allowDismiss]);
 
-  if (variant === "tracking" && dismissed) return null;
+  if (variant === "tracking" && allowDismiss && dismissed) return null;
 
   const steps = variant === "home" ? HOME_STEPS : TRACKING_STEPS;
   const defaultOpen = steps[0]?.id ?? "step-1";
@@ -219,11 +231,11 @@ export function DashboardUserGuide({ variant = "tracking", className }: Dashboar
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {variant === "home"
                   ? "Resumo para começar. Rastreamento, links com UTMs e macros das redes estão a um clique."
-                  : "Ordem sugerida: script → URLs e macros (keyword em utm_term / sub1–3) → postbacks → integrações → anúncios → relatórios. Expanda cada passo quando precisar."}
+                  : "Ordem sugerida: medição (script só se a página for externa ao /p/…) → URLs e macros (keyword em utm_term / sub1–3) → postbacks → integrações → anúncios → relatórios. Expanda cada passo quando precisar."}
               </p>
             </div>
           </div>
-          {variant === "tracking" ? (
+          {variant === "tracking" && allowDismiss ? (
             <Button
               type="button"
               variant="ghost"

@@ -687,7 +687,7 @@ export default function Rotadores() {
               <Label>Presell de contexto (conversões / relatórios)</Label>
               <Select value={contextPresellId} onValueChange={setContextPresellId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccione uma presell publicada" />
+                  <SelectValue placeholder="Selecione uma presell publicada" />
                 </SelectTrigger>
                 <SelectContent>
                   {publishedPresells.map((p) => (
