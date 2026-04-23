@@ -35,9 +35,14 @@ export function getPresellProductLabel(page: Presell): string {
 }
 
 /**
- * Título principal para SEO e separador — alinhado ao H1 quando existe headline (ou SEO do editor manual).
+ * Título principal para `<title>`, Open Graph e JSON-LD.
+ * Prioridade: **Nome da página** no painel (`page.title`) — o que o utilizador vê no campo «Nome da página» —
+ * depois SEO interno do builder, nome do documento, headline/H1, rótulos de produto.
  */
 export function getPresellSeoPrimaryTitle(page: Presell): string {
+  const pageName = String(page.title ?? "").trim();
+  if (pageName) return clampSeoTitle(pageName);
+
   const c = (page.content || {}) as Record<string, unknown>;
   if (page.type === "builder") {
     const doc = parsePresellBuilderPageDocument(page.content);
@@ -50,8 +55,6 @@ export function getPresellSeoPrimaryTitle(page: Presell): string {
   }
   const headline = String(c.title ?? "").trim();
   if (headline) return clampSeoTitle(headline);
-  const pageName = String(page.title ?? "").trim();
-  if (pageName) return clampSeoTitle(pageName);
   return getPresellProductLabel(page);
 }
 
