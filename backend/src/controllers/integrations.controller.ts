@@ -36,6 +36,7 @@ import {
   signGoogleAdsOAuthState,
   verifyGoogleAdsOAuthState,
 } from "../lib/googleAdsOAuthFlow";
+import { actorUserId, billingUserId } from "../lib/requestContext";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -44,7 +45,7 @@ const profileNotifySchema = z.object({
 export const integrationsController = {
   /** URL do webhook + estado (autenticado). */
   async getAffiliateWebhookInfo(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { saleNotifyEmail: true, email: true },
@@ -212,7 +213,7 @@ export const integrationsController = {
 
   /** Envia e-mail de teste para o destino configurado (autenticado). */
   async testSaleNotificationEmail(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, saleNotifyEmail: true },
@@ -252,7 +253,7 @@ export const integrationsController = {
 
   /** Estado da integração Google Ads (offline conversions). */
   async getGoogleAdsSettings(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -294,7 +295,7 @@ export const integrationsController = {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
 
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const d = parsed.data;
     const data: {
       googleAdsEnabled?: boolean;
@@ -369,7 +370,7 @@ export const integrationsController = {
       return res.status(503).json({ error: "JWT_SECRET em falta no servidor." });
     }
     try {
-      const state = signGoogleAdsOAuthState(req.user!.userId);
+      const state = signGoogleAdsOAuthState(billingUserId(req));
       const { authorizeUrl } = buildGoogleAdsAuthorizeUrl(state);
       return res.json({ authorize_url: authorizeUrl });
     } catch (e) {
@@ -418,7 +419,7 @@ export const integrationsController = {
 
   /** Meta Conversions API (Pixel server-side). */
   async getMetaCapiSettings(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -452,7 +453,7 @@ export const integrationsController = {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
 
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const d = parsed.data;
     const data: {
       metaCapiEnabled?: boolean;
@@ -510,7 +511,7 @@ export const integrationsController = {
     const value = raw === "" || raw === undefined ? null : raw;
 
     await prisma.user.update({
-      where: { id: req.user!.userId },
+      where: { id: billingUserId(req) },
       data: { saleNotifyEmail: value },
     });
 
@@ -518,7 +519,7 @@ export const integrationsController = {
   },
 
   async getTelegramSettings(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -558,7 +559,7 @@ export const integrationsController = {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
 
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const d = parsed.data;
     const data: {
       telegramBotToken?: string | null;
@@ -613,7 +614,7 @@ export const integrationsController = {
   },
 
   async testTelegramIntegration(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { telegramBotToken: true, telegramChatId: true },
@@ -643,7 +644,7 @@ export const integrationsController = {
   /** Estado Web Push só para o tenant do JWT (nunca cruza contas). */
   async getWebPushConfig(req: Request, res: Response) {
     ensureWebPushFromEnv();
-    const userId = req.user!.userId;
+    const userId = actorUserId(req);
     const subscription_count = await systemPrisma.webPushSubscription.count({ where: { userId } });
     res.json({
       configured: isWebPushConfigured(),
@@ -679,7 +680,7 @@ export const integrationsController = {
       });
     }
 
-    const userId = req.user!.userId;
+    const userId = actorUserId(req);
     const {
       subscription: { endpoint, keys },
       user_agent,
@@ -720,7 +721,7 @@ export const integrationsController = {
     }
     /** Só remove linhas do tenant actual (JWT). */
     const result = await systemPrisma.webPushSubscription.deleteMany({
-      where: { userId: req.user!.userId, endpoint: parsed.data.endpoint },
+      where: { userId: actorUserId(req), endpoint: parsed.data.endpoint },
     });
     return res.json({ ok: true, removed: result.count });
   },
@@ -732,7 +733,7 @@ export const integrationsController = {
         error: "Web Push não está configurado no servidor.",
       });
     }
-    const userId = req.user!.userId;
+    const userId = actorUserId(req);
     const count = await systemPrisma.webPushSubscription.count({ where: { userId } });
     if (count === 0) {
       return res.status(400).json({
@@ -775,7 +776,7 @@ export const integrationsController = {
     if (!ipNorm) {
       return res.status(400).json({ error: "Indique um IPv4 válido (ex.: 203.0.113.1)" });
     }
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     await prisma.blacklistedIp.upsert({
       where: { userId_ipAddress: { userId, ipAddress: ipNorm } },
       create: {
@@ -793,14 +794,14 @@ export const integrationsController = {
     if (!id) return res.status(400).json({ error: "ID em falta" });
     /** `userId` explícito + extensão tenant: só remove linha do próprio tenant (nunca por `id` sozinho). */
     const result = await prisma.blacklistedIp.deleteMany({
-      where: { id, userId: req.user!.userId },
+      where: { id, userId: billingUserId(req) },
     });
     if (result.count === 0) return res.status(404).json({ error: "Entrada não encontrada" });
     return res.json({ ok: true });
   },
 
   async getTrackingGuards(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const u = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -839,7 +840,7 @@ export const integrationsController = {
     ) {
       return res.status(400).json({ error: "Nenhum campo para atualizar" });
     }
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -898,7 +899,7 @@ export const integrationsController = {
     if (!ipNorm) {
       return res.status(400).json({ error: "Indique um IPv4 válido (ex.: 203.0.113.1)" });
     }
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     await prisma.whitelistedIp.upsert({
       where: { userId_ipAddress: { userId, ipAddress: ipNorm } },
       create: {
@@ -915,7 +916,7 @@ export const integrationsController = {
     const id = req.params.id;
     if (!id) return res.status(400).json({ error: "ID em falta" });
     const result = await prisma.whitelistedIp.deleteMany({
-      where: { id, userId: req.user!.userId },
+      where: { id, userId: billingUserId(req) },
     });
     if (result.count === 0) return res.status(404).json({ error: "Entrada não encontrada" });
     return res.json({ ok: true });

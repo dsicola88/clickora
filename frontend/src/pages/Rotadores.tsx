@@ -51,6 +51,9 @@ import {
 } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
+import { userCanWriteRotators } from "@/lib/workspaceCapabilities";
 
 function slugify(s: string): string {
   return s
@@ -77,7 +80,7 @@ const MODE_LABELS: Record<TrafficRotatorMode, string> = {
   fill_order: "Preenchimento — enche o 1.º até ao limite, depois o seguinte",
 };
 
-function RotatorAbPanel({ rotatorId }: { rotatorId: string }) {
+function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate: boolean }) {
   const [open, setOpen] = useState(false);
   const [lookback, setLookback] = useState(30);
   const [metric, setMetric] = useState<"conversion_rate" | "revenue">("conversion_rate");
@@ -213,7 +216,7 @@ function RotatorAbPanel({ rotatorId }: { rotatorId: string }) {
               type="button"
               size="sm"
               className="h-8 text-xs gap-1.5"
-              disabled={promoteMut.isPending}
+              disabled={!canMutate || promoteMut.isPending}
               onClick={() => {
                 if (
                   !confirm(
@@ -296,9 +299,30 @@ function armsToPayload(arms: ArmForm[]): TrafficRotatorArmInput[] | null {
   return out.length ? out : null;
 }
 
+function resolveRulesPolicyForSubmit(
+  raw: string,
+  editing: TrafficRotatorDto | null,
+): { ok: true; value: unknown | undefined | null } | { ok: false; error: string } {
+  const t = raw.trim();
+  const hadPolicy = Boolean(editing && editing.rules_policy != null);
+  if (!t) {
+    if (!editing) return { ok: true, value: undefined };
+    if (hadPolicy) return { ok: true, value: null };
+    return { ok: true, value: undefined };
+  }
+  try {
+    const parsed: unknown = JSON.parse(t);
+    if (!editing && parsed === null) return { ok: true, value: undefined };
+    return { ok: true, value: parsed };
+  } catch {
+    return { ok: false, error: "JSON inválido na política de regras." };
+  }
+}
+
 export default function Rotadores() {
   const { user } = useAuth();
-  const tenantKey = user?.id ?? "";
+  const tenantKey = tenantQueryKey(user);
+  const canWriteRotators = userCanWriteRotators(user);
   const qc = useQueryClient();
   const apiBase = useMemo(() => getApiBaseUrl(), []);
 
@@ -317,6 +341,8 @@ export default function Rotadores() {
   const [stripAccessCode, setStripAccessCode] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [arms, setArms] = useState<ArmForm[]>([emptyArm(0), emptyArm(1)]);
+  const [rulesPolicyText, setRulesPolicyText] = useState("");
+  const [rulesPolicyOpen, setRulesPolicyOpen] = useState(false);
 
   const { data: presells = [] } = useQuery({
     queryKey: ["presells-rotadores", tenantKey],
@@ -352,6 +378,8 @@ export default function Rotadores() {
     setStripAccessCode(false);
     setIsActive(true);
     setArms([emptyArm(0), emptyArm(1)]);
+    setRulesPolicyText("");
+    setRulesPolicyOpen(false);
   };
 
   const openCreate = () => {
@@ -371,6 +399,7 @@ export default function Rotadores() {
     setStripAccessCode(false);
     setIsActive(r.is_active);
     setArms(dtoToArms(r).length ? dtoToArms(r) : [emptyArm(0)]);
+    setRulesPolicyText(r.rules_policy != null ? JSON.stringify(r.rules_policy, null, 2) : "");
     setDialogOpen(true);
   };
 
@@ -428,6 +457,12 @@ export default function Rotadores() {
       return;
     }
 
+    const rulesRes = resolveRulesPolicyForSubmit(rulesPolicyText, editing);
+    if (!rulesRes.ok) {
+      toast.error(rulesRes.error);
+      return;
+    }
+
     const base: CreateTrafficRotatorBody = {
       name: name.trim(),
       slug: slug.trim().toLowerCase(),
@@ -438,6 +473,7 @@ export default function Rotadores() {
       is_active: isActive,
       arms: armPayload,
     };
+    if (rulesRes.value !== undefined) base.rules_policy = rulesRes.value;
 
     if (editing) {
       const patch: Partial<CreateTrafficRotatorBody> & { access_code?: string } = {
@@ -449,6 +485,7 @@ export default function Rotadores() {
         is_active: base.is_active,
         arms: base.arms,
       };
+      if (rulesRes.value !== undefined) patch.rules_policy = rulesRes.value;
       if (stripAccessCode) patch.access_code = "";
       else if (accessCode.trim()) patch.access_code = accessCode.trim();
       updateMut.mutate({ id: editing.id, body: patch });
@@ -472,16 +509,25 @@ export default function Rotadores() {
         title="Rotadores de tráfego"
         description="Um link público distribui por vários destinos: A/B ponderado, geo (permitir/excluir países), mobile vs desktop por braço, URL de recurso. sub1–sub3 e sufixo de caminho no URL (ex.: /rot/UUID/fb/campanha) segmentam nos relatórios. A presell de contexto liga conversões por postback."
         actions={
-          <Button
-            type="button"
-            className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
-            onClick={openCreate}
-          >
-            <Plus className="h-4 w-4" />
-            Novo rotador
-          </Button>
+          canWriteRotators ? (
+            <Button
+              type="button"
+              className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+              onClick={openCreate}
+            >
+              <Plus className="h-4 w-4" />
+              Novo rotador
+            </Button>
+          ) : null
         }
       />
+
+      {!canWriteRotators ? (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">
+          O seu papel neste workspace é <strong>só leitura</strong>: pode copiar e abrir links públicos; criar, editar ou eliminar
+          rotadores requer permissão de membro ou superior.
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground mb-6 space-y-2">
         <p>
@@ -547,29 +593,33 @@ export default function Rotadores() {
                     Abrir
                   </a>
                 </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="h-8 text-xs gap-1"
-                  onClick={() => openEdit(r)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Editar
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-destructive gap-1"
-                  onClick={() => {
-                    if (confirm("Eliminar este rotador? Os cliques já registados mantêm-se nos relatórios.")) {
-                      deleteMut.mutate(r.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {canWriteRotators ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs gap-1"
+                    onClick={() => openEdit(r)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Editar
+                  </Button>
+                ) : null}
+                {canWriteRotators ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs text-destructive gap-1"
+                    onClick={() => {
+                      if (confirm("Eliminar este rotador? Os cliques já registados mantêm-se nos relatórios.")) {
+                        deleteMut.mutate(r.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
               </div>
 
               <div className="text-xs text-muted-foreground border-t border-border/50 pt-3 space-y-1">
@@ -586,7 +636,7 @@ export default function Rotadores() {
                   </div>
                 ))}
               </div>
-              <RotatorAbPanel rotatorId={r.id} />
+              <RotatorAbPanel rotatorId={r.id} canMutate={canWriteRotators} />
             </div>
           ))}
         </div>
@@ -706,6 +756,37 @@ export default function Rotadores() {
                 Rotador activo
               </Label>
             </div>
+
+            <Collapsible
+              open={rulesPolicyOpen}
+              onOpenChange={setRulesPolicyOpen}
+              className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2"
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between h-9 px-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <span>Política de regras (JSON avançado)</span>
+                  {rulesPolicyOpen ? <ChevronUp className="h-4 w-4 opacity-70" /> : <ChevronDown className="h-4 w-4 opacity-70" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2 space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Opcional: regras ao nível do rotador (geo, horários, limites diários, etc.). Deixe vazio para não usar.
+                  Em edição, vazio remove a política existente.
+                </p>
+                <Textarea
+                  value={rulesPolicyText}
+                  onChange={(e) => setRulesPolicyText(e.target.value)}
+                  placeholder={`{\n  "version": 1\n}`}
+                  className="font-mono text-xs min-h-[120px]"
+                  spellCheck={false}
+                />
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="space-y-3 border-t border-border pt-4">
               {editing ? (

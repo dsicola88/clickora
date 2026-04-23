@@ -32,6 +32,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { presellAutoCreatorSchema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
+import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
   getPublicPresellFullUrl,
   getPublicPresellOriginForPresell,
@@ -92,7 +94,8 @@ export default function PresellDashboard() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   /** Isola cache React Query por conta (evita mostrar dados da sessão anterior). */
-  const tenantKey = user?.id ?? "";
+  const tenantKey = tenantQueryKey(user);
+  const canWritePresells = userCanWritePresells(user);
   const [showCreator, setShowCreator] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
@@ -347,6 +350,10 @@ export default function PresellDashboard() {
   };
 
   const handleEditClick = async (page: Presell) => {
+    if (!canWritePresells) {
+      toast.error("Sem permissão para editar presells neste workspace.");
+      return;
+    }
     setIsLoadingEdit(true);
     try {
       const { data, error } = await presellService.getById(page.id);
@@ -605,6 +612,21 @@ export default function PresellDashboard() {
   const filteredPages = pages.filter((p) => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (showCreator) {
+    if (!canWritePresells) {
+      return (
+        <div className={APP_PAGE_SHELL}>
+          <PageHeader
+            title="Sem permissão"
+            description="O seu papel neste workspace não permite criar nem editar presells. É necessário ser membro, administrador ou ter a permissão «presells:write»."
+            actions={
+              <Button variant="outline" onClick={exitCreator}>
+                Voltar à lista
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
     const isEditing = Boolean(editingId);
     return (
       <div className={APP_PAGE_SHELL}>
@@ -1000,13 +1022,17 @@ export default function PresellDashboard() {
             ? "Automática: cole o URL do produto e escolha o tipo. Manual: abra «Editor manual» para o construtor visual. Ambas usam o link público /p/id."
             : "Crie a primeira página (automática ou manual) para começar."
         }
-        actionLabel="Criar presell (automática)"
-        onAction={() => {
-          resetForm({ presetCustomDomain: true });
-          setShowCreator(true);
-        }}
-        secondaryActionLabel="Editor manual (por blocos)"
-        secondaryOnAction={() => navigate("/presell/builder")}
+        actionLabel={canWritePresells ? "Criar presell (automática)" : undefined}
+        onAction={
+          canWritePresells
+            ? () => {
+                resetForm({ presetCustomDomain: true });
+                setShowCreator(true);
+              }
+            : undefined
+        }
+        secondaryActionLabel={canWritePresells ? "Editor manual (por blocos)" : undefined}
+        secondaryOnAction={canWritePresells ? () => navigate("/presell/builder") : undefined}
         icon={<FileText className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -1018,20 +1044,22 @@ export default function PresellDashboard() {
         title="Lista de páginas Presell"
         description={isAdmin ? "Gerencie, duplique e publique suas páginas em um único lugar." : undefined}
         actions={
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              onClick={() => {
-                resetForm({ presetCustomDomain: true });
-                setShowCreator(true);
-              }}
-              className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" /> Presell automática
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
-              <LayoutGrid className="h-4 w-4" /> Editor manual
-            </Button>
-          </div>
+          canWritePresells ? (
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                onClick={() => {
+                  resetForm({ presetCustomDomain: true });
+                  setShowCreator(true);
+                }}
+                className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" /> Presell automática
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
+                <LayoutGrid className="h-4 w-4" /> Editor manual
+              </Button>
+            </div>
+          ) : null
         }
       />
 
@@ -1119,24 +1147,35 @@ export default function PresellDashboard() {
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <button
-                      onClick={() => toggleStatus(page)}
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
-                    >
-                      {page.status === "published" ? "Habilitado" : "Desabilitado"}
-                    </button>
+                    {canWritePresells ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(page)}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
+                      >
+                        {page.status === "published" ? "Habilitado" : "Desabilitado"}
+                      </button>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
+                      >
+                        {page.status === "published" ? "Habilitado" : "Desabilitado"}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleEditClick(page)}
-                        disabled={isLoadingEdit}
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        title="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
+                      {canWritePresells ? (
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(page)}
+                          disabled={isLoadingEdit}
+                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      ) : null}
                       <a
                         href={getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
                         target="_blank"
@@ -1168,20 +1207,26 @@ export default function PresellDashboard() {
                       >
                         <Download className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => duplicateMutation.mutate(page.id)}
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        title="Duplicar"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(page.id)}
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canWritePresells ? (
+                        <button
+                          type="button"
+                          onClick={() => duplicateMutation.mutate(page.id)}
+                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="Duplicar"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      {canWritePresells ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(page.id)}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

@@ -52,6 +52,12 @@ export interface User {
   email: string;
   plan: UserPlan | null;
   workspace_id: string;
+  /** Conta cujos dados (presells, tracking) estão activos — igual a `id` excepto em equipas. */
+  tenant_user_id?: string;
+  /** Papel no workspace actual (owner | admin | member | viewer). */
+  workspace_role?: "owner" | "admin" | "member" | "viewer";
+  /** Permissões extra do membro (ex.: rotators:write, presells:write). */
+  workspace_permissions?: string[];
   role: "super_admin" | "admin" | "moderator" | "user";
   avatar_url?: string;
   created_at: string;

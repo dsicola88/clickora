@@ -16,6 +16,8 @@ import {
 import { PresellBuilderEmbedProvider } from "@/contexts/PresellBuilderEmbedContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
+import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
@@ -73,7 +75,7 @@ export default function PresellManualBuilderPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const tenantKey = user?.id ?? "";
+  const tenantKey = tenantQueryKey(user);
 
   const [editorReady, setEditorReady] = useState(false);
   const [slugDraft, setSlugDraft] = useState("");
@@ -292,12 +294,21 @@ export default function PresellManualBuilderPage() {
     },
   });
 
+  const canSaveToAccount = userCanWritePresells(user);
+
   const embedValue = useMemo(
     () => ({
-      onRequestSave: () => saveMutation.mutate(),
+      onRequestSave: () => {
+        if (!userCanWritePresells(user)) {
+          toast.error("Sem permissão para guardar presells neste workspace.");
+          return;
+        }
+        saveMutation.mutate();
+      },
       isSaving: saveMutation.isPending,
+      canSave: canSaveToAccount,
     }),
-    [saveMutation],
+    [saveMutation, user, canSaveToAccount],
   );
 
   if (!editorReady) {

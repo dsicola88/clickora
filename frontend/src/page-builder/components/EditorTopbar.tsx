@@ -214,7 +214,7 @@ export function EditorTopbar() {
           <button
             type="button"
             onClick={() => presellEmbed.onRequestSave()}
-            disabled={presellEmbed.isSaving}
+            disabled={presellEmbed.isSaving || presellEmbed.canSave === false}
             className="flex h-8 items-center gap-1.5 rounded bg-editor-accent px-3 text-xs font-medium text-editor-accent-fg hover:opacity-90 disabled:opacity-50"
           >
             <Globe className="h-3.5 w-3.5" />

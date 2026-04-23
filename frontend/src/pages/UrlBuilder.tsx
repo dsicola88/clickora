@@ -1,5 +1,5 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { Copy, Check, Plus, X, ChevronsUpDown, ChevronDown, ExternalLink } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { Copy, Check, Plus, X, ChevronsUpDown, ChevronDown, ExternalLink, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -26,6 +17,9 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
 import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
+import { orderedAdNetworkTokenSections } from "@/lib/adNetworkDynamicTokens";
+import { AdNetworkTokensPickerPanel } from "@/components/tracking/AdNetworkTokensPickerPanel";
+import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
 
 /** Plataformas (Integrações) + redes de tráfego + Personalizado — ver `marketingPlatforms.ts`. */
 const URL_BUILDER_PLATFORMS = getUrlBuilderPlatformList();
@@ -91,159 +85,6 @@ function highlightGeneratedUrlPreview(url: string): ReactNode {
       })}
     </span>
   );
-}
-
-/** Marcador que vai para o URL (valor técnico) + nome legível + texto para pesquisa. */
-type TokenPick = { token: string; label: string; search: string };
-
-type TokenSection = {
-  id: string;
-  title: string;
-  items: TokenPick[];
-};
-
-/**
- * Uma secção = uma plataforma de anúncios. Tudo de Google junto; Meta separado de Microsoft/Bing; ordem fixa para navegação previsível.
- */
-const TOKEN_SECTIONS: TokenSection[] = [
-  {
-    id: "google",
-    title: "Google Ads · ValueTrack (só parâmetros Google)",
-    items: [
-      { token: "{gclid}", label: "ID do clique (gclid)", search: "gclid clique google ads conversão" },
-      { token: "{gbraid}", label: "ID do clique iOS / app (gbraid)", search: "gbraid google app ios" },
-      { token: "{wbraid}", label: "ID Web-to-app (wbraid)", search: "wbraid google" },
-      { token: "{keyword}", label: "Palavra-chave (Google)", search: "keyword palavra chave google ads" },
-      { token: "{campaignid}", label: "ID da campanha", search: "campaign campanha google" },
-      { token: "{adgroupid}", label: "ID do grupo de anúncios", search: "adgroup grupo google" },
-      { token: "{creative}", label: "ID do criativo / anúncio", search: "creative anúncio google" },
-      { token: "{device}", label: "Tipo de dispositivo", search: "device telemóvel google" },
-      { token: "{network}", label: "Rede (Pesquisa, Display…)", search: "network rede google" },
-      { token: "{placement}", label: "Posição / site (placement)", search: "placement posição google" },
-      { token: "{matchtype}", label: "Tipo de correspondência da keyword", search: "match correspondência google" },
-      { token: "{extensionid}", label: "Extensão associada ao clique", search: "extension extensão google" },
-      { token: "{target}", label: "Alvo do anúncio", search: "target alvo google" },
-      { token: "{loc_physical_ms}", label: "Local físico (avançado)", search: "local físico google" },
-      { token: "{loc_interest_ms}", label: "Interesse de localização (avançado)", search: "interesse local google" },
-    ],
-  },
-  {
-    id: "facebook",
-    title: "Meta Ads · Facebook e Instagram (só parâmetros Meta)",
-    items: [
-      { token: "{fbclid}", label: "ID do clique (fbclid)", search: "fbclid meta facebook instagram clique" },
-      { token: "{{campaign.name}}", label: "Nome da campanha", search: "meta facebook instagram campanha nome" },
-      { token: "{{adset.name}}", label: "Nome do conjunto de anúncios", search: "meta conjunto adset" },
-      { token: "{{ad.name}}", label: "Nome do anúncio", search: "meta anúncio ad" },
-      { token: "{{campaign.id}}", label: "ID da campanha", search: "meta id campanha" },
-      { token: "{{adset.id}}", label: "ID do conjunto", search: "meta adset id" },
-      { token: "{{ad.id}}", label: "ID do anúncio", search: "meta ad id" },
-      { token: "{{placement}}", label: "Onde o anúncio apareceu", search: "meta placement posição" },
-      { token: "{{site_source_name}}", label: "Origem do site / app", search: "meta origem source instagram" },
-    ],
-  },
-  {
-    id: "microsoft",
-    title: "Microsoft Advertising (Bing) · modelo de URL (só Bing)",
-    items: [
-      { token: "{msclkid}", label: "ID do clique (msclkid)", search: "msclkid bing microsoft clique" },
-      { token: "{keyword}", label: "Palavra-chave (Bing — não confundir com Google)", search: "keyword bing microsoft palavra" },
-      { token: "{QueryString}", label: "Texto da pesquisa (consulta)", search: "query bing pesquisa microsoft" },
-      { token: "{CampaignId}", label: "ID da campanha (Bing)", search: "campaign bing microsoft" },
-      { token: "{AdGroupId}", label: "ID do grupo de anúncios (Bing)", search: "adgroup bing microsoft" },
-      { token: "{AdId}", label: "ID do anúncio (Bing)", search: "ad anúncio bing" },
-      { token: "{Device}", label: "Dispositivo (Bing)", search: "device bing" },
-      { token: "{MatchType}", label: "Tipo de correspondência (Bing)", search: "match bing" },
-      { token: "{Network}", label: "Rede (Bing)", search: "network bing" },
-      { token: "{feeditemid}", label: "ID do feed", search: "feed bing microsoft" },
-    ],
-  },
-  {
-    id: "tiktok",
-    title: "TikTok Ads",
-    items: [
-      { token: "{ttclid}", label: "ID do clique (ttclid)", search: "ttclid tiktok clique" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "tiktok campanha" },
-      { token: "{campaign_id}", label: "ID da campanha", search: "tiktok id campanha" },
-      { token: "{adgroup_name}", label: "Nome do grupo de anúncios", search: "tiktok grupo" },
-      { token: "{adgroup_id}", label: "ID do grupo", search: "tiktok adgroup" },
-      { token: "{ad_name}", label: "Nome do anúncio", search: "tiktok anúncio" },
-      { token: "{ad_id}", label: "ID do anúncio", search: "tiktok ad id" },
-      { token: "{placement}", label: "Posicionamento", search: "tiktok placement" },
-    ],
-  },
-  {
-    id: "taboola",
-    title: "Taboola",
-    items: [
-      { token: "{click_id}", label: "ID do clique Taboola", search: "clique taboola" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "taboola campanha" },
-      { token: "{campaign_id}", label: "ID da campanha", search: "taboola id" },
-      { token: "{site}", label: "Site", search: "taboola site" },
-      { token: "{site_id}", label: "ID do site", search: "taboola site id" },
-      { token: "{thumbnail}", label: "Miniatura", search: "taboola thumbnail" },
-      { token: "{title}", label: "Título", search: "taboola título" },
-    ],
-  },
-  {
-    id: "outbrain",
-    title: "Outbrain",
-    items: [
-      { token: "{ob_click_id}", label: "ID do clique Outbrain", search: "clique outbrain" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "outbrain campanha" },
-      { token: "{campaign_id}", label: "ID da campanha", search: "outbrain id" },
-      { token: "{publisher_name}", label: "Nome do editor", search: "outbrain publisher" },
-      { token: "{publisher_id}", label: "ID do editor", search: "outbrain publisher id" },
-      { token: "{section_name}", label: "Nome da secção", search: "outbrain secção" },
-    ],
-  },
-  {
-    id: "kwai",
-    title: "Kwai Ads",
-    items: [
-      { token: "{click_id}", label: "ID do clique Kwai", search: "clique kwai" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "kwai campanha" },
-      { token: "{campaign_id}", label: "ID da campanha", search: "kwai id" },
-      { token: "{adgroup_name}", label: "Nome do grupo de anúncios", search: "kwai grupo" },
-      { token: "{creative_id}", label: "ID do criativo", search: "kwai criativo" },
-    ],
-  },
-  {
-    id: "pinterest",
-    title: "Pinterest Ads",
-    items: [
-      { token: "{epik}", label: "ID do clique (epik)", search: "pinterest epik clique" },
-      { token: "{campaign_name}", label: "Nome da campanha", search: "pinterest campanha" },
-      { token: "{campaign_id}", label: "ID da campanha", search: "pinterest id" },
-    ],
-  },
-  {
-    id: "twitter",
-    title: "X (Twitter) Ads",
-    items: [{ token: "{twclid}", label: "ID do clique (twclid)", search: "twitter x twclid clique" }],
-  },
-];
-
-const PLATFORM_SECTION_BOOST: Record<string, string> = {
-  "Google Ads": "google",
-  "Facebook Ads": "facebook",
-  "Bing Ads": "microsoft",
-  "TikTok Ads": "tiktok",
-  Taboola: "taboola",
-  Outbrain: "outbrain",
-  "Kwai Ads": "kwai",
-  "Pinterest Ads": "pinterest",
-  "Twitter Ads": "twitter",
-};
-
-function orderedTokenSections(selectedPlatform: string): TokenSection[] {
-  const boostId = PLATFORM_SECTION_BOOST[selectedPlatform];
-  if (!boostId) return TOKEN_SECTIONS;
-  const idx = TOKEN_SECTIONS.findIndex((s) => s.id === boostId);
-  if (idx <= 0) return TOKEN_SECTIONS;
-  const copy = [...TOKEN_SECTIONS];
-  const [picked] = copy.splice(idx, 1);
-  return [picked, ...copy];
 }
 
 // Default param rows per platform
@@ -386,6 +227,7 @@ export default function UrlBuilder() {
   const [params, setParams] = useState<ParamRow[]>([]);
   const [copied, setCopied] = useState(false);
   const [tokenDialog, setTokenDialog] = useState<{ open: boolean; rowIndex: number }>({ open: false, rowIndex: -1 });
+  const [macrosReferenceOpen, setMacrosReferenceOpen] = useState(false);
 
   const handlePlatformChange = (val: string) => {
     setPlatform(val);
@@ -442,7 +284,7 @@ export default function UrlBuilder() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const tokenSectionsOrdered = useMemo(() => orderedTokenSections(platform), [platform]);
+  const tokenSectionsOrdered = useMemo(() => orderedAdNetworkTokenSections(platform), [platform]);
 
   const flowSteps = [
     "Construtor de URL: defines o link da presell com UTMs e IDs de clique (ex.: gclid, fbclid, ttclid) conforme a plataforma escolhida.",
@@ -461,6 +303,23 @@ export default function UrlBuilder() {
         centered
         title="Construtor de URL"
         description="Monta o URL da presell com parâmetros da rede (UTMs, gclid, etc.). Alinha com Integrações → Plataformas e o webhook de postback de afiliados."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2 border-violet-500/30 bg-violet-500/[0.06] hover:bg-violet-500/10"
+            onClick={() => setMacrosReferenceOpen(true)}
+          >
+            <BookOpen className="h-4 w-4" /> Macros (referência)
+          </Button>
+        }
+      />
+
+      <AdNetworkTokensReferenceDialog
+        open={macrosReferenceOpen}
+        onOpenChange={setMacrosReferenceOpen}
+        boostPlatformLabel={platform || undefined}
       />
 
       <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
@@ -685,35 +544,11 @@ export default function UrlBuilder() {
             </p>
           </DialogHeader>
           <div className="px-6 pb-6 flex-1 min-h-0 flex flex-col gap-3">
-            <Command className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden shadow-sm">
-              <CommandInput placeholder="Pesquisar (ex.: clique Google, nome da campanha, TikTok)…" className="h-11 border-b border-border/60" />
-              <CommandList className="max-h-[min(56vh,380px)]">
-                <CommandEmpty className="py-8 text-sm text-muted-foreground">Nada encontrado — tenta outra palavra.</CommandEmpty>
-                {tokenSectionsOrdered.map((section, si) => (
-                  <Fragment key={section.id}>
-                    {si > 0 ? <CommandSeparator className="my-1" /> : null}
-                    <CommandGroup
-                      heading={section.title}
-                      className="px-1 py-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-foreground [&_[cmdk-group-heading]]:leading-snug [&_[cmdk-group-heading]]:normal-case [&_[cmdk-group-heading]]:tracking-normal"
-                    >
-                      {section.items.map((item) => (
-                        <CommandItem
-                          key={`${section.id}-${item.token}`}
-                          value={`${section.title} ${item.label} ${item.search} ${item.token}`}
-                          onSelect={() => insertToken(item.token)}
-                          className="cursor-pointer rounded-md mx-1 my-0.5 px-3 py-2.5 aria-selected:bg-accent"
-                        >
-                          <div className="flex flex-col gap-0.5 min-w-0 text-left">
-                            <span className="text-sm font-medium text-foreground leading-tight">{item.label}</span>
-                            <span className="text-[11px] font-mono text-muted-foreground truncate">{item.token}</span>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Fragment>
-                ))}
-              </CommandList>
-            </Command>
+            <AdNetworkTokensPickerPanel
+              sections={tokenSectionsOrdered}
+              onSelect={insertToken}
+              searchPlaceholder="Pesquisar (ex.: clique Google, nome da campanha, TikTok)…"
+            />
           </div>
         </DialogContent>
       </Dialog>

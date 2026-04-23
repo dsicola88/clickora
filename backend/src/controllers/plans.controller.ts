@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma, { systemPrisma } from "../lib/prisma";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import { billingUserId } from "../lib/requestContext";
 
 /** Sem `cta_label` — para BD antiga antes de `prisma migrate deploy` (evita P2022). */
 const planSelectLegacy: Prisma.PlanSelect = {
@@ -127,9 +128,9 @@ export const plansController = {
 
     // Free plan — update directly
     await prisma.subscription.upsert({
-      where: { userId: req.user!.userId },
+      where: { userId: billingUserId(req) },
       create: {
-        userId: req.user!.userId,
+        userId: billingUserId(req),
         planId: plan_id,
         status: "active",
       },
@@ -144,7 +145,7 @@ export const plansController = {
 
   async cancel(req: Request, res: Response) {
     const sub = await prisma.subscription.findUnique({
-      where: { userId: req.user!.userId },
+      where: { userId: billingUserId(req) },
     });
     if (!sub) return res.status(404).json({ error: "Nenhuma assinatura encontrada" });
 

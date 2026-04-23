@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { billingUserId } from "../lib/requestContext";
 import { systemPrisma } from "../lib/prisma";
 import {
   dnsTxtContainsVerification,
@@ -78,7 +79,7 @@ async function ensureDefaultDomainForUser(userId: string): Promise<void> {
 
 export const customDomainController = {
   async list(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const rows = await prisma.customDomain.findMany({
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
@@ -87,7 +88,7 @@ export const customDomainController = {
   },
 
   async quota(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const q = await resolveCustomDomainQuotaForUser(userId);
     return res.json({
       max_custom_domains: q.maxCustomDomains,
@@ -97,7 +98,7 @@ export const customDomainController = {
   },
 
   async create(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const hostnameRaw = typeof req.body?.hostname === "string" ? req.body.hostname : "";
     let hostname: string;
     try {
@@ -178,7 +179,7 @@ export const customDomainController = {
   },
 
   async verify(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const id = req.params.id;
     if (!id) return res.status(400).json({ error: "ID em falta." });
 
@@ -280,7 +281,7 @@ export const customDomainController = {
   },
 
   async setDefault(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const id = req.params.id;
     const row = await prisma.customDomain.findFirst({ where: { id, userId, status: "verified" } });
     if (!row) return res.status(404).json({ error: "Domínio verificado não encontrado." });
@@ -299,7 +300,7 @@ export const customDomainController = {
   },
 
   async remove(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const id = req.params.id;
     const existing = await prisma.customDomain.findFirst({ where: { id, userId } });
     if (!existing) return res.status(404).json({ error: "Domínio não encontrado." });
@@ -325,7 +326,7 @@ export const customDomainController = {
   },
 
   async setRootPresell(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const id = req.params.id;
     const raw = req.body?.presell_id;
     const presellId =

@@ -18,7 +18,15 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
 
   try {
     const token = header.split(" ")[1];
-    req.user = verifyToken(token);
+    const raw = verifyToken(token);
+    const tenantUserId = raw.tenantUserId ?? raw.userId;
+    req.user = {
+      ...raw,
+      tenantUserId,
+      workspaceId: raw.workspaceId,
+      workspaceRole: raw.workspaceRole ?? "owner",
+      workspacePermissions: raw.workspacePermissions ?? [],
+    };
     next();
   } catch {
     return res.status(401).json({ error: "Token inválido ou expirado" });

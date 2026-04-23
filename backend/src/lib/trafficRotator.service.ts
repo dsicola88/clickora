@@ -1,5 +1,6 @@
 import type { Prisma, RotatorDeviceRule, TrafficRotatorMode } from "@prisma/client";
 import { systemPrisma } from "./prisma";
+import { evaluateRotatorRulesPolicy, rotatorRulesPolicySchema } from "./routingRules";
 
 function parseCountriesJson(j: Prisma.JsonValue | null | undefined): string[] | null {
   if (j == null) return null;
@@ -41,12 +42,23 @@ export type RotatorDestinationResult =
   | {
       ok: true;
       destinationUrl: string;
-      armId: string;
+      armId: string | null;
       armLabel: string | null;
-      usedBackup: false;
+      usedBackup: boolean;
+      /** Redirecionamento definido na política (não braço nem backup configurado como tal). */
+      viaPolicyRedirect?: boolean;
     }
-  | { ok: true; destinationUrl: string; armId: null; armLabel: null; usedBackup: true }
-  | { ok: false; reason: "not_found" | "no_arms" | "no_destination" };
+  | { ok: false; reason: "not_found" | "no_arms" | "no_destination" | "policy_block" };
+
+function policyNeedsClickCount(policy: Prisma.JsonValue | null | undefined): boolean {
+  if (policy == null || typeof policy !== "object") return false;
+  const rules = (policy as { rules?: unknown }).rules;
+  if (!Array.isArray(rules)) return false;
+  return rules.some((r) => {
+    const w = (r as { when?: { max_rotator_clicks_today_utc?: number } }).when;
+    return w && typeof w.max_rotator_clicks_today_utc === "number";
+  });
+}
 
 /**
  * Escolhe destino numa transacção: incrementa `clicksDelivered` ou avança `sequenceCursor`.
@@ -62,6 +74,57 @@ export async function pickRotatorDestination(
     });
 
     if (!rot) return { ok: false, reason: "not_found" };
+
+    const now = new Date();
+    let rotatorClicksTodayUtc: number | undefined;
+    if (policyNeedsClickCount(rot.rulesPolicy)) {
+      const start = new Date(now);
+      start.setUTCHours(0, 0, 0, 0);
+      rotatorClicksTodayUtc = await tx.trackingEvent.count({
+        where: {
+          userId: rot.userId,
+          eventType: "click",
+          createdAt: { gte: start },
+          metadata: { path: ["rotator_id"], equals: rotatorId },
+        },
+      });
+    }
+
+    const parsedPolicy = rotatorRulesPolicySchema.safeParse(rot.rulesPolicy ?? undefined);
+    const policy = parsedPolicy.success ? parsedPolicy.data : null;
+    const pe = evaluateRotatorRulesPolicy(policy, {
+      country: ctx.country,
+      device: ctx.device,
+      now,
+      rotatorClicksTodayUtc,
+    });
+
+    if (pe.effect === "block") {
+      return { ok: false, reason: "policy_block" };
+    }
+    if (pe.effect === "redirect") {
+      return {
+        ok: true,
+        destinationUrl: pe.url,
+        armId: null,
+        armLabel: null,
+        usedBackup: false,
+        viaPolicyRedirect: true,
+      };
+    }
+    if (pe.effect === "use_backup") {
+      const bu = rot.backupUrl?.trim();
+      if (bu) {
+        return {
+          ok: true,
+          destinationUrl: bu,
+          armId: null,
+          armLabel: null,
+          usedBackup: true,
+        };
+      }
+    }
+
     if (rot.arms.length === 0) {
       if (rot.backupUrl?.trim()) {
         return {
@@ -153,6 +216,7 @@ export async function pickRotatorDestination(
       armId: chosen.id,
       armLabel: chosen.label,
       usedBackup: false,
+      viaPolicyRedirect: false,
     };
   });
 }

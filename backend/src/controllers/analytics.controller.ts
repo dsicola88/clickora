@@ -14,6 +14,7 @@ import { countryIsoFromIp } from "../lib/countryFromIp";
 import { sendCsvDownload } from "../lib/csvExport";
 import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
+import { billingUserId } from "../lib/requestContext";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -171,7 +172,7 @@ function mapConversionForApi(
 export const analyticsController = {
   async getSummary(req: Request, res: Response) {
     const { from, to, presell_id } = req.query;
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
 
     const where: Prisma.TrackingEventWhereInput = { userId };
     if (presell_id && typeof presell_id === "string") where.presellPageId = presell_id;
@@ -248,7 +249,7 @@ export const analyticsController = {
 
   async getEvents(req: Request, res: Response) {
     const { event_type, presell_id, limit, from, to, format, cursor } = req.query;
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const formatStr = typeof format === "string" ? format.toLowerCase() : "";
     const wantCsv = formatStr === "csv" || formatStr === "text/csv";
 
@@ -360,7 +361,7 @@ export const analyticsController = {
 
   /** Lista conversões aprovadas (postback) com dados do clique e sync Google Ads / Meta CAPI. */
   async listConversions(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const { from, to, missing_gclid, limit, format, cursor } = req.query;
     const formatStr = typeof format === "string" ? format.toLowerCase() : "";
     const wantCsv = formatStr === "csv" || formatStr === "text/csv";
@@ -585,7 +586,7 @@ export const analyticsController = {
   },
 
   async getDashboard(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const fromQ = req.query.from?.toString();
     const toQ = req.query.to?.toString();
 
@@ -869,7 +870,7 @@ export const analyticsController = {
    * Mesmo intervalo `from`/`to` (YYYY-MM-DD) para os três blocos; dados em tempo real da API (sem cache).
    */
   async getGoogleAdsInsights(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const fromQ = req.query.from?.toString();
     const toQ = req.query.to?.toString();
 
@@ -934,7 +935,7 @@ export const analyticsController = {
    * @see https://support.google.com/google-ads/answer/7014069
    */
   async getGoogleAdsOfflineImportCsv(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const fromQ = req.query.from?.toString();
     const toQ = req.query.to?.toString();
     const conversionNameRaw = req.query.conversion_name?.toString()?.trim();
@@ -1093,7 +1094,7 @@ export const analyticsController = {
 
   /** Detalhe de um evento de clique (lookup estilo ferramentas de tracking). */
   async getTrackingClick(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const eventId = req.params.eventId?.trim();
     if (!eventId) return res.status(400).json({ error: "ID em falta." });
 
@@ -1146,7 +1147,7 @@ export const analyticsController = {
 
   /** Tentativas bloqueadas: blacklist ou regras de tracking (rate limit, whitelist, UA, bots). */
   async getBlacklistBlocks(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const limit = Math.min(Number(req.query.limit) || 40, 100);
     const logs = await prisma.postbackLog.findMany({
       where: { userId, platform: { in: ["blacklist_block", "tracking_guard"] } },

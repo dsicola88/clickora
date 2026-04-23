@@ -14,6 +14,7 @@ import { publicRouter } from "./routes/public.routes";
 import { integrationsRouter } from "./routes/integrations.routes";
 import { customDomainRouter } from "./routes/customDomain.routes";
 import { trafficRotatorsRouter } from "./routes/trafficRotators.routes";
+import { workspaceRouter } from "./routes/workspace.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/customDomainCache";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
@@ -196,6 +197,7 @@ app.use("/api/webhooks", webhookRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/custom-domain", customDomainRouter);
 app.use("/api/traffic-rotators", trafficRotatorsRouter);
+app.use("/api/workspaces", workspaceRouter);
 app.use("/api/public", publicRouter);
 
 // Health check

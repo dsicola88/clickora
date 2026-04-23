@@ -20,6 +20,8 @@ import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { PageHeader } from "@/components/PageHeader";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
+import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,7 +49,8 @@ export default function PresellManualPagesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const tenantKey = user?.id ?? "";
+  const tenantKey = tenantQueryKey(user);
+  const canWritePresells = userCanWritePresells(user);
   const [searchTerm, setSearchTerm] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -105,10 +108,15 @@ export default function PresellManualPagesPage() {
   });
 
   const handleEdit = (page: Presell) => {
+    if (!canWritePresells) {
+      toast.error("Sem permissão para editar presells neste workspace.");
+      return;
+    }
     navigate(`/presell/builder/${page.id}`);
   };
 
   const handleDelete = (page: Presell) => {
+    if (!canWritePresells) return;
     if (!confirm(`Remover «${page.title}»? Esta ação não pode ser desfeita.`)) return;
     deleteMutation.mutate(page.id);
   };
@@ -238,10 +246,12 @@ export default function PresellManualPagesPage() {
         title="Páginas criadas"
         description="Páginas montadas no editor manual (multiconta: só vê as da sua sessão). Visualize, edite, exporte ou remova."
         actions={
-          <Button type="button" className="gap-2" onClick={() => navigate("/presell/builder")}>
-            <LayoutGrid className="h-4 w-4" />
-            Novo no editor
-          </Button>
+          canWritePresells ? (
+            <Button type="button" className="gap-2" onClick={() => navigate("/presell/builder")}>
+              <LayoutGrid className="h-4 w-4" />
+              Novo no editor
+            </Button>
+          ) : null
         }
       />
 
@@ -274,8 +284,8 @@ export default function PresellManualPagesPage() {
                 ? "Crie uma página no editor manual e guarde na conta — ela aparecerá aqui."
                 : "Ajuste o termo de busca."
             }
-            actionLabel={manualPages.length === 0 ? "Abrir editor manual" : undefined}
-            onAction={manualPages.length === 0 ? () => navigate("/presell/builder") : undefined}
+            actionLabel={manualPages.length === 0 && canWritePresells ? "Abrir editor manual" : undefined}
+            onAction={manualPages.length === 0 && canWritePresells ? () => navigate("/presell/builder") : undefined}
           />
         ) : (
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -314,22 +324,34 @@ export default function PresellManualPagesPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleMutation.mutate({
-                                id: page.id,
-                                status: page.status === "published" ? "paused" : "published",
-                              })
-                            }
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${
-                              page.status === "published"
-                                ? "bg-success/10 text-success"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {page.status === "published" ? "Publicada" : "Pausada"}
-                          </button>
+                          {canWritePresells ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleMutation.mutate({
+                                  id: page.id,
+                                  status: page.status === "published" ? "paused" : "published",
+                                })
+                              }
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${
+                                page.status === "published"
+                                  ? "bg-success/10 text-success"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {page.status === "published" ? "Publicada" : "Pausada"}
+                            </button>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                page.status === "published"
+                                  ? "bg-success/10 text-success"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {page.status === "published" ? "Publicada" : "Pausada"}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
@@ -342,14 +364,16 @@ export default function PresellManualPagesPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </a>
-                            <button
-                              type="button"
-                              onClick={() => handleEdit(page)}
-                              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                              title="Editar no construtor"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
+                            {canWritePresells ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(page)}
+                                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                                title="Editar no construtor"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            ) : null}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button
@@ -376,15 +400,17 @@ export default function PresellManualPagesPage() {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(page)}
-                              disabled={deleteMutation.isPending}
-                              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                              title="Remover"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {canWritePresells ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(page)}
+                                disabled={deleteMutation.isPending}
+                                className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                                title="Remover"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

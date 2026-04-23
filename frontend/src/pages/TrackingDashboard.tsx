@@ -19,9 +19,7 @@ import {
   Building2,
   ChevronDown,
   Share2,
-  CheckCircle2,
   AlertTriangle,
-  X,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -37,17 +35,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { integrationsService } from "@/services/integrationsService";
+import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DashboardUserGuide } from "@/components/DashboardUserGuide";
 
 const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
 const GOOGLE_ADS_OAUTH_DOC = "https://developers.google.com/google-ads/api/docs/oauth/overview";
 const GOOGLE_CLOUD_CREDENTIALS = "https://console.cloud.google.com/apis/credentials";
-
-const CHECKLIST_STORAGE_KEY = "dclickora_tracking_checklist_v1";
 
 function SyncHealthBanner({
   dashboard,
@@ -79,78 +77,6 @@ function SyncHealthBanner({
         (colunas de sync) e corrija tokens ou IDs nas secções Google Ads / Meta abaixo.
       </AlertDescription>
     </Alert>
-  );
-}
-
-function TrackingSetupChecklist() {
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    try {
-      setDismissed(localStorage.getItem(CHECKLIST_STORAGE_KEY) === "1");
-    } catch {
-      setDismissed(false);
-    }
-  }, []);
-
-  if (dismissed) return null;
-
-  return (
-    <Card className="border-primary/25 bg-gradient-to-br from-primary/[0.06] to-transparent">
-      <CardContent className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Checklist — rastreio pronto para escala</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Para equipas e afiliados com tráfego pago: estes passos reduzem falhas de atribuição e suporte.
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground"
-            onClick={() => {
-              try {
-                localStorage.setItem(CHECKLIST_STORAGE_KEY, "1");
-              } catch {
-                /* ignore */
-              }
-              setDismissed(true);
-            }}
-            aria-label="Dispensar checklist"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <ol className="space-y-2.5 text-sm text-muted-foreground list-decimal marker:font-semibold pl-5">
-          <li>
-            <strong className="text-foreground">Script na presell</strong> — use o snippet desta página (secção «Script e conversões») no HTML da página publicada.
-          </li>
-          <li>
-            <Link className="text-primary font-medium underline underline-offset-2" to="/tracking/integrations">
-              Webhook de afiliados
-            </Link>{" "}
-            configurado na rede para enviar vendas ao dclickora (dispara também Google/Meta se ativo).
-          </li>
-          <li>
-            <Link className="text-primary font-medium underline underline-offset-2" to="/tracking/links">
-              Links de tracking
-            </Link>{" "}
-            com UTMs; para Google use <span className="font-mono text-[11px]">gclid</span>, para Meta o anúncio deve passar{" "}
-            <span className="font-mono text-[11px]">fbclid</span> no clique.
-          </li>
-          <li>
-            <strong className="text-foreground">Opcional:</strong> blocos Google Ads e Meta CAPI nesta página para conversões server-side.
-          </li>
-        </ol>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -192,6 +118,7 @@ function GoogleAdsConversionUploadCard({
   gaRefresh,
   setGaRefresh,
   saveGoogleAds,
+  integrationsLocked = false,
 }: {
   googleAds: GoogleAdsQueryData | undefined;
   gaEnabled: boolean;
@@ -205,6 +132,7 @@ function GoogleAdsConversionUploadCard({
   gaRefresh: string;
   setGaRefresh: (v: string) => void;
   saveGoogleAds: { mutate: () => void; isPending: boolean };
+  integrationsLocked?: boolean;
 }) {
   const beginGoogleAdsOAuth = useMutation({
     mutationFn: async () => {
@@ -506,7 +434,7 @@ function GoogleAdsConversionUploadCard({
           <Button
             type="button"
             className="gap-2"
-            disabled={beginGoogleAdsOAuth.isPending}
+            disabled={integrationsLocked || beginGoogleAdsOAuth.isPending}
             onClick={() => beginGoogleAdsOAuth.mutate()}
           >
             {beginGoogleAdsOAuth.isPending ? (
@@ -519,7 +447,7 @@ function GoogleAdsConversionUploadCard({
         </div>
       ) : null}
       <div className="flex items-center gap-3">
-        <Switch id="ga-enabled" checked={gaEnabled} onCheckedChange={setGaEnabled} />
+        <Switch id="ga-enabled" checked={gaEnabled} disabled={integrationsLocked} onCheckedChange={setGaEnabled} />
         <Label htmlFor="ga-enabled" className="text-sm cursor-pointer">
           Ativar importação automática no Google Ads após venda aprovada
         </Label>
@@ -533,6 +461,7 @@ function GoogleAdsConversionUploadCard({
           </p>
           <Input
             value={gaCustomerId}
+            readOnly={integrationsLocked}
             onChange={(e) => setGaCustomerId(e.target.value)}
             placeholder="1234567890"
             className="font-mono text-xs"
@@ -547,6 +476,7 @@ function GoogleAdsConversionUploadCard({
           </p>
           <Input
             value={gaActionId}
+            readOnly={integrationsLocked}
             onChange={(e) => setGaActionId(e.target.value)}
             placeholder="ID numérico da ação (URL ou suporte Google)"
             className="font-mono text-xs"
@@ -559,6 +489,7 @@ function GoogleAdsConversionUploadCard({
           </p>
           <Input
             value={gaLoginMcc}
+            readOnly={integrationsLocked}
             onChange={(e) => setGaLoginMcc(e.target.value)}
             placeholder="ID da conta gestora (10 dígitos) ou vazio"
             className="font-mono text-xs"
@@ -572,6 +503,7 @@ function GoogleAdsConversionUploadCard({
           <Input
             type="password"
             value={gaRefresh}
+            readOnly={integrationsLocked}
             onChange={(e) => setGaRefresh(e.target.value)}
             placeholder="Cole o refresh token ou deixe vazio"
             className="font-mono text-xs"
@@ -611,7 +543,12 @@ function GoogleAdsConversionUploadCard({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={() => saveGoogleAds.mutate()} disabled={saveGoogleAds.isPending} className="gap-2">
+        <Button
+          type="button"
+          onClick={() => saveGoogleAds.mutate()}
+          disabled={integrationsLocked || saveGoogleAds.isPending}
+          className="gap-2"
+        >
           {saveGoogleAds.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Guardar Google Ads
         </Button>
@@ -782,6 +719,7 @@ function MetaCapiIntegrationCard({
   metaTestCode,
   setMetaTestCode,
   saveMetaCapi,
+  integrationsLocked = false,
 }: {
   metaCapi:
     | {
@@ -801,6 +739,7 @@ function MetaCapiIntegrationCard({
   metaTestCode: string;
   setMetaTestCode: (v: string) => void;
   saveMetaCapi: { mutate: () => void; isPending: boolean };
+  integrationsLocked?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
@@ -828,7 +767,7 @@ function MetaCapiIntegrationCard({
       </div>
 
       <div className="flex items-center gap-3">
-        <Switch id="meta-capi-enabled" checked={metaEnabled} onCheckedChange={setMetaEnabled} />
+        <Switch id="meta-capi-enabled" checked={metaEnabled} disabled={integrationsLocked} onCheckedChange={setMetaEnabled} />
         <Label htmlFor="meta-capi-enabled" className="text-sm cursor-pointer">
           Ativar envio após venda aprovada
         </Label>
@@ -840,6 +779,7 @@ function MetaCapiIntegrationCard({
           <p className="text-[11px] text-muted-foreground leading-snug">ID numérico do Pixel (Gestor de eventos → Origens de dados).</p>
           <Input
             value={metaPixelId}
+            readOnly={integrationsLocked}
             onChange={(e) => setMetaPixelId(e.target.value)}
             placeholder="ex.: 123456789012345"
             className="font-mono text-xs"
@@ -853,6 +793,7 @@ function MetaCapiIntegrationCard({
           <Input
             type="password"
             value={metaToken}
+            readOnly={integrationsLocked}
             onChange={(e) => setMetaToken(e.target.value)}
             placeholder={metaCapi?.has_access_token ? "•••••••• (cole um novo para substituir)" : "Cole o token"}
             className="font-mono text-xs"
@@ -866,6 +807,7 @@ function MetaCapiIntegrationCard({
           </p>
           <Input
             value={metaTestCode}
+            readOnly={integrationsLocked}
             onChange={(e) => setMetaTestCode(e.target.value)}
             placeholder="TEST12345"
             className="font-mono text-xs"
@@ -874,7 +816,12 @@ function MetaCapiIntegrationCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={() => saveMetaCapi.mutate()} disabled={saveMetaCapi.isPending} className="gap-2">
+        <Button
+          type="button"
+          onClick={() => saveMetaCapi.mutate()}
+          disabled={integrationsLocked || saveMetaCapi.isPending}
+          className="gap-2"
+        >
           {saveMetaCapi.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Guardar Meta CAPI
         </Button>
@@ -1411,6 +1358,7 @@ export default function TrackingDashboard() {
   const [metaTestCode, setMetaTestCode] = useState("");
 
   const firstName = user?.name?.trim()?.split(/\s+/)[0];
+  const integrationsLocked = !userCanWriteIntegrations(user);
 
   const handleStartDateChange = useCallback(
     (value: string) => {
@@ -1661,7 +1609,7 @@ export default function TrackingDashboard() {
         />
 
         <SyncHealthBanner dashboard={dashboard} />
-        <TrackingSetupChecklist />
+        <DashboardUserGuide variant="tracking" />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(
@@ -1737,6 +1685,7 @@ export default function TrackingDashboard() {
           gaRefresh={gaRefresh}
           setGaRefresh={setGaRefresh}
           saveGoogleAds={saveGoogleAds}
+          integrationsLocked={integrationsLocked}
         />
 
         <GoogleAdsOfflineFileExportCard
@@ -1756,6 +1705,7 @@ export default function TrackingDashboard() {
           metaTestCode={metaTestCode}
           setMetaTestCode={setMetaTestCode}
           saveMetaCapi={saveMetaCapi}
+          integrationsLocked={integrationsLocked}
         />
 
         {showDetailSection ? (
@@ -1873,7 +1823,7 @@ export default function TrackingDashboard() {
       />
 
       <SyncHealthBanner dashboard={dashboard} />
-      <TrackingSetupChecklist />
+      <DashboardUserGuide variant="tracking" />
 
       <section className="space-y-4">
         <div>
@@ -1938,6 +1888,7 @@ export default function TrackingDashboard() {
           gaRefresh={gaRefresh}
           setGaRefresh={setGaRefresh}
           saveGoogleAds={saveGoogleAds}
+          integrationsLocked={integrationsLocked}
         />
 
         <GoogleAdsOfflineFileExportCard
@@ -1957,6 +1908,7 @@ export default function TrackingDashboard() {
           metaTestCode={metaTestCode}
           setMetaTestCode={setMetaTestCode}
           saveMetaCapi={saveMetaCapi}
+          integrationsLocked={integrationsLocked}
         />
       </section>
 

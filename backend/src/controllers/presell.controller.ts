@@ -17,6 +17,8 @@ import { getRequestHostname, hostnameLookupVariants } from "../lib/requestHost";
 import { getVerifiedOwnerIdForHostname } from "../lib/customDomainCache";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
+import { billingUserId } from "../lib/requestContext";
+import { denyIfCannotWritePresells } from "./workspace.controller";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -252,7 +254,7 @@ export const presellController = {
     if (!file) {
       return res.status(400).json({ error: "Envie um ficheiro no campo image." });
     }
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const rawProto = req.get("x-forwarded-proto") || req.protocol || "https";
     const proto = rawProto.split(",")[0].trim();
     const host = req.get("host");
@@ -289,7 +291,7 @@ export const presellController = {
   async getAll(req: Request, res: Response) {
     /** Sem `content` na lista — JSON gigante por página fazia GET lento e 502 no proxy; detalhe em GET /:id. */
     const pages = await prisma.presellPage.findMany({
-      where: { userId: req.user!.userId },
+      where: { userId: billingUserId(req) },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -314,7 +316,7 @@ export const presellController = {
 
   async getById(req: Request, res: Response) {
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: req.user!.userId },
+      where: { id: req.params.id, userId: billingUserId(req) },
     });
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -322,6 +324,7 @@ export const presellController = {
   },
 
   async create(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
 
@@ -329,7 +332,7 @@ export const presellController = {
     if (parsed.data.custom_domain_id !== undefined) {
       try {
         customDomainIdField.customDomainId = await resolveCustomDomainIdForUser(
-          req.user!.userId,
+          billingUserId(req),
           parsed.data.custom_domain_id,
         );
       } catch (e) {
@@ -337,14 +340,14 @@ export const presellController = {
         return res.status(400).json({ error: msg });
       }
     } else {
-      const auto = await resolveDefaultVerifiedCustomDomainIdForUser(req.user!.userId);
+      const auto = await resolveDefaultVerifiedCustomDomainIdForUser(billingUserId(req));
       if (auto) customDomainIdField = { customDomainId: auto };
     }
 
     // Check plan limits
-    const count = await prisma.presellPage.count({ where: { userId: req.user!.userId } });
+    const count = await prisma.presellPage.count({ where: { userId: billingUserId(req) } });
     const sub = await prisma.subscription.findUnique({
-      where: { userId: req.user!.userId },
+      where: { userId: billingUserId(req) },
       include: { plan: true },
     });
 
@@ -356,7 +359,7 @@ export const presellController = {
     try {
       page = await prisma.presellPage.create({
         data: {
-          userId: req.user!.userId,
+          userId: billingUserId(req),
           title: parsed.data.title,
           slug: parsed.data.slug,
           type: parsed.data.type || "cookies",
@@ -381,8 +384,9 @@ export const presellController = {
   },
 
   async update(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: req.user!.userId },
+      where: { id: req.params.id, userId: billingUserId(req) },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
@@ -402,7 +406,7 @@ export const presellController = {
       try {
         const raw = req.body.custom_domain_id;
         const next = await resolveCustomDomainIdForUser(
-          req.user!.userId,
+          billingUserId(req),
           raw === null || raw === "" ? null : String(raw),
         );
         data.customDomainId = next;
@@ -432,8 +436,9 @@ export const presellController = {
   },
 
   async delete(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: req.user!.userId },
+      where: { id: req.params.id, userId: billingUserId(req) },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
@@ -442,8 +447,9 @@ export const presellController = {
   },
 
   async duplicate(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: req.user!.userId },
+      where: { id: req.params.id, userId: billingUserId(req) },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
@@ -451,7 +457,7 @@ export const presellController = {
     try {
       copy = await prisma.presellPage.create({
         data: {
-          userId: req.user!.userId,
+          userId: billingUserId(req),
           title: `${page.title} (cópia)`,
           slug: `${page.slug}_copy_${Date.now()}`,
           type: page.type,
@@ -476,13 +482,14 @@ export const presellController = {
   },
 
   async toggleStatus(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
     const { status } = req.body;
     if (!["draft", "published", "paused", "archived"].includes(status)) {
       return res.status(400).json({ error: "Status inválido" });
     }
 
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: req.user!.userId },
+      where: { id: req.params.id, userId: billingUserId(req) },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
@@ -496,12 +503,13 @@ export const presellController = {
 
   async getCount(req: Request, res: Response) {
     const count = await prisma.presellPage.count({
-      where: { userId: req.user!.userId },
+      where: { userId: billingUserId(req) },
     });
     res.json({ count });
   },
 
   async importFromUrl(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
     const parsed = importFromUrlSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });

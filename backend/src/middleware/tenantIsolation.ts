@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import type { TenantContext } from "../lib/tenantContext";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { logTenantViolation } from "../lib/tenantLogging";
+import type { JwtPayload } from "../lib/jwt";
 
 /**
  * Obriga contexto de tenant no ALS para o resto do pedido.
@@ -18,8 +19,9 @@ export function tenantIsolation(req: Request, res: Response, next: NextFunction)
     return res.status(401).json({ error: "Não autenticado" });
   }
 
+  const jwtUser = req.user as JwtPayload;
   const ctx: TenantContext = {
-    tenantId: req.user.userId,
+    tenantId: jwtUser.tenantUserId ?? jwtUser.userId,
   };
 
   runWithTenantContext(ctx, () => next());

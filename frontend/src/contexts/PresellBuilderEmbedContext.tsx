@@ -4,6 +4,8 @@ export type PresellBuilderEmbedContextValue = {
   /** Guardar documento na API Clickora (criar ou atualizar presell). */
   onRequestSave: () => void;
   isSaving: boolean;
+  /** Quando false, desactiva «Guardar na conta» (ex.: papel só leitura). */
+  canSave?: boolean;
 };
 
 const PresellBuilderEmbedContext = createContext<PresellBuilderEmbedContextValue | null>(null);

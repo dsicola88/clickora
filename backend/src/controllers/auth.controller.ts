@@ -1,12 +1,13 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
-import prisma, { systemPrisma } from "../lib/prisma";
+import { systemPrisma } from "../lib/prisma";
 import { signToken } from "../lib/jwt";
+import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { z } from "zod";
 import { AVATAR_LOCAL_MARKER, removeUserAvatarFiles } from "../lib/avatarUpload";
-import type { PlanType } from "@prisma/client";
+import type { PlanType, WorkspaceRole } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 
@@ -35,37 +36,51 @@ function publicAvatarUrl(req: Request, user: { id: string; avatarUrl: string | n
   return null;
 }
 
-function serializeUser(
-  user: {
-    id: string;
-    email: string;
-    fullName: string | null;
-    workspaceId: string;
-    avatarUrl: string | null;
-    saleNotifyEmail: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    roles: { role: string }[];
-    subscription: {
-      plan: {
-        name: string;
-        type: string;
-        maxPresellPages: number | null;
-        maxClicksPerMonth: number | null;
-        maxCustomDomains?: number | null;
-        hasBranding: boolean;
-      } | null;
+type SerialUser = {
+  id: string;
+  email: string;
+  fullName: string | null;
+  workspaceId: string;
+  avatarUrl: string | null;
+  saleNotifyEmail: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  roles: { role: string }[];
+  subscription: {
+    plan: {
+      name: string;
+      type: string;
+      maxPresellPages: number | null;
+      maxClicksPerMonth: number | null;
+      maxCustomDomains?: number | null;
+      hasBranding: boolean;
     } | null;
-  },
+  } | null;
+};
+
+function serializeUser(
+  user: SerialUser,
   req: Request,
+  opts?: {
+    tenantUserId: string;
+    workspaceRole: WorkspaceRole;
+    workspacePermissions?: string[];
+    /** Limites de plano da conta de faturação (ex.: dono do workspace). */
+    planSource?: SerialUser;
+  },
 ) {
   const role = user.roles[0]?.role || "user";
-  const plan = user.subscription?.plan;
+  const planFrom = opts?.planSource ?? user;
+  const plan = planFrom.subscription?.plan;
+  const workspacePermissions = opts?.workspacePermissions ?? [];
   return {
     id: user.id,
     name: user.fullName || "",
     email: user.email,
     workspace_id: user.workspaceId,
+    tenant_user_id: opts?.tenantUserId ?? user.id,
+    workspace_role: opts?.workspaceRole ?? "owner",
+    workspace_permissions: workspacePermissions,
     role,
     avatar_url: publicAvatarUrl(req, user),
     created_at: user.createdAt.toISOString(),
@@ -87,6 +102,21 @@ function serializeUser(
   };
 }
 
+async function serializeUserWithSession(user: SerialUser, req: Request) {
+  const sess = await resolveWorkspaceSessionForLogin(user.id);
+  const billing = await systemPrisma.user.findUnique({
+    where: { id: sess.tenantUserId },
+    include: { subscription: { include: { plan: true } }, roles: true },
+  });
+  const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+  return serializeUser(user, req, {
+    tenantUserId: sess.tenantUserId,
+    workspaceRole: sess.workspaceRole,
+    workspacePermissions: sess.workspacePermissions,
+    planSource: isPlatformAdmin ? user : billing ?? user,
+  });
+}
+
 export const authController = {
   async login(req: Request, res: Response) {
     const parsed = loginSchema.safeParse(req.body);
@@ -105,24 +135,52 @@ export const authController = {
       return res.status(401).json({ error: "E-mail ou senha incorretos" });
     }
 
-    const access = evaluateSubscriptionAccess(user.subscription);
-    if (access.shouldMarkExpired && user.subscription && user.subscription.status !== "expired") {
+    const sess = await resolveWorkspaceSessionForLogin(user.id);
+    const billing = await systemPrisma.user.findUnique({
+      where: { id: sess.tenantUserId },
+      include: { subscription: { include: { plan: true } }, roles: true },
+    });
+    if (!billing) {
+      return res.status(401).json({ error: "Conta não encontrada" });
+    }
+
+    const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+    let subRow = isPlatformAdmin ? user.subscription : billing.subscription;
+    let access = evaluateSubscriptionAccess(subRow);
+    if (access.shouldMarkExpired && subRow && subRow.status !== "expired") {
       await systemPrisma.subscription.update({
-        where: { id: user.subscription.id },
+        where: { id: subRow.id },
         data: { status: "expired" },
       });
+      subRow = await systemPrisma.subscription.findUnique({
+        where: { id: subRow.id },
+        include: { plan: true },
+      });
     }
+    access = evaluateSubscriptionAccess(subRow);
     if (!access.allowed) {
       return res.status(403).json({
         error: "Assinatura inválida ou expirada. Atualize seu plano para continuar.",
       });
     }
 
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      tenantUserId: sess.tenantUserId,
+      workspaceId: sess.workspaceId,
+      workspaceRole: sess.workspaceRole,
+      workspacePermissions: sess.workspacePermissions,
+    });
 
     res.json({
       token,
-      user: serializeUser(user, req),
+      user: serializeUser(user, req, {
+        tenantUserId: sess.tenantUserId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+        planSource: isPlatformAdmin ? user : billing,
+      }),
     });
   },
 
@@ -212,24 +270,52 @@ export const authController = {
       });
     }
 
-    const access = evaluateSubscriptionAccess(user.subscription);
-    if (access.shouldMarkExpired && user.subscription && user.subscription.status !== "expired") {
+    const sess = await resolveWorkspaceSessionForLogin(user.id);
+    const billing = await systemPrisma.user.findUnique({
+      where: { id: sess.tenantUserId },
+      include: { subscription: { include: { plan: true } }, roles: true },
+    });
+    if (!billing) {
+      return res.status(401).json({ error: "Conta não encontrada" });
+    }
+
+    const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+    let subRow = isPlatformAdmin ? user.subscription : billing.subscription;
+    let access = evaluateSubscriptionAccess(subRow);
+    if (access.shouldMarkExpired && subRow && subRow.status !== "expired") {
       await systemPrisma.subscription.update({
-        where: { id: user.subscription.id },
+        where: { id: subRow.id },
         data: { status: "expired" },
       });
+      subRow = await systemPrisma.subscription.findUnique({
+        where: { id: subRow.id },
+        include: { plan: true },
+      });
     }
+    access = evaluateSubscriptionAccess(subRow);
     if (!access.allowed) {
       return res.status(403).json({
         error: "Assinatura inválida ou expirada. Atualize seu plano para continuar.",
       });
     }
 
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      tenantUserId: sess.tenantUserId,
+      workspaceId: sess.workspaceId,
+      workspaceRole: sess.workspaceRole,
+      workspacePermissions: sess.workspacePermissions,
+    });
 
     res.json({
       token,
-      user: serializeUser(user, req),
+      user: serializeUser(user, req, {
+        tenantUserId: sess.tenantUserId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+        planSource: isPlatformAdmin ? user : billing,
+      }),
     });
   },
 
@@ -246,37 +332,62 @@ export const authController = {
 
     const defaultPlan = await resolveDefaultPlanForSignup();
 
-    const user = await systemPrisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        fullName: full_name,
-        roles: { create: { role: "user" } },
-        ...(defaultPlan && {
-          subscription: {
-            create: {
-              planId: defaultPlan.id,
-              status: "active",
+    const user = await systemPrisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          fullName: full_name,
+          roles: { create: { role: "user" } },
+          ...(defaultPlan && {
+            subscription: {
+              create: {
+                planId: defaultPlan.id,
+                status: "active",
+              },
             },
-          },
-        }),
-      },
-      include: {
-        roles: true,
-        subscription: { include: { plan: true } },
-      },
+          }),
+        },
+      });
+      await tx.workspace.create({
+        data: {
+          id: u.workspaceId,
+          name: full_name.trim().slice(0, 200),
+          ownerUserId: u.id,
+          members: { create: { userId: u.id, role: "owner" } },
+        },
+      });
+      return tx.user.findUniqueOrThrow({
+        where: { id: u.id },
+        include: {
+          roles: true,
+          subscription: { include: { plan: true } },
+        },
+      });
     });
 
-    const token = signToken({ userId: user.id, email: user.email });
+    const sess = await resolveWorkspaceSessionForLogin(user.id);
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      tenantUserId: sess.tenantUserId,
+      workspaceId: sess.workspaceId,
+      workspaceRole: sess.workspaceRole,
+      workspacePermissions: sess.workspacePermissions,
+    });
 
     res.status(201).json({
       token,
-      user: serializeUser(user, req),
+      user: serializeUser(user, req, {
+        tenantUserId: sess.tenantUserId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+      }),
     });
   },
 
   async me(req: Request, res: Response) {
-    const user = await prisma.user.findUnique({
+    const user = await systemPrisma.user.findUnique({
       where: { id: req.user!.userId },
       include: {
         roles: true,
@@ -286,7 +397,7 @@ export const authController = {
 
     if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
 
-    res.json(serializeUser(user, req));
+    res.json(await serializeUserWithSession(user, req));
   },
 
   async patchProfile(req: Request, res: Response) {
@@ -313,7 +424,20 @@ export const authController = {
         where: { id: userId },
         include: { roles: true, subscription: { include: { plan: true } } },
       });
-      return res.json(serializeUser(user, req));
+      const sess = await resolveWorkspaceSessionForLogin(user.id);
+      const billing = await systemPrisma.user.findUnique({
+        where: { id: sess.tenantUserId },
+        include: { subscription: { include: { plan: true } }, roles: true },
+      });
+      const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+      return res.json(
+        serializeUser(user, req, {
+          tenantUserId: sess.tenantUserId,
+          workspaceRole: sess.workspaceRole,
+          workspacePermissions: sess.workspacePermissions,
+          planSource: isPlatformAdmin ? user : billing ?? user,
+        }),
+      );
     }
 
     const user = await systemPrisma.user.update({
@@ -322,7 +446,20 @@ export const authController = {
       include: { roles: true, subscription: { include: { plan: true } } },
     });
 
-    return res.json(serializeUser(user, req));
+    const sess = await resolveWorkspaceSessionForLogin(user.id);
+    const billing = await systemPrisma.user.findUnique({
+      where: { id: sess.tenantUserId },
+      include: { subscription: { include: { plan: true } }, roles: true },
+    });
+    const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+    return res.json(
+      serializeUser(user, req, {
+        tenantUserId: sess.tenantUserId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+        planSource: isPlatformAdmin ? user : billing ?? user,
+      }),
+    );
   },
 
   async changePassword(req: Request, res: Response) {
@@ -360,7 +497,7 @@ export const authController = {
       data: { avatarUrl: AVATAR_LOCAL_MARKER },
       include: { roles: true, subscription: { include: { plan: true } } },
     });
-    return res.json({ ok: true, user: serializeUser(user, req) });
+    return res.json({ ok: true, user: await serializeUserWithSession(user, req) });
   },
 
   async deleteAvatar(req: Request, res: Response) {
@@ -371,7 +508,7 @@ export const authController = {
       data: { avatarUrl: null },
       include: { roles: true, subscription: { include: { plan: true } } },
     });
-    return res.json({ ok: true, user: serializeUser(user, req) });
+    return res.json({ ok: true, user: await serializeUserWithSession(user, req) });
   },
 
   async logout(_req: Request, res: Response) {

@@ -13,8 +13,12 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { integrationsService } from "@/services/integrationsService";
 import { analyticsService } from "@/services/analyticsService";
 import { LoadingState } from "@/components/LoadingState";
+import { useAuth } from "@/contexts/AuthContext";
+import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 
 export default function Blacklist() {
+  const { user } = useAuth();
+  const intLocked = !userCanWriteIntegrations(user);
   const queryClient = useQueryClient();
   const [newIp, setNewIp] = useState("");
   const [newWlIp, setNewWlIp] = useState("");
@@ -166,6 +170,12 @@ export default function Blacklist() {
         description="Rate limit global no servidor, lista opcional de permitidos, blacklist, e regras opcionais (UA vazio / bots). IPv4 só."
       />
 
+      {intLocked ? (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">
+          Só pode <strong>consultar</strong> estas listas e regras: alterar proteções ou listas requer permissão para integrações neste workspace.
+        </div>
+      ) : null}
+
       <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm text-muted-foreground space-y-2">
         <p className="font-medium text-foreground/90">Ordem em que o servidor avalia cada pedido de tracking</p>
         <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm leading-relaxed">
@@ -200,7 +210,7 @@ export default function Blacklist() {
           <Switch
             id="guard-empty-ua"
             checked={guards?.block_empty_user_agent ?? false}
-            disabled={patchGuardsMutation.isPending}
+            disabled={intLocked || patchGuardsMutation.isPending}
             onCheckedChange={(v) => patchGuardsMutation.mutate({ block_empty_user_agent: v })}
           />
         </div>
@@ -212,7 +222,7 @@ export default function Blacklist() {
           <Switch
             id="guard-bots"
             checked={guards?.block_bot_clicks ?? false}
-            disabled={patchGuardsMutation.isPending}
+            disabled={intLocked || patchGuardsMutation.isPending}
             onCheckedChange={(v) => patchGuardsMutation.mutate({ block_bot_clicks: v })}
           />
         </div>
@@ -239,6 +249,7 @@ export default function Blacklist() {
                 max={5000}
                 inputMode="numeric"
                 value={autoClickLimit}
+                readOnly={intLocked}
                 onChange={(e) => setAutoClickLimit(Math.max(0, Math.min(5000, Number(e.target.value) || 0)))}
                 className="h-9"
               />
@@ -248,7 +259,7 @@ export default function Blacklist() {
               <Select
                 value={String(autoClickWindowH)}
                 onValueChange={(v) => setAutoClickWindowH(Number(v))}
-                disabled={patchGuardsMutation.isPending}
+                disabled={intLocked || patchGuardsMutation.isPending}
               >
                 <SelectTrigger className="h-9">
                   <SelectValue />
@@ -266,7 +277,7 @@ export default function Blacklist() {
               type="button"
               variant="secondary"
               className="w-full sm:w-auto shrink-0"
-              disabled={patchGuardsMutation.isPending}
+              disabled={intLocked || patchGuardsMutation.isPending}
               onClick={() =>
                 patchGuardsMutation.mutate({
                   auto_blacklist_click_threshold: autoClickLimit,
@@ -295,6 +306,7 @@ export default function Blacklist() {
             className="sm:flex-1 min-w-[140px]"
             placeholder="IPv4 permitido"
             value={newWlIp}
+            readOnly={intLocked}
             onChange={(e) => setNewWlIp(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddWl()}
           />
@@ -302,9 +314,10 @@ export default function Blacklist() {
             className="sm:flex-1 min-w-[140px]"
             placeholder="Nota (opcional)"
             value={newWlNote}
+            readOnly={intLocked}
             onChange={(e) => setNewWlNote(e.target.value)}
           />
-          <Button type="button" onClick={handleAddWl} disabled={addWlMutation.isPending} className="gap-2 shrink-0">
+          <Button type="button" onClick={handleAddWl} disabled={intLocked || addWlMutation.isPending} className="gap-2 shrink-0">
             <ShieldCheck className="h-4 w-4" /> Adicionar
           </Button>
         </div>
@@ -332,7 +345,7 @@ export default function Blacklist() {
                     <td className="py-2.5 px-4 text-right">
                       <button
                         type="button"
-                        disabled={removeWlMutation.isPending}
+                        disabled={intLocked || removeWlMutation.isPending}
                         onClick={() => removeWlMutation.mutate(item.id)}
                         className="text-destructive hover:text-destructive/80 transition-colors"
                         aria-label="Remover"
@@ -360,6 +373,7 @@ export default function Blacklist() {
             <Input
               placeholder="IPv4, ex: 203.0.113.10"
               value={newIp}
+              readOnly={intLocked}
               onChange={(e) => setNewIp(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
@@ -367,7 +381,7 @@ export default function Blacklist() {
           <Button
             type="button"
             onClick={handleAdd}
-            disabled={addMutation.isPending}
+            disabled={intLocked || addMutation.isPending}
             className="gap-2 w-full sm:w-auto shrink-0 gradient-primary border-0 text-primary-foreground hover:opacity-90"
           >
             <Search className="h-4 w-4" /> Adicionar à blacklist
@@ -408,7 +422,7 @@ export default function Blacklist() {
                     <td className="py-2.5 px-4 text-right">
                       <button
                         type="button"
-                        disabled={removeMutation.isPending}
+                        disabled={intLocked || removeMutation.isPending}
                         onClick={() => removeMutation.mutate(item.id)}
                         className="text-destructive hover:text-destructive/80 transition-colors"
                         aria-label="Remover IP"

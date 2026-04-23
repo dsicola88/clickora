@@ -15,6 +15,7 @@ import { enforceTrackingRules } from "../lib/trackGuard";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
+import { billingUserId } from "../lib/requestContext";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -358,6 +359,12 @@ export const trackController = {
     const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent);
     const pick = await pickRotatorDestination(rotatorId, { country, device });
     if (!pick.ok) {
+      if (pick.reason === "policy_block") {
+        return res.status(403).json({
+          error: "Este tráfego foi bloqueado pela política de regras do rotador.",
+          code: "policy_block",
+        });
+      }
       return res.status(503).json({
         error:
           pick.reason === "not_found"
@@ -369,7 +376,7 @@ export const trackController = {
 
     const finalUrl = pick.destinationUrl;
 
-    const armIdForMeta = pick.usedBackup ? null : pick.armId;
+    const armIdForMeta = pick.usedBackup || pick.viaPolicyRedirect ? null : pick.armId;
 
     const click = await systemPrisma.trackingEvent.create({
       data: {
@@ -402,6 +409,7 @@ export const trackController = {
           rotator_id: rotatorId,
           rotator_arm_id: armIdForMeta,
           rotator_used_backup: pick.usedBackup,
+          rotator_via_policy_redirect: Boolean(pick.viaPolicyRedirect),
           ...(sub1 ? { sub1 } : {}),
           ...(sub2 ? { sub2 } : {}),
           ...(sub3 ? { sub3 } : {}),
@@ -928,8 +936,8 @@ export const trackController = {
 
   async lookupGclid(req: Request, res: Response) {
     const gclid = req.params.gclid;
-    const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: "Não autenticado" });
+    if (!req.user?.userId) return res.status(401).json({ error: "Não autenticado" });
+    const userId = billingUserId(req);
 
     const event = await prisma.trackingEvent.findFirst({
       where: {
@@ -1111,8 +1119,8 @@ export const trackController = {
   },
 
   async getPostbackTemplates(req: Request, res: Response) {
-    const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: "Não autenticado" });
+    if (!req.user?.userId) return res.status(401).json({ error: "Não autenticado" });
+    const userId = billingUserId(req);
 
     const token = createPostbackToken(userId);
     const apiBase = publicApiBaseFromRequest(req);
@@ -1169,8 +1177,8 @@ export const trackController = {
   },
 
   async getPostbackAudit(req: Request, res: Response) {
-    const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: "Não autenticado" });
+    if (!req.user?.userId) return res.status(401).json({ error: "Não autenticado" });
+    const userId = billingUserId(req);
     const limit = Math.min(Number(req.query.limit) || 20, 100);
     const platform = req.query.platform?.toString();
 

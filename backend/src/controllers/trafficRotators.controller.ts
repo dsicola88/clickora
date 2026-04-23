@@ -4,6 +4,11 @@ import { Prisma, RotatorDeviceRule, TrafficRotatorMode } from "@prisma/client";
 import { systemPrisma } from "../lib/prisma";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { getRotatorAbStats, promoteRotatorWinner } from "../lib/rotatorAbStats.service";
+import { actorUserId, billingUserId } from "../lib/requestContext";
+import { rotatorRulesPolicySchema } from "../lib/routingRules";
+import { appendWorkspaceAuditLog } from "../lib/workspaceAudit";
+import { denyIfCannotWriteRotators } from "./workspace.controller";
+import { resolveWorkspaceIdForRequest } from "../lib/workspaceRequest";
 
 const slugRegex = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 
@@ -27,6 +32,7 @@ const createSchema = z.object({
   access_code: z.string().max(256).optional().nullable(),
   is_active: z.boolean().optional(),
   arms: z.array(armSchema).min(1).max(25),
+  rules_policy: z.union([rotatorRulesPolicySchema, z.null()]).optional(),
 });
 
 const updateSchema = z.object({
@@ -38,6 +44,7 @@ const updateSchema = z.object({
   access_code: z.union([z.string().max(256), z.literal("")]).optional(),
   is_active: z.boolean().optional(),
   arms: z.array(armSchema).min(1).max(25).optional(),
+  rules_policy: z.union([rotatorRulesPolicySchema, z.null()]).optional(),
 });
 
 function toMode(m: string): TrafficRotatorMode {
@@ -73,6 +80,7 @@ function mapRotatorRow(r: {
   sequenceCursor: number;
   accessCode: string | null;
   isActive: boolean;
+  rulesPolicy?: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
   arms?: Array<{
@@ -98,6 +106,7 @@ function mapRotatorRow(r: {
     sequence_cursor: r.sequenceCursor,
     access_code_set: Boolean(r.accessCode && r.accessCode.length > 0),
     is_active: r.isActive,
+    rules_policy: r.rulesPolicy ?? null,
     created_at: r.createdAt.toISOString(),
     updated_at: r.updatedAt.toISOString(),
     arms: r.arms
@@ -125,7 +134,7 @@ function parseCountriesForApi(j: Prisma.JsonValue | null): string[] | null {
 
 export const trafficRotatorsController = {
   async list(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const rows = await systemPrisma.trafficRotator.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
@@ -143,7 +152,7 @@ export const trafficRotatorsController = {
   },
 
   async getOne(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const id = req.params.id;
     const r = await systemPrisma.trafficRotator.findFirst({
       where: { id, userId },
@@ -158,7 +167,8 @@ export const trafficRotatorsController = {
   },
 
   async create(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    if (await denyIfCannotWriteRotators(req, res)) return;
+    const userId = billingUserId(req);
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
@@ -180,6 +190,9 @@ export const trafficRotatorsController = {
     });
     if (dup) return res.status(409).json({ error: "Já existe um rotador com este slug." });
 
+    const rulesPolicy =
+      b.rules_policy === undefined ? undefined : b.rules_policy === null ? Prisma.JsonNull : (b.rules_policy as Prisma.InputJsonValue);
+
     const created = await systemPrisma.trafficRotator.create({
       data: {
         userId,
@@ -190,6 +203,7 @@ export const trafficRotatorsController = {
         contextPresellId: b.context_presell_id,
         accessCode: b.access_code?.trim() || null,
         isActive: b.is_active ?? true,
+        ...(rulesPolicy !== undefined ? { rulesPolicy } : {}),
         arms: {
           create: b.arms.map((a) => {
             const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
@@ -209,6 +223,18 @@ export const trafficRotatorsController = {
       include: { arms: { orderBy: { orderIndex: "asc" } } },
     });
 
+    const wid = await resolveWorkspaceIdForRequest(req);
+    if (wid) {
+      await appendWorkspaceAuditLog({
+        workspaceId: wid,
+        actorUserId: actorUserId(req),
+        action: "traffic_rotator.created",
+        resourceType: "traffic_rotator",
+        resourceId: created.id,
+        metadata: { slug: created.slug },
+      });
+    }
+
     const apiBase = publicApiBaseFromRequest(req);
     res.status(201).json({
       ...mapRotatorRow(created),
@@ -217,7 +243,8 @@ export const trafficRotatorsController = {
   },
 
   async update(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    if (await denyIfCannotWriteRotators(req, res)) return;
+    const userId = billingUserId(req);
     const id = req.params.id;
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -264,6 +291,12 @@ export const trafficRotatorsController = {
           ...(b.context_presell_id != null ? { contextPresellId: b.context_presell_id } : {}),
           ...(accessCode !== undefined ? { accessCode } : {}),
           ...(b.is_active != null ? { isActive: b.is_active } : {}),
+          ...(b.rules_policy !== undefined
+            ? {
+                rulesPolicy:
+                  b.rules_policy === null ? Prisma.JsonNull : (b.rules_policy as Prisma.InputJsonValue),
+              }
+            : {}),
           ...(b.arms
             ? {
                 arms: {
@@ -292,6 +325,16 @@ export const trafficRotatorsController = {
       where: { id, userId },
       include: { arms: { orderBy: { orderIndex: "asc" } } },
     });
+    const wid = await resolveWorkspaceIdForRequest(req);
+    if (wid) {
+      await appendWorkspaceAuditLog({
+        workspaceId: wid,
+        actorUserId: actorUserId(req),
+        action: "traffic_rotator.updated",
+        resourceType: "traffic_rotator",
+        resourceId: id,
+      });
+    }
     const apiBase = publicApiBaseFromRequest(req);
     res.json({
       ...mapRotatorRow(r!),
@@ -300,15 +343,26 @@ export const trafficRotatorsController = {
   },
 
   async remove(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    if (await denyIfCannotWriteRotators(req, res)) return;
+    const userId = billingUserId(req);
     const id = req.params.id;
     const del = await systemPrisma.trafficRotator.deleteMany({ where: { id, userId } });
     if (del.count === 0) return res.status(404).json({ error: "Rotador não encontrado." });
+    const wid = await resolveWorkspaceIdForRequest(req);
+    if (wid) {
+      await appendWorkspaceAuditLog({
+        workspaceId: wid,
+        actorUserId: actorUserId(req),
+        action: "traffic_rotator.deleted",
+        resourceType: "traffic_rotator",
+        resourceId: id,
+      });
+    }
     res.status(204).end();
   },
 
   async abStats(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    const userId = billingUserId(req);
     const id = req.params.id?.trim();
     if (!id) return res.status(400).json({ error: "ID em falta." });
     const lookbackQ = z.coerce.number().int().min(1).max(730).optional().safeParse(req.query.lookback_days);
@@ -319,7 +373,8 @@ export const trafficRotatorsController = {
   },
 
   async promoteWinner(req: Request, res: Response) {
-    const userId = req.user!.userId;
+    if (await denyIfCannotWriteRotators(req, res)) return;
+    const userId = billingUserId(req);
     const id = req.params.id?.trim();
     if (!id) return res.status(400).json({ error: "ID em falta." });
     const bodySchema = z.object({

@@ -3,6 +3,7 @@ import { FileText, BarChart3, ArrowRight, Zap } from "lucide-react";
 import presellIcon from "@/assets/presell-icon.png";
 import trackingIcon from "@/assets/tracking-icon.png";
 import { PageHeader } from "@/components/PageHeader";
+import { DashboardUserGuide } from "@/components/DashboardUserGuide";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -18,6 +19,10 @@ export default function Home() {
           title="O que você deseja fazer?"
           description="Presell e rastreamento — escolha abaixo."
         />
+      </div>
+
+      <div className="w-full max-w-3xl self-center">
+        <DashboardUserGuide variant="home" />
       </div>
 
       <div className="grid w-full max-w-5xl grid-cols-1 gap-6 self-center md:grid-cols-2">

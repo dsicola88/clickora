@@ -31,6 +31,7 @@ import {
   hasLocalWebPushSubscription,
 } from "@/lib/webPushClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 
 function SectionShell({
@@ -66,7 +67,8 @@ function SectionShell({
 export default function Integrations() {
   const queryClient = useQueryClient();
   const apiBase = getApiBaseUrl();
-  const { isSuperAdmin, isAdmin } = useAuth();
+  const { user, isSuperAdmin, isAdmin } = useAuth();
+  const intLocked = !userCanWriteIntegrations(user);
 
   const [copiedCsv, setCopiedCsv] = useState(false);
   const [telegramTokenDraft, setTelegramTokenDraft] = useState("");
@@ -287,6 +289,13 @@ export default function Integrations() {
         </div>
       </div>
 
+      {intLocked ? (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4 max-w-3xl mx-auto">
+          O seu papel neste workspace não permite <strong>alterar integrações</strong> (Telegram, push, testes). Pode consultar;
+          peça permissão de membro ou a permissão extra «integrations:write» ao administrador.
+        </div>
+      ) : null}
+
       <Accordion type="multiple" defaultValue={["webpush", "google", "telegram"]} className="space-y-4">
         <AccordionItem value="webpush" className="border-0">
           <SectionShell accent="violet">
@@ -370,7 +379,7 @@ export default function Integrations() {
                       type="button"
                       className="gap-2"
                       disabled={
-                        !pushUiReady || isLocalPushOn || activateWebPush.isPending
+                        intLocked || !pushUiReady || isLocalPushOn || activateWebPush.isPending
                       }
                       onClick={() => activateWebPush.mutate()}
                     >
@@ -386,7 +395,7 @@ export default function Integrations() {
                       variant="secondary"
                       className="gap-2"
                       disabled={
-                        !pushUiReady || !isLocalPushOn || deactivateWebPush.isPending
+                        intLocked || !pushUiReady || !isLocalPushOn || deactivateWebPush.isPending
                       }
                       onClick={() => deactivateWebPush.mutate()}
                     >
@@ -399,7 +408,7 @@ export default function Integrations() {
                       type="button"
                       variant="outline"
                       className="gap-2"
-                      disabled={!pushUiReady || !isLocalPushOn || testWebPush.isPending}
+                      disabled={intLocked || !pushUiReady || !isLocalPushOn || testWebPush.isPending}
                       onClick={() => testWebPush.mutate()}
                     >
                       {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -624,6 +633,7 @@ export default function Integrations() {
                         autoComplete="off"
                         placeholder={telegram.has_bot_token ? "•••• token guardado — cole um novo para substituir" : "123456:ABC…"}
                         value={telegramTokenDraft}
+                        readOnly={intLocked}
                         onChange={(e) => setTelegramTokenDraft(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
@@ -636,6 +646,7 @@ export default function Integrations() {
                         id="tg-chat"
                         placeholder="-1001234567890"
                         value={telegramChatDraft}
+                        readOnly={intLocked}
                         onChange={(e) => setTelegramChatDraft(e.target.value)}
                       />
                     </div>
@@ -645,15 +656,15 @@ export default function Integrations() {
                     <p className="text-sm font-medium text-foreground">Notificações</p>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-sm text-muted-foreground">Nova venda (conversão registada)</span>
-                      <Switch checked={notifySale} onCheckedChange={setNotifySale} />
+                      <Switch checked={notifySale} disabled={intLocked} onCheckedChange={setNotifySale} />
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-sm text-muted-foreground">Problema no postback (clique inválido ou sem ID)</span>
-                      <Switch checked={notifyPostback} onCheckedChange={setNotifyPostback} />
+                      <Switch checked={notifyPostback} disabled={intLocked} onCheckedChange={setNotifyPostback} />
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-sm text-muted-foreground">Novo clique (pode gerar muito tráfego)</span>
-                      <Switch checked={notifyClick} onCheckedChange={setNotifyClick} />
+                      <Switch checked={notifyClick} disabled={intLocked} onCheckedChange={setNotifyClick} />
                     </div>
                   </div>
 
@@ -661,7 +672,7 @@ export default function Integrations() {
                     <Button
                       type="button"
                       className="gap-2"
-                      disabled={saveTelegram.isPending}
+                      disabled={intLocked || saveTelegram.isPending}
                       onClick={() => saveTelegram.mutate()}
                     >
                       {saveTelegram.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -671,7 +682,7 @@ export default function Integrations() {
                       type="button"
                       variant="secondary"
                       className="gap-2"
-                      disabled={!telegram.telegram_configured || testTelegram.isPending}
+                      disabled={intLocked || !telegram.telegram_configured || testTelegram.isPending}
                       onClick={() => testTelegram.mutate()}
                     >
                       {testTelegram.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -682,7 +693,7 @@ export default function Integrations() {
                         type="button"
                         variant="outline"
                         className="text-destructive border-destructive/30 hover:bg-destructive/5"
-                        disabled={clearTelegramToken.isPending}
+                        disabled={intLocked || clearTelegramToken.isPending}
                         onClick={() => clearTelegramToken.mutate()}
                       >
                         Remover token

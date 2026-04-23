@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link2, Copy, ExternalLink, Plus, Check } from "lucide-react";
+import { Link2, Copy, ExternalLink, Plus, Check, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { useAuth } from "@/contexts/AuthContext";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
+import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
 
 interface TrackingLink {
   id: string;
@@ -31,7 +33,7 @@ interface TrackingLink {
 
 export default function Links() {
   const { user } = useAuth();
-  const tenantKey = user?.id ?? "";
+  const tenantKey = tenantQueryKey(user);
   const [links, setLinks] = useState<TrackingLink[]>([]);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -41,8 +43,12 @@ export default function Links() {
   const [campaign, setCampaign] = useState("");
   const [utmTerm, setUtmTerm] = useState("");
   const [utmContent, setUtmContent] = useState("");
+  const [sub1, setSub1] = useState("");
+  const [sub2, setSub2] = useState("");
+  const [sub3, setSub3] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [macrosDialogOpen, setMacrosDialogOpen] = useState(false);
 
   const { data: presells = [] } = useQuery({
     queryKey: ["presells-links", tenantKey],
@@ -75,14 +81,16 @@ export default function Links() {
       return;
     }
 
-    const query = new URLSearchParams({
-      to: newUrl,
-      source,
-      medium,
-      campaign,
-      utm_term: utmTerm,
-      utm_content: utmContent,
-    });
+    const query = new URLSearchParams();
+    query.set("to", newUrl);
+    if (source.trim()) query.set("source", source.trim());
+    if (medium.trim()) query.set("medium", medium.trim());
+    if (campaign.trim()) query.set("campaign", campaign.trim());
+    if (utmTerm.trim()) query.set("utm_term", utmTerm.trim());
+    if (utmContent.trim()) query.set("utm_content", utmContent.trim());
+    if (sub1.trim()) query.set("sub1", sub1.trim());
+    if (sub2.trim()) query.set("sub2", sub2.trim());
+    if (sub3.trim()) query.set("sub3", sub3.trim());
     const trackingUrl = `${apiBase}/track/r/${selectedPresellId}?${query.toString()}`;
 
     const newLink: TrackingLink = {
@@ -100,6 +108,9 @@ export default function Links() {
     setCampaign("");
     setUtmTerm("");
     setUtmContent("");
+    setSub1("");
+    setSub2("");
+    setSub3("");
     setDialogOpen(false);
     toast.success("Link de tracking completo criado!");
   };
@@ -110,7 +121,16 @@ export default function Links() {
         title="Links"
         description="Redirect com UTMs. Query: sub1, sub2, sub3. Ou sufixe o caminho: …/track/r/{presellId}/fonte/campanha/criativo?to=… (drill-down estilo ClickMagick). Vários destinos, geo e A/B: Rotadores."
         actions={
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 border-violet-500/30 bg-violet-500/[0.06] hover:bg-violet-500/10"
+              onClick={() => setMacrosDialogOpen(true)}
+            >
+              <BookOpen className="h-4 w-4" /> Macros das redes
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
                 <Plus className="h-4 w-4" /> Novo Link
@@ -157,21 +177,67 @@ export default function Links() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>UTM Term</Label>
-                  <Input placeholder="keyword opcional" value={utmTerm} onChange={(e) => setUtmTerm(e.target.value)} />
+                  <Input
+                    placeholder="ex. {keyword} (Google/Bing)"
+                    value={utmTerm}
+                    onChange={(e) => setUtmTerm(e.target.value)}
+                    className="font-mono text-xs"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>UTM Content</Label>
-                  <Input placeholder="criativo opcional" value={utmContent} onChange={(e) => setUtmContent(e.target.value)} />
+                  <Input
+                    placeholder="ex. {{ad.name}} (Meta)"
+                    value={utmContent}
+                    onChange={(e) => setUtmContent(e.target.value)}
+                    className="font-mono text-xs"
+                  />
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label>Sub1</Label>
+                  <Input
+                    placeholder="macro ou texto"
+                    value={sub1}
+                    onChange={(e) => setSub1(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sub2</Label>
+                  <Input
+                    placeholder="opcional"
+                    value={sub2}
+                    onChange={(e) => setSub2(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sub3</Label>
+                  <Input
+                    placeholder="opcional"
+                    value={sub3}
+                    onChange={(e) => setSub3(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Use <button type="button" className="text-primary font-medium underline underline-offset-2" onClick={() => { setDialogOpen(false); setMacrosDialogOpen(true); }}>Macros das redes</button>{" "}
+                para copiar marcadores; cole-os acima (palavra-chave costuma ir em UTM Term).
+              </p>
               <Button onClick={handleCreate} className="w-full gradient-primary border-0 text-primary-foreground hover:opacity-90">
                 Criar Link
               </Button>
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
+
+      <AdNetworkTokensReferenceDialog open={macrosDialogOpen} onOpenChange={setMacrosDialogOpen} />
 
       <div className="space-y-3">
         {links.map((link) => (

@@ -24,7 +24,8 @@
     "db:railway:check": "sh scripts/railway-db-check-connection.sh",
     "test:custom-domain": "tsx scripts/test-custom-domain-flow.ts",
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
-    "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts"
+    "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts",
+    "test:unit": "node --import tsx --test src/lib/routingRules/evaluate.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

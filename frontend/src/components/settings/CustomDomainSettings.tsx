@@ -17,10 +17,11 @@ import {
   resolvePendingDnsForDisplay,
 } from "@/lib/customDomainDnsDisplay";
 import { CustomDomainDnsTable } from "@/components/settings/CustomDomainDnsTable";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
 
 export function CustomDomainSettings() {
   const { user } = useAuth();
-  const tenantKey = user?.id ?? "";
+  const tenantKey = tenantQueryKey(user);
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);

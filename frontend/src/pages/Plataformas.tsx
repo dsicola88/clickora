@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { integrationsService } from "@/services/integrationsService";
 import { useAuth } from "@/contexts/AuthContext";
+import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import {
@@ -32,6 +33,7 @@ import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
 
 export default function Plataformas() {
   const { user, refreshUser, isAdmin } = useAuth();
+  const intLocked = !userCanWriteIntegrations(user);
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState("BuyGoods");
@@ -147,6 +149,12 @@ export default function Plataformas() {
         description="Sincronize vendas da sua rede de afiliados com o dclickora: escolha a plataforma, configure o e-mail, copie o postback para a rede e teste. Depois disso, notificações e conversões ficam ligadas automaticamente."
       />
 
+      {intLocked ? (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">
+          Só pode <strong>consultar</strong> estes dados: alterar o e-mail de notificação ou testar envio requer permissão para integrações neste workspace.
+        </div>
+      ) : null}
+
       <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.07] via-card to-violet-500/[0.05] p-5 sm:p-6 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-4">
           <ListOrdered className="h-5 w-5 text-primary shrink-0" />
@@ -234,13 +242,14 @@ export default function Plataformas() {
                 type="email"
                 placeholder={info.fallback_account_email || "seu@email.com"}
                 value={emailField}
+                readOnly={intLocked}
                 onChange={(e) => setEmailField(e.target.value)}
               />
               <Button
                 type="button"
                 className="gap-2"
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
+                disabled={intLocked || saveMutation.isPending}
               >
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Guardar e-mail
@@ -273,7 +282,7 @@ export default function Plataformas() {
                     variant="default"
                     className="gap-2 shrink-0"
                     onClick={() => testMutation.mutate()}
-                    disabled={testMutation.isPending || !info.smtp_configured}
+                    disabled={intLocked || testMutation.isPending || !info.smtp_configured}
                   >
                     {testMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

@@ -26,6 +26,8 @@ export type TrafficRotatorDto = {
   sequence_cursor: number;
   access_code_set: boolean;
   is_active: boolean;
+  /** Política de regras (geo, horário, caps…); opcional. */
+  rules_policy: unknown | null;
   created_at: string;
   updated_at: string;
   arms: TrafficRotatorArmDto[];
@@ -52,6 +54,7 @@ export type CreateTrafficRotatorBody = {
   access_code?: string | null;
   is_active?: boolean;
   arms: TrafficRotatorArmInput[];
+  rules_policy?: unknown | null;
 };
 
 export type RotatorAbArmStats = {
