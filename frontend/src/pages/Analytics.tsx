@@ -8,9 +8,9 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -352,14 +352,18 @@ function GoogleAdsInsightsPanel() {
     <div className="space-y-5">
       <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="space-y-1.5 min-w-0 sm:w-44">
-              <Label className="text-xs font-medium text-muted-foreground">Data inicial</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full bg-background" />
-            </div>
-            <div className="space-y-1.5 min-w-0 sm:w-44">
-              <Label className="text-xs font-medium text-muted-foreground">Data final</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full bg-background" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:min-w-0">
+            <div className="space-y-1.5 w-full min-w-0 sm:max-w-md">
+              <Label className="text-xs font-medium text-muted-foreground">Período</Label>
+              <DateRangeFilter
+                from={from}
+                to={to}
+                onApply={(p) => {
+                  setFrom(p.from);
+                  setTo(p.to);
+                }}
+                showCompare
+              />
             </div>
             <Button
               type="button"

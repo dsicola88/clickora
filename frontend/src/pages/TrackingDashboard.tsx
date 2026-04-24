@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,6 +43,7 @@ import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DashboardUserGuide } from "@/components/DashboardUserGuide";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
 const GOOGLE_ADS_OAUTH_DOC = "https://developers.google.com/google-ads/api/docs/oauth/overview";
@@ -1147,9 +1148,7 @@ function DashboardHeroMetrics({
   periodLabel,
   startDate,
   endDate,
-  onStartChange,
-  onEndChange,
-  onReset30,
+  onDateRangeApply,
   greeting,
   adminExtras,
 }: {
@@ -1158,9 +1157,7 @@ function DashboardHeroMetrics({
   periodLabel: string | null;
   startDate: string;
   endDate: string;
-  onStartChange: (v: string) => void;
-  onEndChange: (v: string) => void;
-  onReset30: () => void;
+  onDateRangeApply: (p: { from: string; to: string }) => void;
   greeting: string;
   adminExtras?: ReactNode;
 }) {
@@ -1201,20 +1198,16 @@ function DashboardHeroMetrics({
             <strong className="text-foreground/90 font-medium">visão rápida por página</strong>, Analytics.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:max-w-xl">
-          <div className="grid flex-1 grid-cols-2 gap-2 sm:max-w-md">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">De</Label>
-              <Input type="date" value={startDate} onChange={(e) => onStartChange(e.target.value)} className="h-10" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Até</Label>
-              <Input type="date" value={endDate} onChange={(e) => onEndChange(e.target.value)} className="h-10" />
-            </div>
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:max-w-md lg:max-w-lg">
+          <div className="space-y-1.5 w-full min-w-0">
+            <Label className="text-xs text-muted-foreground">Período</Label>
+            <DateRangeFilter
+              from={startDate}
+              to={endDate}
+              onApply={(p) => onDateRangeApply({ from: p.from, to: p.to })}
+              showCompare
+            />
           </div>
-          <Button type="button" variant="outline" size="sm" className="h-10 w-full shrink-0 sm:w-auto" onClick={onReset30}>
-            Últimos 30 dias
-          </Button>
         </div>
       </div>
 
@@ -1383,28 +1376,6 @@ export default function TrackingDashboard() {
 
   const firstName = user?.name?.trim()?.split(/\s+/)[0];
   const integrationsLocked = !userCanWriteIntegrations(user);
-
-  const handleStartDateChange = useCallback(
-    (value: string) => {
-      setStartDate(value);
-      if (value > endDate) {
-        setEndDate(value);
-        toast.info("A data final foi ajustada: não pode ser anterior à inicial.");
-      }
-    },
-    [endDate],
-  );
-
-  const handleEndDateChange = useCallback(
-    (value: string) => {
-      setEndDate(value);
-      if (value < startDate) {
-        setStartDate(value);
-        toast.info("A data inicial foi ajustada: não pode ser posterior à final.");
-      }
-    },
-    [startDate],
-  );
 
   const { data: googleAds } = useQuery({
     queryKey: ["integrations-google-ads"],
@@ -1622,12 +1593,9 @@ export default function TrackingDashboard() {
           periodLabel={periodLabel}
           startDate={startDate}
           endDate={endDate}
-          onStartChange={handleStartDateChange}
-          onEndChange={handleEndDateChange}
-          onReset30={() => {
-            const r = defaultDateRange();
-            setStartDate(r.start);
-            setEndDate(r.end);
+          onDateRangeApply={({ from, to }) => {
+            setStartDate(from);
+            setEndDate(to);
           }}
           greeting={firstName ? `Olá, ${firstName}` : "Bem-vindo"}
         />
@@ -1790,12 +1758,9 @@ export default function TrackingDashboard() {
         periodLabel={periodLabel}
         startDate={startDate}
         endDate={endDate}
-        onStartChange={handleStartDateChange}
-        onEndChange={handleEndDateChange}
-        onReset30={() => {
-          const r = defaultDateRange();
-          setStartDate(r.start);
-          setEndDate(r.end);
+        onDateRangeApply={({ from, to }) => {
+          setStartDate(from);
+          setEndDate(to);
         }}
         greeting={firstName ? `Bem-vindo, ${firstName}` : "Bem-vindo ao rastreamento"}
         adminExtras={

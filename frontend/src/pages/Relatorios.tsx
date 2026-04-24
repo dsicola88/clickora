@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { analyticsService } from "@/services/analyticsService";
 import type { TrackingEvent } from "@/types/api";
@@ -281,19 +282,21 @@ export default function Relatorios() {
     second: "2-digit",
   });
 
-  const handleSearch = () => {
-    if (!startDate || !endDate) {
+  const applyDateRange = (from: string, to: string) => {
+    if (!from || !to) {
       toast.error("Selecione data inicial e final.");
       return;
     }
-    const a = new Date(startDate);
-    const b = new Date(endDate);
+    const a = new Date(from);
+    const b = new Date(to);
     if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || a > b) {
       toast.error("Intervalo de datas inválido.");
       return;
     }
+    setStartDate(from);
+    setEndDate(to);
     setPage(1);
-    setApplied({ from: startDate, to: endDate });
+    setApplied({ from, to });
   };
 
   const handleReset = () => {
@@ -622,21 +625,15 @@ export default function Relatorios() {
             </div>
           </>
         ) : null}
-        <div className="space-y-2 flex-1 min-w-[140px]">
-          <Label>Data inicial</Label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <div className="space-y-2 flex-1 min-w-[220px] max-w-sm">
+          <Label>Período</Label>
+          <DateRangeFilter
+            from={startDate}
+            to={endDate}
+            onApply={(p) => applyDateRange(p.from, p.to)}
+            showCompare
+          />
         </div>
-        <div className="space-y-2 flex-1 min-w-[140px]">
-          <Label>Data final</Label>
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </div>
-        <Button
-          type="button"
-          onClick={handleSearch}
-          className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
-        >
-          <Search className="h-4 w-4" /> Pesquisar
-        </Button>
         <Button type="button" variant="outline" className="gap-2" onClick={handleReset}>
           <RotateCcw className="h-4 w-4" /> Redefinir
         </Button>

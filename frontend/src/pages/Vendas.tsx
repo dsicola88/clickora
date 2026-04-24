@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Filter, Users, DollarSign, Info } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { rangeLast30Days } from "@/lib/dateRangePresets";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
@@ -17,8 +18,9 @@ const funnelChart: { x: number; visitantes: number; clicaram: number; abandonara
 const conversionChart: { name: string; pagos: number; organicos: number }[] = [];
 
 export default function Vendas() {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const initial = useMemo(() => rangeLast30Days(), []);
+  const [startDate, setStartDate] = useState(initial.from);
+  const [endDate, setEndDate] = useState(initial.to);
   const [keyword, setKeyword] = useState("all");
 
   return (
@@ -31,13 +33,18 @@ export default function Vendas() {
       {/* Date Filter + Keyword */}
       <div className="bg-foreground/95 rounded-xl p-6 shadow-card space-y-4">
         <div className="flex flex-col sm:flex-row items-end gap-4">
-          <div className="space-y-2 flex-1">
-            <Label className="text-background/70">Data inicial</Label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-background/10 border-background/20 text-background" />
-          </div>
-          <div className="space-y-2 flex-1">
-            <Label className="text-background/70">Data final</Label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-background/10 border-background/20 text-background" />
+          <div className="space-y-2 flex-1 min-w-0 max-w-sm">
+            <Label className="text-background/70">Período</Label>
+            <DateRangeFilter
+              from={startDate}
+              to={endDate}
+              variant="inverted"
+              onApply={(p) => {
+                setStartDate(p.from);
+                setEndDate(p.to);
+              }}
+              showCompare={false}
+            />
           </div>
           <div className="space-y-2 flex-1">
             <Label className="text-background/70">Palavra-chave</Label>

@@ -1,19 +1,20 @@
-import { useState } from "react";
-import { MousePointerClick, Eye, TrendingUp, FileText, ArrowUpRight, DollarSign, Filter, Tag, Globe } from "lucide-react";
+import { useMemo, useState } from "react";
+import { MousePointerClick, Eye, TrendingUp, FileText, ArrowUpRight, DollarSign, Tag, Globe } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { rangeLast30Days } from "@/lib/dateRangePresets";
 
 const chartData: { name: string; cliques: number; impressoes: number }[] = [];
 
 const recentPages: { name: string; clicks: number; ctr: string; status: string }[] = [];
 
 export default function Dashboard() {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const initial = useMemo(() => rangeLast30Days(), []);
+  const [startDate, setStartDate] = useState(initial.from);
+  const [endDate, setEndDate] = useState(initial.to);
 
   return (
     <div className={APP_PAGE_SHELL}>
@@ -28,18 +29,17 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-card rounded-xl p-5 shadow-card border border-border/50 space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">Selecione o intervalo desejado</h3>
-          <div className="flex items-end gap-3">
-            <div className="space-y-1 flex-1">
-              <Label className="text-xs">Data inicial</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div className="space-y-1 flex-1">
-              <Label className="text-xs">Data final</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-            <Button size="sm" className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
-              <Filter className="h-3.5 w-3.5" /> Pesquisar
-            </Button>
+          <div className="space-y-1 max-w-md">
+            <Label className="text-xs">Período</Label>
+            <DateRangeFilter
+              from={startDate}
+              to={endDate}
+              onApply={(p) => {
+                setStartDate(p.from);
+                setEndDate(p.to);
+              }}
+              showCompare={false}
+            />
           </div>
         </div>
 
