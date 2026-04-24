@@ -28,6 +28,8 @@ import {
   Calendar,
   KeyRound,
   Bell,
+  FlaskConical,
+  Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -114,6 +116,10 @@ export default function AdminPanel() {
   }, [tabParam, isSuperAdmin, navigate]);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  /** Filtros client-side na lista Assinantes (sem alterar API). */
+  const [userPlanFilter, setUserPlanFilter] = useState<"all" | "free_trial" | "other_plan">("all");
+  const [userStatusFilter, setUserStatusFilter] = useState<"all" | "active" | "suspended" | "other">("all");
+  const [userExpiringFilter, setUserExpiringFilter] = useState<"all" | "7d">("all");
   const [subscriptionUser, setSubscriptionUser] = useState<AdminUser | null>(null);
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
@@ -210,6 +216,7 @@ export default function AdminPanel() {
     mutationFn: ({ userId, planType }: { userId: string; planType: string }) => adminService.updateUserPlan(userId, planType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
       toast.success("Plano atualizado");
     },
     onError: () => toast.error("Erro ao alterar plano"),
@@ -233,9 +240,29 @@ export default function AdminPanel() {
   if (isLoading) return <LoadingState message="A carregar administradores…" />;
   if (isError) return <ErrorState message="Erro ao carregar dados do admin." onRetry={() => refetch()} />;
 
-  const filtered = users.filter(
-    (u) => u.email?.toLowerCase().includes(search.toLowerCase()) || u.full_name?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const nowRef = new Date();
+  const in7dRef = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase();
+    const textOk = u.email?.toLowerCase().includes(q) || u.full_name?.toLowerCase().includes(q);
+    if (!textOk) return false;
+
+    if (userPlanFilter === "free_trial" && u.plan_type !== "free_trial") return false;
+    if (userPlanFilter === "other_plan" && (u.plan_type === null || u.plan_type === "free_trial")) return false;
+
+    if (userStatusFilter === "active" && u.sub_status !== "active") return false;
+    if (userStatusFilter === "suspended" && u.sub_status !== "suspended") return false;
+    if (userStatusFilter === "other" && (u.sub_status === "active" || u.sub_status === "suspended")) return false;
+
+    if (userExpiringFilter === "7d") {
+      if (u.sub_status !== "active") return false;
+      const ends = u.sub_ends_at ? new Date(u.sub_ends_at) : null;
+      if (!ends || ends < nowRef || ends > in7dRef) return false;
+    }
+
+    return true;
+  });
 
   const chartSignups =
     overview?.signups_by_day.map((d) => ({
@@ -379,19 +406,37 @@ export default function AdminPanel() {
                   <CalendarClock className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
                   <p className="text-foreground/90">
                     <strong>{overview.subscriptions_expiring_14d}</strong> assinatura(s) ativa(s) com data de fim nos próximos 14 dias.
-                    Confirme em <span className="font-medium">Assinantes</span> (coluna &quot;Fim / expiração&quot;).
+                    Confirme em <span className="font-medium">Assinantes</span> (coluna &quot;Fim / expiração&quot; ou filtro &quot;Fim ≤7d&quot;).
                   </p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+              {(overview.trials_expiring_7d ?? 0) > 0 && (
+                <div className="flex items-start gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm">
+                  <Timer className="h-5 w-5 shrink-0 text-sky-800 dark:text-sky-300 mt-0.5" />
+                  <p className="text-foreground/90">
+                    <strong>{overview.trials_expiring_7d}</strong> teste(s) grátis ativo(s) com fim nos próximos 7 dias.
+                    Use o filtro <span className="font-medium">Plano: teste grátis</span> e <span className="font-medium">Fim em ≤7 dias</span> em{" "}
+                    <span className="font-medium">Assinantes</span>.
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { icon: Users, label: "Utilizadores", value: overview.total_users, sub: "contas" },
                   { icon: CheckCircle, label: "Assinaturas ativas", value: overview.active_users, sub: "subscrições" },
+                  { icon: FlaskConical, label: "Testes grátis ativos", value: overview.active_trials ?? 0, sub: "plano trial" },
+                  { icon: Timer, label: "Trials a expirar (7d)", value: overview.trials_expiring_7d ?? 0, sub: "ativos" },
                   { icon: FileText, label: "Presells", value: overview.total_presells, sub: "páginas" },
                   { icon: BarChart3, label: "Eventos", value: overview.total_events, sub: "tracking" },
-                  { icon: MousePointerClick, label: "Conversões (leads)", value: overview.total_conversions, sub: "total" },
-                  { icon: TrendingUp, label: "A expirar (14d)", value: overview.subscriptions_expiring_14d, sub: "ativas" },
+                  {
+                    icon: MousePointerClick,
+                    label: "Conversões (tracking)",
+                    value: overview.total_conversions,
+                    sub: "registadas nas presells",
+                  },
+                  { icon: TrendingUp, label: "A expirar (14d)", value: overview.subscriptions_expiring_14d, sub: "todas as ativas" },
                 ].map((k) => (
                   <Card key={k.label} className="border-border/80 shadow-sm">
                     <CardContent className="p-4">
@@ -524,8 +569,8 @@ export default function AdminPanel() {
 
                 <Card className="border-border/80">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Conversões / leads (30 dias)</CardTitle>
-                    <CardDescription>Vendas aprovadas registadas por dia</CardDescription>
+                    <CardTitle className="text-base">Conversões de tracking (30 dias)</CardTitle>
+                    <CardDescription>Eventos de conversão nas presells, por dia</CardDescription>
                   </CardHeader>
                   <CardContent className="h-64 pt-0">
                     <ResponsiveContainer width="100%" height="100%">
@@ -566,15 +611,77 @@ export default function AdminPanel() {
 
         {activeTab === "users" ? (
         <div className="space-y-4 mt-6">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar por e-mail ou nome…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+            <div className="relative w-full max-w-md flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por e-mail ou nome…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select
+              value={userPlanFilter}
+              onValueChange={(v) => setUserPlanFilter(v as typeof userPlanFilter)}
+            >
+              <SelectTrigger className="w-full sm:w-[200px] h-9 text-xs" aria-label="Filtrar por plano">
+                <SelectValue placeholder="Plano" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  Plano: todos
+                </SelectItem>
+                <SelectItem value="free_trial" className="text-xs">
+                  Plano: teste grátis
+                </SelectItem>
+                <SelectItem value="other_plan" className="text-xs">
+                  Plano: outros
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={userStatusFilter}
+              onValueChange={(v) => setUserStatusFilter(v as typeof userStatusFilter)}
+            >
+              <SelectTrigger className="w-full sm:w-[200px] h-9 text-xs" aria-label="Filtrar por estado da subscrição">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  Estado: todos
+                </SelectItem>
+                <SelectItem value="active" className="text-xs">
+                  Estado: ativa
+                </SelectItem>
+                <SelectItem value="suspended" className="text-xs">
+                  Estado: suspensa
+                </SelectItem>
+                <SelectItem value="other" className="text-xs">
+                  Estado: outro (cancel./expir./—)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={userExpiringFilter}
+              onValueChange={(v) => setUserExpiringFilter(v as typeof userExpiringFilter)}
+            >
+              <SelectTrigger className="w-full sm:w-[200px] h-9 text-xs" aria-label="Filtrar por data de fim">
+                <SelectValue placeholder="Expiração" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  Fim: qualquer
+                </SelectItem>
+                <SelectItem value="7d" className="text-xs">
+                  Fim em ≤7 dias (ativos)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Mostrando {filtered.length} de {users.length} utilizador(es) com os filtros atuais.
+          </p>
 
           <div className="rounded-xl border border-border bg-card overflow-x-auto shadow-sm">
             <Table>
@@ -588,7 +695,9 @@ export default function AdminPanel() {
                   <TableHead className="whitespace-nowrap">Fim / expiração</TableHead>
                   <TableHead className="text-right">Presells</TableHead>
                   <TableHead className="text-right">Eventos</TableHead>
-                  <TableHead className="text-right">Leads</TableHead>
+                  <TableHead className="text-right" title="Conversões de tracking (presells)">
+                    Conv.
+                  </TableHead>
                   <TableHead className="whitespace-nowrap">Alterar plano</TableHead>
                   <TableHead className="w-12 text-center">Datas</TableHead>
                   <TableHead className="w-12 text-center" title="Redefinir senha">

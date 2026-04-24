@@ -196,6 +196,10 @@ export interface AdminOverview {
   total_events: number;
   total_conversions: number;
   subscriptions_expiring_14d: number;
+  /** Subscrições ativas com plano de teste grátis (API recente). */
+  active_trials?: number;
+  /** Trials ativos com fim nos próximos 7 dias (API recente). */
+  trials_expiring_7d?: number;
   signups_by_day: { date: string; count: number }[];
   conversions_by_day: { date: string; count: number }[];
 }

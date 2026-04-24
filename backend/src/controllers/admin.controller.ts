@@ -184,12 +184,26 @@ export const adminController = {
 
     const now = new Date();
     const in14d = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    const expiringSoon = await prismaAdmin.subscription.count({
-      where: {
-        status: "active",
-        AND: [{ endsAt: { not: null } }, { endsAt: { lte: in14d, gte: now } }],
-      },
-    });
+    const in7d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const [expiringSoon, activeTrials, trialsExpiring7d] = await Promise.all([
+      prismaAdmin.subscription.count({
+        where: {
+          status: "active",
+          AND: [{ endsAt: { not: null } }, { endsAt: { lte: in14d, gte: now } }],
+        },
+      }),
+      prismaAdmin.subscription.count({
+        where: { status: "active", plan: { type: "free_trial" } },
+      }),
+      prismaAdmin.subscription.count({
+        where: {
+          status: "active",
+          plan: { type: "free_trial" },
+          AND: [{ endsAt: { not: null } }, { endsAt: { lte: in7d, gte: now } }],
+        },
+      }),
+    ]);
 
     res.json({
       total_users: totalUsers,
@@ -198,6 +212,8 @@ export const adminController = {
       total_events: totalEvents,
       total_conversions: totalConversions,
       subscriptions_expiring_14d: expiringSoon,
+      active_trials: activeTrials,
+      trials_expiring_7d: trialsExpiring7d,
       signups_by_day: seriesLast30DaysFromAggregate(signupRows),
       conversions_by_day: seriesLast30DaysFromAggregate(conversionRows),
     });
