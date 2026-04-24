@@ -130,6 +130,48 @@ function extractTagText(html: string, tag: string) {
   return cleanText(match?.[1] || "");
 }
 
+/**
+ * Mantém o comprimento do HTML para índices alinhados ao original (útil para marcar fim da dobra).
+ */
+function maskScriptsAndStylesPreservingLength(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, (m) => " ".repeat(m.length))
+    .replace(/<style[\s\S]*?<\/style>/gi, (m) => " ".repeat(m.length));
+}
+
+/**
+ * Índice onde termina aproximadamente a "primeira dobra": antes do rodapé / secções típicas de fim de página.
+ * Sem marcador confiável, limita aos primeiros ~55k após <body> (hero + galeria na maioria dos PDPs).
+ */
+function findFirstFoldCutIndex(html: string): number {
+  const masked = maskScriptsAndStylesPreservingLength(html);
+  const lower = masked.toLowerCase();
+  const bodyMatch = html.match(/<body[^>]*>/i);
+  const bodyStart = bodyMatch?.index != null ? bodyMatch.index + bodyMatch[0].length : 0;
+  const minContent = bodyStart + 800;
+  const softCap = Math.min(html.length, bodyStart + 55_000);
+
+  const candidates: number[] = [];
+  const add = (needle: string) => {
+    const i = lower.indexOf(needle, minContent);
+    if (i > 0) candidates.push(i);
+  };
+
+  add("<footer");
+  add("shopify-section-footer");
+  add("id=\"colophon\"");
+  add("site-footer");
+  add("<!-- wp:footer");
+
+  if (candidates.length === 0) return softCap;
+  return Math.min(...candidates, softCap);
+}
+
+function htmlFirstFold(html: string): string {
+  const cut = findFirstFoldCutIndex(html);
+  return html.slice(0, Math.min(cut, html.length));
+}
+
 function extractHeadings(html: string): string[] {
   const out: string[] = [];
   const re = /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi;
@@ -194,14 +236,20 @@ function isLikelyTrackingOrIcon(url: string) {
   return u.includes("facebook.com/tr") || u.includes("googleads") || u.includes("doubleclick") || u.includes("spacer.gif");
 }
 
-function extractImages(html: string, baseUrl: string) {
+/**
+ * @param metaHtml HTML completo (head) para og/twitter:image
+ * @param imgScanHtml Trecho da primeira dobra — só imagens desta zona entram na galeria (ordem do DOM)
+ */
+function extractImages(metaHtml: string, baseUrl: string, imgScanHtml: string) {
   const imageSet = new Set<string>();
-  const ogImage = extractMeta(html, "og:image");
+  const ogImage = extractMeta(metaHtml, "og:image");
   if (ogImage) imageSet.add(toAbsoluteUrl(ogImage, baseUrl));
+  const twImage = extractMeta(metaHtml, "twitter:image");
+  if (twImage) imageSet.add(toAbsoluteUrl(twImage, baseUrl));
 
   const imgTagRe = /<img[^>]*>/gi;
   let tagMatch: RegExpExecArray | null;
-  while ((tagMatch = imgTagRe.exec(html)) !== null && imageSet.size < 24) {
+  while ((tagMatch = imgTagRe.exec(imgScanHtml)) !== null && imageSet.size < 24) {
     const tag = tagMatch[0];
     const src = extractSrcFromImgTag(tag);
     if (!src || src.startsWith("data:") || isLikelyTrackingOrIcon(src)) continue;
@@ -773,9 +821,12 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     productName = brandFromHost;
   }
 
-  const headings = extractHeadings(html).filter((h) => !isPlaceholderHeading(h));
-  const paragraphs = extractParagraphs(html);
-  const listItems = extractListItemsFromHtml(html);
+  /** Conteúdo visível da primeira dobra — texto, listas, imagens inline e vídeo no hero. Metadados vêm do HTML completo. */
+  const foldHtml = htmlFirstFold(html);
+
+  const headings = extractHeadings(foldHtml).filter((h) => !isPlaceholderHeading(h));
+  const paragraphs = extractParagraphs(foldHtml);
+  const listItems = extractListItemsFromHtml(foldHtml);
 
   const ogDescription = extractMeta(html, "og:description");
   const metaDescription = extractMeta(html, "description");
@@ -788,8 +839,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   }
 
   const price = detectPrice(html);
-  const images = extractImages(html, finalUrl);
-  const video_url = extractVideoUrl(html, finalUrl);
+  const images = extractImages(html, finalUrl, foldHtml);
+  const video_url = extractVideoUrl(foldHtml, finalUrl);
 
   const metaTitleForHero = ogTitle || titleTag;
   const heroTitle = pickHeroTitle(headings, productName, metaTitleForHero);
