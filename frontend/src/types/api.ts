@@ -73,6 +73,8 @@ export interface UserPlan {
   /** Limite de domínios personalizados do plano (0 = só HTML/dclickora). */
   max_custom_domains?: number;
   has_branding: boolean;
+  /** Postback HTTP em Plataformas; controlado por plano (admin). */
+  affiliate_webhook_enabled?: boolean;
 }
 
 export interface Plan {
@@ -84,6 +86,8 @@ export interface Plan {
   max_clicks_per_month: number | null;
   max_custom_domains: number;
   has_branding: boolean;
+  /** Webhook de afiliados incluído neste plano (admin). */
+  affiliate_webhook_enabled?: boolean;
   features: string[];
   /** Se definido, texto do botão do cartão (sobreposta aos textos globais). */
   cta_label?: string | null;
@@ -110,6 +114,8 @@ export interface Presell {
   tracking: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  /** Só API pública: `true` = mostrar crédito dclickora no rodapé (plano com branding). */
+  footer_branding?: boolean;
 }
 
 export interface AnalyticsSummary {
@@ -178,6 +184,7 @@ export interface AdminPlanRow {
   max_clicks_per_month: number | null;
   max_custom_domains: number;
   has_branding: boolean;
+  affiliate_webhook_enabled?: boolean;
   features?: string[];
   cta_label?: string | null;
 }

@@ -4,6 +4,7 @@ import { systemPrisma } from "./prisma";
 const PLAN_COLUMNS_SQL = [
   `ALTER TABLE "plans" ADD COLUMN IF NOT EXISTS "cta_label" VARCHAR(160)`,
   `ALTER TABLE "plans" ADD COLUMN IF NOT EXISTS "max_custom_domains" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "plans" ADD COLUMN IF NOT EXISTS "affiliate_webhook_enabled" BOOLEAN NOT NULL DEFAULT false`,
 ] as const;
 
 const PLANS_LANDING_COLUMNS_SQL = [

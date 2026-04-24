@@ -127,47 +127,35 @@ const TRACKING_STEPS: GuideStep[] = [
 const HOME_STEPS: GuideStep[] = [
   {
     id: "home-1",
-    title: "Escolher o que fazer primeiro",
+    title: "Começar em 30 segundos",
     body: (
       <>
-        O <strong className="text-foreground">Criador de Presell</strong> serve para páginas e o link público <span className="font-mono text-[11px]">/p/…</span>.
-        O módulo <strong className="text-foreground">Rastreamento</strong> regista cliques, conversões, vendas de redes e ligação a anúncios.
+        <strong className="text-foreground">Presell</strong>: crie a página e use o link{" "}
+        <span className="font-mono text-[11px]">/p/…</span> nos anúncios — cliques e impressões já são contados.{" "}
+        <strong className="text-foreground">Assistente</strong> guia-o pelos passos (postback, anúncios) quando quiser.
       </>
     ),
     links: [
-      { to: "/presell/dashboard", label: "Ir para Presell" },
-      { to: "/tracking/dashboard", label: "Ir para Rastreamento" },
+      { to: "/presell/dashboard", label: "Presells" },
+      { to: "/tracking/setup-assistant", label: "Assistente" },
+      { to: "/tracking/dashboard", label: "Rastreamento" },
     ],
   },
   {
     id: "home-2",
-    title: "Presell + tracking",
+    title: "Quando precisar de mais",
     body: (
       <>
-        Com o link <span className="font-mono text-[11px]">/p/…</span>, o rastreamento base já vem na página publicada. No{" "}
-        <strong className="text-foreground">dashboard de Rastreamento</strong> use o script apenas para HTML alojado fora da app; aí copie e cole no{" "}
-        <span className="font-mono text-[11px]">head</span> ou antes de <span className="font-mono text-[11px]">&lt;/body&gt;</span>.
-      </>
-    ),
-    links: [{ to: "/tracking/dashboard", label: "Abrir dashboard de rastreamento" }],
-  },
-  {
-    id: "home-3",
-    title: "Passo a passo, macros e relatórios",
-    body: (
-      <>
-        No <strong className="text-foreground">dashboard de Rastreamento</strong> há o guia em passos (script, links, plataformas, integrações).
-        Para <strong className="text-foreground">palavra-chave e parâmetros dinâmicos</strong> das redes, use{" "}
-        <strong className="text-foreground">Links</strong> ou o <strong className="text-foreground">Construtor de URL</strong> (macros). O
-        <strong className="text-foreground"> guia completo no painel</strong> (passo a passo) está em{" "}
-        <span className="text-foreground">Ajuda</span> — quem quiser ainda pode abrir o artigo longo (SEO) no site.
+        Script no <span className="font-mono text-[11px]">&lt;head&gt;</span> só se publicar o HTML <strong className="text-foreground">fora</strong>{" "}
+        da app. Macros das redes (keyword, criativo) em <strong className="text-foreground">Links</strong> ou{" "}
+        <strong className="text-foreground">Construtor de URL</strong> — estão também no menu, em{" "}
+        <strong className="text-foreground">Mais ferramentas</strong>. Detalhes: <strong className="text-foreground">Aprender</strong>.
       </>
     ),
     links: [
-      { to: "/ajuda", label: "Aprender (centro de ajuda)" },
-      { to: "/tracking/dashboard", label: "Dashboard de rastreamento" },
-      { to: "/tracking/links", label: "Links e macros" },
-      { to: "/guia-vendas-afiliados", label: "Artigo longo (público)" },
+      { to: "/ajuda", label: "Aprender" },
+      { to: "/tracking/links", label: "Links" },
+      { to: "/guia-vendas-afiliados", label: "Guia longo (site)" },
     ],
   },
 ];
@@ -227,10 +215,12 @@ export function DashboardUserGuide({ variant = "tracking", className, allowDismi
               <BookOpen className="h-5 w-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <h2 className="text-base font-semibold leading-tight text-foreground">Guia rápido — do clique à venda</h2>
+              <h2 className="text-base font-semibold leading-tight text-foreground">
+                {variant === "home" ? "Bem-vindo — por onde começo?" : "Guia rápido — do clique à venda"}
+              </h2>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {variant === "home"
-                  ? "Resumo para começar. Rastreamento, links com UTMs e macros das redes estão a um clique."
+                  ? "Só precisa dos cartões abaixo. O resto fica no menu quando avançar."
                   : "Ordem sugerida: medição (script só se a página for externa ao /p/…) → URLs e macros (keyword em utm_term / sub1–3) → postbacks → integrações → anúncios → relatórios. Expanda cada passo quando precisar."}
               </p>
             </div>

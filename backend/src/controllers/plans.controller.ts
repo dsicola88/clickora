@@ -91,6 +91,11 @@ export const plansController = {
                 : null,
           }),
           has_branding: p.hasBranding,
+          affiliate_webhook_enabled:
+            "affiliateWebhookEnabled" in p &&
+            typeof (p as { affiliateWebhookEnabled?: unknown }).affiliateWebhookEnabled === "boolean"
+              ? (p as { affiliateWebhookEnabled: boolean }).affiliateWebhookEnabled
+              : false,
           features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
           cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
           /** Checkout Hotmart (ou URL pública); visitante pode ir direto sem login — o webhook ativa a assinatura. */

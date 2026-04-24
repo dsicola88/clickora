@@ -262,6 +262,8 @@ model Plan {
   maxPresellPages  Int?     @map("max_presell_pages")
   maxClicksPerMonth Int?    @map("max_clicks_per_month")
   hasBranding      Boolean  @default(true) @map("has_branding")
+  /** Postback HTTP (Integrações → Plataformas): activo por plano; admin pode alterar. */
+  affiliateWebhookEnabled Boolean @default(false) @map("affiliate_webhook_enabled")
   /** Domínios personalizados permitidos (0 = só HTML/dclickora; anual típico = 2). */
   maxCustomDomains Int      @default(0) @map("max_custom_domains")
   features         Json     @default("[]")

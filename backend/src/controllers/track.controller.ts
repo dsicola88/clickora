@@ -16,6 +16,11 @@ import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
 import { billingUserId } from "../lib/requestContext";
+import {
+  voluumStyleMetadata,
+  voluumStyleMetadataFromExpressQuery,
+  voluumStyleQuerySchema,
+} from "../lib/voluumStyleTrackingParams";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -57,28 +62,30 @@ const eventSchema = z.object({
   referrer: z.string().optional(),
 });
 
-const redirectSchema = z.object({
-  to: z.string().url(),
-  source: z.string().optional(),
-  medium: z.string().optional(),
-  campaign: z.string().optional(),
-  referrer: z.string().optional(),
-  utm_source: z.string().optional(),
-  gclid: z.string().optional(),
-  gbraid: z.string().optional(),
-  wbraid: z.string().optional(),
-  fbclid: z.string().optional(),
-  ttclid: z.string().optional(),
-  utm_term: z.string().optional(),
-  utm_content: z.string().optional(),
-  msclkid: z.string().optional(),
-  /** Cookie Meta _fbp (opcional) — pode vir em query se o lander o passar. */
-  fbp: z.string().optional(),
-  /** Sub-IDs (estilo ClickMagick) para segmentar fontes no relatório. */
-  sub1: z.string().max(512).optional(),
-  sub2: z.string().max(512).optional(),
-  sub3: z.string().max(512).optional(),
-});
+const redirectSchema = z
+  .object({
+    to: z.string().url(),
+    source: z.string().optional(),
+    medium: z.string().optional(),
+    campaign: z.string().optional(),
+    referrer: z.string().optional(),
+    utm_source: z.string().optional(),
+    gclid: z.string().optional(),
+    gbraid: z.string().optional(),
+    wbraid: z.string().optional(),
+    fbclid: z.string().optional(),
+    ttclid: z.string().optional(),
+    utm_term: z.string().optional(),
+    utm_content: z.string().optional(),
+    msclkid: z.string().optional(),
+    /** Cookie Meta _fbp (opcional) — pode vir em query se o lander o passar. */
+    fbp: z.string().optional(),
+    /** Sub-IDs (estilo ClickMagick) para segmentar fontes no relatório. */
+    sub1: z.string().max(512).optional(),
+    sub2: z.string().max(512).optional(),
+    sub3: z.string().max(512).optional(),
+  })
+  .merge(voluumStyleQuerySchema);
 
 /** Query pública do rotador: mesma atribuição que o redirect, sem `to`; opcional `access_code`. */
 const rotatorPublicQuerySchema = redirectSchema
@@ -147,6 +154,7 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
     ...(sub1 ? { sub1 } : {}),
     ...(sub2 ? { sub2 } : {}),
     ...(sub3 ? { sub3 } : {}),
+    ...voluumStyleMetadataFromExpressQuery(query),
   });
   return { referrer, source, medium, campaign, metadata };
 }
@@ -199,6 +207,7 @@ export const trackController = {
       pathSub,
     );
     const pathMetaJson = pathSubForMetadata(pathMeta) as Record<string, string | string[]>;
+    const voluumMeta = voluumStyleMetadata(parsed.data);
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -258,6 +267,7 @@ export const trackController = {
             ...(sub2 ? { sub2 } : {}),
             ...(sub3 ? { sub3 } : {}),
             ...pathMetaJson,
+            ...voluumMeta,
             ...botMeta,
           } as Prisma.InputJsonValue,
         },
@@ -324,6 +334,7 @@ export const trackController = {
       rPathSub,
     );
     const rotPathMetaJson = pathSubForMetadata(rotPathMeta) as Record<string, string | string[]>;
+    const rotVoluumMeta = voluumStyleMetadata(q);
 
     const rot = await systemPrisma.trafficRotator.findFirst({
       where: { id: rotatorId, isActive: true },
@@ -420,6 +431,7 @@ export const trackController = {
           ...(sub2 ? { sub2 } : {}),
           ...(sub3 ? { sub3 } : {}),
           ...rotPathMetaJson,
+          ...rotVoluumMeta,
           ...rotBotMeta,
         } as Prisma.InputJsonValue,
       },

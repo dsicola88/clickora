@@ -32,7 +32,16 @@ function normalizeUuid(raw: string | undefined): string | null {
  * Aceita aliases comuns das redes (subid1, click_id, etc.) se forem UUID.
  */
 export function extractClickIdFromPayload(flat: Record<string, string>): string | null {
-  const keysExact = ["clickora_click_id", "click_id", "clickId", "CLICK_ID"];
+  const keysExact = [
+    "clickora_click_id",
+    "click_id",
+    "clickId",
+    "CLICK_ID",
+    "cid",
+    "CID",
+    "clickid",
+    "CLICKID",
+  ];
   for (const k of keysExact) {
     const id = normalizeUuid(flat[k]);
     if (id) return id;

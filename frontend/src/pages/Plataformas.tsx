@@ -32,8 +32,11 @@ import {
 import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
 
 export default function Plataformas() {
-  const { user, refreshUser, isAdmin } = useAuth();
+  const { user, refreshUser, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const intLocked = !userCanWriteIntegrations(user);
+  /** Reservado a planos com flag no admin; super_admin ignora para suporte. */
+  const hookPlanDenied =
+    !isSuperAdmin && Boolean(user?.plan && user.plan.affiliate_webhook_enabled === false);
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState("BuyGoods");
@@ -49,6 +52,7 @@ export default function Plataformas() {
     refetch,
   } = useQuery({
     queryKey: ["integrations-affiliate-webhook-info"],
+    enabled: !authLoading && !hookPlanDenied,
     queryFn: async () => {
       const { data, error: err } = await integrationsService.getAffiliateWebhookInfo();
       if (err) throw new Error(err);
@@ -129,6 +133,32 @@ export default function Plataformas() {
     toast.success("URL de exemplo (com macros) copiada!");
     setTimeout(() => setCopiedExample(false), 2000);
   }, [examplePostbackUrl]);
+
+  if (authLoading) return <LoadingState message="A carregar sessão…" />;
+
+  if (hookPlanDenied) {
+    return (
+      <div className={APP_PAGE_SHELL}>
+        <PageHeader
+          title="Plataformas"
+          description="Postback HTTP da rede de afiliados para registar vendas aprovadas no dclickora."
+        />
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
+          <p className="flex items-center gap-2 font-medium">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+            Webhook de afiliados não está activo no seu plano
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            O URL de postback e a documentação por rede estão disponíveis nos planos que incluem esta funcionalidade.
+            Um administrador pode também activar a opção «Webhook de afiliados» no seu plano no painel de administração.
+          </p>
+          <Button variant="secondary" size="sm" asChild>
+            <Link to="/planos">Ver planos e preços</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingState message="Carregando integrações..." />;
   if (isError) {

@@ -102,7 +102,7 @@ export const presellController = {
     /** Rota pública sem JWT / ALS — usar systemPrisma com filtro explícito por id. */
     const page = await systemPrisma.presellPage.findFirst({
       where: { id },
-      include: { user: { include: { subscription: true } } },
+      include: { user: { include: { subscription: { include: { plan: true } } } } },
     });
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -125,7 +125,7 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    return res.json(mapPresell(page));
+    return res.json(mapPresellForPublic(page));
   },
 
   /**
@@ -163,7 +163,7 @@ export const presellController = {
         status: "published",
         slug: { equals: slug, mode: "insensitive" },
       },
-      include: { user: { include: { subscription: true } } },
+      include: { user: { include: { subscription: { include: { plan: true } } } } },
     });
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -174,7 +174,7 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    return res.json(mapPresell(page));
+    return res.json(mapPresellForPublic(page));
   },
 
   /**
@@ -586,4 +586,15 @@ function mapPresell(p: PresellPage) {
     created_at: p.createdAt?.toISOString?.() || p.createdAt,
     updated_at: p.updatedAt?.toISOString?.() || p.updatedAt,
   };
+}
+
+type PresellPageWithOwnerPlan = Prisma.PresellPageGetPayload<{
+  include: { user: { include: { subscription: { include: { plan: true } } } } };
+}>;
+
+/** Resposta pública: inclui se deve mostrar crédito «dclickora» no rodapé (plano com hasBranding). */
+function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
+  const plan = page.user?.subscription?.plan;
+  const footerBranding = plan?.hasBranding ?? true;
+  return { ...mapPresell(page), footer_branding: footerBranding };
 }

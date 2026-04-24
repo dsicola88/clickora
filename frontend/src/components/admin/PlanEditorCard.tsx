@@ -25,6 +25,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
   const [maxClicks, setMaxClicks] = useState(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
   const [maxCustomDomains, setMaxCustomDomains] = useState(String(plan.max_custom_domains ?? 0));
   const [hasBranding, setHasBranding] = useState(plan.has_branding);
+  const [affiliateWebhook, setAffiliateWebhook] = useState(plan.affiliate_webhook_enabled ?? false);
   const [featuresText, setFeaturesText] = useState(() => (plan.features ?? []).join("\n"));
   const [ctaLabel, setCtaLabel] = useState(plan.cta_label ?? "");
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
     setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
     setHasBranding(plan.has_branding);
+    setAffiliateWebhook(plan.affiliate_webhook_enabled ?? false);
     setFeaturesText((plan.features ?? []).join("\n"));
     setCtaLabel(plan.cta_label ?? "");
   }, [plan]);
@@ -47,6 +49,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
     setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
     setHasBranding(plan.has_branding);
+    setAffiliateWebhook(plan.affiliate_webhook_enabled ?? false);
     setFeaturesText((plan.features ?? []).join("\n"));
     setCtaLabel(plan.cta_label ?? "");
   };
@@ -96,6 +99,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
         max_clicks_per_month,
         max_custom_domains: mcd,
         has_branding: hasBranding,
+        affiliate_webhook_enabled: affiliateWebhook,
         features,
         cta_label: ctaLabel.trim() === "" ? null : ctaLabel.trim(),
       });
@@ -189,6 +193,17 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
             Branding nas presells
           </Label>
           <Switch id={`br-${plan.id}`} checked={hasBranding} onCheckedChange={setHasBranding} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
+          <div className="pr-3">
+            <Label htmlFor={`wh-${plan.id}`} className="cursor-pointer">
+              Webhook de afiliados (Plataformas)
+            </Label>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              Postback HTTP para fechar vendas com o clique. Desligado = URL e chamadas recusadas para contas neste plano.
+            </p>
+          </div>
+          <Switch id={`wh-${plan.id}`} checked={affiliateWebhook} onCheckedChange={setAffiliateWebhook} />
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={reset} disabled={loading}>

@@ -22,7 +22,7 @@ type Props = {
 
 /**
  * Referência tipo ClickMagick: pesquisar e copiar macros por rede.
- * No redirect `/track/r/…` use chaves aceites pelo servidor: utm_term (keyword), utm_content, campaign, sub1–sub3, gclid, etc.
+ * No redirect `/track/r/…` use chaves aceites pelo servidor: utm_term (keyword), utm_content, campaign, sub1–sub3, gclid, cost, externalid, var1–var10, clickid/cid (tipo Voluum), etc.
  */
 export function AdNetworkTokensReferenceDialog({ open, onOpenChange, boostPlatformLabel }: Props) {
   const sections = useMemo(() => {
@@ -54,7 +54,9 @@ export function AdNetworkTokensReferenceDialog({ open, onOpenChange, boostPlatfo
             valor real no clique. No link <span className="font-mono text-[11px]">/track/r/…</span> mapeie palavra-chave para{" "}
             <span className="font-mono text-[11px]">utm_term</span>, criativos para{" "}
             <span className="font-mono text-[11px]">utm_content</span>, extras para{" "}
-            <span className="font-mono text-[11px]">sub1</span>–<span className="font-mono text-[11px]">sub3</span>.
+            <span className="font-mono text-[11px]">sub1</span>–<span className="font-mono text-[11px]">sub3</span>, ou{" "}
+            <span className="font-mono text-[11px]">cost</span> / <span className="font-mono text-[11px]">var1</span>…
+            <span className="font-mono text-[11px]">var10</span> como em trackers tipo Voluum.
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-6 flex-1 min-h-0 flex flex-col gap-3">

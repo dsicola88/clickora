@@ -78,6 +78,10 @@ export type PresellUiStrings = {
   midCta: string;
   /** Texto neutro para o visitante (sem mencionar afiliado ou rastreamento). */
   footerNote: string;
+  /** Texto antes do link da marca (ex.: "Presell e rastreamento com "). */
+  footerBrandingPrefix: string;
+  /** Texto após o link da marca (geralmente vazio). */
+  footerBrandingSuffix: string;
   discountUrgency: string;
   discountSocial: string;
   presentationLabel: string;

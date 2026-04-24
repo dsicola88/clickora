@@ -21,6 +21,7 @@ const updatePlanSchema = z.object({
   max_clicks_per_month: z.number().int().min(0).nullable().optional(),
   max_custom_domains: z.number().int().min(0).max(50).optional(),
   has_branding: z.boolean().optional(),
+  affiliate_webhook_enabled: z.boolean().optional(),
   features: z.array(z.string().max(500)).max(50).optional(),
   cta_label: z.union([z.string().trim().min(1).max(160), z.null()]).optional(),
 });
@@ -98,6 +99,7 @@ export const adminController = {
       maxPresellPages: number | null;
       maxClicksPerMonth: number | null;
       hasBranding: boolean;
+      affiliateWebhookEnabled?: boolean;
       features: unknown;
       ctaLabel?: string | null;
     }>;
@@ -140,6 +142,10 @@ export const adminController = {
               : null,
         }),
         has_branding: p.hasBranding,
+        affiliate_webhook_enabled:
+          "affiliateWebhookEnabled" in p && typeof (p as { affiliateWebhookEnabled?: unknown }).affiliateWebhookEnabled === "boolean"
+            ? (p as { affiliateWebhookEnabled: boolean }).affiliateWebhookEnabled
+            : false,
         features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
         cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
       })),
@@ -274,6 +280,7 @@ export const adminController = {
       p.max_clicks_per_month === undefined &&
       p.max_custom_domains === undefined &&
       p.has_branding === undefined &&
+      p.affiliate_webhook_enabled === undefined &&
       p.features === undefined &&
       p.cta_label === undefined
     ) {
@@ -289,6 +296,9 @@ export const adminController = {
         ...(p.max_clicks_per_month !== undefined ? { maxClicksPerMonth: p.max_clicks_per_month } : {}),
         ...(p.max_custom_domains !== undefined ? { maxCustomDomains: p.max_custom_domains } : {}),
         ...(p.has_branding !== undefined ? { hasBranding: p.has_branding } : {}),
+        ...(p.affiliate_webhook_enabled !== undefined
+          ? { affiliateWebhookEnabled: p.affiliate_webhook_enabled }
+          : {}),
         ...(p.features !== undefined ? { features: p.features } : {}),
         ...(p.cta_label !== undefined ? { ctaLabel: p.cta_label } : {}),
       },

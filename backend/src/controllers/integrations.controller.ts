@@ -37,15 +37,31 @@ import {
   verifyGoogleAdsOAuthState,
 } from "../lib/googleAdsOAuthFlow";
 import { actorUserId, billingUserId } from "../lib/requestContext";
+import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
 });
 
+async function subscriptionPlanForWebhookGate(userId: string) {
+  return systemPrisma.subscription.findUnique({
+    where: { userId },
+    include: { plan: true },
+  });
+}
+
 export const integrationsController = {
   /** URL do webhook + estado (autenticado). */
   async getAffiliateWebhookInfo(req: Request, res: Response) {
     const userId = billingUserId(req);
+    const sub = await subscriptionPlanForWebhookGate(userId);
+    if (!planAllowsAffiliateWebhook(sub?.plan)) {
+      return res.status(403).json({
+        error:
+          "Webhook de afiliados não está activo no seu plano. Faça upgrade ou peça ao administrador para activar esta opção no plano.",
+        code: "AFFILIATE_WEBHOOK_PLAN",
+      });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { saleNotifyEmail: true, email: true },
@@ -72,6 +88,14 @@ export const integrationsController = {
     const tokenRaw = req.query.token?.toString();
     const decoded = tokenRaw ? verifyPostbackToken(tokenRaw) : null;
     if (!decoded) return res.status(401).json({ error: "Token inválido ou ausente" });
+
+    const subGate = await subscriptionPlanForWebhookGate(decoded.userId);
+    if (!planAllowsAffiliateWebhook(subGate?.plan)) {
+      return res.status(403).json({
+        error: "Webhook de afiliados não está activo para esta conta.",
+        code: "AFFILIATE_WEBHOOK_PLAN",
+      });
+    }
 
     const user = await systemPrisma.user.findUnique({
       where: { id: decoded.userId },

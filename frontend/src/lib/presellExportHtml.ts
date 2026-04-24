@@ -134,6 +134,8 @@ const EXPORT_STYLES = `
 .pe-footer-sec{max-width:48rem;margin:0 auto;padding:1.5rem .75rem 3rem;}
 .pe-footer-box{border-radius:1rem;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.5);backdrop-filter:blur(2px);padding:2rem 1.25rem;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05);}
 .pe-footnote{font-size:.8rem;color:#64748b;margin:.75rem auto 0;max-width:28rem;line-height:1.6;}
+.pe-footer-branding{font-size:.7rem;color:#94a3b8;margin:.75rem auto 0;max-width:28rem;line-height:1.5;padding-top:.75rem;border-top:1px solid rgba(0,0,0,.08);}
+.pe-footer-branding a{color:#475569;font-weight:500;}
 .pe-gate-box{width:100%;max-width:32rem;margin:0 auto 1.5rem;padding:1.25rem;border-radius:.75rem;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.8);text-align:left;box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .pe-gate-box > p:first-child{font-size:.875rem;font-weight:600;margin:0 0 1rem;}
 .pe-gate-box label{display:block;font-size:.875rem;margin-bottom:.35rem;}
@@ -611,7 +613,12 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     salesSection = letterParts.join("\n");
   }
 
-  const footerSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(getPresellUiStrings(page.language).footerNote)}</p></div></section>`;
+  const L = getPresellUiStrings(page.language);
+  const brandingLine =
+    page.footer_branding === true
+      ? `<p class="pe-footer-branding">${escapeHtml(L.footerBrandingPrefix)}<a href="https://www.dclickora.com" target="_blank" rel="noopener noreferrer">dclickora</a>${escapeHtml(L.footerBrandingSuffix)}</p>`
+      : "";
+  const footerSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}</div></section>`;
 
   let core = "";
   if (gateKind === "cookies") {

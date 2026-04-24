@@ -53,6 +53,7 @@ export const adminService = {
       max_clicks_per_month?: number | null;
       max_custom_domains?: number;
       has_branding?: boolean;
+      affiliate_webhook_enabled?: boolean;
       features?: string[];
       cta_label?: string | null;
     },

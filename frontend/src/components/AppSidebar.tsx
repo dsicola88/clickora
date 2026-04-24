@@ -28,6 +28,7 @@ import {
   LogIn,
   LogOut,
   User,
+  Wrench,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -64,8 +65,14 @@ type NavItem = {
   hint?: string;
 };
 
-const presellNavItems: NavItem[] = [
+/** Caminho principal: criar e publicar presells. */
+const presellNavEssential: NavItem[] = [
   { title: "Minhas Presells", url: "/presell/dashboard", icon: FileText },
+  { title: "Templates", url: "/presell/templates", icon: Sparkles },
+];
+
+/** Editor manual e lista de páginas — útil, mas secundário para quem só usa presell guiada. */
+const presellNavAdvanced: NavItem[] = [
   {
     title: "Páginas criadas",
     url: "/presell/paginas-criadas",
@@ -78,10 +85,10 @@ const presellNavItems: NavItem[] = [
     icon: LayoutGrid,
     hint: "Construtor visual de páginas; a página pública usa o mesmo link /p/… que as presells automáticas.",
   },
-  { title: "Templates", url: "/presell/templates", icon: Sparkles },
 ];
 
-const trackingNavItems: NavItem[] = [
+/** O que a maioria usa no dia a dia. */
+const trackingNavEssential: NavItem[] = [
   {
     title: "Assistente",
     url: "/tracking/setup-assistant",
@@ -113,16 +120,19 @@ const trackingNavItems: NavItem[] = [
     hint: "Tabelas com filtro por data: impressões, cliques e conversões (mais detalhe).",
   },
   {
-    title: "Analytics",
-    url: "/tracking/analytics",
-    icon: BarChart3,
-    hint: "Visão rápida: totais e gráfico por presell. Para listagens por data, use Relatórios.",
-  },
-  {
     title: "Links",
     url: "/tracking/links",
     icon: Link2,
     hint: "Gerar links de redirect com UTMs ligados à presell.",
+  },
+];
+
+const trackingNavAdvanced: NavItem[] = [
+  {
+    title: "Analytics",
+    url: "/tracking/analytics",
+    icon: BarChart3,
+    hint: "Visão rápida: totais e gráfico por presell. Para listagens por data, use Relatórios.",
   },
   {
     title: "Rotadores",
@@ -168,23 +178,22 @@ const trackingNavItems: NavItem[] = [
   },
 ];
 
-function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
+function isActiveSubPath(item: NavItem, path: string): boolean {
+  if (path === item.url) return true;
+  if (item.url === "/presell/builder" && path.startsWith("/presell/builder")) return true;
+  if (item.url === "/tracking/relatorios" && path.startsWith("/tracking/relatorios")) return true;
+  if (item.url === "/tracking/analytics" && path.startsWith("/tracking/analytics")) return true;
+  if (item.url === "/presell/templates" && path.startsWith("/presell/templates")) return true;
+  if (item.url === "/tracking/tools" && path.startsWith("/tracking/tools")) return true;
+  return false;
+}
+
+function SubNavLinkRows({ items, path }: { items: NavItem[]; path: string }) {
   return (
-    <SidebarMenuSub>
+    <>
       {items.map((item) => (
         <SidebarMenuSubItem key={item.url}>
-          <SidebarMenuSubButton
-            asChild
-            isActive={
-              path === item.url ||
-              (item.url === "/presell/builder" && path.startsWith("/presell/builder")) ||
-              (item.url === "/tracking/relatorios" && path.startsWith("/tracking/relatorios")) ||
-              (item.url === "/tracking/analytics" && path.startsWith("/tracking/analytics")) ||
-              (item.url === "/presell/templates" && path.startsWith("/presell/templates")) ||
-              (item.url === "/tracking/tools" && path.startsWith("/tracking/tools"))
-            }
-            size="md"
-          >
+          <SidebarMenuSubButton asChild isActive={isActiveSubPath(item, path)} size="md">
             <NavLink
               to={item.url}
               end={item.url !== "/presell/builder" && item.url !== "/presell/templates"}
@@ -199,6 +208,115 @@ function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>
       ))}
+    </>
+  );
+}
+
+function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
+  return (
+    <SidebarMenuSub>
+      <SubNavLinkRows items={items} path={path} />
+    </SidebarMenuSub>
+  );
+}
+
+function PresellNavWithAdvanced({
+  path,
+  collapsed,
+  advancedOpen,
+  onAdvancedOpenChange,
+}: {
+  path: string;
+  collapsed: boolean;
+  advancedOpen: boolean;
+  onAdvancedOpenChange: (open: boolean) => void;
+}) {
+  if (collapsed) {
+    return <SubNavLinks items={[...presellNavEssential, ...presellNavAdvanced]} path={path} />;
+  }
+  return (
+    <SidebarMenuSub>
+      <SubNavLinkRows items={presellNavEssential} path={path} />
+      <SidebarMenuSubItem>
+        <Collapsible open={advancedOpen} onOpenChange={onAdvancedOpenChange}>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuSubButton
+              className="text-sidebar-foreground/70 hover:text-sidebar-accent-foreground w-full"
+              isActive={
+                path.startsWith("/presell/paginas-criadas") || path.startsWith("/presell/builder")
+              }
+            >
+              <Wrench className="h-4 w-4 shrink-0" />
+              <span className="truncate">Páginas e editor</span>
+              <ChevronRight
+                className={cn(
+                  "ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/50 transition-transform duration-200",
+                  advancedOpen && "rotate-90",
+                )}
+              />
+            </SidebarMenuSubButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="data-[state=closed]:animate-none">
+            <SidebarMenuSub className="mx-0 mt-0.5 border-l border-sidebar-border pl-2">
+              <SubNavLinkRows items={presellNavAdvanced} path={path} />
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </Collapsible>
+      </SidebarMenuSubItem>
+    </SidebarMenuSub>
+  );
+}
+
+function TrackingNavWithAdvanced({
+  path,
+  collapsed,
+  advancedOpen,
+  onAdvancedOpenChange,
+}: {
+  path: string;
+  collapsed: boolean;
+  advancedOpen: boolean;
+  onAdvancedOpenChange: (open: boolean) => void;
+}) {
+  if (collapsed) {
+    return <SubNavLinks items={[...trackingNavEssential, ...trackingNavAdvanced]} path={path} />;
+  }
+  return (
+    <SidebarMenuSub>
+      <SubNavLinkRows items={trackingNavEssential} path={path} />
+      <SidebarMenuSubItem>
+        <Collapsible open={advancedOpen} onOpenChange={onAdvancedOpenChange}>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuSubButton
+              className="text-sidebar-foreground/70 hover:text-sidebar-accent-foreground w-full"
+              isActive={
+                path.startsWith("/tracking/analytics") ||
+                path.startsWith("/tracking/rotadores") ||
+                path.startsWith("/tracking/tools") ||
+                path.startsWith("/tracking/blacklist") ||
+                path.startsWith("/tracking/url-builder") ||
+                path.startsWith("/tracking/integrations") ||
+                path.startsWith("/tracking/settings") ||
+                path.startsWith("/tracking/logs")
+              }
+            >
+              <Wrench className="h-4 w-4 shrink-0" />
+              <span className="truncate">Mais ferramentas</span>
+              <ChevronRight
+                className={cn(
+                  "ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/50 transition-transform duration-200",
+                  advancedOpen && "rotate-90",
+                )}
+              />
+            </SidebarMenuSubButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="data-[state=closed]:animate-none">
+            <SidebarMenuSub className="mx-0 mt-0.5 border-l border-sidebar-border pl-2">
+              <SubNavLinkRows items={trackingNavAdvanced} path={path} />
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </Collapsible>
+      </SidebarMenuSubItem>
     </SidebarMenuSub>
   );
 }
@@ -213,8 +331,22 @@ export function AppSidebar() {
   const inPresell = path.startsWith("/presell");
   const inTracking = path.startsWith("/tracking");
 
+  const presellAdvancedRoute =
+    path.startsWith("/presell/paginas-criadas") || path.startsWith("/presell/builder");
+  const trackingAdvancedRoute =
+    path.startsWith("/tracking/analytics") ||
+    path.startsWith("/tracking/rotadores") ||
+    path.startsWith("/tracking/tools") ||
+    path.startsWith("/tracking/blacklist") ||
+    path.startsWith("/tracking/url-builder") ||
+    path.startsWith("/tracking/integrations") ||
+    path.startsWith("/tracking/settings") ||
+    path.startsWith("/tracking/logs");
+
   const [presellOpen, setPresellOpen] = useState(inPresell);
   const [trackingOpen, setTrackingOpen] = useState(inTracking);
+  const [presellAdvancedOpen, setPresellAdvancedOpen] = useState(presellAdvancedRoute);
+  const [trackingAdvancedOpen, setTrackingAdvancedOpen] = useState(trackingAdvancedRoute);
 
   useEffect(() => {
     setPresellOpen(inPresell);
@@ -223,6 +355,14 @@ export function AppSidebar() {
   useEffect(() => {
     setTrackingOpen(inTracking);
   }, [inTracking]);
+
+  useEffect(() => {
+    setPresellAdvancedOpen(presellAdvancedRoute);
+  }, [presellAdvancedRoute]);
+
+  useEffect(() => {
+    setTrackingAdvancedOpen(trackingAdvancedRoute);
+  }, [trackingAdvancedRoute]);
 
   return (
     <Sidebar collapsible="icon">
@@ -292,7 +432,12 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SubNavLinks items={presellNavItems} path={path} />
+                    <PresellNavWithAdvanced
+                      path={path}
+                      collapsed={collapsed}
+                      advancedOpen={presellAdvancedOpen}
+                      onAdvancedOpenChange={setPresellAdvancedOpen}
+                    />
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -322,7 +467,12 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SubNavLinks items={trackingNavItems} path={path} />
+                    <TrackingNavWithAdvanced
+                      path={path}
+                      collapsed={collapsed}
+                      advancedOpen={trackingAdvancedOpen}
+                      onAdvancedOpenChange={setTrackingAdvancedOpen}
+                    />
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </SidebarMenu>

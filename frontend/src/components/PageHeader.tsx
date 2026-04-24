@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 type PageHeaderProps = {
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
   centered?: boolean;
 };
@@ -14,7 +14,9 @@ export function PageHeader({ title, description, actions, centered = false }: Pa
     >
       <div className="min-w-0 flex-1">
         <h1 className="text-2xl font-bold text-foreground md:text-3xl break-words">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted-foreground md:text-base">{description}</p> : null}
+        {description ? (
+          <div className="mt-1 text-sm text-muted-foreground md:text-base">{description}</div>
+        ) : null}
       </div>
       {actions ? (
         <div

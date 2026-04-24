@@ -1,6 +1,5 @@
 import { useNavigate, Link } from "react-router-dom";
 import { FileText, BarChart3, ArrowRight, Zap, ListChecks } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import presellIcon from "@/assets/presell-icon.png";
 import trackingIcon from "@/assets/tracking-icon.png";
 import { PageHeader } from "@/components/PageHeader";
@@ -18,24 +17,24 @@ export default function Home() {
         <PageHeader
           centered
           title="O que você deseja fazer?"
-          description="Presell e rastreamento — escolha abaixo."
+          description={
+            <>
+              Presell ou rastreamento — escolha um cartão.{" "}
+              <Link
+                to="/tracking/setup-assistant"
+                className="text-primary font-medium underline-offset-4 hover:underline inline-flex items-center gap-1"
+              >
+                <ListChecks className="h-3.5 w-3.5 shrink-0" />
+                Assistente passo a passo
+              </Link>{" "}
+              se for a primeira configuração.
+            </>
+          }
         />
       </div>
 
       <div className="w-full max-w-3xl self-center">
         <DashboardUserGuide variant="home" />
-      </div>
-
-      <div className="flex w-full max-w-3xl flex-col items-center gap-2 self-center sm:flex-row sm:justify-center">
-        <Button variant="outline" size="sm" className="gap-2 border-violet-500/35 bg-violet-500/[0.06]" asChild>
-          <Link to="/tracking/setup-assistant">
-            <ListChecks className="h-4 w-4" />
-            Assistente de configuração
-          </Link>
-        </Button>
-        <p className="text-center text-xs text-muted-foreground sm:text-left max-w-md">
-          Checklist com verificações: presell publicada, cliques, postback e Google Ads.
-        </p>
       </div>
 
       <div className="grid w-full max-w-5xl grid-cols-1 gap-6 self-center md:grid-cols-2">

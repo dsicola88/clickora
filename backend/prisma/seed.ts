@@ -135,6 +135,7 @@ async function main() {
       update: {
         name: "Starter",
         maxCustomDomains: 0,
+        affiliateWebhookEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_STARTER),
       },
       create: {
@@ -146,6 +147,7 @@ async function main() {
         maxClicksPerMonth: 1000,
         maxCustomDomains: 0,
         hasBranding: true,
+        affiliateWebhookEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_STARTER),
       },
     }),
@@ -155,6 +157,7 @@ async function main() {
         name: "Pro",
         priceCents: 2400,
         maxCustomDomains: 0,
+        affiliateWebhookEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_PRO),
       },
       create: {
@@ -166,6 +169,7 @@ async function main() {
         maxClicksPerMonth: 50000,
         maxCustomDomains: 0,
         hasBranding: false,
+        affiliateWebhookEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_PRO),
       },
     }),
@@ -175,6 +179,7 @@ async function main() {
         name: "Premium",
         priceCents: 19600,
         maxCustomDomains: 2,
+        affiliateWebhookEnabled: true,
         features: jsonFeatures(PLAN_FEATURES_PREMIUM),
       },
       create: {
@@ -186,6 +191,7 @@ async function main() {
         maxClicksPerMonth: null,
         maxCustomDomains: 2,
         hasBranding: false,
+        affiliateWebhookEnabled: true,
         features: jsonFeatures(PLAN_FEATURES_PREMIUM),
       },
     }),

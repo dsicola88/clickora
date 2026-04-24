@@ -55,6 +55,24 @@ function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
 }
 
+/** Parâmetros tipo Voluum / campanha (custo, external id, var1–var10, clickid/cid a montante). */
+const VOLUUM_STYLE_TRACKING_KEYS = [
+  "cost",
+  "externalid",
+  "clickid",
+  "cid",
+  "var1",
+  "var2",
+  "var3",
+  "var4",
+  "var5",
+  "var6",
+  "var7",
+  "var8",
+  "var9",
+  "var10",
+] as const;
+
 /** O destino final é sempre o link guardado na presell (sem acrescentar parâmetros ao URL do afiliado). */
 function makeTrackClickUrl(
   apiBase: string,
@@ -93,6 +111,10 @@ function makeTrackClickUrl(
   if (sub1) clickUrl.searchParams.set("sub1", sub1);
   if (sub2) clickUrl.searchParams.set("sub2", sub2);
   if (sub3) clickUrl.searchParams.set("sub3", sub3);
+  for (const k of VOLUUM_STYLE_TRACKING_KEYS) {
+    const v = queryParam(search, k);
+    if (v) clickUrl.searchParams.set(k, v);
+  }
   return clickUrl.toString();
 }
 
@@ -116,6 +138,7 @@ function buildImpressionPixelUrl(apiBase: string, pageId: string, pageSearch: UR
     "sub1",
     "sub2",
     "sub3",
+    ...VOLUUM_STYLE_TRACKING_KEYS,
   ] as const;
   for (const k of keys) {
     const v = pageSearch.get(k);
@@ -695,6 +718,23 @@ export default function PublicPresell() {
           <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
             {getPresellUiStrings(uiLang).footerNote}
           </p>
+          {page.footer_branding ? (
+            <p
+              className="text-[11px] text-muted-foreground/75 pt-3 border-t border-border/30 max-w-md mx-auto"
+              dir={isRtlLocale(uiLang) ? "rtl" : "ltr"}
+            >
+              {getPresellUiStrings(uiLang).footerBrandingPrefix}
+              <a
+                href="https://www.dclickora.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground/80 underline underline-offset-2 hover:text-primary"
+              >
+                dclickora
+              </a>
+              {getPresellUiStrings(uiLang).footerBrandingSuffix}
+            </p>
+          ) : null}
         </div>
       </section>
     </>
