@@ -160,6 +160,18 @@ function looksLikeSectionHeading(block: string): boolean {
   return words >= 4 && words <= 14;
 }
 
+function looksLikeBulletList(block: string): boolean {
+  const lines = block
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return false;
+  const bulletish = lines.filter((l) =>
+    /^[•\-\*✓✔]\s?|^\d+[\.)]\s/.test(l),
+  ).length;
+  return bulletish >= Math.ceil(lines.length * 0.7);
+}
+
 function SalesBlocks({
   blocks,
   midInsert,
@@ -195,6 +207,30 @@ function ContentBlock({ block }: { block: string }) {
       </h3>
     );
   }
+  if (looksLikeBulletList(t)) {
+    const lines = t
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return (
+      <ul className="space-y-3 text-left list-none pl-0 my-1">
+        {lines.map((line, i) => {
+          const clean = line.replace(/^[•\-\*✓✔]\s*/, "").replace(/^\d+[\.)]\s*/, "");
+          return (
+            <li
+              key={i}
+              className="flex gap-3 text-base md:text-[1.05rem] leading-relaxed text-foreground/90"
+            >
+              <span className="mt-0.5 shrink-0 text-orange-500 font-bold" aria-hidden>
+                ✓
+              </span>
+              <span>{clean}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
   return <p className="text-base md:text-[1.05rem] leading-[1.75] text-foreground/90 whitespace-pre-line">{t}</p>;
 }
 
@@ -202,7 +238,7 @@ function StorefrontRatingRow({ value, stars }: { value: string; stars: number })
   const n = Math.min(5, Math.max(0, Math.round(stars)));
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={`Avaliação ${value}`}>
-      <span className="flex gap-0.5 text-amber-500 dark:text-amber-400" aria-hidden>
+      <span className="flex gap-0.5 text-orange-500 dark:text-orange-400" aria-hidden>
         {Array.from({ length: 5 }, (_, i) => (
           <span key={i} className={cn("text-lg leading-none", i < n ? "opacity-100" : "opacity-20")}>
             ★
@@ -577,7 +613,7 @@ export default function PublicPresell() {
       ) : null}
 
       {storefrontLayout ? (
-        <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-stone-100/95 via-stone-50/50 to-background dark:from-stone-950/40 dark:via-background dark:to-background">
+        <section className="relative overflow-hidden border-b border-border/40 bg-background">
           <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
             {interactiveKind ? (
               <div className="mb-8 text-center max-w-3xl mx-auto">
@@ -592,11 +628,11 @@ export default function PublicPresell() {
 
             <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
               <div className="space-y-4 md:sticky md:top-6">
-                <div className="rounded-2xl border border-border/50 bg-card shadow-md p-4 sm:p-5">
+                <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-4 sm:p-5">
                   <img
                     src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
                     alt={primarySeoLabel}
-                    className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-muted/20"
+                    className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-slate-50/80 dark:bg-muted/20"
                     loading="eager"
                     decoding="async"
                     fetchPriority="high"
@@ -610,9 +646,9 @@ export default function PublicPresell() {
                         type="button"
                         onClick={() => setStorefrontMainIdx(i)}
                         className={cn(
-                          "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                          "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/80",
                           i === storefrontMainIdx
-                            ? "border-primary ring-2 ring-primary/25 shadow-sm"
+                            ? "border-orange-500 ring-2 ring-orange-500/30 shadow-sm"
                             : "border-border/60 opacity-90 hover:opacity-100",
                         )}
                         aria-label={`Imagem ${i + 1}`}
@@ -635,7 +671,7 @@ export default function PublicPresell() {
                     {productNameLabel}
                   </p>
                 ) : null}
-                <h1 className="text-2xl sm:text-3xl lg:text-[2.15rem] font-bold tracking-tight text-foreground leading-tight">
+                <h1 className="text-2xl sm:text-3xl lg:text-[2.2rem] font-serif font-bold tracking-tight text-foreground leading-tight">
                   {title}
                 </h1>
                 {showStorefrontRating ? (
@@ -648,7 +684,7 @@ export default function PublicPresell() {
                   <p className="text-base text-muted-foreground leading-relaxed">{subtitle}</p>
                 ) : null}
                 <div className="pt-1">
-                  <PresellCta href={href} disabled={!ctaEnabled} surface="light" stretch>
+                  <PresellCta href={href} disabled={!ctaEnabled} surface="commerce" stretch>
                     {ctaText}
                   </PresellCta>
                 </div>
@@ -848,7 +884,11 @@ export default function PublicPresell() {
                     <p className="text-sm sm:text-base text-foreground/85 font-medium leading-relaxed px-1">
                       {getPresellUiStrings(uiLang).midCta}
                     </p>
-                    <PresellCta href={href} disabled={!ctaEnabled} surface="light">
+                    <PresellCta
+                      href={href}
+                      disabled={!ctaEnabled}
+                      surface={storefrontLayout ? "commerce" : "light"}
+                    >
                       {ctaText}
                     </PresellCta>
                   </div>
@@ -861,7 +901,11 @@ export default function PublicPresell() {
 
       <section className="max-w-3xl mx-auto px-3 sm:px-4 pb-12 sm:pb-16 pt-6 sm:pt-8">
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-[2px] px-4 py-8 sm:px-8 sm:py-10 text-center space-y-5 shadow-sm">
-          <PresellCta href={href} disabled={!ctaEnabled} surface="light">
+          <PresellCta
+            href={href}
+            disabled={!ctaEnabled}
+            surface={storefrontLayout ? "commerce" : "light"}
+          >
             {ctaText}
           </PresellCta>
           <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">

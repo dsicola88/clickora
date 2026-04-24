@@ -40,7 +40,7 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Modal central (estilo Flow Pages): overlay + Allow verde + Close. */
+/** Modal central: overlay + Allow (laranja, alinhado ao CTA da oferta) + Close. */
 export function CookieConsentModal({
   language,
   policyUrl,
@@ -113,7 +113,7 @@ export function CookieConsentModal({
           </Button>
           <Button
             type="button"
-            className="sm:flex-1 bg-emerald-600 text-white hover:bg-emerald-700 border-0 shadow-md"
+            className="sm:flex-1 bg-orange-500 text-white hover:bg-orange-600 border-0 shadow-md"
             onClick={handleAllow}
           >
             {L.cookieAllow}

@@ -12,6 +12,10 @@ const surfaceLight =
 const surfaceDark =
   "bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-white shadow-[0_12px_44px_-10px_rgba(251,146,60,0.55),0_0_0_1px_rgba(255,255,255,0.2)_inset] ring-2 ring-white/30 hover:brightness-[1.06] hover:shadow-[0_16px_48px_-8px_rgba(249,115,22,0.55)] hover:-translate-y-0.5 focus-visible:ring-amber-300/80 focus-visible:ring-offset-slate-950";
 
+/** CTA sólido tipo página de produto (laranja). */
+const surfaceCommerce =
+  "bg-orange-500 text-white shadow-[0_12px_40px_-10px_rgba(249,115,22,0.55),0_0_0_1px_rgba(255,255,255,0.18)_inset] ring-2 ring-orange-400/35 hover:bg-orange-500 hover:brightness-[1.05] hover:shadow-[0_16px_44px_-8px_rgba(234,88,12,0.5)] hover:-translate-y-0.5 focus-visible:ring-orange-300/90 focus-visible:ring-offset-background";
+
 const disabledCls =
   "cursor-not-allowed opacity-[0.58] shadow-none ring-0 grayscale hover:translate-y-0 hover:brightness-100";
 
@@ -66,7 +70,7 @@ export function PresellCta({ href, disabled, children, surface = "light", stretc
         className={cn(
           baseLayout,
           stretch && "!max-w-none w-full",
-          surface === "dark" ? surfaceDark : surfaceLight,
+          surface === "dark" ? surfaceDark : surface === "commerce" ? surfaceCommerce : surfaceLight,
         )}
       >
         <span className="flex-1 min-w-0">{children}</span>

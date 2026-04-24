@@ -46,6 +46,16 @@ const GARBAGE_META =
 
 const ORDER_NOISE = /^order\s+\d|^claim your|^below while stocks|^get\s+\d|^every\s+\d|^bonus\s*#|^\*for international/i;
 
+/** Texto de builders / modelos — não usar como título ou subtítulo. */
+const PLACEHOLDER_HEADING =
+  /add\s+heading|heading\s+text\s+here|your\s+(title|headline|text|subheading)\s+here|lorem\s+ipsum|placeholder|click\s+to\s+edit|subheading\s+here|type\s+your|coming\s+soon|untitled\s+section|double\s+click\s+to\s+edit/i;
+
+function isPlaceholderHeading(text: string): boolean {
+  const t = cleanText(text);
+  if (!t) return true;
+  return PLACEHOLDER_HEADING.test(t);
+}
+
 function decodeHtml(value: string) {
   return value
     .replace(/&amp;/g, "&")
@@ -137,11 +147,36 @@ function extractParagraphs(html: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null && results.length < 45) {
     const txt = stripTags(m[1] || "");
-    if (txt.length >= 28 && !NOISE_P.test(txt) && !GARBAGE_META.test(txt)) {
+    if (
+      txt.length >= 28 &&
+      !NOISE_P.test(txt) &&
+      !GARBAGE_META.test(txt) &&
+      !isPlaceholderHeading(txt)
+    ) {
       results.push(txt);
     }
   }
   return results;
+}
+
+/** Bullets reais da página (ex.: benefícios no PDP) — evita só texto genérico do template. */
+function extractListItemsFromHtml(html: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const re = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < 28) {
+    const txt = stripTags(m[1] || "");
+    const t = txt.replace(/\s+/g, " ").trim();
+    if (t.length < 14 || t.length > 280) continue;
+    if (NOISE_P.test(t) || GARBAGE_META.test(t) || isPlaceholderHeading(t)) continue;
+    if (/^(menu|home|shop|cart|login|search|help|close)$/i.test(t)) continue;
+    const key = t.slice(0, 56).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
 }
 
 function extractSrcFromImgTag(tag: string): string {
@@ -527,20 +562,66 @@ function isGarbageDescription(text: string): boolean {
   return !text || GARBAGE_META.test(text);
 }
 
-function pickHeroTitle(headings: string[], brand: string): string {
+function pickHeroTitle(headings: string[], brand: string, metaTitle: string): string {
+  const meta = cleanText(metaTitle);
   const good = headings.find(
     (h) =>
-      h.length >= 28 &&
+      h.length >= 12 &&
       h.length < 280 &&
       !ORDER_NOISE.test(h) &&
-      !GARBAGE_META.test(h),
+      !GARBAGE_META.test(h) &&
+      !isPlaceholderHeading(h),
   );
-  return good || brand;
+  if (good && good.length >= 28) return good;
+  if (
+    meta.length >= 20 &&
+    meta.length < 320 &&
+    !isPlaceholderHeading(meta) &&
+    !GARBAGE_META.test(meta)
+  ) {
+    return meta;
+  }
+  if (good) return good;
+  return brand;
 }
 
-function pickSubtitle(headings: string[], hero: string, description: string, locale: RichLocalePack): string {
-  const next = headings.find((h) => h !== hero && h.length > 24 && h.length < 260 && !ORDER_NOISE.test(h));
+function subtitleFromMetaTail(metaTitle: string, hero: string): string | null {
+  const meta = cleanText(metaTitle);
+  if (!meta || isPlaceholderHeading(meta)) return null;
+  const parts = meta.split(/\s*[-–|]\s*/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const tail = parts.slice(1).join(" — ");
+  if (
+    tail.length >= 18 &&
+    tail.length < 280 &&
+    !isPlaceholderHeading(tail) &&
+    tail.toLowerCase() !== hero.toLowerCase() &&
+    !hero.toLowerCase().includes(tail.toLowerCase())
+  ) {
+    return firstSentences(tail, 220);
+  }
+  return null;
+}
+
+function pickSubtitle(
+  headings: string[],
+  hero: string,
+  description: string,
+  locale: RichLocalePack,
+  metaTitle: string,
+): string {
+  const next = headings.find(
+    (h) =>
+      h !== hero &&
+      h.length > 18 &&
+      h.length < 260 &&
+      !ORDER_NOISE.test(h) &&
+      !GARBAGE_META.test(h) &&
+      !isPlaceholderHeading(h),
+  );
   if (next) return next;
+  const fromMeta = subtitleFromMetaTail(metaTitle, hero);
+  if (fromMeta) return fromMeta;
   if (!isGarbageDescription(description) && description.length > 20) {
     return firstSentences(description, 220);
   }
@@ -570,10 +651,24 @@ function buildCompactSalesText(args: {
   description: string;
   price: string;
   paragraphs: string[];
+  listItems: string[];
 }): string {
   const locale = localePack(args.language);
   const primary = cleanText(args.description) || args.productName;
   const intro = firstSentences(primary, 420);
+  const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
+
+  const pageBullets = args.listItems.filter((x) => {
+    const s = cleanText(x);
+    if (!s || isPlaceholderHeading(s)) return false;
+    if (primary.length > 40 && primary.includes(s.slice(0, Math.min(40, s.length)))) return false;
+    return true;
+  });
+
+  if (pageBullets.length >= 3) {
+    const lines = pageBullets.slice(0, 10).map((b) => `• ${firstSentences(b, 200)}`);
+    return `${intro}\n\n${lines.join("\n")}\n\n${priceLine}\n${locale.urgency}`.trim();
+  }
 
   const extraBullets: string[] = [];
   for (const p of args.paragraphs) {
@@ -581,8 +676,6 @@ function buildCompactSalesText(args: {
     const snippet = firstSentences(p, 160);
     if (snippet && extraBullets.length < 3) extraBullets.push(snippet);
   }
-
-  const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
 
   const template = `${intro}
 
@@ -680,8 +773,9 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     productName = brandFromHost;
   }
 
-  const headings = extractHeadings(html);
+  const headings = extractHeadings(html).filter((h) => !isPlaceholderHeading(h));
   const paragraphs = extractParagraphs(html);
+  const listItems = extractListItemsFromHtml(html);
 
   const ogDescription = extractMeta(html, "og:description");
   const metaDescription = extractMeta(html, "description");
@@ -697,8 +791,9 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const images = extractImages(html, finalUrl);
   const video_url = extractVideoUrl(html, finalUrl);
 
-  const heroTitle = pickHeroTitle(headings, productName);
-  const subtitle = pickSubtitle(headings, heroTitle, description, locale);
+  const metaTitleForHero = ogTitle || titleTag;
+  const heroTitle = pickHeroTitle(headings, productName, metaTitleForHero);
+  const subtitle = pickSubtitle(headings, heroTitle, description, locale, metaTitleForHero);
 
   const joinedLen = paragraphs.join("").length;
   const sales_text =
@@ -710,6 +805,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
           description: description || productName,
           price,
           paragraphs,
+          listItems,
         });
 
   const discount = extractDiscountSignals(html, language);
