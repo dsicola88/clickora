@@ -1,5 +1,6 @@
-import { useNavigate } from "react-router-dom";
-import { FileText, BarChart3, ArrowRight, Zap } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { FileText, BarChart3, ArrowRight, Zap, ListChecks } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import presellIcon from "@/assets/presell-icon.png";
 import trackingIcon from "@/assets/tracking-icon.png";
 import { PageHeader } from "@/components/PageHeader";
@@ -23,6 +24,18 @@ export default function Home() {
 
       <div className="w-full max-w-3xl self-center">
         <DashboardUserGuide variant="home" />
+      </div>
+
+      <div className="flex w-full max-w-3xl flex-col items-center gap-2 self-center sm:flex-row sm:justify-center">
+        <Button variant="outline" size="sm" className="gap-2 border-violet-500/35 bg-violet-500/[0.06]" asChild>
+          <Link to="/tracking/setup-assistant">
+            <ListChecks className="h-4 w-4" />
+            Assistente de configuração
+          </Link>
+        </Button>
+        <p className="text-center text-xs text-muted-foreground sm:text-left max-w-md">
+          Checklist com verificações: presell publicada, cliques, postback e Google Ads.
+        </p>
       </div>
 
       <div className="grid w-full max-w-5xl grid-cols-1 gap-6 self-center md:grid-cols-2">

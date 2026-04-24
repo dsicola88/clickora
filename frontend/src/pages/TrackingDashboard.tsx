@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Share2,
   AlertTriangle,
+  ListChecks,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,23 @@ function SyncHealthBanner({
         (colunas de sync) e corrija tokens ou IDs nas secções Google Ads / Meta abaixo.
       </AlertDescription>
     </Alert>
+  );
+}
+
+function SetupAssistantCallout() {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3 text-sm">
+      <div className="flex items-start gap-2 min-w-0">
+        <ListChecks className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" aria-hidden />
+        <p className="text-muted-foreground leading-relaxed">
+          <span className="font-medium text-foreground/90">Assistente de configuração</span> — checklist com o estado da sua conta
+          (presell, cliques, postback, Google Ads).
+        </p>
+      </div>
+      <Button variant="secondary" size="sm" className="shrink-0" asChild>
+        <Link to="/tracking/setup-assistant">Abrir assistente</Link>
+      </Button>
+    </div>
   );
 }
 
@@ -1616,6 +1634,7 @@ export default function TrackingDashboard() {
 
         <SyncHealthBanner dashboard={dashboard} />
         <DashboardUserGuide variant="tracking" />
+        <SetupAssistantCallout />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(
@@ -1830,6 +1849,7 @@ export default function TrackingDashboard() {
 
       <SyncHealthBanner dashboard={dashboard} />
       <DashboardUserGuide variant="tracking" />
+      <SetupAssistantCallout />
 
       <section className="space-y-4">
         <div>

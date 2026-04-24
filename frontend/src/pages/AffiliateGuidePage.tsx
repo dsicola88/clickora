@@ -16,6 +16,7 @@ const TOC: { id: string; label: string }[] = [
 ];
 
 export default function AffiliateGuidePage() {
+  const { user } = useAuth();
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function AffiliateGuidePage() {
                 <Button variant="outline" size="sm" className="gap-1.5" asChild>
                   <Link to="/ajuda">
                     <BookOpen className="h-3.5 w-3.5" />
-                    Guia no painel
+                    Aprender
                   </Link>
                 </Button>
                 <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>

@@ -164,7 +164,7 @@ const HOME_STEPS: GuideStep[] = [
       </>
     ),
     links: [
-      { to: "/ajuda", label: "Guia no painel" },
+      { to: "/ajuda", label: "Aprender (centro de ajuda)" },
       { to: "/tracking/dashboard", label: "Dashboard de rastreamento" },
       { to: "/tracking/links", label: "Links e macros" },
       { to: "/guia-vendas-afiliados", label: "Artigo longo (público)" },

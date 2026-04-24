@@ -37,6 +37,7 @@ import PublicPresell from "./pages/PublicPresell";
 import IntentConversionPage from "./pages/IntentConversionPage";
 import AffiliateGuidePage from "./pages/AffiliateGuidePage";
 import InAppUserGuidePage from "./pages/InAppUserGuidePage";
+import SetupAssistantPage from "./pages/SetupAssistantPage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -58,6 +59,7 @@ const appRoutes = [
   { path: "/presell/templates", element: <Navigate to="/presell/templates/editor" replace /> },
   { path: "/presell/templates/:tab", element: <PresellCreator /> },
   { path: "/tracking/dashboard", element: <TrackingDashboard /> },
+  { path: "/tracking/setup-assistant", element: <SetupAssistantPage /> },
   { path: "/tracking/plataformas", element: <Plataformas /> },
   { path: "/tracking/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
   { path: "/tracking/relatorios/:tab", element: <Relatorios /> },

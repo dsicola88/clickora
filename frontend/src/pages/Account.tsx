@@ -561,9 +561,9 @@ export default function Account() {
           <CardHeader>
             <CardTitle className="text-lg">Ajuda no dashboard</CardTitle>
             <CardDescription>
-              O <strong className="text-foreground/90">guia completo no painel</strong> está em{" "}
+              O <strong className="text-foreground/90">centro de ajuda no painel</strong> está em{" "}
               <Link to="/ajuda" className="font-medium text-primary underline underline-offset-2">
-                Guia da app
+                Aprender
               </Link>
               . Se ocultou o resumo no Rastreamento, pode voltá-lo a mostrar aqui; depois abra{" "}
               <span className="text-foreground/90">Rastreamento → Dashboard</span>. Inclui{" "}

@@ -55,6 +55,17 @@ export function humanizeGoogleAdsApiError(raw: string): string {
     return "O developer token ainda não tem o nível de acesso necessário. Consulte o estado do token na Google Ads API Center.";
   }
 
+  /** Resposta Axios/gRPC tratada de forma incorrecta por versões da biblioteca — não é o erro real da Google. */
+  if (
+    lower.includes("cannot read properties of undefined") &&
+    (lower.includes("reading 'get'") || lower.includes('reading "get"'))
+  ) {
+    return (
+      "A ligação à Google Ads falhou (resposta inesperada). Confirme a internet, volte a autorizar em «Resumo e guia» → Google Ads, " +
+      "verifique o Customer ID e tente de novo em alguns minutos. Se persistir, o servidor pode estar a receber um erro da Google que não foi interpretado — contacte o suporte com a hora do pedido."
+    );
+  }
+
   const detail = t.length > MAX_API_ERROR_LEN ? `${t.slice(0, MAX_API_ERROR_LEN)}…` : t;
   return `Não foi possível obter dados da Google Ads. Detalhe técnico: ${detail}`;
 }

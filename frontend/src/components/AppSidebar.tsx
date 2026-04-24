@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Crosshair,
   ShieldBan,
+  ListChecks,
   Home,
   Sparkles,
   LayoutGrid,
@@ -81,6 +82,12 @@ const presellNavItems: NavItem[] = [
 ];
 
 const trackingNavItems: NavItem[] = [
+  {
+    title: "Assistente",
+    url: "/tracking/setup-assistant",
+    icon: ListChecks,
+    hint: "Checklist: presell publicada, UTMs, cliques, postback e Google Ads — com verificações da conta.",
+  },
   {
     title: "Resumo e guia",
     url: "/tracking/dashboard",
@@ -245,10 +252,10 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={path === "/ajuda"} tooltip="Guia e passos no painel">
+                <SidebarMenuButton asChild isActive={path === "/ajuda"} tooltip="Aprender — centro de ajuda e atalhos">
                   <NavLink to="/ajuda" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
                     <BookOpen className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>Guia da app</span>}
+                    {!collapsed && <span>Aprender</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
