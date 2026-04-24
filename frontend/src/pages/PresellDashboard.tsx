@@ -21,7 +21,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale } from "@/lib/presellUiStrings";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -52,6 +60,7 @@ import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
+import { getPresellTypeLabel, getPresellTypeOption, PRESELL_TYPE_GROUPS } from "@/lib/presellTypeOptions";
 
 type PresellSettings = PresellConfigSettings;
 
@@ -67,29 +76,6 @@ function sanitizeSlug(raw: string): string {
 function toastErrorFromCatch(err: unknown, fallback: string) {
   const msg = err instanceof Error ? err.message.trim() : "";
   toast.error(msg || fallback);
-}
-
-const presellTypes = [
-  { id: "cookies", name: "Cookies" },
-  { id: "desconto", name: "Desconto" },
-  { id: "fantasma", name: "Fantasma" },
-  { id: "vsl", name: "VSL (Video Sales Letter)" },
-  { id: "tsl", name: "TSL (Text Sales Letter)" },
-  { id: "dtc", name: "DTC (Direct to Consumer)" },
-  { id: "review", name: "Review" },
-  { id: "vsl_tsl", name: "VSL + TSL (Combo)" },
-  { id: "sexo", name: "Sexo" },
-  { id: "idade", name: "Idade" },
-  { id: "grupo_homem", name: "Grupo de idade Homem" },
-  { id: "grupo_mulher", name: "Grupo de idade Mulher" },
-  { id: "pais", name: "País" },
-  { id: "captcha", name: "Captcha" },
-  { id: "modelos", name: "Modelos" },
-];
-
-function presellTypeLabel(type: string): string {
-  if (type === "builder") return "Manual (editor)";
-  return presellTypes.find((t) => t.id === type)?.name ?? type;
 }
 
 export default function PresellDashboard() {
@@ -686,6 +672,7 @@ export default function PresellDashboard() {
     const isEditing = Boolean(editingId);
     const showAllSteps = isEditing;
     const stepVisible = (n: 1 | 2 | 3) => showAllSteps || creatorStep === n;
+    const selectedPresellTypeDetail = getPresellTypeOption(formData.presellType);
     return (
       <div className={APP_PAGE_SHELL}>
         <PageHeader
@@ -910,23 +897,49 @@ export default function PresellDashboard() {
             {stepVisible(2) ? (
               <div className="space-y-6 border-border/50 pb-6 sm:border-b sm:pb-8">
                 <div className="space-y-2 max-w-xl">
-                  <Label>Tipo de presell</Label>
+                  <Label htmlFor="presell-type-select">Tipo de presell</Label>
                   <Select value={formData.presellType} onValueChange={(v) => updateField("presellType", v)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="presell-type-select" className="h-auto min-h-10 py-2 text-left">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {presellTypes.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name}
-                        </SelectItem>
+                    <SelectContent
+                      position="popper"
+                      className="max-h-[min(32rem,78vh)] w-[min(calc(100vw-1.5rem),26rem)] sm:w-[28rem]"
+                      sideOffset={4}
+                    >
+                      {PRESELL_TYPE_GROUPS.map((group) => (
+                        <SelectGroup key={group.id}>
+                          <SelectLabel className="pl-2 pr-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {group.label}
+                          </SelectLabel>
+                          {group.hint ? (
+                            <p className="mb-1.5 pl-2 pr-2 text-[11px] leading-snug text-muted-foreground">{group.hint}</p>
+                          ) : null}
+                          {group.types.map((t) => (
+                            <SelectItem
+                              key={t.id}
+                              value={t.id}
+                              textValue={t.name}
+                              className="items-start py-2.5 pl-8 pr-2 cursor-pointer"
+                            >
+                              <span className="flex flex-col gap-1 text-left">
+                                <span className="font-medium leading-snug text-foreground">{t.name}</span>
+                                <span className="text-xs font-normal leading-relaxed text-muted-foreground">
+                                  {t.description}
+                                </span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    <span className="font-medium text-foreground/85">Cookies</span> corresponde ao «modelo de cookie» de outras
-                    ferramentas: modal antes de ver a oferta. Pode indicar ainda um URL de política de privacidade abaixo.
-                  </p>
+                  {selectedPresellTypeDetail ? (
+                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                      <p className="font-medium text-foreground/90">{selectedPresellTypeDetail.name}</p>
+                      <p className="mt-1">{selectedPresellTypeDetail.description}</p>
+                    </div>
+                  ) : null}
                 </div>
 
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 sm:p-5 space-y-4 text-left w-full min-w-0">
@@ -1299,7 +1312,7 @@ export default function PresellDashboard() {
                       {page.title}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">{presellTypeLabel(page.type)}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{getPresellTypeLabel(page.type)}</td>
                   <td className="py-3 px-4 max-w-[min(100vw,22rem)]">
                     <div className="flex flex-col gap-1">
                       <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">
