@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DASHBOARD_USER_GUIDE_DISMISSED_KEY } from "@/components/DashboardUserGuide";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { toast } from "sonner";
-import { Camera, ChevronDown, ChevronUp, Loader2, Trash2, User, Users } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, Download, Loader2, Shield, Trash2, User, Users } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -29,6 +29,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function initials(name: string, email: string) {
   const n = name.trim();
@@ -288,7 +296,8 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
 }
 
 export default function Account() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, signOut, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [fullName, setFullName] = useState("");
   const [avatarUrlInput, setAvatarUrlInput] = useState("");
@@ -300,6 +309,10 @@ export default function Account() {
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
+  const [exportingJson, setExportingJson] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: workspaces = [], isLoading: workspacesLoading } = useQuery({
     queryKey: ["workspaces-mine", user?.id],
@@ -428,7 +441,18 @@ export default function Account() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Conta e perfil"
-        description="Altere o seu nome, foto de perfil e senha. Estas opções estão disponíveis para todas as contas."
+        description={
+          <>
+            Altere o seu nome, foto de perfil e senha.{" "}
+            <Link to="/privacidade" className="text-primary underline underline-offset-2">
+              Privacidade
+            </Link>
+            {" · "}
+            <Link to="/termos" className="text-primary underline underline-offset-2">
+              Termos
+            </Link>
+          </>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -556,6 +580,127 @@ export default function Account() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-border/80 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Shield className="h-5 w-5 text-primary" />
+              Dados e privacidade
+            </CardTitle>
+            <CardDescription>
+              Exporte os metadados da sua conta (portabilidade) ou elimine a conta de forma permanente nesta instalação.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2"
+                disabled={exportingJson}
+                onClick={async () => {
+                  setExportingJson(true);
+                  try {
+                    const { data, error } = await authService.exportMyDataJson();
+                    if (error || !data) throw new Error(error || "Resposta vazia");
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `clickora-dados-${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success("Ficheiro JSON descarregado.");
+                  } catch (e: unknown) {
+                    toast.error(e instanceof Error ? e.message : "Erro ao exportar");
+                  } finally {
+                    setExportingJson(false);
+                  }
+                }}
+              >
+                {exportingJson ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Descarregar os meus dados (JSON)
+              </Button>
+              {isAdmin ? (
+                <p className="text-sm text-muted-foreground sm:flex-1 sm:min-w-[240px]">
+                  Contas de administrador da plataforma não podem ser eliminadas por aqui. Contacte outro super
+                  administrador se precisar de encerrar o acesso.
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="sm:ml-auto"
+                  onClick={() => {
+                    setDeletePassword("");
+                    setDeleteDialogOpen(true);
+                  }}
+                >
+                  Eliminar a minha conta
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              A exportação inclui perfil, subscrição, listas de presells e domínios, contagens de eventos e um resumo de
+              integrações (sem tokens secretos). A eliminação remove a conta e os dados associados na base de dados;
+              não pode ser anulada.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Eliminar conta</DialogTitle>
+              <DialogDescription>
+                Confirme com a sua palavra-passe. Todas as presells, tracking e definições desta conta serão apagados.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="delete-acct-pw">Senha actual</Label>
+              <Input
+                id="delete-acct-pw"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleteLoading}
+                onClick={async () => {
+                  if (!deletePassword.trim()) {
+                    toast.error("Introduza a senha.");
+                    return;
+                  }
+                  setDeleteLoading(true);
+                  try {
+                    const { error, data } = await authService.deleteAccount(deletePassword);
+                    if (error) throw new Error(error);
+                    toast.success(data?.message ?? "Conta eliminada.");
+                    setDeleteDialogOpen(false);
+                    setDeletePassword("");
+                    await signOut();
+                    navigate("/", { replace: true });
+                  } catch (e: unknown) {
+                    toast.error(e instanceof Error ? e.message : "Erro ao eliminar");
+                  } finally {
+                    setDeleteLoading(false);
+                  }
+                }}
+              >
+                {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Confirmar eliminação
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Card className="border-border/80 lg:col-span-2">
           <CardHeader>

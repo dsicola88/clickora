@@ -503,6 +503,21 @@ export default function Plans() {
 
       <SalesLandingLegalFooter extras={extras} />
 
+      <nav
+        className={cn(
+          "mt-8 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm",
+          salesDark ? "text-white/70" : "text-muted-foreground",
+        )}
+        aria-label="Informação legal"
+      >
+        <Link to="/privacidade" className="underline-offset-4 hover:underline">
+          Política de privacidade
+        </Link>
+        <Link to="/termos" className="underline-offset-4 hover:underline">
+          Termos de utilização
+        </Link>
+      </nav>
+
       {userPlan && (
         <div
           className={cn(

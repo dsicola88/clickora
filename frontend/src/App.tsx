@@ -38,6 +38,8 @@ import IntentConversionPage from "./pages/IntentConversionPage";
 import AffiliateGuidePage from "./pages/AffiliateGuidePage";
 import InAppUserGuidePage from "./pages/InAppUserGuidePage";
 import SetupAssistantPage from "./pages/SetupAssistantPage";
+import LegalPrivacyPage from "./pages/LegalPrivacyPage";
+import LegalTermsPage from "./pages/LegalTermsPage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -97,6 +99,8 @@ const App = () => (
             <Routes>
               {/* Public routes */}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/privacidade" element={<LegalPrivacyPage />} />
+              <Route path="/termos" element={<LegalTermsPage />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/p/:id" element={<PublicPresell />} />
               <Route

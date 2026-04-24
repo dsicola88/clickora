@@ -246,4 +246,6 @@ export interface RegisterPayload {
   email: string;
   password: string;
   full_name: string;
+  /** Obrigatório: confirmação explícita no registo (API valida `true`). */
+  accept_policies: boolean;
 }

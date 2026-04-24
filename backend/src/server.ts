@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 /** Express 4 não captura rejeições em handlers `async` — sem isto, erros podem derrubar o processo (502 na Railway). */
 import "express-async-errors";
 import cors from "cors";
+import helmet from "helmet";
 import { authRouter } from "./routes/auth.routes";
 import { presellRouter } from "./routes/presell.routes";
 import { analyticsRouter } from "./routes/analytics.routes";
@@ -26,6 +27,13 @@ const app = express();
 /** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */
 /** Vercel → Railway: vários hops; `X-Forwarded-Host` deve refletir o domínio do visitante (presells em domínio próprio). */
 app.set("trust proxy", true);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false,
+  }),
+);
 const PORT = process.env.PORT || 3001;
 
 /**

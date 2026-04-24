@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { applyMarketingAuthHead } from "@/lib/marketingSiteSeo";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,12 +65,17 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
 function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
   const { signUp } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema), mode: "onTouched" });
 
   const onSubmit = async (values: RegisterForm) => {
+    if (!acceptedPolicies) {
+      toast.error("Aceite os Termos e a Política de Privacidade para continuar.");
+      return;
+    }
     setLoading(true);
     try {
-      const { error } = await signUp(values.email, values.password, values.fullName);
+      const { error } = await signUp(values.email, values.password, values.fullName, true);
       if (error) throw new Error(error);
       toast.success("Conta criada com sucesso!");
       onSuccess();
@@ -242,13 +248,22 @@ export default function Auth() {
             )}
           </div>
         </div>
-        <p className="text-center mt-6">
+        <p className="text-center mt-6 space-y-2">
           <Link
             to="/"
-            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline block"
           >
             Continuar sem entrar — ver planos
           </Link>
+          <span className="text-xs text-muted-foreground">
+            <Link to="/privacidade" className="underline-offset-2 hover:underline">
+              Privacidade
+            </Link>
+            {" · "}
+            <Link to="/termos" className="underline-offset-2 hover:underline">
+              Termos
+            </Link>
+          </span>
         </p>
       </div>
     </div>

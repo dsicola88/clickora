@@ -24,6 +24,13 @@ const registerSchema = z.object({
   email: z.string().trim().min(1).email(),
   password: z.string().min(6),
   full_name: z.string().trim().min(2),
+  accept_policies: z.literal(true, {
+    errorMap: () => ({ message: "Tem de aceitar os Termos e a Política de Privacidade." }),
+  }),
+});
+
+const deleteAccountSchema = z.object({
+  password: z.string().min(1, "Senha é obrigatória."),
 });
 
 function publicAvatarUrl(req: Request, user: { id: string; avatarUrl: string | null; updatedAt: Date }): string | null {
@@ -512,6 +519,153 @@ export const authController = {
       include: { roles: true, subscription: { include: { plan: true } } },
     });
     return res.json({ ok: true, user: await serializeUserWithSession(user, req) });
+  },
+
+  /** Portabilidade / acesso LGPD: cópia dos metadados da conta (sem segredos de API em claro). */
+  async exportMyData(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const row = await systemPrisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: true,
+        subscription: { include: { plan: { select: { name: true, type: true } } } },
+        presellPages: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            type: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        customDomains: {
+          select: {
+            hostname: true,
+            status: true,
+            isDefault: true,
+            createdAt: true,
+          },
+        },
+        workspaceMemberships: {
+          select: {
+            role: true,
+            permissions: true,
+            createdAt: true,
+            workspace: { select: { id: true, name: true } },
+          },
+        },
+        _count: {
+          select: {
+            trackingEvents: true,
+            conversions: true,
+            postbackLogs: true,
+            trafficRotators: true,
+          },
+        },
+      },
+    });
+    if (!row) return res.status(404).json({ error: "Utilizador não encontrado." });
+
+    const maskGoogle = (gid: string | null) =>
+      gid && gid.length > 6 ? `${gid.slice(0, 4)}…${gid.slice(-4)}` : null;
+
+    res.json({
+      export_version: 1,
+      exported_at: new Date().toISOString(),
+      profile: {
+        id: row.id,
+        email: row.email,
+        full_name: row.fullName,
+        google_id_masked: maskGoogle(row.googleId),
+        sale_notify_email: row.saleNotifyEmail,
+        workspace_id: row.workspaceId,
+        roles: row.roles.map((r) => r.role),
+        created_at: row.createdAt.toISOString(),
+        updated_at: row.updatedAt.toISOString(),
+      },
+      subscription: row.subscription
+        ? {
+            status: row.subscription.status,
+            starts_at: row.subscription.startsAt.toISOString(),
+            ends_at: row.subscription.endsAt?.toISOString() ?? null,
+            plan_name: row.subscription.plan.name,
+            plan_type: row.subscription.plan.type,
+          }
+        : null,
+      presells: row.presellPages.map((p) => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        type: p.type,
+        status: p.status,
+        created_at: p.createdAt.toISOString(),
+        updated_at: p.updatedAt.toISOString(),
+      })),
+      custom_domains: row.customDomains.map((d) => ({
+        hostname: d.hostname,
+        status: d.status,
+        is_default: d.isDefault,
+        created_at: d.createdAt.toISOString(),
+      })),
+      workspace_memberships: row.workspaceMemberships.map((m) => ({
+        workspace_id: m.workspace.id,
+        workspace_name: m.workspace.name,
+        role: m.role,
+        permissions: m.permissions,
+        member_since: m.createdAt.toISOString(),
+      })),
+      counts: {
+        presell_pages: row.presellPages.length,
+        tracking_events: row._count.trackingEvents,
+        conversions: row._count.conversions,
+        postback_logs: row._count.postbackLogs,
+        traffic_rotators: row._count.trafficRotators,
+      },
+      integrations_summary: {
+        google_ads_enabled: row.googleAdsEnabled,
+        google_ads_customer_id_configured: Boolean(row.googleAdsCustomerId?.trim()),
+        google_ads_refresh_token_stored: Boolean(row.googleAdsRefreshToken?.trim()),
+        meta_capi_enabled: row.metaCapiEnabled,
+        meta_pixel_id: row.metaPixelId,
+        meta_access_token_stored: Boolean(row.metaAccessToken?.trim()),
+        telegram_configured: Boolean(row.telegramBotToken?.trim() && row.telegramChatId?.trim()),
+      },
+    });
+  },
+
+  async deleteAccount(req: Request, res: Response) {
+    const parsed = deleteAccountSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const userId = req.user!.userId;
+    const user = await systemPrisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: true },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado." });
+    if (user.roles.some((r) => r.role === "admin" || r.role === "super_admin")) {
+      return res.status(403).json({
+        error:
+          "Contas de administrador da plataforma não podem ser eliminadas por este fluxo. Contacte outro super administrador.",
+      });
+    }
+    if (!(await bcrypt.compare(parsed.data.password, user.password))) {
+      return res.status(401).json({ error: "Senha incorreta." });
+    }
+
+    removeUserAvatarFiles(userId);
+    await systemPrisma.$transaction([
+      systemPrisma.blacklistedIp.deleteMany({ where: { userId } }),
+      systemPrisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    res.json({
+      message:
+        "Conta eliminada. Os seus dados foram apagados desta instalação, salvo o que a lei ou o contrato exijam conservar.",
+    });
   },
 
   async logout(_req: Request, res: Response) {

@@ -22,7 +22,10 @@ export const authService = {
   },
 
   async register(payload: RegisterPayload) {
-    const result = await apiClient.post<AuthResponse>("/auth/register", payload);
+    const result = await apiClient.post<AuthResponse>("/auth/register", {
+      ...payload,
+      accept_policies: payload.accept_policies === true,
+    });
     if (result.data?.token) {
       apiClient.setToken(result.data.token);
       localStorage.setItem("clickora_user", JSON.stringify(result.data.user));
@@ -89,6 +92,31 @@ export const authService = {
 
   async updatePassword(token: string, password: string) {
     return apiClient.post("/auth/update-password", { token, password });
+  },
+
+  async exportMyDataJson(): Promise<{ data: unknown | null; error: string | null }> {
+    const token = localStorage.getItem("clickora_token");
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/auth/me/data-export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        return { data: null, error: body.error || `Erro ${res.status}` };
+      }
+      return { data: body, error: null };
+    } catch (e) {
+      return { data: null, error: e instanceof Error ? e.message : "Erro de rede" };
+    }
+  },
+
+  async deleteAccount(password: string) {
+    const result = await apiClient.post<{ message: string }>("/auth/me/delete-account", { password });
+    if (!result.error && result.data) {
+      apiClient.clearToken();
+      localStorage.removeItem("clickora_user");
+    }
+    return result;
   },
 
   getStoredUser(): User | null {

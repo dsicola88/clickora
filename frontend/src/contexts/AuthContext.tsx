@@ -13,7 +13,12 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: (idToken: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    acceptPolicies: boolean,
+  ) => Promise<{ error: string | null }>;
   refreshUser: () => Promise<void>;
 }
 
@@ -89,8 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   );
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await authService.register({ email, password, full_name: fullName });
+  const signUp = async (email: string, password: string, fullName: string, acceptPolicies: boolean) => {
+    const { data, error } = await authService.register({
+      email,
+      password,
+      full_name: fullName,
+      accept_policies: acceptPolicies,
+    });
     if (data) {
       queryClient.clear();
       setUser(data.user);
