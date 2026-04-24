@@ -30,7 +30,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { FieldError } from "@/components/FieldError";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
-import { presellAutoCreatorSchema } from "@/lib/validations";
+import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
@@ -105,6 +105,8 @@ export default function PresellDashboard() {
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
+  /** Assistente em 3 passos (criação; edição reutiliza o mesmo layout). */
+  const [creatorStep, setCreatorStep] = useState(1);
 
   /** Mesmo padrão do Tracking → dashboard: script a colar no &lt;head&gt; da presell. */
   const trackingEmbedScript = useMemo(() => {
@@ -243,7 +245,10 @@ export default function PresellDashboard() {
     pageSlug: "",
     presellType: "cookies",
     language: "pt-BR",
+    /** URL da página de vendas que o servidor importa (clone do conteúdo). */
     productLink: "",
+    /** Link de checkout/oferta com tracking de afiliado; vazio = usa o destino final da importação. */
+    affiliateLink: "",
     /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
     customDomainId: "",
   });
@@ -288,6 +293,46 @@ export default function PresellDashboard() {
     }
   };
 
+  const effectiveAffiliateLink = useMemo(
+    () => formData.affiliateLink.trim() || formData.productLink.trim(),
+    [formData.affiliateLink, formData.productLink],
+  );
+
+  const goCreatorNext = () => {
+    if (creatorStep === 1) {
+      const r = presellCreatorStep1Schema.safeParse({
+        pageName: formData.pageName,
+        productLink: formData.productLink,
+        language: formData.language,
+        affiliateLink: formData.affiliateLink,
+      });
+      if (!r.success) {
+        const errs: Record<string, string> = {};
+        r.error.errors.forEach((e) => {
+          if (e.path[0]) errs[String(e.path[0])] = e.message;
+        });
+        setFormErrors(errs);
+        toast.error("Corrija os campos do passo 1.");
+        return;
+      }
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next.pageName;
+        delete next.productLink;
+        delete next.language;
+        delete next.affiliateLink;
+        return next;
+      });
+      setCreatorStep(2);
+      return;
+    }
+    if (creatorStep === 2) setCreatorStep(3);
+  };
+
+  const goCreatorPrev = () => {
+    if (creatorStep > 1) setCreatorStep((s) => s - 1);
+  };
+
   const resetForm = (opts?: { presetCustomDomain?: boolean }) => {
     const presetDomainId =
       opts?.presetCustomDomain && hasVerifiedCustomDomain
@@ -299,8 +344,10 @@ export default function PresellDashboard() {
       presellType: "cookies",
       language: "pt-BR",
       productLink: "",
+      affiliateLink: "",
       customDomainId: presetDomainId,
     });
+    setCreatorStep(1);
     setSlugTouchedByUser(false);
     setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
@@ -310,12 +357,15 @@ export default function PresellDashboard() {
   const populateFormFromPresell = (page: Presell) => {
     const content = (page.content || {}) as Record<string, unknown>;
     const settings = (page.settings || {}) as Record<string, unknown>;
+    const affiliate = String(content.affiliateLink ?? "");
+    const source = String(content.sourceUrl ?? "");
     setFormData({
       pageName: page.title,
       pageSlug: page.slug,
       presellType: page.type,
       language: normalizePresellLocale(page.language),
-      productLink: String(content.affiliateLink ?? ""),
+      productLink: source || affiliate,
+      affiliateLink: affiliate,
       customDomainId: page.custom_domain_id ?? "",
     });
     setSlugTouchedByUser(true);
@@ -368,6 +418,7 @@ export default function PresellDashboard() {
       setEditingId(data.id);
       setEditingPage(data);
       populateFormFromPresell(data);
+      setCreatorStep(1);
       setShowCreator(true);
     } finally {
       setIsLoadingEdit(false);
@@ -483,7 +534,8 @@ export default function PresellDashboard() {
     setFormErrors({});
 
     const slug = sanitizeSlug(formData.pageSlug || formData.pageName);
-    const link = formData.productLink.trim();
+    const importUrl = formData.productLink.trim();
+    const ctaAffiliate = formData.affiliateLink.trim() || importUrl;
 
     if (editingId && editingPage) {
       setIsSavingPage(true);
@@ -505,9 +557,11 @@ export default function PresellDashboard() {
             }
           }
         }
+        const prevContent = editingPage.content as Record<string, unknown>;
         const content = {
-          ...(editingPage.content as Record<string, unknown>),
-          affiliateLink: link,
+          ...prevContent,
+          affiliateLink: ctaAffiliate,
+          sourceUrl: prevContent.sourceUrl ?? importUrl,
         };
         await updateMutation.mutateAsync({
           id: editingId,
@@ -535,9 +589,9 @@ export default function PresellDashboard() {
     setIsSavingPage(true);
     try {
       const { data, error } = await presellService.importFromUrl({
-        product_url: link,
+        product_url: importUrl,
         language: formData.language,
-        affiliate_link: link,
+        affiliate_link: formData.affiliateLink.trim() || undefined,
       });
 
       if (error || !data) {
@@ -577,7 +631,7 @@ export default function PresellDashboard() {
           subtitle: data.subtitle,
           salesText: data.sales_text,
           ctaText: isDiscount ? data.official_buy_cta : data.cta_text,
-          affiliateLink: link,
+          affiliateLink: data.affiliate_link,
           productName: data.product_name,
           productImages: data.images,
           sourceUrl: data.source_url,
@@ -628,15 +682,17 @@ export default function PresellDashboard() {
       );
     }
     const isEditing = Boolean(editingId);
+    const showAllSteps = isEditing;
+    const stepVisible = (n: 1 | 2 | 3) => showAllSteps || creatorStep === n;
     return (
       <div className={APP_PAGE_SHELL}>
         <PageHeader
-          title={isEditing ? "Editar presell" : "Nova presell (automática)"}
+          title={isEditing ? "Editar presell" : "Nova presell em 3 passos"}
           description={
             isAdmin
               ? isEditing
-                ? "Altere nome, slug, tipo, link de afiliado e opções. O texto e as imagens já importados mantêm-se; para voltar a extrair tudo da URL, duplique a página na lista ou crie uma presell nova."
-                : "Cole o link do produto, escolha idioma e tipo, nome e endereço — o restante é gerado automaticamente. Para uma página feita à mão (editor visual), volte à lista e use «Editor manual»; o link público /p/id é o mesmo."
+                ? "Altere nome, slug, tipo, links e opções. O texto e as imagens já importados mantêm-se; para voltar a extrair tudo da URL, duplique a página na lista ou crie uma presell nova."
+                : "Fluxo simples, no estilo de geradores dedicados a presells: projeto e URLs, depois tipo de página (ex. cookies como «modelo» de entrada), e por fim o endereço público /p/… e rastreamento. O conteúdo é extraído do URL da oferta — sem WordPress nem plugins."
               : undefined
           }
           actions={
@@ -644,20 +700,22 @@ export default function PresellDashboard() {
               <Button variant="outline" onClick={exitCreator}>
                 Voltar
               </Button>
-              <Button
-                onClick={handleSave}
-                disabled={createMutation.isPending || updateMutation.isPending || isSavingPage}
-                className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
-              >
-                <Save className="h-4 w-4" />{" "}
-                {createMutation.isPending || updateMutation.isPending || isSavingPage
-                  ? isEditing
-                    ? "A guardar..."
-                    : "Gerando página..."
-                  : isEditing
-                    ? "Guardar alterações"
-                    : "Criar página completa"}
-              </Button>
+              {(isEditing || creatorStep === 3) && (
+                <Button
+                  onClick={handleSave}
+                  disabled={createMutation.isPending || updateMutation.isPending || isSavingPage}
+                  className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+                >
+                  <Save className="h-4 w-4" />{" "}
+                  {createMutation.isPending || updateMutation.isPending || isSavingPage
+                    ? isEditing
+                      ? "A guardar..."
+                      : "Gerando página..."
+                    : isEditing
+                      ? "Guardar alterações"
+                      : "Criar página completa"}
+                </Button>
+              )}
             </>
           }
         />
@@ -684,7 +742,7 @@ export default function PresellDashboard() {
                       ? "no teu domínio verificado ou no dclickora, conforme a conta"
                       : "no domínio dclickora"}
                   </span>
-                  . O link do produto que cola acima só serve para gerar conteúdo e para o clique final na oferta;{" "}
+                  . O URL importado e o link de afiliado (passo 1) servem para gerar conteúdo e para o clique final na oferta;{" "}
                   <span className="font-medium text-card-foreground">não</span> é o URL de destino do anúncio. O anúncio deve
                   usar o link público com <span className="font-mono text-[11px]">/p/</span> — ao concluir a criação, esse
                   link é copiado automaticamente para a área de transferência.
@@ -713,158 +771,167 @@ export default function PresellDashboard() {
           </div>
         ) : null}
 
+        {!isEditing ? (
+          <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 mb-4">
+            <p className="text-xs font-medium text-foreground/90 mb-3">Assistente em 3 passos</p>
+            <ol className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-8 text-sm">
+              {(
+                [
+                  { n: 1 as const, label: "Projeto e URLs" },
+                  { n: 2 as const, label: "Tipo e regras" },
+                  { n: 3 as const, label: "Endereço e extras" },
+                ] as const
+              ).map(({ n, label }) => (
+                <li key={n} className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
+                      creatorStep === n
+                        ? "bg-primary text-primary-foreground ring-2 ring-primary/25 ring-offset-2 ring-offset-background"
+                        : creatorStep > n
+                          ? "bg-primary/90 text-primary-foreground"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {n}
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate",
+                      creatorStep === n ? "font-semibold text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+              Experiência próxima de ferramentas como o SpeedyPresell: nome do projeto, URL da oferta a importar e hoplink
+              opcional — depois o «modelo» (cookies, VSL, etc.) e o endereço público.
+            </p>
+          </div>
+        ) : null}
+
         <div className="bg-card rounded-xl shadow-card border border-border/50 w-full overflow-hidden">
           <div className="px-4 py-4 sm:px-6 sm:py-4 border-b border-border/50">
-            <h2 className="font-semibold text-card-foreground">Dados obrigatórios</h2>
+            <h2 className="font-semibold text-card-foreground">
+              {isEditing
+                ? "Dados da presell"
+                : creatorStep === 1
+                  ? "Passo 1 — Projeto e URLs"
+                  : creatorStep === 2
+                    ? "Passo 2 — Tipo e regras"
+                    : "Passo 3 — Endereço público e rastreamento"}
+            </h2>
           </div>
           <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="productLink">Link do produto</Label>
-              <Input
-                id="productLink"
-                type="url"
-                placeholder="https://... (link da oferta ou de afiliado da rede)"
-                value={formData.productLink}
-                onChange={(e) => updateField("productLink", e.target.value)}
-                className={formErrors.productLink ? "border-destructive focus-visible:ring-destructive" : ""}
-              />
-              <FieldError message={formErrors.productLink} />
-              <p className="text-xs text-muted-foreground">
-                Link público da oferta (não use localhost). Página em inglês: escolha English no idioma.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div className="space-y-2 min-w-0">
-                <Label>Idioma</Label>
-                <Select value={formData.language} onValueChange={(v) => updateField("language", v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRESELL_CREATION_LANGUAGES.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Tipo da presell</Label>
-                <Select value={formData.presellType} onValueChange={(v) => updateField("presellType", v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {presellTypes.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div className="space-y-2 min-w-0">
-                <Label htmlFor="pageName">Nome da página</Label>
-                <Input
-                  id="pageName"
-                  placeholder="Ex.: Oferta Suplemento X"
-                  value={formData.pageName}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setFormData((prev) => ({
-                      ...prev,
-                      pageName: v,
-                      ...(!slugTouchedByUser ? { pageSlug: v.trim() ? sanitizeSlug(v) : "" } : {}),
-                    }));
-                    setFormErrors((prev) => {
-                      if (!prev.pageName) return prev;
-                      const next = { ...prev };
-                      delete next.pageName;
-                      return next;
-                    });
-                  }}
-                  className={formErrors.pageName ? "border-destructive focus-visible:ring-destructive" : ""}
-                />
-                <FieldError message={formErrors.pageName} />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label htmlFor="pageSlug">Endereço (slug)</Label>
-                <div className="flex min-w-0 rounded-md border border-input bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
-                  <span
-                    className="flex items-center shrink min-w-0 max-w-[min(100%,14rem)] sm:max-w-[16rem] px-2.5 py-2 text-xs sm:text-sm font-mono text-muted-foreground bg-muted/40 border-r border-border select-none truncate"
-                    title={presellUrlPreview.fullUrl}
-                    aria-hidden
-                  >
-                    {presellUrlPreview.prefix}
-                  </span>
+            {stepVisible(1) ? (
+              <div className="space-y-6 border-border/50 pb-6 sm:border-b sm:pb-8">
+                <div className="space-y-2">
+                  <Label htmlFor="pageName">Nome do projeto</Label>
                   <Input
-                    id="pageSlug"
-                    placeholder="ex.: suplemento_x"
-                    value={formData.pageSlug}
+                    id="pageName"
+                    placeholder="Ex.: Campanha Suplemento X"
+                    value={formData.pageName}
                     onChange={(e) => {
-                      setSlugTouchedByUser(true);
-                      updateField("pageSlug", sanitizeSlug(e.target.value));
+                      const v = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        pageName: v,
+                        ...(!slugTouchedByUser ? { pageSlug: v.trim() ? sanitizeSlug(v) : "" } : {}),
+                      }));
+                      setFormErrors((prev) => {
+                        if (!prev.pageName) return prev;
+                        const next = { ...prev };
+                        delete next.pageName;
+                        return next;
+                      });
                     }}
-                    className="min-w-0 border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-xs sm:text-sm"
-                    autoComplete="off"
-                    spellCheck={false}
+                    className={formErrors.pageName ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
+                  <FieldError message={formErrors.pageName} />
+                  <p className="text-xs text-muted-foreground">Identifica a presell na tua lista (como no SpeedyPresell).</p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Pré-visualização do caminho:{" "}
-                  <span className="font-mono text-foreground/90 break-all" title={presellUrlPreview.fullUrl}>
-                    {presellUrlPreview.prefix}
-                    {presellUrlPreview.pathLabel}
-                  </span>
-                  {!hasVerifiedCustomDomain ? (
-                    <span className="block mt-1 text-[11px] leading-snug">
-                      Com domínio personalizado verificado, <code className="text-[10px] bg-muted px-1 rounded">/p/seu-endereco</code>{" "}
-                      funciona no teu site. No dclickora, o link copiado na lista usa <code className="text-[10px] bg-muted px-1 rounded">/p/</code> com o ID da página.
-                    </span>
-                  ) : null}
-                </p>
-              </div>
-            </div>
 
-            {hasVerifiedCustomDomain ? (
-              <div className="space-y-2 max-w-xl">
-                <Label>Domínio nos links públicos</Label>
-                <Select
-                  value={formData.customDomainId || "default"}
-                  onValueChange={(v) => updateField("customDomainId", v === "default" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Domínio padrão da conta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Domínio padrão da conta</SelectItem>
-                    {customDomains
-                      .filter((d) => d.status === "verified")
-                      .map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.hostname}
-                          {d.is_default ? " (padrão)" : ""}
+                <div className="space-y-2">
+                  <Label htmlFor="productLink">URL da página a importar</Label>
+                  <Input
+                    id="productLink"
+                    type="url"
+                    placeholder="https://… (página de vendas pública — lemos o HTML e geramos a presell)"
+                    value={formData.productLink}
+                    onChange={(e) => updateField("productLink", e.target.value)}
+                    className={formErrors.productLink ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                  <FieldError message={formErrors.productLink} />
+                  <p className="text-xs text-muted-foreground">
+                    Não use localhost. Para texto em inglês, escolha English no idioma abaixo.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="affiliateLinkOpt">Link de afiliado / checkout (opcional)</Label>
+                  <Input
+                    id="affiliateLinkOpt"
+                    type="url"
+                    placeholder="https://… (hoplink, checkout com subid, etc. — se for diferente do URL acima)"
+                    value={formData.affiliateLink}
+                    onChange={(e) => updateField("affiliateLink", e.target.value)}
+                    className={formErrors.affiliateLink ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                  <FieldError message={formErrors.affiliateLink} />
+                  <p className="text-xs text-muted-foreground">
+                    Se ficar vazio, o botão da oferta usa o destino final obtido ao importar a página (como quando o link de
+                    afiliado é o mesmo URL).
+                  </p>
+                </div>
+
+                <div className="space-y-2 max-w-md">
+                  <Label>Idioma do conteúdo gerado</Label>
+                  <Select value={formData.language} onValueChange={(v) => updateField("language", v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRESELL_CREATION_LANGUAGES.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  O URL copiado e usado nos anúncios segue este domínio; se escolher o padrão, usa o marcado como padrão em
-                  Configurações.
-                </p>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             ) : null}
 
+            {stepVisible(2) ? (
+              <div className="space-y-6 border-border/50 pb-6 sm:border-b sm:pb-8">
+                <div className="space-y-2 max-w-xl">
+                  <Label>Tipo de presell</Label>
+                  <Select value={formData.presellType} onValueChange={(v) => updateField("presellType", v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presellTypes.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-medium text-foreground/85">Cookies</span> corresponde ao «modelo de cookie» de outras
+                    ferramentas: modal antes de ver a oferta. Pode indicar ainda um URL de política de privacidade abaixo.
+                  </p>
+                </div>
+
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 sm:p-5 space-y-4 text-left w-full min-w-0">
-              <p className="text-sm font-medium text-card-foreground">Opções do tipo (respeitadas na página pública)</p>
+              <p className="text-sm font-medium text-card-foreground">Opções do tipo (na página pública)</p>
               <p className="text-xs text-muted-foreground">
-                O link do produto continua sendo o que você colou acima; os campos abaixo só alteram o que o visitante vê
-                na presell e as regras para liberar o botão da oferta.
+                O URL importado e o link de afiliado foram definidos no passo 1; aqui só ajusta regras visuais (cookies,
+                idade, VSL, etc.).
               </p>
               {formData.presellType === "cookies" ? (
                 <div className="space-y-2">
@@ -955,57 +1022,159 @@ export default function PresellDashboard() {
                 </p>
               ) : null}
             </div>
+              </div>
+            ) : null}
+
+            {stepVisible(3) ? (
+              <div className="space-y-6">
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="pageSlug">Endereço público (slug)</Label>
+                  <div className="flex min-w-0 rounded-md border border-input bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                    <span
+                      className="flex items-center shrink min-w-0 max-w-[min(100%,14rem)] sm:max-w-[16rem] px-2.5 py-2 text-xs sm:text-sm font-mono text-muted-foreground bg-muted/40 border-r border-border select-none truncate"
+                      title={presellUrlPreview.fullUrl}
+                      aria-hidden
+                    >
+                      {presellUrlPreview.prefix}
+                    </span>
+                    <Input
+                      id="pageSlug"
+                      placeholder="ex.: suplemento_x"
+                      value={formData.pageSlug}
+                      onChange={(e) => {
+                        setSlugTouchedByUser(true);
+                        updateField("pageSlug", sanitizeSlug(e.target.value));
+                      }}
+                      className="min-w-0 border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-xs sm:text-sm"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Pré-visualização:{" "}
+                    <span className="font-mono text-foreground/90 break-all" title={presellUrlPreview.fullUrl}>
+                      {presellUrlPreview.prefix}
+                      {presellUrlPreview.pathLabel}
+                    </span>
+                    {!hasVerifiedCustomDomain ? (
+                      <span className="block mt-1 text-[11px] leading-snug">
+                        Com domínio verificado, <code className="text-[10px] bg-muted px-1 rounded">/p/seu-endereco</code>{" "}
+                        funciona no teu site. No dclickora, o link de anúncio usa <code className="text-[10px] bg-muted px-1 rounded">/p/</code>{" "}
+                        com o ID da página.
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+
+                {hasVerifiedCustomDomain ? (
+                  <div className="space-y-2 max-w-xl">
+                    <Label>Domínio nos links públicos</Label>
+                    <Select
+                      value={formData.customDomainId || "default"}
+                      onValueChange={(v) => updateField("customDomainId", v === "default" ? "" : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Domínio padrão da conta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Domínio padrão da conta</SelectItem>
+                        {customDomains
+                          .filter((d) => d.status === "verified")
+                          .map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.hostname}
+                              {d.is_default ? " (padrão)" : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      O URL copiado para anúncios segue este domínio; «padrão» usa o definido em Configurações.
+                    </p>
+                  </div>
+                ) : null}
+
+                <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+                  <span className="font-medium text-card-foreground">Favicon:</span> em presells automáticas o ícone do
+                  separador segue o domínio onde a página abre. Para definir favicon por URL (como em geradores externos),
+                  use o <span className="font-medium text-foreground/90">Editor manual</span> (SEO) ou acrescente uma tag{" "}
+                  <code className="text-[10px] bg-background px-1 rounded">&lt;link rel=&quot;icon&quot; …&gt;</code> em «Código
+                  no head» abaixo.
+                </p>
+              </div>
+            ) : null}
+
+            {!isEditing ? (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                {creatorStep > 1 ? (
+                  <Button type="button" variant="outline" onClick={goCreatorPrev} className="gap-1">
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                ) : null}
+                {creatorStep < 3 ? (
+                  <Button type="button" onClick={goCreatorNext} className="gap-1">
+                    Seguinte
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
-        {trackingEmbedScript ? (
-          <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground leading-relaxed">
-            <span className="font-medium text-card-foreground">Rastreamento Clickora: </span>
-            o script da tua conta é incluído automaticamente em «Código no head» ao guardar (e ao abrir uma presell
-            nova). Podes acrescentar Google, Meta ou outros scripts na secção opcional abaixo.
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-            Inicia sessão para associar o rastreamento Clickora à presell ao guardar.
-          </div>
+        {(isEditing || creatorStep === 3) && (
+          <>
+            {trackingEmbedScript ? (
+              <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground leading-relaxed">
+                <span className="font-medium text-card-foreground">Rastreamento Clickora: </span>
+                o script da tua conta é incluído automaticamente em «Código no head» ao guardar (e ao abrir uma presell
+                nova). Podes acrescentar Google, Meta ou outros scripts na secção opcional abaixo.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+                Inicia sessão para associar o rastreamento Clickora à presell ao guardar.
+              </div>
+            )}
+
+            <PresellTrackingHealthPanel
+              configSettings={configSettings}
+              trackingEmbedScript={trackingEmbedScript}
+              affiliateLink={effectiveAffiliateLink}
+              publishedPageId={editingId}
+              publicPageUrl={
+                editingId
+                  ? getPublicPresellFullUrl(customDomains, formData.customDomainId || null, { id: editingId })
+                  : null
+              }
+            />
+
+            <div className="space-y-2">
+              <PresellAdvancedTrackingCollapsible
+                open={advancedSettingsOpen}
+                onOpenChange={setAdvancedSettingsOpen}
+                configSettings={configSettings}
+                setConfigSettings={setConfigSettings}
+                trackingEmbedScript={trackingEmbedScript}
+                surface="dashboard"
+              />
+            </div>
+
+            <Button
+              onClick={handleSave}
+              disabled={createMutation.isPending || updateMutation.isPending || isSavingPage}
+              className="w-full sm:w-auto gradient-primary border-0 text-primary-foreground hover:opacity-90"
+            >
+              {createMutation.isPending || updateMutation.isPending || isSavingPage
+                ? isEditing
+                  ? "A guardar..."
+                  : "Gerando página..."
+                : isEditing
+                  ? "Guardar alterações"
+                  : "Criar página completa"}
+            </Button>
+          </>
         )}
-
-        <PresellTrackingHealthPanel
-          configSettings={configSettings}
-          trackingEmbedScript={trackingEmbedScript}
-          affiliateLink={formData.productLink}
-          publishedPageId={editingId}
-          publicPageUrl={
-            editingId
-              ? getPublicPresellFullUrl(customDomains, formData.customDomainId || null, { id: editingId })
-              : null
-          }
-        />
-
-        <div className="space-y-2">
-          <PresellAdvancedTrackingCollapsible
-            open={advancedSettingsOpen}
-            onOpenChange={setAdvancedSettingsOpen}
-            configSettings={configSettings}
-            setConfigSettings={setConfigSettings}
-            trackingEmbedScript={trackingEmbedScript}
-            surface="dashboard"
-          />
-        </div>
-
-        <Button
-          onClick={handleSave}
-          disabled={createMutation.isPending || updateMutation.isPending || isSavingPage}
-          className="w-full sm:w-auto gradient-primary border-0 text-primary-foreground hover:opacity-90"
-        >
-          {createMutation.isPending || updateMutation.isPending || isSavingPage
-            ? isEditing
-              ? "A guardar..."
-              : "Gerando página..."
-            : isEditing
-              ? "Guardar alterações"
-              : "Criar página completa"}
-        </Button>
       </div>
     );
   }
@@ -1019,10 +1188,10 @@ export default function PresellDashboard() {
         title="Nenhuma presell criada"
         description={
           isAdmin
-            ? "Automática: cole o URL do produto e escolha o tipo. Manual: abra «Editor manual» para o construtor visual. Ambas usam o link público /p/id."
+            ? "Assistência em 3 passos (URLs + tipo + endereço), estilo ferramentas dedicadas a presells. Manual: «Editor manual». Ambas usam o link público /p/…"
             : "Crie a primeira página (automática ou manual) para começar."
         }
-        actionLabel={canWritePresells ? "Criar presell (automática)" : undefined}
+        actionLabel={canWritePresells ? "Criar presell (3 passos)" : undefined}
         onAction={
           canWritePresells
             ? () => {
@@ -1053,7 +1222,7 @@ export default function PresellDashboard() {
                 }}
                 className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
               >
-                <Plus className="h-4 w-4" /> Presell automática
+                <Plus className="h-4 w-4" /> Nova presell rápida
               </Button>
               <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
                 <LayoutGrid className="h-4 w-4" /> Editor manual
