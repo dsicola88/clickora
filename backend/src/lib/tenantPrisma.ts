@@ -105,7 +105,73 @@ function mergeUpdateUserId(args: Record<string, unknown>, tenantId: string): Rec
   return merged;
 }
 
+/**
+ * O Prisma `upsert` exige `where` como um único filtro de constraint única.
+ * Não pode ser `{ AND: [ { userId_ipAddress: … }, { userId } ] }` — gera PrismaClientValidationError
+ * (em produção o errorHandler devolve "Pedido inválido.").
+ */
 function mergeUpsertUserId(args: Record<string, unknown>, tenantId: string): Record<string, unknown> {
+  const w = args.where as Record<string, unknown> | undefined | null;
+  if (w && typeof w === "object" && !Array.isArray(w)) {
+    if ("userId_ipAddress" in w) {
+      const compound = w.userId_ipAddress as Record<string, unknown> | undefined;
+      if (!compound || typeof compound !== "object") {
+        throw new TenantIsolationError("Upsert inválido: userId_ipAddress mal formado.");
+      }
+      const uid = compound.userId;
+      if (typeof uid === "string" && uid !== tenantId) {
+        logCrossTenantBlocked({
+          model: "userId_ipAddress upsert",
+          tenantId,
+          attemptedResource: uid,
+        });
+        throw new TenantIsolationError("Acesso negado: recurso de outro tenant.");
+      }
+      const ip = compound.ipAddress;
+      if (typeof ip !== "string") {
+        throw new TenantIsolationError("Upsert inválido: ipAddress em falta.");
+      }
+      const create = (args.create ?? {}) as Record<string, unknown>;
+      const update = args.update as Record<string, unknown> | undefined;
+      const { userId: _c, ...createRest } = create;
+      const base: Record<string, unknown> = {
+        ...args,
+        where: { userId_ipAddress: { userId: tenantId, ipAddress: ip } },
+        create: { ...createRest, userId: tenantId },
+      };
+      if (update && typeof update === "object") {
+        const { userId: _u, ...rest } = update;
+        base.update = { ...rest, userId: tenantId };
+      } else {
+        base.update = { userId: tenantId };
+      }
+      return base;
+    }
+    const keys = Object.keys(w);
+    if (keys.length === 1 && keys[0] === "userId") {
+      const uid = w.userId;
+      if (typeof uid === "string" && uid !== tenantId) {
+        logCrossTenantBlocked({ model: "subscription upsert", tenantId, attemptedResource: uid });
+        throw new TenantIsolationError("Acesso negado: recurso de outro tenant.");
+      }
+      const create = (args.create ?? {}) as Record<string, unknown>;
+      const update = args.update as Record<string, unknown> | undefined;
+      const { userId: _c, ...createRest } = create;
+      const base: Record<string, unknown> = {
+        ...args,
+        where: { userId: tenantId },
+        create: { ...createRest, userId: tenantId },
+      };
+      if (update && typeof update === "object") {
+        const { userId: _u, ...rest } = update;
+        base.update = { ...rest, userId: tenantId };
+      } else {
+        base.update = { userId: tenantId };
+      }
+      return base;
+    }
+  }
+
   const mergedWhere = mergeWhereUserId(args, tenantId);
   const create = (args.create ?? {}) as Record<string, unknown>;
   const update = args.update as Record<string, unknown> | undefined;
