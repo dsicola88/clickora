@@ -280,40 +280,169 @@ function isLikelyTrackingOrIcon(url: string) {
   return u.includes("facebook.com/tr") || u.includes("googleads") || u.includes("doubleclick") || u.includes("spacer.gif");
 }
 
+/** Ícones de pagamento, bandeiras, favicons — raramente são foto do produto. */
+function isLikelyNonProductImageUrl(url: string): boolean {
+  const u = decodeURI(url).toLowerCase();
+  if (/favicon|\.ico(\?|$)|\/icon\.png|spacer|pixel\.|1x1|clear\.gif|blank\.gif|chrome-extension:/i.test(u)) {
+    return true;
+  }
+  if (
+    /\/flags?[-/]|country[_-]flag|payment[_-]?(method|icon)|\bvisa[_-]|mastercard|maestro|amex|discover|paypal[_-]logo|apple[_-]?pay|google[_-]?pay|klarna|gpay/i.test(
+      u,
+    )
+  ) {
+    return true;
+  }
+  if (/google-analytics|facebook\.com\/tr|doubleclick|googletagmanager|gstatic\.com\/recaptcha/i.test(u)) {
+    return true;
+  }
+  return false;
+}
+
+function walkJsonLdForProductImages(obj: unknown, out: string[], depth: number): void {
+  if (depth > 12 || out.length > 40) return;
+  if (obj === null || obj === undefined) return;
+  if (Array.isArray(obj)) {
+    for (const x of obj) walkJsonLdForProductImages(x, out, depth + 1);
+    return;
+  }
+  if (typeof obj !== "object") return;
+  const o = obj as Record<string, unknown>;
+
+  const pushImageVal = (v: unknown) => {
+    if (typeof v === "string" && v.trim()) {
+      out.push(v.trim());
+      return;
+    }
+    if (Array.isArray(v)) {
+      for (const x of v) pushImageVal(x);
+      return;
+    }
+    if (v && typeof v === "object") {
+      const img = v as Record<string, unknown>;
+      if (typeof img.url === "string") out.push(img.url.trim());
+      if (Array.isArray(img.url)) for (const x of img.url) if (typeof x === "string") out.push(x.trim());
+    }
+  };
+
+  pushImageVal(o.image);
+  pushImageVal(o.thumbnailUrl);
+
+  for (const [k, v] of Object.entries(o)) {
+    if (k === "image" || k === "thumbnailUrl") continue;
+    if (typeof v === "object" || Array.isArray(v)) walkJsonLdForProductImages(v, out, depth + 1);
+  }
+}
+
+function extractImageUrlsFromJsonLd(html: string): string[] {
+  const raw: string[] = [];
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const j = JSON.parse(m[1]?.trim() || "null") as unknown;
+      walkJsonLdForProductImages(j, raw, 0);
+    } catch {
+      /* ignore */
+    }
+  }
+  return raw;
+}
+
+function extractPreloadImageHrefs(html: string): string[] {
+  const out: string[] = [];
+  const re = /<link\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < 16) {
+    const tag = m[0];
+    if (!/\bas\s*=\s*["']image["']/i.test(tag)) continue;
+    const href = tag.match(/\bhref=["']([^"']+)["']/i)?.[1];
+    if (href) out.push(decodeHtml(href));
+  }
+  return out;
+}
+
+function extractVideoPosterUrls(html: string): string[] {
+  const out: string[] = [];
+  const re = /<video\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < 8) {
+    const tag = m[0];
+    const poster = tag.match(/\bposter=["']([^"']+)["']/i)?.[1];
+    if (poster) out.push(decodeHtml(poster));
+  }
+  return out;
+}
+
 /**
- * @param metaHtml HTML completo (head) para og/twitter:image
- * @param imgScanHtml Trecho da primeira dobra — só imagens desta zona entram na galeria (ordem do DOM)
+ * Imagens do produto: meta, JSON-LD, preload, posters, depois &lt;img&gt;/srcset na dobra e no HTML completo.
+ * Garante pelo menos uma URL quando existir qualquer imagem recuperável no documento.
  */
-function extractImages(metaHtml: string, baseUrl: string, imgScanHtml: string) {
-  const imageSet = new Set<string>();
-  const ogImage = extractMeta(metaHtml, "og:image");
-  if (ogImage) imageSet.add(toAbsoluteUrl(ogImage, baseUrl));
-  const twImage = extractMeta(metaHtml, "twitter:image");
-  if (twImage) imageSet.add(toAbsoluteUrl(twImage, baseUrl));
+function extractProductImages(fullHtml: string, baseUrl: string, foldHtml: string): string[] {
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const htmlScan = fullHtml.length > 450_000 ? fullHtml.slice(0, 450_000) : fullHtml;
 
-  const imgTagRe = /<img[^>]*>/gi;
-  let tagMatch: RegExpExecArray | null;
-  while ((tagMatch = imgTagRe.exec(imgScanHtml)) !== null && imageSet.size < 24) {
-    const tag = tagMatch[0];
-    const src = extractSrcFromImgTag(tag);
-    if (!src || src.startsWith("data:") || isLikelyTrackingOrIcon(src)) continue;
-    const absolute = toAbsoluteUrl(src, baseUrl);
-    if (absolute) imageSet.add(absolute);
+  const tryPush = (raw: string, allowNoisy: boolean) => {
+    const s = cleanText(decodeHtml(raw));
+    if (!s || s.startsWith("data:")) return;
+    const abs = toAbsoluteUrl(s, baseUrl);
+    if (!abs || seen.has(abs)) return;
+    if (isLikelyTrackingOrIcon(abs)) return;
+    if (!allowNoisy && isLikelyNonProductImageUrl(abs)) return;
+    seen.add(abs);
+    ordered.push(abs);
+  };
+
+  for (const metaKey of ["og:image:secure_url", "og:image", "twitter:image:src", "twitter:image"]) {
+    const v = extractMeta(fullHtml, metaKey);
+    if (v) tryPush(v, false);
   }
 
-  const sourceTagRe = /<source\b[^>]*>/gi;
-  while ((tagMatch = sourceTagRe.exec(imgScanHtml)) !== null && imageSet.size < 24) {
-    const tag = tagMatch[0];
-    const srcsetRaw =
-      tag.match(/\bsrcset=["']([^"']+)["']/i)?.[1] || tag.match(/\bsrcset=([^\s>]+)/i)?.[1];
-    if (!srcsetRaw) continue;
-    const pick = bestUrlFromSrcset(decodeHtml(srcsetRaw));
-    if (!pick || pick.startsWith("data:") || isLikelyTrackingOrIcon(pick)) continue;
-    const absolute = toAbsoluteUrl(cleanText(pick), baseUrl);
-    if (absolute) imageSet.add(absolute);
+  for (const u of extractImageUrlsFromJsonLd(fullHtml)) tryPush(u, false);
+  for (const u of extractPreloadImageHrefs(fullHtml)) tryPush(u, false);
+  for (const u of extractVideoPosterUrls(htmlScan)) tryPush(u, false);
+
+  const scanImgAndSource = (chunk: string, allowNoisy: boolean) => {
+    const imgTagRe = /<img[^>]*>/gi;
+    let tagMatch: RegExpExecArray | null;
+    while ((tagMatch = imgTagRe.exec(chunk)) !== null && ordered.length < 28) {
+      const src = extractSrcFromImgTag(tagMatch[0]);
+      if (src) tryPush(src, allowNoisy);
+    }
+    const sourceTagRe = /<source\b[^>]*>/gi;
+    while ((tagMatch = sourceTagRe.exec(chunk)) !== null && ordered.length < 28) {
+      const tag = tagMatch[0];
+      const srcsetRaw =
+        tag.match(/\bsrcset=["']([^"']+)["']/i)?.[1] || tag.match(/\bsrcset=([^\s>]+)/i)?.[1];
+      if (!srcsetRaw) continue;
+      const pick = bestUrlFromSrcset(decodeHtml(srcsetRaw));
+      if (pick) tryPush(pick, allowNoisy);
+    }
+  };
+
+  scanImgAndSource(foldHtml, false);
+  scanImgAndSource(htmlScan, false);
+
+  if (ordered.length < 2) {
+    for (const u of extractImageUrlsFromJsonLd(fullHtml)) tryPush(u, true);
+    scanImgAndSource(htmlScan, true);
   }
 
-  return Array.from(imageSet).filter(Boolean).slice(0, 18);
+  if (ordered.length === 0) {
+    const imgTagRe = /<img[^>]*>/gi;
+    let tagMatch: RegExpExecArray | null;
+    while ((tagMatch = imgTagRe.exec(htmlScan)) !== null && ordered.length < 4) {
+      const src = extractSrcFromImgTag(tagMatch[0]);
+      if (!src || src.startsWith("data:")) continue;
+      const abs = toAbsoluteUrl(cleanText(src), baseUrl);
+      if (!abs || seen.has(abs) || isLikelyTrackingOrIcon(abs)) continue;
+      seen.add(abs);
+      ordered.push(abs);
+    }
+  }
+
+  return ordered.filter(Boolean).slice(0, 18);
 }
 
 function toAbsoluteUrl(url: string, baseUrl: string) {
@@ -853,9 +982,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   assertExternalProductUrl(finalUrl);
 
   let html = await response.text();
-  if (html.length < 800) {
-    throw new Error("A página retornou pouco conteúdo. Use o link completo da página de vendas (https://...).");
-  }
+  const MIN_HTML_CHARS = 800;
 
   if (htmlLooksLikeWrongProduct(html, finalUrl)) {
     throw new Error(
@@ -863,16 +990,37 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     );
   }
 
-  if (staticHtmlLikelyMissingMainContent(html)) {
-    const rendered = await fetchHtmlAfterJsRender(finalUrl, acceptLang);
+  /** Respostas curtas são comuns com bloqueio a bots ou shell mínimo; um browser real pode obter o HTML completo. */
+  const needsBrowserRender =
+    html.length < MIN_HTML_CHARS || staticHtmlLikelyMissingMainContent(html);
+  let renderedHtml: string | null = null;
+  if (needsBrowserRender) {
+    renderedHtml = await fetchHtmlAfterJsRender(finalUrl, acceptLang);
+  }
+
+  if (html.length < MIN_HTML_CHARS) {
     if (
-      rendered &&
-      rendered.length >= 1200 &&
-      !htmlLooksLikeWrongProduct(rendered, finalUrl) &&
-      !staticHtmlLikelyMissingMainContent(rendered)
+      renderedHtml &&
+      renderedHtml.length >= MIN_HTML_CHARS &&
+      !htmlLooksLikeWrongProduct(renderedHtml, finalUrl)
     ) {
-      html = rendered;
+      html = renderedHtml;
+    } else {
+      throw new Error(
+        [
+          "O servidor recebeu pouco HTML (menos de ~800 caracteres).",
+          "Causas frequentes: URL de redirecionamento ou incompleto; bloqueio a datacenters (ex.: Cloudflare); ou página que só preenche conteúdo com JavaScript.",
+          "Confirma um link https:// completo da página de vendas pública. Se persistir, o site pode bloquear o import — usa o Editor manual ou outro URL da mesma oferta.",
+        ].join(" "),
+      );
     }
+  } else if (
+    renderedHtml &&
+    renderedHtml.length >= 1200 &&
+    !htmlLooksLikeWrongProduct(renderedHtml, finalUrl) &&
+    !staticHtmlLikelyMissingMainContent(renderedHtml)
+  ) {
+    html = renderedHtml;
   }
 
   const locale = localePack(language);
@@ -910,7 +1058,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   }
 
   const price = detectPrice(html);
-  const images = extractImages(html, finalUrl, foldHtml);
+  const images = extractProductImages(html, finalUrl, foldHtml);
   const video_url = extractVideoUrl(foldHtml, finalUrl);
 
   const metaTitleForHero = ogTitle || titleTag;
