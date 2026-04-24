@@ -14,6 +14,8 @@ import {
   Code2,
   Download,
   LayoutGrid,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +32,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { FieldError } from "@/components/FieldError";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { cn } from "@/lib/utils";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
