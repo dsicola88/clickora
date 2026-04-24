@@ -1,12 +1,33 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate, NavLink } from "react-router-dom";
-import { Search, MapPin, Key, Copy, Check, Globe, Loader2, Smartphone, Fingerprint } from "lucide-react";
+import { Routes, Route, Navigate, NavLink, Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Search,
+  MapPin,
+  Key,
+  Copy,
+  Check,
+  Globe,
+  Loader2,
+  Smartphone,
+  Fingerprint,
+  Send,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { trackingService } from "@/services/trackingService";
 import { analyticsService } from "@/services/analyticsService";
+import { presellService } from "@/services/presellService";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { countryDisplayLabel, countryFlagEmoji } from "@/lib/countryDisplay";
@@ -18,7 +39,7 @@ const navItems = [
   { to: `${TOOLS_BASE}/ip`, label: "Rastrear IP", icon: MapPin },
   { to: `${TOOLS_BASE}/gclid`, label: "GCLID", icon: Key },
   { to: `${TOOLS_BASE}/clique`, label: "Clique (UUID)", icon: Fingerprint },
-  { to: `${TOOLS_BASE}/postbacks`, label: "Postbacks", icon: Globe },
+  { to: `${TOOLS_BASE}/postbacks`, label: "Postbacks e conversão Google", icon: Globe },
 ] as const;
 
 function ToolsSubNav() {
@@ -378,6 +399,204 @@ function ClickUuidPage() {
   );
 }
 
+function ManualGoogleConversionForm({
+  postbackToken,
+  onSent,
+}: {
+  postbackToken: string;
+  onSent: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: presells = [], isLoading: loadingPresells } = useQuery({
+    queryKey: ["presells"],
+    queryFn: async () => {
+      const { data, error } = await presellService.getAll();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+  });
+
+  const [presellId, setPresellId] = useState("");
+  const [gclid, setGclid] = useState("");
+  const [valueStr, setValueStr] = useState("0");
+  const [currency, setCurrency] = useState("USD");
+  const [transactionId, setTransactionId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (presells.length === 0) return;
+    setPresellId((prev) => {
+      if (prev) return prev;
+      const pub = presells.find((p) => p.status === "published");
+      return (pub ?? presells[0]).id;
+    });
+  }, [presells]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const g = gclid.trim();
+    if (!presellId) {
+      toast.error("Escolha uma presell.");
+      return;
+    }
+    if (!g) {
+      toast.error("Cole o GCLID do clique.");
+      return;
+    }
+    const value = Number.parseFloat(String(valueStr).replace(",", "."));
+    if (!Number.isFinite(value) || value < 0) {
+      toast.error("Indique um valor válido (0 ou maior).");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { data, error } = await trackingService.postbackGoogleAds(
+        {
+          presell_id: presellId,
+          gclid: g,
+          value,
+          currency: currency.toUpperCase().slice(0, 3),
+          ...(transactionId.trim() ? { transaction_id: transactionId.trim() } : {}),
+        },
+        postbackToken,
+      );
+      if (error) throw new Error(error);
+      toast.success(
+        data && typeof data === "object" && "duplicate" in data && data.duplicate
+          ? "Esta conversão já estava registada (mesmo ID de transação)."
+          : "Pedido enviado. Se o Google Ads estiver configurado no painel, a conversão segue para o Google.",
+      );
+      setGclid("");
+      void queryClient.invalidateQueries({ queryKey: ["presells"] });
+      onSent();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-5 shadow-sm space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <Send className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <h3 className="font-semibold text-card-foreground">Conversão Google — envio simples</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Preenche os campos e clica em enviar. Não precisas de Postman nem de comandos no terminal — o dclickora trata do pedido como no postback técnico.
+          </p>
+        </div>
+      </div>
+
+      <Alert className="border-sky-500/30 bg-sky-500/[0.06]">
+        <AlertTitle className="text-sm">Antes de enviar</AlertTitle>
+        <AlertDescription className="text-xs leading-relaxed space-y-2">
+          <p>
+            O <strong className="text-foreground/90">GCLID</strong> tem de ser o do clique real (anúncio com etiquetagem automática). Podes obtê-lo na
+            URL em que o visitante entrou ou na ferramenta <strong className="text-foreground/90">GCLID</strong> /{" "}
+            <strong className="text-foreground/90">Clique (UUID)</strong> desta página.
+          </p>
+          <p>
+            Para o Google Ads receber pela API, liga a conta em{" "}
+            <Link to="/tracking/dashboard" className="font-medium text-primary underline underline-offset-2">
+              Rastreamento → Resumo e guia
+            </Link>
+            .
+          </p>
+        </AlertDescription>
+      </Alert>
+
+      {loadingPresells ? (
+        <p className="text-sm text-muted-foreground flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> A carregar presells…
+        </p>
+      ) : presells.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Cria primeiro uma presell em Minhas Presells.</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="manual-google-presell">Presell</Label>
+            <Select value={presellId} onValueChange={setPresellId}>
+              <SelectTrigger id="manual-google-presell" className="w-full">
+                <SelectValue placeholder="Escolher presell" />
+              </SelectTrigger>
+              <SelectContent>
+                {presells.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <span className="truncate max-w-[min(100vw-4rem,28rem)]">
+                      {p.title}
+                      {p.status !== "published" ? ` (${p.status})` : ""}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="manual-google-gclid">GCLID</Label>
+            <Input
+              id="manual-google-gclid"
+              placeholder="Cole o GCLID aqui"
+              value={gclid}
+              onChange={(e) => setGclid(e.target.value)}
+              className="font-mono text-xs"
+              autoComplete="off"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="manual-google-value">Valor da conversão</Label>
+              <Input
+                id="manual-google-value"
+                type="text"
+                inputMode="decimal"
+                value={valueStr}
+                onChange={(e) => setValueStr(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-google-currency">Moeda</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="manual-google-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["USD", "EUR", "BRL", "GBP", "PLN", "CAD", "AUD"].map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="manual-google-txid">ID da transação (opcional)</Label>
+            <Input
+              id="manual-google-txid"
+              placeholder="Ex.: encomenda-123 — evita duplicar se enviares outra vez"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={submitting || !presellId}
+            className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90 w-full sm:w-auto"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {submitting ? "A enviar…" : "Enviar conversão"}
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function PostbacksPage() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [postbackTemplates, setPostbackTemplates] = useState<null | {
@@ -395,6 +614,11 @@ function PostbacksPage() {
       presell_id?: string | null;
     }>
   >([]);
+
+  const reloadAudit = async () => {
+    const audit = await trackingService.getPostbackAudit(15);
+    if (audit.data) setPostbackAudit(audit.data);
+  };
 
   useEffect(() => {
     const loadTemplates = async () => {
@@ -415,7 +639,11 @@ function PostbacksPage() {
   };
 
   return (
-    <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-4">
+    <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
+      {!templatesLoading && postbackTemplates ? (
+        <ManualGoogleConversionForm postbackToken={postbackTemplates.token} onSent={reloadAudit} />
+      ) : null}
+
       <h3 className="font-semibold text-card-foreground">URLs de postback por cliente</h3>
       {templatesLoading ? <p className="text-sm text-muted-foreground">A carregar URLs…</p> : null}
       {!templatesLoading && postbackTemplates ? (

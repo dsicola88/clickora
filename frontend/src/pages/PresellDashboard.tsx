@@ -636,12 +636,13 @@ export default function PresellDashboard() {
           productName: data.product_name,
           productImages: data.images,
           sourceUrl: data.source_url,
+          /** Extraído da página do produto — usado no layout tipo loja (estrelas). */
+          ratingValue: data.rating_value,
+          ratingStars: data.rating_stars ?? 5,
           ...(isDiscount
             ? {
                 discountHeadline: data.discount_headline,
                 socialProofLine: data.social_proof,
-                ratingValue: data.rating_value,
-                ratingStars: data.rating_stars ?? 5,
                 urgencyTimerSeconds: data.urgency_timer_seconds ?? 649,
                 discountPercent: data.discount_percent,
               }

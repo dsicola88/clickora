@@ -29,7 +29,13 @@ type Props = {
 export function PresellCta({ href, disabled, children, surface = "light", stretch, className }: Props) {
   if (disabled) {
     return (
-      <span className={cn("flex w-full justify-center px-2 sm:px-4", stretch && "px-0", className)}>
+      <span
+        className={cn(
+          "flex w-full px-2 sm:px-4",
+          stretch ? "justify-stretch px-0" : "justify-center",
+          className,
+        )}
+      >
         <Button
           type="button"
           size="lg"
@@ -48,7 +54,13 @@ export function PresellCta({ href, disabled, children, surface = "light", stretc
   }
 
   return (
-    <div className={cn("flex w-full justify-center px-2 sm:px-4", stretch && "px-0", className)}>
+    <div
+      className={cn(
+        "flex w-full px-2 sm:px-4",
+        stretch ? "justify-stretch px-0" : "justify-center",
+        className,
+      )}
+    >
       <a
         href={href}
         className={cn(

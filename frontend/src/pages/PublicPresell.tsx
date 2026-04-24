@@ -50,6 +50,7 @@ import { getPresellSeoPrimaryTitle } from "@/lib/publicPresellDocumentTitle";
 import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
 import { PresellLanguageSelector } from "@/components/presell/PresellLanguageSelector";
 import { getPresellUiStrings, htmlLangForLocale, isRtlLocale } from "@/lib/presellUiStrings";
+import { cn } from "@/lib/utils";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -197,6 +198,22 @@ function ContentBlock({ block }: { block: string }) {
   return <p className="text-base md:text-[1.05rem] leading-[1.75] text-foreground/90 whitespace-pre-line">{t}</p>;
 }
 
+function StorefrontRatingRow({ value, stars }: { value: string; stars: number }) {
+  const n = Math.min(5, Math.max(0, Math.round(stars)));
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label={`Avaliação ${value}`}>
+      <span className="flex gap-0.5 text-amber-500 dark:text-amber-400" aria-hidden>
+        {Array.from({ length: 5 }, (_, i) => (
+          <span key={i} className={cn("text-lg leading-none", i < n ? "opacity-100" : "opacity-20")}>
+            ★
+          </span>
+        ))}
+      </span>
+      <span className="text-sm font-medium text-foreground/85">{value}</span>
+    </div>
+  );
+}
+
 /**
  * Camada sobre o canto inferior direito do embed do YouTube para absorver cliques no logo (abre youtube.com).
  * Não há parâmetro oficial no iframe para remover o logo; a área é estreita para não tapar ecrã inteiro / definições.
@@ -296,6 +313,11 @@ export default function PublicPresell() {
     setCookieDismissed(false);
     setFieldGate({ params: {}, ctaEnabled: true });
   }, [page?.id, setCookieAccepted]);
+
+  const [storefrontMainIdx, setStorefrontMainIdx] = useState(0);
+  useEffect(() => {
+    setStorefrontMainIdx(0);
+  }, [page?.id]);
 
   const handleFieldPayload = useCallback((p: GatePayload) => {
     setFieldGate(p);
@@ -489,6 +511,21 @@ export default function PublicPresell() {
   const urgencyTimerSeconds =
     typeof content.urgencyTimerSeconds === "number" ? content.urgencyTimerSeconds : 649;
 
+  const isGhostPage = isGhostPresellType(page.type);
+  const storefrontLayout = !isVslLayout && !isGhostPage && productImages.length > 0;
+  const productNameLabel =
+    typeof content.productName === "string"
+      ? content.productName.trim()
+      : typeof (content as { product_name?: unknown }).product_name === "string"
+        ? String((content as { product_name: string }).product_name).trim()
+        : "";
+  const showStorefrontRating =
+    !isDiscount &&
+    typeof content.ratingStars === "number" &&
+    content.ratingStars > 0 &&
+    typeof content.ratingValue === "string" &&
+    content.ratingValue.trim().length > 0;
+
   const builderDoc = parsePresellBuilderPageDocument(page.content);
   if (page.type === "builder") {
     if (!builderDoc) {
@@ -539,135 +576,247 @@ export default function PublicPresell() {
         />
       ) : null}
 
-      <section
-        className={
-          isVslLayout
-            ? "relative overflow-hidden border-b border-border/30 bg-gradient-to-b from-slate-950 via-slate-900/95 to-background text-foreground"
-            : "relative overflow-hidden bg-gradient-to-b from-violet-100/90 via-violet-50/40 to-background dark:from-violet-950/30 dark:via-violet-950/10 dark:to-background border-b border-border/30"
-        }
-      >
-        <div className="w-full max-w-[min(100%,72rem)] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-8 sm:pt-10 md:pt-12 pb-10 md:pb-14 text-center space-y-5 sm:space-y-6 md:space-y-8">
-          {interactiveKind ? (
-            <PresellGateFields
-              gateKind={interactiveKind}
-              language={uiLang}
-              settings={settings}
-              onPayload={handleFieldPayload}
-            />
-          ) : null}
-
-          {heroImage && !hideHeroImageForVslFallback ? (
-            <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-4 shadow-sm border border-border/40 mx-auto max-w-2xl">
-              <img
-                src={heroImage}
-                alt={primarySeoLabel}
-                className="w-full max-h-[min(420px,55vh)] object-contain mx-auto rounded-lg"
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-              />
-            </div>
-          ) : null}
-
-          <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto px-1">
-            <h1
-              className={`text-2xl sm:text-4xl md:text-[2.65rem] font-extrabold leading-[1.12] tracking-tight ${
-                isVslLayout ? "text-white drop-shadow-sm" : "text-foreground"
-              }`}
-            >
-              {title}
-            </h1>
-            {subtitle ? (
-              <p
-                className={`text-base sm:text-lg md:text-xl font-medium leading-snug ${
-                  isVslLayout ? "text-slate-200/95" : "text-muted-foreground"
-                }`}
-              >
-                {subtitle}
-              </p>
+      {storefrontLayout ? (
+        <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-stone-100/95 via-stone-50/50 to-background dark:from-stone-950/40 dark:via-background dark:to-background">
+          <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
+            {interactiveKind ? (
+              <div className="mb-8 text-center max-w-3xl mx-auto">
+                <PresellGateFields
+                  gateKind={interactiveKind}
+                  language={uiLang}
+                  settings={settings}
+                  onPayload={handleFieldPayload}
+                />
+              </div>
             ) : null}
-          </div>
 
-          {isVslLayout ? (
-            <>
-              {showVideo ? (
-                <div className="relative w-full max-w-[min(100%,min(1200px,96vw))] mx-auto aspect-video min-h-[200px] bg-black/40 rounded-lg sm:rounded-xl overflow-hidden shadow-xl border border-white/10 ring-1 ring-white/5">
-                  {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
-                    <>
-                      <iframe
-                        title="Vídeo"
-                        src={videoEmbedSrc}
-                        className="absolute inset-0 z-0 w-full h-full border-0"
-                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                        allowFullScreen
-                        referrerPolicy="strict-origin-when-cross-origin"
-                      />
-                      <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
-                    </>
-                  ) : (
-                    <video
-                      title="Vídeo"
-                      src={videoEmbedSrc}
-                      className="absolute inset-0 w-full h-full object-contain bg-black"
-                      controls
-                      playsInline
-                      preload="metadata"
-                    />
-                  )}
-                </div>
-              ) : showVslFallback ? (
-                <div className="w-full max-w-[min(100%,min(1200px,96vw))] mx-auto">
-                  <VslProductVideoFallback
-                    images={productImages}
-                    title={title}
-                    subtitle={subtitle}
-                    language={uiLang}
-                    excerpt={vslExcerpt}
-                    variant="vslHero"
+            <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+              <div className="space-y-4 md:sticky md:top-6">
+                <div className="rounded-2xl border border-border/50 bg-card shadow-md p-4 sm:p-5">
+                  <img
+                    src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                    alt={primarySeoLabel}
+                    className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-muted/20"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                   />
                 </div>
-              ) : null}
-              <PresellCta href={href} disabled={!ctaEnabled} surface="dark">
-                {ctaText}
-              </PresellCta>
-            </>
-          ) : (
-            <>
-              <PresellCta href={href} disabled={!ctaEnabled} surface="light">
-                {ctaText}
-              </PresellCta>
-              {showVideo ? (
-                <div className="relative w-full max-w-3xl mx-auto aspect-video bg-muted rounded-xl overflow-hidden shadow-md border border-border/50 mt-4">
-                  {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
-                    <>
-                      <iframe
-                        title="Vídeo"
-                        src={videoEmbedSrc}
-                        className="absolute inset-0 z-0 h-full w-full border-0"
-                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                        allowFullScreen
-                        referrerPolicy="strict-origin-when-cross-origin"
-                      />
-                      <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
-                    </>
-                  ) : (
-                    <video
+                {productImages.length > 1 ? (
+                  <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+                    {productImages.map((src, i) => (
+                      <button
+                        key={`${i}-${src.slice(0, 48)}`}
+                        type="button"
+                        onClick={() => setStorefrontMainIdx(i)}
+                        className={cn(
+                          "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                          i === storefrontMainIdx
+                            ? "border-primary ring-2 ring-primary/25 shadow-sm"
+                            : "border-border/60 opacity-90 hover:opacity-100",
+                        )}
+                        aria-label={`Imagem ${i + 1}`}
+                      >
+                        <img
+                          src={src}
+                          alt=""
+                          className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
+                {productNameLabel ? (
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {productNameLabel}
+                  </p>
+                ) : null}
+                <h1 className="text-2xl sm:text-3xl lg:text-[2.15rem] font-bold tracking-tight text-foreground leading-tight">
+                  {title}
+                </h1>
+                {showStorefrontRating ? (
+                  <StorefrontRatingRow
+                    value={String(content.ratingValue)}
+                    stars={Number(content.ratingStars)}
+                  />
+                ) : null}
+                {subtitle ? (
+                  <p className="text-base text-muted-foreground leading-relaxed">{subtitle}</p>
+                ) : null}
+                <div className="pt-1">
+                  <PresellCta href={href} disabled={!ctaEnabled} surface="light" stretch>
+                    {ctaText}
+                  </PresellCta>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/50 pt-4">
+                  {getPresellUiStrings(uiLang).midCta}
+                </p>
+              </div>
+            </div>
+
+            {showVideo ? (
+              <div className="relative w-full max-w-4xl mx-auto aspect-video bg-muted rounded-xl overflow-hidden shadow-md border border-border/50 mt-10">
+                {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
+                  <>
+                    <iframe
                       title="Vídeo"
                       src={videoEmbedSrc}
-                      className="absolute inset-0 h-full w-full object-contain bg-black"
-                      controls
-                      playsInline
-                      preload="metadata"
+                      className="absolute inset-0 z-0 h-full w-full border-0"
+                      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                      allowFullScreen
+                      referrerPolicy="strict-origin-when-cross-origin"
                     />
-                  )}
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
-      </section>
+                    <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
+                  </>
+                ) : (
+                  <video
+                    title="Vídeo"
+                    src={videoEmbedSrc}
+                    className="absolute inset-0 h-full w-full object-contain bg-black"
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                )}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : (
+        <section
+          className={
+            isVslLayout
+              ? "relative overflow-hidden border-b border-border/30 bg-gradient-to-b from-slate-950 via-slate-900/95 to-background text-foreground"
+              : "relative overflow-hidden bg-gradient-to-b from-violet-100/90 via-violet-50/40 to-background dark:from-violet-950/30 dark:via-violet-950/10 dark:to-background border-b border-border/30"
+          }
+        >
+          <div className="w-full max-w-[min(100%,72rem)] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-8 sm:pt-10 md:pt-12 pb-10 md:pb-14 text-center space-y-5 sm:space-y-6 md:space-y-8">
+            {interactiveKind ? (
+              <PresellGateFields
+                gateKind={interactiveKind}
+                language={uiLang}
+                settings={settings}
+                onPayload={handleFieldPayload}
+              />
+            ) : null}
 
-      {galleryImages.length > 0 && !showVslFallback ? (
+            {heroImage && !hideHeroImageForVslFallback ? (
+              <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-4 shadow-sm border border-border/40 mx-auto max-w-2xl">
+                <img
+                  src={heroImage}
+                  alt={primarySeoLabel}
+                  className="w-full max-h-[min(420px,55vh)] object-contain mx-auto rounded-lg"
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+              </div>
+            ) : null}
+
+            <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto px-1">
+              <h1
+                className={`text-2xl sm:text-4xl md:text-[2.65rem] font-extrabold leading-[1.12] tracking-tight ${
+                  isVslLayout ? "text-white drop-shadow-sm" : "text-foreground"
+                }`}
+              >
+                {title}
+              </h1>
+              {subtitle ? (
+                <p
+                  className={`text-base sm:text-lg md:text-xl font-medium leading-snug ${
+                    isVslLayout ? "text-slate-200/95" : "text-muted-foreground"
+                  }`}
+                >
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
+
+            {isVslLayout ? (
+              <>
+                {showVideo ? (
+                  <div className="relative w-full max-w-[min(100%,min(1200px,96vw))] mx-auto aspect-video min-h-[200px] bg-black/40 rounded-lg sm:rounded-xl overflow-hidden shadow-xl border border-white/10 ring-1 ring-white/5">
+                    {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
+                      <>
+                        <iframe
+                          title="Vídeo"
+                          src={videoEmbedSrc}
+                          className="absolute inset-0 z-0 w-full h-full border-0"
+                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                          allowFullScreen
+                          referrerPolicy="strict-origin-when-cross-origin"
+                        />
+                        <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
+                      </>
+                    ) : (
+                      <video
+                        title="Vídeo"
+                        src={videoEmbedSrc}
+                        className="absolute inset-0 w-full h-full object-contain bg-black"
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
+                    )}
+                  </div>
+                ) : showVslFallback ? (
+                  <div className="w-full max-w-[min(100%,min(1200px,96vw))] mx-auto">
+                    <VslProductVideoFallback
+                      images={productImages}
+                      title={title}
+                      subtitle={subtitle}
+                      language={uiLang}
+                      excerpt={vslExcerpt}
+                      variant="vslHero"
+                    />
+                  </div>
+                ) : null}
+                <PresellCta href={href} disabled={!ctaEnabled} surface="dark">
+                  {ctaText}
+                </PresellCta>
+              </>
+            ) : (
+              <>
+                <PresellCta href={href} disabled={!ctaEnabled} surface="light">
+                  {ctaText}
+                </PresellCta>
+                {showVideo ? (
+                  <div className="relative w-full max-w-3xl mx-auto aspect-video bg-muted rounded-xl overflow-hidden shadow-md border border-border/50 mt-4">
+                    {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
+                      <>
+                        <iframe
+                          title="Vídeo"
+                          src={videoEmbedSrc}
+                          className="absolute inset-0 z-0 h-full w-full border-0"
+                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                          allowFullScreen
+                          referrerPolicy="strict-origin-when-cross-origin"
+                        />
+                        <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
+                      </>
+                    ) : (
+                      <video
+                        title="Vídeo"
+                        src={videoEmbedSrc}
+                        className="absolute inset-0 h-full w-full object-contain bg-black"
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {galleryImages.length > 0 && !showVslFallback && !storefrontLayout ? (
         <section className="max-w-5xl mx-auto px-4 py-10">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
             {galleryImages.map((src, i) => (
