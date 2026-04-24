@@ -7,6 +7,7 @@ import {
   referencePriceLineRich,
   socialProofFallback,
 } from "./presellLocalePack";
+import { acceptLanguageForPresellImport, fetchHtmlAfterJsRender } from "./presellFoldBrowser";
 
 type ImportPresellInput = {
   productUrl: string;
@@ -172,6 +173,44 @@ function htmlFirstFold(html: string): string {
   return html.slice(0, Math.min(cut, html.length));
 }
 
+/** Reduz ruído de SVG (paths enormes) ao detetar se o HTML estático tem texto útil na dobra. */
+function maskSvgBlocksForScan(html: string): string {
+  return html.replace(/<svg[\s\S]*?<\/svg>/gi, (m) => " ".repeat(m.length));
+}
+
+/**
+ * Landings SPA: shell sem <h1> nem corpo na primeira dobra — o import precisa de browser.
+ */
+export function staticHtmlLikelyMissingMainContent(html: string): boolean {
+  const fold = maskSvgBlocksForScan(htmlFirstFold(html));
+  if (/<h1\b/i.test(fold)) {
+    const h1Text = extractTagText(fold, "h1");
+    if (h1Text.length >= 12 && !isPlaceholderHeading(h1Text)) return false;
+  }
+  const headings = extractHeadings(fold).filter((h) => !isPlaceholderHeading(h) && h.length >= 12);
+  const paragraphs = extractParagraphs(fold);
+  const listItems = extractListItemsFromHtml(fold);
+  if (headings.length >= 1 && paragraphs.length >= 1) return false;
+  if (listItems.length >= 3) return false;
+  if (!/<h1\b/i.test(fold)) return true;
+  return headings.length === 0 && paragraphs.length < 2 && listItems.length < 2;
+}
+
+function bestUrlFromSrcset(srcset: string): string {
+  const candidates: { url: string; w: number }[] = [];
+  for (const part of srcset.split(",")) {
+    const bit = part.trim();
+    if (!bit) continue;
+    const m = bit.match(/^(\S+)(?:\s+(\d+)w)?(?:\s+([\d.]+)x)?$/i);
+    if (!m?.[1]) continue;
+    const w = m[2] ? parseInt(m[2], 10) : 0;
+    candidates.push({ url: m[1], w });
+  }
+  if (candidates.length === 0) return "";
+  candidates.sort((a, b) => b.w - a.w);
+  return candidates[0].url;
+}
+
 function extractHeadings(html: string): string[] {
   const out: string[] = [];
   const re = /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi;
@@ -222,6 +261,11 @@ function extractListItemsFromHtml(html: string): string[] {
 }
 
 function extractSrcFromImgTag(tag: string): string {
+  const srcsetM = tag.match(/\bsrcset=["']([^"']+)["']/i);
+  if (srcsetM?.[1]) {
+    const best = bestUrlFromSrcset(srcsetM[1]);
+    if (best) return cleanText(best);
+  }
   const dataLazy =
     tag.match(/\bdata-src=["']([^"']+)["']/i) ||
     tag.match(/\bdata-lazy-src=["']([^"']+)["']/i) ||
@@ -254,6 +298,18 @@ function extractImages(metaHtml: string, baseUrl: string, imgScanHtml: string) {
     const src = extractSrcFromImgTag(tag);
     if (!src || src.startsWith("data:") || isLikelyTrackingOrIcon(src)) continue;
     const absolute = toAbsoluteUrl(src, baseUrl);
+    if (absolute) imageSet.add(absolute);
+  }
+
+  const sourceTagRe = /<source\b[^>]*>/gi;
+  while ((tagMatch = sourceTagRe.exec(imgScanHtml)) !== null && imageSet.size < 24) {
+    const tag = tagMatch[0];
+    const srcsetRaw =
+      tag.match(/\bsrcset=["']([^"']+)["']/i)?.[1] || tag.match(/\bsrcset=([^\s>]+)/i)?.[1];
+    if (!srcsetRaw) continue;
+    const pick = bestUrlFromSrcset(decodeHtml(srcsetRaw));
+    if (!pick || pick.startsWith("data:") || isLikelyTrackingOrIcon(pick)) continue;
+    const absolute = toAbsoluteUrl(cleanText(pick), baseUrl);
     if (absolute) imageSet.add(absolute);
   }
 
@@ -763,6 +819,9 @@ const IMPORT_FETCH_MS = 14_000;
 export async function importPresellFromProductUrl(input: ImportPresellInput): Promise<ImportPresellResult> {
   assertExternalProductUrl(input.productUrl);
 
+  const language = input.language || "pt-BR";
+  const acceptLang = acceptLanguageForPresellImport(language);
+
   let response: Response;
   try {
     response = await fetch(input.productUrl, {
@@ -772,6 +831,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
       headers: {
         "user-agent": DEFAULT_UA,
         accept: "text/html,application/xhtml+xml",
+        "accept-language": acceptLang,
       },
     });
   } catch (e) {
@@ -792,7 +852,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const finalUrl = response.url || input.productUrl;
   assertExternalProductUrl(finalUrl);
 
-  const html = await response.text();
+  let html = await response.text();
   if (html.length < 800) {
     throw new Error("A página retornou pouco conteúdo. Use o link completo da página de vendas (https://...).");
   }
@@ -803,7 +863,18 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     );
   }
 
-  const language = input.language || "pt-BR";
+  if (staticHtmlLikelyMissingMainContent(html)) {
+    const rendered = await fetchHtmlAfterJsRender(finalUrl, acceptLang);
+    if (
+      rendered &&
+      rendered.length >= 1200 &&
+      !htmlLooksLikeWrongProduct(rendered, finalUrl) &&
+      !staticHtmlLikelyMissingMainContent(rendered)
+    ) {
+      html = rendered;
+    }
+  }
+
   const locale = localePack(language);
 
   const pageHost = new URL(finalUrl).hostname;
