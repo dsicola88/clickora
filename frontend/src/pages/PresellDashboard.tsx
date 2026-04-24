@@ -227,7 +227,7 @@ export default function PresellDashboard() {
     language: "pt-BR",
     /** URL da página de vendas que o servidor importa (clone do conteúdo). */
     productLink: "",
-    /** Link de checkout/oferta com tracking de afiliado; vazio = usa o destino final da importação. */
+    /** Hoplink / destino do botão; vazio = reutiliza o URL final obtido na importação (só seguro se esse URL já for rastreado). */
     affiliateLink: "",
     /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
     customDomainId: "",
@@ -789,8 +789,8 @@ export default function PresellDashboard() {
               ))}
             </ol>
             <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-              Experiência próxima de ferramentas como o SpeedyPresell: nome do projeto, URL da oferta a importar e hoplink
-              opcional — depois o «modelo» (cookies, VSL, etc.) e o endereço público.
+              Experiência próxima de ferramentas como o SpeedyPresell: nome do projeto, URL a importar, hoplink de clique
+              (recomendado para a rede contar a conversão) — depois o «modelo» (cookies, VSL, etc.) e o endereço público.
             </p>
           </div>
         ) : null}
@@ -853,19 +853,25 @@ export default function PresellDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="affiliateLinkOpt">Link de afiliado / checkout (opcional)</Label>
+                  <Label htmlFor="affiliateLinkOpt">Hoplink / checkout — destino do botão</Label>
                   <Input
                     id="affiliateLinkOpt"
                     type="url"
-                    placeholder="https://… (hoplink, checkout com subid, etc. — se for diferente do URL acima)"
+                    placeholder="https://… (link da rede com o teu ID, subid, macros — o que deve receber o clique)"
                     value={formData.affiliateLink}
                     onChange={(e) => updateField("affiliateLink", e.target.value)}
                     className={formErrors.affiliateLink ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.affiliateLink} />
-                  <p className="text-xs text-muted-foreground">
-                    Se ficar vazio, o botão da oferta usa o destino final obtido ao importar a página (como quando o link de
-                    afiliado é o mesmo URL).
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-medium text-foreground/85">Recomendado</span> sempre que o URL acima for só a página
+                    de vendas para «ler» o conteúdo: aqui cola o hoplink com tracking da plataforma — é para onde o visitante
+                    vai ao clicar e onde a conversão deve ser contada.
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Só faz sentido deixar vazio se o primeiro URL <span className="font-medium text-foreground/80">já for</span>{" "}
+                    o teu link rastreado (o botão passa a usar o destino final dessa importação). Se importaste uma página
+                    neutra e não preencheres este campo, o clique pode não levar ao URL certo da rede.
                   </p>
                 </div>
 
