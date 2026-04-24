@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Copy, Check, Plus, X, ChevronsUpDown, ChevronDown, ExternalLink, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -244,6 +245,11 @@ const GENERIC_AFFILIATE_PARAM_DEFAULTS: ParamRow[] = [
 ];
 
 export default function UrlBuilder() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefillFromQueryRef = useRef(false);
+  const [showPresellWelcome, setShowPresellWelcome] = useState(false);
+  const [presellOfferHint, setPresellOfferHint] = useState<string | null>(null);
+
   const [platform, setPlatform] = useState("");
   const [platformOpen, setPlatformOpen] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
@@ -252,6 +258,31 @@ export default function UrlBuilder() {
   const [copiedGoogleSuffix, setCopiedGoogleSuffix] = useState(false);
   const [tokenDialog, setTokenDialog] = useState<{ open: boolean; rowIndex: number }>({ open: false, rowIndex: -1 });
   const [macrosReferenceOpen, setMacrosReferenceOpen] = useState(false);
+
+  useEffect(() => {
+    if (prefillFromQueryRef.current) return;
+    const base = searchParams.get("base")?.trim();
+    const from = searchParams.get("from");
+    const offer = searchParams.get("offer")?.trim();
+    if (!base && from !== "presell") return;
+
+    if (base && isAbsoluteHttpUrl(base)) setBaseUrl(base);
+    if (from === "presell") {
+      setShowPresellWelcome(true);
+      if (offer && isAbsoluteHttpUrl(offer)) setPresellOfferHint(offer);
+    }
+    prefillFromQueryRef.current = true;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("base");
+        next.delete("from");
+        next.delete("offer");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   const handlePlatformChange = (val: string) => {
     setPlatform(val);
@@ -351,6 +382,25 @@ export default function UrlBuilder() {
         onOpenChange={setMacrosReferenceOpen}
         boostPlatformLabel={platform || undefined}
       />
+
+      {showPresellWelcome ? (
+        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] px-4 py-3 sm:px-5 space-y-2">
+          <p className="text-sm font-semibold text-foreground">Seguinte passo: link para anúncios</p>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            O <strong className="text-foreground/90">URL base</strong> abaixo é o link público da presell (
+            <span className="font-mono text-[11px]">/p/…</span>). Escolha a plataforma (Google, Meta, etc.), mantenha os IDs
+            de clique (ex. <span className="font-mono text-[11px]">gclid</span>) e copie o URL gerado para a campanha. O tráfego
+            entra na presell com tracking; no botão da oferta usamos o teu link de afiliado e o redirect liga a conversão ao
+            clique (postback em Integrações).
+          </p>
+          {presellOfferHint ? (
+            <p className="text-[11px] text-muted-foreground leading-snug break-all border-t border-emerald-500/20 pt-2 mt-2">
+              <span className="font-medium text-foreground/85">Link de afiliado na presell (referência): </span>
+              {presellOfferHint}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
         <p className="text-sm font-semibold text-foreground">Fluxo: tracking → oferta → postback</p>

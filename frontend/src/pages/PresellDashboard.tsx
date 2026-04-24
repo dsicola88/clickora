@@ -185,32 +185,30 @@ export default function PresellDashboard() {
         const publicUrl = getPublicPresellFullUrl(customDomains, created.custom_domain_id ?? null, {
           id: created.id,
         });
-        void (async () => {
+        const content = (created.content || {}) as Record<string, unknown>;
+        const offerRaw = String(content.affiliateLink ?? "").trim();
+        const params = new URLSearchParams();
+        params.set("base", publicUrl);
+        params.set("from", "presell");
+        let offerOk = false;
+        if (offerRaw) {
           try {
-            const { data: full } = await presellService.getById(created.id);
-            if (full) {
-              const html = buildPresellStandaloneHtml(full, {
-                apiBase: getApiBaseUrl(),
-                publicPageUrl: publicUrl,
-                format: "htmlWidget",
-              });
-              await navigator.clipboard.writeText(html);
-            } else {
-              await navigator.clipboard.writeText(publicUrl);
+            const u = new URL(offerRaw);
+            if (u.protocol === "http:" || u.protocol === "https:") {
+              params.set("offer", offerRaw);
+              offerOk = true;
             }
-            toast.success(
-              "Página criada. HTML completo copiado (igual à pré-visualização pública) — cola no teu site no bloco ou widget «HTML». O link público está no comentário no topo do código.",
-              { duration: 12000 },
-            );
           } catch {
-            try {
-              await navigator.clipboard.writeText(publicUrl);
-            } catch {
-              /* ignore */
-            }
-            toast.success(`Página criada. Link público: ${publicUrl}`, { duration: 15000 });
+            /* ignore */
           }
-        })();
+        }
+        navigate(`/tracking/url-builder?${params.toString()}`);
+        toast.success(
+          offerOk
+            ? "Presell criada. Abriu o Construtor de URL com o link público — escolha a rede, adicione UTMs e IDs de clique. O botão da presell já usa o teu link de afiliado."
+            : "Presell criada. Abriu o Construtor de URL com o link público — escolha a rede e complete o tracking.",
+          { duration: 11000 },
+        );
       } else {
         toast.success("Página criada! Texto e imagens foram gerados automaticamente.");
       }
