@@ -38,7 +38,7 @@ import IntentConversionPage from "./pages/IntentConversionPage";
 import AffiliateGuidePage from "./pages/AffiliateGuidePage";
 import InAppUserGuidePage from "./pages/InAppUserGuidePage";
 import SetupAssistantPage from "./pages/SetupAssistantPage";
-import DpilotAdsPage from "./pages/DpilotAdsPage";
+import { DpilotPaidApp } from "./pages/dpilot/DpilotPaidApp";
 import LegalPrivacyPage from "./pages/LegalPrivacyPage";
 import LegalTermsPage from "./pages/LegalTermsPage";
 
@@ -76,7 +76,6 @@ const appRoutes = [
   { path: "/tracking/integrations", element: <Integrations /> },
   { path: "/tracking/settings", element: <Settings /> },
   { path: "/tracking/logs", element: <Logs /> },
-  { path: "/tracking/dpilot", element: <DpilotAdsPage /> },
 ] as const;
 
 const queryClient = new QueryClient({
@@ -136,6 +135,7 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Routes>
+                        <Route path="/tracking/dpilot/*" element={<DpilotPaidApp />} />
                         {appRoutes.map((route) => (
                           <Route key={route.path} path={route.path} element={route.element} />
                         ))}

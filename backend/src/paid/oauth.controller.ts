@@ -25,14 +25,15 @@ function redirectToFrontend(
   res: Response,
   projectId: string,
   query: Record<string, string | undefined>,
+  pathSegment: "google" | "meta" | "tiktok",
 ) {
   const base = getPaidOAuthFrontendBase();
   const sp = new URLSearchParams();
-  sp.set("project", projectId);
   for (const [k, v] of Object.entries(query)) {
     if (v != null && v !== "") sp.set(k, v);
   }
-  return res.redirect(302, `${base}/tracking/dpilot?${sp.toString()}`);
+  const q = sp.toString();
+  return res.redirect(302, `${base}/tracking/dpilot/p/${projectId}/${pathSegment}${q ? `?${q}` : ""}`);
 }
 
 export const oauthController = {
@@ -117,7 +118,7 @@ export const oauthController = {
           tokenRef: null,
         },
       });
-      return redirectToFrontend(res, projectId, { google: "error" });
+      return redirectToFrontend(res, projectId, { google: "error" }, "google");
     }
     if (!code) {
       return res.status(400).send("Missing code");
@@ -138,7 +139,7 @@ export const oauthController = {
           errorMessage: null,
         },
       });
-      return redirectToFrontend(res, projectId, { google: "connected" });
+      return redirectToFrontend(res, projectId, { google: "connected" }, "google");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       await prisma.paidAdsGoogleAdsConnection.update({
@@ -149,7 +150,7 @@ export const oauthController = {
           tokenRef: null,
         },
       });
-      return redirectToFrontend(res, projectId, { google: "error" });
+      return redirectToFrontend(res, projectId, { google: "error" }, "google");
     }
   },
 
@@ -223,7 +224,7 @@ export const oauthController = {
           tokenRef: null,
         },
       });
-      return redirectToFrontend(res, projectId, { meta: "error" });
+      return redirectToFrontend(res, projectId, { meta: "error" }, "meta");
     }
     if (!code) {
       return res.status(400).send("Missing code");
@@ -293,7 +294,7 @@ export const oauthController = {
           errorMessage: null,
         },
       });
-      return redirectToFrontend(res, projectId, { meta: "connected" });
+      return redirectToFrontend(res, projectId, { meta: "connected" }, "meta");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       await prisma.paidAdsMetaConnection.update({
@@ -304,7 +305,7 @@ export const oauthController = {
           tokenRef: null,
         },
       });
-      return redirectToFrontend(res, projectId, { meta: "error" });
+      return redirectToFrontend(res, projectId, { meta: "error" }, "meta");
     }
   },
 
@@ -377,7 +378,7 @@ export const oauthController = {
           refreshTokenRef: null,
         },
       });
-      return redirectToFrontend(res, projectId, { tiktok: "error" });
+      return redirectToFrontend(res, projectId, { tiktok: "error" }, "tiktok");
     }
     if (!authCode) {
       return res.status(400).send("Missing auth_code");
@@ -422,7 +423,7 @@ export const oauthController = {
           errorMessage: null,
         },
       });
-      return redirectToFrontend(res, projectId, { tiktok: "connected" });
+      return redirectToFrontend(res, projectId, { tiktok: "connected" }, "tiktok");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       await prisma.paidAdsTikTokConnection.update({
@@ -434,7 +435,7 @@ export const oauthController = {
           refreshTokenRef: null,
         },
       });
-      return redirectToFrontend(res, projectId, { tiktok: "error" });
+      return redirectToFrontend(res, projectId, { tiktok: "error" }, "tiktok");
     }
   },
 

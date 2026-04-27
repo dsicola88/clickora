@@ -88,4 +88,39 @@ export const paidAdsService = {
   disconnectTiktok(projectId: string) {
     return apiClient.post<{ ok: boolean }>("/paid/oauth/tiktok/disconnect", { projectId });
   },
+
+  getMetaOverview(projectId: string) {
+    return apiClient.get<{
+      campaigns: number;
+      drafts: number;
+      pending: number;
+      creatives: number;
+    }>(`/paid/projects/${projectId}/meta-overview`);
+  },
+
+  getTikTokOverview(projectId: string) {
+    return apiClient.get<{ campaigns: number; drafts: number; pending: number }>(
+      `/paid/projects/${projectId}/tiktok-overview`,
+    );
+  },
+
+  listAiRuns(projectId: string) {
+    return apiClient.get<{ ai_runs: Record<string, unknown>[] }>(`/paid/projects/${projectId}/ai-runs`);
+  },
+
+  updatePaidMode(projectId: string, paidMode: "copilot" | "autopilot") {
+    return apiClient.post<{ ok: boolean }>(`/paid/projects/${projectId}/paid-mode`, { paidMode });
+  },
+
+  upsertGuardrails(body: {
+    projectId: string;
+    max_daily_budget_micros: number;
+    max_monthly_spend_micros: number;
+    max_cpc_micros: number | null;
+    allowed_countries: string[];
+    blocked_keywords: string[];
+    require_approval_above_micros: number | null;
+  }) {
+    return apiClient.post<Record<string, unknown>>("/paid/guardrails", body);
+  },
 };

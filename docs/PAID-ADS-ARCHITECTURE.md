@@ -4,7 +4,7 @@ Este documento fixa decisões de modelo de dados, deploy e o papel do pacote leg
 
 ## 1. Onde vive o produto
 
-- **UI:** `frontend/` → rota `/tracking/dpilot` (`DpilotAdsPage.tsx`), mesmo login JWT que o resto do dclickora.
+- **UI:** `frontend/src/pages/dpilot/` — componente `DpilotPaidApp` na rota `/tracking/dpilot/*` (índice redireciona; URLs com projecto: `/tracking/dpilot/p/<uuid>/...`), mesmo login JWT que o resto do dclickora. Mapa de paridade com o pacote de referência: [docs/DPILOT-PARITY.md](./DPILOT-PARITY.md).
 - **API:** `backend/` → prefixo `/api/paid/*` e callbacks OAuth em `/api/paid/oauth/*/callback`.
 - **Dados:** tabelas `paid_ads_*` no **mesmo PostgreSQL** que presells/tracking (`backend/prisma/schema.prisma`).
 
