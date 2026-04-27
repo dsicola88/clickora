@@ -20,6 +20,20 @@ export function getPublicApiBase(): string {
   return b.replace(/\/$/, "");
 }
 
+/**
+ * URL final do callback Paid OAuth: /api/paid/oauth/{plataforma}/callback
+ * Se `PUBLIC_API_URL` / `API_PUBLIC_URL` já termina em `/api` (ex.: site na Vercel com proxy),
+ * não repetir `/api` no path.
+ */
+function paidOauthCallbackUrl(base: string, platform: "google" | "meta" | "tiktok"): string {
+  const b = base.replace(/\/$/, "");
+  const tail = `paid/oauth/${platform}/callback`;
+  if (/\/api$/i.test(b)) {
+    return `${b}/${tail}`;
+  }
+  return `${b}/api/${tail}`;
+}
+
 export function googleOAuthRedirectUri(): string {
   const explicit = process.env.GOOGLE_OAUTH_REDIRECT_URL?.trim();
   if (explicit) return explicit;
@@ -27,7 +41,7 @@ export function googleOAuthRedirectUri(): string {
   if (!base) {
     return "http://localhost:3001/api/paid/oauth/google/callback";
   }
-  return `${base}/api/paid/oauth/google/callback`;
+  return paidOauthCallbackUrl(base, "google");
 }
 
 export function metaOAuthRedirectUri(): string {
@@ -37,7 +51,7 @@ export function metaOAuthRedirectUri(): string {
   if (!base) {
     return "http://localhost:3001/api/paid/oauth/meta/callback";
   }
-  return `${base}/api/paid/oauth/meta/callback`;
+  return paidOauthCallbackUrl(base, "meta");
 }
 
 export function tiktokOAuthRedirectUri(): string {
@@ -47,5 +61,5 @@ export function tiktokOAuthRedirectUri(): string {
   if (!base) {
     return "http://localhost:3001/api/paid/oauth/tiktok/callback";
   }
-  return `${base}/api/paid/oauth/tiktok/callback`;
+  return paidOauthCallbackUrl(base, "tiktok");
 }
