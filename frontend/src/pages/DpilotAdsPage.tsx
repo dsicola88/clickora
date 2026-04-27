@@ -32,17 +32,29 @@ export default function DpilotAdsPage() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequestRow[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [metaConn, setMetaConn] = useState<{
+    status?: string;
+    account_name?: string | null;
+    error_message?: string | null;
+  } | null>(null);
+  const [tikConn, setTikConn] = useState<{
+    status?: string;
+    account_name?: string | null;
+    error_message?: string | null;
+  } | null>(null);
 
   const paramProject = searchParams.get("project");
   const validParamProject = paramProject && UUID_RE.test(paramProject) ? paramProject : null;
 
   const loadCore = useCallback(
     async (pid: string) => {
-      const [ov, cfg, camps, crs] = await Promise.all([
+      const [ov, cfg, camps, crs, mConn, tConn] = await Promise.all([
         paidAdsService.getOverview(pid),
         paidAdsService.getOauthConfig(),
         paidAdsService.listCampaigns(pid),
         paidAdsService.listChangeRequests(pid),
+        paidAdsService.getMetaConnection(pid),
+        paidAdsService.getTiktokConnection(pid),
       ]);
       if (ov.error || !ov.data) {
         setErr(ov.error || "Resumo indisponível.");
@@ -54,6 +66,16 @@ export default function DpilotAdsPage() {
       if (cfg.data) setOauthConfig(cfg.data);
       if (camps.data?.campaigns) setCampaigns(camps.data.campaigns as CampaignRow[]);
       if (crs.data?.change_requests) setChangeRequests(crs.data.change_requests as ChangeRequestRow[]);
+      setMetaConn(
+        mConn.data != null
+          ? (mConn.data as { status?: string; account_name?: string | null; error_message?: string | null })
+          : null,
+      );
+      setTikConn(
+        tConn.data != null
+          ? (tConn.data as { status?: string; account_name?: string | null; error_message?: string | null })
+          : null,
+      );
     },
     [],
   );
@@ -156,11 +178,17 @@ export default function DpilotAdsPage() {
     if (projectId) void loadCore(projectId);
   };
 
-  const googleConn = overview?.connection as { status?: string; account_name?: string | null } | undefined;
+  const googleConn = overview?.connection as {
+    status?: string;
+    account_name?: string | null;
+    error_message?: string | null;
+  } | undefined;
   const gr = overview?.guardrails as { max_daily_budget_micros?: number } | undefined;
   const metaAvailable = oauthConfig?.meta?.available;
   const tikAvailable = oauthConfig?.tiktok?.available;
   const googleAvailable = oauthConfig?.google?.available;
+
+  const isConnConnected = (c: { status?: string } | null | undefined) => c?.status === "connected";
 
   const pendingList = useMemo(
     () => changeRequests.filter((c) => c.status === "pending"),
@@ -291,27 +319,56 @@ export default function DpilotAdsPage() {
         </TabsContent>
 
         <TabsContent value="connections" className="mt-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Cada rede é uma ligação OAuth separada (a tua conta de anunciante). “Ligar” abre a página do fornecedor; se já
+            estiveres ligado, podes reautenticar ou desligar. Meta e TikTok exigem variáveis na API (Railway) para
+            ativarem os botões.
+          </p>
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Google Ads</CardTitle>
                 <CardDescription>
-                  {googleAvailable ? "Disponível no servidor" : "Configure credenciais na API (OAuth + developer token)."}
+                  {googleAvailable
+                    ? "Servidor com credenciais Google Ads (OAuth + developer token)."
+                    : "Configure credenciais na API (GOOGLE_ADS_* + token de programador)."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
+                <p className="text-sm">
+                  {googleAvailable ? (
+                    <>
+                      {isConnConnected(googleConn) ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          Ligado{googleConn?.account_name ? ` — ${googleConn.account_name}` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Não ligado (OAuth ainda não concluído)</span>
+                      )}
+                      {googleConn?.error_message && googleConn.status === "error" ? (
+                        <span className="mt-1 block text-xs text-destructive">{googleConn.error_message}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Ligação indisponível até a API estar configurada.</span>
+                  )}
+                </p>
                 <Button
                   type="button"
                   disabled={!projectId || !googleAvailable || connecting === "google"}
                   onClick={() => void startOAuth("google")}
                 >
-                  {connecting === "google" ? "A redirecionar…" : "Ligar Google"}
+                  {connecting === "google"
+                    ? "A redirecionar…"
+                    : isConnConnected(googleConn)
+                      ? "Reautenticar"
+                      : "Ligar Google"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={!projectId || googleConn?.status !== "connected"}
+                  disabled={!projectId || !isConnConnected(googleConn)}
                   onClick={() => void disconnect("google")}
                 >
                   Desligar
@@ -322,18 +379,48 @@ export default function DpilotAdsPage() {
               <CardHeader>
                 <CardTitle className="text-base">Meta</CardTitle>
                 <CardDescription>
-                  {metaAvailable ? "App configurado" : "Defina META_APP_ID e META_APP_SECRET na API."}
+                  {metaAvailable
+                    ? "App Facebook/Meta com redirect registado (mesmo base URL que a API pública)."
+                    : "Defina META_APP_ID e META_APP_SECRET na API (ex. Railway)."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
+                <p className="text-sm">
+                  {metaAvailable ? (
+                    <>
+                      {isConnConnected(metaConn) ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          Ligado{metaConn?.account_name ? ` — ${metaConn.account_name}` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Não ligado</span>
+                      )}
+                      {metaConn?.error_message && metaConn?.status === "error" ? (
+                        <span className="mt-1 block text-xs text-destructive">{metaConn.error_message}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Botão desactivado: falta configuração no servidor.</span>
+                  )}
+                </p>
                 <Button
                   type="button"
                   disabled={!projectId || !metaAvailable || connecting === "meta"}
                   onClick={() => void startOAuth("meta")}
                 >
-                  {connecting === "meta" ? "A redirecionar…" : "Ligar Meta"}
+                  {connecting === "meta"
+                    ? "A redirecionar…"
+                    : isConnConnected(metaConn)
+                      ? "Reautenticar"
+                      : "Ligar Meta"}
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => void disconnect("meta")}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!projectId || !isConnConnected(metaConn)}
+                  onClick={() => void disconnect("meta")}
+                >
                   Desligar
                 </Button>
               </CardContent>
@@ -342,18 +429,48 @@ export default function DpilotAdsPage() {
               <CardHeader>
                 <CardTitle className="text-base">TikTok</CardTitle>
                 <CardDescription>
-                  {tikAvailable ? "App configurado" : "Defina TIKTOK_APP_ID na API."}
+                  {tikAvailable
+                    ? "App de marketing TikTok (redirects alinhados com a API)."
+                    : "Defina TIKTOK_APP_ID e TIKTOK_APP_SECRET na API (ex. Railway)."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
+                <p className="text-sm">
+                  {tikAvailable ? (
+                    <>
+                      {isConnConnected(tikConn) ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          Ligado{tikConn?.account_name ? ` — ${tikConn.account_name}` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Não ligado</span>
+                      )}
+                      {tikConn?.error_message && tikConn?.status === "error" ? (
+                        <span className="mt-1 block text-xs text-destructive">{tikConn.error_message}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Botão desactivado: falta configuração no servidor.</span>
+                  )}
+                </p>
                 <Button
                   type="button"
                   disabled={!projectId || !tikAvailable || connecting === "tiktok"}
                   onClick={() => void startOAuth("tiktok")}
                 >
-                  {connecting === "tiktok" ? "A redirecionar…" : "Ligar TikTok"}
+                  {connecting === "tiktok"
+                    ? "A redirecionar…"
+                    : isConnConnected(tikConn)
+                      ? "Reautenticar"
+                      : "Ligar TikTok"}
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => void disconnect("tiktok")}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!projectId || !isConnConnected(tikConn)}
+                  onClick={() => void disconnect("tiktok")}
+                >
                   Desligar
                 </Button>
               </CardContent>
