@@ -98,6 +98,33 @@ export const integrationsService = {
     }>("/integrations/meta-capi", body);
   },
 
+  async getTiktokEventsSettings() {
+    return apiClient.get<{
+      tiktok_events_enabled: boolean;
+      tiktok_pixel_id: string;
+      has_access_token: boolean;
+      tiktok_events_test_event_code: string;
+      can_send: boolean;
+    }>("/integrations/tiktok-events");
+  },
+
+  async patchTiktokEventsSettings(body: {
+    tiktok_events_enabled?: boolean;
+    tiktok_pixel_id?: string;
+    tiktok_events_access_token?: string;
+    tiktok_events_test_event_code?: string;
+    clear_tiktok_events_access_token?: boolean;
+  }) {
+    return apiClient.patch<{
+      ok: boolean;
+      tiktok_events_enabled: boolean;
+      tiktok_pixel_id: string;
+      has_access_token: boolean;
+      tiktok_events_test_event_code: string;
+      can_send: boolean;
+    }>("/integrations/tiktok-events", body);
+  },
+
   async getTelegramSettings() {
     return apiClient.get<{
       telegram_chat_id: string;

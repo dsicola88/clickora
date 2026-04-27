@@ -14,8 +14,8 @@ export function Gate({ children }: { children: React.ReactNode }) {
   if (loading) {
     return <p className="text-sm text-muted-foreground">A carregar…</p>;
   }
-  if (err || !overview) {
-    return <p className="text-sm text-destructive">{err || "Dados em falta."}</p>;
+  if (err || !overview?.project) {
+    return <p className="text-sm text-destructive">{err || "Dados do projecto em falta. Tente recarregar."}</p>;
   }
   return <>{children}</>;
 }
@@ -41,7 +41,7 @@ export function DpilotVisaoPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold capitalize">
-              {p.overview!.project.paid_mode.replace(/_/g, " ")}
+              {p.overview?.project.paid_mode?.replace(/_/g, " ") ?? "—"}
             </p>
           </CardContent>
         </Card>
@@ -83,7 +83,7 @@ export function DpilotVisaoPage() {
             <CardDescription>Pedidos de alteração</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{p.overview!.pending_approvals}</p>
+            <p className="text-2xl font-semibold">{p.overview?.pending_approvals ?? "—"}</p>
           </CardContent>
         </Card>
       </div>
@@ -170,10 +170,18 @@ export function DpilotMetaPage() {
 }
 
 export function DpilotTiktokPage() {
-  const { tikConn, isConnConnected, tiktokCounts, oauthConfig } = useDpilotPaid();
+  const { projectId, tikConn, isConnConnected, tiktokCounts, oauthConfig } = useDpilotPaid();
   return (
     <Gate>
-      <PageHeader title="TikTok Ads" description="Visão geral e ligação OAuth TikTok for Business." />
+      <PageHeader
+        title="TikTok Ads"
+        description="Visão geral e ligação OAuth TikTok for Business."
+        actions={
+          <Button asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
+          </Button>
+        }
+      />
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-3">
           <Card>
@@ -289,13 +297,18 @@ export function DpilotMetaCampanhasPage() {
 }
 
 export function DpilotTiktokCampanhasPage() {
-  const { campaigns } = useDpilotPaid();
+  const { campaigns, projectId } = useDpilotPaid();
   const list = campaigns.filter((c) => c.platform === "tiktok_ads");
   return (
     <Gate>
       <PageHeader
         title="TikTok · campanhas"
         description="Apenas campanhas tiktok_ads."
+        actions={
+          <Button asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
+          </Button>
+        }
       />
       <Card className="mt-4">
         <CardContent className="pt-6">

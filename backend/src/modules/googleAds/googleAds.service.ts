@@ -3,6 +3,7 @@ import type { User } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../../lib/prisma";
 import { pickOrderIdFromPayload } from "../../lib/affiliatePostbackParsers";
+import { stringFieldsFromJson } from "../../lib/clickEventContext";
 import { decryptSecretField } from "../../lib/fieldEncryption";
 import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
 import {
@@ -407,17 +408,6 @@ export async function uploadClickConversionToGoogleAds(
   }
 }
 
-function metadataAsFlat(meta: unknown): Record<string, string> {
-  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(meta as Record<string, unknown>)) {
-    if (v == null) continue;
-    if (typeof v === "object") continue;
-    out[k] = String(v);
-  }
-  return out;
-}
-
 /**
  * Após criar `Conversion` aprovada no webhook de afiliados: envia para o Google Ads se configurado.
  * Idempotente se `googleAdsSync === sent`.
@@ -437,7 +427,9 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
 
   const user = conv.user;
   if (!user.googleAdsEnabled) {
-    await markGoogleAdsSkip(conv.id, "skipped_disabled", { reason: "google_ads_enabled false" });
+    await markGoogleAdsSkip(conv.id, "skipped_disabled", {
+      reason: "A integração Google Ads (upload por clique) está desactivada na conta.",
+    });
     return;
   }
 
@@ -445,7 +437,7 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
   const actionId = user.googleAdsConversionActionId?.trim();
   if (!customerId || !actionId) {
     await markGoogleAdsSkip(conv.id, "skipped_no_config", {
-      reason: "customer_id ou conversion_action_id em falta",
+      reason: "Indique o ID da conta Google Ads e o ID numérico da acção de conversão nas definições.",
     });
     return;
   }
@@ -454,7 +446,7 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
   if (!creds) {
     await markGoogleAdsSkip(conv.id, "skipped_no_config", {
       reason:
-        "Credenciais Google Ads API em falta (GOOGLE_ADS_DEVELOPER_TOKEN, CLIENT_ID, CLIENT_SECRET no .env e refresh token no utilizador ou GOOGLE_ADS_REFRESH_TOKEN)",
+        "Faltam credenciais de API: variáveis GOOGLE_ADS_* no servidor, OAuth (refresh token) e developer token. Consulte a documentação ou o administrador do sistema.",
     });
     return;
   }
@@ -466,12 +458,13 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
 
   if (!gclid?.trim() && !gbraid?.trim() && !wbraid?.trim()) {
     await markGoogleAdsSkip(conv.id, "skipped_no_gclid", {
-      reason: "Clique sem gclid/gbraid/wbraid no metadata",
+      reason:
+        "O clique não contém gclid, gbraid nem wbraid. Active a etiquetagem automática e as campanhas com rastreio de cliques de pesquisa.",
     });
     return;
   }
 
-  const flat = metadataAsFlat(conv.metadata);
+  const flat = stringFieldsFromJson(conv.metadata);
   const orderId = pickOrderIdFromPayload(flat) || conv.id;
   const amount = conv.amount != null ? Number(conv.amount) : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);

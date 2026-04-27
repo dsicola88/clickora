@@ -4,28 +4,11 @@
 import type { PaidAdsChangeRequestType as ChangeRequestType } from "@prisma/client";
 
 import { prisma } from "./paidPrisma";
+import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
 
-const TIKTOK_BASE = "https://business-api.tiktok.com/open_api/v1.3";
-
-type Env<T = unknown> = { code: number; message: string; data?: T };
+type Env<T = unknown> = { code: number; message: string; data?: T; request_id?: string };
 
 export type CrResult = { ok: true } | { ok: false; error: string };
-
-async function getConn(projectId: string) {
-  return prisma.paidAdsTikTokConnection.findUnique({ where: { projectId } });
-}
-
-async function apiPost<T>(path: string, accessToken: string, body: object): Promise<Env<T>> {
-  const res = await fetch(`${TIKTOK_BASE}/${path.replace(/^\//, "")}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Token": accessToken,
-    },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as Env<T>;
-}
 
 export async function applyTiktokUpdateBudget(
   projectId: string,
@@ -36,8 +19,8 @@ export async function applyTiktokUpdateBudget(
     daily_budget_micros: number;
   },
 ): Promise<CrResult> {
-  const conn = await getConn(projectId);
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.advertiserId) {
+  const conn = await prisma.paidAdsTikTokConnection.findUnique({ where: { projectId } });
+  if (!conn || conn.status !== "connected" || !conn.advertiserId) {
     return { ok: false, error: "Ligue a conta TikTok (OAuth) e o advertiser." };
   }
   const camp = await prisma.paidAdsCampaign.findFirst({
@@ -50,12 +33,12 @@ export async function applyTiktokUpdateBudget(
     if (!camp.externalCampaignId) {
       return { ok: false, error: "Sem campanha remota; aplique a criação antes." };
     }
-    const r = await apiPost("campaign/update/", conn.tokenRef, {
+    const r = (await tiktokApiPostWithTokenRetry(projectId, "campaign/update/", {
       advertiser_id: conn.advertiserId,
       campaign_id: camp.externalCampaignId,
       budget_mode: "BUDGET_MODE_DAY",
       budget: daily,
-    });
+    })) as Env;
     if (r.code !== 0) {
       return { ok: false, error: r.message || `TikTok campaign update (${r.code})` };
     }
@@ -63,12 +46,12 @@ export async function applyTiktokUpdateBudget(
     if (!camp.tiktokAdGroupId) {
       return { ok: false, error: "Sem ad group TikTok; crie/ publique a campanha com ad group." };
     }
-    const r = await apiPost("adgroup/update/", conn.tokenRef, {
+    const r = (await tiktokApiPostWithTokenRetry(projectId, "adgroup/update/", {
       advertiser_id: conn.advertiserId,
       adgroup_id: camp.tiktokAdGroupId,
       budget_mode: "BUDGET_MODE_DAY",
       budget: daily,
-    });
+    })) as Env;
     if (r.code !== 0) {
       return { ok: false, error: r.message || `TikTok ad group update (${r.code})` };
     }
@@ -84,8 +67,8 @@ export async function applyTiktokPauseEntity(
   projectId: string,
   p: { level: "campaign" | "adgroup"; campaign_id: string },
 ): Promise<CrResult> {
-  const conn = await getConn(projectId);
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.advertiserId) {
+  const conn = await prisma.paidAdsTikTokConnection.findUnique({ where: { projectId } });
+  if (!conn || conn.status !== "connected" || !conn.advertiserId) {
     return { ok: false, error: "Ligue a conta TikTok (OAuth) e o advertiser." };
   }
   const c = await prisma.paidAdsCampaign.findFirst({
@@ -97,11 +80,11 @@ export async function applyTiktokPauseEntity(
     if (!c.externalCampaignId) {
       return { ok: false, error: "Campanha sem ID TikTok remoto." };
     }
-    const r = await apiPost("campaign/update/", conn.tokenRef, {
+    const r = (await tiktokApiPostWithTokenRetry(projectId, "campaign/update/", {
       advertiser_id: conn.advertiserId,
       campaign_id: c.externalCampaignId,
       operation_status: "DISABLE",
-    });
+    })) as Env;
     if (r.code !== 0) {
       return { ok: false, error: r.message || "Pausar campanha TikTok" };
     }
@@ -111,11 +94,11 @@ export async function applyTiktokPauseEntity(
   if (!c.tiktokAdGroupId) {
     return { ok: false, error: "Sem ad group remoto; publique a criação da campanha + ad group." };
   }
-  const r2 = await apiPost("adgroup/update/", conn.tokenRef, {
+  const r2 = (await tiktokApiPostWithTokenRetry(projectId, "adgroup/update/", {
     advertiser_id: conn.advertiserId,
     adgroup_id: c.tiktokAdGroupId,
     operation_status: "DISABLE",
-  });
+  })) as Env;
   if (r2.code !== 0) {
     return { ok: false, error: r2.message || "Pausar ad group TikTok" };
   }

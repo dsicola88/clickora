@@ -18,6 +18,7 @@ import {
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
 import { isMetaCapiReadyForUser, syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
+import { isTikTokEventsReadyForUser, syncConversionToTikTokEvents } from "../modules/tiktokEvents/tiktokEvents.service";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
@@ -179,6 +180,9 @@ export const integrationsController = {
           void syncConversionToMetaCapi(createdConv.id).catch((err) =>
             console.error("[syncConversionToMetaCapi]", err),
           );
+          void syncConversionToTikTokEvents(createdConv.id).catch((err) =>
+            console.error("[syncConversionToTikTokEvents]", err),
+          );
         } catch (e) {
           if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
             conversionResult = "duplicate";
@@ -199,8 +203,13 @@ export const integrationsController = {
     };
 
     const to = (user.saleNotifyEmail?.trim() || user.email).trim();
-    const subject = `[dclickora] Postback ${platform} — ${conversionResult}`;
-    const text = `Resultado: ${conversionResult}\n\n${JSON.stringify(payloadLog, null, 2)}`;
+    const subject = `[dclickora] Notificação de postback — ${platform} — ${conversionResult}`;
+    const text =
+      `A rede de afiliados enviou um pedido de postback para a sua integração dclickora.\n\n` +
+      `Resultado: ${conversionResult}\n` +
+      `Plataforma (metadata): ${platform}\n` +
+      `Quando a conversão for criada e as integrações de anúncios estiverem activas, o servidor processará o envio a Google, Meta e/ou TikTok, conforme configurado — ver Relatórios → Conversões (estado de sync).\n\n` +
+      `Detalhe (JSON):\n${JSON.stringify(payloadLog, null, 2)}`;
     const mail = await sendTransactionalEmail({ to, subject, text });
 
     await systemPrisma.postbackLog.create({
@@ -252,10 +261,11 @@ export const integrationsController = {
     }
 
     const to = (user.saleNotifyEmail?.trim() || user.email).trim();
-    const subject = "[dclickora] Teste de notificação de venda";
+    const subject = "[dclickora] Teste de notificação de venda (webhook de afiliados)";
     const text =
-      "Este é um e-mail de teste do dclickora.\n\n" +
-      "Se recebeu esta mensagem, o SMTP está correto e receberá alertas quando as redes enviarem POST para o seu webhook de afiliados.\n";
+      "Este e-mail confirma que a configuração SMTP do servidor dclickora está a funcionar.\n\n" +
+      "Quando a rede de afiliados fizer postbacks de vendas aprovadas para o URL configurado em Plataformas, receberá notificações no mesmo endereço (ou no e-mail alternativo de alertas, se tiver definido um).\n" +
+      "Também pode receber avisos de falhas de sincronização com Google Ads, Meta ou TikTok, se tiver notificações de problemas activas (Telegram ou e-mail).\n";
 
     const mail = await sendTransactionalEmail({ to, subject, text });
     if (!mail.sent) {
@@ -522,6 +532,90 @@ export const integrationsController = {
       has_access_token: Boolean(user.metaAccessToken?.trim()),
       meta_capi_test_event_code: user.metaCapiTestEventCode ?? "",
       can_send: isMetaCapiReadyForUser(user),
+    });
+  },
+
+  /** TikTok Events API (Pixel server-side, requer ttclid no clique). */
+  async getTiktokEventsSettings(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        tiktokEventsEnabled: true,
+        tiktokPixelId: true,
+        tiktokEventsAccessToken: true,
+        tiktokEventsTestEventCode: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+
+    res.json({
+      tiktok_events_enabled: user.tiktokEventsEnabled,
+      tiktok_pixel_id: user.tiktokPixelId ?? "",
+      has_access_token: Boolean(user.tiktokEventsAccessToken?.trim()),
+      tiktok_events_test_event_code: user.tiktokEventsTestEventCode ?? "",
+      can_send: isTikTokEventsReadyForUser(user),
+    });
+  },
+
+  async patchTiktokEventsSettings(req: Request, res: Response) {
+    const schema = z.object({
+      tiktok_events_enabled: z.boolean().optional(),
+      tiktok_pixel_id: z.string().optional(),
+      tiktok_events_access_token: z.string().optional(),
+      tiktok_events_test_event_code: z.string().optional(),
+      clear_tiktok_events_access_token: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+
+    const userId = billingUserId(req);
+    const d = parsed.data;
+    const data: {
+      tiktokEventsEnabled?: boolean;
+      tiktokPixelId?: string | null;
+      tiktokEventsAccessToken?: string | null;
+      tiktokEventsTestEventCode?: string | null;
+    } = {};
+
+    if (d.tiktok_events_enabled !== undefined) data.tiktokEventsEnabled = d.tiktok_events_enabled;
+    if (d.tiktok_pixel_id !== undefined) {
+      const t = d.tiktok_pixel_id.trim();
+      data.tiktokPixelId = t || null;
+    }
+    if (d.clear_tiktok_events_access_token) data.tiktokEventsAccessToken = null;
+    else if (d.tiktok_events_access_token !== undefined && d.tiktok_events_access_token.trim()) {
+      data.tiktokEventsAccessToken = encryptSecretField(d.tiktok_events_access_token.trim());
+    }
+    if (d.tiktok_events_test_event_code !== undefined) {
+      const c = d.tiktok_events_test_event_code.trim();
+      data.tiktokEventsTestEventCode = c || null;
+    }
+
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { id: userId }, data });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        tiktokEventsEnabled: true,
+        tiktokPixelId: true,
+        tiktokEventsAccessToken: true,
+        tiktokEventsTestEventCode: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+
+    res.json({
+      ok: true,
+      tiktok_events_enabled: user.tiktokEventsEnabled,
+      tiktok_pixel_id: user.tiktokPixelId ?? "",
+      has_access_token: Boolean(user.tiktokEventsAccessToken?.trim()),
+      tiktok_events_test_event_code: user.tiktokEventsTestEventCode ?? "",
+      can_send: isTikTokEventsReadyForUser(user),
     });
   },
 

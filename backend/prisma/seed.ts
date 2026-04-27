@@ -28,6 +28,10 @@ const USERS_INTEGRATION_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_pixel_id" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_access_token" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_capi_test_event_code" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_enabled" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_pixel_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_access_token" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_test_event_code" TEXT`,
 ] as const;
 
 async function ensureUsersIntegrationColumns() {

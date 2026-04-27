@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import path from "path";
 import { z } from "zod";
 
 import { systemPrisma } from "../lib/prisma";
@@ -6,6 +7,10 @@ import * as mappers from "./api-mappers";
 import { applyChangeRequestRemote } from "./change-request-apply";
 import { ensurePaidAdsBootstrapForUser, ensurePaidAdsProjectRows } from "./bootstrap";
 import { prisma } from "./paidPrisma";
+import { googleCampaignPlanInputSchema, runGoogleCampaignPlan } from "./google-campaign-plan";
+import { metaCampaignPlanInputSchema, runMetaCampaignPlan } from "./meta-campaign-plan";
+import { reconcileProjectCampaigns } from "./reconcile-campaigns";
+import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-campaign-plan";
 import { canAccessProject, canAdminProject, canWriteProject, getPaidActor } from "./permissions";
 
 const projectIdParam = z.object({ projectId: z.string().uuid() });
@@ -156,6 +161,12 @@ export const paidController = {
 
     const now = new Date();
     if (body.data.status === "applied") {
+      if (cr.status === "applied") {
+        return res.json({ ok: true });
+      }
+      if (cr.status !== "pending" && cr.status !== "approved") {
+        return res.status(400).json({ error: "Só é possível aplicar pedidos pendentes ou aprovados." });
+      }
       const out = await applyChangeRequestRemote(cr.projectId, cr.type, cr.payload);
       if (!out.ok) {
         await prisma.paidAdsChangeRequest.update({
@@ -338,6 +349,45 @@ export const paidController = {
     return res.json(mappers.mapGuardrails(g));
   },
 
+  async googleCampaignPlan(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const body = googleCampaignPlanInputSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    const out = await runGoogleCampaignPlan(parsed.data.projectId, body.data, a);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json({
+      ok: true,
+      campaignId: out.campaignId,
+      autoApplied: out.autoApplied,
+      reasons: out.reasons,
+    });
+  },
+
+  async metaCampaignPlan(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const body = metaCampaignPlanInputSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    const out = await runMetaCampaignPlan(parsed.data.projectId, body.data, a);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json({
+      ok: true,
+      campaignId: out.campaignId,
+      model: out.model,
+      autoApplied: out.autoApplied,
+      reasons: out.reasons,
+    });
+  },
+
   async listAiRuns(req: Request, res: Response) {
     const parsed = projectIdParam.safeParse(req.params);
     if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
@@ -352,5 +402,69 @@ export const paidController = {
       take: 50,
     });
     return res.json({ ai_runs: rows.map(mappers.mapAiRun) });
+  },
+
+  async uploadMetaAsset(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para carregar ficheiros neste projecto." });
+    }
+    const f = (req as Request & { file?: Express.Multer.File }).file;
+    if (!f?.filename) {
+      return res.status(400).json({ error: "Ficheiro em falta (campo «file»)." });
+    }
+    const rel = path.posix.join(parsed.data.projectId, f.filename);
+    return res.json({ path: rel });
+  },
+
+  async uploadTiktokAsset(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para carregar ficheiros neste projecto." });
+    }
+    const f = (req as Request & { file?: Express.Multer.File }).file;
+    if (!f?.filename) {
+      return res.status(400).json({ error: "Ficheiro em falta (campo «file»)." });
+    }
+    const rel = path.posix.join(parsed.data.projectId, f.filename);
+    return res.json({ path: rel });
+  },
+
+  async tiktokCampaignPlan(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const body = tiktokCampaignPlanInputSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    const out = await runTiktokCampaignPlan(parsed.data.projectId, body.data, a);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json({
+      ok: true,
+      campaignId: out.campaignId,
+      model: out.model,
+      autoApplied: out.autoApplied,
+      reasons: out.reasons,
+    });
+  },
+
+  async reconcileCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para sincronizar campanhas." });
+    }
+    const r = await reconcileProjectCampaigns(parsed.data.projectId);
+    return res.json(r);
   },
 };

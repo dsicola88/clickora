@@ -6,6 +6,7 @@
  */
 import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMetaCta as MetaCta } from "@prisma/client";
 
+import { paidLog } from "../lib/paidLog";
 import { prisma } from "./paidPrisma";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -235,6 +236,7 @@ export async function publishMetaCreateCampaignFromLocal(
     process.env.META_PROMOTED_PAGE_ID?.trim() ||
     process.env.META_PAGE_ID?.trim();
   if (!pageId) {
+    paidLog("error", "meta.publish.missing_page", { projectId, campaignId });
     return {
       ok: false,
       error:
@@ -244,16 +246,21 @@ export async function publishMetaCreateCampaignFromLocal(
 
   const conn = await prisma.paidAdsMetaConnection.findUnique({ where: { projectId } });
   if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.adAccountId) {
+    paidLog("error", "meta.publish.no_connection", { projectId, campaignId });
     return { ok: false, error: "Ligue a conta Meta (OAuth) e selecione um Ad Account." };
   }
   if (conn.tokenRef.startsWith("state:")) {
+    paidLog("error", "meta.publish.invalid_token_state", { projectId, campaignId });
     return { ok: false, error: "Sessão Meta inválida; volte a conectar." };
   }
 
   const { categories: specCats, error: specErr } = toSpecialAdCategories(
     (crPayload?.special_ad_categories as string[] | undefined) ?? undefined,
   );
-  if (specErr) return { ok: false, error: specErr };
+  if (specErr) {
+    paidLog("warn", "meta.publish.special_categories", { projectId, campaignId, specErr });
+    return { ok: false, error: specErr };
+  }
 
   const token = conn.tokenRef;
   const act = normActId(conn.adAccountId);
@@ -411,6 +418,7 @@ export async function publishMetaCreateCampaignFromLocal(
     });
   } catch (e) {
     const m = e instanceof Error ? e.message : "Falha na publicação Meta.";
+    paidLog("error", "meta.publish.graph_exception", { projectId, campaignId, message: m });
     return { ok: false, error: m };
   }
 

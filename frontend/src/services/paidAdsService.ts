@@ -108,6 +108,25 @@ export const paidAdsService = {
     return apiClient.get<{ ai_runs: Record<string, unknown>[] }>(`/paid/projects/${projectId}/ai-runs`);
   },
 
+  /**
+   * Alinha o estado `PaidAdsCampaign` com as redes (ids externos já gravados).
+   * Requer ligação OAuth activa por plataforma; erros vêm no array `errors`.
+   */
+  reconcileCampaigns(projectId: string) {
+    return apiClient.post<{
+      ok: true;
+      updated: {
+        campaign_id: string;
+        platform: string;
+        before: string;
+        after: string;
+        remote: string;
+      }[];
+      errors: { campaign_id: string; platform: string; error: string }[];
+      skipped: { campaign_id: string; reason: string }[];
+    }>(`/paid/projects/${projectId}/reconcile-campaigns`, {});
+  },
+
   updatePaidMode(projectId: string, paidMode: "copilot" | "autopilot") {
     return apiClient.post<{ ok: boolean }>(`/paid/projects/${projectId}/paid-mode`, { paidMode });
   },
@@ -122,5 +141,86 @@ export const paidAdsService = {
     require_approval_above_micros: number | null;
   }) {
     return apiClient.post<Record<string, unknown>>("/paid/guardrails", body);
+  },
+
+  postGoogleCampaignPlan(
+    projectId: string,
+    body: {
+      landingUrl: string;
+      offer: string;
+      objective: string;
+      dailyBudgetUsd: number;
+      geoTargets: string[];
+      languageTargets: string[];
+    },
+  ) {
+    return apiClient.post<{
+      ok: boolean;
+      campaignId: string;
+      autoApplied: boolean;
+      reasons: { code: string; message: string }[];
+    }>(`/paid/projects/${projectId}/google-campaign-plan`, body);
+  },
+
+  uploadMetaAsset(projectId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiClient.postFormData<{ path: string }>(`/paid/projects/${projectId}/meta-assets`, formData);
+  },
+
+  uploadTiktokAsset(projectId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiClient.postFormData<{ path: string }>(`/paid/projects/${projectId}/tiktok-assets`, formData);
+  },
+
+  postTiktokCampaignPlan(
+    projectId: string,
+    body: {
+      landingUrl: string;
+      offer: string;
+      audienceNotes: string;
+      objective: "traffic" | "reach" | "video_views" | "leads" | "conversions" | "app_installs";
+      dailyBudgetUsd: number;
+      geoTargets: string[];
+      ageMin: number;
+      ageMax: number;
+      complianceAcknowledged: boolean;
+      videoAssetPath: string | null;
+    },
+  ) {
+    return apiClient.post<{
+      ok: boolean;
+      campaignId: string;
+      model: string;
+      autoApplied: boolean;
+      reasons: { code: string; message: string }[];
+    }>(`/paid/projects/${projectId}/tiktok-campaign-plan`, body);
+  },
+
+  postMetaCampaignPlan(
+    projectId: string,
+    body: {
+      landingUrl: string;
+      offer: string;
+      audienceNotes: string;
+      objective: "traffic" | "leads" | "purchases" | "awareness" | "engagement" | "app_promotion";
+      dailyBudgetUsd: number;
+      geoTargets: string[];
+      placements: string[];
+      ageMin: number;
+      ageMax: number;
+      specialAdCategories: string[];
+      complianceAcknowledged: boolean;
+      assetPath: string | null;
+    },
+  ) {
+    return apiClient.post<{
+      ok: boolean;
+      campaignId: string;
+      model: string;
+      autoApplied: boolean;
+      reasons: { code: string; message: string }[];
+    }>(`/paid/projects/${projectId}/meta-campaign-plan`, body);
   },
 };

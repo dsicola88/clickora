@@ -401,6 +401,7 @@ export default function Relatorios() {
           r.utm_medium,
           r.google_ads_sync,
           r.meta_capi_sync,
+          r.tiktok_events_sync,
         ]
           .filter(Boolean)
           .join(" ")
@@ -434,6 +435,7 @@ export default function Relatorios() {
           r.utm_medium,
           r.google_ads_sync,
           r.meta_capi_sync,
+          r.tiktok_events_sync,
         ]
           .filter(Boolean)
           .join(" ")
@@ -496,6 +498,7 @@ export default function Relatorios() {
         "commissionStr",
         "google_ads_sync",
         "meta_capi_sync",
+        "tiktok_events_sync",
       ],
     ),
   );
@@ -535,6 +538,7 @@ export default function Relatorios() {
         "commissionStr",
         "google_ads_sync",
         "meta_capi_sync",
+        "tiktok_events_sync",
       ],
     ),
   );
@@ -562,8 +566,11 @@ export default function Relatorios() {
     if (sync === "sent") return { ok: true, text: "Enviado" };
     if (!sync || sync === "skipped_pending") return { ok: false, text: "Pendente" };
     if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem fbclid" };
+    if (sync === "skipped_no_ttclid") return { ok: false, text: "Sem ttclid" };
     if (sync === "skipped_no_gclid") return { ok: false, text: "Sem gclid" };
-    if (sync === "skipped_disabled") return { ok: false, text: "Desligado" };
+    if (sync === "skipped_disabled") return { ok: false, text: "Inactivo" };
+    if (sync === "skipped_no_config") return { ok: false, text: "Config. incompleta" };
+    if (sync === "failed") return { ok: false, text: "Erro API" };
     return { ok: false, text: sync };
   };
 
@@ -1264,12 +1271,15 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Sync Meta CAPI
                         </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Sync TikTok
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {convDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1277,6 +1287,7 @@ export default function Relatorios() {
                         convDisplay.slice.map((row) => {
                           const s = syncLabel(row.google_ads_sync);
                           const m = syncLabel(row.meta_capi_sync);
+                          const t = syncLabel(row.tiktok_events_sync);
                           return (
                             <tr
                               key={row.id}
@@ -1348,6 +1359,15 @@ export default function Relatorios() {
                                   }`}
                                 >
                                   {m.text}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    t.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                                  }`}
+                                >
+                                  {t.text}
                                 </span>
                               </td>
                             </tr>
@@ -1483,12 +1503,15 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Sync Meta CAPI
                         </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                          Sync TikTok
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {noGclidDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1496,6 +1519,7 @@ export default function Relatorios() {
                         noGclidDisplay.slice.map((row) => {
                           const sg = syncLabel(row.google_ads_sync);
                           const sm = syncLabel(row.meta_capi_sync);
+                          const st = syncLabel(row.tiktok_events_sync);
                           return (
                           <tr
                             key={row.id}
@@ -1532,6 +1556,15 @@ export default function Relatorios() {
                                 }`}
                               >
                                 {sm.text}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  st.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                                }`}
+                              >
+                                {st.text}
                               </span>
                             </td>
                           </tr>

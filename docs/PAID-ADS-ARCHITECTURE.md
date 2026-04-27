@@ -40,6 +40,8 @@ Todas as linhas `paid_ads_*` que carregam `user_id` referem esse dono. Projetos 
 | Voltar ao site após OAuth | **`PAID_OAUTH_FRONTEND_RETURN_URL`** ou o 1.º valor de **`FRONTEND_URL`** — onde o browser aterra (`/tracking/dpilot?…`). |
 | Google Ads API + OAuth | `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_DEVELOPER_TOKEN` |
 | Meta | `META_APP_ID`, `META_APP_SECRET`; opcional `META_OAUTH_REDIRECT_URL` |
+| Plano de campanha Meta / **Google Search** (IA) no monólito | `OPENAI_API_KEY` (e opcional `ANTHROPIC_API_KEY` só no fluxo Meta) — Google Search: sem chave, plano **determinístico** |
+| Página a promover (Graph) | `META_PAGE_ID` ou `META_PROMOTED_PAGE_ID` — necessário para publicar após aprovação / autopilot |
 | TikTok | `TIKTOK_APP_ID`, `TIKTOK_APP_SECRET`; opcional `TIKTOK_OAUTH_REDIRECT_URL` |
 
 Podes fixar redirects **completos** no painel Google/Meta/TikTok (`GOOGLE_OAUTH_REDIRECT_URL`, etc.) e não depender de `PUBLIC_API_URL`.

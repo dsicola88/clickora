@@ -135,7 +135,7 @@ export async function applyChangeRequestRemote(
       case "tiktok_create_campaign": {
         const id = getStr(p, "campaign_id");
         if (!id) return { ok: false, error: "Payload: campaign_id em falta." };
-        return await publishTikTokCreateCampaignFromLocal(projectId, id);
+        return await publishTikTokCreateCampaignFromLocal(projectId, id, p);
       }
       case "tiktok_update_budget": {
         const level = p.level;

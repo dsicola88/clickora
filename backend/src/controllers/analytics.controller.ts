@@ -14,6 +14,7 @@ import { countryIsoFromIp } from "../lib/countryFromIp";
 import { sendCsvDownload } from "../lib/csvExport";
 import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
+import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents.service";
 import { billingUserId } from "../lib/requestContext";
 
 type AnalyticsSummaryItem = {
@@ -164,6 +165,7 @@ function mapConversionForApi(
     platform,
     google_ads_sync: c.googleAdsSync,
     meta_capi_sync: c.metaCapiSync,
+    tiktok_events_sync: c.tiktokEventsSync,
     has_gclid: hasClickId,
     gclid: gclid || null,
   };
@@ -385,6 +387,7 @@ export const analyticsController = {
       "platform",
       "google_ads_sync",
       "meta_capi_sync",
+      "tiktok_events_sync",
       "has_gclid",
       "gclid",
     ];
@@ -508,6 +511,7 @@ export const analyticsController = {
         r.platform,
         r.google_ads_sync,
         r.meta_capi_sync,
+        r.tiktok_events_sync,
         r.has_gclid,
         r.gclid,
       ]);
@@ -564,6 +568,7 @@ export const analyticsController = {
         r.platform,
         r.google_ads_sync,
         r.meta_capi_sync,
+        r.tiktok_events_sync,
         r.has_gclid,
         r.gclid,
       ]);
@@ -700,6 +705,9 @@ export const analyticsController = {
       metaCapiEnabled: boolean;
       metaPixelId: string | null;
       metaAccessToken: string | null;
+      tiktokEventsEnabled: boolean;
+      tiktokPixelId: string | null;
+      tiktokEventsAccessToken: string | null;
     };
     let pipelineUser: PipelineUser | null = null;
     try {
@@ -714,6 +722,9 @@ export const analyticsController = {
           metaCapiEnabled: true,
           metaPixelId: true,
           metaAccessToken: true,
+          tiktokEventsEnabled: true,
+          tiktokPixelId: true,
+          tiktokEventsAccessToken: true,
         },
       });
     } catch (e) {
@@ -762,6 +773,7 @@ export const analyticsController = {
 
     const googleAdsLive = pipelineUser ? isGoogleAdsClickUploadReadyForUser(pipelineUser) : false;
     const metaCapiLive = pipelineUser ? isMetaCapiReadyForUser(pipelineUser) : false;
+    const tiktokEventsLive = pipelineUser ? isTikTokEventsReadyForUser(pipelineUser) : false;
 
     let google_ads_metrics: {
       impressions: number;
@@ -800,12 +812,16 @@ export const analyticsController = {
       period_days: number;
       google_ads_failed: number;
       meta_capi_failed: number;
-    } = { period_days: 7, google_ads_failed: 0, meta_capi_failed: 0 };
+      tiktok_events_failed: number;
+    } = { period_days: 7, google_ads_failed: 0, meta_capi_failed: 0, tiktok_events_failed: 0 };
     try {
-      const [sh] = await systemPrisma.$queryRaw<Array<{ g: bigint | null; m: bigint | null }>>(Prisma.sql`
+      const [sh] = await systemPrisma.$queryRaw<
+        Array<{ g: bigint | null; m: bigint | null; t: bigint | null }>
+      >(Prisma.sql`
         SELECT
           COUNT(*) FILTER (WHERE google_ads_sync = 'failed')::bigint AS g,
-          COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m
+          COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m,
+          COUNT(*) FILTER (WHERE tiktok_events_sync = 'failed')::bigint AS t
         FROM conversions
         WHERE user_id = ${userId}
           AND status = 'approved'
@@ -815,6 +831,7 @@ export const analyticsController = {
         period_days: 7,
         google_ads_failed: Number(sh?.g ?? 0),
         meta_capi_failed: Number(sh?.m ?? 0),
+        tiktok_events_failed: Number(sh?.t ?? 0),
       };
     } catch (e) {
       console.warn("[analytics.getDashboard] sync_health indisponível (colunas ou BD)", e);
@@ -850,6 +867,7 @@ export const analyticsController = {
         google_ads_api_env_configured: Boolean(getGoogleAdsApiClientConfigFromEnv()),
         google_ads_metrics_available: pipelineUser ? isGoogleAdsMetricsReadyForUser(pipelineUser) : false,
         meta_capi_integration: metaCapiLive,
+        tiktok_events_integration: tiktokEventsLive,
       },
       google_ads_metrics,
       google_ads_metrics_error,

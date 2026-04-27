@@ -71,6 +71,10 @@ export function DpilotPaidLayout() {
             <Workflow className="h-4 w-4 shrink-0" />
             TikTok · campanhas
           </NavLink>
+          <NavLink to={`${base}/tiktok/nova`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
+            <Sparkles className="h-4 w-4 shrink-0" />
+            TikTok · nova campanha
+          </NavLink>
           <NavLink to={`${base}/campanhas`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
             <Megaphone className="h-4 w-4 shrink-0" />
             Campanhas

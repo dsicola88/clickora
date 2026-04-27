@@ -21,6 +21,7 @@ import {
   Share2,
   AlertTriangle,
   ListChecks,
+  Music2,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -53,12 +54,18 @@ function SyncHealthBanner({
   dashboard,
 }: {
   dashboard: {
-    sync_health?: { period_days: number; google_ads_failed: number; meta_capi_failed: number };
+    sync_health?: {
+      period_days: number;
+      google_ads_failed: number;
+      meta_capi_failed: number;
+      tiktok_events_failed?: number;
+    };
   } | null;
 }) {
   const sh = dashboard?.sync_health;
   if (!sh) return null;
-  const total = sh.google_ads_failed + sh.meta_capi_failed;
+  const tt = sh.tiktok_events_failed ?? 0;
+  const total = sh.google_ads_failed + sh.meta_capi_failed + tt;
   if (total <= 0) return null;
   const parts: string[] = [];
   if (sh.google_ads_failed > 0) {
@@ -66,6 +73,9 @@ function SyncHealthBanner({
   }
   if (sh.meta_capi_failed > 0) {
     parts.push(`${sh.meta_capi_failed} conversão(ões) com falha na Meta CAPI`);
+  }
+  if (tt > 0) {
+    parts.push(`${tt} conversão(ões) com falha no TikTok Events API`);
   }
   return (
     <Alert className="border-amber-500/35 bg-amber-500/[0.07] text-foreground">
@@ -76,7 +86,7 @@ function SyncHealthBanner({
         <Link className="font-medium text-primary underline underline-offset-2" to="/tracking/relatorios">
           Relatórios → Conversões
         </Link>{" "}
-        (colunas de sync) e corrija tokens ou IDs nas secções Google Ads / Meta abaixo.
+        (colunas de sync) e corrija tokens ou IDs nas secções Google Ads / Meta / TikTok abaixo.
       </AlertDescription>
     </Alert>
   );
@@ -88,8 +98,9 @@ function SetupAssistantCallout() {
       <div className="flex items-start gap-2 min-w-0">
         <ListChecks className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" aria-hidden />
         <p className="text-muted-foreground leading-relaxed">
-          <span className="font-medium text-foreground/90">Assistente de configuração</span> — checklist com o estado da sua conta
-          (presell, cliques, postback, Google Ads).
+          <span className="font-medium text-foreground/90">Assistente de configuração</span> — verificação passo a passo: presell, UTMs, cliques, webhook de
+          afiliados, Google Ads, Meta, TikTok e ligação à documentação. Os passos 3–4 usam o intervalo de datas do resumo; as integrações reflectem
+          a configuração actual.
         </p>
       </div>
       <Button variant="secondary" size="sm" className="shrink-0" asChild>
@@ -173,11 +184,12 @@ function GoogleAdsConversionUploadCard({
           <Target className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Google Ads — importação automática</h3>
-          <p className="text-xs text-muted-foreground">
-            O servidor envia cada conversão para a <strong className="font-medium text-foreground/90">API do Google Ads</strong> (upload por clique){" "}
-            <strong className="font-medium text-foreground/90">logo após</strong> a rede de afiliados confirmar uma{" "}
-            <strong className="font-medium text-foreground/90">venda aprovada</strong> no postback. Não passa por ficheiros CSV nem pelo URL de CSV em Integrações.
+          <h3 className="font-semibold text-card-foreground">Google Ads — conversão por clique (API, servidor a servidor)</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Integração de produção: o backend envia cada venda aprovada (webhook) através da{" "}
+            <strong className="font-medium text-foreground/90">Conversão de cliques (offline upload)</strong> do Google Ads.{" "}
+            <strong className="font-medium text-foreground/90">Não substitui</strong> a importação manual por CSV abaixo; é um circuito distinto, automático, quando o clique tiver{" "}
+            <span className="font-mono text-[11px]">gclid</span> / <span className="font-mono text-[11px]">gbraid</span> / <span className="font-mono text-[11px]">wbraid</span>.
           </p>
         </div>
       </div>
@@ -569,33 +581,35 @@ function GoogleAdsConversionUploadCard({
           className="gap-2"
         >
           {saveGoogleAds.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Guardar Google Ads
+          Guardar definições
         </Button>
         {googleAds?.can_upload ? (
           <Badge variant="secondary" className="font-normal">
-            Pronto para enviar
+            Pronto a enviar
           </Badge>
         ) : (
           <Badge variant="outline" className="font-normal text-muted-foreground">
-            Configuração incompleta
+            Integração incompleta
           </Badge>
         )}
         {googleAds?.has_refresh_token ? (
           <Badge variant="outline" className="font-normal text-muted-foreground">
-            Refresh token OK
+            OAuth (refresh) OK
           </Badge>
         ) : null}
       </div>
       <p className="text-[11px] text-muted-foreground leading-snug">
-        <strong className="text-foreground/90">Envio automático</strong> quando a integração está ligada e a API configurada. O{" "}
-        <strong className="text-foreground/90">ficheiro para Google Ads</strong> (upload manual na conta) é independente; o URL em Integrações não substitui
-        este envio.
+        <strong className="text-foreground/90">Envio automático</strong> quando a integração está activa, com developer token, OAuth e acção de conversão correctos. O bloco de{" "}
+        <strong className="text-foreground/90">ficheiro CSV</strong> é apenas para fluxos manuais na interface Google Ads. O refresh token OAuth é armazenado cifrado no servidor.
       </p>
     </div>
   );
 }
 
 const META_CAPI_DOC = "https://developers.facebook.com/docs/marketing-api/conversions-api/get-started";
+const META_PIXEL_SETTINGS = "https://business.facebook.com/settings/pixels";
+const TIKTOK_EVENTS_DOC = "https://ads.tiktok.com/help/article/events-api";
+const TIKTOK_EVENTS_API_PORTAL = "https://business-api.tiktok.com/portal/docs";
 
 /** Gera o ficheiro (.csv) para importação por cliques (GCLID) no Google Ads. */
 function GoogleAdsOfflineFileExportCard({
@@ -767,28 +781,40 @@ function MetaCapiIntegrationCard({
           <Share2 className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Meta — Conversions API (CAPI)</h3>
-          <p className="text-xs text-muted-foreground">
-            Envio server-side do evento <span className="font-mono text-[11px]">Purchase</span> após cada venda aprovada no webhook de afiliados. O{" "}
-            <span className="font-mono text-[11px]">fbclid</span> vem do URL quando o utilizador clica no anúncio Meta (é obrigatório para atribuição). O{" "}
-            <span className="font-mono text-[11px]">fbp</span> (cookie <span className="font-mono text-[11px]">_fbp</span>, definido pelo Pixel no site) é opcional: melhora o matching na CAPI se estiver presente no metadata do clique.{" "}
-            <a
-              href={META_CAPI_DOC}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:text-primary/90"
-            >
-              Documentação Meta
+          <h3 className="font-semibold text-card-foreground">Meta — Conversions API (CAPI, servidor a servidor)</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            O envio duplicado do evento <span className="font-mono text-[11px]">Purchase</span> reforça o Pixel no browser, com o mesmo <span className="font-mono text-[11px]">event_id</span> da conversão, para
+            deduplicação. O <span className="font-mono text-[11px]">fbclid</span> no URL do clique é exigido para atribuição; o <span className="font-mono text-[11px]">_fbp</span> (cookie) é opcional e melhora o emparelhamento.{" "}
+            <a href={META_CAPI_DOC} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
+              Conversions API
+            </a>
+            {" · "}
+            <a href={META_PIXEL_SETTINGS} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
+              Gestor de Pixels
             </a>
             .
           </p>
         </div>
       </div>
 
+      <Alert className="border-indigo-500/35 bg-indigo-500/[0.07]">
+        <Info className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+        <AlertTitle className="text-sm text-foreground">Boas práticas (Meta Business)</AlertTitle>
+        <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
+          <p>
+            Crie o token em <strong className="text-foreground/90">Definições empresariais</strong> → <strong className="text-foreground/90">Permissões e identidade</strong> (ou a partir do Pixel) com âmbito adequado; restrinja
+            a equipas e rode o token se suspeitar de exposição.
+          </p>
+          <p>
+            O servidor envia <span className="font-mono text-[11px]">order_id</span> (postback) e, quando existir, a URL de origem do clique — parâmetros recomendados pela Meta para o Event Match Quality.
+          </p>
+        </AlertDescription>
+      </Alert>
+
       <div className="flex items-center gap-3">
         <Switch id="meta-capi-enabled" checked={metaEnabled} disabled={integrationsLocked} onCheckedChange={setMetaEnabled} />
         <Label htmlFor="meta-capi-enabled" className="text-sm cursor-pointer">
-          Ativar envio após venda aprovada
+          Ativar envio de conversões aprovadas
         </Label>
       </div>
 
@@ -805,9 +831,10 @@ function MetaCapiIntegrationCard({
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Token de acesso (API de Conversões)</Label>
+          <Label className="text-xs">Token de acesso (Conversions API)</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
-            Gere em Ferramentas empresariais → Origens de dados → Pixel → «Gerar token» (permissões <em>ads_management</em> ou token de sistema).
+            Pixel <strong className="text-foreground/85">não</strong> é o mesmo identificador que o de Facebook Login: é o token de sistema / API de conversões gerado no contexto do Pixel (gestão de acessos, não partilhado
+            publicamente).
           </p>
           <Input
             type="password"
@@ -842,23 +869,170 @@ function MetaCapiIntegrationCard({
           className="gap-2"
         >
           {saveMetaCapi.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Guardar Meta CAPI
+          Guardar definições
         </Button>
         {metaCapi?.can_send ? (
           <Badge variant="secondary" className="font-normal">
-            Pronto para enviar
+            Pronto a enviar
           </Badge>
         ) : (
           <Badge variant="outline" className="font-normal text-muted-foreground">
-            Configuração incompleta
+            Integração incompleta
           </Badge>
         )}
         {metaCapi?.has_access_token ? (
           <Badge variant="outline" className="font-normal text-muted-foreground">
-            Token guardado
+            Token em cofre
           </Badge>
         ) : null}
       </div>
+      <p className="text-[11px] text-muted-foreground leading-snug border-t border-border/50 pt-3">
+        Os segredos são armazenados cifrados no servidor; não são devolvidos em APIs de leitura, apenas a indicação de que existem.
+      </p>
+    </div>
+  );
+}
+
+function TiktokEventsIntegrationCard({
+  tiktok,
+  ttEnabled,
+  setTtEnabled,
+  ttPixelId,
+  setTtPixelId,
+  ttToken,
+  setTtToken,
+  ttTestCode,
+  setTtTestCode,
+  saveTiktok,
+  integrationsLocked = false,
+}: {
+  tiktok:
+    | {
+        tiktok_events_enabled: boolean;
+        tiktok_pixel_id: string;
+        has_access_token: boolean;
+        tiktok_events_test_event_code: string;
+        can_send: boolean;
+      }
+    | undefined;
+  ttEnabled: boolean;
+  setTtEnabled: (v: boolean) => void;
+  ttPixelId: string;
+  setTtPixelId: (v: string) => void;
+  ttToken: string;
+  setTtToken: (v: string) => void;
+  ttTestCode: string;
+  setTtTestCode: (v: string) => void;
+  saveTiktok: { mutate: () => void; isPending: boolean };
+  integrationsLocked?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300">
+          <Music2 className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-semibold text-card-foreground">TikTok — Events API (pixel web, servidor a servidor)</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Complementa o <strong className="text-foreground/90">TikTok Pixel</strong> no site: o mesmo <span className="font-mono text-[11px]">event_id</span> (UUID da conversão) permite deduplicação e métricas coerentes no Events Manager. O
+            <span className="font-mono text-[11px]"> ttclid</span> no URL do clique é o identificador principal de atribuição; campos de página e <span className="font-mono text-[11px]">order_id</span> são enviados quando disponíveis.{" "}
+            <a href={TIKTOK_EVENTS_DOC} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
+              Pixel e eventos
+            </a>
+            {" · "}
+            <a href={TIKTOK_EVENTS_API_PORTAL} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
+              Events API
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+
+      <Alert className="border-rose-500/35 bg-rose-500/[0.07]">
+        <Info className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+        <AlertTitle className="text-sm text-foreground">Credenciais no TikTok for Business</AlertTitle>
+        <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
+          <p>
+            O <strong className="text-foreground/90">código do pixel</strong> (event_source_id) e o <strong className="text-foreground/90">token de acesso</strong> (Events / Measurement) vêm do Events Manager, não do SDK no browser. Use o
+            separador de testes de eventos para validar antes de produção.
+          </p>
+        </AlertDescription>
+      </Alert>
+
+      <div className="flex items-center gap-3">
+        <Switch id="tiktok-events-enabled" checked={ttEnabled} disabled={integrationsLocked} onCheckedChange={setTtEnabled} />
+        <Label htmlFor="tiktok-events-enabled" className="text-sm cursor-pointer">
+          Ativar envio de conversões aprovadas
+        </Label>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">ID do pixel (Event source)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">Código alfanumérico do pixel em TikTok Events Manager (Web), correspondente a <span className="font-mono text-[11px]">event_source_id</span> na API.</p>
+          <Input
+            value={ttPixelId}
+            readOnly={integrationsLocked}
+            onChange={(e) => setTtPixelId(e.target.value)}
+            placeholder="ex.: D6FF5SRC77U0SFL8LS8G"
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Access-Token (Events API)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">Gerado com permissão para envio de eventos (Measurement). Não reutilize tokens de aplicação sem âmbito adequado.</p>
+          <Input
+            type="password"
+            value={ttToken}
+            readOnly={integrationsLocked}
+            onChange={(e) => setTtToken(e.target.value)}
+            placeholder={tiktok?.has_access_token ? "•••••••• (cole um novo para substituir)" : "Cole o token"}
+            className="font-mono text-xs"
+            autoComplete="off"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Test event code (opcional)</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">Cole o código de «Test events»; remova-o quando a integração estiver em produção.</p>
+          <Input
+            value={ttTestCode}
+            readOnly={integrationsLocked}
+            onChange={(e) => setTtTestCode(e.target.value)}
+            placeholder="TEST…"
+            className="font-mono text-xs"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          onClick={() => saveTiktok.mutate()}
+          disabled={integrationsLocked || saveTiktok.isPending}
+          className="gap-2"
+        >
+          {saveTiktok.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Guardar definições
+        </Button>
+        {tiktok?.can_send ? (
+          <Badge variant="secondary" className="font-normal">
+            Pronto a enviar
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            Integração incompleta
+          </Badge>
+        )}
+        {tiktok?.has_access_token ? (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            Token em cofre
+          </Badge>
+        ) : null}
+      </div>
+      <p className="text-[11px] text-muted-foreground leading-snug border-t border-border/50 pt-3">
+        Os segredos são armazenados cifrados no servidor; o token nunca é devolvido em APIs de leitura.
+      </p>
     </div>
   );
 }
@@ -1373,6 +1547,10 @@ export default function TrackingDashboard() {
   const [metaPixelId, setMetaPixelId] = useState("");
   const [metaToken, setMetaToken] = useState("");
   const [metaTestCode, setMetaTestCode] = useState("");
+  const [ttEnabled, setTtEnabled] = useState(false);
+  const [ttPixelId, setTtPixelId] = useState("");
+  const [ttToken, setTtToken] = useState("");
+  const [ttTestCode, setTtTestCode] = useState("");
 
   const firstName = user?.name?.trim()?.split(/\s+/)[0];
   const integrationsLocked = !userCanWriteIntegrations(user);
@@ -1432,6 +1610,24 @@ export default function TrackingDashboard() {
     setMetaToken("");
   }, [metaCapi]);
 
+  const { data: tiktokEvents } = useQuery({
+    queryKey: ["integrations-tiktok-events"],
+    queryFn: async () => {
+      const { data, error: err } = await integrationsService.getTiktokEventsSettings();
+      if (err) throw new Error(err);
+      if (!data) throw new Error("Resposta vazia");
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (!tiktokEvents) return;
+    setTtEnabled(tiktokEvents.tiktok_events_enabled);
+    setTtPixelId(tiktokEvents.tiktok_pixel_id);
+    setTtTestCode(tiktokEvents.tiktok_events_test_event_code ?? "");
+    setTtToken("");
+  }, [tiktokEvents]);
+
   const saveGoogleAds = useMutation({
     mutationFn: async () => {
       const { data, error: err } = await integrationsService.patchGoogleAdsSettings({
@@ -1468,6 +1664,26 @@ export default function TrackingDashboard() {
       await queryClient.invalidateQueries({ queryKey: ["integrations-meta-capi"] });
       await queryClient.invalidateQueries({ queryKey: ["tracking-dashboard"] });
       setMetaToken("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveTiktokEvents = useMutation({
+    mutationFn: async () => {
+      const { data, error: err } = await integrationsService.patchTiktokEventsSettings({
+        tiktok_events_enabled: ttEnabled,
+        tiktok_pixel_id: ttPixelId,
+        tiktok_events_test_event_code: ttTestCode,
+        ...(ttToken.trim() ? { tiktok_events_access_token: ttToken.trim() } : {}),
+      });
+      if (err) throw new Error(err);
+      return data;
+    },
+    onSuccess: async () => {
+      toast.success("Definições TikTok Events API guardadas.");
+      await queryClient.invalidateQueries({ queryKey: ["integrations-tiktok-events"] });
+      await queryClient.invalidateQueries({ queryKey: ["tracking-dashboard"] });
+      setTtToken("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1701,6 +1917,20 @@ export default function TrackingDashboard() {
           integrationsLocked={integrationsLocked}
         />
 
+        <TiktokEventsIntegrationCard
+          tiktok={tiktokEvents}
+          ttEnabled={ttEnabled}
+          setTtEnabled={setTtEnabled}
+          ttPixelId={ttPixelId}
+          setTtPixelId={setTtPixelId}
+          ttToken={ttToken}
+          setTtToken={setTtToken}
+          ttTestCode={ttTestCode}
+          setTtTestCode={setTtTestCode}
+          saveTiktok={saveTiktokEvents}
+          integrationsLocked={integrationsLocked}
+        />
+
         {showDetailSection ? (
           <section
             className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
@@ -1776,6 +2006,7 @@ export default function TrackingDashboard() {
                       { ok: dashboard.tracking_pipeline.sale_tracking, label: "Rastreamento de venda" },
                       { ok: dashboard.tracking_pipeline.google_ads_integration, label: "Integração Google Ads" },
                       { ok: Boolean(dashboard.tracking_pipeline.meta_capi_integration), label: "Meta CAPI (Pixel)" },
+                      { ok: Boolean(dashboard.tracking_pipeline.tiktok_events_integration), label: "TikTok Events API (Pixel)" },
                     ] as const
                   ).map((row) => (
                     <li key={row.label} className="flex items-center gap-2 text-xs text-foreground">
@@ -1899,6 +2130,20 @@ export default function TrackingDashboard() {
           metaTestCode={metaTestCode}
           setMetaTestCode={setMetaTestCode}
           saveMetaCapi={saveMetaCapi}
+          integrationsLocked={integrationsLocked}
+        />
+
+        <TiktokEventsIntegrationCard
+          tiktok={tiktokEvents}
+          ttEnabled={ttEnabled}
+          setTtEnabled={setTtEnabled}
+          ttPixelId={ttPixelId}
+          setTtPixelId={setTtPixelId}
+          ttToken={ttToken}
+          setTtToken={setTtToken}
+          ttTestCode={ttTestCode}
+          setTtTestCode={setTtTestCode}
+          saveTiktok={saveTiktokEvents}
           integrationsLocked={integrationsLocked}
         />
       </section>

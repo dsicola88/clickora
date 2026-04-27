@@ -44,14 +44,16 @@ function StatusIcon({ status }: { status: StepStatus }) {
 }
 
 /**
- * Assistente guiado: presell automática, tracking, postback e Google Ads —
- * com verificações baseadas nos dados da conta (últimos ~14 dias no dashboard).
+ * Assistente guiado: presell, tracking, postback, Google Ads, Meta e TikTok (server-side) —
+ * com verificações baseadas nos dados da conta (resumo de métricas e definições de integração).
  */
 const SETUP_ASSISTANT_QUERY_PREFIXES = [
   "setup-assistant-presells",
   "setup-assistant-dashboard",
   "setup-assistant-google-ads",
   "setup-assistant-webhook",
+  "setup-assistant-meta-capi",
+  "setup-assistant-tiktok-events",
 ] as const;
 
 export default function SetupAssistantPage() {
@@ -100,7 +102,25 @@ export default function SetupAssistantPage() {
     },
   });
 
-  const loading = loadingPresells || loadingDash || loadingGa || loadingWh;
+  const { data: metaCapi, isLoading: loadingMeta } = useQuery({
+    queryKey: ["setup-assistant-meta-capi"],
+    queryFn: async () => {
+      const { data, error } = await integrationsService.getMetaCapiSettings();
+      if (error || !data) return null;
+      return data;
+    },
+  });
+
+  const { data: tiktokEvents, isLoading: loadingTiktok } = useQuery({
+    queryKey: ["setup-assistant-tiktok-events"],
+    queryFn: async () => {
+      const { data, error } = await integrationsService.getTiktokEventsSettings();
+      if (error || !data) return null;
+      return data;
+    },
+  });
+
+  const loading = loadingPresells || loadingDash || loadingGa || loadingWh || loadingMeta || loadingTiktok;
 
   const published = useMemo(
     () => (presells ?? []).filter((p) => p.status === "published"),
@@ -116,6 +136,15 @@ export default function SetupAssistantPage() {
   const gaCanUpload = googleAds?.can_upload ?? false;
   const gaHasOAuth = googleAds?.has_refresh_token ?? false;
   const gaCustomer = Boolean(googleAds?.google_ads_customer_id?.trim());
+
+  const metaEnabled = Boolean(metaCapi?.meta_capi_enabled);
+  const metaReady = Boolean(metaCapi?.can_send);
+  const ttEnabled = Boolean(tiktokEvents?.tiktok_events_enabled);
+  const ttReady = Boolean(tiktokEvents?.can_send);
+  const metaTikTokOptionalOk =
+    (!metaEnabled || metaReady) && (!ttEnabled || ttReady);
+  const metaTikTokWarn = (metaEnabled && !metaReady) || (ttEnabled && !ttReady);
+  const metaTikTokDataReady = metaCapi != null && tiktokEvents != null;
 
   const steps: SetupStep[] = useMemo(() => {
     const s: SetupStep[] = [
@@ -178,24 +207,47 @@ export default function SetupAssistantPage() {
       },
       {
         id: "google",
-        title: "5. Google Ads — envio de conversões",
+        title: "5. Google Ads — conversão por clique (API)",
         description:
-          "Em Resumo e guia: ligue OAuth, indique Customer ID e acção de conversão (upload por clique). O servidor envia conversões aprovadas quando há gclid no clique. Relatórios GAQL são opcionais (Analytics → Google Ads).",
+          "No «Resumo e guia do rastreio» ligue o OAuth, indique o Customer ID, a acção de conversão (número) e active o envio. O backend regista a venda aprovada no Google Ads quando o clique tiver gclid / gbraid / wbraid. O ficheiro CSV e o URL de importação manual são processos em paralelo, não o mesmo que este envio automático.",
         status: gaCanUpload ? "done" : gaHasOAuth && gaCustomer && gaEnv ? "warn" : "pending",
-        actions: [{ to: "/tracking/dashboard", label: "Configurar Google Ads" }],
+        actions: [{ to: "/tracking/dashboard", label: "Definições Google Ads" }],
         hint: !gaEnv
-          ? "API Google Ads no servidor ainda não configurada (admin) — upload automático pode estar indisponível."
+          ? "Credenciais da Google Ads API no servidor em falta (ambiente) — o administrador deve configurar variáveis GOOGLE_ADS_*."
           : gaCanUpload
-            ? "Upload automático pronto (OAuth + ID + acção)."
+            ? "Integração pronta: OAuth, conta e acção de conversão alinhados."
             : gaHasOAuth && gaCustomer
-              ? "Falta acção de conversão ou activar envio — veja Resumo e guia."
-              : "Ligue a conta Google e preencha o Customer ID.",
+              ? "Falta activar o envio ou concluir o ID da acção de conversão no painel."
+              : "Ligue a conta (OAuth) e preencha o Customer ID (apenas números).",
+      },
+      {
+        id: "capi",
+        title: "6. Meta e TikTok — envio server-side (opcional)",
+        description:
+          "Meta Conversions API (Pixel) e TikTok Events API enviam o evento de compra após o postback, com o mesmo event_id interno que o registo de conversão, para deduplicação. Requerem fbclid e ttclid no URL do clique, respectivamente. Configure no mesmo ecrã que o Google Ads (Resumo e guia).",
+        status: !metaTikTokDataReady
+          ? "pending"
+          : metaTikTokOptionalOk && !metaTikTokWarn
+            ? "done"
+            : metaTikTokWarn
+              ? "warn"
+              : "pending",
+        actions: [
+          { to: "/tracking/dashboard", label: "Resumo e guia" },
+          { to: "/tracking/relatorios", label: "Relatórios (sync)" },
+        ],
+        hint: !metaTikTokDataReady
+          ? "A obter o estado de Meta e TikTok… Se persistir, actualize a página ou confirme a sua sessão."
+          : [
+              `Meta: ${!metaEnabled ? "inactiva (opcional)." : metaReady ? "pronta a enviar." : "activa — complete Pixel e token (CAPI)."}`,
+              `TikTok: ${!ttEnabled ? "inactiva (opcional)." : ttReady ? "pronta a enviar." : "activa — complete Pixel e token (Events API)."}`,
+            ].join(" "),
       },
       {
         id: "learn",
-        title: "6. Ajuda e resolução de problemas",
+        title: "7. Documentação e resolução de problemas",
         description:
-          "Centro «Aprender» com categorias, pesquisa e secção de resolução de problemas (GCLID, blacklist, postback).",
+          "O centro «Aprender» inclui categorias, pesquisa e tópicos de resolução (GCLID, listas de IP, postback, atribuição).",
         status: "pending",
         actions: [
           { to: "/ajuda", label: "Aprender" },
@@ -215,17 +267,27 @@ export default function SetupAssistantPage() {
     gaCanUpload,
     gaHasOAuth,
     gaCustomer,
+    metaCapi,
+    tiktokEvents,
+    metaEnabled,
+    metaReady,
+    ttEnabled,
+    ttReady,
+    metaTikTokOptionalOk,
+    metaTikTokWarn,
+    metaTikTokDataReady,
   ]);
 
   const coreSteps = steps.filter((x) => x.id !== "learn");
   const doneCount = coreSteps.filter((x) => x.status === "done").length;
   const warnCount = coreSteps.filter((x) => x.status === "warn").length;
+  const showMetaTiktokBadges = metaCapi != null && tiktokEvents != null;
 
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Assistente de configuração"
-        description="Checklist para presell automática, rastreamento, postback e Google Ads. Os passos 3–5 usam dados do resumo (~últimos 14 dias) e da sua conta — actualize após testar."
+        description="Checklist para presell, URLs de anúncio, rastreio, postback de afiliados, integrações de conversão (Google, Meta, TikTok) e ajuda. Os passos de métricas usam o intervalo do resumo (por defeito ~últimos 14 dias) e o estado em tempo real das integrações. Actualize após testes na rede de afiliados."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -261,7 +323,7 @@ export default function SetupAssistantPage() {
         <>
           {dashboardError ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90">
-              Não foi possível carregar o resumo de métricas. Os passos 3–5 podem não reflectar cliques recentes — abra{" "}
+              Não foi possível carregar o resumo de métricas. Os passos baseados em cliques e vendas podem não reflectar dados recentes — abra{" "}
               <Link to="/tracking/dashboard" className="font-medium underline underline-offset-2">
                 Resumo e guia
               </Link>{" "}
@@ -271,17 +333,17 @@ export default function SetupAssistantPage() {
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
             <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
             <span className="text-muted-foreground">
-              Progresso (passos 1–5):{" "}
+              Progresso (passos 1–6, excepto documentação):{" "}
               <strong className="text-foreground">
                 {doneCount}/{coreSteps.length}
               </strong>{" "}
-              OK
+              concluídos
               {warnCount > 0 ? (
                 <>
                   {" "}
                   ·{" "}
                   <span className="text-amber-700 dark:text-amber-400">
-                    {warnCount} precisam de atenção
+                    {warnCount} com aviso
                   </span>
                 </>
               ) : null}
@@ -289,6 +351,16 @@ export default function SetupAssistantPage() {
             {gaMetricsReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
                 Relatórios Google Ads (API) disponíveis
+              </Badge>
+            ) : null}
+            {showMetaTiktokBadges && pipeline?.meta_capi_integration ? (
+              <Badge variant="secondary" className="text-xs font-normal">
+                Meta CAPI — credenciais completas
+              </Badge>
+            ) : null}
+            {showMetaTiktokBadges && pipeline?.tiktok_events_integration ? (
+              <Badge variant="secondary" className="text-xs font-normal">
+                TikTok Events API — credenciais completas
               </Badge>
             ) : null}
           </div>

@@ -21,6 +21,19 @@ const CONVERSIONS_META_CAPI_SQL = [
   `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "meta_capi_sync_detail" JSONB`,
 ] as const;
 
+const USERS_TIKTOK_EVENTS_SQL = [
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_enabled" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_pixel_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_access_token" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_test_event_code" TEXT`,
+] as const;
+
+const CONVERSIONS_TIKTOK_EVENTS_SQL = [
+  `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "tiktok_events_sync" TEXT`,
+  `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "tiktok_events_synced_at" TIMESTAMP(3)`,
+  `ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "tiktok_events_sync_detail" JSONB`,
+] as const;
+
 export async function repairPlanSchemaColumns(): Promise<void> {
   for (const sql of PLAN_COLUMNS_SQL) {
     try {
@@ -41,6 +54,20 @@ export async function repairPlanSchemaColumns(): Promise<void> {
       await systemPrisma.$executeRawUnsafe(sql);
     } catch (e) {
       console.warn("[schemaRepair] conversions meta_capi (ignorado):", e);
+    }
+  }
+  for (const sql of USERS_TIKTOK_EVENTS_SQL) {
+    try {
+      await systemPrisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[schemaRepair] users tiktok_events (ignorado):", e);
+    }
+  }
+  for (const sql of CONVERSIONS_TIKTOK_EVENTS_SQL) {
+    try {
+      await systemPrisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[schemaRepair] conversions tiktok_events (ignorado):", e);
     }
   }
 }

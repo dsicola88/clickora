@@ -43,8 +43,9 @@ const TRACKING_STEPS: GuideStep[] = [
     body: (
       <>
         Monte o URL em <strong className="text-foreground">Links</strong> ou no <strong className="text-foreground">Construtor de URL</strong>{" "}
-        (presell pública + query). Para Google o clique deve trazer <span className="font-mono text-[11px]">gclid</span>; para Meta,{" "}
-        <span className="font-mono text-[11px]">fbclid</span> — o anúncio aponta para o URL público da página.
+        (presell pública + query). Para <strong className="text-foreground">Google</strong> o clique deve trazer <span className="font-mono text-[11px]">gclid</span>; para{" "}
+        <strong className="text-foreground">Meta</strong>, <span className="font-mono text-[11px]">fbclid</span>; para <strong className="text-foreground">TikTok</strong>,{" "}
+        <span className="font-mono text-[11px]">ttclid</span> — o anúncio aponta para o URL público da página.
       </>
     ),
     links: [
@@ -95,12 +96,14 @@ const TRACKING_STEPS: GuideStep[] = [
   },
   {
     id: "step-5",
-    title: "Google Ads, Meta e Microsoft",
+    title: "Google, Meta, TikTok e Microsoft",
     body: (
       <>
-        Neste dashboard configure <strong className="text-foreground">Google Ads</strong> (OAuth e conversões) e <strong className="text-foreground">Meta CAPI</strong>.
-        Para <strong className="text-foreground">Microsoft Ads</strong> use o URL de postback e macros indicados em Ferramentas de tracking — modelo
-        diferente do Google.
+        No «Resumo e guia do rastreio» configure o envio de conversões: <strong className="text-foreground">Google Ads</strong> (upload por
+        clique, OAuth), <strong className="text-foreground">Meta CAPI</strong> (evento de compra com o mesmo <span className="font-mono text-[11px]">event_id</span> que
+        a conversão) e <strong className="text-foreground">TikTok Events API</strong> (pixel e token, com <span className="font-mono text-[11px]">ttclid</span> no
+        rastreio). Para <strong className="text-foreground">Microsoft Ads</strong> use o postback e macros em Ferramentas de tracking — o modelo não é
+        o mesmo do Google.
       </>
     ),
     links: [
@@ -113,7 +116,7 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Analisar resultados",
     body: (
       <>
-        Veja tráfego em Analytics, lista de vendas e relatórios de conversões (inclui estado de envio para Google/Meta quando aplicável).
+        Em Analytics, vendas e relatórios de conversões, incluindo o estado de sincronização com Google, Meta e TikTok, quando tiver postbacks aprovados.
       </>
     ),
     links: [

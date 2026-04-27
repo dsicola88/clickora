@@ -7,7 +7,9 @@ import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotPaidLayout } from "./DpilotPaidLayout";
 import { DpilotPaidProvider, UUID_RE } from "./DpilotPaidContext";
-import { DpilotGoogleNovaPage, DpilotMetaNovaPage } from "./DpilotCampaignAssistPages";
+import { DpilotGoogleWizardPage } from "./DpilotGoogleWizardPage";
+import { DpilotMetaWizardPage } from "./DpilotMetaWizardPage";
+import { DpilotTiktokWizardPage } from "./DpilotTiktokWizardPage";
 import {
   DpilotAprovacoesPage,
   DpilotAuditoriaPage,
@@ -133,12 +135,13 @@ export function DpilotPaidApp() {
           <Route path="visao" element={<DpilotVisaoPage />} />
           <Route path="ligacoes" element={<DpilotLigacoesPage />} />
           <Route path="google" element={<DpilotGooglePage />} />
-          <Route path="meta/nova" element={<DpilotMetaNovaPage />} />
+          <Route path="meta/nova" element={<DpilotMetaWizardPage />} />
           <Route path="meta/campanhas" element={<DpilotMetaCampanhasPage />} />
           <Route path="meta" element={<DpilotMetaPage />} />
+          <Route path="tiktok/nova" element={<DpilotTiktokWizardPage />} />
           <Route path="tiktok" element={<DpilotTiktokPage />} />
           <Route path="tiktok/campanhas" element={<DpilotTiktokCampanhasPage />} />
-          <Route path="campanhas/nova" element={<DpilotGoogleNovaPage />} />
+          <Route path="campanhas/nova" element={<DpilotGoogleWizardPage />} />
           <Route path="campanhas" element={<DpilotCampanhasPage />} />
           <Route path="aprovacoes" element={<DpilotAprovacoesPage />} />
           <Route path="auditoria" element={<DpilotAuditoriaPage />} />

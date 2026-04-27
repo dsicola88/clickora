@@ -19,6 +19,8 @@ authed.patch("/google-ads", requireWorkspaceIntegrationsWrite, integrationsContr
 authed.post("/google-ads/oauth/begin", requireWorkspaceIntegrationsWrite, integrationsController.beginGoogleAdsOAuth);
 authed.get("/meta-capi", integrationsController.getMetaCapiSettings);
 authed.patch("/meta-capi", requireWorkspaceIntegrationsWrite, integrationsController.patchMetaCapiSettings);
+authed.get("/tiktok-events", integrationsController.getTiktokEventsSettings);
+authed.patch("/tiktok-events", requireWorkspaceIntegrationsWrite, integrationsController.patchTiktokEventsSettings);
 authed.post("/test-sale-email", requireWorkspaceIntegrationsWrite, integrationsController.testSaleNotificationEmail);
 authed.patch("/notification-email", requireWorkspaceIntegrationsWrite, integrationsController.patchNotificationEmail);
 authed.get("/telegram", integrationsController.getTelegramSettings);

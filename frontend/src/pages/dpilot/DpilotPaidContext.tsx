@@ -61,6 +61,16 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
 
   const isConnConnected = (c: { status?: string } | null | undefined) => c?.status === "connected";
 
+  function isValidOverview(d: unknown): d is PaidOverviewDto {
+    if (!d || typeof d !== "object") return false;
+    const o = d as Record<string, unknown>;
+    const p = o["project"];
+    if (!p || typeof p !== "object" || typeof (p as { paid_mode?: unknown }).paid_mode !== "string")
+      return false;
+    if (typeof o["pending_approvals"] !== "number") return false;
+    return true;
+  }
+
   const loadCore = useCallback(async (pid: string) => {
     const [ov, cfg, camps, crs, mConn, tConn, mOv, tOv] = await Promise.all([
       paidAdsService.getOverview(pid),
@@ -74,6 +84,9 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
     ]);
     if (ov.error || !ov.data) {
       setErr(ov.error || "Resumo indisponível.");
+      setOverview(null);
+    } else if (!isValidOverview(ov.data)) {
+      setErr("Resumo do projecto incompleto. Tente recarregar a página.");
       setOverview(null);
     } else {
       setErr(null);
@@ -104,6 +117,8 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
 
   useEffect(() => {
     let cancelled = false;
+    setErr(null);
+    setOverview(null);
     setLoading(true);
     void (async () => {
       setLoadingExtras(true);

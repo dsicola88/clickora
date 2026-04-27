@@ -2,9 +2,9 @@
  * TikTok Marketing API (v1.3): cria campanha (orçamento infinito a nível campanha)
  * + ad group com orçamento diário. Anúncios (vídeo) requerem passos adicionais.
  */
+import { paidLog } from "../lib/paidLog";
 import { prisma } from "./paidPrisma";
-
-const TIKTOK_BASE = "https://business-api.tiktok.com/open_api/v1.3";
+import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
 
 type TikTokApiEnvelope<T = unknown> = {
   code: number;
@@ -49,48 +49,51 @@ function nextScheduleStartTimeUtc(): string {
   return d.toISOString().replace("T", " ").slice(0, 19);
 }
 
-function resolveTikTokLocationIds(geo: unknown): string[] {
+export function resolveTikTokLocationIds(geo: unknown): { ids: string[]; unmappedIso2: string[] } {
   if (!Array.isArray(geo) || !geo.length) {
-    return [TT_US];
+    return { ids: [TT_US], unmappedIso2: [] };
   }
   const out: string[] = [];
+  const unmapped: string[] = [];
   for (const g of geo) {
     const code = String(g)
       .toUpperCase()
       .replace(/[^A-Z]/g, "")
       .slice(0, 2);
-    const id = ISO2_TO_TT_LOCATION[code] ?? TT_US;
+    if (!code) continue;
+    const id = ISO2_TO_TT_LOCATION[code];
+    if (!id) {
+      unmapped.push(code);
+      const fallback = TT_US;
+      if (!out.includes(fallback)) out.push(fallback);
+      continue;
+    }
     if (!out.includes(id)) out.push(id);
   }
-  return out.length ? out : [TT_US];
+  return { ids: out.length ? out : [TT_US], unmappedIso2: unmapped };
 }
 
-async function tiktokPost<T>(
-  path: string,
-  accessToken: string,
-  body: object,
-): Promise<TikTokApiEnvelope<T>> {
-  const res = await fetch(`${TIKTOK_BASE}/${path.replace(/^\//, "")}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Token": accessToken,
-    },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as TikTokApiEnvelope<T>;
+const DEFAULT_OBJECTIVE = "TRAFFIC";
+
+function objectiveFromCrPayload(crPayload: Record<string, unknown> | undefined): string {
+  const v = crPayload && typeof crPayload["objective_type"] === "string" ? crPayload["objective_type"] : null;
+  if (v && v.length > 0 && v.length < 64) return v;
+  return DEFAULT_OBJECTIVE;
 }
 
 /**
  * Cria campanha + ad group; grava `externalCampaignId` e `tiktokAdGroupId` quando bem-sucedido.
  * Recupera ad group se já existir campanha remota sem ad group local.
+ * `crPayload` (opcional): vindo do pedido de alteração, usa `objective_type` (ex.: TRAFFIC) no create remoto.
  */
 export async function publishTikTokCreateCampaignFromLocal(
   projectId: string,
   campaignId: string,
+  crPayload?: Record<string, unknown>,
 ): Promise<TikTokPublishResult> {
+  const objectiveType = objectiveFromCrPayload(crPayload);
   const conn = await prisma.paidAdsTikTokConnection.findUnique({ where: { projectId } });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.advertiserId) {
+  if (!conn || conn.status !== "connected" || !conn.advertiserId) {
     return { ok: false, error: "Ligue a conta TikTok (OAuth) e o advertiser em contexto." };
   }
 
@@ -108,20 +111,39 @@ export async function publishTikTokCreateCampaignFromLocal(
   const daily =
     campaign.dailyBudgetMicros != null ? Number(campaign.dailyBudgetMicros) / 1_000_000 : 50;
   const budget = Math.max(20, Math.round(daily * 100) / 100);
-  const locationIds = resolveTikTokLocationIds(campaign.geoTargets);
+  const { ids: locationIds, unmappedIso2 } = resolveTikTokLocationIds(campaign.geoTargets);
+  if (unmappedIso2.length) {
+    paidLog("warn", "tiktok.publish.unmapped_geo", {
+      projectId,
+      campaignId,
+      unmappedIso2,
+      fallbackUsed: locationIds,
+    });
+  }
 
   try {
     let remoteCampaignId = campaign.externalCampaignId;
 
     if (!remoteCampaignId) {
-      const cRes = await tiktokPost<{ campaign_id: string }>(`campaign/create/`, conn.tokenRef, {
-        advertiser_id: conn.advertiserId,
-        campaign_name: campaign.name.slice(0, 500),
-        objective_type: "TRAFFIC",
-        budget_mode: "BUDGET_MODE_INFINITE",
-        operation_status: "ENABLE",
-      });
+      const cRes = (await tiktokApiPostWithTokenRetry<{ campaign_id: string }>(
+        projectId,
+        `campaign/create/`,
+        {
+          advertiser_id: conn.advertiserId,
+          campaign_name: campaign.name.slice(0, 500),
+          objective_type: objectiveType,
+          budget_mode: "BUDGET_MODE_INFINITE",
+          operation_status: "ENABLE",
+        },
+      )) as TikTokApiEnvelope<{ campaign_id: string }>;
       if (cRes.code !== 0 || !cRes.data?.campaign_id) {
+        paidLog("error", "tiktok.publish.campaign_create", {
+          projectId,
+          campaignId,
+          code: cRes.code,
+          message: cRes.message,
+          requestId: cRes.request_id,
+        });
         return { ok: false, error: cRes.message || `TikTok campaign (code ${cRes.code})` };
       }
       remoteCampaignId = String(cRes.data.campaign_id);
@@ -133,9 +155,9 @@ export async function publishTikTokCreateCampaignFromLocal(
 
     if (!campaign.tiktokAdGroupId) {
       const agName = `${campaign.name} — G1`.slice(0, 512);
-      const agRes = await tiktokPost<{ adgroup_id?: string; ad_group_id?: string }>(
+      const agRes = (await tiktokApiPostWithTokenRetry<{ adgroup_id?: string; ad_group_id?: string }>(
+        projectId,
         `adgroup/create/`,
-        conn.tokenRef,
         {
           advertiser_id: conn.advertiserId,
           campaign_id: remoteCampaignId!,
@@ -152,9 +174,16 @@ export async function publishTikTokCreateCampaignFromLocal(
           location_ids: locationIds,
           operation_status: "ENABLE",
         },
-      );
+      )) as TikTokApiEnvelope<{ adgroup_id?: string; ad_group_id?: string }>;
       const agId = agRes.data?.adgroup_id ?? agRes.data?.ad_group_id;
       if (agRes.code !== 0 || !agId) {
+        paidLog("error", "tiktok.publish.adgroup_create", {
+          projectId,
+          campaignId,
+          code: agRes.code,
+          message: agRes.message,
+          requestId: agRes.request_id,
+        });
         return {
           ok: false,
           error:
@@ -169,6 +198,7 @@ export async function publishTikTokCreateCampaignFromLocal(
     }
   } catch (e) {
     const m = e instanceof Error ? e.message : "Falha na API TikTok.";
+    paidLog("error", "tiktok.publish.exception", { projectId, campaignId, message: m });
     return { ok: false, error: m };
   }
 

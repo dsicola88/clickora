@@ -112,6 +112,14 @@ model User {
   metaAccessToken        String? @map("meta_access_token") @db.Text
   /** Opcional: código de teste do Gestor de eventos (validação antes de produção). */
   metaCapiTestEventCode  String? @map("meta_capi_test_event_code")
+  /** TikTok Events API (Pixel): envio server-side de Purchase após postback aprovado (com ttclid no clique). */
+  tiktokEventsEnabled        Boolean @default(false) @map("tiktok_events_enabled")
+  /** Código do Pixel (Events Manager) — o mesmo usado no browser. */
+  tiktokPixelId              String? @map("tiktok_pixel_id")
+  /** Token da Events API (TikTok Ads Manager → Pixel → Settings). Cifrado com ENCRYPTION_KEY. */
+  tiktokEventsAccessToken    String? @map("tiktok_events_access_token") @db.Text
+  /** Opcional: Test Events (diagnóstico). */
+  tiktokEventsTestEventCode  String? @map("tiktok_events_test_event_code")
   /** Bot Telegram (@BotFather). Não expor em APIs públicas. */
   telegramBotToken String? @map("telegram_bot_token") @db.Text
   telegramChatId   String? @map("telegram_chat_id")
@@ -464,6 +472,10 @@ model Conversion {
   metaCapiSync       String?   @map("meta_capi_sync")
   metaCapiSyncedAt   DateTime? @map("meta_capi_synced_at")
   metaCapiSyncDetail Json?     @map("meta_capi_sync_detail")
+  /** sent | failed | skipped_no_ttclid | skipped_disabled | skipped_no_config | skipped_pending */
+  tiktokEventsSync       String?   @map("tiktok_events_sync")
+  tiktokEventsSyncedAt   DateTime? @map("tiktok_events_synced_at")
+  tiktokEventsSyncDetail Json?     @map("tiktok_events_sync_detail")
   createdAt DateTime @default(now()) @map("created_at")
 
   click TrackingEvent @relation(fields: [clickId], references: [id], onDelete: Cascade)

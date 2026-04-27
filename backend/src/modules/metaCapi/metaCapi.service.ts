@@ -1,9 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../../lib/prisma";
+import { pickOrderIdFromPayload } from "../../lib/affiliatePostbackParsers";
 import { decryptSecretField } from "../../lib/fieldEncryption";
+import { eventSourceUrlFromClick, stringFieldsFromJson } from "../../lib/clickEventContext";
 import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
 
-const GRAPH_VERSION = "v21.0";
+const GRAPH_VERSION = "v22.0";
 
 export function isMetaCapiReadyForUser(user: {
   metaCapiEnabled: boolean;
@@ -23,11 +25,13 @@ export async function sendMetaPurchaseEvent(params: {
   eventTimeSec: number;
   value: number;
   currency: string;
+  orderId: string;
   fbclid?: string | null;
   fbp?: string | null;
   clientIp?: string | null;
   userAgent?: string | null;
   clickCreatedAtSec: number;
+  eventSourceUrl?: string | null;
   testEventCode?: string | null;
 }): Promise<{ ok: true; raw: unknown } | { ok: false; error: string; raw?: unknown }> {
   const pixel = params.pixelId.trim();
@@ -43,20 +47,26 @@ export async function sendMetaPurchaseEvent(params: {
     user_data.fbc = `fb.1.${ts}.${params.fbclid.trim()}`;
   }
 
+  const custom_data: Record<string, unknown> = {
+    currency: params.currency.toUpperCase().slice(0, 3),
+    value: params.value,
+    order_id: params.orderId.slice(0, 200),
+  };
+
+  const eventRow: Record<string, unknown> = {
+    event_name: "Purchase",
+    event_time: params.eventTimeSec,
+    event_id: params.eventId,
+    action_source: "website",
+    user_data,
+    custom_data,
+  };
+  if (params.eventSourceUrl?.trim()) {
+    eventRow.event_source_url = params.eventSourceUrl.trim().slice(0, 2000);
+  }
+
   const payload: Record<string, unknown> = {
-    data: [
-      {
-        event_name: "Purchase",
-        event_time: params.eventTimeSec,
-        event_id: params.eventId,
-        action_source: "website",
-        user_data,
-        custom_data: {
-          currency: params.currency.toUpperCase().slice(0, 3),
-          value: params.value,
-        },
-      },
-    ],
+    data: [eventRow],
   };
   if (params.testEventCode?.trim()) {
     payload.test_event_code = params.testEventCode.trim();
@@ -79,8 +89,11 @@ export async function sendMetaPurchaseEvent(params: {
     return { ok: false, error: JSON.stringify(json).slice(0, 2000), raw: json };
   }
   if (json.error) {
-    const errObj = json.error as { message?: string };
-    return { ok: false, error: errObj.message || String(json.error), raw: json };
+    const e = json.error;
+    if (typeof e === "object" && e && "message" in e && typeof (e as { message: string }).message === "string") {
+      return { ok: false, error: (e as { message: string }).message, raw: json };
+    }
+    return { ok: false, error: JSON.stringify(e).slice(0, 2000), raw: json };
   }
   return { ok: true, raw: json };
 }
@@ -119,7 +132,7 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   const user = conv.user;
   if (!isMetaCapiReadyForUser(user)) {
     await markMetaCapiSkip(conv.id, "skipped_disabled", {
-      reason: "meta_capi não ativo ou pixel/token em falta",
+      reason: "A integração Meta (CAPI) está inactiva ou faltam Pixel ID e token de acesso.",
     });
     return;
   }
@@ -128,7 +141,7 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   const accessToken = decryptSecretField(user.metaAccessToken)?.trim();
   if (!accessToken) {
     await markMetaCapiSkip(conv.id, "skipped_no_config", {
-      reason: "Token Meta em falta ou não desencriptável (verifique ENCRYPTION_KEY)",
+      reason: "Não foi possível ler o token da Meta (confirme que está guardado e que ENCRYPTION_KEY não mudou).",
     });
     return;
   }
@@ -139,7 +152,8 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
 
   if (!fbclid?.trim()) {
     await markMetaCapiSkip(conv.id, "skipped_no_fbclid", {
-      reason: "Clique sem fbclid no metadata (anúncios Meta precisam de fbclid no link)",
+      reason:
+        "O clique não contém «fbclid» no rastreio. Os anúncios da Meta requerem o parâmetro no URL da landing para atribuição e envio CAPI.",
     });
     return;
   }
@@ -148,6 +162,12 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   const amount = conv.amount != null ? Number(conv.amount) : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
   const eventTimeSec = Math.floor(conv.createdAt.getTime() / 1000);
+  const flat = stringFieldsFromJson(conv.metadata);
+  const orderId = pickOrderIdFromPayload(flat) || conv.id;
+  const eventSourceUrl = eventSourceUrlFromClick({
+    referrer: conv.click.referrer,
+    metadata: conv.click.metadata,
+  });
 
   const result = await sendMetaPurchaseEvent({
     pixelId,
@@ -156,11 +176,13 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
     eventTimeSec,
     value: Number.isFinite(amount) ? amount : 0,
     currency,
+    orderId,
     fbclid,
     fbp,
     clientIp: conv.click.ipAddress ?? undefined,
     userAgent: conv.click.userAgent ?? undefined,
     clickCreatedAtSec: clickTs,
+    eventSourceUrl: eventSourceUrl ?? null,
     testEventCode: user.metaCapiTestEventCode,
   });
 

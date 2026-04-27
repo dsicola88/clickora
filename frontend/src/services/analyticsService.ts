@@ -303,6 +303,7 @@ export const analyticsService = {
         platform: string;
         google_ads_sync: string | null;
         meta_capi_sync: string | null;
+        tiktok_events_sync: string | null;
         has_gclid: boolean;
         gclid: string | null;
       }>
@@ -341,12 +342,14 @@ export const analyticsService = {
         google_ads_api_env_configured: boolean;
         google_ads_metrics_available?: boolean;
         meta_capi_integration?: boolean;
+        tiktok_events_integration?: boolean;
       };
-      /** Falhas de envio (Google/Meta) em conversões aprovadas no período indicado. */
+      /** Falhas de envio (Google/Meta/TikTok) em conversões aprovadas no período indicado. */
       sync_health?: {
         period_days: number;
         google_ads_failed: number;
         meta_capi_failed: number;
+        tiktok_events_failed: number;
       };
       google_ads_metrics?: {
         impressions: number;

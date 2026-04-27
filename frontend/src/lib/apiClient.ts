@@ -27,6 +27,16 @@ class ApiClient {
     return headers;
   }
 
+  /** Multipart: sem `Content-Type` (o browser define o boundary). */
+  private getFormDataHeaders(extraHeaders?: Record<string, string>): HeadersInit {
+    const headers: Record<string, string> = { ...extraHeaders };
+    const token = this.getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
   /** GET sem `Content-Type: json` — para CSV e outros binários. */
   private getAuthHeaders(accept = "text/csv, application/json;q=0.5, */*;q=0.1"): HeadersInit {
     const headers: Record<string, string> = { Accept: accept };
@@ -46,6 +56,7 @@ class ApiClient {
     } = {}
   ): Promise<{ data: T | null; error: string | null; errorCode?: string | null }> {
     const { method = "GET", body, headers, signal } = options;
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 
     try {
       const isPublicPresellGet =
@@ -55,8 +66,8 @@ class ApiClient {
 
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method,
-        headers: this.getHeaders(headers),
-        body: body ? JSON.stringify(body) : undefined,
+        headers: isFormData ? this.getFormDataHeaders(headers) : this.getHeaders(headers),
+        body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
         signal,
         ...(isPublicPresellGet ? { cache: "no-store" as RequestCache } : {}),
       });
@@ -174,6 +185,10 @@ class ApiClient {
 
   post<T>(endpoint: string, body?: unknown, headers?: Record<string, string>, signal?: AbortSignal) {
     return this.request<T>(endpoint, { method: "POST", body, headers, signal });
+  }
+
+  postFormData<T>(endpoint: string, formData: FormData) {
+    return this.request<T>(endpoint, { method: "POST", body: formData });
   }
 
   put<T>(endpoint: string, body?: unknown) {

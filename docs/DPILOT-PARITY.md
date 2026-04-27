@@ -3,6 +3,31 @@
 Objectivo: documento de trabalho para alinhar a app de referência (`dpilotoaut/`) com o módulo `/tracking/dpilot/*` no `frontend/`, reutilizando a API `backend` em `/api/paid/*`.  
 Arquitetura geral, tenant e envs: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECTURE.md).
 
+### Integração monolítica: o que pediste vs o que o código permite
+
+A ideia é: **mesma UX e mesmas funções** que o `dpilotoaut/`, com o utilizador a entrar em **Anúncios** no dclickora e a ter o mesmo fluxo, **sem** app separada nem iframe — **só** o monólito.
+
+**A pasta `dpilotoaut/` já está neste repositório** como código de referência. Não falta “copiar outro zip”; falta **integrar** esse código no *stack* do dclickora.
+
+**Porque não dá para copiar/colar `frontend/` + `backend/` do dpilotoaut para cima do dclickora e “ajustar um bocadinho”:**
+
+| dpilotoaut | dclickora (monólito) |
+|------------|----------------------|
+| **TanStack Start** (rotas em ficheiros, `useServerFn`, bundle Nitro `frontend/.output`) | **Vite + React Router** + `Express` num único `server.ts` |
+| Lógica em `frontend/src/server/*.functions.ts` (server functions do framework) | Lógica equivalente tem de viver em **`backend/src/paid/*`** com `POST`/`GET` estáveis |
+| Prisma em `dpilotoaut/backend/prisma` (schema próprio) | **Um** `schema.prisma` no Clickora; tabelas `paid_ads_*` já mapeadas para o tenant do dono |
+| Sessão / org do protótipo | JWT + workspace do Clickora (já documentado) |
+
+Ou seja: **a UX e as funções podem ser as mesmas**, mas o código tem de ser **portado** (ecrã a ecrã, função a função), não colado. Copiar pastas inteiras **quebra o build** até trocar router, imports e chamadas de rede.
+
+**Estratégia alinhada ao teu objectivo (sem alterar o desenho da UX do dpilotoaut):**
+
+1. **Backend:** para cada `*.functions.ts` do dpilotoaut usado em Paid, expor no `paidController` + `paid.routes.ts` o mesmo contrato (input/output), reutilizando a lógica já existente em `meta-ads.*`, `google-ads.*`, `change-request-apply`, etc.
+2. **Frontend:** copiar **conteúdo** dos ecrãs (JSX, estilos, componentes partilhados) de `dpilotoaut/frontend/src/routes/*` e `components/*` para `frontend/src/pages/dpilot/` (ou subpastas), trocando `createFileRoute` / `useServerFn` por `Route` do React Router + `apiClient` / `paidAdsService`.
+3. **Ordem sugerida:** wizard Meta → wizard Google → landings de projecto → o resto que ainda falte.
+
+Isto devolve **funcionalidade e UX iguais** ao dpilotoaut **dentro** do dclickora, sem duplicar servidor nem base de dados.
+
 ## Legenda
 
 | Estado | Significado |
@@ -42,8 +67,8 @@ Arquitetura geral, tenant e envs: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITEC
 
 | Fluxo | dpilotoaut (UI + server) | Monólito | Estado |
 |-------|-------------------------|----------|--------|
-| Nova campanha **Meta** | `app.projects.$projectId.paid.meta.wizard.tsx` — `generateMetaCampaignPlan`, upload assets | Rota `…/meta/nova` + `DpilotMetaNovaPage` (assistente: CTAs e doc; form real quando API) | Parcial (UI; integração API pendente) |
-| Nova campanha **Google** | `app.projects.$projectId.paid.campaigns.new.tsx` — `generateCampaignPlan` | Rota `…/campanhas/nova` + `DpilotGoogleNovaPage` | Parcial (id.) |
+| Nova campanha **Meta** | `app.projects.$projectId.paid.meta.wizard.tsx` — `generateMetaCampaignPlan` | Rota `…/meta/nova` + `DpilotMetaWizardPage` → `POST /api/paid/projects/:id/meta-campaign-plan` (`meta-campaign-plan.ts`) | Feito (upload remoto de asset ainda não — pré-visualização local) |
+| Nova campanha **Google** | `app.projects.$projectId.paid.campaigns.new.tsx` — `generateCampaignPlan` | Rota `…/campanhas/nova` + `DpilotGoogleWizardPage` → `POST /api/paid/projects/:id/google-campaign-plan` | Feito |
 
 Ficheiros de referência de backend no protótipo (não presentes 1:1 no monólito): `dpilotoaut/backend` / `.../server/*.functions` conforme imports nas rotas acima.
 
