@@ -54,7 +54,7 @@ export default function DpilotAdsPage() {
         paidAdsService.listCampaigns(pid),
         paidAdsService.listChangeRequests(pid),
         paidAdsService.getMetaConnection(pid),
-        paidAdsService.getTiktokConnection(pid),
+        paidAdsService.getTikTokConnection(pid),
       ]);
       if (ov.error || !ov.data) {
         setErr(ov.error || "Resumo indisponível.");
