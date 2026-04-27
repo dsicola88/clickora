@@ -9,6 +9,9 @@ const repoRoot = path.join(__dirname, "..");
 const PORT = 5174;
 const baseURL = `http://127.0.0.1:${PORT}`;
 
+/** Só no GitHub Actions é obrigatório arrancar servidores novos; com `CI=1` no IDE reutiliza portas já abertas. */
+const reuseExistingServer = process.env.GITHUB_ACTIONS !== "true";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -26,14 +29,14 @@ export default defineConfig({
       command: "npm run api:dev",
       cwd: repoRoot,
       url: "http://127.0.0.1:3001/api/health",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer,
       timeout: 120_000,
     },
     {
       command: `npm run dev -- --port ${PORT} --host 127.0.0.1`,
       cwd: __dirname,
       url: baseURL,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer,
       timeout: 120_000,
     },
   ],

@@ -28,6 +28,9 @@ O frontend precisa de saber **para onde** enviar os pedidos — **`VITE_PUBLIC_A
 | `FRONTEND_URL` | `https://www.dclickora.com,https://dclickora.com,https://clickora-five.vercel.app` | **Obrigatório para CORS.** Inclui www, apex e o domínio Vercel de preview se usares. Separa por vírgula, **sem espaços** ou com espaços só à volta (o código faz trim). |
 | `API_PUBLIC_URL` | `https://www.dclickora.com/api` **ou** `https://clickora-production.up.railway.app/api` | URLs geradas no servidor (scripts, postbacks). Preferir o domínio do site se o proxy `/api` estiver OK. |
 | `CORS_ALLOWED_ORIGINS` | *(opcional)* | Só se precisares de mais origens além do `FRONTEND_URL`. |
+| `PUBLIC_API_URL` (ou `API_PUBLIC_URL`) | *(recom. para paid)* | Base HTTPS da API; usada para URLs de callback OAuth. Ver [DEPLOYMENT.md §6](DEPLOYMENT.md) e [PAID-ADS-ARCHITECTURE.md](PAID-ADS-ARCHITECTURE.md). |
+| `DPILOTO_PUBLIC_ORIGINS` | *(opcional, legado)* | Origem extra no CORS; o fluxo de anúncios no monólito não depende disto. |
+| `PAID_OAUTH_FRONTEND_RETURN_URL` | *(recom. para paid)* | Site para onde o browser volta após OAuth; se vazio, usa o 1.º `FRONTEND_URL`. |
 
 3. **Guardar** e fazer **Redeploy** do serviço (Deploy → Redeploy ou push para `main`).
 

@@ -147,6 +147,12 @@ model User {
   ownedWorkspace       Workspace?           @relation("WorkspaceOwner")
   workspaceMemberships WorkspaceMember[]
 
+  /** Módulo anúncios (ex-Dpiloto) — dados escopados ao dono da conta (tenant). */
+  paidAdsProjects              PaidAdsProject[]
+  paidAdsChangeRequestsReq     PaidAdsChangeRequest[] @relation("PaidChangeRequestedBy")
+  paidAdsChangeRequestsRev     PaidAdsChangeRequest[] @relation("PaidChangeReviewedBy")
+  paidAdsAiRunsAsAuthor       PaidAdsAiRun[]         @relation("PaidAdsAiRunAuthor")
+
   @@map("users")
 }
 
@@ -264,6 +270,8 @@ model Plan {
   hasBranding      Boolean  @default(true) @map("has_branding")
   /** Postback HTTP (Integrações → Plataformas): activo por plano; admin pode alterar. */
   affiliateWebhookEnabled Boolean @default(false) @map("affiliate_webhook_enabled")
+  /** Dpiloto — criador/automação de anúncios (módulo premium; Pro e Starter = false por defeito). */
+  dpilotAdsEnabled Boolean @default(false) @map("dpilot_ads_enabled")
   /** Domínios personalizados permitidos (0 = só HTML/dclickora; anual típico = 2). */
   maxCustomDomains Int      @default(0) @map("max_custom_domains")
   features         Json     @default("[]")
@@ -551,4 +559,392 @@ model PlansLandingConfig {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("plans_landing_config")
+}
+
+// ---------------------------------------------------------------------------
+// Paid Ads (ex-Dpiloto) — monólito: mesmo Postgres e User.id = tenant (dono)
+// (organizationId antigo = userId do dono da subscrição / workspace)
+// ---------------------------------------------------------------------------
+
+enum PaidAdsProjectMode {
+  copilot
+  autopilot
+}
+
+enum PaidAdsConnectionStatus {
+  disconnected
+  connected
+  error
+}
+
+enum PaidAdsPlatform {
+  google_ads
+  meta_ads
+  tiktok_ads
+}
+
+enum PaidAdsCampaignStatus {
+  draft
+  pending_publish
+  live
+  paused
+  archived
+  error
+}
+
+enum PaidAdsEntityStatus {
+  draft
+  pending_publish
+  live
+  paused
+  archived
+  error
+}
+
+enum PaidAdsMatchType {
+  exact
+  phrase
+  broad
+}
+
+enum PaidAdsChangeRequestType {
+  create_campaign
+  update_budget
+  add_keywords
+  publish_rsa
+  pause_entity
+  meta_create_campaign
+  meta_update_budget
+  meta_publish_creative
+  meta_pause_entity
+  tiktok_create_campaign
+  tiktok_update_budget
+  tiktok_pause_entity
+}
+
+enum PaidAdsChangeRequestStatus {
+  pending
+  approved
+  rejected
+  applied
+  failed
+}
+
+enum PaidAdsAiFeature {
+  keyword_plan
+  rsa_generation
+  campaign_plan
+}
+
+enum PaidAdsAiRunStatus {
+  pending
+  success
+  error
+}
+
+enum PaidAdsMetaCta {
+  learn_more
+  shop_now
+  sign_up
+  contact_us
+  book_now
+  download
+  get_quote
+  subscribe
+}
+
+model PaidAdsProject {
+  id         String            @id @default(uuid())
+  /// Dono dos dados = tenant (mesmo `tenantUserId` no JWT)
+  userId     String            @map("user_id")
+  name       String
+  websiteUrl String?           @map("website_url")
+  paidMode   PaidAdsProjectMode @default(copilot) @map("paid_mode")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleAdsConnection PaidAdsGoogleAdsConnection?
+  metaConnection      PaidAdsMetaConnection?
+  tiktokConnection    PaidAdsTikTokConnection?
+  paidCampaigns       PaidAdsCampaign[]
+  paidGuardrails      PaidAdsGuardrails?
+  paidChangeRequests  PaidAdsChangeRequest[]
+  aiRuns              PaidAdsAiRun[]
+  metaInsights        PaidAdsMetaInsight[]
+
+  @@index([userId])
+  @@map("paid_ads_projects")
+}
+
+model PaidAdsGoogleAdsConnection {
+  id               String                 @id @default(uuid())
+  userId           String                 @map("user_id")
+  projectId        String                 @unique @map("project_id")
+  googleCustomerId String?                @map("google_customer_id")
+  accountName      String?                @map("account_name")
+  status           PaidAdsConnectionStatus @default(disconnected)
+  tokenRef         String?                @map("token_ref")
+  lastSyncAt       DateTime?              @map("last_sync_at")
+  errorMessage     String?                @map("error_message")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  project PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("paid_ads_google_ads_connections")
+}
+
+model PaidAdsMetaConnection {
+  id             String                 @id @default(uuid())
+  userId         String                 @map("user_id")
+  projectId      String                 @unique @map("project_id")
+  adAccountId    String?                @map("ad_account_id")
+  businessId     String?                @map("business_id")
+  accountName    String?                @map("account_name")
+  status         PaidAdsConnectionStatus @default(disconnected)
+  tokenRef       String?                @map("token_ref")
+  lastSyncAt     DateTime?              @map("last_sync_at")
+  errorMessage   String?                @map("error_message")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  project PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("paid_ads_meta_connections")
+}
+
+model PaidAdsTikTokConnection {
+  id              String                 @id @default(uuid())
+  userId          String                 @map("user_id")
+  projectId       String                 @unique @map("project_id")
+  advertiserId    String?                @map("advertiser_id")
+  accountName     String?                @map("account_name")
+  status          PaidAdsConnectionStatus @default(disconnected)
+  tokenRef        String?                @map("token_ref")
+  refreshTokenRef String?                @map("refresh_token_ref")
+  lastSyncAt      DateTime?              @map("last_sync_at")
+  errorMessage    String?                @map("error_message")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  project PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("paid_ads_tiktok_connections")
+}
+
+model PaidAdsCampaign {
+  id                 String               @id @default(uuid())
+  userId             String               @map("user_id")
+  projectId          String               @map("project_id")
+  platform           PaidAdsPlatform      @default(google_ads)
+  externalCampaignId String?              @map("external_campaign_id")
+  tiktokAdGroupId    String?              @map("tiktok_ad_group_id")
+  name               String
+  status             PaidAdsCampaignStatus @default(draft)
+  objectiveSummary   String?              @map("objective_summary")
+  dailyBudgetMicros  BigInt?              @map("daily_budget_micros")
+  geoTargets         Json                 @default("[]") @map("geo_targets")
+  languageTargets    Json                 @default("[]") @map("language_targets")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  project   PaidAdsProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  adGroups  PaidAdsAdGroup[]
+  metaAdsets PaidAdsMetaAdset[]
+
+  @@index([projectId])
+  @@map("paid_ads_campaigns")
+}
+
+model PaidAdsAdGroup {
+  id                String              @id @default(uuid())
+  campaignId        String              @map("campaign_id")
+  name              String
+  status            PaidAdsEntityStatus @default(draft)
+  externalAdGroupId String?             @map("external_ad_group_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  campaign PaidAdsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  keywords PaidAdsKeyword[]
+  adsRsa   PaidAdsRsa[]
+
+  @@index([campaignId])
+  @@map("paid_ads_ad_groups")
+}
+
+model PaidAdsKeyword {
+  id                  String            @id @default(uuid())
+  adGroupId           String            @map("ad_group_id")
+  text                String
+  matchType           PaidAdsMatchType  @default(phrase) @map("match_type")
+  status              PaidAdsEntityStatus @default(draft)
+  externalCriterionId String?           @map("external_criterion_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  adGroup PaidAdsAdGroup @relation(fields: [adGroupId], references: [id], onDelete: Cascade)
+
+  @@index([adGroupId])
+  @@map("paid_ads_keywords")
+}
+
+model PaidAdsRsa {
+  id           String            @id @default(uuid())
+  adGroupId    String            @map("ad_group_id")
+  headlines    Json              @default("[]")
+  descriptions Json              @default("[]")
+  finalUrls    Json              @default("[]") @map("final_urls")
+  status       PaidAdsEntityStatus @default(draft)
+  externalAdId String?           @map("external_ad_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  adGroup PaidAdsAdGroup @relation(fields: [adGroupId], references: [id], onDelete: Cascade)
+
+  @@index([adGroupId])
+  @@map("paid_ads_rsa")
+}
+
+model PaidAdsChangeRequest {
+  id            String                    @id @default(uuid())
+  userId        String                    @map("user_id")
+  projectId     String                    @map("project_id")
+  type          PaidAdsChangeRequestType
+  payload       Json                      @default("{}")
+  status        PaidAdsChangeRequestStatus @default(pending)
+  requestedById String                  @map("requested_by")
+  reviewedById  String?                 @map("reviewed_by")
+  reviewedAt    DateTime?             @map("reviewed_at")
+  appliedAt     DateTime?               @map("applied_at")
+  errorMessage  String?                 @map("error_message")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  project     PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy User          @relation("PaidChangeRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy  User?         @relation("PaidChangeReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@map("paid_ads_change_requests")
+}
+
+model PaidAdsGuardrails {
+  id                         String   @id @default(uuid())
+  projectId                  String   @unique @map("project_id")
+  maxDailyBudgetMicros       BigInt   @default(50000000) @map("max_daily_budget_micros")
+  maxMonthlySpendMicros      BigInt   @default(1500000000) @map("max_monthly_spend_micros")
+  maxCpcMicros               BigInt?  @map("max_cpc_micros")
+  allowedCountries           String[] @default(["US"]) @map("allowed_countries")
+  blockedKeywords            String[] @default([]) @map("blocked_keywords")
+  requireApprovalAboveMicros BigInt?  @map("require_approval_above_micros")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  project PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("paid_ads_guardrails")
+}
+
+model PaidAdsAiRun {
+  id               String            @id @default(uuid())
+  userId           String            @map("user_id")
+  projectId        String            @map("project_id")
+  feature          PaidAdsAiFeature
+  model            String
+  promptVersion    String            @default("v1") @map("prompt_version")
+  inputSummary     String?           @map("input_summary")
+  outputSummary    String?           @map("output_summary")
+  tokensIn         Int?              @map("tokens_in")
+  tokensOut        Int?              @map("tokens_out")
+  estimatedCostUsd Decimal?          @map("estimated_cost_usd") @db.Decimal(10, 6)
+  status           PaidAdsAiRunStatus @default(pending)
+  errorMessage     String?           @map("error_message")
+  createdById      String?           @map("created_by")
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  project   PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?         @relation("PaidAdsAiRunAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("paid_ads_ai_runs")
+}
+
+model PaidAdsMetaAdset {
+  id               String            @id @default(uuid())
+  campaignId      String            @map("campaign_id")
+  externalId      String?           @map("external_id")
+  name            String
+  status          PaidAdsEntityStatus @default(draft)
+  dailyBudgetCents BigInt?          @map("daily_budget_cents")
+  optimizationGoal String?         @map("optimization_goal")
+  targeting        Json              @default("{}")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  campaign  PaidAdsCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatives PaidAdsMetaCreative[]
+  metaAds   PaidAdsMetaAd[]
+
+  @@index([campaignId])
+  @@map("paid_ads_meta_adsets")
+}
+
+model PaidAdsMetaCreative {
+  id             String            @id @default(uuid())
+  adsetId        String            @map("adset_id")
+  externalId     String?           @map("external_id")
+  primaryText    String            @map("primary_text")
+  headline       String
+  description    String?
+  cta            PaidAdsMetaCta   @default(learn_more)
+  destinationUrl String            @map("destination_url")
+  imageAssetRef  String?          @map("image_asset_ref")
+  placements     Json              @default("[]")
+  status         PaidAdsEntityStatus @default(draft)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  adset PaidAdsMetaAdset @relation(fields: [adsetId], references: [id], onDelete: Cascade)
+  ads   PaidAdsMetaAd[]
+
+  @@index([adsetId])
+  @@map("paid_ads_meta_creatives")
+}
+
+model PaidAdsMetaAd {
+  id           String            @id @default(uuid())
+  adsetId      String            @map("adset_id")
+  creativeId   String            @map("creative_id")
+  name         String
+  status       PaidAdsEntityStatus @default(draft)
+  externalAdId String?          @map("external_ad_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  adset    PaidAdsMetaAdset    @relation(fields: [adsetId], references: [id], onDelete: Cascade)
+  creative PaidAdsMetaCreative @relation(fields: [creativeId], references: [id], onDelete: Cascade)
+
+  @@index([adsetId])
+  @@map("paid_ads_meta_ads")
+}
+
+model PaidAdsMetaInsight {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  level        String
+  externalId   String   @map("external_id")
+  date         DateTime @db.Date
+  impressions  BigInt   @default(0)
+  clicks       BigInt   @default(0)
+  spendCents   BigInt   @default(0) @map("spend_cents")
+  conversions  BigInt   @default(0)
+  ctr          Decimal  @default(0) @db.Decimal(8, 4)
+  fetchedAt    DateTime @default(now()) @map("fetched_at")
+
+  project PaidAdsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, level, externalId, date])
+  @@index([projectId, date(sort: Desc)])
+  @@map("paid_ads_meta_insights")
 }

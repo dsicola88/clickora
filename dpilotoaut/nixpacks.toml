@@ -1,0 +1,5 @@
+# Node 22 (exigido por @tanstack/react-start). No Railway pode fixar também:
+# NIXPACKS_NODE_VERSION=22.12.0
+
+[phases.setup]
+nixPkgs = ["nodejs-22_x"]

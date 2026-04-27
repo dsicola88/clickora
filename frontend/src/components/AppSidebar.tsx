@@ -29,6 +29,7 @@ import {
   LogOut,
   User,
   Wrench,
+  Megaphone,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -51,6 +52,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
+import { Badge } from "@/components/ui/badge";
 
 const sidebarItemClassName =
   "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
@@ -326,10 +329,12 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const path = location.pathname;
-  const { user, isAdmin, userPlan, signOut } = useAuth();
+  const { user, isAdmin, isSuperAdmin, userPlan, signOut } = useAuth();
 
   const inPresell = path.startsWith("/presell");
-  const inTracking = path.startsWith("/tracking");
+  const inTracking = path.startsWith("/tracking") && !path.startsWith("/tracking/dpilot");
+  const inPaidAdsRoute = path.startsWith("/tracking/dpilot");
+  const canAccessPaidAds = userCanAccessDpilotAds(user, isSuperAdmin);
 
   const presellAdvancedRoute =
     path.startsWith("/presell/paginas-criadas") || path.startsWith("/presell/builder");
@@ -450,7 +455,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       tooltip="Meu Rastreamento"
                       className="w-full justify-between gap-2"
-                      isActive={inTracking}
+                      isActive={inTracking || inDpilot}
                     >
                       <span className="flex items-center gap-3 min-w-0">
                         <BarChart3 className="h-4 w-4 flex-shrink-0" />
@@ -477,6 +482,31 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </SidebarMenu>
             </Collapsible>
+
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={inPaidAdsRoute} tooltip="Anúncios — Google, Meta e TikTok (Premium)">
+                  <NavLink
+                    to="/tracking/dpilot"
+                    end
+                    className={sidebarItemClassName}
+                    activeClassName={sidebarItemActiveClassName}
+                  >
+                    <Megaphone className="h-4 w-4 flex-shrink-0" />
+                    {!collapsed && (
+                      <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                        <span className="truncate">Anúncios</span>
+                        {!canAccessPaidAds && (
+                          <Badge variant="secondary" className="shrink-0 text-[10px] font-normal">
+                            Premium
+                          </Badge>
+                        )}
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

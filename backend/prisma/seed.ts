@@ -74,6 +74,7 @@ const PLAN_FEATURES_PREMIUM = [
   ...PLATFORM_FEATURE_LINES,
   "Até 2 domínios personalizados · Sem branding Clickora no rodapé",
   "Webhooks e endpoints no servidor para tracking, presell e integrações",
+  "Anúncios (Google, Meta, TikTok) — automação com revisão humana",
 ];
 
 function jsonFeatures(lines: string[]) {
@@ -136,6 +137,7 @@ async function main() {
         name: "Starter",
         maxCustomDomains: 0,
         affiliateWebhookEnabled: false,
+        dpilotAdsEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_STARTER),
       },
       create: {
@@ -148,6 +150,7 @@ async function main() {
         maxCustomDomains: 0,
         hasBranding: true,
         affiliateWebhookEnabled: false,
+        dpilotAdsEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_STARTER),
       },
     }),
@@ -158,6 +161,7 @@ async function main() {
         priceCents: 2400,
         maxCustomDomains: 0,
         affiliateWebhookEnabled: false,
+        dpilotAdsEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_PRO),
       },
       create: {
@@ -170,6 +174,7 @@ async function main() {
         maxCustomDomains: 0,
         hasBranding: false,
         affiliateWebhookEnabled: false,
+        dpilotAdsEnabled: false,
         features: jsonFeatures(PLAN_FEATURES_PRO),
       },
     }),
@@ -180,6 +185,7 @@ async function main() {
         priceCents: 19600,
         maxCustomDomains: 2,
         affiliateWebhookEnabled: true,
+        dpilotAdsEnabled: true,
         features: jsonFeatures(PLAN_FEATURES_PREMIUM),
       },
       create: {
@@ -192,6 +198,7 @@ async function main() {
         maxCustomDomains: 2,
         hasBranding: false,
         affiliateWebhookEnabled: true,
+        dpilotAdsEnabled: true,
         features: jsonFeatures(PLAN_FEATURES_PREMIUM),
       },
     }),

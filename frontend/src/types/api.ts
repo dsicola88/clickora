@@ -75,6 +75,8 @@ export interface UserPlan {
   has_branding: boolean;
   /** Postback HTTP em Plataformas; controlado por plano (admin). */
   affiliate_webhook_enabled?: boolean;
+  /** Anúncios (Google / Meta / TikTok); por defeito no Premium (`dpilot_ads` = nome histórico do campo). */
+  dpilot_ads_enabled?: boolean;
 }
 
 export interface Plan {
@@ -88,6 +90,8 @@ export interface Plan {
   has_branding: boolean;
   /** Webhook de afiliados incluído neste plano (admin). */
   affiliate_webhook_enabled?: boolean;
+  /** Anúncios pagos; upgrade típico: Premium. */
+  dpilot_ads_enabled?: boolean;
   features: string[];
   /** Se definido, texto do botão do cartão (sobreposta aos textos globais). */
   cta_label?: string | null;
@@ -185,6 +189,8 @@ export interface AdminPlanRow {
   max_custom_domains: number;
   has_branding: boolean;
   affiliate_webhook_enabled?: boolean;
+  /** Anúncios pagos (campo API: nome histórico `dpilot_*`). */
+  dpilot_ads_enabled?: boolean;
   features?: string[];
   cta_label?: string | null;
 }

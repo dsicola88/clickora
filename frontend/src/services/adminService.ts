@@ -54,6 +54,7 @@ export const adminService = {
       max_custom_domains?: number;
       has_branding?: boolean;
       affiliate_webhook_enabled?: boolean;
+      dpilot_ads_enabled?: boolean;
       features?: string[];
       cta_label?: string | null;
     },

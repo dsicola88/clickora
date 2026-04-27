@@ -38,6 +38,7 @@ import IntentConversionPage from "./pages/IntentConversionPage";
 import AffiliateGuidePage from "./pages/AffiliateGuidePage";
 import InAppUserGuidePage from "./pages/InAppUserGuidePage";
 import SetupAssistantPage from "./pages/SetupAssistantPage";
+import DpilotAdsPage from "./pages/DpilotAdsPage";
 import LegalPrivacyPage from "./pages/LegalPrivacyPage";
 import LegalTermsPage from "./pages/LegalTermsPage";
 
@@ -75,6 +76,7 @@ const appRoutes = [
   { path: "/tracking/integrations", element: <Integrations /> },
   { path: "/tracking/settings", element: <Settings /> },
   { path: "/tracking/logs", element: <Logs /> },
+  { path: "/tracking/dpilot", element: <DpilotAdsPage /> },
 ] as const;
 
 const queryClient = new QueryClient({

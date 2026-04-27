@@ -1,0 +1,11 @@
+{
+  "name": "dpilotoaut-frontend",
+  "private": true,
+  "description": "Aliases: o package.json principal está na raiz (..). Use npm a partir da raiz ou estes scripts.",
+  "scripts": {
+    "dev": "cd .. && npm run dev",
+    "build": "cd .. && npm run build",
+    "preview": "cd .. && npm run preview",
+    "start": "cd .. && npm run start"
+  }
+}

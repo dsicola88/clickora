@@ -16,10 +16,13 @@ import { integrationsRouter } from "./routes/integrations.routes";
 import { customDomainRouter } from "./routes/customDomain.routes";
 import { trafficRotatorsRouter } from "./routes/trafficRotators.routes";
 import { workspaceRouter } from "./routes/workspace.routes";
+import { paidOauthPublicRouter } from "./routes/paidOauthPublic.routes";
+import { paidRouter } from "./routes/paid.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/customDomainCache";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 import { initWebPushFromEnv } from "./lib/webPush";
+import { logPaidEnvStatus } from "./paid/paidEnvCheck";
 
 initWebPushFromEnv();
 
@@ -37,12 +40,11 @@ app.use(
 const PORT = process.env.PORT || 3001;
 
 /**
- * Origens permitidas para CORS a partir de FRONTEND_URL.
- * - Usa só o origin (protocolo + host + porta), sem path — o header Origin do browser nunca inclui `/auth` etc.
- * - Inclui par www/apex para o mesmo domínio.
+ * Lista de URLs (vírgula) → origins únicos; inclui par www/apex quando não é localhost.
+ * Usado para FRONTEND_URL e, opcionalmente, DPILOTO_PUBLIC_ORIGINS (legado / compat.).
  */
-function expandFrontendOriginsFromEnv(): string[] {
-  const raw = (process.env.FRONTEND_URL || "")
+function expandOriginsWithWwwApex(rawEnv: string): string[] {
+  const raw = (rawEnv || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -52,7 +54,7 @@ function expandFrontendOriginsFromEnv(): string[] {
       const parsed = new URL(u);
       const base = parsed.origin;
       out.add(base);
-      if (!parsed.hostname || parsed.hostname === "localhost") continue;
+      if (!parsed.hostname || parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") continue;
       if (parsed.hostname.startsWith("www.")) {
         const apex = `${parsed.protocol}//${parsed.hostname.slice(4)}${parsed.port ? `:${parsed.port}` : ""}`;
         out.add(apex);
@@ -64,6 +66,16 @@ function expandFrontendOriginsFromEnv(): string[] {
     }
   }
   return [...out];
+}
+
+/** Origens permitidas para CORS a partir de FRONTEND_URL. */
+function expandFrontendOriginsFromEnv(): string[] {
+  return expandOriginsWithWwwApex(process.env.FRONTEND_URL || "");
+}
+
+/** CORS extra via `DPILOTO_PUBLIC_ORIGINS` (legado; nome da env mantido por compat.). */
+function expandOptionalExtraCorsOriginsFromEnv(): string[] {
+  return expandOriginsWithWwwApex(process.env.DPILOTO_PUBLIC_ORIGINS || "");
 }
 
 /** Origens explícitas (ex.: https://www.dclickora.com) — útil se FRONTEND_URL estiver mal formatado. */
@@ -88,6 +100,7 @@ function allAllowedOrigins(): string[] {
     ...new Set([
       ...defaultProductionCorsOrigins(),
       ...expandFrontendOriginsFromEnv(),
+      ...expandOptionalExtraCorsOriginsFromEnv(),
       ...corsAllowedOriginsFromEnv(),
     ]),
   ];
@@ -206,6 +219,8 @@ app.use("/api/integrations", integrationsRouter);
 app.use("/api/custom-domain", customDomainRouter);
 app.use("/api/traffic-rotators", trafficRotatorsRouter);
 app.use("/api/workspaces", workspaceRouter);
+app.use("/api/paid", paidOauthPublicRouter);
+app.use("/api/paid", paidRouter);
 app.use("/api/public", publicRouter);
 
 // Health check
@@ -230,6 +245,7 @@ setInterval(() => {
 // (health + rotas com fallback P2022). Esperar repair antes de listen causava process.exit(1) → 502 no Railway/Vercel.
 app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
+  logPaidEnvStatus();
 });
 
 void repairPlanSchemaColumns();

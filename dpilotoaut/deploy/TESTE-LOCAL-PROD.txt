@@ -1,0 +1,65 @@
+Teste local e produção (o mesmo esquema de dados e o mesmo “pipeline”)
+====================================================================
+
+Ideia: em desenvolvimento usas a mesma pilha (Prisma + migrações) que em produção.
+O que muda é só a DATABASE_URL (e o resto do .env), não a lógica.
+
+---
+1) Ambiente de desenvolvimento (dia a dia)
+------------------------------------------
+- .env na raiz com DATABASE_URL a apontar para o teu Postgres local (ou Docker: deploy/NOTAS + docker-compose).
+- Arranque em modo dev (hot reload, sem build de produção):
+    npm run dev
+- Criar ou alterar o modelo (schema.prisma) e gerar **nova** migração a partir de uma base a correr:
+    npm run db:migrate
+  (Isto é `prisma migrate dev` — aplica a migração e atualiza a pasta `migrations/`.)
+- Só em casos raros de protótipo rápido, evita `db:push` em bases que vão para produção; preferir sempre migrações.
+
+---
+2) Simular o que o Railway / Vercel fazem (recomendado antes de fazer push)
+---------------------------------------------------------------------------
+Garante que o Postgres local está acessível (mesma DATABASE_URL do .env).
+
+  npm run test:local:prod
+  (= `verify:predeploy`: generate + `migrate deploy` + `npm run build`)
+
+Isto aplica o mesmo `migrate deploy` que produção, sobre a tua base local — o esquema fica alinhado com os ficheiros em `backend/prisma/migrations/`.
+
+Se falhar, corrige o schema ou as migrações **antes** de fazer deploy.
+
+Depois, correr a app em modo “build” (como no servidor, preset node-server, sem VERCEL):
+  PORT=3000 npm start
+Abre: http://127.0.0.1:3000/ (ou a porta do PORT) e testa login, paid, etc.
+
+Health:
+  curl -sS http://127.0.0.1:3000/hooks/health
+
+---
+3) Testar o **build** tal como a Vercel (preset Nitro “vercel”)
+---------------------------------------------------------------
+Isto gera `frontend/.vercel/output` (não uses `node frontend/.output` desse build para servir; é para inspecção).
+
+  npm run test:vercel:build
+
+(Em Windows PowerShell, se o script `sh` falhar:  `$env:VERCEL=1; npm run build`)
+
+---
+4) Produção (Railway / Vercel)
+------------------------------
+- Variáveis no painel (nunca commites .env de produção).
+- Railway: build + preDeploy (migrate deploy) + start (ver `railway.toml` e `deploy/NOTAS.txt`).
+- Vercel: build inclui `migrate deploy` (precisa de DATABASE_URL no build) — ver `vercel.json`.
+- Após o primeiro deploy: opcional `npm run db:seed` com DATABASE_URL de produção **apenas** se quiseres dados iniciais (conta de seed); fazê-lo manualmente num ambiente controlado.
+
+---
+Resumo
+------
+| Objetivo              | Comando principal                    |
+|-----------------------|--------------------------------------|
+| Desenvolver com HMR  | `npm run dev`                        |
+| Criar migração nova  | `npm run db:migrate` (com base local)|
+| Imitar deploy        | `npm run test:local:prod`            |
+| Servir build local  | `PORT=3000 npm start` (após 4)     |
+| Build estilo Vercel | `npm run test:vercel:build`         |
+
+Tudo o que aplicas com `db:migrate:deploy` em local é o que `migrate deploy` aplica no servidor — a ideia é “testar localmente o mesmo processo de produção”.

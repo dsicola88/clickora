@@ -167,7 +167,7 @@ function looksLikeBulletList(block: string): boolean {
     .filter(Boolean);
   if (lines.length < 2) return false;
   const bulletish = lines.filter((l) =>
-    /^[•\-\*✓✔]\s?|^\d+[\.)]\s/.test(l),
+    /^[•*✓✔-]\s?|^\d+[.)]\s/.test(l),
   ).length;
   return bulletish >= Math.ceil(lines.length * 0.7);
 }
@@ -215,7 +215,7 @@ function ContentBlock({ block }: { block: string }) {
     return (
       <ul className="space-y-3 text-left list-none pl-0 my-1">
         {lines.map((line, i) => {
-          const clean = line.replace(/^[•\-\*✓✔]\s*/, "").replace(/^\d+[\.)]\s*/, "");
+          const clean = line.replace(/^[•*✓✔-]\s*/, "").replace(/^\d+[.)]\s*/, "");
           return (
             <li
               key={i}

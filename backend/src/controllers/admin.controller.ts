@@ -22,6 +22,7 @@ const updatePlanSchema = z.object({
   max_custom_domains: z.number().int().min(0).max(50).optional(),
   has_branding: z.boolean().optional(),
   affiliate_webhook_enabled: z.boolean().optional(),
+  dpilot_ads_enabled: z.boolean().optional(),
   features: z.array(z.string().max(500)).max(50).optional(),
   cta_label: z.union([z.string().trim().min(1).max(160), z.null()]).optional(),
 });
@@ -145,6 +146,10 @@ export const adminController = {
         affiliate_webhook_enabled:
           "affiliateWebhookEnabled" in p && typeof (p as { affiliateWebhookEnabled?: unknown }).affiliateWebhookEnabled === "boolean"
             ? (p as { affiliateWebhookEnabled: boolean }).affiliateWebhookEnabled
+            : false,
+        dpilot_ads_enabled:
+          "dpilotAdsEnabled" in p && typeof (p as { dpilotAdsEnabled?: unknown }).dpilotAdsEnabled === "boolean"
+            ? (p as { dpilotAdsEnabled: boolean }).dpilotAdsEnabled
             : false,
         features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
         cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
@@ -297,6 +302,7 @@ export const adminController = {
       p.max_custom_domains === undefined &&
       p.has_branding === undefined &&
       p.affiliate_webhook_enabled === undefined &&
+      p.dpilot_ads_enabled === undefined &&
       p.features === undefined &&
       p.cta_label === undefined
     ) {
@@ -315,6 +321,7 @@ export const adminController = {
         ...(p.affiliate_webhook_enabled !== undefined
           ? { affiliateWebhookEnabled: p.affiliate_webhook_enabled }
           : {}),
+        ...(p.dpilot_ads_enabled !== undefined ? { dpilotAdsEnabled: p.dpilot_ads_enabled } : {}),
         ...(p.features !== undefined ? { features: p.features } : {}),
         ...(p.cta_label !== undefined ? { ctaLabel: p.cta_label } : {}),
       },

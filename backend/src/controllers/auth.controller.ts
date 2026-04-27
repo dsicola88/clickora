@@ -62,6 +62,7 @@ type SerialUser = {
       maxCustomDomains?: number | null;
       hasBranding: boolean;
       affiliateWebhookEnabled?: boolean;
+      dpilotAdsEnabled?: boolean;
     } | null;
   } | null;
 };
@@ -107,6 +108,8 @@ function serializeUser(
           has_branding: plan.hasBranding,
           affiliate_webhook_enabled:
             typeof plan.affiliateWebhookEnabled === "boolean" ? plan.affiliateWebhookEnabled : false,
+          dpilot_ads_enabled:
+            typeof plan.dpilotAdsEnabled === "boolean" ? plan.dpilotAdsEnabled : false,
         }
       : null,
   };

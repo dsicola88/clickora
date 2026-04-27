@@ -1,0 +1,13 @@
+# https://docs.railway.com/reference/railway-toml
+# Serviço web: ligue este repositório; adicione um plugin PostgreSQL (variável DATABASE_URL).
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npx prisma generate --schema backend/prisma/schema.prisma && npm run build"
+
+[deploy]
+preDeployCommand = ["npx prisma migrate deploy --schema backend/prisma/schema.prisma"]
+startCommand = "node frontend/.output/server/index.mjs"
+healthcheckPath = "/hooks/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"

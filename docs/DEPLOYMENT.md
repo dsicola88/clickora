@@ -46,3 +46,29 @@ Do repositório:
 ```
 
 Esperado: `200` em `/api/health` (Railway e via `www`).
+
+## 6. Anúncios pagos (`/tracking/dpilot`) — monólito + OAuth
+
+As contas com `dpilot_ads_enabled` no plano usam a **mesma** app React e a **mesma** API — rotas `/api/paid/*` e callbacks OAuth em `/api/paid/oauth/*/callback`. Não há iframe nem `VITE_DPILOTO_APP_URL` no fluxo actual.
+
+### API Clickora (Railway) — base pública e OAuth
+
+| Variável | Obrigatório | Descrição |
+|----------|-------------|-----------|
+| `PUBLIC_API_URL` ou `API_PUBLIC_URL` / `BACKEND_PUBLIC_URL` | Recomendado | Base **HTTPS** da API **sem** path, ex. `https://clickora-production.up.railway.app`. Usada para montar os redirect URIs dos fornecedores (Google/Meta/TikTok) quando **não** defines `GOOGLE_OAUTH_REDIRECT_URL`, etc., à mão. |
+| `GOOGLE_OAUTH_REDIRECT_URL` (e equivalentes Meta/TikTok) | Opcional | Se definires o URL **completo** no consola de cada fornecedor, podes não depender de `PUBLIC_API_URL`. |
+| `PAID_OAUTH_FRONTEND_RETURN_URL` | Recomendado | Onde o browser aterra após OAuth (ex. `https://www.dclickora.com/tracking/dpilot`). Se vazio, usa o primeiro `FRONTEND_URL`. |
+| `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_DEVELOPER_TOKEN` | Se usares Google | OAuth e API de anúncios. |
+| `META_APP_ID`, `META_APP_SECRET` | Se usares Meta | |
+| `TIKTOK_APP_ID`, `TIKTOK_APP_SECRET` | Se usares TikTok | |
+
+Síntese, decisões de dados e listas: **[docs/PAID-ADS-ARCHITECTURE.md](PAID-ADS-ARCHITECTURE.md)**.
+
+**Legado (opcional):** `DPILOTO_PUBLIC_ORIGINS` — só CORS extra; o pacote `dpilotoaut/` **não** é o caminho de produção para anúncios. `CLICKORA_DPILOT_SSO_SECRET` e `POST /auth/dpilot-sso-token` **já não** fazem parte da API.
+
+### Ordem de deploy (paid)
+
+1. Migrações com tabelas `paid_ads_*` e `dpilot_ads_enabled` nos planos.
+2. Definir `FRONTEND_URL` (CORS) e `VITE_PUBLIC_API_URL` (Vercel) como no resto do site.
+3. `PUBLIC_API_URL` + credenciais Google/Meta/TikTok + redirects registados nos consol das plataformas.
+4. Redeploy API e testar `/api/paid/oauth/config` (autenticado) e o fluxo «Ligar Google» na UI.
