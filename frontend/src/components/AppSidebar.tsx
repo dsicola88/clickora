@@ -455,7 +455,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       tooltip="Meu Rastreamento"
                       className="w-full justify-between gap-2"
-                      isActive={inTracking || inPaidAdsRoute}
+                      isActive={inTracking}
                     >
                       <span className="flex items-center gap-3 min-w-0">
                         <BarChart3 className="h-4 w-4 flex-shrink-0" />
