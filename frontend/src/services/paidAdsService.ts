@@ -35,6 +35,16 @@ export type ChangeRequestRow = {
   payload?: Record<string, unknown> | null;
 };
 
+/** Resposta ao gerar plano (assistentes Google / Meta / TikTok). `planSource` distingue IA de fallback determinístico. */
+export type CampaignPlanAssistantOk = {
+  ok: boolean;
+  campaignId: string;
+  model: string;
+  planSource: "llm" | "deterministic";
+  autoApplied: boolean;
+  reasons: { code: string; message: string }[];
+};
+
 /** Linha de auditoria do motor automático (`paid_ads_optimizer_decisions`). */
 export type OptimizerDecisionRow = {
   id: string;
@@ -193,12 +203,7 @@ export const paidAdsService = {
       languageTargets: string[];
     },
   ) {
-    return apiClient.post<{
-      ok: boolean;
-      campaignId: string;
-      autoApplied: boolean;
-      reasons: { code: string; message: string }[];
-    }>(`/paid/projects/${projectId}/google-campaign-plan`, body);
+    return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/google-campaign-plan`, body);
   },
 
   uploadMetaAsset(projectId: string, file: File) {
@@ -228,13 +233,7 @@ export const paidAdsService = {
       videoAssetPath: string | null;
     },
   ) {
-    return apiClient.post<{
-      ok: boolean;
-      campaignId: string;
-      model: string;
-      autoApplied: boolean;
-      reasons: { code: string; message: string }[];
-    }>(`/paid/projects/${projectId}/tiktok-campaign-plan`, body);
+    return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/tiktok-campaign-plan`, body);
   },
 
   postMetaCampaignPlan(
@@ -254,12 +253,6 @@ export const paidAdsService = {
       assetPath: string | null;
     },
   ) {
-    return apiClient.post<{
-      ok: boolean;
-      campaignId: string;
-      model: string;
-      autoApplied: boolean;
-      reasons: { code: string; message: string }[];
-    }>(`/paid/projects/${projectId}/meta-campaign-plan`, body);
+    return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/meta-campaign-plan`, body);
   },
 };

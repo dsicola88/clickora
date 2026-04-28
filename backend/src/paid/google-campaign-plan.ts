@@ -142,7 +142,7 @@ function deterministicFallback(input: GoogleCampaignPlanInput): AiPlan {
 }
 
 export type GoogleCampaignPlanResult =
-  | { ok: true; campaignId: string; autoApplied: boolean; reasons: GuardrailViolation[] }
+  | { ok: true; campaignId: string; model: string; autoApplied: boolean; reasons: GuardrailViolation[] }
   | { ok: false; error: string };
 
 export async function runGoogleCampaignPlan(
@@ -385,5 +385,5 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     },
   });
 
-  return { ok: true, campaignId: campaign.id, autoApplied: didAutoApply, reasons };
+  return { ok: true, campaignId: campaign.id, model, autoApplied: didAutoApply, reasons };
 }

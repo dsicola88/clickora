@@ -93,17 +93,21 @@ export function DpilotGoogleWizardPage() {
         toast.error("Falha ao gerar plano", { description: msg });
         return;
       }
+      const planGenNote =
+        data.planSource === "deterministic"
+          ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
+          : " Texto gerado com chamada ao modelo de IA.";
       if (data.autoApplied) {
         toast.success("Plano aplicado pelo Autopilot", {
-          description: "Dentro dos guardrails — publicação no Google tentada.",
+          description: `Dentro dos guardrails — publicação no Google tentada.${planGenNote}`,
         });
       } else if (data.reasons && data.reasons.length > 0) {
         toast.warning("Plano enviado para aprovação", {
-          description: data.reasons[0]?.message ?? "Ver guardrails e fila de aprovações.",
+          description: `${data.reasons[0]?.message ?? "Ver guardrails e fila de aprovações."}${planGenNote}`,
         });
       } else {
         toast.success("Plano gerado", {
-          description: "Rascunho e pedido criados. Consulte «Aprovações» para rever o pedido.",
+          description: `Rascunho e pedido criados. Consulte «Aprovações» para rever o pedido.${planGenNote}`,
         });
       }
       navigate(`${base}/aprovacoes`);

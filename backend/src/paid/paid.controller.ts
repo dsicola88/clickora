@@ -15,6 +15,11 @@ import { canAccessProject, canAdminProject, canWriteProject, getPaidActor } from
 
 const projectIdParam = z.object({ projectId: z.string().uuid() });
 
+/** Campanhas geradas sem chamada ao modelo usam `fallback/deterministic` no registo AI. */
+function planSourceFromModel(model: string): "llm" | "deterministic" {
+  return model.startsWith("fallback/") ? "deterministic" : "llm";
+}
+
 async function resolveDisplayName(tenantUserId: string): Promise<string> {
   const u = await systemPrisma.user.findUnique({
     where: { id: tenantUserId },
@@ -407,6 +412,8 @@ export const paidController = {
     return res.json({
       ok: true,
       campaignId: out.campaignId,
+      model: out.model,
+      planSource: planSourceFromModel(out.model),
       autoApplied: out.autoApplied,
       reasons: out.reasons,
     });
@@ -427,6 +434,7 @@ export const paidController = {
       ok: true,
       campaignId: out.campaignId,
       model: out.model,
+      planSource: planSourceFromModel(out.model),
       autoApplied: out.autoApplied,
       reasons: out.reasons,
     });
@@ -495,6 +503,7 @@ export const paidController = {
       ok: true,
       campaignId: out.campaignId,
       model: out.model,
+      planSource: planSourceFromModel(out.model),
       autoApplied: out.autoApplied,
       reasons: out.reasons,
     });

@@ -210,17 +210,21 @@ export function DpilotMetaWizardPage() {
         toast.error("Falha ao gerar plano", { description: msg });
         return;
       }
+      const planGenNote =
+        data.planSource === "deterministic"
+          ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
+          : " Texto gerado com chamada ao modelo de IA.";
       if (data.autoApplied) {
         toast.success("Campanha Meta — autopilot", {
-          description: "Publicação automática tentada na conta ligada (dentro dos limites).",
+          description: `Publicação automática tentada na conta ligada (dentro dos limites).${planGenNote}`,
         });
       } else if (data.reasons && data.reasons.length > 0) {
         toast.warning("Campanha Meta — revisão necessária", {
-          description: data.reasons[0]?.message ?? "Consulte os motivos nos pedidos em «Aprovações».",
+          description: `${data.reasons[0]?.message ?? "Consulte os motivos nos pedidos em «Aprovações»."}${planGenNote}`,
         });
       } else {
         toast.success("Campanha Meta criada", {
-          description: "Rascunho e pedido criados. Consulte «Aprovações» para rever e usar «Aplicar na rede» quando adequado.",
+          description: `Rascunho e pedido criados. Consulte «Aprovações» para rever e usar «Aplicar na rede» quando adequado.${planGenNote}`,
         });
       }
       navigate(`${base}/aprovacoes`);
