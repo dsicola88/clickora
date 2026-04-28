@@ -34,6 +34,26 @@ function assertDeveloperToken(t: string | undefined): asserts t is string {
   }
 }
 
+/** Evita que `res.json()` lance "Unexpected token '<'..." quando a API devolve HTML (404, proxy, HTML de erro). */
+async function readJsonOrThrow(res: Response, context: string): Promise<unknown> {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    const hint =
+      trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")
+        ? " Recebeu-se HTML em vez de JSON — confirme que a Google Ads API está ativada no projecto Google Cloud, que o developer token é válido e que o URL da API não está bloqueado."
+        : "";
+    throw new Error(
+      `${context} (${res.status}): corpo não é JSON.${hint} (${text.slice(0, 180).replace(/\s+/g, " ")})`,
+    );
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    throw new Error(`${context}: JSON inválido (${res.status}).`);
+  }
+}
+
 export async function exchangeGoogleAuthorizationCode(
   code: string,
   redirectUri: string,
@@ -56,7 +76,7 @@ export async function exchangeGoogleAuthorizationCode(
     }),
   });
 
-  const j = (await res.json()) as {
+  const j = (await readJsonOrThrow(res, "OAuth token endpoint")) as {
     access_token?: string;
     refresh_token?: string;
     error?: string;
@@ -96,7 +116,7 @@ export async function getAccessFromRefreshToken(refreshToken: string): Promise<{
       grant_type: "refresh_token",
     }),
   });
-  const j = (await res.json()) as {
+  const j = (await readJsonOrThrow(res, "OAuth refresh_token")) as {
     access_token?: string;
     expires_in?: number;
     error?: string;
@@ -138,7 +158,7 @@ export async function listFirstAccessibleCustomerId(
     },
   });
 
-  const j = (await res.json()) as {
+  const j = (await readJsonOrThrow(res, "Google Ads listAccessibleCustomers")) as {
     resourceNames?: string[];
     error?: { message?: string; status?: string };
   };
