@@ -8,10 +8,8 @@ import type {
   PaidAdsPlatform as PaidPlatform,
 } from "@prisma/client";
 
-import { getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
 import { prisma } from "./paidPrisma";
-
-const API_BASE = "https://googleads.googleapis.com/v16";
 
 /** ISO-3166-1 alpha-2 → id do critério Google (tabela de geotargets). */
 const ISO_GEO: Record<string, number> = {

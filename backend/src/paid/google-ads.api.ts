@@ -1,9 +1,8 @@
 /**
- * Google Ads API (REST v16) + OAuth 2.0 — funções puras, sem Prisma.
- * @see https://developers.google.com/google-ads/api/docs/start
+ * Google Ads API (REST) — versões antigas são descontinuadas e devolvem 404 em massa (ex. v16 em fev/2025).
+ * @see https://developers.google.com/google-ads/api/docs/sunset-dates
  */
-
-const ADS_VERSION = "v16";
+const ADS_VERSION = "v21";
 const OAUTH_TOKEN = "https://oauth2.googleapis.com/token";
 const OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 export const API_BASE = `https://googleads.googleapis.com/${ADS_VERSION}`;
