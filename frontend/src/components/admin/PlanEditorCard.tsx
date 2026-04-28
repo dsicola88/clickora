@@ -215,7 +215,10 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               Anúncios (Google, Meta, TikTok)
             </Label>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-              Acesso a <span className="font-mono">/tracking/dpilot</span> no app. No Premium por defeito; no Pro, só presell e rastreamento.
+              Ligar ou desligar por plano: acesso a <span className="font-mono">/tracking/dpilot</span> e API{' '}
+              <span className="font-mono">/paid/*</span> para Google, Meta e TikTok — independente das outras linhas (presells,
+              cliques, domínios). O utilizador só vê o módulo se o plano actual tiver esta opção activa (além da assinatura
+              válida).
             </p>
           </div>
           <Switch id={`dp-${plan.id}`} checked={dpilotAds} onCheckedChange={setDpilotAds} />
