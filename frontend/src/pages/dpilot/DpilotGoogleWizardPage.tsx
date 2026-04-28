@@ -47,7 +47,7 @@ export function DpilotGoogleWizardPage() {
 
   const [landingUrl, setLandingUrl] = useState("https://example.com");
   const [offer, setOffer] = useState("");
-  const [objective, setObjective] = useState("Gerar cadastros de teste grátis");
+  const [objective, setObjective] = useState("Gerar leads no período de teste gratuito");
   const [dailyBudget, setDailyBudget] = useState("25");
   const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
   const [languageTargets, setLanguageTargets] = useState<string[]>(["pt"]);
@@ -74,7 +74,7 @@ export function DpilotGoogleWizardPage() {
     }
     const langArr = languageTargets.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (!langArr.length) {
-      setError("Seleccione pelo menos um idioma dos anúncios.");
+      setError("Selecione pelo menos um idioma dos anúncios.");
       return;
     }
     setSubmitting(true);
@@ -102,7 +102,9 @@ export function DpilotGoogleWizardPage() {
           description: data.reasons[0]?.message ?? "Ver guardrails e fila de aprovações.",
         });
       } else {
-        toast.success("Plano gerado", { description: "Rascunho e pedido criados. Revise em aprovações." });
+        toast.success("Plano gerado", {
+          description: "Rascunho e pedido criados. Consulte «Aprovações» para rever o pedido.",
+        });
       }
       navigate(`${base}/aprovacoes`);
     } catch (err) {
@@ -157,7 +159,7 @@ export function DpilotGoogleWizardPage() {
               <Input
                 value={objective}
                 onChange={(e) => setObjective(e.target.value)}
-                placeholder="Gerar cadastros de teste grátis"
+                placeholder="Gerar leads no período de teste gratuito"
                 required
               />
             </Field>
@@ -202,8 +204,8 @@ export function DpilotGoogleWizardPage() {
 
             <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground max-w-md">
-                O plano cria rascunhos (campanha, grupos, palavras-chave, RSA) e um pedido de criação. Nada publica
-                enquanto os guardrails ou o Copilot o exigirem.
+                O assistente gera rascunhos e um pedido de criação (campanha, grupos de anúncios, palavras-chave e anúncios
+                RSA). A conta Google só é alterada quando os limites de segurança e o modo Copilot / Autopilot o permitirem.
               </p>
               <Button type="submit" disabled={submitting}>
                 <Sparkles className="mr-1 h-4 w-4" />

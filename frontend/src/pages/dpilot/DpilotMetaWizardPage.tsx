@@ -21,7 +21,7 @@ const objectives = [
   { value: "leads", label: "Leads" },
   { value: "purchases", label: "Conversões" },
   { value: "awareness", label: "Reconhecimento" },
-  { value: "engagement", label: "Engajamento" },
+  { value: "engagement", label: "Interacções" },
   { value: "app_promotion", label: "Promoção de app" },
 ] as const;
 
@@ -184,7 +184,7 @@ export function DpilotMetaWizardPage() {
 
     const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Seleccione pelo menos uma localização (país).");
+      setError("Selecione pelo menos uma localização (país).");
       return;
     }
 
@@ -220,7 +220,7 @@ export function DpilotMetaWizardPage() {
         });
       } else {
         toast.success("Campanha Meta criada", {
-          description: "Rascunho guardado e pedido gerado. Revise e aplique em «Aprovações» quando estiver pronto.",
+          description: "Rascunho e pedido criados. Consulte «Aprovações» para rever e usar «Aplicar na rede» quando adequado.",
         });
       }
       navigate(`${base}/aprovacoes`);
@@ -241,7 +241,7 @@ export function DpilotMetaWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha Meta"
-          description="Defina oferta, audiência e criativos. O assistente gera a estrutura em rascunho; em Copilot (ou quando os limites o exigirem), o pedido segue para «Aprovações» antes da publicação."
+          description="Indique destino, oferta e público; opcionalmente envie um criativo. O assistente prepara rascunhos na conta Meta ligada — em modo Copilot ou quando os limites de segurança o exigirem, o pedido fica em «Aprovações» antes de alterações na rede."
           actions={
             <Button variant="outline" asChild>
               <Link to={`${base}/meta`}>
@@ -264,6 +264,7 @@ export function DpilotMetaWizardPage() {
                 onChange={(e) => setLandingUrl(e.target.value)}
                 required
               />
+              <p className="text-[11px] text-muted-foreground">Para onde o anúncio deve levar após o clique.</p>
             </div>
 
             <div className="grid gap-2">
@@ -279,15 +280,16 @@ export function DpilotMetaWizardPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="m-audience">Notas de audiência</Label>
+              <Label htmlFor="m-audience">Notas sobre o público-alvo</Label>
               <Textarea
                 id="m-audience"
                 value={audienceNotes}
                 onChange={(e) => setAudienceNotes(e.target.value)}
-                placeholder="Quem é a pessoa? Interesses, comportamentos, dores."
+                placeholder="Perfil, interesses, comportamentos ou problemas que o anúncio deve endereçar."
                 rows={3}
                 required
               />
+              <p className="text-[11px] text-muted-foreground">Ajuda o modelo a orientar criativo e segmentação dentro das políticas Meta.</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -322,7 +324,7 @@ export function DpilotMetaWizardPage() {
 
             <GoogleAdsCountriesSelect
               label="Localizações — País"
-              hint="Mesmos países que no fluxo Google Ads (lista suportada pelo sistema)."
+              hint="Mesmos países disponíveis que no fluxo Google Ads deste produto."
               searchPlaceholder="Pesquisar país…"
               emptyText="Nenhum país encontrado."
               options={GOOGLE_ADS_COUNTRY_OPTIONS}
@@ -376,7 +378,7 @@ export function DpilotMetaWizardPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Asset criativo (imagem ou vídeo, opcional)</Label>
+              <Label>Anúncio — imagem ou vídeo (opcional)</Label>
               {assetPath ? (
                 <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
@@ -394,7 +396,7 @@ export function DpilotMetaWizardPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{assetName}</p>
-                    <p className="text-xs text-muted-foreground">Carregado no servidor para o plano de campanha</p>
+                    <p className="text-xs text-muted-foreground">Carregado no servidor para usar no pedido de campanha.</p>
                   </div>
                   <Button type="button" variant="ghost" size="sm" onClick={clearAsset} disabled={uploading}>
                     <X className="h-4 w-4" />
@@ -425,8 +427,8 @@ export function DpilotMetaWizardPage() {
                 <p className="text-sm font-medium">Categorias especiais de anúncios</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                O Meta exige declaração explícita de categorias especiais. Marcar uma categoria limita o targeting (ex.:
-                idade ≥ 18, sem detalhamento por CEP em habitação/emprego/crédito).
+                O Meta exige declarar categorias especiais quando aplicável. Ao marcá-las, o sistema pode impor restrições
+                adicionais de segmentação (por exemplo idade mínima 18 anos e menos granularidade geográfica em certos casos).
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {specialCategories.map((c) => {
@@ -476,6 +478,11 @@ export function DpilotMetaWizardPage() {
                 {error}
               </div>
             ) : null}
+
+            <p className="text-xs text-muted-foreground leading-relaxed border-t border-border pt-4">
+              O assistente gera rascunhos e um pedido na conta Meta ligada. A conta só é alterada quando os limites de
+              segurança e o modo Copilot / Autopilot o permitirem — por exemplo após rever o pedido em «Aprovações».
+            </p>
 
             <div className="flex items-center justify-end gap-2">
               <Button type="button" variant="ghost" asChild>
