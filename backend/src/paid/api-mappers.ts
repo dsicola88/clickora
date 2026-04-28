@@ -23,6 +23,10 @@ export function mapGuardrails(g: PaidAdsGuardrails) {
     blocked_keywords: g.blockedKeywords,
     require_approval_above_micros:
       g.requireApprovalAboveMicros != null ? Number(g.requireApprovalAboveMicros) : null,
+    /** USD — limiar efectivo combinado na função pause (projecto sobrepõe env). Null = apenas servidor/env. */
+    optimizer_pause_spend_usd:
+      g.optimizerPauseSpendUsd != null ? Number(g.optimizerPauseSpendUsd) : null,
+    optimizer_pause_min_clicks: g.optimizerPauseMinClicks ?? null,
     created_at: g.createdAt.toISOString(),
     updated_at: g.updatedAt.toISOString(),
   };

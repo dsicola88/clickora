@@ -364,6 +364,8 @@ export const paidController = {
       allowed_countries: z.array(z.string()),
       blocked_keywords: z.array(z.string()),
       require_approval_above_micros: z.number().nullable(),
+      optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
+      optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Dados inválidos." });
@@ -373,6 +375,14 @@ export const paidController = {
       return res.status(403).json({ error: "Somente administradores podem editar guardrails." });
     }
     const d = parsed.data;
+    const optSpendUsd =
+      d.optimizer_pause_spend_usd !== undefined
+        ? (d.optimizer_pause_spend_usd != null ? d.optimizer_pause_spend_usd : null)
+        : undefined;
+    const optPauseClicks =
+      d.optimizer_pause_min_clicks !== undefined
+        ? (d.optimizer_pause_min_clicks != null ? d.optimizer_pause_min_clicks : null)
+        : undefined;
     const g = await prisma.paidAdsGuardrails.upsert({
       where: { projectId: d.projectId },
       create: {
@@ -384,6 +394,8 @@ export const paidController = {
         blockedKeywords: d.blocked_keywords,
         requireApprovalAboveMicros:
           d.require_approval_above_micros != null ? BigInt(Math.round(d.require_approval_above_micros)) : null,
+        ...(optSpendUsd !== undefined ? { optimizerPauseSpendUsd: optSpendUsd } : {}),
+        ...(optPauseClicks !== undefined ? { optimizerPauseMinClicks: optPauseClicks } : {}),
       },
       update: {
         maxDailyBudgetMicros: BigInt(Math.round(d.max_daily_budget_micros)),
@@ -393,6 +405,8 @@ export const paidController = {
         blockedKeywords: d.blocked_keywords,
         requireApprovalAboveMicros:
           d.require_approval_above_micros != null ? BigInt(Math.round(d.require_approval_above_micros)) : null,
+        ...(optSpendUsd !== undefined ? { optimizerPauseSpendUsd: optSpendUsd } : {}),
+        ...(optPauseClicks !== undefined ? { optimizerPauseMinClicks: optPauseClicks } : {}),
       },
     });
     return res.json(mappers.mapGuardrails(g));

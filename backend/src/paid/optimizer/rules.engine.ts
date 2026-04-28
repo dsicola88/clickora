@@ -6,6 +6,7 @@ import type { PaidAdsPlatform } from "@prisma/client";
 import {
   ctrLowThreshold,
   optimizerRulesPhase,
+  pauseMinClicksDefault,
   pauseSpendUsdThreshold,
   scaleBudgetFraction,
   scaleRoasThreshold,
@@ -24,6 +25,12 @@ export type RuleEvaluationInput = {
   tracking: TrackingCampaignMetrics;
   /** USD — só preenchido quando a API da rede devolve gasto (Google/Meta). */
   spendUsdPlatform: number | null;
+  /**
+   * Resolvidos no `optimizer.service` a partir de guardrails do projecto ou env.
+   * Se omitidos, usam `pauseSpendUsdThreshold()` e `pauseMinClicksDefault()`.
+   */
+  effectivePauseSpendUsd?: number;
+  effectivePauseMinClicks?: number;
 };
 
 /** Prioridade: pausa antes de escalar; flags são não-destrutivos. */
@@ -39,20 +46,22 @@ export function evaluateOptimizerRules(input: RuleEvaluationInput): OptimizerDec
   const candidates: OptimizerDecisionCandidate[] = [];
 
   const spendUsd = spendUsdPlatform ?? null;
-  const minSpend = pauseSpendUsdThreshold();
+  const minSpend = input.effectivePauseSpendUsd ?? pauseSpendUsdThreshold();
+  const pauseMinClicks = input.effectivePauseMinClicks ?? pauseMinClicksDefault();
 
   if (
     conversionsZero &&
     spendUsd !== null &&
     spendUsd >= minSpend &&
-    tracking.clicks >= 5
+    tracking.clicks >= pauseMinClicks
   ) {
     candidates.push({
       ruleCode: "pause_zero_conv_min_spend",
       decisionType: "pause_campaign",
-      reason: `Gasto ≥ $${minSpend.toFixed(2)} (${platform}) sem conversões na janela; CTR/cliques presentes.`,
+      reason: `Gasto ≥ $${minSpend.toFixed(2)} (${platform}) sem conversões na janela; cliques ≥ ${pauseMinClicks}.`,
       inputSnapshot: {
         spendUsd,
+        pauseMinClicks,
         clicks: tracking.clicks,
         impressions: tracking.impressions,
         approvedConversions: tracking.approvedConversions,

@@ -10,7 +10,7 @@ import {
   enqueueCampaignPausedAlert,
   enqueueOptimizerCriticalAlert,
 } from "./alerts.service";
-import { optimizerDryRun, optimizerEnabled, optimizerLookbackHours } from "./config";
+import { optimizerDryRun, optimizerEnabled, optimizerLookbackHours, resolveOptimizerPauseMinClicks, resolveOptimizerPauseSpendUsd } from "./config";
 import { hasRecentSuccessfulDecision, shouldApplyIdempotencyCheck } from "./idempotency";
 import { optimizerLog } from "./logger";
 import { collectCampaignMetricsBundle, type CampaignMetricsBundle } from "./metrics.service";
@@ -80,6 +80,15 @@ export async function runPaidOptimizerTick(): Promise<OptimizerTickResult> {
       if (campaigns.length === 0) continue;
       result.projectsScanned += 1;
 
+      const grRow = await prisma.paidAdsGuardrails.findUnique({
+        where: { projectId: proj.id },
+        select: { optimizerPauseSpendUsd: true, optimizerPauseMinClicks: true },
+      });
+      const effPauseUsd = resolveOptimizerPauseSpendUsd(
+        grRow?.optimizerPauseSpendUsd != null ? Number(grRow.optimizerPauseSpendUsd) : null,
+      );
+      const effPauseClicks = resolveOptimizerPauseMinClicks(grRow?.optimizerPauseMinClicks ?? null);
+
       for (const camp of campaigns) {
         result.campaignsEvaluated += 1;
 
@@ -111,6 +120,8 @@ export async function runPaidOptimizerTick(): Promise<OptimizerTickResult> {
           platform: camp.platform,
           tracking: bundle.tracking,
           spendUsdPlatform: bundle.spendUsdPlatform,
+          effectivePauseSpendUsd: effPauseUsd,
+          effectivePauseMinClicks: effPauseClicks,
         });
 
         if (candidates.length === 0) continue;

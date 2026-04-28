@@ -188,6 +188,8 @@ export const paidAdsService = {
     allowed_countries: string[];
     blocked_keywords: string[];
     require_approval_above_micros: number | null;
+    optimizer_pause_spend_usd?: number | null;
+    optimizer_pause_min_clicks?: number | null;
   }) {
     return apiClient.post<Record<string, unknown>>("/paid/guardrails", body);
   },

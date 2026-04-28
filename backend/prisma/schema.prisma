@@ -877,6 +877,13 @@ model PaidAdsGuardrails {
   allowedCountries           String[] @default(["US"]) @map("allowed_countries")
   blockedKeywords            String[] @default([]) @map("blocked_keywords")
   requireApprovalAboveMicros BigInt?  @map("require_approval_above_micros")
+  /**
+   * Optimizer: pausa automática sem conversões quando o gasto na rede (janela configurável) ≥ este valor USD.
+   * null = usar apenas `PAID_OPTIMIZER_PAUSE_SPEND_USD` / predefinição do servidor.
+   */
+  optimizerPauseSpendUsd     Decimal? @map("optimizer_pause_spend_usd") @db.Decimal(12, 4)
+  /** Optimizer: mínimo de cliques no período para disparar a pausa; null = `PAID_OPTIMIZER_PAUSE_MIN_CLICKS` ou 5. */
+  optimizerPauseMinClicks    Int?     @map("optimizer_pause_min_clicks")
   createdAt                  DateTime @default(now()) @map("created_at")
   updatedAt                  DateTime @updatedAt @map("updated_at")
 

@@ -34,6 +34,27 @@ export function pauseSpendUsdThreshold(): number {
   return 10;
 }
 
+/** Mínimo de cliques no período para activar pausa por «gasto sem conversão» — sem projecto usar env; predef. 5. */
+export function pauseMinClicksDefault(): number {
+  const raw = Number(process.env.PAID_OPTIMIZER_PAUSE_MIN_CLICKS);
+  if (Number.isFinite(raw) && raw >= 0 && raw <= 500) return Math.floor(raw);
+  return 5;
+}
+
+/** Valores por projecto (guardrails DB) sobrepõem env; valores inválidos caem para predefinição global. */
+export function resolveOptimizerPauseSpendUsd(projectUsd: number | null | undefined): number {
+  if (projectUsd != null && Number.isFinite(projectUsd) && projectUsd >= 0.01) return projectUsd;
+  return pauseSpendUsdThreshold();
+}
+
+export function resolveOptimizerPauseMinClicks(projectClicks: number | null | undefined): number {
+  if (projectClicks != null && Number.isFinite(projectClicks)) {
+    const n = Math.floor(projectClicks);
+    if (n >= 0 && n <= 500) return n;
+  }
+  return pauseMinClicksDefault();
+}
+
 /** ROAS mínimo para escalar orçamento (+20%). */
 export function scaleRoasThreshold(): number {
   const raw = Number(process.env.PAID_OPTIMIZER_SCALE_ROAS_MIN);

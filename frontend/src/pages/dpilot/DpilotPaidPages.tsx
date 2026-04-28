@@ -29,6 +29,7 @@ import { paidAdsService } from "@/services/paidAdsService";
 import type { ChangeRequestRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
+import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
 
 export function Gate({ children }: { children: React.ReactNode }) {
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
@@ -197,6 +198,10 @@ export function DpilotVisaoPage() {
             <p className="text-2xl font-semibold">{p.overview?.pending_approvals ?? "—"}</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-4">
+        <DpilotOptimizerPauseLimitsCard />
       </div>
 
       <Card className="mt-6 border-primary/15 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent">
