@@ -41,6 +41,8 @@ import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
+import { formatGoogleAdsDashboardMoney } from "@/lib/googleAdsDashboardMoney";
+import { formatGoogleAdsDashboardMoney } from "@/lib/googleAdsDashboardMoney";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DashboardUserGuide } from "@/components/DashboardUserGuide";
@@ -1044,6 +1046,7 @@ type DashboardGoogleGeoInput = {
     clicks: number;
     conversions: number;
     cost_micros: number;
+    currency_code?: string | null;
   } | null;
   google_ads_metrics_error?: string | null;
   clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
@@ -1076,7 +1079,17 @@ function DashboardGoogleGeoSection({
             </div>
             <div className="min-w-0 space-y-0.5">
               <h3 className="font-semibold text-card-foreground">Google Ads (conta)</h3>
-              <p className="text-[11px] text-muted-foreground leading-snug">Métricas da conta Google Ads neste período.</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Métricas da conta Google Ads neste período. Custos reportados pela API{" "}
+                {g?.currency_code ? (
+                  <span className="text-foreground/80 font-medium">
+                    na moeda da conta ({String(g.currency_code).toUpperCase()})
+                  </span>
+                ) : (
+                  <span className="text-foreground/80">na moeda da conta</span>
+                )}
+                .
+              </p>
             </div>
           </div>
           {err ? (
@@ -1098,7 +1111,7 @@ function DashboardGoogleGeoSection({
               </div>
               <div>
                 <dt className="text-muted-foreground text-xs">Custo (conta)</dt>
-                <dd className="font-semibold tabular-nums">{(g.cost_micros / 1_000_000).toFixed(2)}</dd>
+                <dd className="font-semibold tabular-nums">{formatGoogleAdsDashboardMoney(g.cost_micros / 1_000_000, g.currency_code)}</dd>
               </div>
             </dl>
           ) : !err && !canGoogle ? (
@@ -1349,6 +1362,7 @@ function DashboardHeroMetrics({
   const ctr = dashboard?.ctr ?? 0;
 
   const googleCost = g != null ? g.cost_micros / 1_000_000 : 0;
+  const googleCurrency = g?.currency_code ?? null;
   const googleCpc = g != null && g.clicks > 0 ? googleCost / g.clicks : null;
   const googleConvN = g != null ? Number(g.conversions) : 0;
   const googleCostPerConv = g != null && googleConvN > 0 ? googleCost / googleConvN : null;
@@ -1463,7 +1477,16 @@ function DashboardHeroMetrics({
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Google Ads (conta)</p>
-              <p className="text-[11px] text-muted-foreground">Métricas da conta no período (custos e médias).</p>
+              <p className="text-[11px] text-muted-foreground">
+                Métricas da conta no período — custos{" "}
+                {googleCurrency ? (
+                  <>
+                    em <span className="font-medium text-foreground/85">{googleCurrency}</span> (moeda da conta).
+                  </>
+                ) : (
+                  <>na moeda da conta (código indisponível nesta resposta).</>
+                )}
+              </p>
             </div>
           </div>
           {err ? (
@@ -1487,18 +1510,20 @@ function DashboardHeroMetrics({
               </div>
               <div>
                 <dt className="text-muted-foreground text-xs">Custo total</dt>
-                <dd className="font-semibold tabular-nums text-base">{googleCost.toFixed(2)}</dd>
+                <dd className="font-semibold tabular-nums text-base">
+                  {formatGoogleAdsDashboardMoney(googleCost, googleCurrency)}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground text-xs">Custo médio (CPC)</dt>
                 <dd className="font-semibold tabular-nums text-base">
-                  {googleCpc != null ? googleCpc.toFixed(4) : "—"}
+                  {googleCpc != null ? formatGoogleAdsDashboardMoney(googleCpc, googleCurrency) : "—"}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground text-xs">Custo / conversão</dt>
                 <dd className="font-semibold tabular-nums text-base">
-                  {googleCostPerConv != null ? googleCostPerConv.toFixed(4) : "—"}
+                  {googleCostPerConv != null ? formatGoogleAdsDashboardMoney(googleCostPerConv, googleCurrency) : "—"}
                 </dd>
               </div>
             </dl>

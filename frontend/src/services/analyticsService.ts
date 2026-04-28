@@ -356,6 +356,8 @@ export const analyticsService = {
         clicks: number;
         conversions: number;
         cost_micros: number;
+        /** Moeda ISO da conta Google Ads — custos reportados sempre nesta divisa */
+        currency_code: string | null;
       } | null;
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;

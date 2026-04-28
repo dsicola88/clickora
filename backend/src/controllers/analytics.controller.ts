@@ -780,6 +780,7 @@ export const analyticsController = {
       clicks: number;
       conversions: number;
       cost_micros: number;
+      currency_code: string | null;
     } | null = null;
     let google_ads_metrics_error: string | null = null;
 

@@ -152,7 +152,10 @@ export type GoogleAdsAccountMetrics = {
   impressions: number;
   clicks: number;
   conversions: number;
+  /** Valores monetários nesta conta usam sempre `currency_code` (moeda da conta Google Ads — USD, EUR, BRL…). */
   cost_micros: number;
+  /** ISO 4217, ex. USD ou BRL — vem da API (Google pode não disponibilizar em casos extremos). */
+  currency_code: string | null;
 };
 
 export async function fetchGoogleAdsAccountMetrics(input: {
@@ -191,7 +194,7 @@ export async function fetchGoogleAdsAccountMetrics(input: {
     ...(login ? { login_customer_id: login } : {}),
   });
 
-  const gaql = `
+  const gaqlMetrics = `
     SELECT
       segments.date,
       metrics.impressions,
@@ -201,9 +204,11 @@ export async function fetchGoogleAdsAccountMetrics(input: {
     FROM customer
     WHERE segments.date BETWEEN '${fromStr}' AND '${toStr}'
   `;
+  /** Moeda de faturação da conta (custos sempre nesta-divisa). */
+  const gaqlCurrency = `SELECT customer.currency_code FROM customer LIMIT 1`;
 
   try {
-    const rows = await customer.query(gaql);
+    const [rows, currencyRows] = await Promise.all([customer.query(gaqlMetrics), customer.query(gaqlCurrency)]);
     let impressions = 0;
     let clicks = 0;
     let conversions = 0;
@@ -219,9 +224,22 @@ export async function fetchGoogleAdsAccountMetrics(input: {
       conversions += Number(m.conversions ?? 0);
       cost_micros += Number(m.cost_micros ?? 0);
     }
+
+    let currency_code: string | null = null;
+    const crList = Array.isArray(currencyRows) ? currencyRows : [];
+    const first = crList[0] as Record<string, unknown> | undefined;
+    if (first) {
+      const cust = first.customer as { currency_code?: unknown; currencyCode?: unknown } | undefined;
+      const raw = cust?.currency_code ?? cust?.currencyCode;
+      if (typeof raw === "string") {
+        const t = raw.trim().toUpperCase();
+        currency_code = /^[A-Z]{3}$/.test(t) ? t : null;
+      }
+    }
+
     return {
       ok: true,
-      metrics: { impressions, clicks, conversions, cost_micros },
+      metrics: { impressions, clicks, conversions, cost_micros, currency_code },
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

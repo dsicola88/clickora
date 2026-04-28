@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
@@ -54,8 +53,30 @@ function formatDateTime(iso: string) {
 }
 
 function originFromEvent(e: TrackingEvent) {
-  const parts = [e.source, e.medium, e.campaign].filter(Boolean);
-  return parts.length ? parts.join(" / ") : "—";
+  const meta = e.metadata && typeof e.metadata === "object" ? (e.metadata as Record<string, unknown>) : {};
+  const src =
+    (e.source && String(e.source).trim()) ||
+    (e.utm_source && String(e.utm_source).trim()) ||
+    (typeof meta.utm_source === "string" ? meta.utm_source.trim() : "");
+  const med =
+    (e.medium && String(e.medium).trim()) ||
+    (typeof meta.utm_medium === "string" ? meta.utm_medium.trim() : "");
+  const camp =
+    (e.campaign && String(e.campaign).trim()) ||
+    (e.utm_campaign && String(e.utm_campaign).trim()) ||
+    (typeof meta.campaign === "string" ? meta.campaign.trim() : "");
+  const parts = [src, med, camp].filter(Boolean);
+  if (parts.length > 0) return parts.join(" / ");
+  const refRaw = e.referrer || (typeof meta.referrer === "string" ? meta.referrer : "");
+  const ref = String(refRaw).trim();
+  if (ref) {
+    try {
+      return new URL(ref).hostname.replace(/^www\./i, "");
+    } catch {
+      return ref.length > 64 ? `${ref.slice(0, 61)}…` : ref;
+    }
+  }
+  return "—";
 }
 
 function paidLabel(e: TrackingEvent) {
@@ -333,7 +354,10 @@ export default function Relatorios() {
     return raw.map((e) => {
       const meta = e.metadata || {};
       const keyword =
-        e.utm_term || (typeof meta.utm_term === "string" ? meta.utm_term : "") || "";
+        e.utm_term ||
+        (typeof meta.utm_term === "string" ? meta.utm_term : "") ||
+        (typeof meta.keyword === "string" ? meta.keyword : "") ||
+        "";
       const dt = formatDateTime(e.created_at);
       const utmCamp = e.utm_campaign || e.campaign || "";
       const utmCont = e.utm_content || "";
@@ -360,7 +384,10 @@ export default function Relatorios() {
     return raw.map((e) => {
       const meta = e.metadata || {};
       const keyword =
-        e.utm_term || (typeof meta.utm_term === "string" ? meta.utm_term : "") || "";
+        e.utm_term ||
+        (typeof meta.utm_term === "string" ? meta.utm_term : "") ||
+        (typeof meta.keyword === "string" ? meta.keyword : "") ||
+        "";
       const dt = formatDateTime(e.created_at);
       const utmCamp = e.utm_campaign || e.campaign || "";
       const utmCont = e.utm_content || "";
@@ -575,14 +602,10 @@ export default function Relatorios() {
   };
 
   const UsageLimitBar = () => (
-    <div className="bg-card rounded-xl p-4 shadow-card border border-border/50 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          Uso da ferramenta para rastreio dos endereços de IP
-        </span>
-        <span className="text-sm font-medium text-muted-foreground">—</span>
-      </div>
-      <Progress value={0} className="h-2.5" />
+    <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 p-4 text-sm leading-relaxed text-muted-foreground">
+      <span className="font-medium text-foreground/90">Quota / rastreio por IP:</span> reservado para limites de plano
+      ou monitorização futura — ainda não está ligado a dados ao vivo por isso não há percentagem disponível aqui (não
+      indica falha de rede).
     </div>
   );
 
@@ -677,6 +700,13 @@ export default function Relatorios() {
 
         <TabsContent value="acessos" className="mt-6 space-y-4">
           <UsageLimitBar />
+          <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+            <strong className="font-medium text-foreground/90">Sobre colunas com «—»:</strong> palavra-chave, campanha e
+            anúncio (content) vêm de parâmetros UTM no URL do clique, do pixel de impressão ou do link de redireccionamento
+            Clickora. Visitas sem esses parâmetros ficam vazias. <strong className="font-medium text-foreground/90">Origem</strong>{" "}
+            tenta mostrar fonte/médio/campanha ou o domínio do referer. <strong className="font-medium text-foreground/90">Região</strong>{" "}
+            (estado/província) ainda não é gravada — só o país.
+          </p>
           <TimezoneAlert />
           <DateFilters />
 
@@ -778,7 +808,10 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           País
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="Subdivisão geográfica ainda não é guardada pelo servidor nesta vista — só país (IP)."
+                        >
                           Região
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
@@ -963,7 +996,10 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           País
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="Subdivisão geográfica ainda não é guardada pelo servidor nesta vista — só país (IP)."
+                        >
                           Região
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
