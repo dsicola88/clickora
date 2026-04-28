@@ -5,6 +5,7 @@ import type {
   PaidAdsCampaign,
   PaidAdsChangeRequest,
   PaidAdsGuardrails,
+  PaidAdsOptimizerDecision,
   PaidAdsProject,
   PaidAdsTikTokConnection,
 } from "@prisma/client";
@@ -95,6 +96,11 @@ export function mapPaidCampaign(c: PaidAdsCampaign) {
     daily_budget_micros: c.dailyBudgetMicros != null ? Number(c.dailyBudgetMicros) : null,
     geo_targets: c.geoTargets,
     language_targets: c.languageTargets,
+    /** JSON do motor automático (ex.: sugestão de troca de criativo). */
+    optimizer_flags:
+      c.optimizerFlags && typeof c.optimizerFlags === "object" && !Array.isArray(c.optimizerFlags)
+        ? (c.optimizerFlags as Record<string, unknown>)
+        : {},
     created_at: c.createdAt.toISOString(),
     updated_at: c.updatedAt.toISOString(),
   };
@@ -142,4 +148,29 @@ export function mapAiRun(r: PaidAdsAiRun) {
 
 export function mapProjectMode(p: Pick<PaidAdsProject, "paidMode">) {
   return { paid_mode: p.paidMode };
+}
+
+export function mapOptimizerDecision(
+  d: PaidAdsOptimizerDecision & { campaign?: Pick<PaidAdsCampaign, "name"> | null },
+) {
+  const snap =
+    d.inputSnapshot && typeof d.inputSnapshot === "object" && !Array.isArray(d.inputSnapshot)
+      ? (d.inputSnapshot as Record<string, unknown>)
+      : {};
+
+  return {
+    id: d.id,
+    project_id: d.projectId,
+    campaign_id: d.campaignId,
+    campaign_name: d.campaign?.name ?? null,
+    platform: d.platform,
+    rule_code: d.ruleCode,
+    decision_type: d.decisionType,
+    dry_run: d.dryRun,
+    input_snapshot: snap,
+    executed: d.executed,
+    execution_ok: d.executionOk,
+    execution_detail: d.executionDetail,
+    created_at: d.createdAt.toISOString(),
+  };
 }

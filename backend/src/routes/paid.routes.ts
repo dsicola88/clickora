@@ -41,6 +41,9 @@ paidRouter.get("/projects", (req, res) => void paidController.listProjects(req, 
 paidRouter.get("/projects/:projectId", (req, res) => void paidController.getProject(req, res));
 paidRouter.get("/projects/:projectId/overview", (req, res) => void paidController.getOverview(req, res));
 paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidController.listCampaigns(req, res));
+paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
+  void paidController.listOptimizerDecisions(req, res),
+);
 paidRouter.get("/projects/:projectId/change-requests", (req, res) =>
   void paidController.listChangeRequests(req, res),
 );

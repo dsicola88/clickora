@@ -77,6 +77,70 @@ export function campaignStatusLabel(status: string): string {
   return CAMPAIGN_STATUS_LABELS[status] ?? status;
 }
 
+/** Texto curto quando o backend gravou `optimizer_flags` (motor automático). */
+export function optimizerFlagsHint(flags: Record<string, unknown> | undefined): string | null {
+  if (!flags || typeof flags !== "object") return null;
+  const at = flags.creative_swap_recommended_at;
+  if (typeof at === "string" && at.length > 0) {
+    return "Sugestão automática: rever criativo (CTR baixo)";
+  }
+  return null;
+}
+
+const OPTIMIZER_RULE_LABELS: Record<string, string> = {
+  pause_zero_conv_min_spend: "Sem conversões após gasto mínimo",
+  ctr_below_threshold: "CTR abaixo do limiar",
+  scale_budget_high_roas: "ROAS acima do limiar (escala)",
+};
+
+/** Rótulos enterprise para `rule_code` do backend. */
+export function optimizerRuleCodeLabel(code: string): string {
+  return OPTIMIZER_RULE_LABELS[code] ?? code.replace(/_/g, " ");
+}
+
+/** Rótulos para `decision_type` (`pause_campaign`, …). */
+export function optimizerDecisionTypeLabel(decisionType: string): string {
+  switch (decisionType) {
+    case "pause_campaign":
+      return "Pausar campanha";
+    case "scale_budget":
+      return "Escalar orçamento";
+    case "flag_creative_swap":
+      return "Recomendação de criativo";
+    default:
+      return decisionType.replace(/_/g, " ");
+  }
+}
+
+export function optimizerExecutionSummary(args: {
+  dry_run: boolean;
+  execution_ok: boolean | null;
+  executed: boolean;
+}): string {
+  if (args.dry_run) return "Simulação (dry-run)";
+  if (!args.executed) return "—";
+  if (args.execution_ok === true) return "Aplicado com sucesso";
+  if (args.execution_ok === false) return "Falhou na rede ou sistema";
+  return "Estado indeterminado";
+}
+
+/** Classes Tailwind para badge de resultado da execução (motor automático). */
+export function optimizerExecutionBadgeClass(args: {
+  dry_run: boolean;
+  execution_ok: boolean | null;
+}): string {
+  if (args.dry_run) {
+    return "border-amber-500/55 bg-amber-500/12 font-normal text-amber-950 dark:border-amber-500/45 dark:bg-amber-500/14 dark:text-amber-50";
+  }
+  if (args.execution_ok === true) {
+    return "border-emerald-600/45 bg-emerald-500/12 font-normal text-emerald-950 dark:border-emerald-500/40 dark:bg-emerald-500/14 dark:text-emerald-50";
+  }
+  if (args.execution_ok === false) {
+    return "border-destructive/55 bg-destructive/12 font-normal text-destructive";
+  }
+  return "border-border font-normal text-muted-foreground";
+}
+
 /** Micros Google (unidade da API) → texto em USD para ecrãs. */
 export function formatUsdFromMicros(micros: number): string {
   const usd = micros / 1_000_000;

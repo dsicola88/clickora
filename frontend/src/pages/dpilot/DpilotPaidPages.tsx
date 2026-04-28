@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Info, Loader2 } from "lucide-react";
+import { Activity, Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +16,14 @@ import {
   changeRequestStatusLabel,
   changeRequestTypeLabel,
   formatUsdFromMicros,
+  optimizerDecisionTypeLabel,
+  optimizerExecutionBadgeClass,
+  optimizerExecutionSummary,
+  optimizerFlagsHint,
+  optimizerRuleCodeLabel,
   summarizeChangeRequestPayload,
 } from "@/lib/paidAdsUi";
+import type { CampaignRow, OptimizerDecisionRow } from "@/services/paidAdsService";
 import { cn } from "@/lib/utils";
 import { paidAdsService } from "@/services/paidAdsService";
 import type { ChangeRequestRow } from "@/services/paidAdsService";
@@ -192,6 +198,27 @@ export function DpilotVisaoPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6 border-primary/15 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            Motor automático (Autopilot)
+          </CardTitle>
+          <CardDescription>
+            Auditoria paginada de pausas, escala de orçamento e recomendações de criativo — alinhada com os registos do
+            servidor (<code className="text-[11px]">paid.optimizer</code>).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <Button variant="secondary" size="sm" asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/auditoria`}>Abrir auditoria completa</Link>
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Mesmo nível de rastreio que ambientes enterprise (histórico imutável por decisão).
+          </span>
+        </CardContent>
+      </Card>
     </Gate>
   );
 }
@@ -319,10 +346,7 @@ export function DpilotTiktokPage() {
   );
 }
 
-function campaignsTable(
-  list: { id: string; name: string; platform: string; status: string }[],
-  empty: string,
-) {
+function campaignsTable(list: CampaignRow[], empty: string) {
   if (list.length === 0) {
     return <p className="text-sm text-muted-foreground leading-relaxed">{empty}</p>;
   }
@@ -333,20 +357,40 @@ function campaignsTable(
           <TableHead>Nome</TableHead>
           <TableHead>Plataforma</TableHead>
           <TableHead>Estado</TableHead>
+          <TableHead className="hidden lg:table-cell">Motor</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {list.map((c) => (
-          <TableRow key={c.id}>
-            <TableCell className="font-medium">{c.name}</TableCell>
-            <TableCell className="text-muted-foreground">{campaignPlatformLabel(c.platform)}</TableCell>
-            <TableCell>
-              <Badge variant="outline" className="font-normal">
-                {campaignStatusLabel(c.status)}
-              </Badge>
-            </TableCell>
-          </TableRow>
-        ))}
+        {list.map((c) => {
+          const hint = optimizerFlagsHint(c.optimizer_flags);
+          return (
+            <TableRow key={c.id}>
+              <TableCell className="font-medium">{c.name}</TableCell>
+              <TableCell className="text-muted-foreground">{campaignPlatformLabel(c.platform)}</TableCell>
+              <TableCell>
+                <Badge variant="outline" className="font-normal">
+                  {campaignStatusLabel(c.status)}
+                </Badge>
+              </TableCell>
+              <TableCell className="hidden max-w-[14rem] lg:table-cell">
+                {hint ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="cursor-help font-normal">
+                        Optimização
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-left" side="bottom">
+                      {hint}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -608,45 +652,230 @@ export function DpilotAprovacoesPage() {
   );
 }
 
+const MOTOR_PAGE_SIZE = 40;
+
 export function DpilotAuditoriaPage() {
   const { projectId } = useDpilotPaid();
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [motorRows, setMotorRows] = useState<OptimizerDecisionRow[]>([]);
+  const [motorTotal, setMotorTotal] = useState(0);
+  const [motorLoading, setMotorLoading] = useState(true);
+  const [motorLoadingMore, setMotorLoadingMore] = useState(false);
+  const [motorErr, setMotorErr] = useState<string | null>(null);
+
+  const [aiRows, setAiRows] = useState<Record<string, unknown>[]>([]);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMotorLoading(true);
+    setMotorErr(null);
+    setMotorRows([]);
+    void paidAdsService.listOptimizerDecisions(projectId, { limit: MOTOR_PAGE_SIZE, offset: 0 }).then(({ data, error }) => {
+      if (cancelled) return;
+      setMotorLoading(false);
+      if (data?.decisions && data.pagination) {
+        setMotorRows(data.decisions);
+        setMotorTotal(data.pagination.total);
+      } else {
+        setMotorErr(error ?? "Histórico do motor indisponível.");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const loadMoreMotor = useCallback(() => {
+    if (motorLoadingMore || motorRows.length >= motorTotal) return;
+    setMotorLoadingMore(true);
+    void paidAdsService
+      .listOptimizerDecisions(projectId, { limit: MOTOR_PAGE_SIZE, offset: motorRows.length })
+      .then(({ data, error }) => {
+        setMotorLoadingMore(false);
+        if (data?.decisions) {
+          setMotorRows((prev) => [...prev, ...data.decisions]);
+          setMotorTotal(data.pagination.total);
+        } else if (error) {
+          setMotorErr(error);
+        }
+      });
+  }, [projectId, motorLoadingMore, motorRows.length, motorTotal]);
+
   useEffect(() => {
     let cancel = false;
-    void (async () => {
-      setLoading(true);
-      const { data, error } = await paidAdsService.listAiRuns(projectId);
-      if (!cancel) {
-        if (data?.ai_runs) setRows(data.ai_runs);
-        else if (error) setRows([]);
-        setLoading(false);
-      }
-    })();
+    setAiLoading(true);
+    void paidAdsService.listAiRuns(projectId).then(({ data, error }) => {
+      if (cancel) return;
+      setAiLoading(false);
+      if (data?.ai_runs) setAiRows(data.ai_runs);
+      else if (error) setAiRows([]);
+    });
     return () => {
       cancel = true;
     };
   }, [projectId]);
+
+  const motorHasMore = motorRows.length < motorTotal;
+
   return (
-    <div>
+    <Gate>
       <PageHeader
-        title="Auditoria"
-        description="Registo técnico das últimas execuções de IA no projecto (até 50 eventos)."
+        title="Auditoria & conformidade"
+        description="Duas linhas de evidência: decisões automáticas do motor Autopilot (APIs de rede) e execuções do assistente IA neste projecto."
       />
-      {loading ? (
-        <p className="mt-4 text-sm text-muted-foreground">A carregar…</p>
-      ) : rows.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">Sem registos de auditoria.</p>
-      ) : (
-        <ul className="mt-4 space-y-2">
-          {rows.map((r, i) => (
-            <li key={i} className="rounded border border-border/60 p-3 text-xs font-mono">
-              <pre className="whitespace-pre-wrap break-all">{JSON.stringify(r, null, 0)}</pre>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+
+      <Card className="mt-4 border-border/80">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-4 w-4 text-primary" aria-hidden />
+            Motor automático — decisões recentes
+          </CardTitle>
+          <CardDescription>
+            Paginação offset/limit no servidor; cada linha corresponde a um evento persistido na base de dados com
+            correlacionação opcional (<code className="text-[11px]">tick_id</code> no snapshot).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {motorLoading ? (
+            <div className="space-y-2" aria-busy="true">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full max-w-md" />
+            </div>
+          ) : motorErr ? (
+            <p className="text-sm text-destructive">{motorErr}</p>
+          ) : motorRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Sem decisões registadas ainda. Quando o optimizer estiver activo no servidor (<code className="text-xs">
+                PAID_OPTIMIZER_ENABLED=true
+              </code>
+              ), os eventos aparecem aqui com marca temporal e resultado da execução.
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-md border border-border/60">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Quando</TableHead>
+                      <TableHead>Campanha</TableHead>
+                      <TableHead className="hidden md:table-cell">Rede</TableHead>
+                      <TableHead className="hidden lg:table-cell">Decisão</TableHead>
+                      <TableHead className="hidden xl:table-cell">Regra</TableHead>
+                      <TableHead>Resultado</TableHead>
+                      <TableHead className="hidden lg:table-cell max-w-[220px]">Detalhe</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {motorRows.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="whitespace-nowrap align-top text-xs text-muted-foreground tabular-nums">
+                          {new Date(row.created_at).toLocaleString("pt-PT", {
+                            dateStyle: "short",
+                            timeStyle: "medium",
+                          })}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <span className="font-medium">{row.campaign_name ?? "—"}</span>
+                          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground break-all">{row.campaign_id}</p>
+                        </TableCell>
+                        <TableCell className="hidden align-top text-sm md:table-cell">
+                          {campaignPlatformLabel(row.platform)}
+                        </TableCell>
+                        <TableCell className="hidden align-top lg:table-cell">
+                          <span className="text-sm">{optimizerDecisionTypeLabel(row.decision_type)}</span>
+                        </TableCell>
+                        <TableCell className="hidden align-top text-xs xl:table-cell">
+                          {optimizerRuleCodeLabel(row.rule_code)}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="outline"
+                                className={optimizerExecutionBadgeClass({
+                                  dry_run: row.dry_run,
+                                  execution_ok: row.execution_ok,
+                                })}
+                              >
+                                {optimizerExecutionSummary({
+                                  dry_run: row.dry_run,
+                                  execution_ok: row.execution_ok,
+                                  executed: row.executed,
+                                })}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm text-left text-xs" side="bottom">
+                              <span className="font-medium">Execução:</span>{" "}
+                              {row.executed ? "registada" : "pendente/incompleta"} · dry_run:{" "}
+                              {row.dry_run ? "sim" : "não"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="hidden align-top lg:table-cell max-w-[220px]">
+                          {row.execution_detail ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="cursor-help truncate text-xs text-muted-foreground">{row.execution_detail}</p>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-lg text-left text-xs">
+                                <pre className="whitespace-pre-wrap font-sans">{row.execution_detail}</pre>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+                <span>
+                  A mostrar <strong className="text-foreground">{motorRows.length}</strong> de{" "}
+                  <strong className="text-foreground">{motorTotal}</strong> decisões neste projecto.
+                </span>
+                {motorHasMore ? (
+                  <Button type="button" variant="outline" size="sm" disabled={motorLoadingMore} onClick={() => loadMoreMotor()}>
+                    {motorLoadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                        A carregar…
+                      </>
+                    ) : (
+                      "Carregar mais"
+                    )}
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-8 border-border/80">
+        <CardHeader>
+          <CardTitle className="text-base">Execuções de IA (assistente)</CardTitle>
+          <CardDescription>Últimos pedidos ao modelo para gerar planos de campanha neste projecto.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {aiLoading ? (
+            <p className="text-sm text-muted-foreground">A carregar…</p>
+          ) : aiRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem registos de IA para este projecto.</p>
+          ) : (
+            <ul className="space-y-2">
+              {aiRows.map((r, i) => (
+                <li key={i} className="rounded border border-border/60 bg-muted/20 p-3 text-xs font-mono">
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(r, null, 2)}</pre>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </Gate>
   );
 }
 

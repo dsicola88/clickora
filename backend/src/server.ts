@@ -23,6 +23,8 @@ import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/cu
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 import { initWebPushFromEnv } from "./lib/webPush";
 import { logPaidEnvStatus } from "./paid/paidEnvCheck";
+import { optimizerEnabled } from "./paid/optimizer/config";
+import { registerPaidOptimizerScheduler } from "./paid/optimizer/scheduler";
 
 initWebPushFromEnv();
 
@@ -240,6 +242,10 @@ void refreshCustomDomainCache();
 setInterval(() => {
   void refreshCustomDomainCache();
 }, 120_000);
+
+if (optimizerEnabled()) {
+  registerPaidOptimizerScheduler();
+}
 
 // Escutar **antes** do repair: se ALTER falhar ou a BD estiver lenta, o processo ainda responde
 // (health + rotas com fallback P2022). Esperar repair antes de listen causava process.exit(1) → 502 no Railway/Vercel.

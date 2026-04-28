@@ -27,7 +27,8 @@
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts",
     "test:unit": "node --import tsx --test src/lib/routingRules/evaluate.test.ts",
-    "test:paid": "node --import tsx --test src/paid/tiktok-campaign-plan.objectives.test.ts"
+    "test:paid": "node --import tsx --test src/paid/tiktok-campaign-plan.objectives.test.ts src/paid/optimizer/rules.engine.test.ts src/paid/optimizer/idempotency.unit.test.ts src/paid/optimizer/optimizer.service.test.ts",
+    "paid:optimizer:once": "tsx scripts/run-paid-optimizer-once.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
@@ -43,6 +44,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.10.1",
     "playwright": "^1.50.0",
     "web-push": "^3.6.7",
@@ -60,6 +62,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^2.1.0",
     "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.0",
     "@types/web-push": "^3.6.4",
     "prisma": "^6.0.0",

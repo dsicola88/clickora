@@ -200,7 +200,7 @@ export function DpilotPaidLayout() {
           </NavLink>
           <NavLink to={`${base}/auditoria`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
             <Shield className="h-4 w-4 shrink-0" />
-            Auditoria
+            Auditoria & motor
           </NavLink>
           <NavLink to={`${base}/landings`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
             <FileText className="h-4 w-4 shrink-0" />

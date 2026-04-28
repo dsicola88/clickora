@@ -127,6 +127,50 @@ export const paidController = {
     return res.json({ campaigns: rows.map(mappers.mapPaidCampaign) });
   },
 
+  /**
+   * Histórico do motor automático (pausa, escala, flags) — auditoria enterprise.
+   * Query: `limit` (1–200, predef. 50), `offset` (paginação).
+   */
+  async listOptimizerDecisions(req: Request, res: Response) {
+    const parsed = z
+      .object({
+        projectId: z.string().uuid(),
+        limit: z.coerce.number().int().min(1).max(200).optional(),
+        offset: z.coerce.number().int().min(0).max(50_000).optional(),
+      })
+      .safeParse({
+        projectId: req.params.projectId,
+        limit: req.query.limit,
+        offset: req.query.offset,
+      });
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const { projectId } = parsed.data;
+    const limit = parsed.data.limit ?? 50;
+    const offset = parsed.data.offset ?? 0;
+
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+
+    const [decisions, total] = await Promise.all([
+      prisma.paidAdsOptimizerDecision.findMany({
+        where: { projectId },
+        include: { campaign: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.paidAdsOptimizerDecision.count({ where: { projectId } }),
+    ]);
+
+    return res.json({
+      decisions: decisions.map((row) => mappers.mapOptimizerDecision(row)),
+      pagination: { limit, offset, total },
+    });
+  },
+
   async listChangeRequests(req: Request, res: Response) {
     const parsed = projectIdParam.safeParse(req.params);
     if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });

@@ -682,8 +682,9 @@ model PaidAdsProject {
   paidCampaigns       PaidAdsCampaign[]
   paidGuardrails      PaidAdsGuardrails?
   paidChangeRequests  PaidAdsChangeRequest[]
-  aiRuns              PaidAdsAiRun[]
-  metaInsights        PaidAdsMetaInsight[]
+  aiRuns                  PaidAdsAiRun[]
+  metaInsights            PaidAdsMetaInsight[]
+  paidOptimizerDecisions  PaidAdsOptimizerDecision[]
 
   @@index([userId])
   @@map("paid_ads_projects")
@@ -758,15 +759,41 @@ model PaidAdsCampaign {
   dailyBudgetMicros  BigInt?              @map("daily_budget_micros")
   geoTargets         Json                 @default("[]") @map("geo_targets")
   languageTargets    Json                 @default("[]") @map("language_targets")
+  /** Flags do motor de optimização (ex.: recomendação de troca de criativo). */
+  optimizerFlags     Json                 @default("{}") @map("optimizer_flags")
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
 
-  project   PaidAdsProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  adGroups  PaidAdsAdGroup[]
-  metaAdsets PaidAdsMetaAdset[]
+  project              PaidAdsProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  adGroups             PaidAdsAdGroup[]
+  metaAdsets           PaidAdsMetaAdset[]
+  optimizerDecisions   PaidAdsOptimizerDecision[]
 
   @@index([projectId])
   @@map("paid_ads_campaigns")
+}
+
+/** Decisões do «Cérebro» V0 — auditoria de pausa, escala orçamento e flags (sem UI obrigatória). */
+model PaidAdsOptimizerDecision {
+  id              String          @id @default(uuid())
+  projectId       String          @map("project_id")
+  campaignId      String          @map("campaign_id")
+  platform        PaidAdsPlatform
+  ruleCode        String          @map("rule_code")
+  decisionType    String          @map("decision_type")
+  dryRun          Boolean         @default(false) @map("dry_run")
+  inputSnapshot   Json            @default("{}") @map("input_snapshot")
+  executed        Boolean         @default(false)
+  executionOk     Boolean?        @map("execution_ok")
+  executionDetail String?         @map("execution_detail") @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  project  PaidAdsProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  campaign PaidAdsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([campaignId])
+  @@map("paid_ads_optimizer_decisions")
 }
 
 model PaidAdsAdGroup {

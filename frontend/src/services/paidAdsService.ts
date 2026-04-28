@@ -21,6 +21,8 @@ export type CampaignRow = {
   status: string;
   platform: string;
   created_at: string;
+  /** Sinais do optimizador automático (backend); ex. sugestão de criativo. */
+  optimizer_flags?: Record<string, unknown>;
 };
 
 export type ChangeRequestRow = {
@@ -31,6 +33,29 @@ export type ChangeRequestRow = {
   error_message: string | null;
   /** Resumo técnico do pedido (landing, geo, orçamento, razões dos guardrails). */
   payload?: Record<string, unknown> | null;
+};
+
+/** Linha de auditoria do motor automático (`paid_ads_optimizer_decisions`). */
+export type OptimizerDecisionRow = {
+  id: string;
+  project_id: string;
+  campaign_id: string;
+  campaign_name: string | null;
+  platform: string;
+  rule_code: string;
+  decision_type: string;
+  dry_run: boolean;
+  input_snapshot: Record<string, unknown>;
+  executed: boolean;
+  execution_ok: boolean | null;
+  execution_detail: string | null;
+  created_at: string;
+};
+
+export type OptimizerDecisionsPagination = {
+  limit: number;
+  offset: number;
+  total: number;
 };
 
 export const paidAdsService = {
@@ -49,6 +74,18 @@ export const paidAdsService = {
   listCampaigns(projectId: string, platform?: "google_ads" | "meta_ads" | "tiktok_ads") {
     const q = platform ? `?platform=${encodeURIComponent(platform)}` : "";
     return apiClient.get<{ campaigns: CampaignRow[] }>(`/paid/projects/${projectId}/campaigns${q}`);
+  },
+
+  /** Histórico paginado do motor automático (pausa, escala, flags CTR). */
+  listOptimizerDecisions(projectId: string, opts?: { limit?: number; offset?: number }) {
+    const sp = new URLSearchParams();
+    if (opts?.limit != null) sp.set("limit", String(opts.limit));
+    if (opts?.offset != null) sp.set("offset", String(opts.offset));
+    const q = sp.toString() ? `?${sp.toString()}` : "";
+    return apiClient.get<{
+      decisions: OptimizerDecisionRow[];
+      pagination: OptimizerDecisionsPagination;
+    }>(`/paid/projects/${projectId}/optimizer-decisions${q}`);
   },
 
   listChangeRequests(projectId: string) {
