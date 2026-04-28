@@ -64,7 +64,7 @@ export function DpilotPaidLayout() {
       <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[15.5rem]">
         <div className="mb-4 space-y-1">
           <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Paid Autopilot</p>
-          <p className="px-1 text-[11px] text-muted-foreground">No dclickora — monólito</p>
+          <p className="px-1 text-[11px] text-muted-foreground">Revisão, limites e publicação nas redes</p>
         </div>
         <nav className="flex flex-col gap-1">
           <NavLink to={`${base}/visao`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
@@ -186,7 +186,7 @@ export function DpilotPaidLayout() {
             Todas as campanhas
           </NavLink>
           <p className="px-3 pb-1 text-[10px] leading-snug text-muted-foreground">
-            Vista única sobre rascunhos e publicações de todas as redes (filtros nas páginas por plataforma acima).
+            Consolida rascunhos e campanhas activas; filtre por rede nos menus Google, Meta ou TikTok acima.
           </p>
 
           <NavLink to={`${base}/aprovacoes`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>

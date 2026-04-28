@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -33,11 +34,15 @@ export type DpilotPaidValue = {
   metaCounts: MetaCount | null;
   tiktokCounts: TikCount | null;
   loadingExtras: boolean;
+  /** Recarrega dados sem desmontar o layout (botão «Tentar novamente», etc.). */
   reload: () => void;
   connecting: "google" | "meta" | "tiktok" | null;
+  disconnecting: "google" | "meta" | "tiktok" | null;
+  /** Impede duplo envio nos botões de aprovação do mesmo pedido. */
+  reviewBusyChangeRequestId: string | null;
   startOAuth: (k: "google" | "meta" | "tiktok") => void;
   disconnect: (k: "google" | "meta" | "tiktok") => void;
-  review: (id: string, status: "approved" | "rejected" | "applied") => void;
+  review: (id: string, status: "approved" | "rejected" | "applied") => Promise<void>;
   isConnConnected: (c: { status?: string } | null | undefined) => boolean;
 };
 
@@ -58,6 +63,10 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
   const [tiktokCounts, setTiktokCounts] = useState<TikCount | null>(null);
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [connecting, setConnecting] = useState<"google" | "meta" | "tiktok" | null>(null);
+  const [disconnecting, setDisconnecting] = useState<"google" | "meta" | "tiktok" | null>(null);
+  const [reviewBusyChangeRequestId, setReviewBusyChangeRequestId] = useState<string | null>(null);
+  const disconnectLockRef = useRef(false);
+  const reviewLockRef = useRef(false);
 
   const isConnConnected = (c: { status?: string } | null | undefined) => c?.status === "connected";
 
@@ -72,7 +81,8 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
   }
 
   const loadCore = useCallback(async (pid: string) => {
-    const [ov, cfg, camps, crs, mConn, tConn, mOv, tOv] = await Promise.all([
+    type ApiOk<T> = { data: T | null; error: string | null };
+    const settled = await Promise.allSettled([
       paidAdsService.getOverview(pid),
       paidAdsService.getOauthConfig(),
       paidAdsService.listCampaigns(pid),
@@ -82,6 +92,27 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       paidAdsService.getMetaOverview(pid),
       paidAdsService.getTikTokOverview(pid),
     ]);
+
+    const unwrap = <T,>(index: number): ApiOk<T> => {
+      const r = settled[index];
+      if (!r || r.status === "rejected") {
+        return {
+          data: null,
+          error: r?.status === "rejected" && r.reason instanceof Error ? r.reason.message : "Pedido interrompido.",
+        };
+      }
+      return r.value as ApiOk<T>;
+    };
+
+    const ov = unwrap<PaidOverviewDto>(0);
+    const cfg = unwrap<OauthConfigDto>(1);
+    const camps = unwrap<{ campaigns: CampaignRow[] }>(2);
+    const crs = unwrap<{ change_requests: ChangeRequestRow[] }>(3);
+    const mConn = unwrap<unknown>(4);
+    const tConn = unwrap<unknown>(5);
+    const mOv = unwrap<MetaCount>(6);
+    const tOv = unwrap<TikCount>(7);
+
     if (ov.error || !ov.data) {
       setErr(ov.error || "Resumo indisponível.");
       setOverview(null);
@@ -92,9 +123,15 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       setErr(null);
       setOverview(ov.data);
     }
+
     if (cfg.data) setOauthConfig(cfg.data);
+
     if (camps.data?.campaigns) setCampaigns(camps.data.campaigns as CampaignRow[]);
+    else if (camps.error) setCampaigns([]);
+
     if (crs.data?.change_requests) setChangeRequests(crs.data.change_requests as ChangeRequestRow[]);
+    else if (crs.error) setChangeRequests([]);
+
     setMetaConn(
       mConn.data != null
         ? (mConn.data as { status?: string; account_name?: string | null; error_message?: string | null })
@@ -105,14 +142,23 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
         ? (tConn.data as { status?: string; account_name?: string | null; error_message?: string | null })
         : null,
     );
+
     if (mOv.data) setMetaCounts(mOv.data);
     else setMetaCounts(null);
+
     if (tOv.data) setTiktokCounts(tOv.data);
     else setTiktokCounts(null);
   }, []);
 
   const reload = useCallback(() => {
-    void loadCore(projectId);
+    void (async () => {
+      setLoadingExtras(true);
+      try {
+        await loadCore(projectId);
+      } finally {
+        setLoadingExtras(false);
+      }
+    })();
   }, [projectId, loadCore]);
 
   useEffect(() => {
@@ -182,32 +228,61 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
 
   const disconnect = useCallback(
     async (kind: "google" | "meta" | "tiktok") => {
-      const fn =
-        kind === "google"
-          ? paidAdsService.disconnectGoogle
-          : kind === "meta"
-            ? paidAdsService.disconnectMeta
-            : paidAdsService.disconnectTiktok;
-      const { error } = await fn(projectId);
-      if (error) {
-        toast.error(error);
-        return;
+      if (disconnectLockRef.current) return;
+      disconnectLockRef.current = true;
+      setDisconnecting(kind);
+      try {
+        const fn =
+          kind === "google"
+            ? paidAdsService.disconnectGoogle
+            : kind === "meta"
+              ? paidAdsService.disconnectMeta
+              : paidAdsService.disconnectTiktok;
+        const { error } = await fn(projectId);
+        if (error) {
+          toast.error(error);
+          return;
+        }
+        toast.success("Ligação removida.");
+        await loadCore(projectId);
+      } finally {
+        disconnectLockRef.current = false;
+        setDisconnecting(null);
       }
-      toast.success("Ligação removida.");
-      void loadCore(projectId);
     },
     [projectId, loadCore],
   );
 
   const review = useCallback(
     async (id: string, status: "approved" | "rejected" | "applied") => {
-      const { error } = await paidAdsService.reviewChangeRequest({ id, status });
-      if (error) {
-        toast.error(error);
-        return;
+      if (reviewLockRef.current) return;
+      reviewLockRef.current = true;
+      setReviewBusyChangeRequestId(id);
+      try {
+        const { error } = await paidAdsService.reviewChangeRequest({ id, status });
+        if (error) {
+          toast.error(error);
+          return;
+        }
+        if (status === "applied") {
+          toast.success("Aplicado na rede", {
+            description: "O pedido foi enviado para a conta publicitária (Google Ads, Meta ou TikTok).",
+          });
+        } else if (status === "approved") {
+          toast.success("Pedido aprovado", {
+            description:
+              "A decisão ficou registada. Para publicar de facto na rede, utilize «Aplicar na rede» no mesmo pedido.",
+          });
+        } else {
+          toast.info("Pedido rejeitado", {
+            description: "Este pedido não será aplicado na conta publicitária.",
+          });
+        }
+        await loadCore(projectId);
+      } finally {
+        reviewLockRef.current = false;
+        setReviewBusyChangeRequestId(null);
       }
-      toast.success(status === "applied" ? "Pedido aplicado." : "Atualizado.");
-      void loadCore(projectId);
     },
     [projectId, loadCore],
   );
@@ -228,6 +303,8 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       loadingExtras,
       reload,
       connecting,
+      disconnecting,
+      reviewBusyChangeRequestId,
       startOAuth,
       disconnect,
       review,
@@ -248,6 +325,8 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       loadingExtras,
       reload,
       connecting,
+      disconnecting,
+      reviewBusyChangeRequestId,
       startOAuth,
       disconnect,
       review,

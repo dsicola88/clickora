@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
+import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
@@ -18,8 +20,6 @@ const schema = z.object({
   offer: z.string().trim().min(3, "Descreva a oferta").max(500),
   objective: z.string().trim().min(3).max(200),
   dailyBudgetUsd: z.number().min(1).max(100000),
-  geoTargets: z.string().trim().min(2).max(200),
-  languageTargets: z.string().trim().min(2).max(100),
 });
 
 function Field({
@@ -49,8 +49,8 @@ export function DpilotGoogleWizardPage() {
   const [offer, setOffer] = useState("");
   const [objective, setObjective] = useState("Gerar cadastros de teste grátis");
   const [dailyBudget, setDailyBudget] = useState("25");
-  const [geos, setGeos] = useState("BR, PT");
-  const [langs, setLangs] = useState("pt");
+  const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
+  const [languageTargets, setLanguageTargets] = useState<string[]>(["pt"]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,29 +62,19 @@ export function DpilotGoogleWizardPage() {
       offer,
       objective,
       dailyBudgetUsd: Number(dailyBudget),
-      geoTargets: geos,
-      languageTargets: langs,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Dados inválidos");
       return;
     }
-    const geoArr = parsed.data.geoTargets
-      .split(",")
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean)
-      .slice(0, 20);
+    const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Indique pelo menos um país (código ISO, ex.: BR, PT).");
+      setError("Seleccione pelo menos uma localização (país).");
       return;
     }
-    const langArr = parsed.data.languageTargets
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
-      .slice(0, 10);
+    const langArr = languageTargets.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (!langArr.length) {
-      setError("Indique pelo menos um idioma (ex.: pt, en).");
+      setError("Seleccione pelo menos um idioma dos anúncios.");
       return;
     }
     setSubmitting(true);
@@ -129,7 +119,7 @@ export function DpilotGoogleWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha"
-          description="Gere um plano de Google Ads Search com IA. Tudo passa por aprovação antes de publicar (excepto Autopilot com guardrails). "
+          description="Gera um plano de Pesquisa Google com IA. Em modo Copilot, ou quando os limites o exigirem, o pedido segue para «Aprovações» antes da rede aplicar alterações."
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="font-normal">
@@ -171,28 +161,37 @@ export function DpilotGoogleWizardPage() {
                 required
               />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Orçamento diário (USD)">
-                <Input
-                  type="number"
-                  min={1}
-                  step="0.01"
-                  value={dailyBudget}
-                  onChange={(e) => setDailyBudget(e.target.value)}
-                  required
-                />
-              </Field>
-              <Field label="Geo (alvos)" hint="Códigos ISO-2, separados por vírgula.">
-                <Input
-                  value={geos}
-                  onChange={(e) => setGeos(e.target.value)}
-                  placeholder="BR, PT, US"
-                  required
-                />
-              </Field>
-              <Field label="Idiomas" hint="Códigos de idioma (ex.: pt, en).">
-                <Input value={langs} onChange={(e) => setLangs(e.target.value)} placeholder="pt" required />
-              </Field>
+            <Field label="Orçamento diário (USD)">
+              <Input
+                type="number"
+                min={1}
+                step="0.01"
+                value={dailyBudget}
+                onChange={(e) => setDailyBudget(e.target.value)}
+                required
+              />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <GoogleAdsCountriesSelect
+                label="Localizações — País"
+                hint="Igual ao Google Ads: segmentação por país (critérios geo)."
+                searchPlaceholder="Pesquisar país…"
+                emptyText="Nenhum país encontrado."
+                options={GOOGLE_ADS_COUNTRY_OPTIONS}
+                value={geoTargets}
+                onChange={setGeoTargets}
+                max={20}
+              />
+              <GoogleAdsLanguagesSelect
+                label="Idiomas dos anúncios"
+                hint="Quem pode ver os anúncios pelo idioma — critérios de idioma Google Ads."
+                searchPlaceholder="Pesquisar idioma…"
+                emptyText="Nenhum idioma encontrado."
+                options={GOOGLE_ADS_LANGUAGE_OPTIONS}
+                value={languageTargets}
+                onChange={setLanguageTargets}
+                max={10}
+              />
             </div>
 
             {error ? (

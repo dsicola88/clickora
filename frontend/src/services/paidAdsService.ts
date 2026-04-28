@@ -29,6 +29,8 @@ export type ChangeRequestRow = {
   status: string;
   created_at: string;
   error_message: string | null;
+  /** Resumo técnico do pedido (landing, geo, orçamento, razões dos guardrails). */
+  payload?: Record<string, unknown> | null;
 };
 
 export const paidAdsService = {

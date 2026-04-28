@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDpilotPaid } from "./DpilotPaidContext";
@@ -16,10 +17,12 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
     overview,
     oauthConfig,
     connecting,
+    disconnecting,
     startOAuth,
     disconnect,
     isConnConnected,
   } = p;
+  const oauthBusy = connecting !== null || disconnecting !== null;
   const googleConn = overview?.connection as {
     status?: string;
     account_name?: string | null;
@@ -65,23 +68,35 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
             </p>
             <Button
               type="button"
-              disabled={!projectId || !googleAvailable || connecting === "google"}
+              disabled={!projectId || !googleAvailable || oauthBusy}
               onClick={() => void startOAuth("google")}
             >
-              {connecting === "google"
-                ? "A redirecionar…"
-                : isConnConnected(googleConn)
-                  ? "Reautenticar"
-                  : "Ligar Google"}
+              {connecting === "google" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  A redirecionar…
+                </>
+              ) : isConnConnected(googleConn) ? (
+                "Reautenticar"
+              ) : (
+                "Ligar Google"
+              )}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={!projectId || !isConnConnected(googleConn)}
+              disabled={!projectId || !isConnConnected(googleConn) || oauthBusy}
               onClick={() => void disconnect("google")}
             >
-              Desligar
+              {disconnecting === "google" ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                  A desligar…
+                </>
+              ) : (
+                "Desligar"
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -94,7 +109,7 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
             <CardDescription>
               {metaAvailable
                 ? "App Facebook/Meta com redirect registado (mesmo base URL que a API pública)."
-                : "Defina META_APP_ID e META_APP_SECRET na API (ex. Railway)."}
+                : "Configure META_APP_ID e META_APP_SECRET no servidor da API."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
@@ -118,23 +133,35 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
             </p>
             <Button
               type="button"
-              disabled={!projectId || !metaAvailable || connecting === "meta"}
+              disabled={!projectId || !metaAvailable || oauthBusy}
               onClick={() => void startOAuth("meta")}
             >
-              {connecting === "meta"
-                ? "A redirecionar…"
-                : isConnConnected(metaConn)
-                  ? "Reautenticar"
-                  : "Ligar Meta"}
+              {connecting === "meta" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  A redirecionar…
+                </>
+              ) : isConnConnected(metaConn) ? (
+                "Reautenticar"
+              ) : (
+                "Ligar Meta"
+              )}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={!projectId || !isConnConnected(metaConn)}
+              disabled={!projectId || !isConnConnected(metaConn) || oauthBusy}
               onClick={() => void disconnect("meta")}
             >
-              Desligar
+              {disconnecting === "meta" ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                  A desligar…
+                </>
+              ) : (
+                "Desligar"
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -147,7 +174,7 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
             <CardDescription>
               {oauthConfig?.tiktok?.available
                 ? "App de marketing TikTok (redirects alinhados com a API)."
-                : "Defina TIKTOK_APP_ID e TIKTOK_APP_SECRET na API (ex. Railway)."}
+                : "Configure TIKTOK_APP_ID e TIKTOK_APP_SECRET no servidor da API."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
@@ -171,23 +198,35 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
             </p>
             <Button
               type="button"
-              disabled={!projectId || !tikAvailable || connecting === "tiktok"}
+              disabled={!projectId || !tikAvailable || oauthBusy}
               onClick={() => void startOAuth("tiktok")}
             >
-              {connecting === "tiktok"
-                ? "A redirecionar…"
-                : isConnConnected(tikConn)
-                  ? "Reautenticar"
-                  : "Ligar TikTok"}
+              {connecting === "tiktok" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  A redirecionar…
+                </>
+              ) : isConnConnected(tikConn) ? (
+                "Reautenticar"
+              ) : (
+                "Ligar TikTok"
+              )}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={!projectId || !isConnConnected(tikConn)}
+              disabled={!projectId || !isConnConnected(tikConn) || oauthBusy}
               onClick={() => void disconnect("tiktok")}
             >
-              Desligar
+              {disconnecting === "tiktok" ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                  A desligar…
+                </>
+              ) : (
+                "Desligar"
+              )}
             </Button>
           </CardContent>
         </Card>

@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
+import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
@@ -50,7 +52,6 @@ const schema = z.object({
   audienceNotes: z.string().trim().min(3).max(800),
   objective: z.enum(["traffic", "leads", "purchases", "awareness", "engagement", "app_promotion"]),
   dailyBudgetUsd: z.number().min(1).max(100000),
-  geoTargets: z.string().trim().min(2).max(200),
   placements: z.array(z.string()).min(1, "Escolha pelo menos um posicionamento"),
   ageMin: z.number().int().min(13).max(65),
   ageMax: z.number().int().min(13).max(65),
@@ -69,7 +70,7 @@ export function DpilotMetaWizardPage() {
   );
   const [objective, setObjective] = useState<(typeof objectives)[number]["value"]>("leads");
   const [dailyBudget, setDailyBudget] = useState("25");
-  const [geos, setGeos] = useState("BR, PT");
+  const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
   const [ageMin, setAgeMin] = useState("25");
   const [ageMax, setAgeMax] = useState("45");
   const [placements, setPlacements] = useState<string[]>(["facebook_feed", "instagram_feed", "instagram_stories"]);
@@ -160,7 +161,6 @@ export function DpilotMetaWizardPage() {
       audienceNotes,
       objective,
       dailyBudgetUsd: Number(dailyBudget),
-      geoTargets: geos,
       placements,
       ageMin: Number(ageMin),
       ageMax: Number(ageMax),
@@ -182,13 +182,9 @@ export function DpilotMetaWizardPage() {
       return;
     }
 
-    const geoArr = parsed.data.geoTargets
-      .split(",")
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean)
-      .slice(0, 20);
+    const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Adicione pelo menos um país");
+      setError("Seleccione pelo menos uma localização (país).");
       return;
     }
 
@@ -214,9 +210,19 @@ export function DpilotMetaWizardPage() {
         toast.error("Falha ao gerar plano", { description: msg });
         return;
       }
-      toast.success("Plano Meta criado", {
-        description: data.autoApplied ? "Publicação automática (autopilot) tentada." : "Rascunho e pedido criados. Revise em aprovações.",
-      });
+      if (data.autoApplied) {
+        toast.success("Campanha Meta — autopilot", {
+          description: "Publicação automática tentada na conta ligada (dentro dos limites).",
+        });
+      } else if (data.reasons && data.reasons.length > 0) {
+        toast.warning("Campanha Meta — revisão necessária", {
+          description: data.reasons[0]?.message ?? "Consulte os motivos nos pedidos em «Aprovações».",
+        });
+      } else {
+        toast.success("Campanha Meta criada", {
+          description: "Rascunho guardado e pedido gerado. Revise e aplique em «Aprovações» quando estiver pronto.",
+        });
+      }
       navigate(`${base}/aprovacoes`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
@@ -235,7 +241,7 @@ export function DpilotMetaWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha Meta"
-          description="Descreva a oferta e a audiência. A IA propõe campanha, conjunto e criativos em rascunho (comportamento alinhado ao Paid Autopilot)."
+          description="Defina oferta, audiência e criativos. O assistente gera a estrutura em rascunho; em Copilot (ou quando os limites o exigirem), o pedido segue para «Aprovações» antes da publicação."
           actions={
             <Button variant="outline" asChild>
               <Link to={`${base}/meta`}>
@@ -314,17 +320,17 @@ export function DpilotMetaWizardPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-2 sm:col-span-1">
-                <Label htmlFor="m-geo">Países (códigos ISO, vírgula)</Label>
-                <Input
-                  id="m-geo"
-                  value={geos}
-                  onChange={(e) => setGeos(e.target.value)}
-                  placeholder="BR, PT"
-                  required
-                />
-              </div>
+            <GoogleAdsCountriesSelect
+              label="Localizações — País"
+              hint="Mesmos países que no fluxo Google Ads (lista suportada pelo sistema)."
+              searchPlaceholder="Pesquisar país…"
+              emptyText="Nenhum país encontrado."
+              options={GOOGLE_ADS_COUNTRY_OPTIONS}
+              value={geoTargets}
+              onChange={setGeoTargets}
+              max={20}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="m-age-min">Idade mínima</Label>
                 <Input

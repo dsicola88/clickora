@@ -1,47 +1,148 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  campaignPlatformLabel,
+  campaignStatusLabel,
+  changeRequestStatusBadgeClass,
+  changeRequestStatusLabel,
+  changeRequestTypeLabel,
+  formatUsdFromMicros,
+  summarizeChangeRequestPayload,
+} from "@/lib/paidAdsUi";
+import { cn } from "@/lib/utils";
 import { paidAdsService } from "@/services/paidAdsService";
+import type { ChangeRequestRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 
 export function Gate({ children }: { children: React.ReactNode }) {
-  const { loading, err, overview } = useDpilotPaid();
+  const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
   if (loading) {
-    return <p className="text-sm text-muted-foreground">A carregar…</p>;
+    return (
+      <div className="space-y-4 py-2" aria-busy="true" aria-label="A carregar dados do projecto">
+        <Skeleton className="h-8 w-56 max-w-full" />
+        <Skeleton className="h-24 w-full max-w-2xl" />
+        <Skeleton className="h-24 w-full max-w-2xl" />
+      </div>
+    );
   }
   if (err || !overview?.project) {
-    return <p className="text-sm text-destructive">{err || "Dados do projecto em falta. Tente recarregar."}</p>;
+    return (
+      <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-5 space-y-4">
+        <p className="text-sm text-destructive leading-relaxed">
+          {err || "Não foi possível carregar os dados deste projecto."}
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => reload()} disabled={loadingExtras}>
+          {loadingExtras ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+              A actualizar…
+            </>
+          ) : (
+            "Tentar novamente"
+          )}
+        </Button>
+      </div>
+    );
   }
   return <>{children}</>;
 }
 
 export function DpilotVisaoPage() {
   const p = useDpilotPaid();
+  const maxDailyMicros = (p.overview?.guardrails as { max_daily_budget_micros?: number })?.max_daily_budget_micros;
+  const paidModeRaw = p.overview?.project.paid_mode ?? "";
+  const paidModeLabel =
+    paidModeRaw === "autopilot"
+      ? "Autopilot"
+      : paidModeRaw === "copilot"
+        ? "Copilot"
+        : paidModeRaw.replace(/_/g, " ") || "—";
+
   return (
     <Gate>
       <PageHeader
         title="Visão geral"
-        description="Resumo do projecto, modo de trabalho e ligações. Callbacks: /api/paid/oauth/*/callback."
+        description="Estado das contas publicitárias, modo de trabalho e pedidos que aguardam revisão."
       />
       {p.overview && (
         <p className="text-xs text-muted-foreground">
-          Projecto: <code className="rounded bg-muted px-1 py-0.5">{p.projectId}</code>
+          ID do projecto (suporte): <code className="rounded bg-muted px-1 py-0.5">{p.projectId}</code>
         </p>
       )}
+      <Card className="mt-4 border-border/80 bg-muted/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Três passos simples</CardTitle>
+          <CardDescription>O mesmo percurso para qualquer rede — ligue, crie e autorize quando o Copilot o pedir.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+              aria-hidden
+            >
+              1
+            </span>
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium">Ligar a conta</p>
+              <p className="text-xs text-muted-foreground leading-snug">OAuth seguro por rede (Google, Meta ou TikTok).</p>
+              <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                <Link to={`/tracking/dpilot/p/${p.projectId}/ligacoes`}>Abrir ligações</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+              aria-hidden
+            >
+              2
+            </span>
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium">Criar campanha</p>
+              <p className="text-xs text-muted-foreground leading-snug">Assistente com IA — escolha a rede no menu.</p>
+              <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Ver campanhas e criar</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+              aria-hidden
+            >
+              3
+            </span>
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium">Rever pedidos</p>
+              <p className="text-xs text-muted-foreground leading-snug">Aprove ou aplique na rede quando aparecer aqui.</p>
+              <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                <Link to={`/tracking/dpilot/p/${p.projectId}/aprovacoes`}>Ir para aprovações</Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Modo de trabalho</CardTitle>
-            <CardDescription>Copiloto / autopiloto</CardDescription>
+            <CardDescription>Revisão manual vs. publicação automática</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold capitalize">
-              {p.overview?.project.paid_mode?.replace(/_/g, " ") ?? "—"}
+            <p className="text-2xl font-semibold">{paidModeLabel}</p>
+            <p className="mt-2 text-xs text-muted-foreground leading-snug">
+              No modo Copilot, alterações sensíveis ficam em fila até aprovação. No Autopilot, dentro dos limites
+              configurados, o sistema pode aplicar na rede por si.
             </p>
           </CardContent>
         </Card>
@@ -68,19 +169,23 @@ export function DpilotVisaoPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Guardrails</CardTitle>
-            <CardDescription>Orçamento diário máx. (micros)</CardDescription>
+            <CardTitle className="text-base">Limites de segurança</CardTitle>
+            <CardDescription>Teto de orçamento diário para este projecto</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="font-mono text-sm">
-              {(p.overview?.guardrails as { max_daily_budget_micros?: number })?.max_daily_budget_micros ?? "—"}
+            <p className="text-xl font-semibold tabular-nums">
+              {typeof maxDailyMicros === "number" ? formatUsdFromMicros(maxDailyMicros) : "—"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Valores em USD alinhados às contas Google/Meta/TikTok. Limites adicionais (países, palavras) aplicam-se
+              na geração do plano.
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Aprovações pendentes</CardTitle>
-            <CardDescription>Pedidos de alteração</CardDescription>
+            <CardDescription>Decisões em aberto na fila</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{p.overview?.pending_approvals ?? "—"}</p>
@@ -95,12 +200,12 @@ export function DpilotLigacoesPage() {
   return (
     <Gate>
       <PageHeader
-        title="Ligações (OAuth)"
-        description="Cada rede é independente. Meta e TikTok exigem variáveis no servidor (Railway)."
+        title="Ligações às redes"
+        description="Autenticação OAuth por rede — cada conta publicitária liga-se uma vez com segurança."
       />
-      <p className="mt-2 text-sm text-muted-foreground">
-        Cada rede é uma ligação OAuth separada. &quot;Ligar&quot; abre a página do fornecedor; se já estiveres ligado, podes
-        reautenticar ou desligar.
+      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+        Utilize «Ligar» para autorizar o Clickora junto do Google, Meta ou TikTok. Pode renovar o acesso ou revogar a
+        ligação em qualquer momento; os tokens são tratados como credenciais sensíveis no servidor.
       </p>
       <div className="mt-4">
         <DpilotPaidOauthGrid only="all" />
@@ -219,7 +324,7 @@ function campaignsTable(
   empty: string,
 ) {
   if (list.length === 0) {
-    return <p className="text-sm text-muted-foreground">{empty}</p>;
+    return <p className="text-sm text-muted-foreground leading-relaxed">{empty}</p>;
   }
   return (
     <Table>
@@ -234,9 +339,11 @@ function campaignsTable(
         {list.map((c) => (
           <TableRow key={c.id}>
             <TableCell className="font-medium">{c.name}</TableCell>
-            <TableCell>{c.platform}</TableCell>
+            <TableCell className="text-muted-foreground">{campaignPlatformLabel(c.platform)}</TableCell>
             <TableCell>
-              <Badge variant="outline">{c.status}</Badge>
+              <Badge variant="outline" className="font-normal">
+                {campaignStatusLabel(c.status)}
+              </Badge>
             </TableCell>
           </TableRow>
         ))}
@@ -251,7 +358,7 @@ export function DpilotCampanhasPage() {
     <Gate>
       <PageHeader
         title="Campanhas"
-        description="Rascunhos e publicadas do projecto (todas as plataformas)."
+        description="Lista unificada de campanhas em rascunho ou já aplicadas nas redes ligadas."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha (Google)</Link>
@@ -262,7 +369,7 @@ export function DpilotCampanhasPage() {
         <CardContent className="pt-6">
           {campaignsTable(
             campaigns,
-            "Ainda sem campanhas. Comece por «Google · nova campanha» (assistente) e acompanhe as aprovações; rascunhos também podem surgir via fluxo interno da API.",
+            "Ainda não há campanhas neste projecto. Utilize o assistente «Nova campanha» na rede pretendida e conclua ou aplique os pedidos em «Aprovações», conforme o modo Copilot ou Autopilot.",
           )}
         </CardContent>
       </Card>
@@ -277,7 +384,7 @@ export function DpilotMetaCampanhasPage() {
     <Gate>
       <PageHeader
         title="Meta · campanhas"
-        description="Apenas campanhas de plataforma meta_ads."
+        description="Campanhas Facebook e Instagram ligadas a este projecto."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
@@ -288,7 +395,7 @@ export function DpilotMetaCampanhasPage() {
         <CardContent className="pt-6">
           {campaignsTable(
             list,
-            "Sem campanhas Meta. Comece por «Meta · nova campanha» (assistente) ou ligue a conta em OAuth, depois aprove pedidos; ver documentação em docs/DPILOT-PARITY.md.",
+            "Sem campanhas Meta ainda. Ligue a conta em «Ligações às redes», crie uma campanha pelo assistente e, em modo Copilot, autorize os pedidos pendentes em «Aprovações».",
           )}
         </CardContent>
       </Card>
@@ -303,7 +410,7 @@ export function DpilotTiktokCampanhasPage() {
     <Gate>
       <PageHeader
         title="TikTok · campanhas"
-        description="Apenas campanhas tiktok_ads."
+        description="Campanhas TikTok Ads deste projecto."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
@@ -319,48 +426,179 @@ export function DpilotTiktokCampanhasPage() {
   );
 }
 
+function sortChangeRequests(rows: ChangeRequestRow[]): ChangeRequestRow[] {
+  const rank = (s: string) => {
+    if (s === "pending") return 0;
+    if (s === "approved") return 1;
+    return 2;
+  };
+  return [...rows].sort((a, b) => {
+    const d = rank(a.status) - rank(b.status);
+    if (d !== 0) return d;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
+function ChangeRequestCard({
+  cr,
+  review,
+  reviewBusyChangeRequestId,
+}: {
+  cr: ChangeRequestRow;
+  review: (id: string, status: "approved" | "rejected" | "applied") => void | Promise<void>;
+  reviewBusyChangeRequestId: string | null;
+}) {
+  const title = changeRequestTypeLabel(cr.type);
+  const { lines, guardrailMessages } = summarizeChangeRequestPayload(cr.payload);
+  const busy = reviewBusyChangeRequestId === cr.id;
+
+  return (
+    <div className="rounded-xl border border-border/80 bg-card/50 p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold leading-snug">{title}</h3>
+            <Badge variant="outline" className={cn("shrink-0", changeRequestStatusBadgeClass(cr.status))}>
+              {changeRequestStatusLabel(cr.status)}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pedido · {new Date(cr.created_at).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}
+          </p>
+          {lines.length > 0 ? (
+            <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
+              {lines.map((line, i) => (
+                <li key={`${i}-${line.slice(0, 24)}`} className="marker:text-muted-foreground/70">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {guardrailMessages.length > 0 ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50">
+              <p className="font-medium text-amber-950/90 dark:text-amber-50/95">Motivos da revisão (limites)</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5">
+                {guardrailMessages.map((m, i) => (
+                  <li key={`g-${i}-${m.slice(0, 32)}`}>{m}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {cr.error_message ? (
+            <p className="text-xs text-destructive">
+              <span className="font-medium">Erro na rede:</span> {cr.error_message}
+            </p>
+          ) : null}
+          <p className="font-mono text-[10px] text-muted-foreground/80">
+            Ref. técnica: {cr.id}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+          {busy ? (
+            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+              A processar…
+            </span>
+          ) : cr.status === "pending" ? (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => void review(cr.id, "approved")}
+                  >
+                    Aprovar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left" side="bottom">
+                  Regista que aceita o plano no Clickora; ainda não publica na rede publicitária.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void review(cr.id, "rejected")}
+                  >
+                    Rejeitar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left" side="bottom">
+                  Fecha o pedido sem aplicar alterações na conta Google / Meta / TikTok.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="sm" disabled={busy} onClick={() => void review(cr.id, "applied")}>
+                    Aplicar na rede
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left" side="bottom">
+                  Envia este plano para a API da rede e tenta criar ou actualizar recursos na conta ligada.
+                </TooltipContent>
+              </Tooltip>
+            </>
+          ) : cr.status === "approved" ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" size="sm" disabled={busy} onClick={() => void review(cr.id, "applied")}>
+                  Aplicar na rede
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-left" side="bottom">
+                Publicação efectiva na conta — utilize quando já validou o plano apresentado acima.
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DpilotAprovacoesPage() {
   const p = useDpilotPaid();
+  const sorted = useMemo(() => sortChangeRequests(p.changeRequests), [p.changeRequests]);
+  const { reviewBusyChangeRequestId } = p;
+
   return (
     <Gate>
       <PageHeader
         title="Aprovações"
-        description="Pedidos pendentes e histórico (admin/owner do workspace aplica ações remotas)."
+        description="Fila de pedidos gerados pelo assistente ou pelo autopilot quando um humano deve confirmar antes da rede aplicar alterações."
       />
+      <Alert className="mt-4 border-primary/20 bg-primary/5">
+        <Info className="h-4 w-4 text-primary" aria-hidden />
+        <AlertTitle className="text-sm font-semibold">Fluxo recomendado</AlertTitle>
+        <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
+          <strong className="font-medium text-foreground">Aprovar</strong> apenas confirma no Clickora que o plano está
+          aceite. Para alterar de facto a conta Google Ads, Meta ou TikTok, utilize{" "}
+          <strong className="font-medium text-foreground">Aplicar na rede</strong>. Quem gere permissões do workspace
+          pode rever esta fila.
+        </AlertDescription>
+      </Alert>
       <Card className="mt-4">
         <CardContent className="pt-6">
-          {p.changeRequests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum pedido.</p>
+          {sorted.length === 0 ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Nenhum pedido em fila. Quando criar uma campanha em modo Copilot, ou quando os limites de segurança
+              exigirem revisão, os pedidos aparecem aqui com um resumo legível.
+            </p>
           ) : (
             <div className="space-y-4">
-              {p.changeRequests.map((cr) => (
-                <div
+              {sorted.map((cr) => (
+                <ChangeRequestCard
                   key={cr.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border/80 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {cr.type} — <Badge variant="secondary">{cr.status}</Badge>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(cr.created_at).toLocaleString("pt-PT")} — {cr.id.slice(0, 8)}…
-                    </p>
-                    {cr.error_message ? <p className="text-xs text-destructive mt-1">{cr.error_message}</p> : null}
-                  </div>
-                  {cr.status === "pending" ? (
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" onClick={() => void p.review(cr.id, "approved")}>
-                        Aprovar
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => void p.review(cr.id, "rejected")}>
-                        Rejeitar
-                      </Button>
-                      <Button type="button" size="sm" onClick={() => void p.review(cr.id, "applied")}>
-                        Aplicar já
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
+                  cr={cr}
+                  review={p.review}
+                  reviewBusyChangeRequestId={reviewBusyChangeRequestId}
+                />
               ))}
             </div>
           )}
@@ -393,7 +631,7 @@ export function DpilotAuditoriaPage() {
     <div>
       <PageHeader
         title="Auditoria"
-        description="Últimas execuções de IA (runs) no projecto — até 50."
+        description="Registo técnico das últimas execuções de IA no projecto (até 50 eventos)."
       />
       {loading ? (
         <p className="mt-4 text-sm text-muted-foreground">A carregar…</p>
@@ -416,17 +654,17 @@ export function DpilotEquipaPage() {
   return (
     <div>
       <PageHeader
-        title="Equipa do workspace"
-        description="No dclickora, acesso a este projecto segue o workspace (dono Faturação + membros). O Autopilot em iframe usava convites de organização — aqui reutilizas a Conta/permisos do Clickora."
+        title="Equipa e permissões"
+        description="Quem pode ver e gerir este projecto segue as permissões da sua conta Clickora (workspace)."
       />
       <Card className="mt-4">
-        <CardContent className="pt-6 text-sm text-muted-foreground">
+        <CardContent className="pt-6 text-sm text-muted-foreground leading-relaxed">
           <p>
-            Ajusta o teu perfil e membros do workspace noutro ecrã:{" "}
+            Convites e papéis são tratados na área{" "}
             <Button variant="link" className="h-auto p-0" asChild>
               <Link to="/conta">Conta</Link>
-            </Button>{" "}
-            (e, quando activo, integrações/convites nessa área).
+            </Button>
+            — membros autorizados acedem aos mesmos projectos de anúncios conforme o seu nível de acesso.
           </p>
         </CardContent>
       </Card>
@@ -438,8 +676,8 @@ export function DpilotLandingsPage() {
   return (
     <div>
       <PageHeader
-        title="Páginas de venda"
-        description="O Autopilot em TanStack Start tinha landings de projecto. No dclickora, as presells/landings vivem em &quot;Minha presell&quot; (mesmo monólito) — reutilizamos o builder principal."
+        title="Páginas de destino"
+        description="URLs e presells utilizadas nas campanhas são criadas e editadas no construtor principal do Clickora."
       />
       <Card className="mt-4">
         <CardContent className="pt-6 text-sm text-muted-foreground">

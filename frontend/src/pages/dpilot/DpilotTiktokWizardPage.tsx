@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
+import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
@@ -32,7 +34,6 @@ const schema = z.object({
   audienceNotes: z.string().trim().min(3).max(800),
   objective: z.enum(["traffic", "reach", "video_views", "leads", "conversions", "app_installs"]),
   dailyBudgetUsd: z.number().min(1).max(100000),
-  geoTargets: z.string().trim().min(2).max(200),
   ageMin: z.number().int().min(13).max(65),
   ageMax: z.number().int().min(13).max(65),
 });
@@ -48,7 +49,7 @@ export function DpilotTiktokWizardPage() {
   const [audienceNotes, setAudienceNotes] = useState("Utilizadores 18-35, interessados em entretenimento e estilo de vida.");
   const [objective, setObjective] = useState<(typeof objectives)[number]["value"]>("traffic");
   const [dailyBudget, setDailyBudget] = useState("25");
-  const [geos, setGeos] = useState("BR, PT");
+  const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
   const [ageMin, setAgeMin] = useState("18");
   const [ageMax, setAgeMax] = useState("45");
   const [complianceAck, setComplianceAck] = useState(false);
@@ -129,7 +130,6 @@ export function DpilotTiktokWizardPage() {
       audienceNotes,
       objective,
       dailyBudgetUsd: Number(dailyBudget),
-      geoTargets: geos,
       ageMin: Number(ageMin),
       ageMax: Number(ageMax),
     });
@@ -146,13 +146,9 @@ export function DpilotTiktokWizardPage() {
       return;
     }
 
-    const geoArr = parsed.data.geoTargets
-      .split(",")
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean)
-      .slice(0, 20);
+    const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Adicione pelo menos um país");
+      setError("Seleccione pelo menos uma localização (país).");
       return;
     }
 
@@ -176,11 +172,19 @@ export function DpilotTiktokWizardPage() {
         toast.error("Falha ao gerar plano", { description: msg });
         return;
       }
-      toast.success("Plano TikTok criado", {
-        description: data.autoApplied
-          ? "Publicação automática (autopilot) tentada."
-          : "Rascunho e pedido criados. Revise em aprovações.",
-      });
+      if (data.autoApplied) {
+        toast.success("Campanha TikTok — autopilot", {
+          description: "Publicação automática tentada na conta ligada (dentro dos limites).",
+        });
+      } else if (data.reasons && data.reasons.length > 0) {
+        toast.warning("Campanha TikTok — revisão necessária", {
+          description: data.reasons[0]?.message ?? "Consulte os motivos nos pedidos em «Aprovações».",
+        });
+      } else {
+        toast.success("Campanha TikTok criada", {
+          description: "Rascunho guardado e pedido gerado. Revise e aplique em «Aprovações» quando estiver pronto.",
+        });
+      }
       navigate(`${base}/aprovacoes`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
@@ -198,7 +202,7 @@ export function DpilotTiktokWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha TikTok"
-          description="O assistente cria rascunho (campanha + grupo no TikTok). Anúncios de vídeo completos podem exigir o TikTok Ads Manager."
+          description="O assistente prepara campanha e grupo em rascunho na conta ligada. Conteúdos de vídeo complexos podem depois ser refinados no TikTok Ads Manager."
           actions={
             <Button variant="outline" asChild>
               <Link to={`${base}/tiktok`}>
@@ -277,17 +281,17 @@ export function DpilotTiktokWizardPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-2 sm:col-span-1">
-                <Label htmlFor="t-geo">Países (códigos ISO, vírgula)</Label>
-                <Input
-                  id="t-geo"
-                  value={geos}
-                  onChange={(e) => setGeos(e.target.value)}
-                  placeholder="BR, PT, US"
-                  required
-                />
-              </div>
+            <GoogleAdsCountriesSelect
+              label="Localizações — País"
+              hint="Lista alinhada aos países suportados no fluxo Google Ads deste produto."
+              searchPlaceholder="Pesquisar país…"
+              emptyText="Nenhum país encontrado."
+              options={GOOGLE_ADS_COUNTRY_OPTIONS}
+              value={geoTargets}
+              onChange={setGeoTargets}
+              max={20}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="t-age-min">Idade mínima</Label>
                 <Input
