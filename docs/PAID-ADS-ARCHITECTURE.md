@@ -58,3 +58,7 @@ O backend pode registar no log (em `NODE_ENV=production`) avisos se faltarem var
 ## 5. Pacote `dpilotoaut/` (legado / referência)
 
 A pasta **não** faz parte do build de produção do site dclickora. Mantém código de referência (TanStack Start, server functions) e pode ser útil para copiar comportamentos; não é necessário para `/tracking/dpilot` em produção.
+
+## 6. Produto vs roadmap (non-técnico)
+
+Para messaging interno ou investidores (capacidades hoje, lacunas honestas, roadmap): [PAID-AUTOPILOT-PRODUCT-ROADMAP.md](./PAID-AUTOPILOT-PRODUCT-ROADMAP.md).
