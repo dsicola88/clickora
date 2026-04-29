@@ -90,23 +90,38 @@ const LABEL_TO_ISO: Record<string, string> = {
 
 /**
  * Devolve código ISO-639-1 de 2 letras ou null se não for possível mapear com segurança.
+ * Aceita códigos (en, PT), locales (en-US), etiquetas («inglês», Ingles), pontuação e aspas mal fechadas.
  */
 export function normalizeGoogleLanguageCode(raw: string): string | null {
-  const t0 = String(raw ?? "").trim();
+  let t0 = String(raw ?? "").trim();
   if (!t0) return null;
+  // Aspas / separadores repetidos quando o texto vem de LLM ou CSV
+  t0 = t0.replace(/^[\s"'«»„““”‘’‚‹›]+|[\s"'«»„““”‘’‚‹›]+$/gu, "").trim();
+  if (!t0) return null;
+
   let t = stripDiacritics(t0).toLowerCase().replace(/\s+/g, "");
 
-  if (/^[a-z]{2}$/.test(t)) {
-    return GOOGLE_ADS_LANGUAGE_ISO_CODES.has(t) ? t : null;
+  if (/^[a-z]{2}$/.test(t) && GOOGLE_ADS_LANGUAGE_ISO_CODES.has(t)) {
+    return t;
   }
 
-  if (/^[a-z]{2}-[a-z]{2}$/.test(t)) {
-    const base = t.slice(0, 2)!;
-    return GOOGLE_ADS_LANGUAGE_ISO_CODES.has(base) ? base : null;
+  if (/^[a-z]{2}-[a-z]{2,}$/.test(t)) {
+    const base = t.slice(0, 2);
+    if (GOOGLE_ADS_LANGUAGE_ISO_CODES.has(base)) return base;
   }
 
-  const fromLabel = LABEL_TO_ISO[t];
+  // Só letras (ex.: "ingles." → "ingles", «inglês» → ingles já em t)
+  const alpha = t.replace(/[^a-z]/g, "");
+
+  let fromLabel = LABEL_TO_ISO[t] ?? LABEL_TO_ISO[alpha];
   if (fromLabel && GOOGLE_ADS_LANGUAGE_ISO_CODES.has(fromLabel)) return fromLabel;
+
+  // Heurísticas seguras quando o modelo devolve nome completo ou variações comuns em PT
+  if (alpha.startsWith("english")) return "en";
+  if (alpha.startsWith("portug") || alpha.startsWith("portuguese")) return "pt";
+  if (alpha.startsWith("spanish") || alpha.startsWith("espan")) return "es";
+  if (alpha.startsWith("francaise") || alpha.startsWith("francais") || alpha.startsWith("french")) return "fr";
+  if (alpha.startsWith("deutsch") || alpha.startsWith("german")) return "de";
 
   return null;
 }

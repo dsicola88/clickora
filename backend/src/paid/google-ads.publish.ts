@@ -195,6 +195,7 @@ export async function publishGoogleSearchCampaignFromLocal(
   }
 
   const languageConstants: string[] = [];
+  const resolvedLanguageIso: string[] = [];
   for (const l of langList) {
     const code = normalizeGoogleLanguageCode(String(l));
     if (!code) {
@@ -203,6 +204,7 @@ export async function publishGoogleSearchCampaignFromLocal(
         error: `Idioma «${l}» não reconhecido (use ex.: en, pt ou inglês, português).`,
       };
     }
+    resolvedLanguageIso.push(code);
     const id = LANG_ID[code];
     if (id == null) {
       return {
@@ -422,6 +424,7 @@ export async function publishGoogleSearchCampaignFromLocal(
       data: {
         externalCampaignId: extCamp,
         status: "live",
+        languageTargets: resolvedLanguageIso,
       },
     });
     for (const ag of campaign.adGroups) {
