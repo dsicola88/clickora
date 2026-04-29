@@ -176,7 +176,7 @@ function PresellsAnalyticsBody() {
     return (
       <EmptyState
         title="Sem dados de analytics"
-        description="Os dados aparecerão aqui quando suas presells começarem a receber tráfego."
+        description="Dados quando houver tráfego nas presells."
         icon={<BarChart3 className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -665,7 +665,7 @@ export default function Analytics() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Analytics"
-        description="Presells no dclickora e, em separado, relatórios da conta Google Ads (mesmo intervalo de datas em cada relatório)."
+        description="Presells no dclickora e relatórios Google Ads (mesmo período por ecrã)."
       />
 
       <AnalyticsSectionNav />

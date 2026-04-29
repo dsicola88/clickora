@@ -57,7 +57,7 @@ function TikTokCampaigns() {
     <div className="pb-12">
       <PageHeader
         title="Campanhas TikTok"
-        description="Campanhas TikTok Ads deste projeto. Rascunhos seguem para aprovação antes de publicação na API."
+        description="Lista de campanhas TikTok Ads (rascunhos → fila)."
         actions={
           <Button asChild>
             <Link to="/app/projects/$projectId/paid/tiktok" params={{ projectId }}>

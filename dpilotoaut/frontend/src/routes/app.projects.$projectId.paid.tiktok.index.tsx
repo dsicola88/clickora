@@ -46,7 +46,7 @@ function TikTokOverview() {
     <div className="pb-12">
       <PageHeader
         title="TikTok Ads · visão geral"
-        description="Conecte o TikTok Marketing API, crie rascunhos de campanha e use a mesma fila de aprovações que Google e Meta."
+        description="TikTok Marketing API e mesma fila de aprovações que Google e Meta."
         actions={<NewTikTokCampaignButton projectId={projectId} />}
       />
       <div className="space-y-6 px-6 py-6 sm:px-8">
@@ -62,11 +62,7 @@ function TikTokOverview() {
             icon={<Target className="h-4 w-4" />}
             label="Aprovações TikTok pendentes"
             value={counts?.pending}
-            sub={
-              counts && counts.pending > 0
-                ? "exigem revisão antes de publicar na API"
-                : "fila vazia"
-            }
+            sub={counts && counts.pending > 0 ? "À revisar antes da API" : "fila vazia"}
             link={{
               to: "/app/projects/$projectId/paid/approvals",
               label: "Ver fila",
@@ -79,12 +75,12 @@ function TikTokOverview() {
           <InfoCard
             icon={<Sparkles className="h-4 w-4" />}
             title="Como funciona"
-            body="Após OAuth, o token fica associado ao projeto. Ao aplicar na fila de aprovações, a campanha é criada na API TikTok (orçamento diário a partir do rascunho ou 50 $ por defeito). Criar anúncios de vídeo completos requer ainda o TikTok Ads Manager ou extensão futura."
+            body="Após OAuth, aprovar na fila cria campanha na API; vídeo completo pode precisar do Ads Manager."
           />
           <InfoCard
             icon={<Video className="h-4 w-4" />}
             title="Instagram no mesmo produto"
-            body="Anúncios no Instagram (Feed, Stories, Reels) continuam a ser geridos em Meta Ads — uma integração separada nesta app. Aqui trata-se só do canal TikTok."
+            body="Instagram continua em Meta Ads; aqui é só TikTok."
           />
         </div>
       </div>
@@ -139,7 +135,7 @@ function InfoCard({ icon, title, body }: { icon: React.ReactNode; title: string;
         </div>
         <p className="font-semibold">{title}</p>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{body}</p>
+      <p className="mt-3 text-sm text-muted-foreground">{body}</p>
       <div className="mt-3">
         <Badge variant="muted" className="text-pink-600 dark:text-pink-400">
           <Video className="mr-1 h-3 w-3" /> TikTok Ads

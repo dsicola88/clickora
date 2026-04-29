@@ -24,12 +24,8 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Página e medição de cliques",
     body: (
       <>
-        Se o tráfego abre o <strong className="text-foreground">link público da app</strong>{" "}
-        (<span className="font-mono text-[11px]">/p/…</span>), <strong className="text-foreground">não precisa de colar o script</strong>: no
-        carregamento regista-se a impressão (pixel) e os CTAs já apontam para o redirect de tracking. Para validar, na rede do navegador veja pedidos
-        a <span className="font-mono text-[11px]">/track/pixel/</span> e, ao clicar, a <span className="font-mono text-[11px]">/track/r/</span>.
-        Cole o <strong className="text-foreground">script</strong> da secção «Script da presell» (neste dashboard){" "}
-        <strong className="text-foreground">só se publicar o HTML noutro sítio</strong> — aí o snippet liga medições à mesma presell.
+        Link público <span className="font-mono text-[11px]">/p/…</span> conta impressões/cliques sem colar script; script no{" "}
+        <strong className="text-foreground">&lt;head&gt;</strong> só se a página for HTML fora da app — mesma presell nos relatórios.
       </>
     ),
     links: [
@@ -42,10 +38,9 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "URLs de anúncio e parâmetros",
     body: (
       <>
-        Monte o URL em <strong className="text-foreground">Links</strong> ou no <strong className="text-foreground">Construtor de URL</strong>{" "}
-        (presell pública + query). Para <strong className="text-foreground">Google</strong> o clique deve trazer <span className="font-mono text-[11px]">gclid</span>; para{" "}
-        <strong className="text-foreground">Meta</strong>, <span className="font-mono text-[11px]">fbclid</span>; para <strong className="text-foreground">TikTok</strong>,{" "}
-        <span className="font-mono text-[11px]">ttclid</span> — o anúncio aponta para o URL público da página.
+        <strong className="text-foreground">Links</strong> ou <strong className="text-foreground">Construtor</strong>: o anúncio aponta ao URL público com{" "}
+        <span className="font-mono text-[11px]">gclid</span> / <span className="font-mono text-[11px]">fbclid</span> /{" "}
+        <span className="font-mono text-[11px]">ttclid</span> conforme a rede.
       </>
     ),
     links: [
@@ -58,13 +53,8 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Macros: palavra-chave, campanha, criativo",
     body: (
       <>
-        Nos ecrãs <strong className="text-foreground">Links</strong> e <strong className="text-foreground">Construtor de URL</strong>, abra{" "}
-        <strong className="text-foreground">Macros das redes</strong> ou <strong className="text-foreground">Macros (referência)</strong>: pesquise
-        por rede, copie o marcador (ex. Google <span className="font-mono text-[11px]">{"{keyword}"}</span>, Meta{" "}
-        <span className="font-mono text-[11px]">{"{{ad.name}}"}</span>) e cole em{" "}
-        <span className="font-mono text-[11px]">utm_term</span>, <span className="font-mono text-[11px]">utm_content</span> ou{" "}
-        <span className="font-mono text-[11px]">sub1</span>–<span className="font-mono text-[11px]">sub3</span>. A rede substitui pelo valor real
-        no clique; os relatórios mostram esses campos.
+        Copie macros das redes (<span className="font-mono text-[11px]">utm_term</span>, <span className="font-mono text-[11px]">sub1</span>…) em{" "}
+        <strong className="text-foreground">Links</strong> ou <strong className="text-foreground">Construtor</strong> — a rede substitui no clique.
       </>
     ),
     links: [
@@ -77,8 +67,7 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Vendas das redes de afiliados",
     body: (
       <>
-        Em <strong className="text-foreground">Plataformas</strong>, copie o postback com macros e configure-o na rede (IPN/postback). Opcional:
-        defina o e-mail para alertas de venda.
+        <strong className="text-foreground">Plataformas</strong>: cole o postback na rede de afiliados; e-mail opcional para alertas.
       </>
     ),
     links: [{ to: "/tracking/plataformas", label: "Plataformas" }],
@@ -88,8 +77,7 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Notificações e integrações",
     body: (
       <>
-        Ative <strong className="text-foreground">Telegram</strong>, <strong className="text-foreground">Web Push</strong> ou consulte o webhook
-        global de afiliados na área de Integrações (consoante as suas permissões no workspace).
+        <strong className="text-foreground">Integrações</strong>: Telegram, Web Push e outros webhooks quando o workspace permitir.
       </>
     ),
     links: [{ to: "/tracking/integrations", label: "Integrações" }],
@@ -99,11 +87,8 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Google, Meta, TikTok e Microsoft",
     body: (
       <>
-        No «Resumo e guia do rastreio» configure o envio de conversões: <strong className="text-foreground">Google Ads</strong> (upload por
-        clique, OAuth), <strong className="text-foreground">Meta CAPI</strong> (evento de compra com o mesmo <span className="font-mono text-[11px]">event_id</span> que
-        a conversão) e <strong className="text-foreground">TikTok Events API</strong> (pixel e token, com <span className="font-mono text-[11px]">ttclid</span> no
-        rastreio). Para <strong className="text-foreground">Microsoft Ads</strong> use o postback e macros em Ferramentas de tracking — o modelo não é
-        o mesmo do Google.
+        No resumo configure conversões para <strong className="text-foreground">Google</strong>, <strong className="text-foreground">Meta</strong> e{" "}
+        <strong className="text-foreground">TikTok</strong>; Microsoft e modelos em <strong className="text-foreground">Ferramentas de tracking</strong>.
       </>
     ),
     links: [
@@ -116,7 +101,7 @@ const TRACKING_STEPS: GuideStep[] = [
     title: "Analisar resultados",
     body: (
       <>
-        Em Analytics, vendas e relatórios de conversões, incluindo o estado de sincronização com Google, Meta e TikTok, quando tiver postbacks aprovados.
+        <strong className="text-foreground">Analytics</strong>, vendas e relatórios com estado de sincronização quando os postbacks estiverem a chegar.
       </>
     ),
     links: [
@@ -133,9 +118,8 @@ const HOME_STEPS: GuideStep[] = [
     title: "Começar em 30 segundos",
     body: (
       <>
-        <strong className="text-foreground">Presell</strong>: crie a página e use o link{" "}
-        <span className="font-mono text-[11px]">/p/…</span> nos anúncios — cliques e impressões já são contados.{" "}
-        <strong className="text-foreground">Assistente</strong> guia-o pelos passos (postback, anúncios) quando quiser.
+        <strong className="text-foreground">Presell</strong> em <span className="font-mono text-[11px]">/p/…</span> para anúncios;{" "}
+        <strong className="text-foreground">Assistente</strong> quando precisar de checklist (postback, redes).
       </>
     ),
     links: [
@@ -149,10 +133,8 @@ const HOME_STEPS: GuideStep[] = [
     title: "Quando precisar de mais",
     body: (
       <>
-        Script no <span className="font-mono text-[11px]">&lt;head&gt;</span> só se publicar o HTML <strong className="text-foreground">fora</strong>{" "}
-        da app. Macros das redes (keyword, criativo) em <strong className="text-foreground">Links</strong> ou{" "}
-        <strong className="text-foreground">Construtor de URL</strong> — estão também no menu, em{" "}
-        <strong className="text-foreground">Mais ferramentas</strong>. Detalhes: <strong className="text-foreground">Aprender</strong>.
+        Script só com HTML fora da app; macros em <strong className="text-foreground">Links</strong> ou <strong className="text-foreground">Construtor</strong> ·{" "}
+        <strong className="text-foreground">Aprender</strong> para o guia completo.
       </>
     ),
     links: [
@@ -223,8 +205,8 @@ export function DashboardUserGuide({ variant = "tracking", className, allowDismi
               </h2>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {variant === "home"
-                  ? "Só precisa dos cartões abaixo. O resto fica no menu quando avançar."
-                  : "Ordem sugerida: medição (script só se a página for externa ao /p/…) → URLs e macros (keyword em utm_term / sub1–3) → postbacks → integrações → anúncios → relatórios. Expanda cada passo quando precisar."}
+                  ? "Use os cartões abaixo; o menu traz o resto."
+                  : "Ordem típica: medição → URLs/macros → postbacks → integrações → redes → relatórios."}
               </p>
             </div>
           </div>

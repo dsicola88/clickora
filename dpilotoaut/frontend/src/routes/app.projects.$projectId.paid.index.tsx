@@ -181,7 +181,7 @@ function PaidOverview() {
     <div className="pb-12">
       <PageHeader
         title={clickoraEmbed ? "Anúncios" : "Paid Autopilot"}
-        description="Centro de controlo: modo Copilot ou Autopilot, limites de orçamento e escopo, e fila de aprovação alinhada ao Google, Meta (Facebook/Instagram) e TikTok. Configure guardrails antes de escalar operação."
+        description="Modo Copilot ou Autopilot, guardrails, Google/Meta/TikTok e fila de aprovações."
         badge={
           <Badge variant={mode === "autopilot" ? "soft" : "muted"}>
             {mode === "autopilot" ? "Autopilot · com guardrails" : "Copilot"}
@@ -291,10 +291,10 @@ function ModeCard({
           />
         )}
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+      <p className="mt-3 text-sm text-muted-foreground">
         {isAutopilot
-          ? "Mudanças dentro dos seus guardrails são aplicadas automaticamente. Qualquer outra coisa entra na fila de aprovação."
-          : "A IA propõe; nada publica sem aprovação explícita."}
+          ? "Dentro dos guardrails aplica logo; o resto vai para aprovações."
+          : "A IA sugere alterações — publicação só após aprovação."}
       </p>
     </Card>
   );
@@ -383,10 +383,10 @@ function GoogleConnectionCard({
           </Badge>
         )}
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+      <p className="mt-3 text-sm text-muted-foreground">
         {connection?.google_customer_id
           ? `ID de cliente: ${connection.google_customer_id}`
-          : "Ligue a sua conta de Google Ads (OAuth) para relatar e operar com dados reais. Requer app OAuth no Google Cloud e developer token ativo."}
+          : "Ligue Google Ads (OAuth + developer token) para métricas e publicação."}
       </p>
       {connection?.error_message && (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
@@ -427,8 +427,8 @@ function GoogleConnectionCard({
       <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
         <Info className="h-3 w-3 shrink-0" />
         <span>
-          <code className="rounded bg-muted px-1">GOOGLE_OAUTH_REDIRECT_URL</code> deve coincidir
-          com o redirect no Google Cloud.
+          <code className="rounded bg-muted px-1">GOOGLE_OAUTH_REDIRECT_URL</code> = redirect no
+          Google Cloud.
         </span>
       </p>
     </Card>
@@ -508,7 +508,7 @@ function SpendSummaryCard({
           />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Limite diário (guardrails) {formatMicrosUsd(dailyCap)} · referência para Autopilot
+          Limite diário {formatMicrosUsd(dailyCap)} (referência para Autopilot).
         </p>
       </div>
     </Card>
@@ -541,13 +541,12 @@ function SpendChartCard({
   }, [googleMetrics, capDollars]);
   const isLive = googleMetrics?.state === "ok" && data.length > 0;
   const subtitle = metricsLoading
-    ? "A carregar dados da API…"
+    ? "A carregar…"
     : isLive
-      ? "Custo (USD) agregado na conta Google Ads ligada, últimos 14 dias."
+      ? "Gasto diário (USD) na conta ligada — últimos 14 dias."
       : googleMetrics?.state === "error"
-        ? (googleMetrics.message ??
-          "Falha ao obter a série. Verifique o developer token e permissões da conta.")
-        : "Ligue o Google Ads na cartão ao lado para preencher este gráfico com o gasto diário real.";
+        ? (googleMetrics.message ?? "Erro na API: confira developer token e permissões.")
+        : "Ligue Google Ads no cartão ao lado para ver o gasto real.";
 
   return (
     <Card className="!p-0 overflow-hidden">
@@ -565,11 +564,10 @@ function SpendChartCard({
       ) : !isLive ? (
         <div className="flex h-[240px] items-center justify-center px-4 text-center text-sm text-muted-foreground">
           {googleMetrics?.state === "disconnected" || !googleMetrics
-            ? "Ligue a conta Google Ads para ver a evolução do gasto."
+            ? "Ligue Google Ads para ver a série de gasto."
             : googleMetrics.state === "error"
-              ? (googleMetrics.message ??
-                "Falha ao obter a série. Verifique o developer token e o ID de cliente.")
-              : "Sem gasto registado neste período (últimos 14 dias) ou ainda a sincronizar."}
+              ? (googleMetrics.message ?? "Erro ao obter dados: token ou ID de cliente.")
+              : "Sem gasto nestes 14 dias ou ainda a sincronizar."}
         </div>
       ) : (
         <div className="h-[260px] w-full px-2 py-4">
@@ -720,9 +718,7 @@ function GuardrailsCard({
           </div>
           <div>
             <p className="font-semibold">Guardrails</p>
-            <p className="text-xs text-muted-foreground">
-              Limites rígidos que o sistema aplica antes de qualquer mudança.
-            </p>
+            <p className="text-xs text-muted-foreground">Limites aplicados antes de mudanças.</p>
           </div>
         </div>
         <TriangleAlert className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -736,7 +732,7 @@ function GuardrailsCard({
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Orçamento diário máximo (USD)" hint="Aplicado por campanha, por dia.">
+          <Field label="Orçamento diário máximo (USD)" hint="Por campanha e dia.">
             <Input
               type="number"
               min={1}
@@ -745,7 +741,7 @@ function GuardrailsCard({
               onChange={(e) => setMaxDaily(e.target.value)}
             />
           </Field>
-          <Field label="Gasto mensal máximo (USD)" hint="Limite total entre todas as campanhas.">
+          <Field label="Gasto mensal máximo (USD)" hint="Teto global do projeto.">
             <Input
               type="number"
               min={1}
@@ -754,7 +750,7 @@ function GuardrailsCard({
               onChange={(e) => setMaxMonthly(e.target.value)}
             />
           </Field>
-          <Field label="CPC máximo (USD, opcional)" hint="Limita os lances de cada palavra-chave.">
+          <Field label="CPC máximo (USD, opcional)" hint="Teto de lance por palavra-chave.">
             <Input
               type="number"
               min={0}
@@ -766,7 +762,7 @@ function GuardrailsCard({
           </Field>
           <Field
             label="Limite para aprovação (USD, opcional)"
-            hint="Mudanças acima deste valor exigem aprovação mesmo no Autopilot."
+            hint="Acima disto — aprovação obrigatória (inclui Autopilot)."
           >
             <Input
               type="number"
@@ -779,7 +775,7 @@ function GuardrailsCard({
           </Field>
           <Field
             label="Países permitidos (ISO-2, separados por vírgula)"
-            hint="Geo targets restritos a esta lista."
+            hint="Geo permitido apenas nestes códigos."
           >
             <Input
               value={countries}
@@ -789,7 +785,7 @@ function GuardrailsCard({
           </Field>
           <Field
             label="Palavras-chave bloqueadas (uma por linha)"
-            hint="Serão rejeitadas em qualquer plano de IA."
+            hint="Filtradas nos planos gerados por IA."
             className="sm:col-span-2"
           >
             <Textarea

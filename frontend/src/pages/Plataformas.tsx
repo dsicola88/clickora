@@ -141,7 +141,7 @@ export default function Plataformas() {
       <div className={APP_PAGE_SHELL}>
         <PageHeader
           title="Plataformas"
-          description="Postback HTTP da rede de afiliados para registar vendas aprovadas no dclickora."
+          description="Postback HTTP da rede para vendas aprovadas no dclickora."
         />
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
           <p className="flex items-center gap-2 font-medium">
@@ -176,7 +176,7 @@ export default function Plataformas() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Plataformas"
-        description="Sincronize vendas da sua rede de afiliados com o dclickora: escolha a plataforma, configure o e-mail, copie o postback para a rede e teste. Depois disso, notificações e conversões ficam ligadas automaticamente."
+        description="Escolha plataforma, copie o postback, teste — conversões e alertas ligados."
       />
 
       {intLocked ? (

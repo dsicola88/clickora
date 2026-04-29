@@ -254,7 +254,7 @@ function MetaWizard() {
     <div className="pb-12">
       <PageHeader
         title="Nova campanha Meta"
-        description="Descreva sua oferta e audiência. A IA propõe campanha + conjunto + 3 variações de criativo, todos como rascunho."
+        description="Oferta e audiência → plano em rascunho (campanha, conjunto, criativos)."
         actions={
           <Button variant="outline" asChild>
             <Link to="/app/projects/$projectId/paid/meta" params={{ projectId }}>
@@ -452,8 +452,8 @@ function MetaWizard() {
               <p className="text-sm font-medium">Categorias especiais de anúncios</p>
             </div>
             <p className="text-xs text-muted-foreground">
-              O Meta exige declaração explícita de categorias especiais. Marcar uma categoria limita
-              o targeting (ex.: idade ≥ 18, sem detalhamento por CEP em habitação/emprego/crédito).
+              Obrigatório declarar categorias especiais ao Meta; isso restringe targeting (ex.:
+              idade ≥18).
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {specialCategories.map((c) => {
@@ -483,8 +483,8 @@ function MetaWizard() {
                 onCheckedChange={(v) => setComplianceAck(Boolean(v))}
                 className="mt-0.5"
               />
-              <span className="leading-relaxed">
-                Confirmo que esta campanha respeita as{" "}
+              <span>
+                Confirmo conformidade com as{" "}
                 <a
                   href="https://www.facebook.com/policies/ads/"
                   target="_blank"
@@ -493,7 +493,7 @@ function MetaWizard() {
                 >
                   políticas de anúncios do Meta
                 </a>{" "}
-                e que declarei corretamente as categorias especiais aplicáveis.
+                e categorias especiais corretas.
               </span>
             </label>
           </div>

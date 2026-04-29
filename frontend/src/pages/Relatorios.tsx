@@ -602,10 +602,8 @@ export default function Relatorios() {
   };
 
   const UsageLimitBar = () => (
-    <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 p-4 text-sm leading-relaxed text-muted-foreground">
-      <span className="font-medium text-foreground/90">Quota / rastreio por IP:</span> reservado para limites de plano
-      ou monitorização futura — ainda não está ligado a dados ao vivo por isso não há percentagem disponível aqui (não
-      indica falha de rede).
+    <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 p-4 text-sm text-muted-foreground">
+      <span className="font-medium text-foreground/90">Quota / IP:</span> espaço reservado — ainda sem percentagem ao vivo (não é falha de rede).
     </div>
   );
 
@@ -618,8 +616,7 @@ export default function Relatorios() {
           <span className="text-primary font-bold">{currentTime}</span>.
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Para os horários dos cliques serem exatos, tenha certeza de que o horário da sua instalação
-          esteja correto.
+          Ajuste o relógio do servidor se os horários dos eventos estiverem errados.
         </p>
       </div>
     </div>
@@ -675,7 +672,7 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Relatórios"
-        description="Cada separador tem o seu URL (/tracking/relatorios/acessos, cliques, conversoes, sem-gclid) para favoritos ou partilha. Filtre por período, exporte CSV e use sub-IDs nos links de tracking."
+        description="Cada separador tem URL próprio; filtros, CSV e sub-IDs nos links."
       />
 
       <Tabs value={tab} onValueChange={(v) => navigate(`/tracking/relatorios/${v}`)}>
@@ -701,11 +698,8 @@ export default function Relatorios() {
         <TabsContent value="acessos" className="mt-6 space-y-4">
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <strong className="font-medium text-foreground/90">Sobre colunas com «—»:</strong> palavra-chave, campanha e
-            anúncio (content) vêm de parâmetros UTM no URL do clique, do pixel de impressão ou do link de redireccionamento
-            Clickora. Visitas sem esses parâmetros ficam vazias. <strong className="font-medium text-foreground/90">Origem</strong>{" "}
-            tenta mostrar fonte/médio/campanha ou o domínio do referer. <strong className="font-medium text-foreground/90">Região</strong>{" "}
-            (estado/província) ainda não é gravada — só o país.
+            <strong className="font-medium text-foreground/90">«—»:</strong> UTMs só aparecem se o clique/impressão/link as trouxer; origem concatena UTMs ou referer;
+            país sim, estado ainda não.
           </p>
           <TimezoneAlert />
           <DateFilters />

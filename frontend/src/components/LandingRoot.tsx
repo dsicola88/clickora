@@ -59,12 +59,12 @@ function CustomDomainRootRedirect() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 text-center">
       <div className="max-w-md space-y-4">
         <h1 className="text-xl font-semibold text-foreground">Domínio ativo</h1>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-sm text-muted-foreground">
           {isError
-            ? "Não foi possível carregar a página. Verifica a ligação ou tenta o link com /p/ e o identificador (UUID) copiado no painel."
-            : "Nenhuma presell publicada neste domínio. No painel, associa a presell a este domínio (Domínio nos links públicos) e publica a página."}
+            ? "Erro ao carregar. Tente /p/ e o ID (UUID) do painel."
+            : "Nenhuma presell publicada aqui — associe domínio e publique no painel."}
         </p>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-sm text-muted-foreground">
           Gerir contas e presells em{" "}
           <a href={mainSite} className="text-primary underline underline-offset-2 font-medium">
             dclickora

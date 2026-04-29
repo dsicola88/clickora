@@ -119,7 +119,7 @@ export default function Links() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Links"
-        description="Redirect com UTMs. Query: sub1, sub2, sub3. Ou sufixe o caminho: …/track/r/{presellId}/fonte/campanha/criativo?to=… (drill-down estilo ClickMagick). Vários destinos, geo e A/B: Rotadores."
+        description="Redirect com UTMs (sub1–3) ou caminho …/track/r/… ; A/B e geo em Rotadores."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button

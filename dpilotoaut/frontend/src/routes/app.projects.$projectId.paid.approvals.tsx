@@ -64,7 +64,7 @@ function ApprovalsQueue() {
     <div className="pb-12">
       <PageHeader
         title="Aprovações"
-        description="Aprove, rejeite ou aplique. Google e Meta publicam ativos na conta; Meta (UE) exige DSA: META_DSA_BENEFICIARY e META_DSA_PAYOR. TikTok cria campanha + ad group (v1.3). Anúncios de vídeo TikTok podem ainda requerer o Ads Manager."
+        description="Revise antes de Google, Meta ou TikTok aplicarem mudanças na conta ligada."
         actions={
           <div className="flex gap-1 rounded-md border border-border bg-card p-1">
             {(["all", "google_ads", "meta_ads", "tiktok_ads"] as const).map((p) => (
@@ -124,8 +124,7 @@ function EmptyState() {
       </div>
       <h3 className="font-semibold">Nenhuma mudança pendente</h3>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Quando a IA gerar um plano, ou o Autopilot quiser aplicar algo fora dos guardrails, isso
-        aparece aqui para revisão.
+        Planos da IA ou pedidos fora dos guardrails aparecem aqui para rever.
       </p>
     </div>
   );

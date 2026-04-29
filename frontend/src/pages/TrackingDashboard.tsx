@@ -42,7 +42,6 @@ import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { formatGoogleAdsDashboardMoney } from "@/lib/googleAdsDashboardMoney";
-import { formatGoogleAdsDashboardMoney } from "@/lib/googleAdsDashboardMoney";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DashboardUserGuide } from "@/components/DashboardUserGuide";
@@ -84,11 +83,11 @@ function SyncHealthBanner({
       <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
       <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envios para plataformas de anúncios</AlertTitle>
       <AlertDescription className="text-sm text-muted-foreground">
-        Nos últimos {sh.period_days} dias (UTC): {parts.join(" · ")}. Veja o estado por venda em{" "}
+        Últimos {sh.period_days}d (UTC): {parts.join(" · ")}. Detalhes e sync em{" "}
         <Link className="font-medium text-primary underline underline-offset-2" to="/tracking/relatorios">
           Relatórios → Conversões
-        </Link>{" "}
-        (colunas de sync) e corrija tokens ou IDs nas secções Google Ads / Meta / TikTok abaixo.
+        </Link>
+        {" — "}revise tokens/IDs nas secções abaixo.
       </AlertDescription>
     </Alert>
   );
@@ -100,9 +99,8 @@ function SetupAssistantCallout() {
       <div className="flex items-start gap-2 min-w-0">
         <ListChecks className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" aria-hidden />
         <p className="text-muted-foreground leading-relaxed">
-          <span className="font-medium text-foreground/90">Assistente de configuração</span> — verificação passo a passo: presell, UTMs, cliques, webhook de
-          afiliados, Google Ads, Meta, TikTok e ligação à documentação. Os passos 3–4 usam o intervalo de datas do resumo; as integrações reflectem
-          a configuração actual.
+          <span className="font-medium text-foreground/90">Assistente:</span> checklist presell, UTMs, webhooks e redes —
+          métricas usam as datas deste resumo.
         </p>
       </div>
       <Button variant="secondary" size="sm" className="shrink-0" asChild>
@@ -188,10 +186,8 @@ function GoogleAdsConversionUploadCard({
         <div className="min-w-0 flex-1 space-y-1">
           <h3 className="font-semibold text-card-foreground">Google Ads — conversão por clique (API, servidor a servidor)</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Integração de produção: o backend envia cada venda aprovada (webhook) através da{" "}
-            <strong className="font-medium text-foreground/90">Conversão de cliques (offline upload)</strong> do Google Ads.{" "}
-            <strong className="font-medium text-foreground/90">Não substitui</strong> a importação manual por CSV abaixo; é um circuito distinto, automático, quando o clique tiver{" "}
-            <span className="font-mono text-[11px]">gclid</span> / <span className="font-mono text-[11px]">gbraid</span> / <span className="font-mono text-[11px]">wbraid</span>.
+            Backend envia vendas para <strong className="font-medium text-foreground/90">conversões por clique</strong> offline (com{" "}
+            <span className="font-mono text-[11px]">gclid</span>/<span className="font-mono text-[11px]">gbraid</span>/<span className="font-mono text-[11px]">wbraid</span>) — paralelo ao CSV manual em baixo.
           </p>
         </div>
       </div>
@@ -1284,10 +1280,7 @@ function TrackingScriptCsvBlocks({
           </div>
         </div>
         <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground/90">Link público na app</strong> (<span className="font-mono">/p/…</span>): não é obrigatório colar este
-          script — impressões e cliques já usam o pixel e os URLs <span className="font-mono">/track/</span> da página.{" "}
-          <strong className="text-foreground/90">HTML noutro domínio</strong>: copie e cole o snippet abaixo para associar pageviews a esta conta /
-          presell.
+          <strong className="text-foreground/90">/p/… na app:</strong> sem colar snippet; <strong className="text-foreground/90">HTML externo:</strong> use o snippet abaixo para contar métricas.
         </p>
         {showTechnicalNotes && embedSrcWasPatched && (
           <p className="mb-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">

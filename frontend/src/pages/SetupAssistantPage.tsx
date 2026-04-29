@@ -287,7 +287,7 @@ export default function SetupAssistantPage() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Assistente de configuração"
-        description="Checklist para presell, URLs de anúncio, rastreio, postback de afiliados, integrações de conversão (Google, Meta, TikTok) e ajuda. Os passos de métricas usam o intervalo do resumo (por defeito ~últimos 14 dias) e o estado em tempo real das integrações. Actualize após testes na rede de afiliados."
+        description="Presell, URLs, tracking, postback, redes e métricas — período alinhado ao resumo."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button

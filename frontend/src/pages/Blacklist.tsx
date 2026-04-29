@@ -167,7 +167,7 @@ export default function Blacklist() {
       <PageHeader
         centered
         title="Proteções de tracking por IP"
-        description="Rate limit global no servidor, lista opcional de permitidos, blacklist, e regras opcionais (UA vazio / bots). IPv4 só."
+        description="Rate limit, permitidos, blacklist e regras opcionais (UA/bots); só IPv4."
       />
 
       {intLocked ? (

@@ -723,7 +723,7 @@ export default function TrackingTools() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Tracking Tools"
-        description="Diagnóstico em páginas separadas (IP, GCLID, UUID de clique, postbacks). Não substituem Relatórios nem Analytics."
+        description="Diagnóstico (IP, GCLID, clique, postbacks); não substitui Relatórios nem Analytics."
       />
       <ToolsSubNav />
       <Routes>

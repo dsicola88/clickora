@@ -16,7 +16,7 @@ export function ClickoraFlowBar() {
         Presell, link e resultados
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Depois de criar a campanha, gere a página de pré-venda, o link rastreado e acompanhe o desempenho no mesmo painel.
+        Campanha pronta: presell, link rastreado e métricas no painel Clickora.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button

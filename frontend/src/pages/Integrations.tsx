@@ -261,17 +261,16 @@ export default function Integrations() {
         title="Integrações"
         description={
           isAdmin
-            ? "Ligue o dclickora a canais externos: alertas no telemóvel, Telegram, upload CSV para o Google Ads e mais."
-            : "Alertas, Telegram, Google Ads e outras ligações úteis."
+            ? "Telegram, Web Push, CSV Google Ads e mais (admin)."
+            : "Alertas e ligações úteis."
         }
       />
 
       <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
         <p className="text-sm font-medium text-foreground">Outras ligações no dclickora</p>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Postbacks de afiliado, URLs de conversão para Google/Microsoft e modelos de macros estão em{" "}
-          <strong className="font-medium text-foreground/90">Tracking Tools</strong>. Redes de afiliados, e-mail da rede e
-          o postback completo por plataforma estão em <strong className="font-medium text-foreground/90">Plataformas</strong>.
+          Postbacks em <strong className="font-medium text-foreground/90">Plataformas</strong>; ferramentas e macros em{" "}
+          <strong className="font-medium text-foreground/90">Tracking Tools</strong>.
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button variant="outline" size="sm" className="justify-between gap-2 sm:flex-1" asChild>

@@ -16,11 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  createLandingPage,
-  deleteLandingPage,
-  listLandingPages,
-} from "@/server/landing.functions";
+import { createLandingPage, deleteLandingPage, listLandingPages } from "@/server/landing.functions";
 import { getProjectWithOrg } from "@/server/app-data.functions";
 
 export const Route = createFileRoute("/app/projects/$projectId/landings/")({
@@ -99,8 +95,7 @@ function ProjectLandingsList() {
       <div>
         <h1 className="text-2xl font-semibold">Páginas de venda do seu projecto</h1>
         <p className="text-sm text-muted-foreground">
-          Só a sua equipa (esta conta) vê e edita estes conteúdos. O endereço público fica em{" "}
-          <code className="text-xs">/l/atalho</code> após publicar.
+          Só a equipa vê isto; público em <code className="text-xs">/l/atalho</code> após publicar.
         </p>
       </div>
 
@@ -163,7 +158,9 @@ function ProjectLandingsList() {
                     <TableCell>
                       <code className="text-xs">{r.slug}</code>
                     </TableCell>
-                    <TableCell className="text-sm">{r.isPublished ? "Publicada" : "Rascunho"}</TableCell>
+                    <TableCell className="text-sm">
+                      {r.isPublished ? "Publicada" : "Rascunho"}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {new Date(r.updatedAt).toLocaleString("pt-BR")}
                     </TableCell>

@@ -167,10 +167,10 @@ export function TikTokConnectionCard({ projectId }: { projectId: string }) {
           {isConnected ? "Conectado" : status === "error" ? "Erro" : "Desconectado"}
         </Badge>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+      <p className="mt-3 text-sm text-muted-foreground">
         {conn?.advertiser_id
           ? `Advertiser ID ${conn.advertiser_id}`
-          : "Conecte uma conta TikTok for Business para sincronizar e publicar campanhas."}
+          : "Ligue TikTok for Business para criar rascunhos na API."}
       </p>
       {conn?.error_message && (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">

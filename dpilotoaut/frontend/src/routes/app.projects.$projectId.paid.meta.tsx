@@ -168,10 +168,10 @@ export function MetaConnectionCard({ projectId }: { projectId: string }) {
           {isConnected ? "Conectado" : status === "error" ? "Erro" : "Desconectado"}
         </Badge>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+      <p className="mt-3 text-sm text-muted-foreground">
         {conn?.ad_account_id
           ? `Ad Account ${conn.ad_account_id}`
-          : "Conecte uma conta de anúncios Meta para sincronizar e publicar campanhas."}
+          : "Conecte uma conta de anúncios Meta para publicar rascunhos."}
       </p>
       {conn?.error_message && (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">

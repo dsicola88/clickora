@@ -87,7 +87,7 @@ export default function InAppUserGuidePage() {
       <PageHeader
         centered
         title="Aprender"
-        description="Artigos e atalhos por tema (inclui «Resolução de problemas» para blacklist, GCLID e postbacks). Pesquise, salte à secção ou abra o ecrã certo. No fim: percursos guiados como no Resumo e guia."
+        description="Artigos por tema e pesquisa; atalhos e resolução de problemas (GCLID, postbacks)."
       />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between max-w-3xl mx-auto w-full">

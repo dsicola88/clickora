@@ -652,7 +652,7 @@ export default function PresellDashboard() {
         <div className={APP_PAGE_SHELL}>
           <PageHeader
             title="Sem permissão"
-            description="O seu papel neste workspace não permite criar nem editar presells. É necessário ser membro, administrador ou ter a permissão «presells:write»."
+            description="Precisa de permissão «presells:write» neste workspace."
             actions={
               <Button variant="outline" onClick={exitCreator}>
                 Voltar à lista
@@ -673,8 +673,8 @@ export default function PresellDashboard() {
           description={
             isAdmin
               ? isEditing
-                ? "Altere nome, slug, tipo, links e opções. O texto e as imagens já importados mantêm-se; para voltar a extrair tudo da URL, duplique a página na lista ou crie uma presell nova."
-                : "Fluxo simples, no estilo de geradores dedicados a presells: projeto e URLs, depois tipo de página (ex. cookies como «modelo» de entrada), e por fim o endereço público /p/… e rastreamento. O conteúdo é extraído do URL da oferta — sem WordPress nem plugins."
+                ? "Nome, slug, tipo e links; reimportar só duplicando ou criando página nova."
+                : "Importa conteúdo do URL da oferta; em 3 passos: URLs, tipo e slug /p/…"
               : undefined
           }
           actions={
@@ -707,47 +707,22 @@ export default function PresellDashboard() {
             {isEditing ? (
               <>
                 <p className="font-medium text-card-foreground mb-2">Edição</p>
-                <p>
-                  As alterações aplicam-se ao que está guardado. Não voltamos a aceder ao site do produto automaticamente;
-                  só atualiza o que preencher aqui (incluindo o link da oferta e o vídeo manual em VSL).
-                </p>
+                <p>Alterações são locais; não voltamos a ler o site da oferta automaticamente.</p>
               </>
             ) : (
               <>
-                <p className="font-medium text-card-foreground mb-2">O que acontece ao criar</p>
-                <p className="mb-3 text-xs sm:text-sm leading-relaxed">
-                  A página pública fica em{" "}
-                  <span className="font-mono text-[11px] text-foreground/90">https://…/p/&lt;id-da-presell&gt;</span>
-                  —{" "}
-                  <span className="text-foreground/90 font-medium">
-                    {hasVerifiedCustomDomain
-                      ? "no teu domínio verificado ou no dclickora, conforme a conta"
-                      : "no domínio dclickora"}
-                  </span>
-                  . O URL importado e o link de afiliado (passo 1) servem para gerar conteúdo e para o clique final na oferta;{" "}
-                  <span className="font-medium text-card-foreground">não</span> é o URL de destino do anúncio. O anúncio deve
-                  usar o link público com <span className="font-mono text-[11px]">/p/</span> — ao concluir a criação, esse
-                  link é copiado automaticamente para a área de transferência.
+                <p className="font-medium text-card-foreground mb-2">Ao criar</p>
+                <p className="mb-3 text-xs sm:text-sm text-muted-foreground">
+                  Página pública em <span className="font-mono text-[11px]">…/p/&lt;id&gt;</span> —{" "}
+                  {hasVerifiedCustomDomain ? "domínio verificado ou dclickora." : "domínio dclickora."}{" "}
+                  O anúncio usa esse link com <span className="font-mono text-[11px]">/p/</span> (copiado ao concluir).
                 </p>
-                <ol className="list-decimal list-inside space-y-1.5">
-                  <li>A ferramenta acessa o link do produto e extrai textos e imagens.</li>
-                  <li>Monta uma página estruturada (não é cópia idêntica do site do produtor).</li>
-                  <li>
-                    Para <span className="text-foreground font-medium">VSL + TSL (Combo)</span>, a página pública mostra o
-                    vídeo no topo e a carta de vendas completa abaixo. Para <span className="text-foreground font-medium">VSL</span>{" "}
-                    só, o destaque é o vídeo e os botões (sem repetir a carta longa abaixo). O vídeo é detetado no import quando
-                    possível.
-                  </li>
-                  <li>
-                    O link público (com <span className="font-mono text-[11px]">/p/</span>) fica copiado após criar; na lista
-                    pode voltar a <span className="text-foreground font-medium">Copiar</span> para anúncios.
-                  </li>
-                  <li>
-                    Quem preferir desenhar a página no editor visual por blocos deve usar{" "}
-                    <span className="text-foreground font-medium">Editor manual</span> na lista — não este assistente por
-                    URL. O mesmo limite de presells da conta aplica-se aos dois modos.
-                  </li>
-                </ol>
+                <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground">
+                  <li>Importamos texto e imagens do URL da oferta.</li>
+                  <li>Montamos página estruturada (não é cópia 1:1 do site original).</li>
+                  <li>VSL/TSL conforme o tipo; vídeo detetado quando o HTML expõe URL.</li>
+                  <li>Editor manual para desenho por blocos — outro fluxo, mesmo limite de presells.</li>
+                </ul>
               </>
             )}
           </div>
@@ -788,9 +763,8 @@ export default function PresellDashboard() {
                 </li>
               ))}
             </ol>
-            <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-              Experiência próxima de ferramentas como o SpeedyPresell: nome do projeto, URL a importar, hoplink de clique
-              (recomendado para a rede contar a conversão) — depois o «modelo» (cookies, VSL, etc.) e o endereço público.
+            <p className="text-[11px] text-muted-foreground mt-3">
+              Estilo ferramentas dedicadas: projeto, hoplink recomendado, modelo (cookies, VSL…) e slug.
             </p>
           </div>
         ) : null}
@@ -863,15 +837,11 @@ export default function PresellDashboard() {
                     className={formErrors.affiliateLink ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.affiliateLink} />
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    <span className="font-medium text-foreground/85">Recomendado</span> sempre que o URL acima for só a página
-                    de vendas para «ler» o conteúdo: aqui cola o hoplink com tracking da plataforma — é para onde o visitante
-                    vai ao clicar e onde a conversão deve ser contada.
+                  <p className="text-xs text-muted-foreground">
+                    Hoplink com tracking da rede — destino do botão e conversão a contar.
                   </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Só faz sentido deixar vazio se o primeiro URL <span className="font-medium text-foreground/80">já for</span>{" "}
-                    o teu link rastreado (o botão passa a usar o destino final dessa importação). Se importaste uma página
-                    neutra e não preencheres este campo, o clique pode não levar ao URL certo da rede.
+                  <p className="text-xs text-muted-foreground">
+                    Só omita se o URL de importação já for o teu link rastreado.
                   </p>
                 </div>
 
@@ -1113,14 +1083,13 @@ export default function PresellDashboard() {
         {(isEditing || creatorStep === 3) && (
           <>
             {trackingEmbedScript ? (
-              <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground leading-relaxed">
-                <span className="font-medium text-card-foreground">Rastreamento Clickora: </span>
-                o script da tua conta é incluído automaticamente em «Código no head» ao guardar (e ao abrir uma presell
-                nova). Podes acrescentar Google, Meta ou outros scripts na secção opcional abaixo.
+              <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                <span className="font-medium text-card-foreground">Rastreamento: </span>
+                ao guardar, o script da conta vai para «Código no head»; pode acrescentar outros scripts em baixo.
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-                Inicia sessão para associar o rastreamento Clickora à presell ao guardar.
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground">
+                Inicie sessão para ligar o rastreamento Clickora ao guardar.
               </div>
             )}
 
@@ -1173,11 +1142,11 @@ export default function PresellDashboard() {
     return (
       <EmptyState
         title="Nenhuma presell criada"
-        description={
-          isAdmin
-            ? "Assistência em 3 passos (URLs + tipo + endereço), estilo ferramentas dedicadas a presells. Manual: «Editor manual». Ambas usam o link público /p/…"
-            : "Crie a primeira página (automática ou manual) para começar."
-        }
+            description={
+              isAdmin
+                ? "Assistente por URL (passos) ou editor por blocos — ambos em /p/…"
+                : "Crie a primeira página (automática ou manual)."
+            }
         actionLabel={canWritePresells ? "Criar presell (3 passos)" : undefined}
         onAction={
           canWritePresells
@@ -1198,7 +1167,7 @@ export default function PresellDashboard() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Lista de páginas Presell"
-        description={isAdmin ? "Gerencie, duplique e publique suas páginas em um único lugar." : undefined}
+        description={isAdmin ? "Duplicar, publicar e organizar num só sítio." : undefined}
         actions={
           canWritePresells ? (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -1221,20 +1190,12 @@ export default function PresellDashboard() {
 
       {isAdmin ? (
         <div className="rounded-xl border border-border/50 bg-muted/25 px-4 py-4 sm:px-5 text-sm text-muted-foreground space-y-2">
-          <p className="font-medium text-card-foreground">Por que uma presell?</p>
+          <p className="font-medium text-card-foreground">Por que presell?</p>
           <p>
-            Para muitos afiliados que promovem ofertas internacionais, o anúncio leva primeiro a uma{" "}
-            <span className="text-foreground/90 font-medium">página sua</span> (presell), que contextualiza o produto e só
-            depois encaminha para o <span className="text-foreground/90 font-medium">link oficial da oferta</span>. Redes como
-            o Google Ads avaliam destino, transparência e consistência com o anúncio — enviar tráfego direto para certas URLs
-            do produtor pode ser restrito ou reprovado; uma presell no seu domínio é uma forma comum de cumprir esse fluxo.
+            O anúncio leva à tua página intermédia — depois ao link da oferta — padrão comum para cumprir políticas de redes como o Google Ads.
           </p>
-          <p className="text-xs leading-relaxed border-t border-border/50 pt-3 mt-3">
-            <span className="font-medium text-card-foreground">Importante:</span> a aprovação e a veiculação dependem das{" "}
-            <span className="text-foreground/90">políticas atuais</span> da rede, do criativo, da página e da sua conta. A
-            dclickora ajuda a criar a página intermediária;{" "}
-            <span className="text-foreground/90">não garante aprovação</span> nem substitui a leitura das regras oficiais
-            (ex.: Google Ads).
+          <p className="text-xs border-t border-border/50 pt-3 mt-3">
+            <span className="font-medium text-card-foreground">Importante:</span> aprovação depende das regras da rede; a dclickora não garante resultado.
           </p>
         </div>
       ) : null}

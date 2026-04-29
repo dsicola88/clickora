@@ -57,7 +57,7 @@ function MetaCampaigns() {
     <div className="pb-12">
       <PageHeader
         title="Campanhas Meta"
-        description="Todas as campanhas de Facebook e Instagram deste projeto, incluindo rascunhos aguardando aprovação."
+        description="Campanhas Meta (FB + IG), rascunhos incluídos."
         actions={
           <Button asChild>
             <Link to="/app/projects/$projectId/paid/meta/wizard" params={{ projectId }}>
@@ -125,8 +125,7 @@ function Empty({ projectId }: { projectId: string }) {
       </div>
       <h3 className="font-semibold">Nenhuma campanha Meta ainda</h3>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Gere a primeira campanha Meta planejada por IA. Tudo entra como rascunho e passa por
-        aprovação antes de qualquer publicação.
+        IA cria rascunhos; revise na fila de aprovações antes de publicar.
       </p>
       <Button asChild className="mt-2">
         <Link to="/app/projects/$projectId/paid/meta/wizard" params={{ projectId }}>

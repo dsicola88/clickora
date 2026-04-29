@@ -106,7 +106,7 @@ export default function Plans() {
   const heroTitle = landing?.hero_title ?? "Escolha seu plano";
   const heroSubtitle =
     landing?.hero_subtitle ??
-    "Limites de presells e cliques por plano estão nos cartões. O que segue descreve as funcionalidades da plataforma — resultados de campanha dependem da sua oferta e tráfego.";
+    "Limites por plano nos cartões; resultados dependem da oferta e tráfego.";
   const badgeText = landing?.badge_text?.trim() ?? "";
   const introText = landing?.intro_text?.trim() ?? "";
   const footerText = landing?.footer_text?.trim() ?? "";

@@ -107,7 +107,7 @@ function NewCampaignWizard() {
     <div className="pb-12">
       <PageHeader
         title="Nova campanha"
-        description="Gere um plano de Google Ads Search com IA. Tudo passa por aprovação antes de publicar."
+        description="Plano Google Search com IA; só publica depois de aprovação."
         badge={<Badge variant="soft">IA · Copilot</Badge>}
         actions={
           <Button variant="ghost" asChild>
@@ -122,7 +122,7 @@ function NewCampaignWizard() {
           onSubmit={onSubmit}
           className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-card"
         >
-          <Field label="URL da landing page" hint="Para onde o clique no anúncio leva.">
+          <Field label="URL da landing page" hint="Destino do clique.">
             <Input
               type="url"
               value={landingUrl}
@@ -130,10 +130,7 @@ function NewCampaignWizard() {
               required
             />
           </Field>
-          <Field
-            label="Oferta / proposta de valor"
-            hint="Uma ou duas frases. Vai virar texto de anúncio."
-          >
+          <Field label="Oferta / proposta de valor" hint="Texto base para variações no anúncio.">
             <Textarea
               rows={3}
               value={offer}
@@ -161,7 +158,7 @@ function NewCampaignWizard() {
                 required
               />
             </Field>
-            <Field label="Geo (alvos)" hint="Códigos ISO-2, separados por vírgula.">
+            <Field label="Geo (alvos)" hint="ISO-2, vírgulas.">
               <Input
                 value={geos}
                 onChange={(e) => setGeos(e.target.value)}
@@ -187,7 +184,7 @@ function NewCampaignWizard() {
 
           <div className="flex items-center justify-between border-t border-border pt-4">
             <p className="text-xs text-muted-foreground">
-              O plano cria entidades em rascunho + um pedido de mudança pendente. Nada é publicado.
+              Rascunho + pedido de mudança — sem publicação direta.
             </p>
             <Button type="submit" disabled={submitting}>
               <Sparkles className="mr-1 h-4 w-4" />

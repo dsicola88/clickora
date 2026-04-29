@@ -507,7 +507,7 @@ export default function Rotadores() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Rotadores de tráfego"
-        description="Um link público distribui por vários destinos: A/B ponderado, geo (permitir/excluir países), mobile vs desktop por braço, URL de recurso. sub1–sub3 e sufixo de caminho no URL (ex.: /rot/UUID/fb/campanha) segmentam nos relatórios. A presell de contexto liga conversões por postback."
+        description="Um link: A/B ponderado, geo, mobile/desktop, sub1–3 — presell opcional para conversões."
         actions={
           canWriteRotators ? (
             <Button

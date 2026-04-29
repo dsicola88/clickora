@@ -244,7 +244,7 @@ export default function PresellManualPagesPage() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Páginas criadas"
-        description="Páginas montadas no editor manual (multiconta: só vê as da sua sessão). Visualize, edite, exporte ou remova."
+        description="Editor manual por conta — lista só da sua sessão."
         actions={
           canWritePresells ? (
             <Button type="button" className="gap-2" onClick={() => navigate("/presell/builder")}>
@@ -256,11 +256,8 @@ export default function PresellManualPagesPage() {
       />
 
       <div className="mt-6 flex flex-col gap-4">
-        <div className="rounded-xl border border-border/50 bg-card/80 p-4 text-sm text-muted-foreground leading-relaxed">
-          <p>
-            Cada conta (afiliado ou assinante) tem a sua própria lista. Os dados vêm do servidor após iniciar sessão —
-            não se misturam entre utilizadores.
-          </p>
+        <div className="rounded-xl border border-border/50 bg-card/80 p-4 text-sm text-muted-foreground">
+          <p>Cada login vê só as suas páginas guardadas no servidor.</p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

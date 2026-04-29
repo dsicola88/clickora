@@ -24,15 +24,15 @@ export default function Home() {
           title="O que você deseja fazer?"
           description={
             <>
-              Presell, rastreamento ou anúncios (Premium) — escolha um cartão.{" "}
+              Presell, rastreamento ou anúncios (Premium). Primeira vez:{" "}
               <Link
                 to="/tracking/setup-assistant"
                 className="text-primary font-medium underline-offset-4 hover:underline inline-flex items-center gap-1"
               >
                 <ListChecks className="h-3.5 w-3.5 shrink-0" />
-                Assistente passo a passo
-              </Link>{" "}
-              se for a primeira configuração.
+                Assistente
+              </Link>
+              .
             </>
           }
         />
@@ -57,7 +57,7 @@ export default function Home() {
             <h2 className="text-xl font-bold text-card-foreground">Criador de Presell</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-            Presell automática (URL do produto) ou manual (editor visual). Publique e use o link /p/… nos anúncios.
+            Automática (URL) ou manual (editor); anúncios com o link /p/….
           </p>
           <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
             Acessar <ArrowRight className="h-4 w-4" />
@@ -78,7 +78,7 @@ export default function Home() {
             <h2 className="text-xl font-bold text-card-foreground">Rastreamento</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-            Acompanhe cliques, conversões e vendas no período que escolher.
+            Cliques, conversões e vendas no período escolhido.
           </p>
           <div className="flex items-center gap-2 text-accent font-medium text-sm group-hover:gap-3 transition-all">
             Acessar <ArrowRight className="h-4 w-4" />
@@ -108,8 +108,7 @@ export default function Home() {
             )}
           </div>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-            Automação assistida para campanhas Google e Meta (fluxo human-in-the-loop). Incluído no plano Premium; Pro mantém presell e
-            rastreamento.
+            Google/Meta com revisão humana (Premium); Pro = presell + tracking.
           </p>
           <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
             {dpilotUnlocked ? "Abrir anúncios" : "Ver planos Premium"} <ArrowRight className="h-4 w-4" />

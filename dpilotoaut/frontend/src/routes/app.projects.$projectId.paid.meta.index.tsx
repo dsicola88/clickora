@@ -45,7 +45,7 @@ function MetaOverview() {
     <div className="pb-12">
       <PageHeader
         title="Meta Ads · visão geral"
-        description="Crie e governe campanhas de Facebook e Instagram com o mesmo fluxo de aprovação do Google Ads."
+        description="Facebook e Instagram com o mesmo fluxo de aprovação do Google Ads."
         actions={<NewMetaCampaignButton projectId={projectId} />}
       />
       <div className="space-y-6 px-6 py-6 sm:px-8">
@@ -61,7 +61,7 @@ function MetaOverview() {
             icon={<Target className="h-4 w-4" />}
             label="Aprovações Meta pendentes"
             value={counts?.pending}
-            sub={counts && counts.pending > 0 ? "exigem revisão antes de publicar" : "fila vazia"}
+            sub={counts && counts.pending > 0 ? "À revisar antes de publicar" : "Fila vazia"}
             link={{
               to: "/app/projects/$projectId/paid/approvals",
               label: "Ver fila",
@@ -74,12 +74,12 @@ function MetaOverview() {
           <InfoCard
             icon={<Sparkles className="h-4 w-4" />}
             title="Como funciona"
-            body="A IA gera um plano: 1 campanha + 1 conjunto + 3 variações de criativo. Tudo entra como rascunho e como pedido de aprovação. Nenhuma publicação real acontece sem conexão Meta + worker."
+            body="Campanha + conjunto + 3 criativos em rascunho; só publica com Meta ligado e aprovação."
           />
           <InfoCard
             icon={<ImageIcon className="h-4 w-4" />}
             title="Criativos & compliance"
-            body="Imagem é referência por URL nesta versão. O sistema injeta um aviso de compliance: o anunciante é responsável pelas políticas do Meta (categorias especiais, etc.)."
+            body="Imagem por URL; o anunciante cumpre políticas Meta (ex.: categorias especiais)."
           />
         </div>
       </div>
@@ -134,7 +134,7 @@ function InfoCard({ icon, title, body }: { icon: React.ReactNode; title: string;
         </div>
         <p className="font-semibold">{title}</p>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{body}</p>
+      <p className="mt-3 text-sm text-muted-foreground">{body}</p>
       <div className="mt-3">
         <Badge variant="muted">
           <Facebook className="mr-1 h-3 w-3" /> Meta Ads · Facebook + Instagram

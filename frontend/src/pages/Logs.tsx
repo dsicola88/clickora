@@ -38,7 +38,7 @@ export default function Logs() {
       <PageHeader
         centered
         title="Logs"
-        description="Consulte os registos do sistema. A lista preenche-se quando houver eventos."
+        description="Registos do sistema quando existirem eventos."
       />
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">

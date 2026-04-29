@@ -363,7 +363,7 @@ export default function UrlBuilder() {
       <PageHeader
         centered
         title="Construtor de URL"
-        description="Monta o URL da presell com parâmetros da rede (UTMs, gclid, etc.). Alinha com Integrações → Plataformas e o webhook de postback de afiliados."
+        description="URL da presell com UTMs; alinha com Integrações → Plataformas e webhooks."
         actions={
           <Button
             type="button"

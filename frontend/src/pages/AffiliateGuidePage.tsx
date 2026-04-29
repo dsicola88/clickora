@@ -78,9 +78,7 @@ export default function AffiliateGuidePage() {
           Guia prático: presell, tracking e conversões para quem vende com tráfego
         </h1>
         <p className="mt-4 text-lg text-muted-foreground leading-relaxed text-pretty">
-          Este guia reúne as pesquisas mais comuns — desde <strong>criar presell rápido</strong> até{" "}
-          <strong>como rastrear cliques no marketing digital</strong> — com foco em afiliados que precisam de
-          CPA previsível e decisões com dados, não com opiniões.
+          Da presell rápida ao rastreio no digital — foco em afiliados e CPA com dados.
         </p>
 
         <nav
@@ -109,11 +107,7 @@ export default function AffiliateGuidePage() {
               Criar presell rápido (sem sacrificar conversão)
             </h2>
             <p>
-              «Rápido» não deve significar página frágil. O segredo é <strong>reutilizar estrutura</strong>: hero
-              alinhado ao anúncio, prova (depoimentos, números ou demo) e um único CTA claro para o link de afiliado.
-              Quem parte de templates e blocos — em vez de HTML estático reinventado a cada campanha — itera Páginas
-              e criativos em paralelo. Na dclickora, a presell e o mesmo ecossistema dos cliques: poupas tempo e
-              manténs congruência entre o que o utilizador viu no anúncio e o que lê na página.
+              Hero alinhado ao anúncio, prova e um CTA — templates e presell + tracking na mesma app reduzem fricção.
             </p>
             <p className="mt-3">
               <Link to="/presell-para-afiliados" className="text-primary font-medium underline-offset-4 hover:underline">
@@ -127,11 +121,7 @@ export default function AffiliateGuidePage() {
               Ferramenta para afiliados: o que validar antes de assinar
             </h2>
             <p>
-              Uma <strong>ferramenta para afiliados</strong> útil não é só um gerador de links: junta{" "}
-              <strong>presell</strong>, <strong>rastreamento de conversões</strong> e leitura de campanhas (origem,
-              meio, criativo). Evita sandes em que o click sai de um sítio, a página vive em outro e o relatório em
-              Excel. Quando o fluxo é único, consegues saber qual presell + qual anúncio gerou venda — essencial para
-              escalar o que funciona e cortar o resto.
+              Presell + conversões + leitura de campanha no mesmo fluxo — evita relatório solto num Excel.
             </p>
           </section>
 
@@ -140,11 +130,7 @@ export default function AffiliateGuidePage() {
               Rastrear cliques de afiliados com método
             </h2>
             <p>
-              Para <strong>rastrear cliques</strong> com sentido, defines uma convenção: um link (ou conjunto de
-              parâmetros UTM) por campanha e por criativo. Assim comparas canais sem misturar conversões. O próximo
-              passo é ligar impressões e cliques ao mesmo universo da tua presell — senão estás a optimizar «cliques
-              soltos» que não correspondem à narrativa da página. Um painel que mostra tráfego → presell → clique na
-              oferta fecha essa história.
+              Um conjunto UTMs por campanha/criativo; ligue cliques ao que a presell conta — métricas soltas enganam.
             </p>
             <p className="mt-3">
               <Link
@@ -161,11 +147,7 @@ export default function AffiliateGuidePage() {
               Alternativa ao «click tracker» genérico
             </h2>
             <p>
-              Muitos <strong>click trackers</strong> contam visitas, mas ignoram o contexto da afiliação: presells,
-              múltiplos produtos e o caminho até ao checkout do produtor. Uma <strong>alternativa</strong> sólida
-              junta o controlo da mensagem na presell com o mesmo motor que regista o clique final. O objetivo não é
-              «mais métricas», é <strong>decisões mais rápidas</strong>: pausar anúncio, mudar headline ou duplicar
-              criativo com base no que a folha de resultado mostra.
+              No mesmo serviço: mensagem na presell + mesmo motor de clique — menos atribuição partida que um tracker genérico.
             </p>
           </section>
 
@@ -174,10 +156,7 @@ export default function AffiliateGuidePage() {
               Como criar presell que converte
             </h2>
             <p>
-              <strong>Como criar presell que converte</strong> costuma resumir-se a três perguntas: (1) O título
-              repete a promessa do anúncio? (2) A prova é específica ao nicho (não genérica)? (3) O CTA leva ao link
-              certo, rastreado? Se uma falha, o tráfego mais caro não salva. Testa uma variante de headline ou de
-              prova de cada vez — senão não sabes o que moveu a taxa de clique para a oferta.
+              Promessa = anúncio, prova específica, CTA rastreado — testar uma hipótese de cada vez para saber o que mexeu na taxa.
             </p>
           </section>
 
@@ -186,11 +165,7 @@ export default function AffiliateGuidePage() {
               Como rastrear cliques no marketing digital
             </h2>
             <p>
-              Em marketing digital, <strong>rastrear cliques</strong> é combinar URLs com UTMs consistentes, evitar
-              links «nuas» em slides ou vídeo sem parâmetros e rever semanalmente o que alimenta cada campanha. No
-              fundo queres uma linha do tempo: de onde veio o clique → o que a pessoa viu na presell → se chegou à
-              oferta. Sem isso, optimizar orçamento é adivinhar. Integrar presell + tracking no mesmo serviço reduz
-              erros de atribuição e cópia de links errados.
+              UTMs consistentes na rede; evite links sem parâmetros. Queremos origem → presell → oferta sem buracos na linha temporal.
             </p>
           </section>
 
@@ -200,24 +175,20 @@ export default function AffiliateGuidePage() {
             </h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong>Presell desalinhada do criativo</strong> — a pessoa clica por uma promessa e lê outra
-                história; sai antes do CTA.
+                <strong>Presell diferente do anúncio</strong> — abandono antes do CTA.
               </li>
               <li>
-                <strong>Links sem rastreamento ou com UTMs misturados</strong> — não sabes qual campanha paga as
-                conversões.
+                <strong>UTMs misturadas</strong> — não sabe qual campanha pagou conversões.
               </li>
               <li>
-                <strong>Muitos CTAs ou distrações</strong> — uma presell de performance vive de um próximo passo
-                claro.
+                <strong>Muitos CTAs</strong> — um próximo passo claro ganha.
               </li>
               <li>
-                <strong>Não medir até ao clique na oferta</strong> — impressões bonitas não pagam contas; o
-                utilizador tem de chegar ao teu link de afiliado com intenção.
+                <strong>Só beleza nos números</strong> sem clique até à oferta rastreada.
               </li>
             </ul>
             <p className="mt-4">
-              Corrigir estes pontos costuma baixar custo por lead mais do que «mudar só o anúncio» sem tocar na página.
+              Corrigir página e medição rende mais do que só trocar o anúncio.
             </p>
           </section>
         </div>
@@ -225,8 +196,7 @@ export default function AffiliateGuidePage() {
         <section className="mt-14 text-center rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 px-6 py-10 text-white shadow-xl border border-white/10">
           <h2 className="text-xl font-bold tracking-tight">Passar teoria a números na tua conta</h2>
           <p className="mt-2 text-sm text-slate-300 max-w-md mx-auto">
-            Testa presells e tracking no mesmo sítio: escolhe um plano ou abre uma conta grátis e liga a tua primeira
-            campanha com UTMs consistentes.
+            Presell + tracking na mesma conta; planos ou teste grátis com UTMs limpas.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
             <Button

@@ -42,7 +42,7 @@ export default function Settings() {
       <PageHeader
         centered
         title="Configurações"
-        description="Preferências da aplicação e resumo do teu plano. Perfil, senha e foto: menu Conta → Perfil."
+        description="Preferências e plano; perfil em Conta → Perfil."
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

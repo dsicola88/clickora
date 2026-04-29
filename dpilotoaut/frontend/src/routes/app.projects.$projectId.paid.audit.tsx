@@ -93,7 +93,7 @@ function AuditLog() {
     <div className="pb-12">
       <PageHeader
         title="Auditoria"
-        description="Toda execução de IA e todo pedido de mudança, com revisor e resultado. Feito para prestação de contas."
+        description="Execuções de IA e pedidos de alteração, com estado e revisor."
       />
       <div className="grid gap-6 px-6 py-6 lg:grid-cols-2 sm:px-8">
         <Section

@@ -58,7 +58,7 @@ function CampaignsList() {
     <div className="pb-12">
       <PageHeader
         title="Campanhas"
-        description="Todas as campanhas Google Ads Search deste projeto, incluindo rascunhos aguardando aprovação."
+        description="Google Ads Search deste projeto (rascunhos incluídos)."
         actions={
           <Button asChild>
             <Link to="/app/projects/$projectId/paid/campaigns/new" params={{ projectId }}>
@@ -126,8 +126,7 @@ function EmptyState({ projectId }: { projectId: string }) {
       </div>
       <h3 className="font-semibold">Nenhuma campanha ainda</h3>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Gere sua primeira campanha do Google Ads Search planejada por IA. Rascunhos passam por
-        aprovação antes de qualquer publicação.
+        IA gera o plano em rascunho; só publica após aprovação.
       </p>
       <Button asChild className="mt-2">
         <Link to="/app/projects/$projectId/paid/campaigns/new" params={{ projectId }}>

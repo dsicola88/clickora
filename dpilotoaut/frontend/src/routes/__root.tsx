@@ -17,9 +17,8 @@ function NotFoundComponent() {
         <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           Recurso não encontrado
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          O endereço pode ter sido alterado, o link está incorreto, ou a sua sessão não tem
-          permissão para ver este conteúdo.
+        <p className="mt-3 text-sm text-muted-foreground">
+          Endereço inválido, sem permissão ou recurso movido.
         </p>
         <div className="mt-8">
           <Button asChild>
