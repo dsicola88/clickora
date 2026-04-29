@@ -33,6 +33,7 @@ import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
+import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
 
 export function Gate({ children }: { children: React.ReactNode }) {
@@ -70,7 +71,6 @@ export function Gate({ children }: { children: React.ReactNode }) {
 
 export function DpilotVisaoPage() {
   const p = useDpilotPaid();
-  const maxDailyMicros = (p.overview?.guardrails as { max_daily_budget_micros?: number })?.max_daily_budget_micros;
   const paidModeRaw = p.overview?.project.paid_mode ?? "";
   const paidModeLabel =
     paidModeRaw === "autopilot"
@@ -178,21 +178,7 @@ export function DpilotVisaoPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Limites de segurança</CardTitle>
-            <CardDescription>Teto de orçamento diário para este projecto</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold tabular-nums">
-              {typeof maxDailyMicros === "number" ? formatUsdFromMicros(maxDailyMicros) : "—"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Valores em USD alinhados às contas Google/Meta/TikTok. Limites adicionais (países, palavras) aplicam-se
-              na geração do plano.
-            </p>
-          </CardContent>
-        </Card>
+        <DpilotGuardrailsCeilingCard />
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Aprovações pendentes</CardTitle>
@@ -858,12 +844,15 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                       A aplicar…
                     </>
                   ) : (
-                    <>Aplicar orçamento sugerido ({formatUsdFromMicros(budgetSnap.suggestedMicros)}/dia)</>
+                    <>Alinhar orçamento ao teto configurado ({formatUsdFromMicros(budgetSnap.suggestedMicros)}/dia)</>
                   )}
                 </Button>
                 <span className="text-[11px] leading-snug text-muted-foreground">
-                  Opcional — actualiza o rascunho no Clickora para o teto dos guardrails; depois pode voltar a «Aplicar na
-                  rede».
+                  Usa o <strong className="font-medium text-foreground">orçamento máximo diário</strong> que está em{" "}
+                  <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/visao`}>
+                    Visão geral
+                  </Link>{" "}
+                  (guardrails neste workspace), não um valor mágico fixo na app — altere esse teto lá se precisar de outro limite antes de clicar aqui.
                 </span>
               </div>
             </div>
