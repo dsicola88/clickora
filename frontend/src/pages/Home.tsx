@@ -24,13 +24,13 @@ export default function Home() {
           title="O que você deseja fazer?"
           description={
             <>
-              Presell, rastreamento ou anúncios (Premium). Primeira vez:{" "}
+              Escolha o que precisa primeiro. Nova conta? Sugerimos começar pelo{" "}
               <Link
                 to="/tracking/setup-assistant"
                 className="text-primary font-medium underline-offset-4 hover:underline inline-flex items-center gap-1"
               >
                 <ListChecks className="h-3.5 w-3.5 shrink-0" />
-                Assistente
+                assistente passo a passo
               </Link>
               .
             </>

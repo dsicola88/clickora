@@ -87,7 +87,14 @@ export default function InAppUserGuidePage() {
       <PageHeader
         centered
         title="Aprender"
-        description="Artigos por tema e pesquisa; atalhos e resolução de problemas (GCLID, postbacks)."
+        description={
+          <>
+            Mesmos temas agrupados, pesquisa por palavra e botões rápidos. Texto corrido maior no «Guia» público —
+            aqui fazemos por pedaços curtos e, nos percursos guiados em baixo, pode abrir{" "}
+            <span className="text-foreground/90">«Detalhes técnicos»</span> só quando precisar de termos tipo GCLID ou
+            postbacks.
+          </>
+        }
       />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between max-w-3xl mx-auto w-full">
@@ -97,7 +104,7 @@ export default function InAppUserGuidePage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar por tema, rede, UTM, presell…"
+            placeholder="Procurar (presell, vendas, Google, Hotmart…)…"
             className="pl-9 h-11 bg-background"
             aria-label="Pesquisar no centro de ajuda"
           />
@@ -201,8 +208,8 @@ export default function InAppUserGuidePage() {
             Percursos guiados no painel
           </h2>
           <p className="text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            O mesmo conteúdo dos cartões de boas-vindas e do «Resumo e guia» — passo a passo com botões para abrir cada
-            ecrã.
+            Leia só os títulos para ter a ordem dos passos — abra cada bloco só quando precisar. Para jargão da redes,
+            existe um nível extra opcional («Detalhes técnicos») dentro das secções seguintes.
           </p>
         </div>
 
@@ -223,8 +230,8 @@ export default function InAppUserGuidePage() {
           <div className="space-y-1 min-w-0">
             <p className="text-sm font-medium text-foreground">Artigo longo no site (SEO)</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Versão pública com mais texto corrido — presell, tracking e erros comuns. Abre sem a barra lateral do
-              painel.
+              Artigo maior no próprio site, sem barra lateral do painel — para ler com calma e copiar exemplos mais
+              longos.
             </p>
           </div>
           <Button variant="secondary" className="shrink-0 gap-2" asChild>

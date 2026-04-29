@@ -1,6 +1,7 @@
 /**
  * Centro «Aprender» — categorias e atalhos (estilo knowledge base / Learn).
  * Cada entrada liga a rotas reais do painel ou a âncoras na própria página /ajuda.
+ * Copys orientados a linguagem simples; termos técnicos mantêm-se nos `keywords` para pesquisa.
  */
 
 export type LearnHubLink = {
@@ -15,7 +16,7 @@ export type LearnHubCategory = {
   title: string;
   description: string;
   links: LearnHubLink[];
-  /** Palavras para filtro (sinónimos, redes, etc.). */
+  /** Palavras para filtro (sinónimos, redes, termos de power user). */
   keywords?: string[];
 };
 
@@ -25,148 +26,172 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
   {
     id: "comecar",
     title: "Começar",
-    description: "Visão geral do produto e por onde começar depois do login.",
-    keywords: ["início", "onboarding", "primeiros passos", "fluxo"],
+    description: "O que faz sentido logo após o login.",
+    keywords: ["início", "onboarding", "primeiros passos", "fluxo", "tutorial"],
     links: [
       {
         to: "/tracking/setup-assistant",
-        label: "Assistente de configuração (checklist)",
-        hint: "Presell, tracking, postback e Google Ads com estado da conta",
+        label: "Assistente (passos com checklist)",
+        hint: "Do link da presell às redes — só o que falta conta como aviso",
       },
-      { to: "/inicio", label: "Escolher área (início)", hint: "Dashboard de entrada" },
+      { to: "/inicio", label: "Página inicial", hint: "Escolha presell, rastreamento ou anúncios" },
       {
         to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`,
-        label: "Percursos guiados (passo a passo)",
-        hint: "Accordion clique venda",
+        label: "Percursos passo a passo (nesta página)",
+        hint: "Texto principal simples — detalhe técnico opcional dentro de cada bloco",
       },
       {
         to: "/guia-vendas-afiliados",
-        label: "Artigo longo — presell e afiliados (público)",
-        hint: "SEO guia vendas",
+        label: "Artigo longo no site",
+        hint: "Leitura fora do painel, com subtítulos mais longos",
       },
     ],
   },
   {
     id: "presells",
     title: "Presells",
-    description: "Criar, publicar e partilhar páginas intermediárias (/p/…).",
-    keywords: ["landing", "página", "builder", "slug", "público"],
+    description: "Criar páginas de passagem antes da oferta e publicar o link /p/… nos anúncios.",
+    keywords: ["landing", "página", "builder", "slug", "público", "template"],
     links: [
-      { to: "/presell/dashboard", label: "Lista e nova presell", hint: "Nome da página, slug e URL /p/…" },
+      { to: "/presell/dashboard", label: "Lista e nova presell", hint: "Nome, slug e endereço que partilha" },
       {
         to: "/presell/builder",
-        label: "Editor manual (página visual)",
-        hint: "Mesmo link público /p/… que as presells automáticas",
+        label: "Editor manual (aspecto livre)",
+        hint: "O link público continua em /p/… como nas presells rápidas",
       },
-      { to: "/presell/paginas-criadas", label: "Páginas criadas (lista manual)", hint: "Exportar ou remover HTML" },
-      { to: "/presell/templates/editor", label: "Modelos e criador", hint: "templates" },
+      { to: "/presell/paginas-criadas", label: "Páginas do editor manual", hint: "Abrir ou exportar" },
+      { to: "/presell/templates/editor", label: "Modelos e criador guiado", hint: "" },
       {
         to: "/tracking/url-builder",
-        label: "Construtor de URL da presell",
-        hint: "UTMs, macros ValueTrack, sufixo Google Ads",
+        label: "Construtor de URL para a presell",
+        hint: "Gere texto pronto para colar nos anúncios (marcadores já incluídos quando aplicável)",
       },
     ],
   },
   {
     id: "rastreamento",
     title: "Rastreamento e links",
-    description: "Medição de cliques, UTMs, macros das redes e rotadores.",
-    keywords: ["tracking", "utm", "gclid", "click", "redirect"],
+    description: "Contar visitas, montar links e repartir tráfego sem folha paralela.",
+    keywords: ["tracking", "utm", "gclid", "click", "redirect", "rotador"],
     links: [
-      { to: "/tracking/dashboard", label: "Resumo e guia (KPIs, script, Google Ads)", hint: "Script só para HTML externo; /p/… já mede" },
-      { to: "/tracking/links", label: "Links de tracking", hint: "Macros das redes (Google, Meta, Bing…)" },
-      { to: "/tracking/url-builder", label: "Construtor de URL", hint: "Copiar sufixo para o Google Ads" },
-      { to: "/tracking/rotadores", label: "Rotadores de tráfego", hint: "A/B, geo, dispositivo" },
+      {
+        to: "/tracking/dashboard",
+        label: "Resumo e guia",
+        hint: "Números do período, script apenas se hospedar HTML manualmente — /p/… já conta sozinho",
+      },
+      { to: "/tracking/links", label: "Links de tracking", hint: "Macros sugeridas por rede quando existirem" },
+      { to: "/tracking/url-builder", label: "Construtor de URL", hint: "Copiar texto para o campo sufixo do Google e similares" },
+      {
+        to: "/tracking/rotadores",
+        label: "Um link, várias rotas",
+        hint: "Dividir visitas por país, equipamento ou teste A/B",
+      },
       {
         to: "/tracking/blacklist",
-        label: "IP e proteções (blacklist / whitelist)",
-        hint: "Bloquear IPs ou padrões; reduzir cliques inválidos",
+        label: "Bloquear IPs ou intervalos suspeitos",
+        hint: "Menos ruído em campanhas com fraude clicável",
       },
-      { to: "/tracking/tools", label: "Tracking Tools (índice)", hint: "GCLID, clique UUID, postbacks" },
+      {
+        to: "/tracking/tools",
+        label: "Ferramentas de diagnóstico (índice)",
+        hint: "Identificadores de clique Google, UUID, postbacks de exemplo",
+      },
     ],
   },
   {
     id: "conversoes",
     title: "Conversões e plataformas",
-    description: "Postbacks, redes de afiliados e fecho do funil até à venda.",
-    keywords: ["hotmart", "postback", "webhook", "venda", "afiliado"],
+    description: "Ligar vendas aos cliques vindos das redes de afiliação.",
+    keywords: ["hotmart", "postback", "webhook", "venda", "afiliado", "plataforma"],
     links: [
-      { to: "/tracking/plataformas", label: "Plataformas e URL de postback", hint: "Hotmart, macros, e-mail de alerta" },
-      { to: "/tracking/vendas", label: "Vendas (funil)", hint: "Etapas até à venda aprovada" },
+      {
+        to: "/tracking/plataformas",
+        label: "Plataformas — endereço para a rede aceitar vendas aqui",
+        hint: "Cole onde a rede pedir «avisos» ou URLs de servidor",
+      },
+      { to: "/tracking/vendas", label: "Funil até à venda aprovada", hint: "" },
       {
         to: "/tracking/relatorios/conversoes",
-        label: "Relatórios → Conversões",
-        hint: "Exportar GCLID para Google Ads",
+        label: "Relatório de conversões",
+        hint: "Exportar quando precisar de ficheiros para o Google Ads",
       },
       {
         to: "/tracking/relatorios/sem-gclid",
-        label: "Relatórios → Conversões sem GCLID",
-        hint: "Diagnosticar atribuição Google",
+        label: "Vendas sem ID Google no clique",
+        hint: "Diagnóstico quando algo não aparece lá fora mas aparece aqui",
       },
     ],
   },
   {
     id: "relatorios-analytics",
-    title: "Relatórios e analytics",
-    description: "Dados agregados, exportações e relatórios Google Ads (API).",
-    keywords: ["métricas", "gráfico", "export", "GAQL", "palavras-chave"],
+    title: "Relatórios e números",
+    description: "Tabelas com datas, vista rápida e ligações com o Google quando estiver configurado.",
+    keywords: ["métricas", "gráfico", "export", "GAQL", "palavras-chave", "api"],
     links: [
-      { to: "/tracking/relatorios/acessos", label: "Relatórios → Acessos", hint: "Impressões e visitas" },
-      { to: "/tracking/relatorios/cliques", label: "Relatórios → Cliques", hint: "UTM, dispositivo, país" },
+      { to: "/tracking/relatorios/acessos", label: "Acessos (impressões / visitas)", hint: "" },
+      { to: "/tracking/relatorios/cliques", label: "Cliques por dia", hint: "" },
       {
         to: "/tracking/relatorios/conversoes",
-        label: "Relatórios → Conversões",
-        hint: "Sincronização Google/Meta",
+        label: "Conversões",
+        hint: "Atualização quando há avisos da rede ou ligações extra",
       },
-      { to: "/tracking/analytics/presells", label: "Analytics → Presells", hint: "Gráfico por página" },
+      { to: "/tracking/analytics/presells", label: "Vista rápida por presell", hint: "Curvas e totais por página" },
       {
         to: "/tracking/analytics/google-ads/keywords",
-        label: "Google Ads → Palavras-chave",
-        hint: "API em tempo real",
+        label: "Google Ads — palavras de anúncio",
+        hint: "Dados remotos quando a conta está ligada",
       },
       {
         to: "/tracking/analytics/google-ads/search_terms",
-        label: "Google Ads → Termos de pesquisa",
-        hint: "Queries reais",
+        label: "Google Ads — pesquisas reais dos utilizadores",
+        hint: "",
       },
       {
         to: "/tracking/analytics/google-ads/demographics",
-        label: "Google Ads → Demografia",
-        hint: "Idade e género",
+        label: "Google Ads — público (idade/género)",
+        hint: "",
       },
     ],
   },
   {
     id: "integracoes",
     title: "Integrações",
-    description: "Notificações, Telegram, push e ligações externas.",
-    keywords: ["telegram", "email", "web push", "csv google"],
+    description: "Avisos (Telegram, browser, outros) quando o seu plano permitir.",
+    keywords: ["telegram", "email", "web push", "csv google", "smtp"],
     links: [
       {
         to: "/tracking/integrations",
-        label: "Integrações (Telegram, Web Push, CSV Google)",
-        hint: "Alertas de venda e upload offline",
+        label: "Integrações (Telegram, notificações, export CSV)",
+        hint: "Experimentar envios de teste",
       },
-      { to: "/tracking/tools/postbacks", label: "Ferramentas → Modelos de postback", hint: "Microsoft, redes" },
+      {
+        to: "/tracking/tools/postbacks",
+        label: "Modelos de exemplo para redes",
+        hint: "Útil quando a rede lista vários fabricantes ou campos",
+      },
     ],
   },
   {
     id: "ferramentas",
     title: "Ferramentas e diagnóstico",
-    description: "Utilitários rápidos e registo de atividade.",
-    keywords: ["GCLID", "IP", "UUID", "clique", "logs"],
+    description: "Procuras pontuais (clique por ID, local do IP…) e registos do sistema.",
+    keywords: ["GCLID", "IP", "UUID", "clique", "logs", "GeoLite"],
     links: [
-      { to: "/tracking/tools", label: "Tracking Tools — índice", hint: "Atalho para todas as ferramentas" },
-      { to: "/tracking/tools/gclid", label: "GCLID no clique", hint: "Confirmar ID de clique Google" },
-      { to: "/tracking/tools/clique", label: "Detalhe de clique (UUID)", hint: "Lookup estilo tracker" },
-      { to: "/tracking/tools/ip", label: "Rastrear IP (GeoLite)", hint: "Origem aproximada" },
-      { to: "/tracking/logs", label: "Registos (logs)", hint: "Histórico e auditoria" },
+      { to: "/tracking/tools", label: "Índice de ferramentas", hint: "" },
+      {
+        to: "/tracking/tools/gclid",
+        label: "Confirmar se o clique do Google ficou marcado",
+        hint: "",
+      },
+      { to: "/tracking/tools/clique", label: "Procurar um clique pelo identificador", hint: "" },
+      { to: "/tracking/tools/ip", label: "De onde parece vir o IP", hint: "" },
+      { to: "/tracking/logs", label: "Lista de registos recentes do sistema", hint: "" },
     ],
   },
   {
     id: "problemas",
-    title: "Resolução de problemas",
-    description: "Quando algo não bate certo: cliques, conversões, Google Ads ou tráfego suspeito.",
+    title: "Algo correu menos bem",
+    description: "Onde rever quando falta número, aparece erro ou há tráfego estranho.",
     keywords: [
       "erro",
       "falha",
@@ -181,61 +206,61 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
     links: [
       {
         to: "/tracking/setup-assistant",
-        label: "Assistente de configuração (checklist completa)",
-        hint: "Ver estado da conta passo a passo",
+        label: "Assistente completo da conta",
+        hint: "Vê onde falta algo em verde/amarelo",
       },
       {
         to: "/tracking/blacklist",
-        label: "IP e proteções — bloquear tráfego inválido",
-        hint: "Blacklist, whitelist, regras",
+        label: "Bloquear visitas indesejadas",
+        hint: "",
       },
       {
         to: "/tracking/relatorios/sem-gclid",
-        label: "Conversões sem GCLID",
-        hint: "Ver vendas sem ID Google no clique",
+        label: "Vendas sem ID Google na origem",
+        hint: "",
       },
       {
         to: "/tracking/plataformas",
-        label: "Postback e subid (clickora_click_id)",
-        hint: "Alinhar rede com o webhook",
+        label: "Código que a rede deve devolver ao comprar",
+        hint: "Também aparece como identificação interno do clique nesta conta",
       },
       {
         to: "/tracking/tools/clique",
-        label: "Procurar um clique pelo UUID",
-        hint: "Confirmar se o clique existiu",
+        label: "Confirmar um clique concreto",
+        hint: "",
       },
       {
         to: "/tracking/dashboard",
-        label: "Resumo e guia — OAuth Google Ads",
-        hint: "Token expirado, Customer ID, importação automática",
+        label: "Ligação ao Google Ads e número da conta",
+        hint: "Token expira e precisa refrescar quando a própria Google pedir",
       },
       {
         to: "/tracking/logs",
-        label: "Logs — ver o que o sistema registou",
-        hint: "Postbacks e eventos recentes",
+        label: "Ver avisos de venda registados pelo sistema",
+        hint: "",
       },
       {
         to: "/tracking/integrations",
-        label: "Integrações — SMTP e notificações",
-        hint: "E-mail de teste e Telegram",
+        label: "E-mail ou Telegram de alerta",
+        hint: "",
       },
       {
         to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`,
-        label: "Rever o passo a passo (clique → venda)",
-        hint: "Checklist no fim desta página",
+        label: "Revê o texto da secção Percursos guiados em baixo nesta página",
+        hint: "",
       },
     ],
   },
   {
     id: "conta",
     title: "Conta e planos",
-    description: "Perfil, palavra-passe, guia no painel e subscrição.",
+    description: "Os seus dados, equipa onde existir e o plano atual.",
     keywords: ["perfil", "senha", "billing", "plano"],
     links: [
-      { to: "/conta", label: "Conta e preferências", hint: "perfil" },
-      { to: "/tracking/settings", label: "Definições de rastreamento", hint: "workspace" },
-      { to: "/plans", label: "Planos e subscrição", hint: "upgrade" },
-      { to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`, label: "Voltar aos percursos guiados", hint: "ajuda" },
+      { to: "/conta", label: "Conta e segurança", hint: "" },
+      { to: "/tracking/settings", label: "Definições nesta área de tracking", hint: "" },
+      { to: "/plans", label: "Planos", hint: "" },
+      { to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`, label: "Voltar aos percursos no fim da página Aprender", hint: "" },
     ],
   },
 ];

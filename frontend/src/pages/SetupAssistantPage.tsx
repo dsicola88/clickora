@@ -44,8 +44,8 @@ function StatusIcon({ status }: { status: StepStatus }) {
 }
 
 /**
- * Assistente guiado: presell, tracking, postback, Google Ads, Meta e TikTok (server-side) —
- * com verificações baseadas nos dados da conta (resumo de métricas e definições de integração).
+ * Assistente guiado em linguagem simples: presell → links → teste → vendas na rede → opcionais Google/Meta/TikTok.
+ * A lógica de estado continua baseada nos dados da conta (métricas e integrações).
  */
 const SETUP_ASSISTANT_QUERY_PREFIXES = [
   "setup-assistant-presells",
@@ -152,7 +152,7 @@ export default function SetupAssistantPage() {
         id: "presell",
         title: "1. Presell publicada",
         description:
-          "Crie uma presell automática (URL do produto) ou manual, depois publique. O tráfego deve usar o link público /p/… — a medição base (pixel + redirect) está incluída nessa página.",
+          "Crie uma página intermédia (importando o link do produto ou no editor), depois passe a «Publicada». Use no anúncio o endereço público /p/… — os cliques já são contados nesta página.",
         status: hasPublished ? "done" : "pending",
         actions: [
           { to: "/presell/dashboard", label: "Abrir presells" },
@@ -164,9 +164,9 @@ export default function SetupAssistantPage() {
       },
       {
         id: "urls",
-        title: "2. URLs para anúncios (UTMs e Google)",
+        title: "2. Link do anúncio (parâmetros opcionais)",
         description:
-          "Monte o URL final da presell com UTMs e macros no Construtor de URL. No Google Ads: URL final só com /p/…; sufixo do URL final com os parâmetros gerados (botão «Copiar sufixo»).",
+          "No Construtor de URL, copie o link completo ou o sufixo para colar no Google/Meta. O anúncio deve abrir a mesma página /p/… — os textos técnicos aparecem já prontos lá.",
         status: hasPublished ? "done" : "warn",
         actions: [
           { to: "/tracking/url-builder", label: "Construtor de URL" },
@@ -176,9 +176,9 @@ export default function SetupAssistantPage() {
       },
       {
         id: "clicks",
-        title: "3. Teste de cliques",
+        title: "3. Fazer um teste rápido",
         description:
-          "Abra a presell com ?utm_source=teste no anónimo, clique no CTA e confira em Relatórios ou no Resumo se há cliques no período.",
+          "Numa janela anónima ou noutro telemóvel, abra a sua presell, clique no botão da oferta e volte aqui: em Resumo ou Relatórios deve aparecer pelo menos um clique (ajuste as datas se não vir nada).",
         status: clicks > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
           { to: "/tracking/dashboard", label: "Resumo e guia" },
@@ -187,13 +187,13 @@ export default function SetupAssistantPage() {
         hint:
           clicks > 0
             ? `${clicks} clique(s) no período do resumo (~últimos 14 dias).`
-            : "Ainda sem cliques no período — faça um teste ou alargue o intervalo no Resumo.",
+            : "Ainda sem cliques neste período — faça um teste como acima ou alargue as datas no Resumo.",
       },
       {
         id: "postback",
-        title: "4. Postback na rede de afiliados",
+        title: "4. Avisos de venda na rede de afiliados",
         description:
-          "Em Plataformas, copie o URL do webhook e configure na rede (Hotmart, etc.) com o subid / click_id que o dclickora espera. Sem isto, vendas não ligam aos cliques.",
+          "Em Plataformas aparece um endereço para colar na Hotmart ou rede semelhante — assim cada venda aprovada entra aqui e liga ao clique. Sem este passo, só vê cliques, não vendas.",
         status: approvedSales > 0 || conversions > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
           { to: "/tracking/plataformas", label: "Plataformas" },
@@ -202,29 +202,29 @@ export default function SetupAssistantPage() {
         hint: webhook?.hook_url
           ? approvedSales > 0 || conversions > 0
             ? "Há conversões registadas no período."
-            : "Webhook disponível — confirme na rede que o postback está activo."
-          : "Abra Plataformas para ver o URL do webhook (ou verifique permissões da conta).",
+            : "Endereço pronto — confirme na rede que está guardado."
+          : "Abra Plataformas para ver o endereço (ou confirmar permissões da conta).",
       },
       {
         id: "google",
-        title: "5. Google Ads — conversão por clique (API)",
+        title: "5. Google Ads — contar vendas (opcional)",
         description:
-          "No «Resumo e guia do rastreio» ligue o OAuth, indique o Customer ID, a acção de conversão (número) e active o envio. O backend regista a venda aprovada no Google Ads quando o clique tiver gclid / gbraid / wbraid. O ficheiro CSV e o URL de importação manual são processos em paralelo, não o mesmo que este envio automático.",
+          "Se investe em Google: no «Resumo e guia», ligue a sua conta Google Ads, confirme o número da conta e a conversão. Assim uma venda aprovada pode aparecer também no Google (quando há identificadores de clique). Importar ficheiros é outro caminho — aqui é o envio automático.",
         status: gaCanUpload ? "done" : gaHasOAuth && gaCustomer && gaEnv ? "warn" : "pending",
         actions: [{ to: "/tracking/dashboard", label: "Definições Google Ads" }],
         hint: !gaEnv
-          ? "Credenciais da Google Ads API no servidor em falta (ambiente) — o administrador deve configurar variáveis GOOGLE_ADS_*."
+          ? "Neste ambiente a ligação automática com Google ainda não está activa — o administrador tem de concluir a configuração no servidor."
           : gaCanUpload
-            ? "Integração pronta: OAuth, conta e acção de conversão alinhados."
+            ? "Tudo certo: conta ligada e envio pronto."
             : gaHasOAuth && gaCustomer
-              ? "Falta activar o envio ou concluir o ID da acção de conversão no painel."
-              : "Ligue a conta (OAuth) e preencha o Customer ID (apenas números).",
+              ? "Falta um último passo no painel (activar envio ou confirmar o número da conversão)."
+              : "Ligue a sua conta Google Ads e indique o número da conta (só dígitos).",
       },
       {
         id: "capi",
-        title: "6. Meta e TikTok — envio server-side (opcional)",
+        title: "6. Meta e TikTok (opcional)",
         description:
-          "Meta Conversions API (Pixel) e TikTok Events API enviam o evento de compra após o postback, com o mesmo event_id interno que o registo de conversão, para deduplicação. Requerem fbclid e ttclid no URL do clique, respectivamente. Configure no mesmo ecrã que o Google Ads (Resumo e guia).",
+          "Se anuncia no Facebook/Instagram ou TikTok, pode enviar também a compra para lá (no mesmo sítio que o Google). Só vale se o visitante entrou com o link que traz os identificadores da rede — configure no «Resumo e guia».",
         status: !metaTikTokDataReady
           ? "pending"
           : metaTikTokOptionalOk && !metaTikTokWarn
@@ -239,15 +239,15 @@ export default function SetupAssistantPage() {
         hint: !metaTikTokDataReady
           ? "A obter o estado de Meta e TikTok… Se persistir, actualize a página ou confirme a sua sessão."
           : [
-              `Meta: ${!metaEnabled ? "inactiva (opcional)." : metaReady ? "pronta a enviar." : "activa — complete Pixel e token (CAPI)."}`,
-              `TikTok: ${!ttEnabled ? "inactiva (opcional)." : ttReady ? "pronta a enviar." : "activa — complete Pixel e token (Events API)."}`,
+              `Meta: ${!metaEnabled ? "sem ligação (pode ignorar)." : metaReady ? "pronta." : "ligada — falta preencher Pixel e token no guia."}`,
+              `TikTok: ${!ttEnabled ? "sem ligação (pode ignorar)." : ttReady ? "pronta." : "ligada — falta preencher Pixel e token no guia."}`,
             ].join(" "),
       },
       {
         id: "learn",
-        title: "7. Documentação e resolução de problemas",
+        title: "7. Ajuda e dúvidas",
         description:
-          "O centro «Aprender» inclui categorias, pesquisa e tópicos de resolução (GCLID, listas de IP, postback, atribuição).",
+          "No separador «Aprender» há guias por tema e respostas quando algo não bate certo (cliques, vendas, redes).",
         status: "pending",
         actions: [
           { to: "/ajuda", label: "Aprender" },
@@ -287,7 +287,7 @@ export default function SetupAssistantPage() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Assistente de configuração"
-        description="Presell, URLs, tracking, postback, redes e métricas — período alinhado ao resumo."
+        description="Passo a passo simples. Os números de cliques e vendas seguem o mesmo período do Resumo (cerca de 14 dias)."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -305,7 +305,7 @@ export default function SetupAssistantPage() {
               }}
             >
               <RefreshCw className={`h-4 w-4 ${refreshingChecks ? "animate-spin" : ""}`} />
-              Atualizar verificações
+              Atualizar estado
             </Button>
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <Link to="/ajuda">
@@ -333,7 +333,7 @@ export default function SetupAssistantPage() {
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
             <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
             <span className="text-muted-foreground">
-              Progresso (passos 1–6, excepto documentação):{" "}
+              Passos da checklist:{" "}
               <strong className="text-foreground">
                 {doneCount}/{coreSteps.length}
               </strong>{" "}
@@ -350,17 +350,17 @@ export default function SetupAssistantPage() {
             </span>
             {gaMetricsReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Relatórios Google Ads (API) disponíveis
+                Relatórios Google Ads ligados
               </Badge>
             ) : null}
             {showMetaTiktokBadges && pipeline?.meta_capi_integration ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Meta CAPI — credenciais completas
+                Meta — definições completas
               </Badge>
             ) : null}
             {showMetaTiktokBadges && pipeline?.tiktok_events_integration ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                TikTok Events API — credenciais completas
+                TikTok — definições completas
               </Badge>
             ) : null}
           </div>
