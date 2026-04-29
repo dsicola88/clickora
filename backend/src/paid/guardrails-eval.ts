@@ -90,3 +90,21 @@ export function evaluateGuardrails(
 
   return { violations, passed: violations.length === 0 };
 }
+
+/** Vedações que impedem «Aplicar na rede» mesmo após aprovação humana (limite rígido / país / keyword). */
+const APPLY_HARD_BLOCK_CODES: GuardrailViolation["code"][] = [
+  "exceeds_daily_cap",
+  "country_not_allowed",
+  "blocked_keyword",
+];
+
+/** Mensagens apenas para violações que devem bloquear a publicação remota (não inclui `exceeds_approval_threshold`). */
+export function blockingViolationMessagesForApply(
+  limits: GuardrailLimits,
+  proposal: ProposedCampaign,
+): string[] {
+  const { violations } = evaluateGuardrails(proposal, limits);
+  return violations
+    .filter((v) => APPLY_HARD_BLOCK_CODES.includes(v.code))
+    .map((v) => v.message);
+}

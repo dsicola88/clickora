@@ -65,6 +65,27 @@ function ensureUrl(u: string): string {
   return `https://${t}`;
 }
 
+/** Junta detail `GoogleAdsFailure.errors[].message` ao texto genérico da Google. */
+function enrichGoogleMutateError(raw: unknown): string {
+  const root = raw as { error?: { message?: string; details?: unknown[] } };
+  const base = root.error?.message ?? "Erro na Google Ads API.";
+  const details = root.error?.details;
+  const extras: string[] = [];
+  if (Array.isArray(details)) {
+    for (const d of details) {
+      if (!d || typeof d !== "object") continue;
+      const errs = (d as { errors?: Array<{ message?: string }> }).errors;
+      if (!Array.isArray(errs)) continue;
+      for (const e of errs) {
+        const m = e.message?.trim();
+        if (m && !extras.includes(m)) extras.push(m);
+      }
+    }
+  }
+  if (extras.length === 0) return base;
+  return `${base} — ${extras.join("; ")}`;
+}
+
 async function mutate(
   accessToken: string,
   devToken: string,
@@ -90,8 +111,7 @@ async function mutate(
     error?: { message?: string; details?: unknown };
   };
   if (!res.ok) {
-    const msg = raw.error?.message ?? `Google Ads ${servicePath} (${res.status})`;
-    throw new Error(msg);
+    throw new Error(enrichGoogleMutateError(raw));
   }
   const resourceNames = (raw.results ?? [])
     .map((r) => r.resourceName)

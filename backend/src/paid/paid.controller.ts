@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { systemPrisma } from "../lib/prisma";
 import * as mappers from "./api-mappers";
+import { workspaceAllowsApplyBeforeRemote } from "./apply-workspace-guard";
 import { applyChangeRequestRemote } from "./change-request-apply";
 import { ensurePaidAdsBootstrapForUser, ensurePaidAdsProjectRows } from "./bootstrap";
 import { prisma } from "./paidPrisma";
@@ -226,6 +227,10 @@ export const paidController = {
       }
       if (cr.status !== "pending" && cr.status !== "approved") {
         return res.status(400).json({ error: "Só é possível aplicar pedidos pendentes ou aprovados." });
+      }
+      const pre = await workspaceAllowsApplyBeforeRemote(cr.projectId, cr.type, cr.payload);
+      if (!pre.ok) {
+        return res.status(400).json({ error: pre.message });
       }
       const out = await applyChangeRequestRemote(cr.projectId, cr.type, cr.payload);
       if (!out.ok) {
