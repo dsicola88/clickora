@@ -62,6 +62,26 @@ const placementOptions = [
   { value: "messenger", label: "Messenger" },
 ] as const;
 
+type MetaBiddingStrategy = "lowest_cost" | "bid_cap_usd" | "cost_cap_usd";
+
+const META_BIDDING_OPTIONS: { value: MetaBiddingStrategy; label: string; hint: string }[] = [
+  {
+    value: "lowest_cost",
+    label: "Menor custo (automático)",
+    hint: "LOWEST_COST_WITHOUT_CAP — a Meta optimiza dentro do orçamento.",
+  },
+  {
+    value: "bid_cap_usd",
+    label: "Limite máximo de licitação (USD)",
+    hint: "LOWEST_COST_WITH_BID_CAP — teto por evento de optimização (Graph API em centavos).",
+  },
+  {
+    value: "cost_cap_usd",
+    label: "Cost cap / CPA médio alvo (USD)",
+    hint: "COST_CAP quando compatível (conversões/leads/vendas); para tráfego/alcanço usa-se teto em vez de cost cap.",
+  },
+];
+
 const specialCategories = [
   { value: "credit", label: "Crédito" },
   { value: "employment", label: "Emprego" },
@@ -103,6 +123,8 @@ export function DpilotMetaWizardPage() {
   const [placements, setPlacements] = useState<string[]>(["facebook_feed", "instagram_feed", "instagram_stories"]);
   const [categories, setCategories] = useState<string[]>([]);
   const [complianceAck, setComplianceAck] = useState(false);
+  const [metaBiddingStrategy, setMetaBiddingStrategy] = useState<MetaBiddingStrategy>("lowest_cost");
+  const [metaBidAmountUsd, setMetaBidAmountUsd] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -215,6 +237,14 @@ export function DpilotMetaWizardPage() {
       return;
     }
 
+    if (metaBiddingStrategy === "bid_cap_usd" || metaBiddingStrategy === "cost_cap_usd") {
+      const cap = parseFloat(metaBidAmountUsd.replace(",", "."));
+      if (!Number.isFinite(cap) || cap <= 0) {
+        setError("Indique um valor USD positivo para o limite ou cost cap.");
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const { data, error: apiErr } = await paidAdsService.postMetaCampaignPlan(projectId, {
@@ -230,6 +260,12 @@ export function DpilotMetaWizardPage() {
         specialAdCategories: categories.length === 0 ? ["none"] : categories,
         complianceAcknowledged: complianceAck,
         assetPath: assetPath,
+        meta_bidding_strategy: metaBiddingStrategy,
+        ...(metaBiddingStrategy !== "lowest_cost"
+          ? {
+              meta_bid_amount_usd: parseFloat(metaBidAmountUsd.replace(",", ".")),
+            }
+          : {}),
       });
       if (apiErr || !data?.ok) {
         const msg = apiErr || "Falha ao gerar plano";
@@ -369,6 +405,47 @@ export function DpilotMetaWizardPage() {
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
+              <div className="space-y-1">
+                <Label htmlFor="m-bidding-strat" className="text-xs font-medium">
+                  Licitação do conjunto (Meta Ads)
+                </Label>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Escolha como limitar custos; os valores efectivos por leilão continuam definidos pela Meta.
+                </p>
+              </div>
+              <select
+                id="m-bidding-strat"
+                value={metaBiddingStrategy}
+                onChange={(e) => setMetaBiddingStrategy(e.target.value as MetaBiddingStrategy)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {META_BIDDING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {META_BIDDING_OPTIONS.find((o) => o.value === metaBiddingStrategy)?.hint}
+              </p>
+              {metaBiddingStrategy !== "lowest_cost" ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="m-bid-usd">
+                    {metaBiddingStrategy === "cost_cap_usd" ? "CPA médio alvo / cost cap (USD)" : "Limite máximo (USD)"}
+                  </Label>
+                  <Input
+                    id="m-bid-usd"
+                    inputMode="decimal"
+                    placeholder="Ex.: 15"
+                    value={metaBidAmountUsd}
+                    onChange={(e) => setMetaBidAmountUsd(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : null}
             </div>
 
             <GoogleAdsCountriesSelect

@@ -52,6 +52,21 @@ const objectives = [
   },
 ] as const;
 
+type TiktokBiddingStrategy = "lowest_cost" | "bid_cap_usd";
+
+const TIKTOK_BIDDING_OPTIONS: { value: TiktokBiddingStrategy; label: string; hint: string }[] = [
+  {
+    value: "lowest_cost",
+    label: "Menor custo (automático)",
+    hint: "Sem bid_price manual — o TikTok optimiza dentro do orçamento.",
+  },
+  {
+    value: "bid_cap_usd",
+    label: "Teto de licitação / bid_price (USD)",
+    hint: "BID_TYPE_CUSTOM + bid_price (API v1.3); mínimos e formato dependem da conta.",
+  },
+];
+
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"];
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -80,6 +95,8 @@ export function DpilotTiktokWizardPage() {
   const [ageMin, setAgeMin] = useState("18");
   const [ageMax, setAgeMax] = useState("45");
   const [complianceAck, setComplianceAck] = useState(false);
+  const [tiktokBiddingStrategy, setTiktokBiddingStrategy] = useState<TiktokBiddingStrategy>("lowest_cost");
+  const [tiktokBidAmountUsd, setTiktokBidAmountUsd] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,6 +196,14 @@ export function DpilotTiktokWizardPage() {
       return;
     }
 
+    if (tiktokBiddingStrategy === "bid_cap_usd") {
+      const cap = parseFloat(tiktokBidAmountUsd.replace(",", "."));
+      if (!Number.isFinite(cap) || cap <= 0) {
+        setError("Indique um valor USD positivo para o teto de licitação.");
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const { data, error: apiErr } = await paidAdsService.postTiktokCampaignPlan(projectId, {
@@ -192,6 +217,10 @@ export function DpilotTiktokWizardPage() {
         ageMax: parsed.data.ageMax,
         complianceAcknowledged: complianceAck,
         videoAssetPath: videoPath,
+        tiktok_bidding_strategy: tiktokBiddingStrategy,
+        ...(tiktokBiddingStrategy === "bid_cap_usd"
+          ? { tiktok_bid_amount_usd: parseFloat(tiktokBidAmountUsd.replace(",", ".")) }
+          : {}),
       });
       if (apiErr || !data?.ok) {
         const msg = apiErr || "Falha ao gerar plano";
@@ -330,6 +359,45 @@ export function DpilotTiktokWizardPage() {
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
+              <div className="space-y-1">
+                <Label htmlFor="t-bidding-strat" className="text-xs font-medium">
+                  Licitação do grupo de anúncios (TikTok)
+                </Label>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Opcional: enviar bid_price com licitação personalizada; de contrário o TikTok optimiza automaticamente.
+                </p>
+              </div>
+              <select
+                id="t-bidding-strat"
+                value={tiktokBiddingStrategy}
+                onChange={(e) => setTiktokBiddingStrategy(e.target.value as TiktokBiddingStrategy)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {TIKTOK_BIDDING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {TIKTOK_BIDDING_OPTIONS.find((o) => o.value === tiktokBiddingStrategy)?.hint}
+              </p>
+              {tiktokBiddingStrategy === "bid_cap_usd" ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="t-bid-usd">Valor bid_price (USD)</Label>
+                  <Input
+                    id="t-bid-usd"
+                    inputMode="decimal"
+                    placeholder="Ex.: 1.50"
+                    value={tiktokBidAmountUsd}
+                    onChange={(e) => setTiktokBidAmountUsd(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : null}
             </div>
 
             <GoogleAdsCountriesSelect

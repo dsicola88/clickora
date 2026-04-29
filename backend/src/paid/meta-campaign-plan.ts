@@ -2,6 +2,7 @@ import type { PaidAdsMetaCta, Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { adCopyLocaleHintFromGeoIso2 } from "./ad-copy-locale";
+import { storedMetaBiddingFromPlanInput } from "./meta-tiktok-bidding";
 import { publishMetaCreateCampaignFromLocal } from "./meta-ads.publish";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
@@ -46,20 +47,37 @@ const specialCategoryEnum = z.enum([
   "online_gambling_and_gaming",
 ]);
 
-export const metaCampaignPlanInputSchema = z.object({
-  landingUrl: z.string().url().max(500),
-  offer: z.string().min(3).max(500),
-  audienceNotes: z.string().min(3).max(800),
-  objective: objectiveEnum,
-  dailyBudgetUsd: z.number().min(1).max(100000),
-  geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
-  placements: z.array(placementEnum).min(1).max(7),
-  ageMin: z.number().int().min(13).max(65),
-  ageMax: z.number().int().min(13).max(65),
-  specialAdCategories: z.array(specialCategoryEnum).max(6).default([]),
-  complianceAcknowledged: z.boolean(),
-  assetPath: z.string().max(300).nullable().optional(),
-});
+const metaBiddingStrategyEnum = z.enum(["lowest_cost", "bid_cap_usd", "cost_cap_usd"]);
+
+export const metaCampaignPlanInputSchema = z
+  .object({
+    landingUrl: z.string().url().max(500),
+    offer: z.string().min(3).max(500),
+    audienceNotes: z.string().min(3).max(800),
+    objective: objectiveEnum,
+    dailyBudgetUsd: z.number().min(1).max(100000),
+    geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
+    placements: z.array(placementEnum).min(1).max(7),
+    ageMin: z.number().int().min(13).max(65),
+    ageMax: z.number().int().min(13).max(65),
+    specialAdCategories: z.array(specialCategoryEnum).max(6).default([]),
+    complianceAcknowledged: z.boolean(),
+    assetPath: z.string().max(300).nullable().optional(),
+    meta_bidding_strategy: metaBiddingStrategyEnum.optional().default("lowest_cost"),
+    meta_bid_amount_usd: z.number().positive().max(1000).nullable().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.meta_bidding_strategy === "bid_cap_usd" || val.meta_bidding_strategy === "cost_cap_usd") {
+      const v = val.meta_bid_amount_usd;
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Indique o valor USD (limite de licitação ou CPA médio alvo).",
+          path: ["meta_bid_amount_usd"],
+        });
+      }
+    }
+  });
 
 export type MetaCampaignPlanInput = z.infer<typeof metaCampaignPlanInputSchema>;
 
@@ -382,6 +400,12 @@ export async function runMetaCampaignPlan(
   });
 
   const localeHint = adCopyLocaleHintFromGeoIso2(data.geoTargets);
+  const bidUsdHint =
+    data.meta_bidding_strategy === "bid_cap_usd" && data.meta_bid_amount_usd != null
+      ? `Meta bidding — limite máximo de licitação: ~$${data.meta_bid_amount_usd} USD / evento (Graph API).`
+      : data.meta_bidding_strategy === "cost_cap_usd" && data.meta_bid_amount_usd != null
+        ? `Meta bidding — cost cap / CPA médio alvo: ~$${data.meta_bid_amount_usd} USD (compatível com o tipo de campanha; ver servidor).`
+        : `Meta bidding — menor custo (automático), sem teto manual neste assistente.`;
   const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
 Audience notes: ${data.audienceNotes}
@@ -389,6 +413,7 @@ Objective (product mapping — aligns with Meta OUTCOME_*): ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
 Geo: ${data.geoTargets.join(", ")}
 Ad copy locale (write creatives in this language): ${localeHint}
+${bidUsdHint}
 Placements: ${data.placements.join(", ")}
 Age range: ${data.ageMin}-${data.ageMax}`;
 
@@ -419,6 +444,11 @@ Age range: ${data.ageMin}-${data.ageMax}`;
   const dailyBudgetMicros = BigInt(Math.round(data.dailyBudgetUsd * 1_000_000));
   const dailyBudgetCents = BigInt(Math.round(data.dailyBudgetUsd * 100));
 
+  const metaBiddingStored = storedMetaBiddingFromPlanInput({
+    meta_bidding_strategy: data.meta_bidding_strategy,
+    meta_bid_amount_usd: data.meta_bid_amount_usd ?? null,
+  });
+
   const campaign = await prisma.paidAdsCampaign.create({
     data: {
       userId: ownerUserId,
@@ -430,6 +460,7 @@ Age range: ${data.ageMin}-${data.ageMax}`;
       dailyBudgetMicros,
       geoTargets: data.geoTargets,
       languageTargets: [],
+      biddingConfig: metaBiddingStored as unknown as Prisma.InputJsonValue,
     },
     select: { id: true },
   });
@@ -517,6 +548,7 @@ Age range: ${data.ageMin}-${data.ageMax}`;
       sensitive.length > 0
         ? `Categorias especiais declaradas: ${sensitive.join(", ")}. Limitações de targeting do Meta serão aplicadas no momento da publicação.`
         : "O anunciante é responsável pelo cumprimento das políticas do Meta (incluindo categorias especiais de anúncios).",
+    bidding_config: metaBiddingStored,
     reasons,
   };
 

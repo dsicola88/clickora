@@ -7,6 +7,7 @@
 import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMetaCta as MetaCta } from "@prisma/client";
 
 import { paidLog } from "../lib/paidLog";
+import { metaGraphAdsetBiddingFields } from "./meta-tiktok-bidding";
 import { prisma } from "./paidPrisma";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -347,16 +348,21 @@ export async function publishMetaCreateCampaignFromLocal(
     });
     const metaCampaignId = cRes.id;
 
+    const bidFields = metaGraphAdsetBiddingFields(camp.biddingConfig, campaignObj);
+
     const adsetBase: Record<string, string> = {
       name: adset.name.slice(0, 256),
       campaign_id: metaCampaignId,
       daily_budget: String(dailyBudget),
       billing_event: billEv,
       optimization_goal: optGoal,
-      bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+      bid_strategy: bidFields.bid_strategy,
       targeting,
       status: "ACTIVE",
     };
+    if (bidFields.bid_amount) {
+      adsetBase.bid_amount = bidFields.bid_amount;
+    }
     if (needDsa && dsaBeneficiary && dsaPayor) {
       adsetBase.dsa_beneficiary = dsaBeneficiary;
       adsetBase.dsa_payor = dsaPayor;

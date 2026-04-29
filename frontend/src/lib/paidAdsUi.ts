@@ -224,18 +224,77 @@ export function googleBiddingSummaryLinesFromPayload(payload: Record<string, unk
   return out;
 }
 
+/** Linhas legíveis a partir de `bidding_config.meta` gravado no pedido. */
+export function metaBiddingSummaryLinesFromPayload(payload: Record<string, unknown>): string[] {
+  const bc = payload.bidding_config ?? payload.biddingConfig;
+  if (!bc || typeof bc !== "object" || bc === null || !("meta" in bc)) return [];
+  const m = (bc as { meta?: Record<string, unknown> }).meta;
+  if (!m || typeof m !== "object") return [];
+  const strat = typeof m.strategy === "string" ? m.strategy : "lowest_cost";
+  const labels: Record<string, string> = {
+    lowest_cost: "Menor custo (automático)",
+    bid_cap_usd: "Limite máximo de licitação",
+    cost_cap_usd: "Cost cap / CPA médio alvo",
+  };
+  const human = labels[strat] ?? strat.replace(/_/g, " ");
+  const out: string[] = [`Licitação Meta (conjunto): ${human}. Custos efectivos definem-se no leilão.`];
+  const usdRaw = m.bid_amount_usd;
+  const usd =
+    typeof usdRaw === "number"
+      ? usdRaw
+      : typeof usdRaw === "string"
+        ? parseFloat(usdRaw)
+        : NaN;
+  if ((strat === "bid_cap_usd" || strat === "cost_cap_usd") && Number.isFinite(usd) && usd > 0) {
+    out.push(`Valor guardado (referência): ~${usd.toFixed(2)} USD — enviado à Graph API em centavos ao publicar.`);
+  }
+  return out;
+}
+
+/** Linhas legíveis a partir de `bidding_config.tiktok` gravado no pedido. */
+export function tiktokBiddingSummaryLinesFromPayload(payload: Record<string, unknown>): string[] {
+  const bc = payload.bidding_config ?? payload.biddingConfig;
+  if (!bc || typeof bc !== "object" || bc === null || !("tiktok" in bc)) return [];
+  const t = (bc as { tiktok?: Record<string, unknown> }).tiktok;
+  if (!t || typeof t !== "object") return [];
+  const strat = typeof t.strategy === "string" ? t.strategy : "lowest_cost";
+  if (strat === "lowest_cost") {
+    return [`Licitação TikTok (ad group): menor custo (automático). CPM/CPC no leilão.`];
+  }
+  const usdRaw = t.bid_amount_usd;
+  const usd =
+    typeof usdRaw === "number"
+      ? usdRaw
+      : typeof usdRaw === "string"
+        ? parseFloat(usdRaw)
+        : NaN;
+  if (strat === "bid_cap_usd" && Number.isFinite(usd) && usd > 0) {
+    return [
+      `Licitação TikTok (ad group): teto manual ~${usd.toFixed(2)} USD (bid_price / bid_type na API).`,
+      `Requisitos mínimos da conta e do objective aplicam-se — o leilão pode limitar entrega.`,
+    ];
+  }
+  return [];
+}
+
 /** Nota de produto sobre estratégia ao publicar quando o payload não traz `bidding_config` detalhado. */
 export function publishedBidStrategyHint(
   changeRequestType: string,
-  opts?: { hasGoogleBiddingDetail?: boolean },
+  opts?: {
+    hasGoogleBiddingDetail?: boolean;
+    hasMetaBiddingDetail?: boolean;
+    hasTiktokBiddingDetail?: boolean;
+  },
 ): string | null {
   switch (changeRequestType) {
     case "create_campaign":
       if (opts?.hasGoogleBiddingDetail) return null;
       return "Google Ads (Search): o CPC efectivo por leilão é definido pela rede (concorrência, qualidade, probabilidade de conversão).";
     case "meta_create_campaign":
+      if (opts?.hasMetaBiddingDetail) return null;
       return "Meta: custos por resultado variam no leilão; o conjunto segue a meta de optimização e orçamento.";
     case "tiktok_create_campaign":
+      if (opts?.hasTiktokBiddingDetail) return null;
       return "TikTok: leilão define CPC/CPM efectivos; a campanha segue o tipo de objective escolhido.";
     default:
       return null;
@@ -315,13 +374,21 @@ export function summarizeChangeRequestPayload(
   const googleBidLines = googleBiddingSummaryLinesFromPayload(p);
   for (const gl of googleBidLines) lines.push(gl);
 
+  const metaBidLines = metaBiddingSummaryLinesFromPayload(p);
+  for (const ml of metaBidLines) lines.push(ml);
+
+  const tiktokBidLines = tiktokBiddingSummaryLinesFromPayload(p);
+  for (const tl of tiktokBidLines) lines.push(tl);
+
   const hint =
     opts?.changeRequestType != null
       ? publishedBidStrategyHint(opts.changeRequestType, {
           hasGoogleBiddingDetail: googleBidLines.length > 0,
+          hasMetaBiddingDetail: metaBidLines.length > 0,
+          hasTiktokBiddingDetail: tiktokBidLines.length > 0,
         })
       : null;
   if (hint) lines.push(hint);
 
-  return { lines: lines.slice(0, 14), guardrailMessages };
+  return { lines: lines.slice(0, 20), guardrailMessages };
 }

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { adCopyLocaleHintFromGeoIso2 } from "./ad-copy-locale";
+import { storedTikTokBiddingFromPlanInput } from "./meta-tiktok-bidding";
 import { publishTikTokCreateCampaignFromLocal } from "./tiktok-ads.publish";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
@@ -29,18 +30,35 @@ export function mapTiktokObjectiveType(o: z.infer<typeof objectiveEnum>): string
   return m[o];
 }
 
-export const tiktokCampaignPlanInputSchema = z.object({
-  landingUrl: z.string().url().max(500),
-  offer: z.string().min(3).max(500),
-  audienceNotes: z.string().min(3).max(800),
-  objective: objectiveEnum,
-  dailyBudgetUsd: z.number().min(1).max(100000),
-  geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
-  ageMin: z.number().int().min(13).max(65),
-  ageMax: z.number().int().min(13).max(65),
-  complianceAcknowledged: z.boolean(),
-  videoAssetPath: z.string().max(500).nullable().optional(),
-});
+const tiktokBiddingStrategyEnum = z.enum(["lowest_cost", "bid_cap_usd"]);
+
+export const tiktokCampaignPlanInputSchema = z
+  .object({
+    landingUrl: z.string().url().max(500),
+    offer: z.string().min(3).max(500),
+    audienceNotes: z.string().min(3).max(800),
+    objective: objectiveEnum,
+    dailyBudgetUsd: z.number().min(1).max(100000),
+    geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
+    ageMin: z.number().int().min(13).max(65),
+    ageMax: z.number().int().min(13).max(65),
+    complianceAcknowledged: z.boolean(),
+    videoAssetPath: z.string().max(500).nullable().optional(),
+    tiktok_bidding_strategy: tiktokBiddingStrategyEnum.optional().default("lowest_cost"),
+    tiktok_bid_amount_usd: z.number().positive().max(1000).nullable().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.tiktok_bidding_strategy === "bid_cap_usd") {
+      const v = val.tiktok_bid_amount_usd;
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Indique o valor USD para o limite de licitação.",
+          path: ["tiktok_bid_amount_usd"],
+        });
+      }
+    }
+  });
 
 export type TiktokCampaignPlanInput = z.infer<typeof tiktokCampaignPlanInputSchema>;
 
@@ -213,6 +231,10 @@ export async function runTiktokCampaignPlan(
   });
 
   const localeHint = adCopyLocaleHintFromGeoIso2(data.geoTargets);
+  const bidHint =
+    data.tiktok_bidding_strategy === "bid_cap_usd" && data.tiktok_bid_amount_usd != null
+      ? `TikTok bidding — licitação com teto ~$${data.tiktok_bid_amount_usd} USD (campo bid_price na API).`
+      : `TikTok bidding — menor custo / sem teto manual neste assistente.`;
   const userPrompt = `Landing: ${data.landingUrl}
 Offer: ${data.offer}
 Audience: ${data.audienceNotes}
@@ -220,6 +242,7 @@ TikTok objective (mapped to API as ${objectiveType}): ${data.objective}
 Daily budget USD: ${data.dailyBudgetUsd}
 Geo (ISO2): ${data.geoTargets.join(", ")}
 Hook / copy locale (write hooks in this language): ${localeHint}
+${bidHint}
 Age: ${data.ageMin}-${data.ageMax}
 Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on TikTok still needs video in Ads Manager for full ad)"}`;
 
@@ -244,6 +267,11 @@ Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on
 
   const dailyBudgetMicros = BigInt(Math.round(data.dailyBudgetUsd * 1_000_000));
 
+  const tikTokBiddingStored = storedTikTokBiddingFromPlanInput({
+    tiktok_bidding_strategy: data.tiktok_bidding_strategy,
+    tiktok_bid_amount_usd: data.tiktok_bid_amount_usd ?? null,
+  });
+
   const campaign = await prisma.paidAdsCampaign.create({
     data: {
       userId: ownerUserId,
@@ -255,6 +283,7 @@ Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on
       dailyBudgetMicros,
       geoTargets: data.geoTargets,
       languageTargets: [],
+      biddingConfig: tikTokBiddingStored as unknown as Prisma.InputJsonValue,
     },
     select: { id: true },
   });
@@ -293,6 +322,7 @@ Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on
     compliance_acknowledged_at: new Date().toISOString(),
     compliance_notice:
       "O anunciante é responsável pelo cumprimento das políticas de conteúdo e anúncios do TikTok. Criar anúncios de vídeo completos no feed pode exigir passos adicionais no TikTok Ads Manager.",
+    bidding_config: tikTokBiddingStored,
     reasons,
   };
 

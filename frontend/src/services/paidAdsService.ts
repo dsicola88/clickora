@@ -298,6 +298,8 @@ export const paidAdsService = {
       ageMax: number;
       complianceAcknowledged: boolean;
       videoAssetPath: string | null;
+      tiktok_bidding_strategy?: "lowest_cost" | "bid_cap_usd";
+      tiktok_bid_amount_usd?: number;
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/tiktok-campaign-plan`, body);
@@ -318,6 +320,8 @@ export const paidAdsService = {
       specialAdCategories: string[];
       complianceAcknowledged: boolean;
       assetPath: string | null;
+      meta_bidding_strategy?: "lowest_cost" | "bid_cap_usd" | "cost_cap_usd";
+      meta_bid_amount_usd?: number;
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/meta-campaign-plan`, body);

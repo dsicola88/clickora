@@ -3,6 +3,7 @@
  * + ad group com orçamento diário. Anúncios (vídeo) requerem passos adicionais.
  */
 import { paidLog } from "../lib/paidLog";
+import { tiktokAdgroupBidExtras } from "./meta-tiktok-bidding";
 import { prisma } from "./paidPrisma";
 import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
 
@@ -155,25 +156,28 @@ export async function publishTikTokCreateCampaignFromLocal(
 
     if (!campaign.tiktokAdGroupId) {
       const agName = `${campaign.name} — G1`.slice(0, 512);
+      const bidExtras = tiktokAdgroupBidExtras(campaign.biddingConfig);
+      const agBody = {
+        advertiser_id: conn.advertiserId,
+        campaign_id: remoteCampaignId!,
+        adgroup_name: agName,
+        budget,
+        budget_mode: "BUDGET_MODE_DAY",
+        billing_event: "OCPM",
+        optimization_goal: "CLICK",
+        pacing: "PACING_MODE_SMOOTH",
+        placement_type: "PLACEMENT_TYPE_NORMAL",
+        placements: ["PLACEMENT_TIKTOK"],
+        schedule_type: "SCHEDULE_FROM_NOW",
+        schedule_start_time: nextScheduleStartTimeUtc(),
+        location_ids: locationIds,
+        operation_status: "ENABLE",
+        ...bidExtras,
+      };
       const agRes = (await tiktokApiPostWithTokenRetry<{ adgroup_id?: string; ad_group_id?: string }>(
         projectId,
         `adgroup/create/`,
-        {
-          advertiser_id: conn.advertiserId,
-          campaign_id: remoteCampaignId!,
-          adgroup_name: agName,
-          budget,
-          budget_mode: "BUDGET_MODE_DAY",
-          billing_event: "OCPM",
-          optimization_goal: "CLICK",
-          pacing: "PACING_MODE_SMOOTH",
-          placement_type: "PLACEMENT_TYPE_NORMAL",
-          placements: ["PLACEMENT_TIKTOK"],
-          schedule_type: "SCHEDULE_FROM_NOW",
-          schedule_start_time: nextScheduleStartTimeUtc(),
-          location_ids: locationIds,
-          operation_status: "ENABLE",
-        },
+        agBody,
       )) as TikTokApiEnvelope<{ adgroup_id?: string; ad_group_id?: string }>;
       const agId = agRes.data?.adgroup_id ?? agRes.data?.ad_group_id;
       if (agRes.code !== 0 || !agId) {
