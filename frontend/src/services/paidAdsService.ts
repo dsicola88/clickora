@@ -24,6 +24,8 @@ export type CampaignRow = {
   daily_budget_micros?: number | null;
   /** Códigos ISO de país (segmentação). */
   geo_targets?: string[] | null;
+  /** Preferências de licitação por rede (Google/Meta/TikTok) conforme backend. */
+  bidding_config?: Record<string, unknown>;
   /** Override optimizer: USD pause sem conversão (null = política do projecto). */
   optimizer_pause_spend_usd?: number | null;
   optimizer_pause_min_clicks?: number | null;
@@ -224,6 +226,14 @@ export const paidAdsService = {
       dailyBudgetUsd: number;
       geoTargets: string[];
       languageTargets: string[];
+      google_bidding_strategy?:
+        | "manual_cpc"
+        | "maximize_clicks"
+        | "maximize_conversions"
+        | "target_cpa"
+        | "target_roas";
+      google_target_cpa_usd?: number;
+      google_target_roas?: number;
       optimizer_pause_spend_usd?: number | null;
       optimizer_pause_min_clicks?: number | null;
     },

@@ -14,17 +14,42 @@ import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargeting
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
+import { DpilotAuctionEducationBanner } from "./DpilotAuctionEducationBanner";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
 
 const objectives = [
-  { value: "traffic", label: "Tráfego" },
-  { value: "leads", label: "Leads" },
-  { value: "purchases", label: "Conversões" },
-  { value: "awareness", label: "Reconhecimento" },
-  { value: "engagement", label: "Interacções" },
-  { value: "app_promotion", label: "Promoção de app" },
+  {
+    value: "traffic",
+    label: "Tráfego para o site",
+    hint: "Alinha com campanhas OUTCOME_TRAFFIC — foco em cliques e visitas.",
+  },
+  {
+    value: "leads",
+    label: "Leads",
+    hint: "OUTCOME_LEADS — formulários, mensagens ou leads com pixel/eventos configurados.",
+  },
+  {
+    value: "purchases",
+    label: "Conversões / vendas",
+    hint: "OUTCOME_SALES — compras ou conversões fora da plataforma com conjunto optimizado para conversões.",
+  },
+  {
+    value: "awareness",
+    label: "Reconhecimento",
+    hint: "OUTCOME_AWARENESS — alcance e exposição da marca.",
+  },
+  {
+    value: "engagement",
+    label: "Interacções",
+    hint: "OUTCOME_ENGAGEMENT — envolvimento com publicações ou vídeo.",
+  },
+  {
+    value: "app_promotion",
+    label: "Promoção de app",
+    hint: "OUTCOME_APP_PROMOTION — instalações ou eventos in‑app.",
+  },
 ] as const;
 
 const placementOptions = [
@@ -259,6 +284,7 @@ export function DpilotMetaWizardPage() {
         <div className="mt-2 px-0 py-2 sm:px-1">
           <div className="mx-auto max-w-3xl space-y-5">
             <DpilotCampaignReadinessCard platform="meta" />
+            <DpilotAuctionEducationBanner platform="meta" />
             <form
               onSubmit={onSubmit}
               className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
@@ -327,6 +353,9 @@ export function DpilotMetaWizardPage() {
                     </option>
                   ))}
                 </select>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  {objectives.find((o) => o.value === objective)?.hint}
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="m-budget">Orçamento diário (USD)</Label>

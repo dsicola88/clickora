@@ -188,15 +188,55 @@ export function changeRequestCampaignIdFromPayload(payload: unknown): string | n
   return typeof p.campaign_id === "string" ? p.campaign_id : null;
 }
 
-/** Nota de produto sobre estratégia de licitação ao publicar (espelha defaults em `*-ads.publish.ts`). */
-export function publishedBidStrategyHint(changeRequestType: string): string | null {
+/** Linhas legíveis a partir de `bidding_config` gravado no pedido (Google). */
+export function googleBiddingSummaryLinesFromPayload(payload: Record<string, unknown>): string[] {
+  const bc = payload.bidding_config ?? payload.biddingConfig;
+  if (!bc || typeof bc !== "object" || bc === null || !("google" in bc)) return [];
+  const g = (bc as { google?: Record<string, unknown> }).google;
+  if (!g || typeof g !== "object") return [];
+  const strat = typeof g.strategy === "string" ? g.strategy : "";
+  const labels: Record<string, string> = {
+    manual_cpc: "CPC manual",
+    maximize_clicks: "Maximizar cliques",
+    maximize_conversions: "Maximizar conversões",
+    target_cpa: "CPA alvo",
+    target_roas: "ROAS alvo",
+  };
+  const human = labels[strat] ?? strat.replace(/_/g, " ");
+  const out: string[] = [
+    `Estratégia de licitação (Google): ${human}. O CPC efectivo define-se no leilão por segundo.`,
+  ];
+  if (strat === "target_cpa") {
+    const micros = g.targetCpaMicros;
+    const ms =
+      typeof micros === "string" && /^\d+$/.test(micros)
+        ? Number(micros)
+        : typeof micros === "number"
+          ? micros
+          : NaN;
+    if (Number.isFinite(ms) && ms > 0) {
+      out.push(`CPA alvo guardado: ~${(ms / 1_000_000).toFixed(2)} USD / conversão.`);
+    }
+  }
+  if (strat === "target_roas" && typeof g.targetRoas === "number" && Number.isFinite(g.targetRoas)) {
+    out.push(`ROAS alvo guardado: ${g.targetRoas}.`);
+  }
+  return out;
+}
+
+/** Nota de produto sobre estratégia ao publicar quando o payload não traz `bidding_config` detalhado. */
+export function publishedBidStrategyHint(
+  changeRequestType: string,
+  opts?: { hasGoogleBiddingDetail?: boolean },
+): string | null {
   switch (changeRequestType) {
     case "create_campaign":
-      return "Ao aplicar na Google Ads: campanha Search preparada com CPC manual (padrão do produto); pode afinar na conta.";
+      if (opts?.hasGoogleBiddingDetail) return null;
+      return "Google Ads (Search): o CPC efectivo por leilão é definido pela rede (concorrência, qualidade, probabilidade de conversão).";
     case "meta_create_campaign":
-      return "Ao aplicar na Meta: conjunto de anúncios com estratégia de custo mais baixo sem limiar (padrão do produto).";
+      return "Meta: custos por resultado variam no leilão; o conjunto segue a meta de optimização e orçamento.";
     case "tiktok_create_campaign":
-      return "Ao aplicar no TikTok: optimização inicial orientada a cliques (CLICK); pode rever na conta TikTok.";
+      return "TikTok: leilão define CPC/CPM efectivos; a campanha segue o tipo de objective escolhido.";
     default:
       return null;
   }
@@ -272,9 +312,16 @@ export function summarizeChangeRequestPayload(
     }
   }
 
+  const googleBidLines = googleBiddingSummaryLinesFromPayload(p);
+  for (const gl of googleBidLines) lines.push(gl);
+
   const hint =
-    opts?.changeRequestType != null ? publishedBidStrategyHint(opts.changeRequestType) : null;
+    opts?.changeRequestType != null
+      ? publishedBidStrategyHint(opts.changeRequestType, {
+          hasGoogleBiddingDetail: googleBidLines.length > 0,
+        })
+      : null;
   if (hint) lines.push(hint);
 
-  return { lines: lines.slice(0, 12), guardrailMessages };
+  return { lines: lines.slice(0, 14), guardrailMessages };
 }

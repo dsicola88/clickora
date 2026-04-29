@@ -13,6 +13,7 @@ import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components
 import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
+import { DpilotAuctionEducationBanner } from "./DpilotAuctionEducationBanner";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
@@ -40,6 +41,41 @@ const OBJECTIVE_SUGGESTIONS: { label: string; objective: string }[] = [
   {
     label: "Marca / alcance",
     objective: "Aumentar notoriedade e presença em pesquisas relevantes para a marca.",
+  },
+];
+
+type GoogleBiddingStrategy =
+  | "manual_cpc"
+  | "maximize_clicks"
+  | "maximize_conversions"
+  | "target_cpa"
+  | "target_roas";
+
+const GOOGLE_BIDDING_OPTIONS: { value: GoogleBiddingStrategy; label: string; hint: string }[] = [
+  {
+    value: "manual_cpc",
+    label: "CPC manual",
+    hint: "Controla licitações ao nível da palavra-chave; útil para começar ou testes.",
+  },
+  {
+    value: "maximize_clicks",
+    label: "Maximizar cliques",
+    hint: "O Google distribui o orçamento para gerar mais cliques dentro dos limites.",
+  },
+  {
+    value: "maximize_conversions",
+    label: "Maximizar conversões",
+    hint: "Optimiza para conversões quando há dados de tracking suficientes.",
+  },
+  {
+    value: "target_cpa",
+    label: "CPA alvo",
+    hint: "Define um custo por conversão pretendido (requer conversões monitorizadas).",
+  },
+  {
+    value: "target_roas",
+    label: "ROAS alvo",
+    hint: "Define um retorno sobre gasto em anúncios pretendido (valor / custo).",
   },
 ];
 
@@ -74,6 +110,10 @@ export function DpilotGoogleWizardPage() {
   const [languageTargets, setLanguageTargets] = useState<string[]>(["pt"]);
   const [optPauseUsd, setOptPauseUsd] = useState("");
   const [optPauseClicks, setOptPauseClicks] = useState("");
+  const [googleBiddingStrategy, setGoogleBiddingStrategy] =
+    useState<GoogleBiddingStrategy>("maximize_conversions");
+  const [googleTargetCpaUsd, setGoogleTargetCpaUsd] = useState("");
+  const [googleTargetRoas, setGoogleTargetRoas] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +163,23 @@ export function DpilotGoogleWizardPage() {
         optimizer_pause_min_clicks = x;
       }
 
+      if (googleBiddingStrategy === "target_cpa") {
+        const x = parseFloat(googleTargetCpaUsd.replace(",", "."));
+        if (!Number.isFinite(x) || x <= 0) {
+          setError("CPA alvo: indique um valor USD positivo.");
+          setSubmitting(false);
+          return;
+        }
+      }
+      if (googleBiddingStrategy === "target_roas") {
+        const x = parseFloat(googleTargetRoas.replace(",", "."));
+        if (!Number.isFinite(x) || x <= 0) {
+          setError("ROAS alvo: indique um número positivo (ex.: 3.5).");
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const body: Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1] = {
         landingUrl: parsed.data.landingUrl,
         offer: parsed.data.offer,
@@ -130,7 +187,14 @@ export function DpilotGoogleWizardPage() {
         dailyBudgetUsd: parsed.data.dailyBudgetUsd,
         geoTargets: geoArr,
         languageTargets: langArr,
+        google_bidding_strategy: googleBiddingStrategy,
       };
+      if (googleBiddingStrategy === "target_cpa") {
+        body.google_target_cpa_usd = parseFloat(googleTargetCpaUsd.replace(",", "."));
+      }
+      if (googleBiddingStrategy === "target_roas") {
+        body.google_target_roas = parseFloat(googleTargetRoas.replace(",", "."));
+      }
       if (optimizer_pause_spend_usd !== undefined) body.optimizer_pause_spend_usd = optimizer_pause_spend_usd;
       if (optimizer_pause_min_clicks !== undefined) body.optimizer_pause_min_clicks = optimizer_pause_min_clicks;
 
@@ -189,6 +253,7 @@ export function DpilotGoogleWizardPage() {
         />
         <div className="mx-auto max-w-3xl space-y-5 px-0 py-4 sm:px-1 sm:py-6">
           <DpilotCampaignReadinessCard platform="google" />
+          <DpilotAuctionEducationBanner platform="google" />
           <form
             onSubmit={onSubmit}
             className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
@@ -285,6 +350,58 @@ export function DpilotGoogleWizardPage() {
                 required
               />
             </Field>
+
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
+              <div className="space-y-1">
+                <Label htmlFor="g-bidding-strat" className="text-xs font-medium">
+                  Estratégia de licitação (Google Ads Search)
+                </Label>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Escolha o que optimizar; o CPC efectivo em cada leilão é definido pelo Google (concorrência, qualidade,
+                  probabilidade de conversão).
+                </p>
+              </div>
+              <select
+                id="g-bidding-strat"
+                value={googleBiddingStrategy}
+                onChange={(e) => setGoogleBiddingStrategy(e.target.value as GoogleBiddingStrategy)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {GOOGLE_BIDDING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                {GOOGLE_BIDDING_OPTIONS.find((o) => o.value === googleBiddingStrategy)?.hint}
+              </p>
+              {googleBiddingStrategy === "target_cpa" ? (
+                <Field label="CPA alvo (USD por conversão)">
+                  <Input
+                    id="g-bidding-cpa"
+                    inputMode="decimal"
+                    placeholder="Ex.: 25"
+                    value={googleTargetCpaUsd}
+                    onChange={(e) => setGoogleTargetCpaUsd(e.target.value)}
+                    required
+                  />
+                </Field>
+              ) : null}
+              {googleBiddingStrategy === "target_roas" ? (
+                <Field label="ROAS alvo (receita / gasto em anúncios)">
+                  <Input
+                    id="g-bidding-roas"
+                    inputMode="decimal"
+                    placeholder="Ex.: 4"
+                    value={googleTargetRoas}
+                    onChange={(e) => setGoogleTargetRoas(e.target.value)}
+                    required
+                  />
+                </Field>
+              ) : null}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <GoogleAdsCountriesSelect
                 label="Localizações — País"
@@ -298,7 +415,7 @@ export function DpilotGoogleWizardPage() {
               />
               <GoogleAdsLanguagesSelect
                 label="Idiomas dos anúncios"
-                hint="Quem pode ver os anúncios pelo idioma — critérios de idioma Google Ads."
+                hint="RSA: o modelo gera títulos e descrições nestes idiomas — o primeiro é o principal."
                 searchPlaceholder="Pesquisar idioma…"
                 emptyText="Nenhum idioma encontrado."
                 options={GOOGLE_ADS_LANGUAGE_OPTIONS}

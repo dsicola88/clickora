@@ -765,6 +765,8 @@ model PaidAdsCampaign {
   optimizerPauseMinClicks Int?           @map("optimizer_pause_min_clicks")
   /** Flags do motor de optimização (ex.: recomendação de troca de criativo). */
   optimizerFlags     Json                 @default("{}") @map("optimizer_flags")
+  /** Preferências de licitação por rede (ex.: `{ google: { strategy, targetCpaMicros } }`). */
+  biddingConfig      Json                 @default("{}") @map("bidding_config")
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
 

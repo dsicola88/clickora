@@ -2,23 +2,59 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { normalizeGoogleGeoTargetsOrThrow } from "./geo-google";
+import { storedGoogleBiddingFromPlanInput } from "./google-campaign-bidding";
 import { publishGoogleSearchCampaignFromLocal } from "./google-ads.publish";
 import { normalizeGoogleLanguageTargetsOrThrow } from "./language-google";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
 import { evaluateGuardrails, type GuardrailLimits, type GuardrailViolation } from "./guardrails-eval";
 
-export const googleCampaignPlanInputSchema = z.object({
-  landingUrl: z.string().url().max(500),
-  offer: z.string().min(3).max(500),
-  objective: z.string().min(3).max(200),
-  dailyBudgetUsd: z.number().min(1).max(100000),
-  geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
-  languageTargets: z.array(z.string().min(2).max(8)).min(1).max(10),
-  /** Override opcional do optimizer para esta campanha (null omitido = herdar projecto). */
-  optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
-  optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
-});
+const googleBiddingStrategyEnum = z.enum([
+  "manual_cpc",
+  "maximize_clicks",
+  "maximize_conversions",
+  "target_cpa",
+  "target_roas",
+]);
+
+export const googleCampaignPlanInputSchema = z
+  .object({
+    landingUrl: z.string().url().max(500),
+    offer: z.string().min(3).max(500),
+    objective: z.string().min(3).max(200),
+    dailyBudgetUsd: z.number().min(1).max(100000),
+    geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
+    languageTargets: z.array(z.string().min(2).max(8)).min(1).max(10),
+    /** Estratégia de licitação ao nível da campanha (Google define CPC efectivo em cada leilão). */
+    google_bidding_strategy: googleBiddingStrategyEnum.optional().default("maximize_conversions"),
+    google_target_cpa_usd: z.number().positive().max(10000).nullable().optional(),
+    google_target_roas: z.number().positive().max(100).nullable().optional(),
+    /** Override opcional do optimizer para esta campanha (null omitido = herdar projecto). */
+    optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
+    optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.google_bidding_strategy === "target_cpa") {
+      const v = val.google_target_cpa_usd;
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "CPA alvo (USD) obrigatório para esta estratégia.",
+          path: ["google_target_cpa_usd"],
+        });
+      }
+    }
+    if (val.google_bidding_strategy === "target_roas") {
+      const v = val.google_target_roas;
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "ROAS alvo obrigatório para esta estratégia.",
+          path: ["google_target_roas"],
+        });
+      }
+    }
+  });
 
 export type GoogleCampaignPlanInput = z.infer<typeof googleCampaignPlanInputSchema>;
 
@@ -40,6 +76,7 @@ Rules:
 - 8-12 RSA headlines (max 30 chars each), 3-4 descriptions (max 90 chars each).
 - Keywords must be commercial-intent, not brand-only.
 - Never include the user's blocked keywords.
+- RSA copy (headlines + descriptions): write EVERY string in the user's advertising languages given in the prompt (ISO codes; primary language first). Use native, idiomatic phrasing — one language per string; do not mix unrelated languages in the same headline/description.
 
 Schema:
 {
@@ -107,8 +144,76 @@ async function callOpenAiForGooglePlan(userPrompt: string): Promise<{
   };
 }
 
+function rsaLocalized(primaryLangIso: string, input: GoogleCampaignPlanInput): {
+  headlines: string[];
+  descriptions: string[];
+} {
+  const slug = input.offer.split(/\s+/).slice(0, 3).join(" ");
+  const base = primaryLangIso.trim().slice(0, 2).toLowerCase();
+  const mkHead = (s: string) => s.slice(0, 30);
+
+  if (base === "pt") {
+    return {
+      headlines: [
+        mkHead(slug),
+        mkHead("Experimente hoje"),
+        mkHead("Feito para equipas"),
+        mkHead("Sem cartão obrigatório"),
+        mkHead("Comece já"),
+        mkHead("Teste gratuito"),
+        mkHead("Equipas satisfeitas"),
+        mkHead("Veja como funciona"),
+      ],
+      descriptions: [
+        `${input.offer}`.slice(0, 90),
+        "Configure em minutos. Cancele quando quiser.".slice(0, 90),
+        "Controlo de gastos e orçamento ao nível da conta.".slice(0, 90),
+      ],
+    };
+  }
+
+  if (base === "es") {
+    return {
+      headlines: [
+        mkHead(slug),
+        mkHead("Pruébalo hoy"),
+        mkHead("Para equipos"),
+        mkHead("Sin tarjeta"),
+        mkHead("Empieza ya"),
+        mkHead("Prueba gratuita"),
+        mkHead("Más información"),
+      ],
+      descriptions: [
+        `${input.offer}`.slice(0, 90),
+        "Configura en minutos. Cancela cuando quieras.".slice(0, 90),
+        "Presupuesto bajo control en cada clic.".slice(0, 90),
+      ],
+    };
+  }
+
+  return {
+    headlines: [
+      mkHead(slug),
+      mkHead(`Try ${slug}`),
+      mkHead("Built for teams"),
+      mkHead("Free trial"),
+      mkHead("Get started today"),
+      mkHead("Trusted by pros"),
+      mkHead("No credit card"),
+      mkHead("See it in action"),
+    ],
+    descriptions: [
+      `${input.offer}`.slice(0, 90),
+      "Set up in minutes. Cancel anytime.".slice(0, 90),
+      "Budget safeguards at campaign level.".slice(0, 90),
+    ],
+  };
+}
+
 function deterministicFallback(input: GoogleCampaignPlanInput): AiPlan {
   const slug = input.offer.split(/\s+/).slice(0, 3).join(" ");
+  const primaryLang = input.languageTargets[0] ?? "en";
+  const rsa = rsaLocalized(primaryLang, input);
   return {
     campaign: {
       name: `${slug} — Search`,
@@ -124,23 +229,7 @@ function deterministicFallback(input: GoogleCampaignPlanInput): AiPlan {
           { text: `${slug} pricing`.toLowerCase(), match_type: "phrase" as const },
           { text: `${slug} review`.toLowerCase(), match_type: "broad" as const },
         ],
-        rsa: {
-          headlines: [
-            slug.slice(0, 30),
-            `Try ${slug}`.slice(0, 30),
-            "Built for teams",
-            "Free trial",
-            "Get started today",
-            "Trusted by pros",
-            "No credit card",
-            "See it in action",
-          ],
-          descriptions: [
-            `${input.offer}`.slice(0, 90),
-            "Set up in minutes. Cancel anytime.".slice(0, 90),
-            "Built-in safety controls and approvals.".slice(0, 90),
-          ],
-        },
+        rsa,
       },
     ],
   };
@@ -189,6 +278,12 @@ export async function runGoogleCampaignPlan(
     return { ok: false, error: msg };
   }
 
+  const biddingStored = storedGoogleBiddingFromPlanInput({
+    strategy: data.google_bidding_strategy,
+    google_target_cpa_usd: data.google_target_cpa_usd ?? null,
+    google_target_roas: data.google_target_roas ?? null,
+  });
+
   const aiRun = await prisma.paidAdsAiRun.create({
     data: {
       userId: ownerUserId,
@@ -208,12 +303,19 @@ export async function runGoogleCampaignPlan(
   let tokensOut = 0;
   let model = "fallback/deterministic";
   try {
+    const bidHint =
+      data.google_bidding_strategy === "target_cpa" && data.google_target_cpa_usd != null
+        ? `Google bidding — chosen strategy: target CPA at $${data.google_target_cpa_usd} USD (stored for publish).`
+        : data.google_bidding_strategy === "target_roas" && data.google_target_roas != null
+          ? `Google bidding — chosen strategy: target ROAS ${data.google_target_roas} (stored for publish).`
+          : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
     const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
-Objective: ${data.objective}
+Objective (business outcome): ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
-Geo: ${geoTargetsNorm.join(", ")}
-Languages: ${languageTargetsNorm.join(", ")}
+Geo (countries): ${geoTargetsNorm.join(", ")}
+Advertising languages for RSA ad copy (ISO codes; PRIMARY first — write all RSA strings in these languages): ${languageTargetsNorm.join(", ")}
+${bidHint}
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     if (process.env.OPENAI_API_KEY) {
       const out = await callOpenAiForGooglePlan(userPrompt);
@@ -222,11 +324,11 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       tokensOut = out.tokensOut;
       model = out.model;
     } else {
-      plan = deterministicFallback({ ...data, geoTargets: geoTargetsNorm });
+      plan = deterministicFallback({ ...data, geoTargets: geoTargetsNorm, languageTargets: languageTargetsNorm });
     }
   } catch (e) {
     console.error("Google AI call failed, using deterministic fallback:", e);
-    plan = deterministicFallback({ ...data, geoTargets: geoTargetsNorm });
+    plan = deterministicFallback({ ...data, geoTargets: geoTargetsNorm, languageTargets: languageTargetsNorm });
   }
 
   plan.ad_groups = (plan.ad_groups ?? []).map((ag) => ({
@@ -253,6 +355,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       dailyBudgetMicros: dailyBudgetMicrosBig,
       geoTargets: geoTargetsNorm,
       languageTargets: languageTargetsNorm,
+      biddingConfig: biddingStored as unknown as Prisma.InputJsonValue,
       ...(optSpendUsd !== undefined ? { optimizerPauseSpendUsd: optSpendUsd } : {}),
       ...(optMinClicks !== undefined ? { optimizerPauseMinClicks: optMinClicks } : {}),
     },
@@ -320,6 +423,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         geo_targets: geoTargetsNorm,
         language_targets: languageTargetsNorm,
         landing_url: data.landingUrl,
+        bidding_config: biddingStored,
         mode: project.paidMode,
         auto_applied: true,
         exceeds_daily_cap: reasons.some((r) => r.code === "exceeds_daily_cap"),
@@ -347,6 +451,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         geo_targets: geoTargetsNorm,
         language_targets: languageTargetsNorm,
         landing_url: data.landingUrl,
+        bidding_config: biddingStored,
         mode: project.paidMode,
         auto_applied: false,
         publish_error: pub.error,
@@ -377,6 +482,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       geo_targets: geoTargetsNorm,
       language_targets: languageTargetsNorm,
       landing_url: data.landingUrl,
+      bidding_config: biddingStored,
       mode: project.paidMode,
       auto_applied: false,
       exceeds_daily_cap: reasons.some((r) => r.code === "exceeds_daily_cap"),

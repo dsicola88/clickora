@@ -14,17 +14,42 @@ import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargeting
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
+import { DpilotAuctionEducationBanner } from "./DpilotAuctionEducationBanner";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
 
 const objectives = [
-  { value: "traffic", label: "Tráfego" },
-  { value: "reach", label: "Alcance" },
-  { value: "video_views", label: "Visualizações de vídeo" },
-  { value: "leads", label: "Leads" },
-  { value: "conversions", label: "Conversões" },
-  { value: "app_installs", label: "Instalações de app" },
+  {
+    value: "traffic",
+    label: "Tráfego",
+    hint: "TRAFFIC — mais visitas ao destino.",
+  },
+  {
+    value: "reach",
+    label: "Alcance",
+    hint: "RF_REACH — exposição e alcance previsto.",
+  },
+  {
+    value: "video_views",
+    label: "Visualizações de vídeo",
+    hint: "VIDEO_VIEWS — consumo de vídeo no ecossistema TikTok.",
+  },
+  {
+    value: "leads",
+    label: "Leads",
+    hint: "LEAD_GENERATION — formulários ou mensagens (pixel configurado).",
+  },
+  {
+    value: "conversions",
+    label: "Conversões",
+    hint: "CONVERSIONS — acções no site ou app com medição.",
+  },
+  {
+    value: "app_installs",
+    label: "Instalações de app",
+    hint: "APP_INSTALL — instalações ou eventos in‑app.",
+  },
 ] as const;
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"];
@@ -220,6 +245,7 @@ export function DpilotTiktokWizardPage() {
         <div className="mt-2 px-0 py-2 sm:px-1">
           <div className="mx-auto max-w-3xl space-y-5">
             <DpilotCampaignReadinessCard platform="tiktok" />
+            <DpilotAuctionEducationBanner platform="tiktok" />
             <form
               onSubmit={onSubmit}
               className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
@@ -288,7 +314,9 @@ export function DpilotTiktokWizardPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground">Valores alinhados aos objetivos aceites pela API TikTok Ads.</p>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  {objectives.find((o) => o.value === objective)?.hint}
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="t-budget">Orçamento diário (USD)</Label>

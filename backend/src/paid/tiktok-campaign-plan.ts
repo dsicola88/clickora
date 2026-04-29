@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { adCopyLocaleHintFromGeoIso2 } from "./ad-copy-locale";
 import { publishTikTokCreateCampaignFromLocal } from "./tiktok-ads.publish";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
@@ -73,7 +74,8 @@ Schema:
   "campaign": { "name": string (max 120 chars), "summary": string (max 400) },
   "hooks": { "texts": string[] (3 short hook lines, each max 80 chars, vertical video / sound-on mindset), "tone": string }
 }
-TikTok is video-first. Hooks should feel native (authentic, not corporate spam).`;
+TikTok is video-first. Hooks should feel native (authentic, not corporate spam).
+Write hook texts in the language/locale specified in the user prompt (geo-based); native slang ok when appropriate for the audience.`;
 
 type ProviderResult = { plan: TiktokPlan; tokensIn: number; tokensOut: number; model: string };
 
@@ -116,19 +118,42 @@ function deterministicFallback(data: TiktokCampaignPlanInput): TiktokPlan {
     conversions: "Conversões",
     app_installs: "Instalações de app",
   };
+  const locale = adCopyLocaleHintFromGeoIso2(data.geoTargets);
+  let hooks: { texts: string[]; tone: string };
+  if (locale === "Portuguese") {
+    hooks = {
+      tone: "directo, mobile-first, estilo UGC em PT",
+      texts: [
+        `Porquê ${offerShort.slice(0, 40)}? Ganha atenção no feed.`,
+        "Sem enrolação: experimenta hoje — oferta clara e prova social.",
+        "Landing rápida e segura: menos fricção, mais conversão.",
+      ],
+    };
+  } else if (locale === "Spanish") {
+    hooks = {
+      tone: "directo, vertical, estilo creador ES",
+      texts: [
+        `¿Por ${offerShort.slice(0, 40)}? Resultados en el feed.`,
+        "Sin rodeos: prueba hoy con oferta clara.",
+        "Página rápida y segura: menos fricción.",
+      ],
+    };
+  } else {
+    hooks = {
+      tone: "direct, mobile-first, UGC-style",
+      texts: [
+        `Why ${offerShort.slice(0, 40)}? Win attention in-feed.`,
+        "No fluff — try today with a clear offer and proof.",
+        "Fast landing, trusted destination.",
+      ],
+    };
+  }
   return {
     campaign: {
       name: `${offerShort} — TikTok ${label[data.objective]}`.slice(0, 120),
       summary: `${label[data.objective]} em ${data.geoTargets.join(", ")}. URL: ${data.landingUrl}. ${data.audienceNotes.slice(0, 200)}`,
     },
-    hooks: {
-      tone: "direto, mobile-first, UGC",
-      texts: [
-        `Porquê ${offerShort.slice(0, 40)}? Resultados no feed.`,
-        "Sem enrolação: experimenta hoje (oferta clara, prova social).",
-        "Swipe up mental: destino seguro, página rápida.",
-      ],
-    },
+    hooks,
   };
 }
 
@@ -187,12 +212,14 @@ export async function runTiktokCampaignPlan(
     select: { id: true },
   });
 
+  const localeHint = adCopyLocaleHintFromGeoIso2(data.geoTargets);
   const userPrompt = `Landing: ${data.landingUrl}
 Offer: ${data.offer}
 Audience: ${data.audienceNotes}
 TikTok objective (mapped to API as ${objectiveType}): ${data.objective}
 Daily budget USD: ${data.dailyBudgetUsd}
 Geo (ISO2): ${data.geoTargets.join(", ")}
+Hook / copy locale (write hooks in this language): ${localeHint}
 Age: ${data.ageMin}-${data.ageMax}
 Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on TikTok still needs video in Ads Manager for full ad)"}`;
 

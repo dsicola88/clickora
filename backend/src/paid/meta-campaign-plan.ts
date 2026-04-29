@@ -1,6 +1,7 @@
 import type { PaidAdsMetaCta, Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { adCopyLocaleHintFromGeoIso2 } from "./ad-copy-locale";
 import { publishMetaCreateCampaignFromLocal } from "./meta-ads.publish";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
@@ -87,11 +88,12 @@ const SYSTEM_PROMPT = `You are a senior Meta Ads (Facebook + Instagram) media bu
 
 Rules:
 - Return JSON ONLY matching the schema. No prose, no markdown.
-- 1 ad set with clear targeting.
+- 1 ad set with clear targeting aligned to objective (maps to Meta OUTCOME_* campaign objectives).
 - Exactly 3 creative variants, each unique angle.
 - primary_text <= 125 chars. headline <= 40 chars. description <= 30 chars.
 - Compliance footer awareness: never claim guaranteed results, never use prohibited Meta categories language.
 - cta MUST be one of: learn_more, shop_now, sign_up, contact_us, book_now, download, get_quote, subscribe.
+- Ad copy language: write primary_text, headline, and description in the locale indicated in the user prompt (geo-based). Native phrasing; avoid awkward machine translation.
 
 Schema:
 {
@@ -197,6 +199,84 @@ function deterministicFallback(data: MetaCampaignPlanInput): MetaPlan {
     engagement: "Engajamento",
     app_promotion: "Promoção de app",
   };
+  const locale = adCopyLocaleHintFromGeoIso2(data.geoTargets);
+
+  type Cr = {
+    primary_text: string;
+    headline: string;
+    description: string;
+    cta: z.infer<typeof ctaEnum>;
+  };
+
+  let creatives: Cr[];
+
+  if (locale === "Portuguese") {
+    creatives = [
+      {
+        primary_text: `${data.offer}`.slice(0, 125),
+        headline: offerShort.slice(0, 40),
+        description: "Saiba mais hoje".slice(0, 30),
+        cta: "learn_more",
+      },
+      {
+        primary_text: `Descubra ${offerShort}. Oferta clara, página rápida.`.slice(0, 125),
+        headline: `Conheça ${offerShort}`.slice(0, 40),
+        description: "Comece agora".slice(0, 30),
+        cta: data.objective === "purchases" ? "shop_now" : "sign_up",
+      },
+      {
+        primary_text:
+          `Pronto para ${data.objective === "leads" ? "falar connosco" : "experimentar"}? ${offerShort}.`.slice(0, 125),
+        headline: "Fale connosco".slice(0, 40),
+        description: "Resposta rápida".slice(0, 30),
+        cta: data.objective === "leads" ? "contact_us" : "learn_more",
+      },
+    ];
+  } else if (locale === "Spanish") {
+    creatives = [
+      {
+        primary_text: `${data.offer}`.slice(0, 125),
+        headline: offerShort.slice(0, 40),
+        description: "Más información".slice(0, 30),
+        cta: "learn_more",
+      },
+      {
+        primary_text: `Descubre ${offerShort}. Oferta clara.`.slice(0, 125),
+        headline: `Prueba ${offerShort}`.slice(0, 40),
+        description: "Empieza ya".slice(0, 30),
+        cta: data.objective === "purchases" ? "shop_now" : "sign_up",
+      },
+      {
+        primary_text: `¿Listo para ${data.objective === "leads" ? "hablar" : "probar"}?`.slice(0, 125),
+        headline: "Te ayudamos".slice(0, 40),
+        description: "Respuesta rápida".slice(0, 30),
+        cta: data.objective === "leads" ? "contact_us" : "learn_more",
+      },
+    ];
+  } else {
+    creatives = [
+      {
+        primary_text: `${data.offer}`.slice(0, 125),
+        headline: offerShort.slice(0, 40),
+        description: "Learn more today".slice(0, 30),
+        cta: "learn_more",
+      },
+      {
+        primary_text: `Discover ${offerShort}. Simple setup.`.slice(0, 125),
+        headline: `Try ${offerShort}`.slice(0, 40),
+        description: "Get started".slice(0, 30),
+        cta: data.objective === "purchases" ? "shop_now" : "sign_up",
+      },
+      {
+        primary_text:
+          `Ready to ${data.objective === "leads" ? "talk" : "try"}? ${offerShort}.`.slice(0, 125),
+        headline: "We're here to help".slice(0, 40),
+        description: "Quick reply".slice(0, 30),
+        cta: data.objective === "leads" ? "contact_us" : "learn_more",
+      },
+    ];
+  }
+
   return {
     campaign: {
       name: `${offerShort} — Meta ${data.objective}`,
@@ -218,27 +298,7 @@ function deterministicFallback(data: MetaCampaignPlanInput): MetaPlan {
         interests_notes: data.audienceNotes.slice(0, 300),
       },
     },
-    creatives: [
-      {
-        primary_text: `${data.offer}`.slice(0, 125),
-        headline: offerShort.slice(0, 40),
-        description: "Saiba mais hoje".slice(0, 30),
-        cta: "learn_more",
-      },
-      {
-        primary_text: `Descubra ${offerShort}. Sem complicação.`.slice(0, 125),
-        headline: `Conheça ${offerShort}`.slice(0, 40),
-        description: "Comece agora".slice(0, 30),
-        cta: data.objective === "purchases" ? "shop_now" : "sign_up",
-      },
-      {
-        primary_text:
-          `Pronto para ${data.objective === "leads" ? "conversar" : "experimentar"}? ${offerShort}.`.slice(0, 125),
-        headline: "Fale com a gente".slice(0, 40),
-        description: "Resposta rápida".slice(0, 30),
-        cta: data.objective === "leads" ? "contact_us" : "learn_more",
-      },
-    ],
+    creatives,
   };
 }
 
@@ -321,12 +381,14 @@ export async function runMetaCampaignPlan(
     select: { id: true },
   });
 
+  const localeHint = adCopyLocaleHintFromGeoIso2(data.geoTargets);
   const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
 Audience notes: ${data.audienceNotes}
-Objective: ${data.objective}
+Objective (product mapping — aligns with Meta OUTCOME_*): ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
 Geo: ${data.geoTargets.join(", ")}
+Ad copy locale (write creatives in this language): ${localeHint}
 Placements: ${data.placements.join(", ")}
 Age range: ${data.ageMin}-${data.ageMax}`;
 

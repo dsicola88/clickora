@@ -100,6 +100,12 @@ export function mapPaidCampaign(c: PaidAdsCampaign) {
     daily_budget_micros: c.dailyBudgetMicros != null ? Number(c.dailyBudgetMicros) : null,
     geo_targets: c.geoTargets,
     language_targets: c.languageTargets,
+    bidding_config:
+      c.biddingConfig &&
+      typeof c.biddingConfig === "object" &&
+      !Array.isArray(c.biddingConfig)
+        ? (c.biddingConfig as Record<string, unknown>)
+        : {},
     optimizer_pause_spend_usd:
       c.optimizerPauseSpendUsd != null ? Number(c.optimizerPauseSpendUsd) : null,
     optimizer_pause_min_clicks: c.optimizerPauseMinClicks ?? null,

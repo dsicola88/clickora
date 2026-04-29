@@ -11,6 +11,7 @@ import type {
 import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
 import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
+import { googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
 import { normalizeGoogleLanguageCode } from "./language-google";
 import { prisma } from "./paidPrisma";
 
@@ -277,7 +278,7 @@ export async function publishGoogleSearchCampaignFromLocal(
               status: "ENABLED",
               advertisingChannelType: "SEARCH",
               campaignBudget: budgetRn,
-              manualCpc: {},
+              ...googleCampaignCreateBiddingOneof(campaign.biddingConfig),
               networkSettings: {
                 targetGoogleSearch: true,
                 targetSearchNetwork: true,
