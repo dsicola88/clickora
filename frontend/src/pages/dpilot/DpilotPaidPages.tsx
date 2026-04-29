@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Activity, Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -24,10 +25,9 @@ import {
   optimizerRuleCodeLabel,
   summarizeChangeRequestPayload,
 } from "@/lib/paidAdsUi";
-import type { CampaignRow, OptimizerDecisionRow } from "@/services/paidAdsService";
+import type { CampaignRow, ChangeRequestRow, OptimizerDecisionRow, PaidOverviewDto } from "@/services/paidAdsService";
 import { cn } from "@/lib/utils";
 import { paidAdsService } from "@/services/paidAdsService";
-import type { ChangeRequestRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
@@ -569,6 +569,88 @@ export function DpilotTiktokCampanhasPage() {
   );
 }
 
+/** Detecta campanha com orçamento acima do teto dos guardrails — para sugestão opcional («snap» ao limite). */
+function budgetSnapSuggestion(args: {
+  payload: Record<string, unknown> | null | undefined;
+  overview: PaidOverviewDto | null;
+  campaigns: CampaignRow[];
+}): { show: boolean; campaignId: string | null; suggestedMicros: number | null } {
+  const p = args.payload && typeof args.payload === "object" ? (args.payload as Record<string, unknown>) : {};
+  const campaignId = typeof p.campaign_id === "string" ? p.campaign_id : null;
+  const raw = args.overview?.guardrails?.max_daily_budget_micros;
+  const maxM = typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+  const camp = campaignId ? args.campaigns.find((c) => c.id === campaignId) : undefined;
+  const fromCamp =
+    typeof camp?.daily_budget_micros === "number" && Number.isFinite(camp.daily_budget_micros)
+      ? camp.daily_budget_micros
+      : null;
+  const dm = p.daily_budget_micros ?? p.dailyBudgetMicros;
+  const fromPayload = typeof dm === "number" && Number.isFinite(dm) ? dm : null;
+  const cur = fromCamp ?? fromPayload;
+  if (!campaignId || maxM == null || cur == null) {
+    return { show: false, campaignId, suggestedMicros: maxM };
+  }
+  return {
+    show: cur > maxM,
+    campaignId,
+    suggestedMicros: maxM,
+  };
+}
+
+function parseGeoList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x).trim()).filter(Boolean);
+}
+
+function intersectGeoWithAllowedList(geoTargets: string[], allowedCountries: string[]): string[] {
+  const allowed = new Set(allowedCountries.map((c) => c.trim().toUpperCase()).filter(Boolean));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of geoTargets) {
+    const u = String(raw).trim().toUpperCase();
+    if (!allowed.has(u) || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
+/** Países da campanha incluem geografias não permitidas; sugere apenas a intersecção com a lista dos guardrails. */
+function geoSnapSuggestion(args: {
+  payload: Record<string, unknown> | null | undefined;
+  overview: PaidOverviewDto | null;
+  campaigns: CampaignRow[];
+}): {
+  show: boolean;
+  campaignId: string | null;
+  /** Lista resultante ao remover países proibidos (útil para rotular o botão). */
+  suggestedCountries: string[];
+} {
+  const p = args.payload && typeof args.payload === "object" ? (args.payload as Record<string, unknown>) : {};
+  const campaignId = typeof p.campaign_id === "string" ? p.campaign_id : null;
+  const rawAllowed = args.overview?.guardrails?.allowed_countries;
+  const allowedCountries = Array.isArray(rawAllowed)
+    ? rawAllowed.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  if (!campaignId || allowedCountries.length === 0) {
+    return { show: false, campaignId, suggestedCountries: [] };
+  }
+  const camp = args.campaigns.find((c) => c.id === campaignId);
+  const geoFromCamp = parseGeoList(camp?.geo_targets);
+  const geoFromPayload = parseGeoList(p.geo_targets ?? p.geoTargets);
+  const current = geoFromCamp.length ? geoFromCamp : geoFromPayload;
+
+  const allowedSet = new Set(allowedCountries.map((c) => c.trim().toUpperCase()));
+  const hasForbidden = current.some((g) => !allowedSet.has(String(g).trim().toUpperCase()));
+  const suggested = intersectGeoWithAllowedList(current, allowedCountries);
+
+  return {
+    show: hasForbidden && suggested.length > 0,
+    campaignId,
+    suggestedCountries: suggested,
+  };
+}
+
 function sortChangeRequests(rows: ChangeRequestRow[]): ChangeRequestRow[] {
   const rank = (s: string) => {
     if (s === "pending") return 0;
@@ -584,16 +666,82 @@ function sortChangeRequests(rows: ChangeRequestRow[]): ChangeRequestRow[] {
 
 const ChangeRequestCard = memo(function ChangeRequestCard({
   cr,
+  projectId,
+  overview,
+  campaigns,
+  reload,
   review,
   reviewBusyChangeRequestId,
 }: {
   cr: ChangeRequestRow;
+  projectId: string;
+  overview: PaidOverviewDto | null;
+  campaigns: CampaignRow[];
+  reload: () => void;
   review: (id: string, status: "approved" | "rejected" | "applied") => void | Promise<void>;
   reviewBusyChangeRequestId: string | null;
 }) {
   const title = changeRequestTypeLabel(cr.type);
   const { lines, guardrailMessages } = summarizeChangeRequestPayload(cr.payload);
   const busy = reviewBusyChangeRequestId === cr.id;
+  const [snapBusy, setSnapBusy] = useState<null | "budget" | "geo">(null);
+
+  const budgetSnap = useMemo(
+    () => budgetSnapSuggestion({ payload: cr.payload ?? undefined, overview, campaigns }),
+    [cr.payload, overview, campaigns],
+  );
+
+  const geoSnap = useMemo(
+    () => geoSnapSuggestion({ payload: cr.payload ?? undefined, overview, campaigns }),
+    [cr.payload, overview, campaigns],
+  );
+
+  const onSnapBudget = useCallback(async () => {
+    if (!budgetSnap.campaignId || budgetSnap.suggestedMicros == null) return;
+    setSnapBusy("budget");
+    try {
+      const { error, data } = await paidAdsService.snapCampaignDailyBudgetToGuardrail(
+        projectId,
+        budgetSnap.campaignId,
+      );
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      if (data?.adjusted) {
+        toast.success("Orçamento alinhado ao limite", {
+          description: `Definido para ${formatUsdFromMicros(budgetSnap.suggestedMicros)} por dia (guardrails).`,
+        });
+      } else {
+        toast.info("Orçamento já estava dentro do limite.");
+      }
+      reload();
+    } finally {
+      setSnapBusy(null);
+    }
+  }, [budgetSnap.campaignId, budgetSnap.suggestedMicros, projectId, reload]);
+
+  const onSnapGeo = useCallback(async () => {
+    if (!geoSnap.campaignId || geoSnap.suggestedCountries.length === 0) return;
+    setSnapBusy("geo");
+    try {
+      const { error, data } = await paidAdsService.snapCampaignGeoTargetsToGuardrail(projectId, geoSnap.campaignId);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      if (data?.adjusted) {
+        toast.success("Países alinhados aos guardrails", {
+          description: `Segmentação: ${geoSnap.suggestedCountries.join(", ")}.`,
+        });
+      } else {
+        toast.info("A segmentação já coincidia com a lista permitida.");
+      }
+      reload();
+    } finally {
+      setSnapBusy(null);
+    }
+  }, [geoSnap.campaignId, geoSnap.suggestedCountries, projectId, reload]);
 
   return (
     <div className="rounded-xl border border-border/80 bg-card/50 p-4 shadow-sm">
@@ -618,19 +766,103 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
             </ul>
           ) : null}
           {guardrailMessages.length > 0 ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50">
-              <p className="font-medium text-amber-950/90 dark:text-amber-50/95">Motivos da revisão (limites)</p>
-              <ul className="mt-1 list-inside list-disc space-y-0.5">
-                {guardrailMessages.map((m, i) => (
-                  <li key={`g-${i}-${m.slice(0, 32)}`}>{m}</li>
-                ))}
-              </ul>
+            <div className="space-y-2">
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50">
+                <p className="font-medium text-amber-950/90 dark:text-amber-50/95">Motivos da revisão (limites)</p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5">
+                  {guardrailMessages.map((m, i) => (
+                    <li key={`g-${i}-${m.slice(0, 32)}`}>{m}</li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                O pedido não tem edição rápida neste ecrã: ajuste a{" "}
+                <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/campanhas`}>
+                  campanha de rascunho
+                </Link>{" "}
+                (orçamento, país, keywords) ou os{" "}
+                <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/visao`}>
+                  guardrails em Visão geral
+                </Link>
+                , depois volte a «Aplicar na rede».
+              </p>
+            </div>
+          ) : null}
+          {budgetSnap.show && budgetSnap.campaignId && budgetSnap.suggestedMicros != null ? (
+            <div className="flex flex-col gap-2 rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || snapBusy !== null}
+                  className="shrink-0"
+                  onClick={() => void onSnapBudget()}
+                >
+                  {snapBusy === "budget" ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                      A aplicar…
+                    </>
+                  ) : (
+                    <>Aplicar orçamento sugerido ({formatUsdFromMicros(budgetSnap.suggestedMicros)}/dia)</>
+                  )}
+                </Button>
+                <span className="text-[11px] leading-snug text-muted-foreground">
+                  Opcional — actualiza o rascunho no Clickora para o teto dos guardrails; depois pode voltar a «Aplicar na
+                  rede».
+                </span>
+              </div>
+            </div>
+          ) : null}
+          {geoSnap.show && geoSnap.campaignId && geoSnap.suggestedCountries.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || snapBusy !== null}
+                  className="shrink-0"
+                  onClick={() => void onSnapGeo()}
+                >
+                  {snapBusy === "geo" ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                      A aplicar…
+                    </>
+                  ) : (
+                    <>
+                      Aplicar países sugeridos ({geoSnap.suggestedCountries.join(", ")})
+                    </>
+                  )}
+                </Button>
+                <span className="text-[11px] leading-snug text-muted-foreground">
+                  Opcional — remove apenas geografias não permitidas; não publica na rede.
+                </span>
+              </div>
             </div>
           ) : null}
           {cr.error_message ? (
-            <p className="text-xs text-destructive">
-              <span className="font-medium">Erro na rede:</span> {cr.error_message}
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-destructive">
+                <span className="font-medium">Erro na rede:</span> {cr.error_message}
+              </p>
+              {/invalid\s+argument|INVALID_ARGUMENT/i.test(cr.error_message) ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Sugestão: confirme em{" "}
+                  <Link
+                    className="font-medium underline underline-offset-2"
+                    to={`/tracking/dpilot/p/${projectId}/ligacoes`}
+                  >
+                    Ligações às redes
+                  </Link>{" "}
+                  que a conta Google Ads está válida e com permissões. Verifique também orçamentos mínimos da rede,
+                  país da conta de faturação e nomes únicos da campanha. Se persistir, contacte o suporte com a referência
+                  técnica abaixo.
+                </p>
+              ) : null}
+            </div>
           ) : null}
           <p className="font-mono text-[10px] text-muted-foreground/80">
             Ref. técnica: {cr.id}
@@ -736,7 +968,7 @@ ChangeRequestCard.displayName = "ChangeRequestCard";
 export function DpilotAprovacoesPage() {
   const p = useDpilotPaid();
   const sorted = useMemo(() => sortChangeRequests(p.changeRequests), [p.changeRequests]);
-  const { reviewBusyChangeRequestId } = p;
+  const { reviewBusyChangeRequestId, projectId, overview, campaigns, reload } = p;
 
   return (
     <Gate>
@@ -767,6 +999,10 @@ export function DpilotAprovacoesPage() {
                 <ChangeRequestCard
                   key={cr.id}
                   cr={cr}
+                  projectId={projectId}
+                  overview={overview}
+                  campaigns={campaigns}
+                  reload={reload}
                   review={p.review}
                   reviewBusyChangeRequestId={reviewBusyChangeRequestId}
                 />

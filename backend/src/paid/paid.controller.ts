@@ -6,6 +6,7 @@ import { systemPrisma } from "../lib/prisma";
 import * as mappers from "./api-mappers";
 import { workspaceAllowsApplyBeforeRemote } from "./apply-workspace-guard";
 import { applyChangeRequestRemote } from "./change-request-apply";
+import { intersectGeoTargetsWithAllowedCountries } from "./guardrails-eval";
 import { ensurePaidAdsBootstrapForUser, ensurePaidAdsProjectRows } from "./bootstrap";
 import { prisma } from "./paidPrisma";
 import { googleCampaignPlanInputSchema, runGoogleCampaignPlan } from "./google-campaign-plan";
@@ -15,6 +16,11 @@ import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-c
 import { canAccessProject, canAdminProject, canWriteProject, getPaidActor } from "./permissions";
 
 const projectIdParam = z.object({ projectId: z.string().uuid() });
+
+function parseGeoTargetsJson(j: unknown): string[] {
+  if (!Array.isArray(j)) return [];
+  return j.map((x) => String(x).trim()).filter(Boolean);
+}
 
 /** Campanhas geradas sem chamada ao modelo usam `fallback/deterministic` no registo AI. */
 function planSourceFromModel(model: string): "llm" | "deterministic" {
@@ -537,6 +543,89 @@ export const paidController = {
       autoApplied: out.autoApplied,
       reasons: out.reasons,
     });
+  },
+
+  /** Alinha o orçamento diário local da campanha ao teto dos guardrails (quando o actual o excede). Rascunho / pré-publicação. */
+  async snapCampaignDailyBudgetToGuardrailCeiling(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const { projectId, campaignId } = parsed.data;
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para editar campanhas neste projecto." });
+    }
+    const gr = await prisma.paidAdsGuardrails.findUnique({ where: { projectId } });
+    if (!gr) {
+      return res.status(400).json({ error: "Não há guardrails neste projecto; não há teto para alinhar o orçamento." });
+    }
+    const maxMicros = Number(gr.maxDailyBudgetMicros);
+    const camp = await prisma.paidAdsCampaign.findFirst({
+      where: { id: campaignId, projectId },
+    });
+    if (!camp) return res.status(404).json({ error: "Campanha não encontrada." });
+    const cur = camp.dailyBudgetMicros != null ? Number(camp.dailyBudgetMicros) : 0;
+    if (cur <= maxMicros) {
+      return res.json({ campaign: mappers.mapPaidCampaign(camp), adjusted: false as const });
+    }
+    const updated = await prisma.paidAdsCampaign.update({
+      where: { id: camp.id },
+      data: { dailyBudgetMicros: BigInt(maxMicros) },
+    });
+    return res.json({ campaign: mappers.mapPaidCampaign(updated), adjusted: true as const });
+  },
+
+  /** Remove da segmentação os países que não estão na lista permitida dos guardrails (mantém ordem dos permitidos). */
+  async snapCampaignGeoTargetsToGuardrailAllowed(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const { projectId, campaignId } = parsed.data;
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para editar campanhas neste projecto." });
+    }
+    const gr = await prisma.paidAdsGuardrails.findUnique({ where: { projectId } });
+    if (!gr) {
+      return res.status(400).json({ error: "Não há guardrails neste projecto." });
+    }
+    if (gr.allowedCountries.length === 0) {
+      return res.status(400).json({ error: "Lista de países permitidos está vazia." });
+    }
+    const camp = await prisma.paidAdsCampaign.findFirst({
+      where: { id: campaignId, projectId },
+    });
+    if (!camp) return res.status(404).json({ error: "Campanha não encontrada." });
+
+    const beforeArr = parseGeoTargetsJson(camp.geoTargets);
+    const afterArr = intersectGeoTargetsWithAllowedCountries(beforeArr, gr.allowedCountries);
+
+    if (beforeArr.length > 0 && afterArr.length === 0) {
+      return res.status(400).json({
+        error:
+          "Nenhum dos países actuais está na lista permitida. Alargue os guardrails em «Visão geral» ou defina destinos permitidos em «Campanhas».",
+      });
+    }
+
+    function geoTargetsLooselyEqual(a: string[], b: string[]): boolean {
+      if (a.length !== b.length) return false;
+      return a.every(
+        (x, i) => String(x).trim().toUpperCase() === String(b[i]).trim().toUpperCase(),
+      );
+    }
+    if (geoTargetsLooselyEqual(beforeArr, afterArr)) {
+      return res.json({ campaign: mappers.mapPaidCampaign(camp), adjusted: false as const });
+    }
+
+    const updated = await prisma.paidAdsCampaign.update({
+      where: { id: camp.id },
+      data: { geoTargets: afterArr },
+    });
+    return res.json({ campaign: mappers.mapPaidCampaign(updated), adjusted: true as const });
   },
 
   async patchCampaignOptimizerLimits(req: Request, res: Response) {

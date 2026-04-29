@@ -57,7 +57,7 @@ export async function workspaceAllowsApplyBeforeRemote(
       if (msgs.length === 0) return { ok: true };
       return {
         ok: false,
-        message: `Não é possível aplicar na rede até resolver: ${msgs.join(" ")}`,
+        message: `Não é possível aplicar na rede até corrigir estes pontos: ${msgs.join(" ")} Depois volte aqui e use novamente «Aplicar na rede».`,
       };
     }
     default:

@@ -44,6 +44,12 @@ paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidControll
 paidRouter.patch("/projects/:projectId/campaigns/:campaignId/optimizer-limits", (req, res) =>
   void paidController.patchCampaignOptimizerLimits(req, res),
 );
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-daily-budget-to-guardrail", (req, res) =>
+  void paidController.snapCampaignDailyBudgetToGuardrailCeiling(req, res),
+);
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-geo-to-guardrail", (req, res) =>
+  void paidController.snapCampaignGeoTargetsToGuardrailAllowed(req, res),
+);
 paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
   void paidController.listOptimizerDecisions(req, res),
 );

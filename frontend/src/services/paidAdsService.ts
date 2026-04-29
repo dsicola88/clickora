@@ -21,6 +21,9 @@ export type CampaignRow = {
   status: string;
   platform: string;
   created_at: string;
+  daily_budget_micros?: number | null;
+  /** Códigos ISO de país (segmentação). */
+  geo_targets?: string[] | null;
   /** Override optimizer: USD pause sem conversão (null = política do projecto). */
   optimizer_pause_spend_usd?: number | null;
   optimizer_pause_min_clicks?: number | null;
@@ -226,6 +229,20 @@ export const paidAdsService = {
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/google-campaign-plan`, body);
+  },
+
+  snapCampaignGeoTargetsToGuardrail(projectId: string, campaignId: string) {
+    return apiClient.post<{ campaign: CampaignRow; adjusted: boolean }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/snap-geo-to-guardrail`,
+      {},
+    );
+  },
+
+  snapCampaignDailyBudgetToGuardrail(projectId: string, campaignId: string) {
+    return apiClient.post<{ campaign: CampaignRow; adjusted: boolean }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/snap-daily-budget-to-guardrail`,
+      {},
+    );
   },
 
   patchCampaignOptimizerLimits(

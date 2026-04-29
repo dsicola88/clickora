@@ -261,7 +261,11 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       try {
         const { error } = await paidAdsService.reviewChangeRequest({ id, status });
         if (error) {
-          toast.error(error);
+          const longErr =
+            error.length > 120 || error.includes("Como corrigir") || error.includes("até corrigir");
+          toast.error(error, {
+            duration: longErr ? 16_000 : 5000,
+          });
           return;
         }
         if (status === "applied") {
