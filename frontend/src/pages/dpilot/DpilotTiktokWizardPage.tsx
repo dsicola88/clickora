@@ -14,7 +14,6 @@ import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargeting
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
-import { DpilotAuctionEducationBanner } from "./DpilotAuctionEducationBanner";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
@@ -262,7 +261,6 @@ export function DpilotTiktokWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha TikTok"
-          description="Indique destino, oferta e público; opcionalmente envie vídeo ou imagem. O assistente prepara rascunhos na conta TikTok Ads ligada — em Copilot ou quando os limites o exigirem, o pedido segue para «Aprovações». Pode refinar criativos depois no TikTok Ads Manager."
           actions={
             <Button variant="outline" asChild>
               <Link to={`${base}/tiktok`}>
@@ -273,8 +271,6 @@ export function DpilotTiktokWizardPage() {
         />
         <div className="mt-2 px-0 py-2 sm:px-1">
           <div className="mx-auto max-w-3xl space-y-5">
-            <DpilotCampaignReadinessCard platform="tiktok" />
-            <DpilotAuctionEducationBanner platform="tiktok" />
             <form
               onSubmit={onSubmit}
               className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
@@ -288,7 +284,6 @@ export function DpilotTiktokWizardPage() {
                 onChange={(e) => setLandingUrl(e.target.value)}
                 required
               />
-              <p className="text-[11px] text-muted-foreground">Para onde o anúncio deve levar após o clique.</p>
             </div>
 
             <div className="grid gap-2">
@@ -325,7 +320,6 @@ export function DpilotTiktokWizardPage() {
                 rows={3}
                 required
               />
-              <p className="text-[11px] text-muted-foreground">Ajuda o modelo dentro das políticas TikTok Ads.</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -343,9 +337,7 @@ export function DpilotTiktokWizardPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  {objectives.find((o) => o.value === objective)?.hint}
-                </p>
+
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="t-budget">Orçamento diário (USD)</Label>
@@ -362,14 +354,9 @@ export function DpilotTiktokWizardPage() {
             </div>
 
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
-              <div className="space-y-1">
-                <Label htmlFor="t-bidding-strat" className="text-xs font-medium">
-                  Licitação do grupo de anúncios (TikTok)
-                </Label>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Opcional: enviar bid_price com licitação personalizada; de contrário o TikTok optimiza automaticamente.
-                </p>
-              </div>
+              <Label htmlFor="t-bidding-strat" className="text-xs font-medium">
+                Licitação do grupo
+              </Label>
               <select
                 id="t-bidding-strat"
                 value={tiktokBiddingStrategy}
@@ -382,9 +369,7 @@ export function DpilotTiktokWizardPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                {TIKTOK_BIDDING_OPTIONS.find((o) => o.value === tiktokBiddingStrategy)?.hint}
-              </p>
+
               {tiktokBiddingStrategy === "bid_cap_usd" ? (
                 <div className="grid gap-2">
                   <Label htmlFor="t-bid-usd">Valor bid_price (USD)</Label>
@@ -401,8 +386,8 @@ export function DpilotTiktokWizardPage() {
             </div>
 
             <GoogleAdsCountriesSelect
-              label="Localizações — País"
-              hint="Mesmos países disponíveis que no fluxo Google Ads deste produto."
+              label="País"
+              hint=""
               searchPlaceholder="Pesquisar país…"
               emptyText="Nenhum país encontrado."
               options={GOOGLE_ADS_COUNTRY_OPTIONS}
@@ -483,10 +468,7 @@ export function DpilotTiktokWizardPage() {
                 </Badge>
                 <p className="text-sm font-medium">Conformidade</p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                O seu anúncio deve cumprir as regras de conteúdo e publicidade do TikTok. Objetivos como conversões podem
-                exigir pixel ou aplicação configurados na conta TikTok.
-              </p>
+              <p className="text-xs text-muted-foreground">Conversões podem precisar de pixel/app na conta.</p>
               <label className="mt-1 flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
                 <Checkbox
                   checked={complianceAck}
@@ -514,12 +496,7 @@ export function DpilotTiktokWizardPage() {
               </div>
             ) : null}
 
-            <p className="text-xs text-muted-foreground leading-relaxed border-t border-border pt-4">
-              O assistente gera rascunhos e um pedido na conta TikTok Ads ligada. A conta só é alterada quando os limites de
-              segurança e o modo Copilot / Autopilot o permitirem — por exemplo após rever o pedido em «Aprovações».
-            </p>
-
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
               <Button type="button" variant="ghost" asChild>
                 <Link to={`${base}/tiktok`}>Cancelar</Link>
               </Button>

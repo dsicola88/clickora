@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { PageHeader } from "@/components/PageHeader";
@@ -13,7 +13,6 @@ import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components
 import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
-import { DpilotAuctionEducationBanner } from "./DpilotAuctionEducationBanner";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
@@ -51,32 +50,12 @@ type GoogleBiddingStrategy =
   | "target_cpa"
   | "target_roas";
 
-const GOOGLE_BIDDING_OPTIONS: { value: GoogleBiddingStrategy; label: string; hint: string }[] = [
-  {
-    value: "manual_cpc",
-    label: "CPC manual",
-    hint: "Controla licitações ao nível da palavra-chave; útil para começar ou testes.",
-  },
-  {
-    value: "maximize_clicks",
-    label: "Maximizar cliques",
-    hint: "O Google distribui o orçamento para gerar mais cliques dentro dos limites.",
-  },
-  {
-    value: "maximize_conversions",
-    label: "Maximizar conversões",
-    hint: "Optimiza para conversões quando há dados de tracking suficientes.",
-  },
-  {
-    value: "target_cpa",
-    label: "CPA alvo",
-    hint: "Define um custo por conversão pretendido (requer conversões monitorizadas).",
-  },
-  {
-    value: "target_roas",
-    label: "ROAS alvo",
-    hint: "Define um retorno sobre gasto em anúncios pretendido (valor / custo).",
-  },
+const GOOGLE_BIDDING_OPTIONS: { value: GoogleBiddingStrategy; label: string }[] = [
+  { value: "manual_cpc", label: "CPC manual" },
+  { value: "maximize_clicks", label: "Maximizar cliques" },
+  { value: "maximize_conversions", label: "Maximizar conversões" },
+  { value: "target_cpa", label: "CPA alvo" },
+  { value: "target_roas", label: "ROAS alvo" },
 ];
 
 function Field({
@@ -237,7 +216,6 @@ export function DpilotGoogleWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha"
-          description="Gera um plano de Pesquisa Google com IA. Em modo Copilot, ou quando os limites o exigirem, o pedido segue para «Aprovações» antes da rede aplicar alterações."
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="font-normal">
@@ -253,12 +231,11 @@ export function DpilotGoogleWizardPage() {
         />
         <div className="mx-auto max-w-3xl space-y-5 px-0 py-4 sm:px-1 sm:py-6">
           <DpilotCampaignReadinessCard platform="google" />
-          <DpilotAuctionEducationBanner platform="google" />
           <form
             onSubmit={onSubmit}
             className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
           >
-            <Field label="URL da landing page" hint="Para onde o clique no anúncio leva.">
+            <Field label="URL da landing page">
               <Input
                 id="g-wiz-landing"
                 type="url"
@@ -269,22 +246,8 @@ export function DpilotGoogleWizardPage() {
               />
             </Field>
 
-            <div className="flex gap-2.5 rounded-lg border border-primary/15 bg-primary/[0.06] px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-              <Lightbulb className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-              <div>
-                <p className="font-medium text-foreground">Como pensar nos dois próximos campos</p>
-                <p className="mt-1">
-                  <span className="text-foreground/90">Oferta:</span> o que vende, para quem, benefício principal e eventual prova/oferta comercial — isto alimenta títulos e descrições do anúncio.
-                </p>
-                <p className="mt-1">
-                  <span className="text-foreground/90">Objetivo:</span> o resultado negócio desta campanha (métricas: leads, vendas, demos, visitas…). Ajuda o assistente a alinhar palavras-chave e texto.
-                </p>
-              </div>
-            </div>
-
             <Field
               label="Oferta / proposta de valor"
-              hint="Seja específico: produto ou serviço, público, diferencial frente à concorrência e oferta atual (trial, desconto, garantia)."
             >
               <Textarea
                 id="g-wiz-offer"
@@ -311,10 +274,7 @@ export function DpilotGoogleWizardPage() {
               </div>
             </Field>
 
-            <Field
-              label="Objetivo da campanha"
-              hint='Uma ou duas frases sobre o resultado de negócio (não apenas "campanhas de pesquisa"). O modelo usa isto junto da oferta para orientar criativos e palavras-chave.'
-            >
+            <Field label="Objetivo da campanha">
               <div className="flex flex-wrap gap-1.5 pb-2" role="group" aria-label="Sugestões de objetivo">
                 {OBJECTIVE_SUGGESTIONS.map((s) => (
                   <Button
@@ -354,12 +314,8 @@ export function DpilotGoogleWizardPage() {
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
               <div className="space-y-1">
                 <Label htmlFor="g-bidding-strat" className="text-xs font-medium">
-                  Estratégia de licitação (Google Ads Search)
+                  Estratégia de licitação
                 </Label>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Escolha o que optimizar; o CPC efectivo em cada leilão é definido pelo Google (concorrência, qualidade,
-                  probabilidade de conversão).
-                </p>
               </div>
               <select
                 id="g-bidding-strat"
@@ -373,9 +329,6 @@ export function DpilotGoogleWizardPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-muted-foreground">
-                {GOOGLE_BIDDING_OPTIONS.find((o) => o.value === googleBiddingStrategy)?.hint}
-              </p>
               {googleBiddingStrategy === "target_cpa" ? (
                 <Field label="CPA alvo (USD por conversão)">
                   <Input
@@ -404,8 +357,8 @@ export function DpilotGoogleWizardPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <GoogleAdsCountriesSelect
-                label="Localizações — País"
-                hint="Igual ao Google Ads: segmentação por país (critérios geo)."
+                label="País"
+                hint=""
                 searchPlaceholder="Pesquisar país…"
                 emptyText="Nenhum país encontrado."
                 options={GOOGLE_ADS_COUNTRY_OPTIONS}
@@ -414,8 +367,8 @@ export function DpilotGoogleWizardPage() {
                 max={20}
               />
               <GoogleAdsLanguagesSelect
-                label="Idiomas dos anúncios"
-                hint="RSA: o modelo gera títulos e descrições nestes idiomas — o primeiro é o principal."
+                label="Idiomas do anúncio"
+                hint=""
                 searchPlaceholder="Pesquisar idioma…"
                 emptyText="Nenhum idioma encontrado."
                 options={GOOGLE_ADS_LANGUAGE_OPTIONS}
@@ -425,12 +378,8 @@ export function DpilotGoogleWizardPage() {
               />
             </div>
 
-            <div className="rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4 space-y-3">
-              <p className="text-xs font-medium text-foreground">Pausa automática sem conversões (opcional)</p>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Por defeito aplicam‑se os limites do projecto («Visão geral»). Aqui pode fixar apenas para esta campanha
-                quando for criada.
-              </p>
+            <div className="space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4">
+              <p className="text-xs font-medium text-foreground">Pausa automática (opcional)</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Gasto máximo USD (sem conv.)">
                   <Input
@@ -457,11 +406,7 @@ export function DpilotGoogleWizardPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground max-w-md">
-                O assistente gera rascunhos e um pedido de criação (campanha, grupos de anúncios, palavras-chave e anúncios
-                RSA). A conta Google só é alterada quando os limites de segurança e o modo Copilot / Autopilot o permitirem.
-              </p>
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
               <Button type="submit" disabled={submitting}>
                 <Sparkles className="mr-1 h-4 w-4" />
                 {submitting ? "A gerar plano…" : "Gerar plano"}

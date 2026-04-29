@@ -14,7 +14,6 @@ import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargeting
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
-import { DpilotAuctionEducationBanner } from "./DpilotAuctionEducationBanner";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
@@ -308,7 +307,6 @@ export function DpilotMetaWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha Meta"
-          description="Indique destino, oferta e público; opcionalmente envie um criativo. O assistente prepara rascunhos na conta Meta ligada — em modo Copilot ou quando os limites de segurança o exigirem, o pedido fica em «Aprovações» antes de alterações na rede."
           actions={
             <Button variant="outline" asChild>
               <Link to={`${base}/meta`}>
@@ -319,8 +317,6 @@ export function DpilotMetaWizardPage() {
         />
         <div className="mt-2 px-0 py-2 sm:px-1">
           <div className="mx-auto max-w-3xl space-y-5">
-            <DpilotCampaignReadinessCard platform="meta" />
-            <DpilotAuctionEducationBanner platform="meta" />
             <form
               onSubmit={onSubmit}
               className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
@@ -334,7 +330,6 @@ export function DpilotMetaWizardPage() {
                 onChange={(e) => setLandingUrl(e.target.value)}
                 required
               />
-              <p className="text-[11px] text-muted-foreground">Para onde o anúncio deve levar após o clique.</p>
             </div>
 
             <div className="grid gap-2">
@@ -371,7 +366,6 @@ export function DpilotMetaWizardPage() {
                 rows={3}
                 required
               />
-              <p className="text-[11px] text-muted-foreground">Ajuda o modelo a orientar criativo e segmentação dentro das políticas Meta.</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -389,9 +383,6 @@ export function DpilotMetaWizardPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  {objectives.find((o) => o.value === objective)?.hint}
-                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="m-budget">Orçamento diário (USD)</Label>
@@ -408,14 +399,9 @@ export function DpilotMetaWizardPage() {
             </div>
 
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
-              <div className="space-y-1">
-                <Label htmlFor="m-bidding-strat" className="text-xs font-medium">
-                  Licitação do conjunto (Meta Ads)
-                </Label>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Escolha como limitar custos; os valores efectivos por leilão continuam definidos pela Meta.
-                </p>
-              </div>
+              <Label htmlFor="m-bidding-strat" className="text-xs font-medium">
+                Licitação do conjunto
+              </Label>
               <select
                 id="m-bidding-strat"
                 value={metaBiddingStrategy}
@@ -428,9 +414,7 @@ export function DpilotMetaWizardPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                {META_BIDDING_OPTIONS.find((o) => o.value === metaBiddingStrategy)?.hint}
-              </p>
+
               {metaBiddingStrategy !== "lowest_cost" ? (
                 <div className="grid gap-2">
                   <Label htmlFor="m-bid-usd">
@@ -449,8 +433,8 @@ export function DpilotMetaWizardPage() {
             </div>
 
             <GoogleAdsCountriesSelect
-              label="Localizações — País"
-              hint="Mesmos países disponíveis que no fluxo Google Ads deste produto."
+              label="País"
+              hint=""
               searchPlaceholder="Pesquisar país…"
               emptyText="Nenhum país encontrado."
               options={GOOGLE_ADS_COUNTRY_OPTIONS}
@@ -552,10 +536,7 @@ export function DpilotMetaWizardPage() {
                 </Badge>
                 <p className="text-sm font-medium">Categorias especiais de anúncios</p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                O Meta exige declarar categorias especiais quando aplicável. Ao marcá-las, o sistema pode impor restrições
-                adicionais de segmentação (por exemplo idade mínima 18 anos e menos granularidade geográfica em certos casos).
-              </p>
+              <p className="text-xs text-muted-foreground">Quando aplicável, declare.</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {specialCategories.map((c) => {
                   const checked = categories.includes(c.value);
@@ -572,9 +553,7 @@ export function DpilotMetaWizardPage() {
               </div>
               {hasSensitive ? (
                 <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
-                  Atenção: {categories.length}{" "}
-                  {categories.length === 1 ? "categoria especial" : "categorias especiais"} declarada
-                  {categories.length === 1 ? "" : "s"}. Idade mínima será forçada a 18 anos pelo Meta.
+                  Idade mínima pode ser forçada a 18 anos.
                 </p>
               ) : null}
 
@@ -605,12 +584,7 @@ export function DpilotMetaWizardPage() {
               </div>
             ) : null}
 
-            <p className="text-xs text-muted-foreground leading-relaxed border-t border-border pt-4">
-              O assistente gera rascunhos e um pedido na conta Meta ligada. A conta só é alterada quando os limites de
-              segurança e o modo Copilot / Autopilot o permitirem — por exemplo após rever o pedido em «Aprovações».
-            </p>
-
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
               <Button type="button" variant="ghost" asChild>
                 <Link to={`${base}/meta`}>Cancelar</Link>
               </Button>

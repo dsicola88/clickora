@@ -87,10 +87,7 @@ export function DpilotVisaoPage() {
 
   return (
     <Gate>
-      <PageHeader
-        title="Visão geral"
-        description="Estratégia, limites, transparência do motor automático e pedidos em revisão — tudo legível antes de ir à rede."
-      />
+      <PageHeader title="Visão geral" />
       {p.overview && (
         <p className="text-xs text-muted-foreground">
           ID do projecto (suporte): <code className="rounded bg-muted px-1 py-0.5">{p.projectId}</code>
@@ -98,8 +95,7 @@ export function DpilotVisaoPage() {
       )}
       <Card className="mt-4 border-border/80 bg-muted/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Três passos simples</CardTitle>
-          <CardDescription>O mesmo percurso para qualquer rede — ligue, crie e autorize quando o Copilot o pedir.</CardDescription>
+          <CardTitle className="text-base">Passos</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
@@ -110,8 +106,7 @@ export function DpilotVisaoPage() {
               1
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Ligar a conta</p>
-              <p className="text-xs text-muted-foreground leading-snug">OAuth seguro por rede (Google, Meta ou TikTok).</p>
+              <p className="text-sm font-medium">Ligar conta</p>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
                 <Link to={`/tracking/dpilot/p/${p.projectId}/ligacoes`}>Abrir ligações</Link>
               </Button>
@@ -126,7 +121,6 @@ export function DpilotVisaoPage() {
             </span>
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-medium">Criar campanha</p>
-              <p className="text-xs text-muted-foreground leading-snug">Assistente com IA — escolha a rede no menu.</p>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
                 <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Ver campanhas e criar</Link>
               </Button>
@@ -140,8 +134,7 @@ export function DpilotVisaoPage() {
               3
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Rever pedidos</p>
-              <p className="text-xs text-muted-foreground leading-snug">Aprove ou aplique na rede quando aparecer aqui.</p>
+              <p className="text-sm font-medium">Aprovações</p>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
                 <Link to={`/tracking/dpilot/p/${p.projectId}/aprovacoes`}>Ir para aprovações</Link>
               </Button>
@@ -159,21 +152,16 @@ export function DpilotVisaoPage() {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Modo de trabalho</CardTitle>
-            <CardDescription>Revisão manual vs. publicação automática</CardDescription>
+            <CardTitle className="text-base">Modo</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{paidModeLabel}</p>
-            <p className="mt-2 text-xs text-muted-foreground leading-snug">
-              No modo Copilot, alterações sensíveis ficam em fila até aprovação. No Autopilot, dentro dos limites
-              configurados, o sistema pode aplicar na rede por si.
-            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Google Ads</CardTitle>
-            <CardDescription>Estado</CardDescription>
+            <CardTitle className="text-base">Google</CardTitle>
+            <CardDescription>OAuth</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm">
@@ -194,8 +182,8 @@ export function DpilotVisaoPage() {
         <DpilotGuardrailsCeilingCard />
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Aprovações pendentes</CardTitle>
-            <CardDescription>Decisões em aberto na fila</CardDescription>
+            <CardTitle className="text-base">Filas</CardTitle>
+            <CardDescription>Pendentes</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{p.overview?.pending_approvals ?? "—"}</p>
@@ -217,18 +205,12 @@ export function DpilotVisaoPage() {
             <Activity className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             Motor automático (Autopilot)
           </CardTitle>
-          <CardDescription>
-            Auditoria paginada de pausas, escala de orçamento e recomendações de criativo — alinhada com os registos do
-            servidor (<code className="text-[11px]">paid.optimizer</code>).
-          </CardDescription>
+          <CardDescription>Autopilot · auditoria</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" size="sm" asChild>
             <Link to={`/tracking/dpilot/p/${p.projectId}/auditoria`}>Abrir auditoria completa</Link>
           </Button>
-          <span className="text-xs text-muted-foreground">
-            Mesmo nível de rastreio que ambientes enterprise (histórico imutável por decisão).
-          </span>
         </CardContent>
       </Card>
     </Gate>
@@ -238,14 +220,7 @@ export function DpilotVisaoPage() {
 export function DpilotLigacoesPage() {
   return (
     <Gate>
-      <PageHeader
-        title="Ligações às redes"
-        description="Autenticação OAuth por rede — cada conta publicitária liga-se uma vez com segurança."
-      />
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-        Utilize «Ligar» para autorizar o Clickora junto do Google, Meta ou TikTok. Pode renovar o acesso ou revogar a
-        ligação em qualquer momento; os tokens são tratados como credenciais sensíveis no servidor.
-      </p>
+      <PageHeader title="Ligações às redes" />
       <div className="mt-4">
         <DpilotPaidOauthGrid only="all" />
       </div>
@@ -259,7 +234,6 @@ export function DpilotGooglePage() {
     <Gate>
       <PageHeader
         title="Google Ads"
-        description="Liga a conta de anunciante (OAuth) e vê a conta activa abaixo."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
@@ -279,7 +253,6 @@ export function DpilotMetaPage() {
     <Gate>
       <PageHeader
         title="Meta (Facebook + Instagram)"
-        description="Visão geral e ligação à conta de anúncios Meta."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
@@ -330,7 +303,6 @@ export function DpilotTiktokPage() {
     <Gate>
       <PageHeader
         title="TikTok Ads"
-        description="Visão geral e ligação OAuth TikTok for Business."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
@@ -535,7 +507,6 @@ export function DpilotCampanhasPage() {
     <Gate>
       <PageHeader
         title="Campanhas"
-        description="Liste por estado; arquive rascunhos que já não precise (Acções → Arquivar). Override do motor opcional («Pausa motor»)."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
@@ -564,7 +535,6 @@ export function DpilotMetaCampanhasPage() {
     <Gate>
       <PageHeader
         title="Meta · campanhas"
-        description="Facebook e Instagram: filtre por estado e ajuste a pausa do motor por campanha quando for administrador."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
@@ -593,7 +563,6 @@ export function DpilotTiktokCampanhasPage() {
     <Gate>
       <PageHeader
         title="TikTok · campanhas"
-        description="Filtros por estado; override do motor opcional nas linhas seguintes."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
@@ -1159,7 +1128,6 @@ export function DpilotAprovacoesPage() {
     <Gate>
       <PageHeader
         title="Aprovações"
-        description="Cada pedido indica o «porque»: modo Copilot/Autopilot, limites do workspace e dados da campanha — confirme antes de «Aplicar na rede»."
       />
       <Alert className="mt-4 border-primary/20 bg-primary/5">
         <Info className="h-4 w-4 text-primary" aria-hidden />
@@ -1269,7 +1237,6 @@ export function DpilotAuditoriaPage() {
     <Gate>
       <PageHeader
         title="Auditoria & conformidade"
-        description="Decisões do motor com coluna «Porque» — mesmos registos imutáveis na base de dados; útil para compliance e revisão de equipa."
       />
 
       <Card className="mt-4 border-border/80">
@@ -1447,7 +1414,6 @@ export function DpilotEquipaPage() {
     <div>
       <PageHeader
         title="Equipa e permissões"
-        description="Quem pode ver e gerir este projecto segue as permissões da sua conta Clickora (workspace)."
       />
       <Card className="mt-4">
         <CardContent className="pt-6 text-sm text-muted-foreground leading-relaxed">
@@ -1469,7 +1435,6 @@ export function DpilotLandingsPage() {
     <div>
       <PageHeader
         title="Páginas de destino"
-        description="URLs e presells utilizadas nas campanhas são criadas e editadas no construtor principal do Clickora."
       />
       <Card className="mt-4">
         <CardContent className="pt-6 text-sm text-muted-foreground">
