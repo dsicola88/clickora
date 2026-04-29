@@ -25,6 +25,13 @@ describe("storedGoogleBiddingFromPlanInput", () => {
 });
 
 describe("googleCampaignCreateBiddingOneof", () => {
+  it("maximize_clicks devolve targetSpend (ex-maximize clicks na UI)", () => {
+    const b = googleCampaignCreateBiddingOneof({
+      google: { strategy: "maximize_clicks" },
+    });
+    assert.deepEqual(b, { targetSpend: {} });
+  });
+
   it("devolve maximizeConversions", () => {
     const b = googleCampaignCreateBiddingOneof({
       google: { strategy: "maximize_conversions" },

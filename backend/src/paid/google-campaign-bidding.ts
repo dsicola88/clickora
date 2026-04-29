@@ -47,7 +47,8 @@ export function googleCampaignCreateBiddingOneof(biddingConfig: unknown): Record
 
   switch (strategy) {
     case "maximize_clicks":
-      return { maximizeClicks: {} };
+      /** Legacy name no UI — na API Campaign o oneof usa `target_spend` ("Target Spend" = máximos cliques dentro do orçamento). */
+      return { targetSpend: {} };
     case "maximize_conversions":
       return { maximizeConversions: {} };
     case "target_cpa": {
