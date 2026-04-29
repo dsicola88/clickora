@@ -29,7 +29,8 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/*": ["./frontend/src/*"],
-      "@backend/*": ["./backend/src/*"]
+      "@backend/*": ["./backend/src/*"],
+      "@clickora/paid/*": ["../backend/src/paid/*"]
     }
   }
 }

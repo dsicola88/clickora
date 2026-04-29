@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => {
         alias: {
           "@": path.join(frontendRoot, "src"),
           "@backend": path.join(repoRoot, "backend", "src"),
+          "@clickora/paid": path.join(repoRoot, "..", "backend", "src", "paid"),
         },
         dedupe: [
           "react",

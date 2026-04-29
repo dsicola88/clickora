@@ -2,10 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import {
+  buildDeterministicGoogleCampaignPlan,
+  fetchOpenAiGoogleCampaignPlan,
+  type GoogleCampaignAiPlan,
+} from "@clickora/paid/google-campaign-ai-shared";
+
 import { requireSession } from "@/integrations/auth/auth-middleware";
 import { prisma } from "@backend/prisma";
 import { publishGoogleSearchCampaignFromLocal } from "@backend/google-ads.publish";
-import { buildDeterministicRsa } from "@backend/google-rsa-deterministic";
 import { canWriteProject } from "@backend/permissions";
 import { evaluateGuardrails, type GuardrailLimits, type GuardrailViolation } from "./guardrails";
 
@@ -19,39 +24,7 @@ const inputSchema = z.object({
   languageTargets: z.array(z.string().min(2).max(8)).min(1).max(10),
 });
 
-interface AiPlan {
-  campaign: { name: string; objective_summary: string };
-  ad_groups: Array<{
-    name: string;
-    keywords: Array<{ text: string; match_type: "exact" | "phrase" | "broad" }>;
-    rsa: { headlines: string[]; descriptions: string[] };
-  }>;
-}
-
-const SYSTEM_PROMPT = `You are an expert Google Ads Search strategist. Generate a COMPACT, high-quality campaign plan as JSON only.
-
-Rules:
-- Return JSON ONLY, matching the schema exactly. No prose, no markdown.
-- 2-3 ad groups, each tightly themed.
-- 5-10 keywords per ad group across exact/phrase/broad mix.
-- RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Prefer headlines that use almost the full 30-character budget — avoid tepid micro-copy like single words or obvious filler; weave in product-relevant phrases and commercial keywords where natural.
-- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with Objective and Offer.
-- Keywords must be commercial-intent, not brand-only.
-- Never include the user's blocked keywords.
-- RSA copy: write in the language of the user's offer/locale when clear; otherwise match the primary language in the user prompt. Do NOT use generic SaaS phrases (e.g. "built for teams", "free trial") unless they exactly match the product.
-If generation runs without AI (fallback mode), RSA copy is composed deterministically from Offer, Objective, and Landing URL only — your JSON output matches that principle when AI is enabled.
-
-Schema:
-{
-  "campaign": { "name": string, "objective_summary": string },
-  "ad_groups": [
-    {
-      "name": string,
-      "keywords": [{ "text": string, "match_type": "exact" | "phrase" | "broad" }],
-      "rsa": { "headlines": string[], "descriptions": string[] }
-    }
-  ]
-}`;
+type AiPlan = GoogleCampaignAiPlan;
 
 function toGuardrailLimits(g: {
   maxDailyBudgetMicros: bigint;
@@ -69,72 +42,6 @@ function toGuardrailLimits(g: {
     blocked_keywords: g.blockedKeywords,
     require_approval_above_micros:
       g.requireApprovalAboveMicros != null ? Number(g.requireApprovalAboveMicros) : null,
-  };
-}
-
-async function callOpenAiForGooglePlan(userPrompt: string): Promise<{
-  plan: AiPlan;
-  tokensIn: number;
-  tokensOut: number;
-  model: string;
-}> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY not set");
-  const model = "gpt-4o-mini";
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const json = (await res.json()) as {
-    choices: Array<{ message: { content: string } }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-  const plan = JSON.parse(json.choices?.[0]?.message?.content ?? "{}") as AiPlan;
-  return {
-    plan,
-    tokensIn: json.usage?.prompt_tokens ?? 0,
-    tokensOut: json.usage?.completion_tokens ?? 0,
-    model: `openai/${model}`,
-  };
-}
-
-function deterministicFallback(input: z.infer<typeof inputSchema>): AiPlan {
-  const slug = input.offer.split(/\s+/).slice(0, 3).join(" ");
-  const rsa = buildDeterministicRsa(
-    {
-      landingUrl: input.landingUrl,
-      offer: input.offer,
-      objective: input.objective,
-    },
-    input.languageTargets[0] ?? "en",
-  );
-  return {
-    campaign: {
-      name: `${slug} — Search`,
-      objective_summary: `${input.objective} for ${input.landingUrl} across ${input.geoTargets.join(", ")}`,
-    },
-    ad_groups: [
-      {
-        name: "Core intent",
-        keywords: [
-          { text: slug.toLowerCase(), match_type: "exact" },
-          { text: `buy ${slug}`.toLowerCase(), match_type: "phrase" },
-          { text: `best ${slug}`.toLowerCase(), match_type: "phrase" },
-          { text: `${slug} pricing`.toLowerCase(), match_type: "phrase" },
-          { text: `${slug} review`.toLowerCase(), match_type: "broad" },
-        ],
-        rsa,
-      },
-    ],
   };
 }
 
@@ -168,7 +75,7 @@ export const generateCampaignPlan = createServerFn({ method: "POST" })
         projectId: project.id,
         feature: "campaign_plan",
         model: "pending",
-        promptVersion: "v1",
+        promptVersion: "google_v1",
         inputSummary: `${data.objective} · ${data.landingUrl}`,
         status: "pending",
         createdById: userId,
@@ -179,27 +86,40 @@ export const generateCampaignPlan = createServerFn({ method: "POST" })
     let plan: AiPlan;
     let tokensIn = 0;
     let tokensOut = 0;
-    let model = "fallback";
+    let model = "fallback/deterministic";
     try {
       const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
-Objective: ${data.objective}
+Objective (business outcome): ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
-Geo: ${data.geoTargets.join(", ")}
-Languages: ${data.languageTargets.join(", ")}
+Geo (countries): ${data.geoTargets.join(", ")}
+Advertising languages for RSA ad copy (ISO codes; PRIMARY first — write all RSA strings in these languages): ${data.languageTargets.join(", ")}
+RSA headline reminder: ≤30 characters each, 12 headlines, benefit-led and aligned with the offer; descriptions ≤90 characters, 4 lines.
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       if (process.env.OPENAI_API_KEY) {
-        const out = await callOpenAiForGooglePlan(userPrompt);
+        const out = await fetchOpenAiGoogleCampaignPlan(userPrompt);
         plan = out.plan;
         tokensIn = out.tokensIn;
         tokensOut = out.tokensOut;
         model = out.model;
       } else {
-        plan = deterministicFallback(data);
+        plan = buildDeterministicGoogleCampaignPlan({
+          landingUrl: data.landingUrl,
+          offer: data.offer,
+          objective: data.objective,
+          geoTargets: data.geoTargets,
+          languageTargets: data.languageTargets,
+        });
       }
     } catch (e) {
-      console.error("AI call failed, using deterministic fallback:", e);
-      plan = deterministicFallback(data);
+      console.error("Google AI call failed, using deterministic fallback:", e);
+      plan = buildDeterministicGoogleCampaignPlan({
+        landingUrl: data.landingUrl,
+        offer: data.offer,
+        objective: data.objective,
+        geoTargets: data.geoTargets,
+        languageTargets: data.languageTargets,
+      });
     }
 
     plan.ad_groups = (plan.ad_groups ?? []).map((ag) => ({

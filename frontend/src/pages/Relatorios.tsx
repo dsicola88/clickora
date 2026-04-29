@@ -804,9 +804,9 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Subdivisão geográfica ainda não é guardada pelo servidor nesta vista — só país (IP)."
+                          title="Estado ou região quando o lookup geo do IP traz esse detalhe; nem sempre há dados — país na coluna ao lado."
                         >
-                          Região
+                          Estado / região
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Status
@@ -992,9 +992,9 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Subdivisão geográfica ainda não é guardada pelo servidor nesta vista — só país (IP)."
+                          title="Estado ou região quando o lookup geo do IP traz esse detalhe; nem sempre há dados — país na coluna ao lado."
                         >
-                          Região
+                          Estado / região
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Status

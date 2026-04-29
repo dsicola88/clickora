@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AlertCircle, CheckCircle2, Info, Link2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   computePresellTrackingHealth,
@@ -69,7 +70,17 @@ export function PresellTrackingHealthPanel({
             Saúde do rastreamento
           </h3>
           <p className={cn("text-[11px] mt-0.5", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-            Checklist antes de escalar tráfego pago — específico desta página.
+            Checklist antes de escalar tráfego pago — específico desta página.{" "}
+            <Link
+              to="/tracking/relatorios/cliques"
+              className={cn(
+                "underline underline-offset-2 hover:opacity-90",
+                isEditor ? "text-editor-fg/90" : "text-foreground/85",
+              )}
+            >
+              Relatório de cliques
+            </Link>
+            {" "}para confirmar registos por data.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

@@ -101,6 +101,25 @@ function ensureUrl(u: string): string {
   return `https://${t}`;
 }
 
+const GOOGLE_MUTATE_MAX_ATTEMPTS = 4;
+const GOOGLE_MUTATE_BASE_DELAY_MS = 400;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfterHeaderMs(response: Response): number | null {
+  const raw = response.headers.get("retry-after");
+  if (!raw) return null;
+  const sec = Number(raw.trim());
+  if (!Number.isFinite(sec) || sec < 0) return null;
+  return Math.min(Math.round(sec * 1000), 60_000);
+}
+
+function shouldRetryMutateHttpStatus(status: number): boolean {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
 async function mutate(
   accessToken: string,
   devToken: string,
@@ -109,30 +128,60 @@ async function mutate(
   body: object,
   loginCustomerId?: string,
 ): Promise<{ resourceNames: string[]; raw: unknown }> {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
-    "developer-token": devToken,
-    "Content-Type": "application/json",
-  };
-  if (loginCustomerId) {
-    headers["login-customer-id"] = loginCustomerId.replace(/\D/g, "");
-  }
-  const res = await fetch(
-    `${API_BASE}/customers/${customerId.replace(/\D/g, "")}/${servicePath}:mutate`,
-    { method: "POST", headers, body: JSON.stringify(body) },
-  );
-  const raw = (await res.json().catch(() => ({}))) as {
-    results?: Array<{ resourceName?: string }>;
-    error?: { message?: string; details?: unknown };
-  };
-  if (!res.ok) {
+  const url = `${API_BASE}/customers/${customerId.replace(/\D/g, "")}/${servicePath}:mutate`;
+  const serialized = JSON.stringify(body);
+
+  let lastThrow: Error | undefined;
+
+  for (let attempt = 0; attempt < GOOGLE_MUTATE_MAX_ATTEMPTS; attempt++) {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      "developer-token": devToken,
+      "Content-Type": "application/json",
+    };
+    if (loginCustomerId) {
+      headers["login-customer-id"] = loginCustomerId.replace(/\D/g, "");
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(url, { method: "POST", headers, body: serialized });
+    } catch {
+      lastThrow = lastThrow ?? new Error("Falha de rede ao contactar Google Ads.");
+      if (attempt < GOOGLE_MUTATE_MAX_ATTEMPTS - 1) {
+        await sleep(GOOGLE_MUTATE_BASE_DELAY_MS * 2 ** attempt + Math.floor(Math.random() * 200));
+        continue;
+      }
+      throw lastThrow;
+    }
+
+    const raw = (await res.json().catch(() => ({}))) as {
+      results?: Array<{ resourceName?: string }>;
+      error?: { message?: string; details?: unknown };
+    };
+
+    if (res.ok) {
+      const resourceNames = (raw.results ?? [])
+        .map((r) => r.resourceName)
+        .filter((n): n is string => Boolean(n));
+      return { resourceNames, raw };
+    }
+
     const msg = raw.error?.message ?? `Google Ads ${servicePath} (${res.status})`;
-    throw new Error(msg);
+    lastThrow = new Error(msg);
+    const retryLater =
+      attempt < GOOGLE_MUTATE_MAX_ATTEMPTS - 1 && shouldRetryMutateHttpStatus(res.status);
+    if (retryLater) {
+      const headerWait = parseRetryAfterHeaderMs(res);
+      await sleep(
+        headerWait ?? GOOGLE_MUTATE_BASE_DELAY_MS * 2 ** attempt + Math.floor(Math.random() * 200),
+      );
+      continue;
+    }
+    throw lastThrow;
   }
-  const resourceNames = (raw.results ?? [])
-    .map((r) => r.resourceName)
-    .filter((n): n is string => Boolean(n));
-  return { resourceNames, raw };
+
+  throw lastThrow ?? new Error(`Google Ads ${servicePath}`);
 }
 
 export type GooglePublishResult = { ok: true } | { ok: false; error: string };
