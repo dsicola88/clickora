@@ -16,6 +16,8 @@ export type OptimizerExplanation = {
   why: string;
   /** Sinais numéricos ou de contexto (opcional). */
   signals: string[];
+  /** Orientação prática — «o que fazer a seguir» (produto). */
+  nextSuggestedAction: string | null;
 };
 
 function num(v: unknown): number | null {
@@ -47,7 +49,16 @@ export function explainOptimizerDecision(row: OptimizerDecisionRow): OptimizerEx
 
   const title = `${decHuman} · ${campaignPlatformLabel(row.platform)}`;
 
-  return { title, why, signals };
+  const nextSuggestedAction = suggestedNextAction({
+    ruleCode: row.rule_code,
+    decisionType: row.decision_type,
+    snap: snap as Record<string, unknown>,
+    executionOk: row.execution_ok,
+    dryRun: row.dry_run,
+    executed: row.executed,
+  });
+
+  return { title, why, signals, nextSuggestedAction };
 }
 
 function formatUsdCompact(n: number): string {
@@ -57,6 +68,57 @@ function formatUsdCompact(n: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+type NextActionArgs = {
+  ruleCode: string;
+  decisionType: string;
+  snap: Record<string, unknown>;
+  executionOk: boolean | null;
+  dryRun: boolean;
+  executed: boolean;
+};
+
+/** «Próxima acção sugerida» — orientação de produto; não substitui o Ads Manager. */
+export function suggestedNextAction(args: NextActionArgs): string | null {
+  const { ruleCode, decisionType, snap, executionOk, dryRun, executed } = args;
+
+  if (dryRun) {
+    return "Simulação (dry-run): validar critérios no servidor antes de permitir aplicação real na rede.";
+  }
+
+  if (executed && executionOk === false) {
+    return "Execução falhou — rever «Detalhe técnico», ligação OAuth e requisitos mínimos da rede antes de repetir.";
+  }
+
+  const scaleFrac = num(snap.scaleFraction);
+
+  switch (ruleCode) {
+    case "pause_zero_conv_min_spend":
+      return "Próximo passo: confirmar tracking de conversões e qualidade da landing; só depois reactivar ou aumentar investimento.";
+    case "ctr_below_threshold":
+      return "Próximo passo: testar novo criativo ou variante de copy; manter orçamento até haver dados estáveis.";
+    case "scale_budget_high_roas": {
+      const pct =
+        scaleFrac != null && scaleFrac > 0 && scaleFrac <= 1
+          ? Math.round(scaleFrac * 100)
+          : 20;
+      return `Próximo passo: observar ROAS nas próximas 48–72 h; se se mantiver forte, escalar orçamento gradualmente (~${pct}% por ciclo, dentro dos guardrails).`;
+    }
+    default:
+      break;
+  }
+
+  switch (decisionType) {
+    case "pause_campaign":
+      return "Próximo passo: auditar oferta, público e eventos de conversão antes de voltar a activar.";
+    case "scale_budget":
+      return "Próximo passo: monitorizar gasto vs. receita diários; evitar picos bruscos enquanto o algoritmo adapta.";
+    case "flag_creative_swap":
+      return "Próximo passo: substituir ou A/B testar criativo e comparar CTR ao longo de uma semana.";
+    default:
+      return "Próximo passo: rever relatórios na rede alinhados ao objectivo da campanha.";
+  }
 }
 
 function fallbackOptimizerWhy(

@@ -1337,6 +1337,11 @@ export function DpilotAuditoriaPage() {
                           {ex.signals.length > 0 ? (
                             <p className="mt-1 text-[10px] text-muted-foreground/90">{ex.signals.join(" · ")}</p>
                           ) : null}
+                          {ex.nextSuggestedAction ? (
+                            <p className="mt-2 rounded border border-emerald-500/25 bg-emerald-500/[0.06] px-2 py-1 text-[10px] leading-snug text-emerald-950 dark:text-emerald-100/95">
+                              <span className="font-semibold">Próxima acção:</span> {ex.nextSuggestedAction}
+                            </p>
+                          ) : null}
                         </TableCell>
                         <TableCell className="hidden align-top text-xs xl:table-cell">
                           {optimizerRuleCodeLabel(row.rule_code)}

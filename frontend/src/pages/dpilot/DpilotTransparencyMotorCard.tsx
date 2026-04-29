@@ -42,8 +42,8 @@ export function DpilotTransparencyMotorCard({ projectId }: { projectId: string }
           Porque o sistema agiu — motor automático
         </CardTitle>
         <CardDescription>
-          Cada decisão inclui motivo persistido pelo servidor. As redes continuam a licitar; nós orquestramos, limitamos e
-          explicamos.
+          Cada decisão inclui motivo persistido pelo servidor e uma sugestão de próximo passo. As redes continuam a licitar;
+          nós orquestramos, limitamos e explicamos.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -84,6 +84,12 @@ export function DpilotTransparencyMotorCard({ projectId }: { projectId: string }
                         <li key={s}>{s}</li>
                       ))}
                     </ul>
+                  ) : null}
+                  {ex.nextSuggestedAction ? (
+                    <p className="mt-2 rounded-md border border-emerald-500/20 bg-emerald-500/[0.06] px-2 py-1.5 text-[11px] leading-snug text-emerald-950 dark:text-emerald-50/95">
+                      <span className="font-semibold text-emerald-800 dark:text-emerald-200">Próxima acção sugerida:</span>{" "}
+                      {ex.nextSuggestedAction}
+                    </p>
                   ) : null}
                 </li>
               );
