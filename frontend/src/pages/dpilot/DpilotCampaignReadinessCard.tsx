@@ -14,7 +14,8 @@ const PLATFORM_LABEL: Record<"google" | "meta" | "tiktok", string> = {
 const TIPS: Record<"google" | "meta" | "tiktok", string[]> = {
   google: [
     "Campanhas de Pesquisa usam a conta Google Ads ligada por OAuth e o customer ID escolhido na ligação.",
-    "O orçamento diário é indicado em USD; os guardrails do projeto aplicam-se antes da publicação.",
+    "O orçamento diário é indicado em USD; demais limites dos guardrails aplicam-se antes da publicação.",
+    "Lista vazia em «Escopo geográfico» nos guardrails = todos os mercados permitidos; com lista fechada, os países da campanha têm de estar nessa lista.",
     "Conversões e etiquetas opcionais melhoram relatórios — configure-as na conta Google quando fizer sentido.",
   ],
   meta: [
@@ -138,7 +139,7 @@ export function DpilotCampaignReadinessCard({ platform }: { platform: "google" |
         {allowedCountries.length > 0 ? (
           <div className="rounded-lg border border-border bg-background/80 px-3 py-2.5 text-xs leading-relaxed">
             <p>
-              <span className="font-medium text-foreground">Países permitidos pelos guardrails:</span>{" "}
+              <span className="font-medium text-foreground">Lista restrita — países permitidos pelos guardrails:</span>{" "}
               <span className="tabular-nums">{allowedCountries.join(", ")}</span>
             </p>
             <p className="mt-1 text-muted-foreground">
@@ -149,7 +150,20 @@ export function DpilotCampaignReadinessCard({ platform }: { platform: "google" |
               se precisar de outros mercados.
             </p>
           </div>
-        ) : null}
+        ) : (
+          <div className="rounded-lg border border-border bg-background/80 px-3 py-2.5 text-xs leading-relaxed">
+            <p className="font-medium text-foreground">Guardrails sem lista geográfica</p>
+            <p className="mt-1 text-muted-foreground">
+              Qualquer país de segmentação suportado pelas redes (incluindo Google Ads) é aceite ao nível dos guardrails —
+              continuam a aplicar-se limites de orçamento e outras regras. Para voltar a restringir mercados, defina países
+              na{" "}
+              <Link to={visaoScopeHref} className="font-medium text-primary underline underline-offset-2">
+                Visão geral → Escopo geográfico
+              </Link>
+              .
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

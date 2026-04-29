@@ -57,11 +57,6 @@ export function DpilotGuardrailsScopeCard() {
       toast.error("Guardrails ainda não carregados.");
       return;
     }
-    if (!countries.length) {
-      toast.error("Seleccione pelo menos um país permitido (ISO-2).");
-      return;
-    }
-
     const monthly = parseFloat(monthlyUsd.replace(",", ".").trim());
     if (!Number.isFinite(monthly) || monthly <= 0) {
       toast.error("Gasto mensal máximo: indique um valor USD positivo.");
@@ -113,7 +108,9 @@ export function DpilotGuardrailsScopeCard() {
       }
       toast.success("Escopo e políticas guardados.", {
         description:
-          "Novos planos só aceitam segmentações nestes países; palavras-chave bloqueadas aplicam-se sobretudo ao Search.",
+          allowedNorm.length === 0
+            ? "Sem lista de países nos guardrails — qualquer mercado ISO permitido nas campanhas (Google, Meta, TikTok)."
+            : "Novos planos só aceitam segmentações nestes países; palavras-chave bloqueadas aplicam-se sobretudo ao Search.",
       });
       reload();
     } finally {
@@ -134,7 +131,9 @@ export function DpilotGuardrailsScopeCard() {
           Escopo geográfico e políticas
         </CardTitle>
         <CardDescription>
-          Países onde pode segmentar campanhas e termos proibidos nos planos de IA. O{" "}
+          Opcionalmente restrinja países; se não escolher nenhum, os guardrails permitem{" "}
+          <strong className="font-medium text-foreground">qualquer país</strong> nas campanhas (Google Ads incluído).
+          Termos proibidos e outros limites abaixo. O{" "}
           <strong className="font-medium text-foreground">teto de orçamento diário por campanha</strong> continua no
           cartão «Limites de segurança». Apenas administradores do workspace podem gravar.
         </CardDescription>
@@ -147,8 +146,8 @@ export function DpilotGuardrailsScopeCard() {
       </CardHeader>
       <CardContent className="space-y-5">
         <GoogleAdsCountriesSelect
-          label="Países permitidos"
-          hint="Segmentação geo das campanhas tem de estar contida nesta lista (Google, Meta e TikTok)."
+          label="Restringir a países (opcional)"
+          hint="Lista vazia = sem limite geográfico nos guardrails — todas as segmentações ISO válidas nas redes."
           searchPlaceholder="Pesquisar país…"
           emptyText="Nenhum país encontrado."
           options={GOOGLE_ADS_COUNTRY_OPTIONS}
@@ -159,6 +158,9 @@ export function DpilotGuardrailsScopeCard() {
 
         <div className="flex flex-wrap gap-2">
           <span className="text-[11px] text-muted-foreground w-full">Atalhos:</span>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCountries([])}>
+            Todos os países (sem lista)
+          </Button>
           <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCountries(["BR", "PT"])}>
             BR + PT
           </Button>
@@ -235,8 +237,8 @@ export function DpilotGuardrailsScopeCard() {
         <div className="flex items-start gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
           <Globe className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
           <p className="leading-relaxed">
-            Os assistentes pré-definem frequentemente BR e PT; se a lista aqui for apenas «US», os planos falharão até alargar
-            países ou ajustar a segmentação em «Aplicar países sugeridos» nas aprovações.
+            Se definir uma lista fechada aqui, só esses códigos ISO passam na validação. Com lista vazia, o sistema não
+            bloqueia países nos guardrails — continua a aplicar orçamentos, palavras bloqueadas e demais limites.
           </p>
         </div>
 

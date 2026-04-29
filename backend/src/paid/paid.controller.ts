@@ -577,7 +577,7 @@ export const paidController = {
     return res.json({ campaign: mappers.mapPaidCampaign(updated), adjusted: true as const });
   },
 
-  /** Remove da segmentação os países que não estão na lista permitida dos guardrails (mantém ordem dos permitidos). */
+  /** Remove da segmentação os países que não estão na lista permitida (quando a lista não está vazia). Se `allowedCountries` estiver vazio nos guardrails, não altera — todos os mercados são permitidos. */
   async snapCampaignGeoTargetsToGuardrailAllowed(req: Request, res: Response) {
     const parsed = z
       .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
@@ -593,13 +593,15 @@ export const paidController = {
     if (!gr) {
       return res.status(400).json({ error: "Não há guardrails neste projecto." });
     }
-    if (gr.allowedCountries.length === 0) {
-      return res.status(400).json({ error: "Lista de países permitidos está vazia." });
-    }
     const camp = await prisma.paidAdsCampaign.findFirst({
       where: { id: campaignId, projectId },
     });
     if (!camp) return res.status(404).json({ error: "Campanha não encontrada." });
+
+    /** Lista vazia = todos os países permitidos — não há intersecção a aplicar. */
+    if (gr.allowedCountries.length === 0) {
+      return res.json({ campaign: mappers.mapPaidCampaign(camp), adjusted: false as const });
+    }
 
     const beforeArr = parseGeoTargetsJson(camp.geoTargets);
     const afterArr = intersectGeoTargetsWithAllowedCountries(beforeArr, gr.allowedCountries);

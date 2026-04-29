@@ -425,7 +425,7 @@ model PaidGuardrails {
   maxDailyBudgetMicros       BigInt   @default(50000000) @map("max_daily_budget_micros")
   maxMonthlySpendMicros      BigInt   @default(1500000000) @map("max_monthly_spend_micros")
   maxCpcMicros               BigInt?  @map("max_cpc_micros")
-  allowedCountries           String[] @default(["BR", "PT", "US"]) @map("allowed_countries")
+  allowedCountries           String[] @default([]) @map("allowed_countries")
   blockedKeywords            String[] @default([]) @map("blocked_keywords")
   requireApprovalAboveMicros BigInt?  @map("require_approval_above_micros")
   createdAt                  DateTime @default(now()) @map("created_at")

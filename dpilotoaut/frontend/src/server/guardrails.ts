@@ -70,13 +70,16 @@ export function evaluateGuardrails(
     });
   }
 
-  const allowed = new Set(limits.allowed_countries.map((c) => c.toUpperCase()));
-  const offenders = proposal.geoTargets.map((g) => g.toUpperCase()).filter((g) => !allowed.has(g));
-  if (offenders.length) {
-    violations.push({
-      code: "country_not_allowed",
-      message: `País(es) fora da lista permitida: ${offenders.join(", ")}.`,
-    });
+  /** Lista vazia = sem restrição geográfica. */
+  if (limits.allowed_countries.length > 0) {
+    const allowed = new Set(limits.allowed_countries.map((c) => c.toUpperCase()));
+    const offenders = proposal.geoTargets.map((g) => g.toUpperCase()).filter((g) => !allowed.has(g));
+    if (offenders.length) {
+      violations.push({
+        code: "country_not_allowed",
+        message: `País(es) fora da lista permitida: ${offenders.join(", ")}.`,
+      });
+    }
   }
 
   const blocked = new Set(limits.blocked_keywords.map((k) => k.toLowerCase()));

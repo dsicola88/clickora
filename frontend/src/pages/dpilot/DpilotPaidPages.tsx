@@ -27,6 +27,7 @@ import {
   friendlyGoogleAdsNetworkError,
   summarizeChangeRequestPayload,
 } from "@/lib/paidAdsUi";
+import { approvalQueueTransparencyBullets, explainOptimizerDecision } from "@/lib/paidAdsTransparency";
 import type { CampaignRow, ChangeRequestRow, OptimizerDecisionRow, PaidOverviewDto } from "@/services/paidAdsService";
 import { cn } from "@/lib/utils";
 import { paidAdsService } from "@/services/paidAdsService";
@@ -37,6 +38,8 @@ import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
 import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
 import { DpilotGuardrailsScopeCard } from "./DpilotGuardrailsScopeCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
+import { DpilotTransparencyMotorCard } from "./DpilotTransparencyMotorCard";
+import { DpilotTransparencyPrinciplesCard } from "./DpilotTransparencyPrinciplesCard";
 
 export function Gate({ children }: { children: React.ReactNode }) {
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
@@ -85,7 +88,7 @@ export function DpilotVisaoPage() {
     <Gate>
       <PageHeader
         title="Visão geral"
-        description="Estado das contas publicitárias, modo de trabalho e pedidos que aguardam revisão."
+        description="Estratégia, limites, transparência do motor automático e pedidos em revisão — tudo legível antes de ir à rede."
       />
       {p.overview && (
         <p className="text-xs text-muted-foreground">
@@ -145,6 +148,12 @@ export function DpilotVisaoPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="mt-4 space-y-4">
+        <DpilotTransparencyPrinciplesCard />
+        <DpilotTransparencyMotorCard projectId={p.projectId} />
+      </div>
+
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
@@ -638,7 +647,19 @@ function parseGeoList(v: unknown): string[] {
 }
 
 function intersectGeoWithAllowedList(geoTargets: string[], allowedCountries: string[]): string[] {
-  const allowed = new Set(allowedCountries.map((c) => c.trim().toUpperCase()).filter(Boolean));
+  const normAllowed = allowedCountries.map((c) => c.trim().toUpperCase()).filter(Boolean);
+  if (normAllowed.length === 0) {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of geoTargets) {
+      const u = String(raw).trim().toUpperCase();
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      out.push(u);
+    }
+    return out;
+  }
+  const allowed = new Set(normAllowed);
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of geoTargets) {
@@ -650,7 +671,7 @@ function intersectGeoWithAllowedList(geoTargets: string[], allowedCountries: str
   return out;
 }
 
-/** Países da campanha incluem geografias não permitidas; sugere apenas a intersecção com a lista dos guardrails. */
+/** Países da campanha incluem geografias não permitidas quando há lista fechada nos guardrails; sugere intersecção. */
 function geoSnapSuggestion(args: {
   payload: Record<string, unknown> | null | undefined;
   overview: PaidOverviewDto | null;
@@ -667,7 +688,11 @@ function geoSnapSuggestion(args: {
   const allowedCountries = Array.isArray(rawAllowed)
     ? rawAllowed.map((x) => String(x).trim()).filter(Boolean)
     : [];
-  if (!campaignId || allowedCountries.length === 0) {
+  if (!campaignId) {
+    return { show: false, campaignId, suggestedCountries: [] };
+  }
+  /** Lista vazia nos guardrails = sem bloqueio geográfico — não há botão de «snap» por país. */
+  if (allowedCountries.length === 0) {
     return { show: false, campaignId, suggestedCountries: [] };
   }
   const camp = args.campaigns.find((c) => c.id === campaignId);
@@ -718,6 +743,15 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
 }) {
   const title = changeRequestTypeLabel(cr.type);
   const { lines, guardrailMessages } = summarizeChangeRequestPayload(cr.payload);
+  const paidMode = overview?.project?.paid_mode ?? "copilot";
+  const transparencyBullets = useMemo(
+    () =>
+      approvalQueueTransparencyBullets({
+        paidMode,
+        hasHardGuardrailBlocks: guardrailMessages.length > 0,
+      }),
+    [paidMode, guardrailMessages.length],
+  );
   const busy = reviewBusyChangeRequestId === cr.id;
   const editCampaignId = changeRequestCampaignIdFromPayload(cr.payload ?? null);
   const errFriendly = friendlyGoogleAdsNetworkError(cr.error_message);
@@ -793,6 +827,16 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           <p className="text-xs text-muted-foreground">
             Pedido · {new Date(cr.created_at).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}
           </p>
+          <Alert className="border-sky-500/30 bg-sky-500/[0.07]">
+            <AlertTitle className="text-xs font-semibold text-foreground">Porque está aqui</AlertTitle>
+            <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
+              <ul className="mt-1.5 list-inside list-disc space-y-1 marker:text-sky-600/80">
+                {transparencyBullets.map((b) => (
+                  <li key={b.slice(0, 48)}>{b}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
           {editCampaignId ? (
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="secondary" className="h-8">
@@ -1111,7 +1155,7 @@ export function DpilotAprovacoesPage() {
     <Gate>
       <PageHeader
         title="Aprovações"
-        description="Fila de pedidos gerados pelo assistente ou pelo autopilot quando um humano deve confirmar antes da rede aplicar alterações."
+        description="Cada pedido indica o «porque»: modo Copilot/Autopilot, limites do workspace e dados da campanha — confirme antes de «Aplicar na rede»."
       />
       <Alert className="mt-4 border-primary/20 bg-primary/5">
         <Info className="h-4 w-4 text-primary" aria-hidden />
@@ -1119,8 +1163,8 @@ export function DpilotAprovacoesPage() {
         <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
           <strong className="font-medium text-foreground">Aprovar</strong> apenas confirma no Clickora que o plano está
           aceite. Para alterar de facto a conta Google Ads, Meta ou TikTok, utilize{" "}
-          <strong className="font-medium text-foreground">Aplicar na rede</strong>. Quem gere permissões do workspace
-          pode rever esta fila.
+          <strong className="font-medium text-foreground">Aplicar na rede</strong>. Em cada cartão abaixo, leia «Porque
+          está aqui» — explica o papel do modo do projecto e dos guardrails.
         </AlertDescription>
       </Alert>
       <Card className="mt-4">
@@ -1221,7 +1265,7 @@ export function DpilotAuditoriaPage() {
     <Gate>
       <PageHeader
         title="Auditoria & conformidade"
-        description="Duas linhas de evidência: decisões automáticas do motor Autopilot (APIs de rede) e execuções do assistente IA neste projecto."
+        description="Decisões do motor com coluna «Porque» — mesmos registos imutáveis na base de dados; útil para compliance e revisão de equipa."
       />
 
       <Card className="mt-4 border-border/80">
@@ -1261,13 +1305,16 @@ export function DpilotAuditoriaPage() {
                       <TableHead>Campanha</TableHead>
                       <TableHead className="hidden md:table-cell">Rede</TableHead>
                       <TableHead className="hidden lg:table-cell">Decisão</TableHead>
+                      <TableHead className="hidden xl:table-cell max-w-[min(320px,32vw)]">Porque</TableHead>
                       <TableHead className="hidden xl:table-cell">Regra</TableHead>
                       <TableHead>Resultado</TableHead>
-                      <TableHead className="hidden lg:table-cell max-w-[220px]">Detalhe</TableHead>
+                      <TableHead className="hidden lg:table-cell max-w-[220px]">Detalhe técnico</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {motorRows.map((row) => (
+                    {motorRows.map((row) => {
+                      const ex = explainOptimizerDecision(row);
+                      return (
                       <TableRow key={row.id}>
                         <TableCell className="whitespace-nowrap align-top text-xs text-muted-foreground tabular-nums">
                           {new Date(row.created_at).toLocaleString("pt-PT", {
@@ -1284,6 +1331,12 @@ export function DpilotAuditoriaPage() {
                         </TableCell>
                         <TableCell className="hidden align-top lg:table-cell">
                           <span className="text-sm">{optimizerDecisionTypeLabel(row.decision_type)}</span>
+                        </TableCell>
+                        <TableCell className="hidden align-top xl:table-cell max-w-[min(320px,32vw)]">
+                          <p className="text-xs leading-snug text-muted-foreground">{ex.why}</p>
+                          {ex.signals.length > 0 ? (
+                            <p className="mt-1 text-[10px] text-muted-foreground/90">{ex.signals.join(" · ")}</p>
+                          ) : null}
                         </TableCell>
                         <TableCell className="hidden align-top text-xs xl:table-cell">
                           {optimizerRuleCodeLabel(row.rule_code)}
@@ -1327,7 +1380,8 @@ export function DpilotAuditoriaPage() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

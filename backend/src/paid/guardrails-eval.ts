@@ -68,13 +68,16 @@ export function evaluateGuardrails(
     });
   }
 
-  const allowed = new Set(limits.allowed_countries.map((c) => c.toUpperCase()));
-  const offenders = proposal.geoTargets.map((g) => g.toUpperCase()).filter((g) => !allowed.has(g));
-  if (offenders.length) {
-    violations.push({
-      code: "country_not_allowed",
-      message: `País(es) fora da lista permitida: ${offenders.join(", ")}.`,
-    });
+  /** Lista vazia = sem restrição geográfica (qualquer país ISO nas campanhas). */
+  if (limits.allowed_countries.length > 0) {
+    const allowed = new Set(limits.allowed_countries.map((c) => c.toUpperCase()));
+    const offenders = proposal.geoTargets.map((g) => g.toUpperCase()).filter((g) => !allowed.has(g));
+    if (offenders.length) {
+      violations.push({
+        code: "country_not_allowed",
+        message: `País(es) fora da lista permitida: ${offenders.join(", ")}.`,
+      });
+    }
   }
 
   const blocked = new Set(limits.blocked_keywords.map((k) => k.toLowerCase()));
@@ -94,12 +97,25 @@ export function evaluateGuardrails(
 /**
  * Mantém apenas códigos de país presentes na lista permitida (ordem original da segmentação).
  * Códigos normalizados em maiúsculas (ISO-3166 alfa-2).
+ * Lista `allowedCountries` vazia = sem restrição — devolve a segmentação proposta normalizada (deduplicada).
  */
 export function intersectGeoTargetsWithAllowedCountries(
   geoTargets: string[],
   allowedCountries: string[],
 ): string[] {
-  const allowed = new Set(allowedCountries.map((c) => c.trim().toUpperCase()).filter(Boolean));
+  const allowedFiltered = allowedCountries.map((c) => c.trim().toUpperCase()).filter(Boolean);
+  if (allowedFiltered.length === 0) {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of geoTargets) {
+      const u = String(raw).trim().toUpperCase();
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      out.push(u);
+    }
+    return out;
+  }
+  const allowed = new Set(allowedFiltered);
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of geoTargets) {
