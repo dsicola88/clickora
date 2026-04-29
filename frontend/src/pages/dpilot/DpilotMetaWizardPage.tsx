@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
+import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
+import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
 
 const objectives = [
   { value: "traffic", label: "Tráfego" },
@@ -255,10 +257,12 @@ export function DpilotMetaWizardPage() {
           }
         />
         <div className="mt-2 px-0 py-2 sm:px-1">
-          <form
-            onSubmit={onSubmit}
-            className="grid max-w-3xl gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
-          >
+          <div className="mx-auto max-w-3xl space-y-5">
+            <DpilotCampaignReadinessCard platform="meta" />
+            <form
+              onSubmit={onSubmit}
+              className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
+            >
             <div className="grid gap-2">
               <Label htmlFor="m-url">URL de destino</Label>
               <Input
@@ -278,9 +282,21 @@ export function DpilotMetaWizardPage() {
                 value={offer}
                 onChange={(e) => setOffer(e.target.value)}
                 placeholder="Ex.: Plataforma de gestão financeira para PMEs, com integração bancária."
-                rows={3}
+                rows={4}
+                maxLength={500}
                 required
               />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-xs font-normal"
+                  onClick={() => setOffer(DPILOT_OFFER_TEMPLATE.trim())}
+                >
+                  Inserir modelo editável (4 linhas)
+                </Button>
+                <span className="tabular-nums text-[11px] text-muted-foreground">{offer.length}/500</span>
+              </div>
             </div>
 
             <div className="grid gap-2">
@@ -498,6 +514,7 @@ export function DpilotMetaWizardPage() {
               </Button>
             </div>
           </form>
+          </div>
         </div>
       </div>
     </Gate>

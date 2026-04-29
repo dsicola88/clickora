@@ -12,8 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
+import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
+import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
 
 const schema = z.object({
   landingUrl: z.string().url("Informe uma URL válida").max(500),
@@ -21,12 +23,6 @@ const schema = z.object({
   objective: z.string().trim().min(3, "Indique o objetivo da campanha").max(200),
   dailyBudgetUsd: z.number().min(1).max(100000),
 });
-
-/** Modelo inicial da oferta — o utilizador edita sempre; adapta aos primeiros dois campos. */
-const OFFER_TEMPLATE = `[Produto ou serviço em uma linha]: o que está à venda.
-Para quem: [tipo de empresa ou público].
-Porquê agora: [benefício útil ou problema que resolve].
-Prova ou oferta: [teste gratuito, preço desde X, garantia…].`;
 
 const OBJECTIVE_SUGGESTIONS: { label: string; objective: string }[] = [
   {
@@ -191,7 +187,8 @@ export function DpilotGoogleWizardPage() {
             </div>
           }
         />
-        <div className="mx-auto max-w-3xl px-0 py-4 sm:px-1 sm:py-6">
+        <div className="mx-auto max-w-3xl space-y-5 px-0 py-4 sm:px-1 sm:py-6">
+          <DpilotCampaignReadinessCard platform="google" />
           <form
             onSubmit={onSubmit}
             className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
@@ -239,7 +236,7 @@ export function DpilotGoogleWizardPage() {
                   type="button"
                   variant="link"
                   className="h-auto p-0 text-xs font-normal"
-                  onClick={() => setOffer(OFFER_TEMPLATE.trim())}
+                  onClick={() => setOffer(DPILOT_OFFER_TEMPLATE.trim())}
                 >
                   Inserir modelo editável (4 linhas)
                 </Button>

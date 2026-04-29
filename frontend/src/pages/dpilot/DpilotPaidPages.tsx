@@ -35,6 +35,7 @@ import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
 import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
 import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
+import { DpilotGuardrailsScopeCard } from "./DpilotGuardrailsScopeCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
 
 export function Gate({ children }: { children: React.ReactNode }) {
@@ -192,6 +193,10 @@ export function DpilotVisaoPage() {
       </div>
 
       <div className="mt-4">
+        <DpilotGuardrailsScopeCard />
+      </div>
+
+      <div className="mt-4">
         <DpilotOptimizerPauseLimitsCard />
       </div>
 
@@ -238,11 +243,17 @@ export function DpilotLigacoesPage() {
 }
 
 export function DpilotGooglePage() {
+  const { projectId } = useDpilotPaid();
   return (
     <Gate>
       <PageHeader
         title="Google Ads"
         description="Liga a conta de anunciante (OAuth) e vê a conta activa abaixo."
+        actions={
+          <Button asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
+          </Button>
+        }
       />
       <div className="mt-4">
         <DpilotPaidOauthGrid only="google" />
@@ -252,12 +263,17 @@ export function DpilotGooglePage() {
 }
 
 export function DpilotMetaPage() {
-  const { metaConn, isConnConnected, metaCounts, oauthConfig } = useDpilotPaid();
+  const { projectId, metaConn, isConnConnected, metaCounts, oauthConfig } = useDpilotPaid();
   return (
     <Gate>
       <PageHeader
         title="Meta (Facebook + Instagram)"
         description="Visão geral e ligação à conta de anúncios Meta."
+        actions={
+          <Button asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
+          </Button>
+        }
       />
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -511,7 +527,7 @@ export function DpilotCampanhasPage() {
         description="Liste por estado; arquive rascunhos que já não precise (Acções → Arquivar). Override do motor opcional («Pausa motor»)."
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha (Google)</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
           </Button>
         }
       />

@@ -103,6 +103,14 @@ export function DpilotGuardrailsCeilingCard() {
             projectos podem começar com um valor inicial na base de dados até ser alterado aqui. Apenas administradores do
             workspace podem gravar guardrails completos via API — se vir erro de permissão, peça ao responsável pela equipa.
           </p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Para <strong className="font-medium text-foreground">países permitidos</strong>, palavras bloqueadas e limites
+            mensais, use o cartão{" "}
+            <a href="#dpilot-guardrails-scope" className="font-medium text-primary underline underline-offset-2">
+              Escopo geográfico e políticas
+            </a>{" "}
+            logo abaixo.
+          </p>
         </div>
         <Button type="button" size="sm" onClick={() => void onSave()} disabled={saving || !gr}>
           {saving ? "A guardar…" : "Guardar teto diário"}
