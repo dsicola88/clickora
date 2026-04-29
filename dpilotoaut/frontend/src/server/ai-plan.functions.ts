@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSession } from "@/integrations/auth/auth-middleware";
 import { prisma } from "@backend/prisma";
 import { publishGoogleSearchCampaignFromLocal } from "@backend/google-ads.publish";
+import { buildDeterministicRsa } from "@backend/google-rsa-deterministic";
 import { canWriteProject } from "@backend/permissions";
 import { evaluateGuardrails, type GuardrailLimits, type GuardrailViolation } from "./guardrails";
 
@@ -33,9 +34,12 @@ Rules:
 - Return JSON ONLY, matching the schema exactly. No prose, no markdown.
 - 2-3 ad groups, each tightly themed.
 - 5-10 keywords per ad group across exact/phrase/broad mix.
-- 8-12 RSA headlines (max 30 chars each), 3-4 descriptions (max 90 chars each).
+- RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Prefer headlines that use almost the full 30-character budget — avoid tepid micro-copy like single words or obvious filler; weave in product-relevant phrases and commercial keywords where natural.
+- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with Objective and Offer.
 - Keywords must be commercial-intent, not brand-only.
 - Never include the user's blocked keywords.
+- RSA copy: write in the language of the user's offer/locale when clear; otherwise match the primary language in the user prompt. Do NOT use generic SaaS phrases (e.g. "built for teams", "free trial") unless they exactly match the product.
+If generation runs without AI (fallback mode), RSA copy is composed deterministically from Offer, Objective, and Landing URL only — your JSON output matches that principle when AI is enabled.
 
 Schema:
 {
@@ -105,6 +109,14 @@ async function callOpenAiForGooglePlan(userPrompt: string): Promise<{
 
 function deterministicFallback(input: z.infer<typeof inputSchema>): AiPlan {
   const slug = input.offer.split(/\s+/).slice(0, 3).join(" ");
+  const rsa = buildDeterministicRsa(
+    {
+      landingUrl: input.landingUrl,
+      offer: input.offer,
+      objective: input.objective,
+    },
+    input.languageTargets[0] ?? "en",
+  );
   return {
     campaign: {
       name: `${slug} — Search`,
@@ -120,23 +132,7 @@ function deterministicFallback(input: z.infer<typeof inputSchema>): AiPlan {
           { text: `${slug} pricing`.toLowerCase(), match_type: "phrase" },
           { text: `${slug} review`.toLowerCase(), match_type: "broad" },
         ],
-        rsa: {
-          headlines: [
-            slug.slice(0, 30),
-            `Try ${slug}`.slice(0, 30),
-            "Built for teams",
-            "Free trial",
-            "Get started today",
-            "Trusted by pros",
-            "No credit card",
-            "See it in action",
-          ],
-          descriptions: [
-            `${input.offer}`.slice(0, 90),
-            "Set up in minutes. Cancel anytime.".slice(0, 90),
-            "Built-in safety controls and approvals.".slice(0, 90),
-          ],
-        },
+        rsa,
       },
     ],
   };
