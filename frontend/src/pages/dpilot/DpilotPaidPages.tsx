@@ -30,6 +30,7 @@ import type { ChangeRequestRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
+import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
 
 export function Gate({ children }: { children: React.ReactNode }) {
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
