@@ -231,8 +231,8 @@ export const paidController = {
       if (cr.status === "applied") {
         return res.json({ ok: true });
       }
-      if (cr.status !== "pending" && cr.status !== "approved") {
-        return res.status(400).json({ error: "Só é possível aplicar pedidos pendentes ou aprovados." });
+      if (cr.status !== "pending" && cr.status !== "approved" && cr.status !== "failed") {
+        return res.status(400).json({ error: "Só é possível aplicar pedidos pendentes, aprovados ou falhados (nova tentativa)." });
       }
       const pre = await workspaceAllowsApplyBeforeRemote(cr.projectId, cr.type, cr.payload);
       if (!pre.ok) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Activity, Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -23,6 +23,8 @@ import {
   optimizerExecutionSummary,
   optimizerFlagsHint,
   optimizerRuleCodeLabel,
+  changeRequestCampaignIdFromPayload,
+  friendlyGoogleAdsNetworkError,
   summarizeChangeRequestPayload,
 } from "@/lib/paidAdsUi";
 import type { CampaignRow, ChangeRequestRow, OptimizerDecisionRow, PaidOverviewDto } from "@/services/paidAdsService";
@@ -366,6 +368,8 @@ function CampaignListWithFilters({
   reload: () => void;
   showPlatformFilter: boolean;
 }) {
+  const [searchParams] = useSearchParams();
+  const campaignFocus = searchParams.get("campaign");
   const [plat, setPlat] = useState<string>("all");
   const [st, setSt] = useState<string>("all");
   const filtered = useMemo(() => {
@@ -376,6 +380,15 @@ function CampaignListWithFilters({
     if (st !== "all") xs = xs.filter((c) => c.status === st);
     return xs;
   }, [list, plat, st, showPlatformFilter]);
+
+  useEffect(() => {
+    if (!campaignFocus) return;
+    const id = `dpilot-campaign-${campaignFocus}`;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => clearTimeout(t);
+  }, [campaignFocus, filtered]);
 
   return (
     <div className="space-y-4">
@@ -442,7 +455,7 @@ function campaignsTable(
         {list.map((c) => {
           const hint = optimizerFlagsHint(c.optimizer_flags);
           return (
-            <TableRow key={c.id}>
+            <TableRow key={c.id} id={`dpilot-campaign-${c.id}`}>
               <TableCell className="font-medium">{c.name}</TableCell>
               <TableCell className="text-muted-foreground">{campaignPlatformLabel(c.platform)}</TableCell>
               <TableCell>
@@ -684,6 +697,8 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
   const title = changeRequestTypeLabel(cr.type);
   const { lines, guardrailMessages } = summarizeChangeRequestPayload(cr.payload);
   const busy = reviewBusyChangeRequestId === cr.id;
+  const editCampaignId = changeRequestCampaignIdFromPayload(cr.payload ?? null);
+  const errFriendly = friendlyGoogleAdsNetworkError(cr.error_message);
   const [snapBusy, setSnapBusy] = useState<null | "budget" | "geo">(null);
 
   const budgetSnap = useMemo(
@@ -756,6 +771,27 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           <p className="text-xs text-muted-foreground">
             Pedido · {new Date(cr.created_at).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}
           </p>
+          {editCampaignId ? (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="secondary" className="h-8">
+                <Link to={`/tracking/dpilot/p/${projectId}/campanhas?campaign=${editCampaignId}`}>
+                  Editar campanha (rascunho)
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-8">
+                <Link to={`/tracking/dpilot/p/${projectId}/visao`}>Limites e guardrails</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline" className="h-8">
+                <Link to={`/tracking/dpilot/p/${projectId}/campanhas`}>Abrir Campanhas</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-8">
+                <Link to={`/tracking/dpilot/p/${projectId}/visao`}>Visão geral</Link>
+              </Button>
+            </div>
+          )}
           {lines.length > 0 ? (
             <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
               {lines.map((line, i) => (
@@ -776,15 +812,32 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                 </ul>
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                O pedido não tem edição rápida neste ecrã: ajuste a{" "}
-                <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/campanhas`}>
-                  campanha de rascunho
-                </Link>{" "}
-                (orçamento, país, keywords) ou os{" "}
-                <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/visao`}>
-                  guardrails em Visão geral
-                </Link>
-                , depois volte a «Aplicar na rede».
+                {editCampaignId ? (
+                  <>
+                    O rascunho edita-se na lista de{" "}
+                    <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/campanhas?campaign=${editCampaignId}`}>
+                      Campanhas
+                    </Link>
+                    {" "}
+                    ou os limites em{" "}
+                    <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/visao`}>
+                      Visão geral
+                    </Link>
+                    . Depois volte a «Aplicar na rede».
+                  </>
+                ) : (
+                  <>
+                    Abra a{" "}
+                    <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/campanhas`}>
+                      campanha correspondente
+                    </Link>{" "}
+                    ou os{" "}
+                    <Link className="font-medium underline underline-offset-2" to={`/tracking/dpilot/p/${projectId}/visao`}>
+                      guardrails
+                    </Link>{" "}
+                    antes de publicar.
+                  </>
+                )}
               </p>
             </div>
           ) : null}
@@ -845,10 +898,21 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           ) : null}
           {cr.error_message ? (
             <div className="space-y-1.5">
-              <p className="text-xs text-destructive">
-                <span className="font-medium">Erro na rede:</span> {cr.error_message}
-              </p>
-              {/invalid\s+argument|INVALID_ARGUMENT/i.test(cr.error_message) ? (
+              {errFriendly ? (
+                <>
+                  <p className="text-xs leading-relaxed text-destructive">
+                    <span className="font-medium">Erro na rede:</span> {errFriendly}
+                  </p>
+                  <p className="text-[10px] font-mono text-muted-foreground/90 whitespace-pre-wrap leading-snug border-l border-border pl-2">
+                    {cr.error_message}
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-destructive">
+                  <span className="font-medium">Erro na rede:</span> {cr.error_message}
+                </p>
+              )}
+              {!errFriendly && /invalid\s+argument|INVALID_ARGUMENT/i.test(cr.error_message) ? (
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   Sugestão: confirme em{" "}
                   <Link
@@ -856,10 +920,8 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                     to={`/tracking/dpilot/p/${projectId}/ligacoes`}
                   >
                     Ligações às redes
-                  </Link>{" "}
-                  que a conta Google Ads está válida e com permissões. Verifique também orçamentos mínimos da rede,
-                  país da conta de faturação e nomes únicos da campanha. Se persistir, contacte o suporte com a referência
-                  técnica abaixo.
+                  </Link>
+                  , orçamentos mínimos da rede e conta de faturação. Inclua a referência técnica abaixo ao contactar suporte.
                 </p>
               ) : null}
             </div>
@@ -937,25 +999,75 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
               </Tooltip>
             </>
           ) : cr.status === "approved" ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() =>
-                    startTransition(() => {
-                      void review(cr.id, "applied");
-                    })
-                  }
-                >
-                  Aplicar na rede
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs text-left" side="bottom">
-                Publicação efectiva na conta — utilize quando já validou o plano apresentado acima.
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() =>
+                      startTransition(() => {
+                        void review(cr.id, "applied");
+                      })
+                    }
+                  >
+                    Aplicar na rede
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left" side="bottom">
+                  Publicação efectiva na conta — utilize quando já validou o plano apresentado acima.
+                </TooltipContent>
+              </Tooltip>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  startTransition(() => {
+                    void review(cr.id, "rejected");
+                  })
+                }
+              >
+                Arquivar pedido
+              </Button>
+            </div>
+          ) : cr.status === "failed" ? (
+            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() =>
+                      startTransition(() => {
+                        void review(cr.id, "applied");
+                      })
+                    }
+                  >
+                    Tentar «Aplicar na rede» de novo
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left" side="bottom">
+                  Depois de corrigir o rascunho (limites ou campanha), volte a enviar para a API da rede.
+                </TooltipContent>
+              </Tooltip>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  startTransition(() => {
+                    void review(cr.id, "rejected");
+                  })
+                }
+              >
+                Arquivar pedido
+              </Button>
+            </div>
           ) : null}
         </div>
       </div>

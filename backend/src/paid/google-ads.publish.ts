@@ -9,6 +9,7 @@ import type {
 } from "@prisma/client";
 
 import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
 import { normalizeGoogleLanguageCode } from "./language-google";
 import { prisma } from "./paidPrisma";
@@ -285,7 +286,8 @@ export async function publishGoogleSearchCampaignFromLocal(
               },
               geoTargetTypeSetting: {
                 positiveGeoTargetType: "PRESENCE_OR_INTEREST",
-                negativeGeoTargetType: "PRESENCE_OR_INTEREST",
+                /** `PRESENCE_OR_INTEREST` não é válido para negativa na maioria dos tipos (incl. Search). */
+                negativeGeoTargetType: "PRESENCE",
               },
               containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
             },
@@ -457,8 +459,8 @@ export async function publishGoogleSearchCampaignFromLocal(
       }
     }
   } catch (e) {
-    const m = e instanceof Error ? e.message : "Falha na publicação Google Ads.";
-    return { ok: false, error: m };
+    const raw = e instanceof Error ? e.message : "Falha na publicação Google Ads.";
+    return { ok: false, error: humanizeGoogleAdsPublishError(raw) };
   }
 
   return { ok: true };

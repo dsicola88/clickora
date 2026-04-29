@@ -278,8 +278,8 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
               "A decisão ficou registada. Para publicar de facto na rede, utilize «Aplicar na rede» no mesmo pedido.",
           });
         } else {
-          toast.info("Pedido rejeitado", {
-            description: "Este pedido não será aplicado na conta publicitária.",
+          toast.info("Pedido fechado", {
+            description: "Não será aplicado à rede. Para um novo envio, trabalhe o rascunho em Campanhas e volte a esta fila se for necessário.",
           });
         }
         await loadCore(projectId);

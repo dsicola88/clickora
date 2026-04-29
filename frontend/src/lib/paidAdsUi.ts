@@ -163,6 +163,26 @@ function asStringArray(v: unknown): string[] | null {
   return out.length ? out : null;
 }
 
+/** Explicações legíveis para erros habituais da API Google Ads (mensagens já gravadas no pedido). */
+export function friendlyGoogleAdsNetworkError(message: string | null | undefined): string | null {
+  if (!message?.trim()) return null;
+  const m = message.trim();
+  if (/not compatible with the campaign type|setting type is not compatible/i.test(m)) {
+    return "O Google recusou opções de segmentação incompatíveis com campanhas Search (foi aplicada uma correcção no servidor — volte a «Aplicar na rede»).";
+  }
+  if (/invalid\s+argument/i.test(m)) {
+    return "O Google Ads devolveu «invalid argument»: confirme liga OAuth, orçamento mínimo e critérios. Se já corrigiu o rascunho, pode tentar de novo.";
+  }
+  return null;
+}
+
+/** `campaign_id` opcional no payload dos pedidos create_campaign / update_* . */
+export function changeRequestCampaignIdFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+  return typeof p.campaign_id === "string" ? p.campaign_id : null;
+}
+
 /** Extrai linhas legíveis do payload guardado pelo backend (Google / Meta / TikTok). */
 export function summarizeChangeRequestPayload(payload: unknown): {
   lines: string[];
