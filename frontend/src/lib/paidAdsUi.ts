@@ -188,8 +188,29 @@ export function changeRequestCampaignIdFromPayload(payload: unknown): string | n
   return typeof p.campaign_id === "string" ? p.campaign_id : null;
 }
 
+/** Nota de produto sobre estratégia de licitação ao publicar (espelha defaults em `*-ads.publish.ts`). */
+export function publishedBidStrategyHint(changeRequestType: string): string | null {
+  switch (changeRequestType) {
+    case "create_campaign":
+      return "Ao aplicar na Google Ads: campanha Search preparada com CPC manual (padrão do produto); pode afinar na conta.";
+    case "meta_create_campaign":
+      return "Ao aplicar na Meta: conjunto de anúncios com estratégia de custo mais baixo sem limiar (padrão do produto).";
+    case "tiktok_create_campaign":
+      return "Ao aplicar no TikTok: optimização inicial orientada a cliques (CLICK); pode rever na conta TikTok.";
+    default:
+      return null;
+  }
+}
+
+export type SummarizeChangeRequestPayloadOptions = {
+  changeRequestType?: string;
+};
+
 /** Extrai linhas legíveis do payload guardado pelo backend (Google / Meta / TikTok). */
-export function summarizeChangeRequestPayload(payload: unknown): {
+export function summarizeChangeRequestPayload(
+  payload: unknown,
+  opts?: SummarizeChangeRequestPayloadOptions,
+): {
   lines: string[];
   guardrailMessages: string[];
 } {
@@ -201,6 +222,22 @@ export function summarizeChangeRequestPayload(payload: unknown): {
   }
 
   const p = payload as Record<string, unknown>;
+
+  const modeRaw = p.mode;
+  if (typeof modeRaw === "string" && modeRaw.trim()) {
+    const m = modeRaw.trim().toLowerCase();
+    const label =
+      m === "autopilot" ? "Autopilot" : m === "copilot" ? "Copilot" : modeRaw.trim();
+    lines.push(`Modo no momento do plano: ${label}`);
+  }
+
+  if (typeof p.auto_applied === "boolean") {
+    lines.push(
+      p.auto_applied
+        ? "Primeira tentativa: aplicado automaticamente pelo servidor."
+        : "Primeira tentativa: não aplicado automaticamente (revisão ou Copilot).",
+    );
+  }
 
   const landing = (p.landing_url ?? p.landingUrl) as string | undefined;
   if (typeof landing === "string" && landing.trim()) {
@@ -235,5 +272,9 @@ export function summarizeChangeRequestPayload(payload: unknown): {
     }
   }
 
-  return { lines: lines.slice(0, 8), guardrailMessages };
+  const hint =
+    opts?.changeRequestType != null ? publishedBidStrategyHint(opts.changeRequestType) : null;
+  if (hint) lines.push(hint);
+
+  return { lines: lines.slice(0, 12), guardrailMessages };
 }

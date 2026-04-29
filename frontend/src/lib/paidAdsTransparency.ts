@@ -112,8 +112,13 @@ export function suggestedNextAction(args: NextActionArgs): string | null {
   switch (decisionType) {
     case "pause_campaign":
       return "Próximo passo: auditar oferta, público e eventos de conversão antes de voltar a activar.";
-    case "scale_budget":
+    case "scale_budget": {
+      const roas = num(snap.roas);
+      if (roas != null) {
+        return `Próximo passo: ROAS de referência ~${roas.toFixed(2)} — monitorizar nas próximas 48–72 h antes de novo aumento brusco de orçamento.`;
+      }
       return "Próximo passo: monitorizar gasto vs. receita diários; evitar picos bruscos enquanto o algoritmo adapta.";
+    }
     case "flag_creative_swap":
       return "Próximo passo: substituir ou A/B testar criativo e comparar CTR ao longo de uma semana.";
     default:

@@ -39,6 +39,7 @@ import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
 import { DpilotGuardrailsScopeCard } from "./DpilotGuardrailsScopeCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
 import { DpilotTransparencyMotorCard } from "./DpilotTransparencyMotorCard";
+import { DpilotWeeklyMotorDigestCard } from "./DpilotWeeklyMotorDigestCard";
 import { DpilotTransparencyPrinciplesCard } from "./DpilotTransparencyPrinciplesCard";
 
 export function Gate({ children }: { children: React.ReactNode }) {
@@ -152,6 +153,7 @@ export function DpilotVisaoPage() {
       <div className="mt-4 space-y-4">
         <DpilotTransparencyPrinciplesCard />
         <DpilotTransparencyMotorCard projectId={p.projectId} />
+        <DpilotWeeklyMotorDigestCard projectId={p.projectId} />
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -742,7 +744,9 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
   reviewBusyChangeRequestId: string | null;
 }) {
   const title = changeRequestTypeLabel(cr.type);
-  const { lines, guardrailMessages } = summarizeChangeRequestPayload(cr.payload);
+  const { lines, guardrailMessages } = summarizeChangeRequestPayload(cr.payload, {
+    changeRequestType: cr.type,
+  });
   const paidMode = overview?.project?.paid_mode ?? "copilot";
   const transparencyBullets = useMemo(
     () =>

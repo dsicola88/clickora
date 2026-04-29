@@ -113,12 +113,25 @@ export function DpilotOptimizerPauseLimitsCard() {
         <Alert className="border-muted">
           <Info className="h-4 w-4 text-muted-foreground" />
           <AlertTitle className="text-sm">Opcional por projecto</AlertTitle>
-          <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            Campos <strong className="text-foreground font-medium">vazios</strong> revertem aos valores globais (
-            variáveis <code className="text-[11px]">PAID_OPTIMIZER_PAUSE_SPEND_USD</code> e{" "}
-            <code className="text-[11px]">PAID_OPTIMIZER_PAUSE_MIN_CLICKS</code>). O motor deve estar ligado (
-            <code className="text-[11px]">PAID_OPTIMIZER_ENABLED=true</code>) e, para alterar mesmo na conta, modo
-            Autopilot ou fluxo próprio conforme já documentado). Apenas admins do workspace podem gravar aqui.
+          <AlertDescription className="text-xs leading-relaxed text-muted-foreground space-y-2">
+            <p>
+              Se deixar os campos <strong className="text-foreground font-medium">vazios</strong>, usamos os limites
+              definidos pelo servidor para este produto (os mesmos para todos os projectos que não sobrescrevem aqui).
+              Para alterações irem ao vivo nas redes, o motor automático tem de estar activo e o projecto em modo
+              adequado (Autopilot ou fluxo de aprovações já descrito na Visão geral). Apenas admins do workspace podem
+              gravar.
+            </p>
+            <details className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
+              <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+                Detalhes técnicos (variáveis de ambiente)
+              </summary>
+              <p className="mt-1.5 text-[11px] leading-relaxed">
+                Vazio ↔ defaults globais:{" "}
+                <code className="rounded bg-background px-1">PAID_OPTIMIZER_PAUSE_SPEND_USD</code>,{" "}
+                <code className="rounded bg-background px-1">PAID_OPTIMIZER_PAUSE_MIN_CLICKS</code>; motor:{" "}
+                <code className="rounded bg-background px-1">PAID_OPTIMIZER_ENABLED=true</code>.
+              </p>
+            </details>
           </AlertDescription>
         </Alert>
         <div className="grid gap-4 sm:grid-cols-2">

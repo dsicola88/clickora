@@ -55,11 +55,16 @@ export function DpilotTransparencyMotorCard({ projectId }: { projectId: string }
         ) : err ? (
           <p className="text-sm text-muted-foreground">{err}</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Ainda não há decisões do optimizer neste projecto. Quando{" "}
-            <code className="rounded bg-muted px-1 text-[11px]">PAID_OPTIMIZER_ENABLED=true</code> estiver activo no
-            servidor, os eventos aparecem aqui com explicação legível.
-          </p>
+          <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+            <p>Ainda não há decisões do motor automático neste projecto.</p>
+            <details className="rounded-md border border-border/60 bg-muted/25 px-2 py-1.5 text-[11px]">
+              <summary className="cursor-pointer font-medium text-foreground">Para equipas técnicas</summary>
+              <p className="mt-1.5">
+                Exige <code className="rounded bg-background px-1">PAID_OPTIMIZER_ENABLED=true</code> no servidor; as
+                decisões passam a aparecer aqui com texto legível.
+              </p>
+            </details>
+          </div>
         ) : (
           <ul className="space-y-3">
             {rows.map((row) => {

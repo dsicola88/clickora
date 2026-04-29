@@ -27,7 +27,7 @@
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts",
     "test:unit": "node --import tsx --test src/lib/routingRules/evaluate.test.ts",
-    "test:paid": "node --import tsx --test src/paid/tiktok-campaign-plan.objectives.test.ts src/paid/optimizer/rules.engine.test.ts src/paid/optimizer/idempotency.unit.test.ts src/paid/optimizer/optimizer.service.test.ts",
+    "test:paid": "node --import tsx --test src/paid/tiktok-campaign-plan.objectives.test.ts src/paid/guardrails-eval.test.ts src/paid/optimizer/rules.engine.test.ts src/paid/optimizer/idempotency.unit.test.ts src/paid/optimizer/optimizer.service.test.ts",
     "paid:optimizer:once": "tsx scripts/run-paid-optimizer-once.ts"
   },
   "dependencies": {
