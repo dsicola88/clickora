@@ -10,7 +10,13 @@ import {
   enqueueCampaignPausedAlert,
   enqueueOptimizerCriticalAlert,
 } from "./alerts.service";
-import { optimizerDryRun, optimizerEnabled, optimizerLookbackHours, resolveOptimizerPauseMinClicks, resolveOptimizerPauseSpendUsd } from "./config";
+import {
+  optimizerDryRun,
+  optimizerEnabled,
+  optimizerLookbackHours,
+  resolveEffectiveOptimizerPauseMinClicks,
+  resolveEffectiveOptimizerPauseSpendUsd,
+} from "./config";
 import { hasRecentSuccessfulDecision, shouldApplyIdempotencyCheck } from "./idempotency";
 import { optimizerLog } from "./logger";
 import { collectCampaignMetricsBundle, type CampaignMetricsBundle } from "./metrics.service";
@@ -84,13 +90,21 @@ export async function runPaidOptimizerTick(): Promise<OptimizerTickResult> {
         where: { projectId: proj.id },
         select: { optimizerPauseSpendUsd: true, optimizerPauseMinClicks: true },
       });
-      const effPauseUsd = resolveOptimizerPauseSpendUsd(
-        grRow?.optimizerPauseSpendUsd != null ? Number(grRow.optimizerPauseSpendUsd) : null,
-      );
-      const effPauseClicks = resolveOptimizerPauseMinClicks(grRow?.optimizerPauseMinClicks ?? null);
+      const projectPauseUsd =
+        grRow?.optimizerPauseSpendUsd != null ? Number(grRow.optimizerPauseSpendUsd) : null;
+      const projectPauseClicks = grRow?.optimizerPauseMinClicks ?? null;
 
       for (const camp of campaigns) {
         result.campaignsEvaluated += 1;
+
+        const effPauseUsd = resolveEffectiveOptimizerPauseSpendUsd(
+          camp.optimizerPauseSpendUsd != null ? Number(camp.optimizerPauseSpendUsd) : null,
+          projectPauseUsd,
+        );
+        const effPauseClicks = resolveEffectiveOptimizerPauseMinClicks(
+          camp.optimizerPauseMinClicks ?? null,
+          projectPauseClicks,
+        );
 
         let bundle;
         try {

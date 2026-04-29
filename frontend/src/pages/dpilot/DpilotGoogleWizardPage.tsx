@@ -51,6 +51,8 @@ export function DpilotGoogleWizardPage() {
   const [dailyBudget, setDailyBudget] = useState("25");
   const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
   const [languageTargets, setLanguageTargets] = useState<string[]>(["pt"]);
+  const [optPauseUsd, setOptPauseUsd] = useState("");
+  const [optPauseClicks, setOptPauseClicks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,14 +81,39 @@ export function DpilotGoogleWizardPage() {
     }
     setSubmitting(true);
     try {
-      const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, {
+      let optimizer_pause_spend_usd: number | undefined;
+      let optimizer_pause_min_clicks: number | undefined;
+      if (optPauseUsd.trim() !== "") {
+        const x = parseFloat(optPauseUsd.replace(",", "."));
+        if (!Number.isFinite(x) || x <= 0) {
+          setError("Pausa automática USD: número positivo ou deixe vazio.");
+          setSubmitting(false);
+          return;
+        }
+        optimizer_pause_spend_usd = x;
+      }
+      if (optPauseClicks.trim() !== "") {
+        const x = parseInt(optPauseClicks.trim(), 10);
+        if (!Number.isFinite(x) || x < 0 || x > 500) {
+          setError("Cliques mínimos: inteiro entre 0 e 500 ou vazio.");
+          setSubmitting(false);
+          return;
+        }
+        optimizer_pause_min_clicks = x;
+      }
+
+      const body: Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1] = {
         landingUrl: parsed.data.landingUrl,
         offer: parsed.data.offer,
         objective: parsed.data.objective,
         dailyBudgetUsd: parsed.data.dailyBudgetUsd,
         geoTargets: geoArr,
         languageTargets: langArr,
-      });
+      };
+      if (optimizer_pause_spend_usd !== undefined) body.optimizer_pause_spend_usd = optimizer_pause_spend_usd;
+      if (optimizer_pause_min_clicks !== undefined) body.optimizer_pause_min_clicks = optimizer_pause_min_clicks;
+
+      const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
         const msg = apiErr || "Falha ao gerar plano";
         setError(msg);
@@ -198,6 +225,32 @@ export function DpilotGoogleWizardPage() {
                 onChange={setLanguageTargets}
                 max={10}
               />
+            </div>
+
+            <div className="rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4 space-y-3">
+              <p className="text-xs font-medium text-foreground">Pausa automática sem conversões (opcional)</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Por defeito aplicam‑se os limites do projecto («Visão geral»). Aqui pode fixar apenas para esta campanha
+                quando for criada.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Gasto máximo USD (sem conv.)">
+                  <Input
+                    inputMode="decimal"
+                    placeholder="Ex.: 50 ou vazio"
+                    value={optPauseUsd}
+                    onChange={(e) => setOptPauseUsd(e.target.value)}
+                  />
+                </Field>
+                <Field label="Mínimo de cliques no período">
+                  <Input
+                    inputMode="numeric"
+                    placeholder="Ex.: 5 ou vazio"
+                    value={optPauseClicks}
+                    onChange={(e) => setOptPauseClicks(e.target.value)}
+                  />
+                </Field>
+              </div>
             </div>
 
             {error ? (

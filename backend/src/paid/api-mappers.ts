@@ -100,6 +100,9 @@ export function mapPaidCampaign(c: PaidAdsCampaign) {
     daily_budget_micros: c.dailyBudgetMicros != null ? Number(c.dailyBudgetMicros) : null,
     geo_targets: c.geoTargets,
     language_targets: c.languageTargets,
+    optimizer_pause_spend_usd:
+      c.optimizerPauseSpendUsd != null ? Number(c.optimizerPauseSpendUsd) : null,
+    optimizer_pause_min_clicks: c.optimizerPauseMinClicks ?? null,
     /** JSON do motor automático (ex.: sugestão de troca de criativo). */
     optimizer_flags:
       c.optimizerFlags && typeof c.optimizerFlags === "object" && !Array.isArray(c.optimizerFlags)

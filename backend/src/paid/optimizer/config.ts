@@ -55,6 +55,28 @@ export function resolveOptimizerPauseMinClicks(projectClicks: number | null | un
   return pauseMinClicksDefault();
 }
 
+/** Campanha com valores explícitos sobrepõe projecto/env. */
+export function resolveEffectiveOptimizerPauseSpendUsd(
+  campaignUsd: number | null | undefined,
+  projectUsd: number | null | undefined,
+): number {
+  if (campaignUsd != null && Number.isFinite(campaignUsd) && campaignUsd >= 0.01) {
+    return campaignUsd;
+  }
+  return resolveOptimizerPauseSpendUsd(projectUsd);
+}
+
+export function resolveEffectiveOptimizerPauseMinClicks(
+  campaignClicks: number | null | undefined,
+  projectClicks: number | null | undefined,
+): number {
+  if (campaignClicks != null && Number.isFinite(campaignClicks)) {
+    const n = Math.floor(Number(campaignClicks));
+    if (n >= 0 && n <= 500) return n;
+  }
+  return resolveOptimizerPauseMinClicks(projectClicks ?? null);
+}
+
 /** ROAS mínimo para escalar orçamento (+20%). */
 export function scaleRoasThreshold(): number {
   const raw = Number(process.env.PAID_OPTIMIZER_SCALE_ROAS_MIN);

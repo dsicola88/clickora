@@ -759,6 +759,10 @@ model PaidAdsCampaign {
   dailyBudgetMicros  BigInt?              @map("daily_budget_micros")
   geoTargets         Json                 @default("[]") @map("geo_targets")
   languageTargets    Json                 @default("[]") @map("language_targets")
+  /** Optimizer: override por campanha para pausa por gasto USD (null = usar projecto/env). */
+  optimizerPauseSpendUsd  Decimal?       @map("optimizer_pause_spend_usd") @db.Decimal(12, 4)
+  /** Optimizer: override por campanha para mínimo de cliques (null = projecto/env). */
+  optimizerPauseMinClicks Int?           @map("optimizer_pause_min_clicks")
   /** Flags do motor de optimização (ex.: recomendação de troca de criativo). */
   optimizerFlags     Json                 @default("{}") @map("optimizer_flags")
   createdAt          DateTime             @default(now()) @map("created_at")

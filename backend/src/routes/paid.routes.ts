@@ -41,6 +41,9 @@ paidRouter.get("/projects", (req, res) => void paidController.listProjects(req, 
 paidRouter.get("/projects/:projectId", (req, res) => void paidController.getProject(req, res));
 paidRouter.get("/projects/:projectId/overview", (req, res) => void paidController.getOverview(req, res));
 paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidController.listCampaigns(req, res));
+paidRouter.patch("/projects/:projectId/campaigns/:campaignId/optimizer-limits", (req, res) =>
+  void paidController.patchCampaignOptimizerLimits(req, res),
+);
 paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
   void paidController.listOptimizerDecisions(req, res),
 );

@@ -9,50 +9,12 @@ import type {
 } from "@prisma/client";
 
 import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
+import { normalizeGoogleLanguageCode } from "./language-google";
 import { prisma } from "./paidPrisma";
 
-/** ISO-3166-1 alpha-2 → id do critério Google (tabela de geotargets). */
-const ISO_GEO: Record<string, number> = {
-  US: 2840,
-  CA: 2124,
-  GB: 2826,
-  UK: 2826,
-  AU: 2036,
-  BR: 2076,
-  DE: 2276,
-  FR: 2250,
-  IT: 2380,
-  ES: 2724,
-  PT: 2620,
-  NL: 2528,
-  BE: 2056,
-  CH: 2756,
-  AT: 2040,
-  SE: 2752,
-  NO: 2622,
-  DK: 2208,
-  FI: 2246,
-  PL: 2616,
-  CZ: 2203,
-  IE: 2372,
-  GR: 2300,
-  TR: 2792,
-  IN: 2352,
-  JP: 2392,
-  MX: 2484,
-  AR: 2004,
-  CL: 2152,
-  CO: 2170,
-  NZ: 2554,
-  ZA: 2710,
-  SG: 2702,
-  MY: 2642,
-  TH: 2706,
-  PH: 2608,
-  ID: 2360,
-  VN: 2410,
-  RO: 1842,
-};
+/** ISO-3166 alpha-2 → google geoTargetConstants/id (exportado também em geo-google.ts). */
+const GEO_ID = GOOGLE_GEO_CRITERION_IDS;
 
 const LANG_ID: Record<string, number> = {
   en: 1000,
@@ -215,12 +177,18 @@ export async function publishGoogleSearchCampaignFromLocal(
 
   const geoConstants: string[] = [];
   for (const g of geoList) {
-    const code = g.toUpperCase();
-    const id = ISO_GEO[code];
+    const code = normalizeGoogleCountryCode(String(g));
+    if (!code) {
+      return {
+        ok: false,
+        error: `País «${g}» não reconhecido. Use código ISO‑3166‑1 alfa‑2 (ex.: BR, PT, US, DE) ou o nome por extenso (ex.: Brasil, Portugal).`,
+      };
+    }
+    const id = GEO_ID[code];
     if (id == null) {
       return {
         ok: false,
-        error: `Código de país «${g}» não mapeado para o Google. Use um ISO-2 suportado (ex.: US, PT, DE) ou alargue a lista em google-ads.publish.ts.`,
+        error: `País «${g}» (código ${code}) sem critério Google nesta integração — alargue geo-google.ts se necessário.`,
       };
     }
     geoConstants.push(`geoTargetConstants/${id}`);
@@ -228,12 +196,18 @@ export async function publishGoogleSearchCampaignFromLocal(
 
   const languageConstants: string[] = [];
   for (const l of langList) {
-    const code = l.toLowerCase();
+    const code = normalizeGoogleLanguageCode(String(l));
+    if (!code) {
+      return {
+        ok: false,
+        error: `Idioma «${l}» não reconhecido (use ex.: en, pt ou inglês, português).`,
+      };
+    }
     const id = LANG_ID[code];
     if (id == null) {
       return {
         ok: false,
-        error: `Idioma «${l}» não mapeado (códigos ISO-639-1, ex. en, pt).`,
+        error: `Idioma «${l}» — código «${code}» ainda não suportado nesta integração.`,
       };
     }
     languageConstants.push(`languageConstants/${id}`);

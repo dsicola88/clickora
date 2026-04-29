@@ -107,14 +107,24 @@ export const paidController = {
   },
 
   async listCampaigns(req: Request, res: Response) {
+    const campaignStatus = z.enum([
+      "draft",
+      "pending_publish",
+      "live",
+      "paused",
+      "archived",
+      "error",
+    ]);
     const parsed = z
       .object({
         projectId: z.string().uuid(),
         platform: z.enum(["google_ads", "meta_ads", "tiktok_ads"]).optional(),
+        status: campaignStatus.optional(),
       })
       .safeParse({
         projectId: req.params.projectId,
         platform: req.query.platform as "google_ads" | "meta_ads" | "tiktok_ads" | undefined,
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
       });
     if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
     const a = getPaidActor(req);
@@ -126,6 +136,7 @@ export const paidController = {
       where: {
         projectId: parsed.data.projectId,
         ...(parsed.data.platform ? { platform: parsed.data.platform } : {}),
+        ...(parsed.data.status ? { status: parsed.data.status } : {}),
       },
       orderBy: { createdAt: "desc" },
     });
@@ -521,6 +532,52 @@ export const paidController = {
       autoApplied: out.autoApplied,
       reasons: out.reasons,
     });
+  },
+
+  async patchCampaignOptimizerLimits(req: Request, res: Response) {
+    const parsed = z
+      .object({
+        projectId: z.string().uuid(),
+        campaignId: z.string().uuid(),
+        optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
+        optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
+      })
+      .safeParse({ ...req.params, ...req.body });
+    if (!parsed.success) return res.status(400).json({ error: "Dados inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canAdminProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Somente administradores podem editar limites do motor por campanha." });
+    }
+    const d = parsed.data;
+    const optSpend =
+      d.optimizer_pause_spend_usd !== undefined
+        ? d.optimizer_pause_spend_usd != null
+          ? d.optimizer_pause_spend_usd
+          : null
+        : undefined;
+    const optClicks =
+      d.optimizer_pause_min_clicks !== undefined
+        ? d.optimizer_pause_min_clicks != null
+          ? d.optimizer_pause_min_clicks
+          : null
+        : undefined;
+    if (d.optimizer_pause_spend_usd === undefined && d.optimizer_pause_min_clicks === undefined) {
+      return res.status(400).json({ error: "Envie optimizer_pause_spend_usd e/ou optimizer_pause_min_clicks." });
+    }
+    const row = await prisma.paidAdsCampaign.findFirst({
+      where: { id: campaignId, projectId },
+    });
+    if (!row) return res.status(404).json({ error: "Campanha não encontrada." });
+    const updated = await prisma.paidAdsCampaign.update({
+      where: { id: row.id },
+      data: {
+        ...(optSpend !== undefined ? { optimizerPauseSpendUsd: optSpend } : {}),
+        ...(optClicks !== undefined ? { optimizerPauseMinClicks: optClicks } : {}),
+      },
+    });
+    return res.json({ campaign: mappers.mapPaidCampaign(updated) });
   },
 
   async reconcileCampaigns(req: Request, res: Response) {

@@ -1,7 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { normalizeGoogleGeoTargetsOrThrow } from "./geo-google";
 import { publishGoogleSearchCampaignFromLocal } from "./google-ads.publish";
+import { normalizeGoogleLanguageTargetsOrThrow } from "./language-google";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
 import { evaluateGuardrails, type GuardrailLimits, type GuardrailViolation } from "./guardrails-eval";
@@ -13,6 +15,9 @@ export const googleCampaignPlanInputSchema = z.object({
   dailyBudgetUsd: z.number().min(1).max(100000),
   geoTargets: z.array(z.string().min(2).max(8)).min(1).max(20),
   languageTargets: z.array(z.string().min(2).max(8)).min(1).max(10),
+  /** Override opcional do optimizer para esta campanha (null omitido = herdar projecto). */
+  optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
+  optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
 });
 
 export type GoogleCampaignPlanInput = z.infer<typeof googleCampaignPlanInputSchema>;
@@ -168,6 +173,22 @@ export async function runGoogleCampaignPlan(
   const gr = grRow ? toGuardrailLimits(grRow) : null;
   const blocked = new Set((gr?.blocked_keywords ?? []).map((s) => s.toLowerCase()));
 
+  let geoTargetsNorm: string[];
+  try {
+    geoTargetsNorm = normalizeGoogleGeoTargetsOrThrow(data.geoTargets);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Países inválidos.";
+    return { ok: false, error: msg };
+  }
+
+  let languageTargetsNorm: string[];
+  try {
+    languageTargetsNorm = normalizeGoogleLanguageTargetsOrThrow(data.languageTargets);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Idiomas inválidos.";
+    return { ok: false, error: msg };
+  }
+
   const aiRun = await prisma.paidAdsAiRun.create({
     data: {
       userId: ownerUserId,
@@ -191,8 +212,8 @@ export async function runGoogleCampaignPlan(
 Offer: ${data.offer}
 Objective: ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
-Geo: ${data.geoTargets.join(", ")}
-Languages: ${data.languageTargets.join(", ")}
+Geo: ${geoTargetsNorm.join(", ")}
+Languages: ${languageTargetsNorm.join(", ")}
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     if (process.env.OPENAI_API_KEY) {
       const out = await callOpenAiForGooglePlan(userPrompt);
@@ -201,11 +222,11 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       tokensOut = out.tokensOut;
       model = out.model;
     } else {
-      plan = deterministicFallback(data);
+      plan = deterministicFallback({ ...data, geoTargets: geoTargetsNorm });
     }
   } catch (e) {
     console.error("Google AI call failed, using deterministic fallback:", e);
-    plan = deterministicFallback(data);
+    plan = deterministicFallback({ ...data, geoTargets: geoTargetsNorm });
   }
 
   plan.ad_groups = (plan.ad_groups ?? []).map((ag) => ({
@@ -216,6 +237,11 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
   const dailyBudgetMicros = Math.round(data.dailyBudgetUsd * 1_000_000);
   const dailyBudgetMicrosBig = BigInt(dailyBudgetMicros);
 
+  const optSpendUsd =
+    data.optimizer_pause_spend_usd !== undefined ? data.optimizer_pause_spend_usd : undefined;
+  const optMinClicks =
+    data.optimizer_pause_min_clicks !== undefined ? data.optimizer_pause_min_clicks : undefined;
+
   const campaign = await prisma.paidAdsCampaign.create({
     data: {
       userId: ownerUserId,
@@ -225,8 +251,10 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       status: "draft",
       objectiveSummary: plan.campaign?.objective_summary ?? data.objective,
       dailyBudgetMicros: dailyBudgetMicrosBig,
-      geoTargets: data.geoTargets,
-      languageTargets: data.languageTargets,
+      geoTargets: geoTargetsNorm,
+      languageTargets: languageTargetsNorm,
+      ...(optSpendUsd !== undefined ? { optimizerPauseSpendUsd: optSpendUsd } : {}),
+      ...(optMinClicks !== undefined ? { optimizerPauseMinClicks: optMinClicks } : {}),
     },
     select: { id: true },
   });
@@ -268,7 +296,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
   const evalResult = evaluateGuardrails(
     {
       dailyBudgetMicros,
-      geoTargets: data.geoTargets,
+      geoTargets: geoTargetsNorm,
       keywordTexts: allKeywordTexts,
     },
     gr,
@@ -289,8 +317,8 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         campaign_id: campaign.id,
         plan,
         daily_budget_micros: dailyBudgetMicros,
-        geo_targets: data.geoTargets,
-        language_targets: data.languageTargets,
+        geo_targets: geoTargetsNorm,
+        language_targets: languageTargetsNorm,
         landing_url: data.landingUrl,
         mode: project.paidMode,
         auto_applied: true,
@@ -316,8 +344,8 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         campaign_id: campaign.id,
         plan,
         daily_budget_micros: dailyBudgetMicros,
-        geo_targets: data.geoTargets,
-        language_targets: data.languageTargets,
+        geo_targets: geoTargetsNorm,
+        language_targets: languageTargetsNorm,
         landing_url: data.landingUrl,
         mode: project.paidMode,
         auto_applied: false,
@@ -346,8 +374,8 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       campaign_id: campaign.id,
       plan,
       daily_budget_micros: dailyBudgetMicros,
-      geo_targets: data.geoTargets,
-      language_targets: data.languageTargets,
+      geo_targets: geoTargetsNorm,
+      language_targets: languageTargetsNorm,
       landing_url: data.landingUrl,
       mode: project.paidMode,
       auto_applied: false,

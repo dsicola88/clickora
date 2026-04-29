@@ -21,6 +21,9 @@ export type CampaignRow = {
   status: string;
   platform: string;
   created_at: string;
+  /** Override optimizer: USD pause sem conversão (null = política do projecto). */
+  optimizer_pause_spend_usd?: number | null;
+  optimizer_pause_min_clicks?: number | null;
   /** Sinais do optimizador automático (backend); ex. sugestão de criativo. */
   optimizer_flags?: Record<string, unknown>;
 };
@@ -81,8 +84,23 @@ export const paidAdsService = {
     return apiClient.get<PaidOverviewDto>(`/paid/projects/${projectId}/overview`);
   },
 
-  listCampaigns(projectId: string, platform?: "google_ads" | "meta_ads" | "tiktok_ads") {
-    const q = platform ? `?platform=${encodeURIComponent(platform)}` : "";
+  listCampaigns(
+    projectId: string,
+    opts?: {
+      platform?: "google_ads" | "meta_ads" | "tiktok_ads";
+      status?:
+        | "draft"
+        | "pending_publish"
+        | "live"
+        | "paused"
+        | "archived"
+        | "error";
+    },
+  ) {
+    const sp = new URLSearchParams();
+    if (opts?.platform) sp.set("platform", opts.platform);
+    if (opts?.status) sp.set("status", opts.status);
+    const q = sp.toString() ? `?${sp.toString()}` : "";
     return apiClient.get<{ campaigns: CampaignRow[] }>(`/paid/projects/${projectId}/campaigns${q}`);
   },
 
@@ -203,9 +221,22 @@ export const paidAdsService = {
       dailyBudgetUsd: number;
       geoTargets: string[];
       languageTargets: string[];
+      optimizer_pause_spend_usd?: number | null;
+      optimizer_pause_min_clicks?: number | null;
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/google-campaign-plan`, body);
+  },
+
+  patchCampaignOptimizerLimits(
+    projectId: string,
+    campaignId: string,
+    body: { optimizer_pause_spend_usd?: number | null; optimizer_pause_min_clicks?: number | null },
+  ) {
+    return apiClient.patch<{ campaign: CampaignRow }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/optimizer-limits`,
+      body,
+    );
   },
 
   uploadMetaAsset(projectId: string, file: File) {

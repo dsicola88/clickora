@@ -1,6 +1,7 @@
 /**
- * Países e idiomas suportados pelo publish Google Ads (`backend/src/paid/google-ads.publish.ts`).
- * Labels em PT para UI alinhada ao Google Ads (critérios por país / idioma).
+ * Países e idiomas suportados pelo publish Google Ads.
+ * Códigos ISO‑2 por país alinham com `backend/src/paid/geo-google.ts` e `language-google.ts`
+ * (normalização no plano e na publicação).
  */
 export type TargetingOption = { code: string; label: string };
 

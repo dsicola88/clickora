@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
 import { Link } from "react-router-dom";
 import { Activity, Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -29,7 +29,7 @@ import { paidAdsService } from "@/services/paidAdsService";
 import type { ChangeRequestRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
-import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
+import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
 
 export function Gate({ children }: { children: React.ReactNode }) {
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
@@ -351,7 +351,77 @@ export function DpilotTiktokPage() {
   );
 }
 
-function campaignsTable(list: CampaignRow[], empty: string) {
+function CampaignListWithFilters({
+  list,
+  empty,
+  projectId,
+  reload,
+  showPlatformFilter,
+}: {
+  list: CampaignRow[];
+  empty: string;
+  projectId: string;
+  reload: () => void;
+  showPlatformFilter: boolean;
+}) {
+  const [plat, setPlat] = useState<string>("all");
+  const [st, setSt] = useState<string>("all");
+  const filtered = useMemo(() => {
+    let xs = list;
+    if (showPlatformFilter && plat !== "all") {
+      xs = xs.filter((c) => c.platform === plat);
+    }
+    if (st !== "all") xs = xs.filter((c) => c.status === st);
+    return xs;
+  }, [list, plat, st, showPlatformFilter]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        {showPlatformFilter ? (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-medium text-muted-foreground">Plataforma</p>
+            <Select value={plat} onValueChange={setPlat}>
+              <SelectTrigger className="w-[190px]" aria-label="Filtrar por plataforma">
+                <SelectValue placeholder="Rede" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as redes</SelectItem>
+                <SelectItem value="google_ads">Google Ads</SelectItem>
+                <SelectItem value="meta_ads">Meta</SelectItem>
+                <SelectItem value="tiktok_ads">TikTok Ads</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground">Estado</p>
+          <Select value={st} onValueChange={setSt}>
+            <SelectTrigger className="w-[190px]" aria-label="Filtrar por estado da campanha">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="draft">{campaignStatusLabel("draft")}</SelectItem>
+              <SelectItem value="pending_publish">{campaignStatusLabel("pending_publish")}</SelectItem>
+              <SelectItem value="live">{campaignStatusLabel("live")}</SelectItem>
+              <SelectItem value="paused">{campaignStatusLabel("paused")}</SelectItem>
+              <SelectItem value="archived">{campaignStatusLabel("archived")}</SelectItem>
+              <SelectItem value="error">{campaignStatusLabel("error")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {campaignsTable(filtered, empty, { projectId, reload })}
+    </div>
+  );
+}
+
+function campaignsTable(
+  list: CampaignRow[],
+  empty: string,
+  controls?: { projectId: string; reload: () => void },
+) {
   if (list.length === 0) {
     return <p className="text-sm text-muted-foreground leading-relaxed">{empty}</p>;
   }
@@ -362,6 +432,7 @@ function campaignsTable(list: CampaignRow[], empty: string) {
           <TableHead>Nome</TableHead>
           <TableHead>Plataforma</TableHead>
           <TableHead>Estado</TableHead>
+          {controls ? <TableHead className="hidden md:table-cell w-[120px]">Pausa (motor)</TableHead> : null}
           <TableHead className="hidden lg:table-cell">Motor</TableHead>
         </TableRow>
       </TableHeader>
@@ -377,6 +448,15 @@ function campaignsTable(list: CampaignRow[], empty: string) {
                   {campaignStatusLabel(c.status)}
                 </Badge>
               </TableCell>
+              {controls ? (
+                <TableCell className="hidden md:table-cell align-middle">
+                  <DpilotCampaignOptimizerDialog
+                    projectId={controls.projectId}
+                    campaign={c}
+                    reload={controls.reload}
+                  />
+                </TableCell>
+              ) : null}
               <TableCell className="hidden max-w-[14rem] lg:table-cell">
                 {hint ? (
                   <Tooltip>
@@ -402,12 +482,12 @@ function campaignsTable(list: CampaignRow[], empty: string) {
 }
 
 export function DpilotCampanhasPage() {
-  const { campaigns, projectId } = useDpilotPaid();
+  const { campaigns, projectId, reload } = useDpilotPaid();
   return (
     <Gate>
       <PageHeader
         title="Campanhas"
-        description="Lista unificada de campanhas em rascunho ou já aplicadas nas redes ligadas."
+        description="Lista por rede e estado (rascunho, pendente de publicação, activa, pausada, etc.). Override do motor opcional por campanha («Pausa motor»)."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha (Google)</Link>
@@ -416,10 +496,13 @@ export function DpilotCampanhasPage() {
       />
       <Card className="mt-4">
         <CardContent className="pt-6">
-          {campaignsTable(
-            campaigns,
-            "Ainda não há campanhas neste projecto. Utilize o assistente «Nova campanha» na rede pretendida e conclua ou aplique os pedidos em «Aprovações», conforme o modo Copilot ou Autopilot.",
-          )}
+          <CampaignListWithFilters
+            list={campaigns}
+            projectId={projectId}
+            reload={reload}
+            showPlatformFilter
+            empty="Ainda não há campanhas neste projecto. Utilize o assistente «Nova campanha» na rede pretendida e conclua ou aplique os pedidos em «Aprovações», conforme o modo Copilot ou Autopilot."
+          />
         </CardContent>
       </Card>
     </Gate>
@@ -427,13 +510,13 @@ export function DpilotCampanhasPage() {
 }
 
 export function DpilotMetaCampanhasPage() {
-  const { campaigns, projectId } = useDpilotPaid();
-  const list = campaigns.filter((c) => c.platform === "meta_ads");
+  const { campaigns, projectId, reload } = useDpilotPaid();
+  const list = useMemo(() => campaigns.filter((c) => c.platform === "meta_ads"), [campaigns]);
   return (
     <Gate>
       <PageHeader
         title="Meta · campanhas"
-        description="Campanhas Facebook e Instagram ligadas a este projecto."
+        description="Facebook e Instagram: filtre por estado e ajuste a pausa do motor por campanha quando for administrador."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
@@ -442,10 +525,13 @@ export function DpilotMetaCampanhasPage() {
       />
       <Card className="mt-4">
         <CardContent className="pt-6">
-          {campaignsTable(
-            list,
-            "Sem campanhas Meta ainda. Ligue a conta em «Ligações às redes», crie uma campanha pelo assistente e, em modo Copilot, autorize os pedidos pendentes em «Aprovações».",
-          )}
+          <CampaignListWithFilters
+            list={list}
+            projectId={projectId}
+            reload={reload}
+            showPlatformFilter={false}
+            empty="Sem campanhas Meta ainda. Ligue a conta em «Ligações às redes», crie uma campanha pelo assistente e, em modo Copilot, autorize os pedidos pendentes em «Aprovações»."
+          />
         </CardContent>
       </Card>
     </Gate>
@@ -453,13 +539,13 @@ export function DpilotMetaCampanhasPage() {
 }
 
 export function DpilotTiktokCampanhasPage() {
-  const { campaigns, projectId } = useDpilotPaid();
-  const list = campaigns.filter((c) => c.platform === "tiktok_ads");
+  const { campaigns, projectId, reload } = useDpilotPaid();
+  const list = useMemo(() => campaigns.filter((c) => c.platform === "tiktok_ads"), [campaigns]);
   return (
     <Gate>
       <PageHeader
         title="TikTok · campanhas"
-        description="Campanhas TikTok Ads deste projecto."
+        description="Filtros por estado; override do motor opcional nas linhas seguintes."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
@@ -468,7 +554,13 @@ export function DpilotTiktokCampanhasPage() {
       />
       <Card className="mt-4">
         <CardContent className="pt-6">
-          {campaignsTable(list, "Sem campanhas TikTok ainda.")}
+          <CampaignListWithFilters
+            list={list}
+            projectId={projectId}
+            reload={reload}
+            showPlatformFilter={false}
+            empty="Sem campanhas TikTok ainda."
+          />
         </CardContent>
       </Card>
     </Gate>
@@ -488,7 +580,7 @@ function sortChangeRequests(rows: ChangeRequestRow[]): ChangeRequestRow[] {
   });
 }
 
-function ChangeRequestCard({
+const ChangeRequestCard = memo(function ChangeRequestCard({
   cr,
   review,
   reviewBusyChangeRequestId,
@@ -557,7 +649,11 @@ function ChangeRequestCard({
                     size="sm"
                     variant="secondary"
                     disabled={busy}
-                    onClick={() => void review(cr.id, "approved")}
+                    onClick={() =>
+                      startTransition(() => {
+                        void review(cr.id, "approved");
+                      })
+                    }
                   >
                     Aprovar
                   </Button>
@@ -573,7 +669,11 @@ function ChangeRequestCard({
                     size="sm"
                     variant="outline"
                     disabled={busy}
-                    onClick={() => void review(cr.id, "rejected")}
+                    onClick={() =>
+                      startTransition(() => {
+                        void review(cr.id, "rejected");
+                      })
+                    }
                   >
                     Rejeitar
                   </Button>
@@ -584,7 +684,16 @@ function ChangeRequestCard({
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button type="button" size="sm" disabled={busy} onClick={() => void review(cr.id, "applied")}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() =>
+                      startTransition(() => {
+                        void review(cr.id, "applied");
+                      })
+                    }
+                  >
                     Aplicar na rede
                   </Button>
                 </TooltipTrigger>
@@ -596,7 +705,16 @@ function ChangeRequestCard({
           ) : cr.status === "approved" ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" size="sm" disabled={busy} onClick={() => void review(cr.id, "applied")}>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    startTransition(() => {
+                      void review(cr.id, "applied");
+                    })
+                  }
+                >
                   Aplicar na rede
                 </Button>
               </TooltipTrigger>
@@ -609,7 +727,9 @@ function ChangeRequestCard({
       </div>
     </div>
   );
-}
+});
+
+ChangeRequestCard.displayName = "ChangeRequestCard";
 
 export function DpilotAprovacoesPage() {
   const p = useDpilotPaid();
