@@ -7,31 +7,38 @@ const verifiedOrigins = new Set<string>();
 const hostnameToUserId = new Map<string, string>();
 
 export async function refreshCustomDomainCache(): Promise<void> {
-  const rows = await systemPrisma.customDomain.findMany({
-    where: { status: "verified" },
-    select: { hostname: true, userId: true },
-  });
-  verifiedOrigins.clear();
-  hostnameToUserId.clear();
-  for (const r of rows) {
-    const h = normalizeHostname(r.hostname);
-    if (!h) continue;
-    hostnameToUserId.set(h, r.userId);
-    if (h.startsWith("www.")) {
-      hostnameToUserId.set(h.slice(4), r.userId);
-    } else {
-      hostnameToUserId.set(`www.${h}`, r.userId);
-    }
-    try {
-      verifiedOrigins.add(new URL(`https://${h}`).origin);
+  try {
+    const rows = await systemPrisma.customDomain.findMany({
+      where: { status: "verified" },
+      select: { hostname: true, userId: true },
+    });
+    verifiedOrigins.clear();
+    hostnameToUserId.clear();
+    for (const r of rows) {
+      const h = normalizeHostname(r.hostname);
+      if (!h) continue;
+      hostnameToUserId.set(h, r.userId);
       if (h.startsWith("www.")) {
-        verifiedOrigins.add(new URL(`https://${h.slice(4)}`).origin);
+        hostnameToUserId.set(h.slice(4), r.userId);
       } else {
-        verifiedOrigins.add(new URL(`https://www.${h}`).origin);
+        hostnameToUserId.set(`www.${h}`, r.userId);
       }
-    } catch {
-      // ignore bad hostname rows
+      try {
+        verifiedOrigins.add(new URL(`https://${h}`).origin);
+        if (h.startsWith("www.")) {
+          verifiedOrigins.add(new URL(`https://${h.slice(4)}`).origin);
+        } else {
+          verifiedOrigins.add(new URL(`https://www.${h}`).origin);
+        }
+      } catch {
+        // ignore bad hostname rows
+      }
     }
+  } catch (e) {
+    console.warn(
+      "[customDomainCache] refresh omitido — base de dados indisponível (CORS de domínio próprio fica sem cache até próximo intervalo ou fix da ligação).",
+      e instanceof Error ? e.message : e,
+    );
   }
 }
 

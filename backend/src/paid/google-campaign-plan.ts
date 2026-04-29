@@ -13,6 +13,7 @@ import {
   fetchOpenAiGoogleCampaignPlan,
   type GoogleCampaignAiPlan,
 } from "./google-campaign-ai-shared";
+import { finalizeGoogleCampaignAssetExtensions } from "./google-campaign-asset-extensions";
 
 const googleBiddingStrategyEnum = z.enum([
   "manual_cpc",
@@ -128,7 +129,7 @@ export async function runGoogleCampaignPlan(
     return { ok: false, error: msg };
   }
 
-  const biddingStored = storedGoogleBiddingFromPlanInput({
+  const biddingStoredBase = storedGoogleBiddingFromPlanInput({
     strategy: data.google_bidding_strategy,
     google_target_cpa_usd: data.google_target_cpa_usd ?? null,
     google_target_roas: data.google_target_roas ?? null,
@@ -167,6 +168,7 @@ Geo (countries): ${geoTargetsNorm.join(", ")}
 Advertising languages for RSA ad copy (ISO codes; PRIMARY first — write all RSA strings in these languages): ${languageTargetsNorm.join(", ")}
 ${bidHint}
 RSA headline reminder: ≤30 characters each, 12 headlines, benefit-led and aligned with the offer; descriptions ≤90 characters, 4 lines.
+Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     if (process.env.OPENAI_API_KEY) {
       const out = await fetchOpenAiGoogleCampaignPlan(userPrompt);
@@ -198,6 +200,16 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     ...ag,
     keywords: (ag.keywords ?? []).filter((k) => !blocked.has(k.text.toLowerCase())),
   }));
+
+  const google_asset_extensions = finalizeGoogleCampaignAssetExtensions(plan.extensions, {
+    landingUrl: data.landingUrl,
+    offer: data.offer,
+    primaryLanguageIso: languageTargetsNorm[0] ?? "en",
+  });
+  const biddingStored = {
+    ...biddingStoredBase,
+    google_asset_extensions,
+  };
 
   const dailyBudgetMicros = Math.round(data.dailyBudgetUsd * 1_000_000);
   const dailyBudgetMicrosBig = BigInt(dailyBudgetMicros);

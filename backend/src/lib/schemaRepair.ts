@@ -35,6 +35,13 @@ const CONVERSIONS_TIKTOK_EVENTS_SQL = [
 ] as const;
 
 export async function repairPlanSchemaColumns(): Promise<void> {
+  try {
+    await systemPrisma.$connect();
+  } catch {
+    console.warn("[schemaRepair] omitido — base de dados indisponível.");
+    return;
+  }
+
   for (const sql of PLAN_COLUMNS_SQL) {
     try {
       await systemPrisma.$executeRawUnsafe(sql);

@@ -1,12 +1,30 @@
 import { PrismaClient } from "@prisma/client";
 import { applyTenantSafeExtension } from "./tenantPrisma";
 
+const forceQuietPrismaLog =
+  process.env.QUIET_PRISMA === "1" || process.env.QUIET_PRISMA === "true";
+/** Em dev, sem isto o consola fica cheia de `prisma:error` quando o Postgres está offline (ex. Railway inacessível). */
+const prismaDevVerbose =
+  process.env.PRISMA_DEV_VERBOSE === "1" || process.env.PRISMA_DEV_VERBOSE === "true";
+
+function prismaLogOptions(): ("query" | "info" | "warn" | "error")[] {
+  if (forceQuietPrismaLog) return [];
+  const isProd = process.env.NODE_ENV === "production";
+  if (!isProd) {
+    return prismaDevVerbose ? ["query", "error", "warn"] : [];
+  }
+  return ["error"];
+}
+
 /**
  * Instância base única — usada por systemPrisma e prismaAdmin (sem filtro automático).
  * ⚠️ Só usar diretamente através dos exports nomeados; não exportar esta constante.
+ *
+ * - **Local (`npm run dev`, NODE_ENV vazio ou ≠ production):** sem logs do motor por defeito.
+ * - **`QUIET_PRISMA=1`:** força silêncio total do motor (também em produção). Erros de rotas Express não são afectados.
  */
 const basePrisma = new PrismaClient({
-  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  log: prismaLogOptions(),
 });
 
 /**

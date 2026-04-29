@@ -334,6 +334,8 @@ model PaidCampaign {
   dailyBudgetMicros   BigInt?          @map("daily_budget_micros")
   geoTargets          Json             @default("[]") @map("geo_targets")
   languageTargets     Json             @default("[]") @map("language_targets")
+  /// Licitação Google + extensões (ex.: `google`, `google_asset_extensions`).
+  biddingConfig       Json             @default("{}") @map("bidding_config")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 

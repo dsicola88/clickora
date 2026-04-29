@@ -5,6 +5,10 @@
  * Persistência da campanha (Prisma paid vs paidAds*) continua separada por produto.
  */
 import { buildDeterministicRsa } from "./google-rsa-deterministic";
+import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
+
+/** Extensões que a IA pode preencher (parciais são completadas em `finalizeGoogleCampaignAssetExtensions`). */
+export type GoogleCampaignAiExtensionsPartial = Partial<GoogleCampaignAssetExtensionsStored>;
 
 export interface GoogleCampaignAiPlan {
   campaign: { name: string; objective_summary: string };
@@ -13,6 +17,8 @@ export interface GoogleCampaignAiPlan {
     keywords: Array<{ text: string; match_type: "exact" | "phrase" | "broad" }>;
     rsa: { headlines: string[]; descriptions: string[] };
   }>;
+  /** Opcional — sitelinks, callouts e um structured snippet ao nível da campanha. */
+  extensions?: GoogleCampaignAiExtensionsPartial;
 }
 
 export type DeterministicPlanInput = {
@@ -36,6 +42,11 @@ Rules:
 - Never include the user's blocked keywords.
 - RSA copy (headlines + descriptions): write EVERY string in the user's advertising languages given in the prompt (ISO codes; primary language first). Use native, idiomatic phrasing — one language per string; do not mix unrelated languages in the same headline/description. Do NOT use generic SaaS phrases (e.g. "built for teams", "free trial") unless they exactly match the product.
 
+Also output **campaign extensions** alongside RSA and keywords:
+- **Sitelinks (2–6)**: texts max 25 characters; **final_urls** absolute https, same hostname as Landing URL preferentially (landing page with a URL hash fragment is OK — e.g. #faq, #buy). Optional description lines ≤35 characters (fields description1 and description2 optional).
+- **Callouts (4–10)**, each max 25 characters — trust, clarity, urgency only if truthful; match the user's languages where possible but respect character limits over translation quality.
+- **One structured snippet**: field "header" must be exactly one of: Brands, Services, Types, Models, Destinations (English enum required by Google). Field "values" must be 3–10 strings, each ≤25 characters, aligned with the Offer.
+
 If generation runs without AI (fallback mode), RSA copy is composed deterministically from Offer, Objective, and Landing URL only — your JSON output matches that principle when AI is enabled: always tether headlines and descriptions to those three inputs.
 
 Schema:
@@ -47,7 +58,22 @@ Schema:
       "keywords": [{ "text": string, "match_type": "exact" | "phrase" | "broad" }],
       "rsa": { "headlines": string[], "descriptions": string[] }
     }
-  ]
+  ],
+  "extensions": {
+    "sitelinks": [
+      {
+        "link_text": string,
+        "final_url": string,
+        "description1"?: string,
+        "description2"?: string
+      }
+    ],
+    "callouts": string[],
+    "structured_snippet": {
+      "header": "Brands Services Types Models Destinations (pick one literal string)",
+      "values": string[]
+    } | null
+  }
 }`;
 
 export async function fetchOpenAiGoogleCampaignPlan(userPrompt: string): Promise<{

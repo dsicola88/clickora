@@ -7,6 +7,8 @@ import {
   fetchOpenAiGoogleCampaignPlan,
   type GoogleCampaignAiPlan,
 } from "@clickora/paid/google-campaign-ai-shared";
+import { finalizeGoogleCampaignAssetExtensions } from "@clickora/paid/google-campaign-asset-extensions";
+import { storedGoogleBiddingFromPlanInput } from "@clickora/paid/google-campaign-bidding";
 
 import { requireSession } from "@/integrations/auth/auth-middleware";
 import { prisma } from "@backend/prisma";
@@ -95,6 +97,7 @@ Daily budget: $${data.dailyBudgetUsd}
 Geo (countries): ${data.geoTargets.join(", ")}
 Advertising languages for RSA ad copy (ISO codes; PRIMARY first — write all RSA strings in these languages): ${data.languageTargets.join(", ")}
 RSA headline reminder: ≤30 characters each, 12 headlines, benefit-led and aligned with the offer; descriptions ≤90 characters, 4 lines.
+Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       if (process.env.OPENAI_API_KEY) {
         const out = await fetchOpenAiGoogleCampaignPlan(userPrompt);
@@ -127,6 +130,20 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       keywords: (ag.keywords ?? []).filter((k) => !blocked.has(k.text.toLowerCase())),
     }));
 
+    const google_asset_extensions = finalizeGoogleCampaignAssetExtensions(plan.extensions, {
+      landingUrl: data.landingUrl,
+      offer: data.offer,
+      primaryLanguageIso: data.languageTargets[0] ?? "en",
+    });
+    const biddingStored = {
+      ...storedGoogleBiddingFromPlanInput({
+        strategy: "maximize_conversions",
+        google_target_cpa_usd: null,
+        google_target_roas: null,
+      }),
+      google_asset_extensions,
+    };
+
     const dailyBudgetMicros = Math.round(data.dailyBudgetUsd * 1_000_000);
     const dailyBudgetMicrosBig = BigInt(dailyBudgetMicros);
 
@@ -141,6 +158,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         dailyBudgetMicros: dailyBudgetMicrosBig,
         geoTargets: data.geoTargets,
         languageTargets: data.languageTargets,
+        biddingConfig: biddingStored as unknown as Prisma.InputJsonValue,
       },
       select: { id: true },
     });
@@ -207,6 +225,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
           geo_targets: data.geoTargets,
           language_targets: data.languageTargets,
           landing_url: data.landingUrl,
+          bidding_config: biddingStored,
           mode: project.paidMode,
           auto_applied: true,
           exceeds_daily_cap: reasons.some((r) => r.code === "exceeds_daily_cap"),
@@ -234,6 +253,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
           geo_targets: data.geoTargets,
           language_targets: data.languageTargets,
           landing_url: data.landingUrl,
+          bidding_config: biddingStored,
           mode: project.paidMode,
           auto_applied: false,
           publish_error: pub.error,
@@ -264,6 +284,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         geo_targets: data.geoTargets,
         language_targets: data.languageTargets,
         landing_url: data.landingUrl,
+        bidding_config: biddingStored,
         mode: project.paidMode,
         auto_applied: false,
         exceeds_daily_cap: reasons.some((r) => r.code === "exceeds_daily_cap"),

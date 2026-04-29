@@ -6,6 +6,10 @@ import type { EntityStatus, MatchType, PaidPlatform } from "@prisma/client";
 
 import { getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
 import { prisma } from "./prisma";
+import {
+  publishGoogleCampaignAssetExtensions,
+  readGoogleAssetExtensionsFromBidding,
+} from "../../../backend/src/paid/google-ads-asset-extensions-publish";
 
 const API_BASE = "https://googleads.googleapis.com/v16";
 
@@ -388,6 +392,19 @@ export async function publishGoogleSearchCampaignFromLocal(
         },
         loginCustomerId,
       );
+    }
+
+    const assetExt = readGoogleAssetExtensionsFromBidding(campaign.biddingConfig);
+    if (assetExt) {
+      await publishGoogleCampaignAssetExtensions({
+        mutate,
+        accessToken: access,
+        devToken: dev,
+        customerId,
+        loginCustomerId,
+        campaignResourceName: campaignRn,
+        extensions: assetExt,
+      });
     }
 
     const agResourceByLocalId = new Map<string, string>();

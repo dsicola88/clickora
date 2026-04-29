@@ -13,6 +13,10 @@ import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
 import { googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
 import { normalizeGoogleLanguageCode } from "./language-google";
+import {
+  publishGoogleCampaignAssetExtensions,
+  readGoogleAssetExtensionsFromBidding,
+} from "./google-ads-asset-extensions-publish";
 import { prisma } from "./paidPrisma";
 
 /** ISO-3166 alpha-2 → google geoTargetConstants/id (exportado também em geo-google.ts). */
@@ -395,6 +399,19 @@ export async function publishGoogleSearchCampaignFromLocal(
         },
         loginCustomerId,
       );
+    }
+
+    const assetExt = readGoogleAssetExtensionsFromBidding(campaign.biddingConfig);
+    if (assetExt) {
+      await publishGoogleCampaignAssetExtensions({
+        mutate,
+        accessToken: access,
+        devToken: dev,
+        customerId,
+        loginCustomerId,
+        campaignResourceName: campaignRn,
+        extensions: assetExt,
+      });
     }
 
     const agResourceByLocalId = new Map<string, string>();
