@@ -245,6 +245,13 @@ export const paidAdsService = {
     );
   },
 
+  archiveCampaign(projectId: string, campaignId: string) {
+    return apiClient.post<{ ok: boolean }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/archive`,
+      {},
+    );
+  },
+
   patchCampaignOptimizerLimits(
     projectId: string,
     campaignId: string,

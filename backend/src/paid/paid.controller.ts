@@ -628,6 +628,39 @@ export const paidController = {
     return res.json({ campaign: mappers.mapPaidCampaign(updated), adjusted: true as const });
   },
 
+  /** Arquiva soft-delete na base (rascunho / erro / pronto sem publicação). Não remove recursos já na conta da rede. */
+  async archiveCampaign(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const { projectId, campaignId } = parsed.data;
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para arquivar campanhas neste projecto." });
+    }
+    const row = await prisma.paidAdsCampaign.findFirst({
+      where: { id: campaignId, projectId },
+    });
+    if (!row) return res.status(404).json({ error: "Campanha não encontrada." });
+    if (row.status === "archived") {
+      return res.json({ ok: true });
+    }
+    const archivable = new Set(["draft", "pending_publish", "error"]);
+    if (!archivable.has(row.status)) {
+      return res.status(400).json({
+        error:
+          "Só pode arquivar aqui campanhas ainda não publicadas nesta conta (rascunho, pronto para publicar ou com erro na app). Para recursos já na rede, use primeiro a conta Google/Meta/TikTok ou reconcile.",
+      });
+    }
+    await prisma.paidAdsCampaign.update({
+      where: { id: row.id },
+      data: { status: "archived" },
+    });
+    return res.json({ ok: true });
+  },
+
   async patchCampaignOptimizerLimits(req: Request, res: Response) {
     const parsed = z
       .object({

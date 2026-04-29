@@ -50,6 +50,9 @@ paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-daily-budget-to
 paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-geo-to-guardrail", (req, res) =>
   void paidController.snapCampaignGeoTargetsToGuardrailAllowed(req, res),
 );
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/archive", (req, res) =>
+  void paidController.archiveCampaign(req, res),
+);
 paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
   void paidController.listOptimizerDecisions(req, res),
 );

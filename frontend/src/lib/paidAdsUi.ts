@@ -163,6 +163,11 @@ function asStringArray(v: unknown): string[] | null {
   return out.length ? out : null;
 }
 
+/** Rascunho / pronto sem publish / erro na app — podem arquivar-se na lista (soft delete local). */
+export function campaignStatusArchivableLocally(status: string): boolean {
+  return status === "draft" || status === "pending_publish" || status === "error";
+}
+
 /** Explicações legíveis para erros habituais da API Google Ads (mensagens já gravadas no pedido). */
 export function friendlyGoogleAdsNetworkError(message: string | null | undefined): string | null {
   if (!message?.trim()) return null;

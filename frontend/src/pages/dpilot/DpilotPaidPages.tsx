@@ -33,6 +33,7 @@ import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
+import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
 import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
 
@@ -357,13 +358,17 @@ function CampaignListWithFilters({
   const [searchParams] = useSearchParams();
   const campaignFocus = searchParams.get("campaign");
   const [plat, setPlat] = useState<string>("all");
-  const [st, setSt] = useState<string>("all");
+  const [st, setSt] = useState<string>("excluding_archived");
   const filtered = useMemo(() => {
     let xs = list;
     if (showPlatformFilter && plat !== "all") {
       xs = xs.filter((c) => c.platform === plat);
     }
-    if (st !== "all") xs = xs.filter((c) => c.status === st);
+    if (st === "excluding_archived") {
+      xs = xs.filter((c) => c.status !== "archived");
+    } else if (st !== "all") {
+      xs = xs.filter((c) => c.status === st);
+    }
     return xs;
   }, [list, plat, st, showPlatformFilter]);
 
@@ -402,7 +407,8 @@ function CampaignListWithFilters({
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="excluding_archived">Em trabalho (sem arquivadas)</SelectItem>
+              <SelectItem value="all">Todos os estados</SelectItem>
               <SelectItem value="draft">{campaignStatusLabel("draft")}</SelectItem>
               <SelectItem value="pending_publish">{campaignStatusLabel("pending_publish")}</SelectItem>
               <SelectItem value="live">{campaignStatusLabel("live")}</SelectItem>
@@ -433,7 +439,12 @@ function campaignsTable(
           <TableHead>Nome</TableHead>
           <TableHead>Plataforma</TableHead>
           <TableHead>Estado</TableHead>
-          {controls ? <TableHead className="hidden md:table-cell w-[120px]">Pausa (motor)</TableHead> : null}
+          {controls ? (
+            <>
+              <TableHead className="hidden md:table-cell w-[120px]">Pausa (motor)</TableHead>
+              <TableHead className="w-[7.5rem] text-right text-xs font-medium text-muted-foreground">Acções</TableHead>
+            </>
+          ) : null}
           <TableHead className="hidden lg:table-cell">Motor</TableHead>
         </TableRow>
       </TableHeader>
@@ -450,13 +461,22 @@ function campaignsTable(
                 </Badge>
               </TableCell>
               {controls ? (
-                <TableCell className="hidden md:table-cell align-middle">
-                  <DpilotCampaignOptimizerDialog
-                    projectId={controls.projectId}
-                    campaign={c}
-                    reload={controls.reload}
-                  />
-                </TableCell>
+                <>
+                  <TableCell className="hidden md:table-cell align-middle">
+                    <DpilotCampaignOptimizerDialog
+                      projectId={controls.projectId}
+                      campaign={c}
+                      reload={controls.reload}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right align-middle">
+                    <DpilotCampaignArchiveButton
+                      projectId={controls.projectId}
+                      campaign={c}
+                      reload={controls.reload}
+                    />
+                  </TableCell>
+                </>
               ) : null}
               <TableCell className="hidden max-w-[14rem] lg:table-cell">
                 {hint ? (
@@ -488,7 +508,7 @@ export function DpilotCampanhasPage() {
     <Gate>
       <PageHeader
         title="Campanhas"
-        description="Lista por rede e estado (rascunho, pendente de publicação, activa, pausada, etc.). Override do motor opcional por campanha («Pausa motor»)."
+        description="Liste por estado; arquive rascunhos que já não precise (Acções → Arquivar). Override do motor opcional («Pausa motor»)."
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha (Google)</Link>
