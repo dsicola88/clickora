@@ -67,7 +67,32 @@ Arquitectura técnica detalhada: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECT
 
 ---
 
-## 7. Referências no código
+## 7. Google Ads vs Meta vs TikTok — na Clickora vs fora da app
+
+Orientação rápida para equipa/comunicação honesta (**não são percentagens fixas**; dependem de modo Copilot/Autopilot, OAuth e servidor).
+
+### 7.1 O que esperar da automação dentro do produto
+
+| | **Google Ads (Search)** | **Meta** | **TikTok** |
+|---|--------------------------|----------|------------|
+| **Ligação de conta** | OAuth + Customer ID gravados na ligação | OAuth + seleção/referência ao Ad Account | OAuth + advertiser em contexto |
+| **Rascunho / plano** | IA ou fallback RSA + grupos/chaves (assistido) | IA ou fallback Meta (campanha, conjunto, criativos texto) | Plano TikTok gravado como campanha local |
+| **Publicação pela API quando Autopilot passa guardrails** | `google-ads.publish`: cria recurso Search (campanha, grupo, RSA, conforme modelo) (`GOOGLE_ADS_DEVELOPER_TOKEN` exigido) | `meta-ads.publish`: cria campanha ACTIVE + conjunto + anúncios Graph **se** página Facebook (`META_PROMOTED_PAGE_ID` / `META_PAGE_ID` ou `page_id`) estiver configurada | `tiktok-ads.publish`: **cria apenas campanha + ad group** remoto (`advertiser_id`); **Anúncios em vídeo** na API TikTok ficam como passos posteriores (o ficheiro de publish não faz upload criativo vídeo aqui — ver código) |
+| **Guardrails que bloqueiem autopublish** | Orçamentos, geo, keywords bloqueadas, etc., por projeto | Idem onde aplicável (conforme rotas Meta) | Idem TikTok onde implementado |
+
+### 7.2 O que típico continuar a mexer/recortar nas UIs das próprias redes
+
+| Área típica fora ou depois da Clickora | Google | Meta | TikTok |
+|----------------------------------------|--------|------|--------|
+| **Compliance e conta** | Níveis conta, método pagamento faturação, políticas marcação conversões próprios domínios | Revisões de especial ad categories DSA quando aplicável, Business Manager | Conta publicitária aprovada, brand safety |
+| **Criativo e formato** | Extensões, rótulos de marca no Google; Merchant se shopping (fora escopo Search simples aqui) | Ajustar criativo carousel/vídeo, verificar rejeições de moderação | **Vídeo e ad** granular: com o nível actual da API só campanha+ad group ficam garantidos pela app — completar vídeo criativo onde for preciso na TikTok Ads |
+| **Medição paralela** | Tag site / GMC conforme modelo de conta | Pixel / CAPI lado Meta (o produto liga workflows de vendas no tracking; não substitui toda conta de Medições) | Pixel/app events TikTok segundo política conta |
+
+Esta matrix serve para mensagem interna («não prometer campanhas vídeo TikTok só com um botão») e evita confundir «pipeline bem estruturado» com «90 % automático ponta‑a‑ponta».
+
+---
+
+## 8. Referências no código
 
 | Área | Local principal |
 |------|-----------------|
@@ -77,4 +102,4 @@ Arquitectura técnica detalhada: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECT
 
 ---
 
-*Última actualização do documento: alinhado ao estado do repositório quando o Optimizer V0, auditoria API e alertas webhook foram integrados.*
+*Última actualização: secção §7 matrix Google/Meta/TikTok acrescentada; Optimizer V0 / auditoria conforme texto histórico das secções §2–§5.*
