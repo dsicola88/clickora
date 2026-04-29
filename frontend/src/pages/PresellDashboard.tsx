@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -821,8 +821,26 @@ export default function PresellDashboard() {
                     className={formErrors.productLink ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.productLink} />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Para melhor resultado use o URL da página pública oficial do produto (começa com{" "}
+                    <span className="font-mono text-[11px]">https://</span>) — lemos esse HTML para montar texto e imagens.
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Se sair pouco texto ou ficar incompleto, experimente outro endereço da mesma oferta ou crie páginas no{" "}
+                    <Link
+                      to="/presell/templates/editor"
+                      className="text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      criador guiado ou modelos
+                    </Link>
+                    , ou monte ao teu modo no{" "}
+                    <Link to="/presell/builder" className="text-primary underline underline-offset-2 hover:no-underline">
+                      editor manual
+                    </Link>
+                    . Evite localhost e o painel Clickora aqui — use apenas a página pública onde o produto se vende.
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    Não use localhost. Para texto em inglês, escolha English no idioma abaixo.
+                    Para inglês gerado nos textos do passo seguinte, escolha English no idioma abaixo.
                   </p>
                 </div>
 
