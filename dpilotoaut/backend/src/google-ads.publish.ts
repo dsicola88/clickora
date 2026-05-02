@@ -255,9 +255,8 @@ export async function publishGoogleSearchCampaignFromLocal(
   const customerId = conn.googleCustomerId.replace(/\D/g, "");
 
   for (const ag of campaign.adGroups) {
-    const rsa = ag.adsRsa[0];
-    if (!rsa) {
-      return { ok: false, error: `O ad group «${ag.name}» precisa de um anúncio RSA.` };
+    if (!ag.adsRsa.length) {
+      return { ok: false, error: `O ad group «${ag.name}» precisa de pelo menos um anúncio RSA.` };
     }
   }
 
@@ -494,44 +493,45 @@ export async function publishGoogleSearchCampaignFromLocal(
         }
       }
 
-      const rsa = ag.adsRsa[0]!;
-      const headlines = parseJsonStringArray(rsa.headlines) as string[];
-      const descriptions = parseJsonStringArray(rsa.descriptions) as string[];
-      const finalUrls = parseJsonStringArray(rsa.finalUrls);
-      const url = ensureUrl(finalUrls[0] ?? "https://example.com");
-      if (headlines.length < 3 || descriptions.length < 2) {
-        return { ok: false, error: "RSA: são necessários ≥3 títulos e ≥2 descrições." };
-      }
-      const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
-      const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
+      for (const rsa of ag.adsRsa) {
+        const headlines = parseJsonStringArray(rsa.headlines) as string[];
+        const descriptions = parseJsonStringArray(rsa.descriptions) as string[];
+        const finalUrls = parseJsonStringArray(rsa.finalUrls);
+        const url = ensureUrl(finalUrls[0] ?? "https://example.com");
+        if (headlines.length < 3 || descriptions.length < 2) {
+          continue;
+        }
+        const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
+        const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
 
-      const { resourceNames: adR } = await mutate(
-        access,
-        dev,
-        customerId,
-        "adGroupAds",
-        {
-          operations: [
-            {
-              create: {
-                adGroup: agRn,
-                status: "ENABLED",
-                ad: {
-                  finalUrls: [url],
-                  responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+        const { resourceNames: adR } = await mutate(
+          access,
+          dev,
+          customerId,
+          "adGroupAds",
+          {
+            operations: [
+              {
+                create: {
+                  adGroup: agRn,
+                  status: "ENABLED",
+                  ad: {
+                    finalUrls: [url],
+                    responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+                  },
                 },
               },
-            },
-          ],
-        },
-        loginCustomerId,
-      );
-      const adGroupAdRn = adR[0];
-      if (adGroupAdRn) {
-        await prisma.paidAdsRsa.update({
-          where: { id: rsa.id },
-          data: { externalAdId: lastId(adGroupAdRn), status: "live" as EntityStatus },
-        });
+            ],
+          },
+          loginCustomerId,
+        );
+        const adGroupAdRn = adR[0];
+        if (adGroupAdRn) {
+          await prisma.paidAdsRsa.update({
+            where: { id: rsa.id },
+            data: { externalAdId: lastId(adGroupAdRn), status: "live" as EntityStatus },
+          });
+        }
       }
     }
 
