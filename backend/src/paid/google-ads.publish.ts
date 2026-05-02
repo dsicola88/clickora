@@ -288,7 +288,15 @@ export async function publishGoogleSearchCampaignFromLocal(
     return { ok: false, error: "Campanha não encontrada." };
   }
   if (campaign.externalCampaignId) {
-    return { ok: true };
+    if (campaign.status === "live") {
+      return { ok: true };
+    }
+    if (campaign.status === "error") {
+      return {
+        ok: false,
+        error: `Esta campanha já foi criada no Google (ID ${campaign.externalCampaignId}) mas ficou incompleta. Apague-a no Google Ads e crie um novo rascunho na Clickora; voltar a publicar este rascunho não recupera o estado.`,
+      };
+    }
   }
   if (!campaign.adGroups.length) {
     return { ok: false, error: "A campanha não tem ad groups." };
