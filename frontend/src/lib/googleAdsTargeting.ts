@@ -34,6 +34,7 @@ export const GOOGLE_ADS_COUNTRY_OPTIONS: TargetingOption[] = [
   { code: "JP", label: "Japão" },
   { code: "MX", label: "México" },
   { code: "AR", label: "Argentina" },
+  { code: "AO", label: "Angola" },
   { code: "CL", label: "Chile" },
   { code: "CO", label: "Colômbia" },
   { code: "NZ", label: "Nova Zelândia" },

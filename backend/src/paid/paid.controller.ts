@@ -11,6 +11,13 @@ import { ensurePaidAdsBootstrapForUser, ensurePaidAdsProjectRows } from "./boots
 import { prisma } from "./paidPrisma";
 import { googleCampaignPlanInputSchema, runGoogleCampaignPlan } from "./google-campaign-plan";
 import { extractGoogleLanding } from "./google-landing-extract";
+import {
+  googleKeywordInsightInputSchema,
+  googleKeywordSuggestInputSchema,
+  runGoogleKeywordInsight,
+  runGoogleKeywordSuggest,
+} from "./google-keyword-decision";
+import { fetchKeywordPlannerMetrics } from "./google-keyword-planner";
 import { metaCampaignPlanInputSchema, runMetaCampaignPlan } from "./meta-campaign-plan";
 import { reconcileProjectCampaigns } from "./reconcile-campaigns";
 import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-campaign-plan";
@@ -477,6 +484,55 @@ export const paidController = {
     const out = await extractGoogleLanding(body.data.landingUrl);
     if (!out.ok) return res.status(400).json({ error: out.error });
     return res.json(out);
+  },
+
+  async googleKeywordInsight(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso a este projecto." });
+    }
+    const body = googleKeywordInsightInputSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    try {
+      const plannerHit = await fetchKeywordPlannerMetrics(parsed.data.projectId, {
+        keyword: body.data.keyword,
+        countryCode: body.data.countryCode,
+        languageCode: body.data.languageCode,
+      });
+      const out = await runGoogleKeywordInsight(body.data, {
+        planner: plannerHit.ok ? plannerHit.snapshot : null,
+      });
+      return res.json(out);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao analisar palavra-chave.";
+      return res.status(400).json({ error: msg });
+    }
+  },
+
+  async googleKeywordSuggest(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso a este projecto." });
+    }
+    const body = googleKeywordSuggestInputSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    try {
+      const { suggestions } = await runGoogleKeywordSuggest(body.data);
+      return res.json({ ok: true, suggestions });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao sugerir palavras-chave.";
+      return res.status(400).json({ error: msg });
+    }
   },
 
   async metaCampaignPlan(req: Request, res: Response) {

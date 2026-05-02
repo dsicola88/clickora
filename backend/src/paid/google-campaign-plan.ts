@@ -63,6 +63,7 @@ export const googleCampaignPlanInputSchema = z
     optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
     /** Sinais reais do produto. Quando preenchidos, o copy menciona-os literalmente. */
     product_signals: productSignalsSchema.optional(),
+    campaign_seed_keyword: z.string().trim().min(2).max(80).optional(),
   })
   .superRefine((val, ctx) => {
     if (val.google_bidding_strategy === "target_cpa") {
@@ -91,6 +92,27 @@ export type GoogleCampaignPlanInput = z.infer<typeof googleCampaignPlanInputSche
 
 /** Alias compatível com o JSON da IA — fonte única em `google-campaign-ai-shared`. */
 type AiPlan = GoogleCampaignAiPlan;
+
+function mergeCampaignSeedKeyword(plan: AiPlan, seedRaw: string | undefined, blocked: Set<string>): AiPlan {
+  const seed = seedRaw?.trim().toLowerCase();
+  if (!seed || blocked.has(seed)) return plan;
+  const groups = [...(plan.ad_groups ?? [])];
+  if (!groups.length) return plan;
+  const ag0 = { ...groups[0] };
+  const existing = new Set(
+    (ag0.keywords ?? []).map((k) => `${k.text.toLowerCase()}\t${k.match_type}`),
+  );
+  const inject: Array<{ text: string; match_type: "exact" | "phrase" | "broad" }> = [
+    { text: seed, match_type: "exact" },
+    { text: seed, match_type: "phrase" },
+  ];
+  const toAdd = inject.filter(
+    (k) => !blocked.has(k.text.toLowerCase()) && !existing.has(`${k.text.toLowerCase()}\t${k.match_type}`),
+  );
+  ag0.keywords = [...toAdd, ...(ag0.keywords ?? [])].slice(0, 50);
+  groups[0] = ag0;
+  return { ...plan, ad_groups: groups };
+}
 
 function toGuardrailLimits(g: {
   maxDailyBudgetMicros: bigint;
@@ -206,6 +228,12 @@ export async function runGoogleCampaignPlan(
       return `\nProduct signals (TRUE facts about this offer — use VERBATIM where they fit; do NOT invent any other promo claim):\n${lines.join("\n")}`;
     })();
 
+    const seedLine =
+      data.campaign_seed_keyword?.trim() &&
+      !blocked.has(data.campaign_seed_keyword.trim().toLowerCase())
+        ? `\nPrimary keyword (user-chosen Search theme — centre keywords and RSA on this intent; include exact+phrase+broad variants across ad groups): ${data.campaign_seed_keyword.trim()}`
+        : "";
+
     const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
 Objective (INTERNAL briefing — do NOT copy verbatim into ad copy, do NOT use as a headline/description): ${data.objective}
@@ -213,7 +241,7 @@ Daily budget: $${data.dailyBudgetUsd}
 Geo (countries): ${geoTargetsNorm.join(", ")}
 Advertising languages (ISO codes; FIRST is primary): ${languageTargetsNorm.join(", ")}
 PRIMARY language for ALL RSA headlines and descriptions: ${primaryLang} — write every headline and every description in ${primaryLang} only, no mixing with other languages.
-${bidHint}
+${bidHint}${seedLine}
 RSA reminders: 12 headlines ≤30 chars each (vary the angle: CTA, benefit, proof, urgency, branded — never repeat the same stem), 4 descriptions ≤90 chars each (full persuasive sentences derived from the Offer, Landing and Product signals — never echoing the Objective).${productSignalsLines}
 Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
@@ -231,6 +259,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         geoTargets: geoTargetsNorm,
         languageTargets: languageTargetsNorm,
         productSignals: data.product_signals,
+        campaignSeedKeyword: data.campaign_seed_keyword,
       });
     }
   } catch (e) {
@@ -242,8 +271,11 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       geoTargets: geoTargetsNorm,
       languageTargets: languageTargetsNorm,
       productSignals: data.product_signals,
+      campaignSeedKeyword: data.campaign_seed_keyword,
     });
   }
+
+  plan = mergeCampaignSeedKeyword(plan, data.campaign_seed_keyword, blocked);
 
   /** Limpa prefixos internos ("Goal:", "Objetivo:"…) e descrições que ecoem o objective; garante mínimos publicáveis. */
   plan = sanitizeAiPlanCopy(plan, {

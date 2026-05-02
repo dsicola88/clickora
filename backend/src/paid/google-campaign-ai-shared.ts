@@ -53,6 +53,8 @@ export type DeterministicPlanInput = {
   languageTargets: string[];
   /** Sinais reais do produto — usados para gerar copy verdadeiro (preço, desconto, garantia, etc.). */
   productSignals?: GoogleProductSignals;
+  /** Palavra-chave principal confirmada no assistente de decisão. */
+  campaignSeedKeyword?: string;
 };
 
 /** Igual ao modelo usado pela API oficial `POST …/google-campaign-plan`. */
@@ -240,6 +242,40 @@ export function buildDeterministicGoogleCampaignPlan(input: DeterministicPlanInp
     primaryLang,
     input.productSignals,
   );
+  const seed = input.campaignSeedKeyword?.trim().toLowerCase();
+  const isPt = primaryLang.startsWith("pt");
+  const coreKeywords: Array<{ text: string; match_type: "exact" | "phrase" | "broad" }> = seed
+    ? isPt
+      ? [
+          { text: seed, match_type: "exact" },
+          { text: seed, match_type: "phrase" },
+          { text: `comprar ${seed}`.slice(0, 80), match_type: "phrase" },
+          { text: `melhor ${seed}`.slice(0, 80), match_type: "phrase" },
+          { text: `${seed} preço`.slice(0, 80), match_type: "phrase" },
+          { text: `${seed} opiniões`.slice(0, 80), match_type: "phrase" },
+          { text: seed, match_type: "broad" },
+          { text: `onde comprar ${seed}`.slice(0, 80), match_type: "broad" },
+        ]
+      : [
+          { text: seed, match_type: "exact" },
+          { text: seed, match_type: "phrase" },
+          { text: `buy ${seed}`.slice(0, 80), match_type: "phrase" },
+          { text: `best ${seed}`.slice(0, 80), match_type: "phrase" },
+          { text: `${seed} price`.slice(0, 80), match_type: "phrase" },
+          { text: `${seed} reviews`.slice(0, 80), match_type: "phrase" },
+          { text: seed, match_type: "broad" },
+          { text: `where to buy ${seed}`.slice(0, 80), match_type: "broad" },
+        ]
+    : [
+        { text: slug.toLowerCase(), match_type: "exact" as const },
+        { text: `buy ${slug}`.toLowerCase(), match_type: "phrase" as const },
+        { text: `best ${slug}`.toLowerCase(), match_type: "phrase" as const },
+        { text: `${slug} reviews`.toLowerCase(), match_type: "phrase" as const },
+        { text: `${slug} official site`.toLowerCase(), match_type: "phrase" as const },
+        { text: `${slug} discount`.toLowerCase(), match_type: "broad" as const },
+        { text: `where to buy ${slug}`.toLowerCase(), match_type: "broad" as const },
+        { text: `${slug} for sale`.toLowerCase(), match_type: "broad" as const },
+      ];
   return {
     campaign: {
       name: `${slug} — Search`,
@@ -248,20 +284,7 @@ export function buildDeterministicGoogleCampaignPlan(input: DeterministicPlanInp
     ad_groups: [
       {
         name: "Core intent",
-        /** 8 keywords cobrindo intents comerciais distintos (compra, comparação, preço,
-         *  reviews, oficial, descontos, localização). Os screenshots mostraram que com
-         *  apenas 5 keywords brand-only o Google marca a maioria como "baixo volume de
-         *  pesquisas / em análise" — esta variação amplia a superfície de matching. */
-        keywords: [
-          { text: slug.toLowerCase(), match_type: "exact" as const },
-          { text: `buy ${slug}`.toLowerCase(), match_type: "phrase" as const },
-          { text: `best ${slug}`.toLowerCase(), match_type: "phrase" as const },
-          { text: `${slug} reviews`.toLowerCase(), match_type: "phrase" as const },
-          { text: `${slug} official site`.toLowerCase(), match_type: "phrase" as const },
-          { text: `${slug} discount`.toLowerCase(), match_type: "broad" as const },
-          { text: `where to buy ${slug}`.toLowerCase(), match_type: "broad" as const },
-          { text: `${slug} for sale`.toLowerCase(), match_type: "broad" as const },
-        ],
+        keywords: coreKeywords,
         rsa,
       },
     ],

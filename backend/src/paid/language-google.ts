@@ -30,6 +30,33 @@ export const GOOGLE_ADS_LANGUAGE_ISO_CODES = new Set([
   "ar",
 ]);
 
+/** ISO-639-1 → ID numérico para `languageConstants/{id}` na API Google Ads (alinhado com publish). */
+export const GOOGLE_ADS_LANGUAGE_NUMERIC_ID: Record<string, number> = {
+  en: 1000,
+  de: 1001,
+  fr: 1002,
+  es: 1003,
+  it: 1004,
+  ja: 1005,
+  nl: 1010,
+  pt: 1014,
+  pl: 1045,
+  sv: 1015,
+  da: 1009,
+  fi: 1011,
+  no: 1012,
+  cs: 1022,
+  el: 1023,
+  hu: 1024,
+  ro: 1040,
+  ru: 1031,
+  tr: 1037,
+  ko: 1018,
+  zh: 1017,
+  hi: 1020,
+  ar: 1019,
+};
+
 function stripDiacritics(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "");
 }

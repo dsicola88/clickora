@@ -89,6 +89,12 @@ paidRouter.post("/projects/:projectId/google-campaign-plan", (req, res) =>
 paidRouter.post("/projects/:projectId/google-landing-extract", (req, res) =>
   void paidController.googleLandingExtract(req, res),
 );
+paidRouter.post("/projects/:projectId/google-keyword-insight", (req, res) =>
+  void paidController.googleKeywordInsight(req, res),
+);
+paidRouter.post("/projects/:projectId/google-keyword-suggest", (req, res) =>
+  void paidController.googleKeywordSuggest(req, res),
+);
 paidRouter.post("/projects/:projectId/tiktok-campaign-plan", (req, res) =>
   void paidController.tiktokCampaignPlan(req, res),
 );

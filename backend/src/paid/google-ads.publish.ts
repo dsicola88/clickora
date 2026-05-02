@@ -12,7 +12,7 @@ import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./
 import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
 import { googleAdGroupCpcBidMicros, googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
-import { normalizeGoogleLanguageCode } from "./language-google";
+import { normalizeGoogleLanguageCode, GOOGLE_ADS_LANGUAGE_NUMERIC_ID } from "./language-google";
 import {
   publishGoogleCampaignAssetExtensions,
   readGoogleAssetExtensionsFromBidding,
@@ -22,31 +22,7 @@ import { prisma } from "./paidPrisma";
 /** ISO-3166 alpha-2 → google geoTargetConstants/id (exportado também em geo-google.ts). */
 const GEO_ID = GOOGLE_GEO_CRITERION_IDS;
 
-const LANG_ID: Record<string, number> = {
-  en: 1000,
-  de: 1001,
-  fr: 1002,
-  es: 1003,
-  it: 1004,
-  ja: 1005,
-  nl: 1010,
-  pt: 1014,
-  pl: 1045,
-  sv: 1015,
-  da: 1009,
-  fi: 1011,
-  no: 1012,
-  cs: 1022,
-  el: 1023,
-  hu: 1024,
-  ro: 1040,
-  ru: 1031,
-  tr: 1037,
-  ko: 1018,
-  zh: 1017,
-  hi: 1020,
-  ar: 1019,
-};
+const LANG_ID = GOOGLE_ADS_LANGUAGE_NUMERIC_ID;
 
 function matchTypeToGoogle(m: MatchType): "EXACT" | "PHRASE" | "BROAD" {
   if (m === "exact") return "EXACT";

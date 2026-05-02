@@ -13,6 +13,7 @@ import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components
 import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
+import { DpilotKeywordDecisionCard } from "./DpilotKeywordDecisionCard";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
@@ -85,9 +86,7 @@ export function DpilotGoogleWizardPage() {
   const [offer, setOffer] = useState("");
   const [objective, setObjective] = useState("Gerar leads no período de teste gratuito");
   const [dailyBudget, setDailyBudget] = useState("25");
-  /** Cliques alvo por dia — opcional. Quando preenchido, calculamos `CPC máx = orçamento ÷ cliques`
-   *  e mostramos veredicto contra a faixa típica de Google Search. Não é enviado ao backend nesta
-   *  iteração; serve como guia para o utilizador equilibrar orçamento vs ambição de tráfego. */
+  /** Cliques alvo por dia — alimenta o cálculo de CPC e o motor de decisão da análise de keyword. */
   const [desiredClicks, setDesiredClicks] = useState("");
   const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
   const [languageTargets, setLanguageTargets] = useState<string[]>(["pt"]);
@@ -113,6 +112,7 @@ export function DpilotGoogleWizardPage() {
   const [error, setError] = useState<string | null>(null);
   /** Quando `true`, abre o painel "Detalhes do produto" para o utilizador ver de relance o que foi extraído (sem ter de o abrir à mão). */
   const [signalsOpen, setSignalsOpen] = useState(false);
+  const [campaignSeedKeyword, setCampaignSeedKeyword] = useState<string | null>(null);
 
   /** Estado do feedback ao vivo da extracção em background.
    *  - `extracting`: spinner + lista cinzenta enquanto fetch corre
@@ -284,6 +284,24 @@ export function DpilotGoogleWizardPage() {
     };
   }, [landingUrl]);
 
+  const landingHostname = useMemo(() => {
+    const t = landingUrl.trim();
+    if (!t) return "";
+    try {
+      return new URL(t).hostname.replace(/^www\./i, "");
+    } catch {
+      return "";
+    }
+  }, [landingUrl]);
+
+  const lastSeedLandingRef = useRef(landingUrl);
+  useEffect(() => {
+    if (landingUrl !== lastSeedLandingRef.current) {
+      setCampaignSeedKeyword(null);
+      lastSeedLandingRef.current = landingUrl;
+    }
+  }, [landingUrl]);
+
   /** Cálculo do CPC inteligente: transforma "quanto pago por clique?" em "quantos cliques quero?".
    *  Compara contra a faixa típica de Google Search ($0.20–$3) e devolve veredicto humano. */
   const cpcCalc = useMemo<{
@@ -323,6 +341,16 @@ export function DpilotGoogleWizardPage() {
       message: "Muito alto — orçamento esgota com poucos cliques. Reconsidera o número de cliques alvo.",
     };
   }, [dailyBudget, desiredClicks]);
+
+  const insightBudgetUsd = useMemo(() => {
+    const budget = parseFloat(dailyBudget.replace(",", "."));
+    return Number.isFinite(budget) && budget > 0 ? budget : null;
+  }, [dailyBudget]);
+
+  const insightDesiredClicksPerDay = useMemo(() => {
+    const clicks = parseInt(desiredClicks.trim(), 10);
+    return Number.isFinite(clicks) && clicks > 0 ? clicks : null;
+  }, [desiredClicks]);
 
   /** Constrói o objecto product_signals só com os campos preenchidos; devolve undefined se tudo vazio. */
   const buildProductSignals = (): NonNullable<
@@ -444,6 +472,7 @@ export function DpilotGoogleWizardPage() {
 
       const productSignals = buildProductSignals();
       if (productSignals) body.product_signals = productSignals;
+      if (campaignSeedKeyword?.trim()) body.campaign_seed_keyword = campaignSeedKeyword.trim().slice(0, 80);
 
       const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
@@ -758,6 +787,19 @@ export function DpilotGoogleWizardPage() {
                 max={10}
               />
             </div>
+
+            <DpilotKeywordDecisionCard
+              projectId={projectId}
+              offer={offer}
+              landingHostname={landingHostname}
+              primaryCountryCode={(geoTargets[0] ?? "").trim().toUpperCase()}
+              primaryLanguageCode={(languageTargets[0] ?? "pt").trim().toLowerCase()}
+              userCpcUsd={cpcCalc != null ? Number(cpcCalc.value) : null}
+              dailyBudgetUsd={insightBudgetUsd}
+              desiredClicksPerDay={insightDesiredClicksPerDay}
+              committedKeyword={campaignSeedKeyword}
+              onCommitKeyword={setCampaignSeedKeyword}
+            />
 
             <div className="space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4">
               <p className="text-xs font-medium text-foreground">Pausa automática (opcional)</p>

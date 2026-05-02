@@ -243,6 +243,57 @@ export const paidAdsService = {
     }>(`/paid/projects/${projectId}/google-landing-extract`, body);
   },
 
+  postGoogleKeywordInsight(
+    projectId: string,
+    body: {
+      keyword: string;
+      countryCode: string;
+      languageCode: string;
+      userCpcUsd?: number;
+      dailyBudgetUsd?: number;
+      desiredClicksPerDay?: number;
+      offerContext?: string;
+    },
+  ) {
+    return apiClient.post<{
+      ok: true;
+      keyword: string;
+      country_code: string;
+      language_code: string;
+      monthly_search_volume: number;
+      avg_cpc_usd: number;
+      competition: "low" | "medium" | "high";
+      competition_label_pt: string;
+      analysis_bullets_pt: string[];
+      related_keywords: string[];
+      user_cpc_verdict_pt: string | null;
+      user_cpc_status: "below" | "competitive" | "above" | null;
+      data_provenance_pt: string;
+      generated_at: string;
+      local_cpc_display: { amount: number; suffix: string; disclaimer_pt: string } | null;
+      metrics_source: "estimated" | "google_ads";
+      cpc_from_google_ads: boolean;
+      decision: {
+        keyword_score: number;
+        score_breakdown_pt: Array<{ text: string; tone: "positive" | "warning" | "neutral" }>;
+        decision_status: "recommended" | "caution" | "avoid";
+        decision_label_pt: string;
+        next_action_pt: string;
+        budget_insight_pt: string | null;
+      };
+    }>(`/paid/projects/${projectId}/google-keyword-insight`, body);
+  },
+
+  postGoogleKeywordSuggest(
+    projectId: string,
+    body: { offer: string; languageCode: string; landingHostname?: string },
+  ) {
+    return apiClient.post<{ ok: true; suggestions: string[] }>(
+      `/paid/projects/${projectId}/google-keyword-suggest`,
+      body,
+    );
+  },
+
   postGoogleCampaignPlan(
     projectId: string,
     body: {
@@ -277,6 +328,7 @@ export const paidAdsService = {
         certifications?: string;
         attributes?: string[];
       };
+      campaign_seed_keyword?: string;
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/google-campaign-plan`, body);
