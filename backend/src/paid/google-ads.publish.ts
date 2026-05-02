@@ -71,10 +71,24 @@ function ensureUrl(u: string): string {
   return `https://${t}`;
 }
 
+function publishLog(level: "info" | "warn" | "error", event: string, data: Record<string, unknown>) {
+  const row = { event, ...data };
+  if (level === "error") console.error("[google.publish]", row);
+  else if (level === "warn") console.warn("[google.publish]", row);
+  else console.info("[google.publish]", row);
+}
+
 function campaignNameWithSuffix(baseName: string, attempt: number): string {
   if (attempt <= 0) return baseName.slice(0, 250);
   const suffix = ` (${Date.now().toString().slice(-6)}-${attempt})`;
   const maxBase = Math.max(1, 250 - suffix.length);
+  return `${baseName.slice(0, maxBase)}${suffix}`;
+}
+
+function adGroupNameWithSuffix(baseName: string, attempt: number): string {
+  if (attempt <= 0) return baseName.slice(0, 255);
+  const suffix = ` (${attempt + 1})`;
+  const maxBase = Math.max(1, 255 - suffix.length);
   return `${baseName.slice(0, maxBase)}${suffix}`;
 }
 
@@ -245,6 +259,7 @@ export async function publishGoogleSearchCampaignFromLocal(
   }
 
   const customerId = conn.googleCustomerId.replace(/\D/g, "");
+  publishLog("info", "start", { projectId, campaignId, customerId, adGroups: campaign.adGroups.length });
 
   for (const ag of campaign.adGroups) {
     if (!ag.adsRsa.length) {
@@ -338,6 +353,7 @@ export async function publishGoogleSearchCampaignFromLocal(
     if (!budgetRn) {
       return { ok: false, error: "Orçamento: resposta inesperada do Google." };
     }
+    publishLog("info", "budget.created", { campaignId, budgetRn });
 
     let campaignRn: string | undefined;
     let campaignCreateError: Error | null = null;
@@ -388,6 +404,7 @@ export async function publishGoogleSearchCampaignFromLocal(
     if (!campaignRn) {
       return { ok: false, error: "Campanha: resposta inesperada do Google." };
     }
+    publishLog("info", "campaign.created", { campaignId, campaignRn });
 
     for (const gtc of geoConstants) {
       await mutate(
@@ -440,63 +457,88 @@ export async function publishGoogleSearchCampaignFromLocal(
         campaignResourceName: campaignRn,
         extensions: assetExt,
       });
+      publishLog("info", "assets.linked", {
+        campaignId,
+        campaignRn,
+        sitelinks: assetExt.sitelinks.length,
+        callouts: assetExt.callouts.length,
+        hasSnippet: Boolean(assetExt.structured_snippet),
+      });
     }
 
     const agResourceByLocalId = new Map<string, string>();
-    for (const ag of campaign.adGroups) {
-      const { resourceNames: agR } = await mutate(
-        access,
-        dev,
-        customerId,
-        "adGroups",
-        {
-          operations: [
+    for (let agIndex = 0; agIndex < campaign.adGroups.length; agIndex++) {
+      const ag = campaign.adGroups[agIndex]!;
+      const baseAgName = (ag.name || "").trim() || `Ad group ${agIndex + 1}`;
+      let agRn: string | undefined;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const { resourceNames: agR } = await mutate(
+            access,
+            dev,
+            customerId,
+            "adGroups",
             {
-              create: {
-                name: ag.name.slice(0, 255),
-                campaign: campaignRn,
-                status: "ENABLED",
-                type: "SEARCH_STANDARD",
-              },
+              operations: [
+                {
+                  create: {
+                    name: adGroupNameWithSuffix(baseAgName, attempt),
+                    campaign: campaignRn,
+                    status: "ENABLED",
+                    type: "SEARCH_STANDARD",
+                  },
+                },
+              ],
             },
-          ],
-        },
-        loginCustomerId,
-      );
-      const agRn = agR[0];
+            loginCustomerId,
+          );
+          agRn = agR[0];
+          break;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (attempt < 2 && isDuplicateCampaignNameError(msg)) continue;
+          throw e;
+        }
+      }
       if (!agRn) {
         return { ok: false, error: "Ad group: resposta inesperada do Google." };
       }
       agResourceByLocalId.set(ag.id, agRn);
+      publishLog("info", "adgroup.created", { campaignId, adGroupId: ag.id, adGroupRn: agRn });
 
       for (const kw of ag.keywords) {
-        const { resourceNames: kwr } = await mutate(
-          access,
-          dev,
-          customerId,
-          "adGroupCriteria",
-          {
-            operations: [
-              {
-                create: {
-                  adGroup: agRn,
-                  status: "ENABLED",
-                  keyword: {
-                    text: kw.text,
-                    matchType: matchTypeToGoogle(kw.matchType),
+        try {
+          const { resourceNames: kwr } = await mutate(
+            access,
+            dev,
+            customerId,
+            "adGroupCriteria",
+            {
+              operations: [
+                {
+                  create: {
+                    adGroup: agRn,
+                    status: "ENABLED",
+                    keyword: {
+                      text: kw.text,
+                      matchType: matchTypeToGoogle(kw.matchType),
+                    },
                   },
                 },
-              },
-            ],
-          },
-          loginCustomerId,
-        );
-        const critRn = kwr[0];
-        if (critRn) {
-          await prisma.paidAdsKeyword.update({
-            where: { id: kw.id },
-            data: { externalCriterionId: lastId(critRn), status: "live" as EntityStatus },
-          });
+              ],
+            },
+            loginCustomerId,
+          );
+          const critRn = kwr[0];
+          if (critRn) {
+            await prisma.paidAdsKeyword.update({
+              where: { id: kw.id },
+              data: { externalCriterionId: lastId(critRn), status: "live" as EntityStatus },
+            });
+          }
+        } catch {
+          publishLog("warn", "keyword.failed", { campaignId, adGroupId: ag.id, keywordId: kw.id });
+          continue;
         }
       }
 
@@ -514,33 +556,38 @@ export async function publishGoogleSearchCampaignFromLocal(
         const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
         const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
 
-        const { resourceNames: adR } = await mutate(
-          access,
-          dev,
-          customerId,
-          "adGroupAds",
-          {
-            operations: [
-              {
-                create: {
-                  adGroup: agRn,
-                  status: "ENABLED",
-                  ad: {
-                    finalUrls: [url],
-                    responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+        try {
+          const { resourceNames: adR } = await mutate(
+            access,
+            dev,
+            customerId,
+            "adGroupAds",
+            {
+              operations: [
+                {
+                  create: {
+                    adGroup: agRn,
+                    status: "ENABLED",
+                    ad: {
+                      finalUrls: [url],
+                      responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+                    },
                   },
                 },
-              },
-            ],
-          },
-          loginCustomerId,
-        );
-        const adGroupAdRn = adR[0];
-        if (adGroupAdRn) {
-          await prisma.paidAdsRsa.update({
-            where: { id: rsa.id },
-            data: { externalAdId: lastId(adGroupAdRn), status: "live" as EntityStatus },
-          });
+              ],
+            },
+            loginCustomerId,
+          );
+          const adGroupAdRn = adR[0];
+          if (adGroupAdRn) {
+            await prisma.paidAdsRsa.update({
+              where: { id: rsa.id },
+              data: { externalAdId: lastId(adGroupAdRn), status: "live" as EntityStatus },
+            });
+          }
+        } catch {
+          publishLog("warn", "rsa.failed", { campaignId, adGroupId: ag.id, rsaId: rsa.id });
+          continue;
         }
       }
     }
@@ -565,6 +612,7 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
   } catch (e) {
     const raw = e instanceof Error ? e.message : "Falha na publicação Google Ads.";
+    publishLog("error", "publish.failed", { projectId, campaignId, message: raw });
     return { ok: false, error: humanizeGoogleAdsPublishError(raw) };
   }
 
