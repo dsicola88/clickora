@@ -105,6 +105,22 @@ function ensureUrl(u: string): string {
   return `https://${t}`;
 }
 
+function campaignNameWithSuffix(baseName: string, attempt: number): string {
+  if (attempt <= 0) return baseName.slice(0, 250);
+  const suffix = ` (${Date.now().toString().slice(-6)}-${attempt})`;
+  const maxBase = Math.max(1, 250 - suffix.length);
+  return `${baseName.slice(0, maxBase)}${suffix}`;
+}
+
+function isDuplicateCampaignNameError(msg: string): boolean {
+  const t = msg.toLowerCase();
+  return (
+    t.includes("name is already assigned") ||
+    t.includes("duplicate") ||
+    t.includes("already exists")
+  );
+}
+
 const GOOGLE_MUTATE_MAX_ATTEMPTS = 4;
 const GOOGLE_MUTATE_BASE_DELAY_MS = 400;
 
@@ -318,38 +334,51 @@ export async function publishGoogleSearchCampaignFromLocal(
       return { ok: false, error: "Orçamento: resposta inesperada do Google." };
     }
 
-    const { resourceNames: campResults } = await mutate(
-      access,
-      dev,
-      customerId,
-      "campaigns",
-      {
-        operations: [
+    let campaignRn: string | undefined;
+    let campaignCreateError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { resourceNames: campResults } = await mutate(
+          access,
+          dev,
+          customerId,
+          "campaigns",
           {
-            create: {
-              name: campaignName,
-              status: "ENABLED",
-              advertisingChannelType: "SEARCH",
-              campaignBudget: budgetRn,
-              manualCpc: {},
-              networkSettings: {
-                targetGoogleSearch: true,
-                targetSearchNetwork: true,
-                targetContentNetwork: false,
-                targetPartnerSearchNetwork: false,
+            operations: [
+              {
+                create: {
+                  name: campaignNameWithSuffix(campaignName, attempt),
+                  status: "ENABLED",
+                  advertisingChannelType: "SEARCH",
+                  campaignBudget: budgetRn,
+                  manualCpc: {},
+                  networkSettings: {
+                    targetGoogleSearch: true,
+                    targetSearchNetwork: true,
+                    targetContentNetwork: false,
+                    targetPartnerSearchNetwork: false,
+                  },
+                  geoTargetTypeSetting: {
+                    positiveGeoTargetType: "PRESENCE_OR_INTEREST",
+                    negativeGeoTargetType: "PRESENCE_OR_INTEREST",
+                  },
+                  containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
+                },
               },
-              geoTargetTypeSetting: {
-                positiveGeoTargetType: "PRESENCE_OR_INTEREST",
-                negativeGeoTargetType: "PRESENCE_OR_INTEREST",
-              },
-              containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
-            },
+            ],
           },
-        ],
-      },
-      loginCustomerId,
-    );
-    const campaignRn = campResults[0];
+          loginCustomerId,
+        );
+        campaignRn = campResults[0];
+        break;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (attempt < 2 && isDuplicateCampaignNameError(msg)) continue;
+        campaignCreateError = e instanceof Error ? e : new Error(msg);
+        break;
+      }
+    }
+    if (campaignCreateError) throw campaignCreateError;
     if (!campaignRn) {
       return { ok: false, error: "Campanha: resposta inesperada do Google." };
     }
