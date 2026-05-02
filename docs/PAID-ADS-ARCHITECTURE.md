@@ -1,29 +1,23 @@
 # Anúncios pagos (Paid Ads) no monólito Clickora
 
-Este documento fixa decisões de modelo de dados, deploy e o papel do pacote legado `dpilotoaut/`.
+Este documento fixa decisões de modelo de dados e deploy do módulo Paid / Dpilot no monólito Clickora.
 
 ## 1. Onde vive o produto
 
-- **UI:** `frontend/src/pages/dpilot/` — componente `DpilotPaidApp` na rota `/tracking/dpilot/*` (índice redireciona; URLs com projecto: `/tracking/dpilot/p/<uuid>/...`), mesmo login JWT que o resto do dclickora. Mapa de paridade com o pacote de referência: [docs/DPILOT-PARITY.md](./DPILOT-PARITY.md).
+- **UI:** `frontend/src/pages/dpilot/` — componente `DpilotPaidApp` na rota `/tracking/dpilot/*` (índice redireciona; URLs com projecto: `/tracking/dpilot/p/<uuid>/...`), mesmo login JWT que o resto do dclickora.
 - **API:** `backend/` → prefixo `/api/paid/*` e callbacks OAuth em `/api/paid/oauth/*/callback`.
 - **Dados:** tabelas `paid_ads_*` no **mesmo PostgreSQL** que presells/tracking (`backend/prisma/schema.prisma`).
 
-Não há iframe de outra app em produção: o fluxo antigo (dpilotoaut + `VITE_DPILOTO_APP_URL` + SSO) foi substituído por esta integração.
+Não há iframe de outra app em produção: integração única no monólito (`/tracking/dpilot` + `/api/paid`).
 
-## 2. Decisão: `organization` → `user_id` (tenant)
+## 2. Decisão: tenant por `user_id`
 
-No protótipo **dpilotoaut**, cada “organização” isolava dados de paid media. No Clickora, o tenant de negócio já é o **utilizador dono da subscrição** (`tenantUserId` no JWT = dono do workspace / faturação).
+O tenant de negócio é o **utilizador dono da subscrição** (`tenantUserId` no JWT = dono do workspace / faturação). Todas as linhas `paid_ads_*` que carregam `user_id` referem esse dono. Projetos (`paid_ads_projects`) pertencem a um único `userId`; membros da equipa acedem via verificação de workspace, não duplicando linhas por membro.
 
-**Mapeamento:**
-
-| Antigo (dpilotoaut) | Monólito Clickora |
-|---------------------|-------------------|
-| `organization_id` | `user_id` na tabela — **sempre** o ID do utilizador **dono** dos dados (`tenantUserId`) |
-| Membros da org | `WorkspaceMember`: quem pode ler/escrever resolve-se em `backend/src/paid/permissions.ts` |
-
-Todas as linhas `paid_ads_*` que carregam `user_id` referem esse dono. Projetos (`paid_ads_projects`) pertencem a um único `userId`; membros da equipa acedem via verificação de workspace, não duplicando linhas por membro.
-
-**Migração de dados** de uma BD dpilotoaut antiga para Clickora não é automática neste repositório: seria um script one-off (mapear `organization` → `users.id` do dono) se ainda tiveres dados em produção no schema antigo.
+| Camada | Como funciona |
+|--------|---------------|
+| `user_id` na tabela | ID do utilizador **dono** dos dados (`tenantUserId`) |
+| Membros | `WorkspaceMember`: quem pode ler/escrever resolve-se em `backend/src/paid/permissions.ts` |
 
 ## 3. Variáveis de ambiente (camadas)
 
@@ -46,19 +40,15 @@ Todas as linhas `paid_ads_*` que carregam `user_id` referem esse dono. Projetos 
 
 Podes fixar redirects **completos** no painel Google/Meta/TikTok (`GOOGLE_OAUTH_REDIRECT_URL`, etc.) e não depender de `PUBLIC_API_URL`.
 
-### Legado (opcional, sem efeito no monólito atual)
+### Legado (opcional, sem efeito no monólito actual)
 
-- `DPILOTO_PUBLIC_ORIGINS` — mantido no CORS só por compatibilidade; o módulo satélite iframe não é mais o caminho de produção.
+- `DPILOTO_PUBLIC_ORIGINS` — mantido no CORS só por compatibilidade.
 - `CLICKORA_DPILOT_SSO_SECRET` — **já não usado** pela API Clickora (endpoint SSO removido).
 
 ## 4. Arranque do servidor
 
 O backend pode registar no log (em `NODE_ENV=production`) avisos se faltarem variáveis críticas para OAuth. Ver `backend/src/paid/paidEnvCheck.ts`.
 
-## 5. Pacote `dpilotoaut/` (legado / referência)
-
-A pasta **não** faz parte do build de produção do site dclickora. Mantém código de referência (TanStack Start, server functions) e pode ser útil para copiar comportamentos; não é necessário para `/tracking/dpilot` em produção.
-
-## 6. Produto vs roadmap (non-técnico)
+## 5. Produto vs roadmap (não-técnico)
 
 Para messaging interno ou investidores (capacidades hoje, lacunas honestas, roadmap): [PAID-AUTOPILOT-PRODUCT-ROADMAP.md](./PAID-AUTOPILOT-PRODUCT-ROADMAP.md).

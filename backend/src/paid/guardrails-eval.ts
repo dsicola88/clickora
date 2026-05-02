@@ -1,6 +1,5 @@
 /**
- * Avaliação de guardrails (portado do dpilotoaut `server/guardrails.ts`).
- * Isolada para o plano de campanha Meta no monólito.
+ * Avaliação de guardrails (Paid Ads). Isolada para o plano de campanha Meta no monólito.
  */
 
 export interface ProposedCampaign {

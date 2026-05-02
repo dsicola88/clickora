@@ -1,8 +1,6 @@
 /**
- * Núcleo partilhado entre o backend Clickora (`google-campaign-plan`) e o embed dpiloto (`ai-plan.functions`):
- * um único SYSTEM_PROMPT, uma chamada OpenAI e o fallback determinístico — evita drift de copy/stratagem entre stacks.
- *
- * Persistência da campanha (Prisma paid vs paidAds*) continua separada por produto.
+ * Núcleo partilhado do assistente Google Search (`google-campaign-plan`):
+ * SYSTEM_PROMPT, chamada OpenAI e fallback determinístico.
  */
 import { buildDeterministicRsa } from "./google-rsa-deterministic";
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";

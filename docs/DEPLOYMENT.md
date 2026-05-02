@@ -64,7 +64,7 @@ As contas com `dpilot_ads_enabled` no plano usam a **mesma** app React e a **mes
 
 Síntese, decisões de dados e listas: **[docs/PAID-ADS-ARCHITECTURE.md](PAID-ADS-ARCHITECTURE.md)**.
 
-**Legado (opcional):** `DPILOTO_PUBLIC_ORIGINS` — só CORS extra; o pacote `dpilotoaut/` **não** é o caminho de produção para anúncios. `CLICKORA_DPILOT_SSO_SECRET` e `POST /auth/dpilot-sso-token` **já não** fazem parte da API.
+**Legado (opcional):** `DPILOTO_PUBLIC_ORIGINS` — só CORS extra. `CLICKORA_DPILOT_SSO_SECRET` e `POST /auth/dpilot-sso-token` **já não** fazem parte da API.
 
 ### Ordem de deploy (paid)
 
