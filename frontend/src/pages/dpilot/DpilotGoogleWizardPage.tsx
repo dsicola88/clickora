@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, Check, CircleDashed, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { PageHeader } from "@/components/PageHeader";
@@ -81,10 +81,14 @@ export function DpilotGoogleWizardPage() {
   const navigate = useNavigate();
   const base = `/tracking/dpilot/p/${projectId}`;
 
-  const [landingUrl, setLandingUrl] = useState("https://example.com");
+  const [landingUrl, setLandingUrl] = useState("");
   const [offer, setOffer] = useState("");
   const [objective, setObjective] = useState("Gerar leads no período de teste gratuito");
   const [dailyBudget, setDailyBudget] = useState("25");
+  /** Cliques alvo por dia — opcional. Quando preenchido, calculamos `CPC máx = orçamento ÷ cliques`
+   *  e mostramos veredicto contra a faixa típica de Google Search. Não é enviado ao backend nesta
+   *  iteração; serve como guia para o utilizador equilibrar orçamento vs ambição de tráfego. */
+  const [desiredClicks, setDesiredClicks] = useState("");
   const [geoTargets, setGeoTargets] = useState<string[]>(["BR", "PT"]);
   const [languageTargets, setLanguageTargets] = useState<string[]>(["pt"]);
   const [optPauseUsd, setOptPauseUsd] = useState("");
@@ -107,189 +111,218 @@ export function DpilotGoogleWizardPage() {
   const [psAttributes, setPsAttributes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Estado da extracção da landing (botão «Buscar dados»). */
-  const [extracting, setExtracting] = useState(false);
-  /** Sumário do que foi pré-preenchido pela última extracção (mostrado abaixo da Oferta para o utilizador validar). */
-  const [extractedSummary, setExtractedSummary] = useState<string | null>(null);
   /** Quando `true`, abre o painel "Detalhes do produto" para o utilizador ver de relance o que foi extraído (sem ter de o abrir à mão). */
   const [signalsOpen, setSignalsOpen] = useState(false);
 
-  /** Tipo dos overrides aceites por `submitPlan` quando os valores acabaram de ser extraídos
-   *  e ainda não estão reflectidos no state (React não actualiza state sincronamente). */
-  type SubmitOverrides = {
-    offer?: string;
-    objective?: string;
-    languageTargets?: string[];
-    productSignals?: ReturnType<typeof buildProductSignals>;
+  /** Estado do feedback ao vivo da extracção em background.
+   *  - `extracting`: spinner + lista cinzenta enquanto fetch corre
+   *  - `done`: cada passo marcado como ✓ encontrado ou ⊘ não detectado
+   *  - `error`: mensagem em vermelho (a próxima alteração da URL re-tenta) */
+  type FeedbackStep = {
+    key: string;
+    label: string;
+    state: "pending" | "found" | "missing";
   };
+  type ExtractionFeedback =
+    | { status: "extracting"; url: string; steps: FeedbackStep[] }
+    | { status: "done"; url: string; steps: FeedbackStep[] }
+    | { status: "error"; url: string; errorMsg: string };
+  const [feedback, setFeedback] = useState<ExtractionFeedback | null>(null);
 
-  /** Resultado de uma extracção bem-sucedida — usado tanto pelo botão «Buscar dados»
-   *  (faz setState e mostra resumo) como por «Buscar e gerar» (envia logo para `submitPlan`). */
-  type ExtractionResult = {
-    summary: string;
-    effective: Required<Omit<SubmitOverrides, "productSignals">> & {
-      productSignals: ReturnType<typeof buildProductSignals>;
-    };
-  };
+  /** Última URL que terminou (sucesso ou erro) — evita re-extrair se o utilizador apenas perde o foco. */
+  const lastExtractedUrlRef = useRef<string | null>(null);
+  /** Timer do debounce — cancelado se o utilizador continua a escrever. */
+  const extractTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** ID monotónico do request mais recente. Respostas com ID antigo são descartadas
+   *  para evitar flicker se o utilizador colou URL B antes da extracção de URL A terminar. */
+  const requestIdRef = useRef(0);
 
-  /** Lê a landing, faz setState dos campos pré-preenchidos e devolve os valores efectivos
-   *  para uso imediato (sem esperar pelo re-render). Devolve `null` se a URL/extracção falhar. */
-  const runExtraction = async (): Promise<ExtractionResult | null> => {
+  /** Lista de passos pendentes mostrada enquanto a extracção está a correr.
+   *  A ordem reflecte o que o utilizador espera ver acontecer numa landing típica. */
+  const buildPendingSteps = (): FeedbackStep[] => [
+    { key: "page", label: "A aceder à página…", state: "pending" },
+    { key: "headline", label: "A ler título e oferta…", state: "pending" },
+    { key: "language", label: "A detectar idioma…", state: "pending" },
+    { key: "price", label: "A procurar preço…", state: "pending" },
+    { key: "guarantee", label: "A procurar garantia…", state: "pending" },
+    { key: "shipping", label: "A procurar envio…", state: "pending" },
+    { key: "certifications", label: "A procurar certificações…", state: "pending" },
+  ];
+
+  /** Lê a landing em background. Race-condition seguro: respostas com ID antigo são ignoradas
+   *  quando o utilizador colou nova URL antes da anterior responder (evita flicker). */
+  const autoExtract = async (url: string) => {
+    const myId = ++requestIdRef.current;
     setError(null);
-    setExtractedSummary(null);
-    const urlOk = z.string().url().safeParse(landingUrl);
-    if (!urlOk.success) {
-      const msg = "Indique primeiro uma URL válida da landing.";
-      setError(msg);
-      toast.error("URL inválida", { description: msg });
-      return null;
-    }
-    const { data, error: apiErr } = await paidAdsService.extractGoogleLanding(projectId, {
-      landingUrl,
-    });
-    if (apiErr || !data?.ok) {
-      const msg = apiErr || "Não foi possível ler a landing.";
-      setError(msg);
-      toast.error("Falha ao buscar dados", { description: msg });
-      return null;
-    }
+    setFeedback({ status: "extracting", url, steps: buildPendingSteps() });
 
-    const filled: string[] = [];
-    /** Oferta: usa a sugestão da landing se houver, senão preserva o que o utilizador já tinha. */
-    const effOffer = data.offer_suggestion?.trim() || offer;
-    if (data.offer_suggestion) {
-      setOffer(data.offer_suggestion);
-      filled.push("Oferta");
-    }
-
-    /** Idioma: só aceita se for um dos suportados pelo Google Ads e ainda não estiver na lista. */
-    let effLangs = languageTargets;
-    if (data.language) {
-      const lang = data.language.toLowerCase();
-      const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.value === lang);
-      if (known && !languageTargets.includes(lang)) {
-        effLangs = [lang, ...languageTargets].slice(0, 10);
-        setLanguageTargets(effLangs);
-        filled.push(`Idioma (${lang})`);
+    try {
+      const { data, error: apiErr } = await paidAdsService.extractGoogleLanding(projectId, {
+        landingUrl: url,
+      });
+      if (myId !== requestIdRef.current) return;
+      if (apiErr || !data?.ok) {
+        setFeedback({
+          status: "error",
+          url,
+          errorMsg: apiErr || "Não foi possível ler a landing.",
+        });
+        return;
       }
-    }
 
-    /** Sinais do produto: monta o objecto efectivo (para submit imediato) ao mesmo tempo que faz setState. */
-    const ps: NonNullable<ReturnType<typeof buildProductSignals>> = {};
-    const s = data.signals;
-    if (s.price) {
-      setPsPrice(s.price);
-      ps.price = s.price;
-      filled.push("preço");
-    }
-    if (s.price_full) {
-      setPsPriceFull(s.price_full);
-      ps.price_full = s.price_full;
-      filled.push("preço cheio");
-    }
-    if (s.discount) {
-      setPsDiscount(s.discount);
-      ps.discount = s.discount;
-      filled.push("desconto");
-    }
-    if (s.guarantee) {
-      setPsGuarantee(s.guarantee);
-      ps.guarantee = s.guarantee;
-      filled.push("garantia");
-    }
-    if (s.shipping) {
-      setPsShipping(s.shipping);
-      ps.shipping = s.shipping;
-      filled.push("envio");
-    }
-    if (s.certifications) {
-      setPsCertifications(s.certifications);
-      ps.certifications = s.certifications;
-      filled.push("certificações");
-    }
-    if (s.attributes?.length) {
-      setPsAttributes(s.attributes.join(", "));
-      ps.attributes = s.attributes.slice(0, 8);
-      filled.push("atributos");
-    }
-    if (s.bundles?.length) {
-      setPsBundles(s.bundles.join("\n"));
-      ps.bundles = s.bundles.slice(0, 6);
-      filled.push("bundles");
-    }
-    if (s.bonuses) {
-      setPsBonuses(s.bonuses);
-      ps.bonuses = s.bonuses;
-      filled.push("bónus");
-    }
-    /** Mistura sinais já existentes no state (que o utilizador pode ter escrito antes de extrair)
-     *  com os recém-extraídos. Os extraídos têm prioridade em caso de colisão. */
-    const baseSignals = buildProductSignals();
-    const effProductSignals = { ...(baseSignals ?? {}), ...ps };
-    const finalSignals = Object.keys(effProductSignals).length ? effProductSignals : undefined;
+      /** Aplicamos sinais ao state — só sobrescrevemos o que a landing trouxe; preservamos
+       *  edições do utilizador em campos que ela não consegue determinar. */
+      if (data.offer_suggestion) setOffer(data.offer_suggestion);
+      if (data.language) {
+        const lang = data.language.toLowerCase();
+        const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.value === lang);
+        if (known && !languageTargets.includes(lang)) {
+          setLanguageTargets([lang, ...languageTargets].slice(0, 10));
+        }
+      }
+      const s = data.signals;
+      if (s.price) setPsPrice(s.price);
+      if (s.price_full) setPsPriceFull(s.price_full);
+      if (s.discount) setPsDiscount(s.discount);
+      if (s.guarantee) setPsGuarantee(s.guarantee);
+      if (s.shipping) setPsShipping(s.shipping);
+      if (s.certifications) setPsCertifications(s.certifications);
+      if (s.attributes?.length) setPsAttributes(s.attributes.join(", "));
+      if (s.bundles?.length) setPsBundles(s.bundles.join("\n"));
+      if (s.bonuses) setPsBonuses(s.bonuses);
 
-    /** Objectivo: respeita o que o utilizador escreveu; se vazio, infere a partir do hostname
-     *  para que o caminho «Buscar e gerar» não falhe na validação obrigatória do schema. */
-    const effObjective =
-      objective.trim() ||
-      `Gerar conversões a partir de ${data.hostname} — alinhado com a oferta extraída da landing.`;
+      /** Se o utilizador ainda não escreveu objectivo, infere a partir do hostname. Sem isto,
+       *  o schema (`objective.min(3)`) bloquearia o submit mesmo com landing perfeita. */
+      if (!objective.trim()) {
+        setObjective(
+          `Gerar conversões a partir de ${data.hostname} — alinhado com a oferta da landing.`,
+        );
+      }
 
-    /** Abre o painel «Detalhes do produto» para o utilizador ver de relance o que ficou pré-preenchido. */
-    setSignalsOpen(true);
+      /** Abre o painel "Detalhes do produto" para o utilizador ver de relance o que ficou pré-preenchido. */
+      setSignalsOpen(true);
 
-    const summary = filled.length
-      ? `Pré-preenchi: ${filled.join(", ")}. Validação opcional — podes gerar já ou ajustar abaixo.`
-      : "Página acedida, mas não consegui extrair sinais. Preenche manualmente o que for verdadeiro.";
-    setExtractedSummary(summary);
+      const found = (v: unknown): "found" | "missing" => (v ? "found" : "missing");
+      setFeedback({
+        status: "done",
+        url,
+        steps: [
+          { key: "page", label: `Página acedida (${data.hostname})`, state: "found" },
+          {
+            key: "headline",
+            label: data.offer_suggestion ? "Headline / oferta lida" : "Headline / oferta — não detectada",
+            state: found(data.offer_suggestion),
+          },
+          {
+            key: "language",
+            label: data.language ? `Idioma: ${data.language.toUpperCase()}` : "Idioma — não detectado",
+            state: found(data.language),
+          },
+          {
+            key: "price",
+            label: s.price ? `Preço: ${s.price}` : "Preço — não encontrado",
+            state: found(s.price),
+          },
+          {
+            key: "guarantee",
+            label: s.guarantee ? `Garantia: ${s.guarantee}` : "Garantia — não detectada",
+            state: found(s.guarantee),
+          },
+          {
+            key: "shipping",
+            label: s.shipping ? `Envio: ${s.shipping}` : "Envio — não identificado",
+            state: found(s.shipping),
+          },
+          {
+            key: "certifications",
+            label: s.certifications ? `Certificações: ${s.certifications}` : "Sem certificações detectadas",
+            state: found(s.certifications),
+          },
+        ],
+      });
+    } catch (err) {
+      if (myId !== requestIdRef.current) return;
+      const msg = err instanceof Error ? err.message : "Erro inesperado ao ler a landing.";
+      setFeedback({ status: "error", url, errorMsg: msg });
+    }
+  };
 
-    return {
-      summary,
-      effective: {
-        offer: effOffer,
-        objective: effObjective,
-        languageTargets: effLangs,
-        productSignals: finalSignals,
-      },
+  /** Mantém referência sempre actual de `autoExtract` para o `useEffect` poder chamá-la sem
+   *  a incluir nas deps (que iria recriar o efeito a cada render e re-disparar a extracção). */
+  const autoExtractRef = useRef(autoExtract);
+  autoExtractRef.current = autoExtract;
+
+  /** Auto-extracção em background com debounce de 700 ms.
+   *  - URL vazia limpa o feedback
+   *  - URL inválida espera silenciosamente que se torne válida
+   *  - URL já extraída não re-dispara (mesmo que o componente re-renderize) */
+  useEffect(() => {
+    if (extractTimerRef.current) {
+      clearTimeout(extractTimerRef.current);
+      extractTimerRef.current = null;
+    }
+    const trimmed = landingUrl.trim();
+    if (!trimmed) {
+      setFeedback(null);
+      lastExtractedUrlRef.current = null;
+      return;
+    }
+    const urlOk = z.string().url().safeParse(trimmed);
+    if (!urlOk.success) return;
+    if (lastExtractedUrlRef.current === trimmed) return;
+
+    extractTimerRef.current = setTimeout(() => {
+      lastExtractedUrlRef.current = trimmed;
+      void autoExtractRef.current(trimmed);
+    }, 700);
+
+    return () => {
+      if (extractTimerRef.current) {
+        clearTimeout(extractTimerRef.current);
+        extractTimerRef.current = null;
+      }
     };
-  };
+  }, [landingUrl]);
 
-  /** Apenas extrai e pré-preenche — utilizador revê e clica «Gerar plano» no fim. */
-  const onExtractLanding = async () => {
-    if (extracting || submitting) return;
-    setExtracting(true);
-    try {
-      const r = await runExtraction();
-      if (r) {
-        toast.success("Dados da landing carregados", { description: r.summary });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro inesperado";
-      setError(msg);
-      toast.error("Falha ao buscar dados", { description: msg });
-    } finally {
-      setExtracting(false);
+  /** Cálculo do CPC inteligente: transforma "quanto pago por clique?" em "quantos cliques quero?".
+   *  Compara contra a faixa típica de Google Search ($0.20–$3) e devolve veredicto humano. */
+  const cpcCalc = useMemo<{
+    value: string;
+    tone: "ok" | "warn-low" | "warn-high";
+    message: string;
+  } | null>(() => {
+    const budget = parseFloat(dailyBudget.replace(",", "."));
+    const clicks = parseInt(desiredClicks.trim(), 10);
+    if (!Number.isFinite(budget) || budget <= 0) return null;
+    if (!Number.isFinite(clicks) || clicks <= 0) return null;
+    const cpc = budget / clicks;
+    if (cpc < 0.1) {
+      return {
+        value: cpc.toFixed(2),
+        tone: "warn-low",
+        message: "Muito baixo — provavelmente não compete no leilão. Reduz cliques alvo ou aumenta o orçamento.",
+      };
     }
-  };
-
-  /** Caminho 1-clique: extrai a landing, pré-preenche tudo e gera o plano sem exigir validação humana.
-   *  Os campos continuam editáveis depois — a validação é opcional, não obrigatória. */
-  const onExtractAndGenerate = async () => {
-    if (extracting || submitting) return;
-    setExtracting(true);
-    try {
-      const r = await runExtraction();
-      if (!r) return;
-      /** Liberta o estado «A ler…» antes de entrar no estado «A gerar plano…» (gerido por `submitPlan`). */
-      setExtracting(false);
-      await submitPlan(r.effective);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro inesperado";
-      setError(msg);
-      toast.error("Falha ao gerar a partir da landing", { description: msg });
-    } finally {
-      setExtracting(false);
+    if (cpc <= 3) {
+      return {
+        value: cpc.toFixed(2),
+        tone: "ok",
+        message: "Dentro da faixa típica de Google Search ($0.20–$3 / clique).",
+      };
     }
-  };
+    if (cpc <= 10) {
+      return {
+        value: cpc.toFixed(2),
+        tone: "warn-high",
+        message: "Acima da média — só justifica em nichos competitivos (B2B, jurídico, financeiro).",
+      };
+    }
+    return {
+      value: cpc.toFixed(2),
+      tone: "warn-high",
+      message: "Muito alto — orçamento esgota com poucos cliques. Reconsidera o número de cliques alvo.",
+    };
+  }, [dailyBudget, desiredClicks]);
 
   /** Constrói o objecto product_signals só com os campos preenchidos; devolve undefined se tudo vazio. */
   const buildProductSignals = (): NonNullable<
@@ -318,22 +351,14 @@ export function DpilotGoogleWizardPage() {
     return Object.keys(ps).length ? ps : undefined;
   };
 
-  /** Lógica central de submissão. Aceita `overrides` para usar valores acabados de extrair
-   *  da landing (que ainda não estão reflectidos no React state). Tudo o que não for
-   *  sobreposto vem do state actual do formulário. */
-  const submitPlan = async (overrides: SubmitOverrides = {}) => {
+  /** Lógica central de submissão — usa o state actual do formulário (auto-extracção já o
+   *  sincronizou). O utilizador clica "Gerar plano" depois de a página estar pré-preenchida. */
+  const submitPlan = async () => {
     setError(null);
-    /** Valores efectivos: prioridade aos overrides (extracção), senão state. */
-    const effOffer = overrides.offer ?? offer;
-    const effObjective = overrides.objective ?? objective;
-    const effLangs = overrides.languageTargets ?? languageTargets;
-    const effProductSignals =
-      overrides.productSignals !== undefined ? overrides.productSignals : buildProductSignals();
-
     const parsed = schema.safeParse({
       landingUrl,
-      offer: effOffer,
-      objective: effObjective,
+      offer,
+      objective,
       dailyBudgetUsd: Number(dailyBudget),
     });
     if (!parsed.success) {
@@ -345,7 +370,7 @@ export function DpilotGoogleWizardPage() {
       setError("Seleccione pelo menos uma localização (país).");
       return;
     }
-    const langArr = effLangs.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
+    const langArr = languageTargets.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (!langArr.length) {
       setError("Selecione pelo menos um idioma dos anúncios.");
       return;
@@ -408,7 +433,8 @@ export function DpilotGoogleWizardPage() {
       if (optimizer_pause_spend_usd !== undefined) body.optimizer_pause_spend_usd = optimizer_pause_spend_usd;
       if (optimizer_pause_min_clicks !== undefined) body.optimizer_pause_min_clicks = optimizer_pause_min_clicks;
 
-      if (effProductSignals) body.product_signals = effProductSignals;
+      const productSignals = buildProductSignals();
+      if (productSignals) body.product_signals = productSignals;
 
       const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
@@ -476,45 +502,66 @@ export function DpilotGoogleWizardPage() {
           >
             <Field
               label="URL da landing page"
-              hint="Cola e clica «Buscar e gerar» — a IA lê a página, preenche tudo e cria o anúncio. Validação opcional: usa «Apenas buscar dados» se quiseres rever antes."
+              hint="Cola o URL — a IA lê a página automaticamente e preenche os campos abaixo. Tudo é editável."
             >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                <Input
-                  id="g-wiz-landing"
-                  type="url"
-                  value={landingUrl}
-                  onChange={(e) => setLandingUrl(e.target.value)}
-                  autoComplete="url"
-                  required
-                  className="sm:flex-1"
-                />
-                <Button
-                  type="button"
-                  className="shrink-0"
-                  onClick={onExtractAndGenerate}
-                  disabled={extracting || submitting || !landingUrl.trim()}
-                  title="Lê a landing, preenche tudo e gera o anúncio num só clique. Os campos ficam editáveis."
+              <Input
+                id="g-wiz-landing"
+                type="url"
+                value={landingUrl}
+                onChange={(e) => setLandingUrl(e.target.value)}
+                autoComplete="url"
+                placeholder="https://exemplo.com/produto"
+                required
+              />
+              {feedback ? (
+                <div
+                  className={
+                    "mt-2 rounded-md border px-3 py-2 text-[12px] " +
+                    (feedback.status === "error"
+                      ? "border-destructive/30 bg-destructive/10 text-destructive"
+                      : "border-emerald-500/20 bg-emerald-500/[0.04] text-foreground")
+                  }
+                  aria-live="polite"
                 >
-                  <Wand2 className="mr-1 h-4 w-4" />
-                  {extracting ? "A ler landing…" : submitting ? "A gerar…" : "Buscar e gerar"}
-                </Button>
-              </div>
-              <div className="mt-1 flex items-center justify-end">
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-[11px] font-normal text-muted-foreground"
-                  onClick={onExtractLanding}
-                  disabled={extracting || submitting || !landingUrl.trim()}
-                >
-                  {extracting ? "A ler…" : "Apenas buscar dados (rever antes de gerar)"}
-                </Button>
-              </div>
-              {extractedSummary ? (
-                <p className="mt-1 rounded-md bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300">
-                  {extractedSummary}
-                </p>
+                  {feedback.status === "extracting" ? (
+                    <div className="flex items-center gap-2 font-medium">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
+                      <span>🔍 A analisar a página…</span>
+                    </div>
+                  ) : feedback.status === "error" ? (
+                    <div className="font-medium">
+                      ⚠ Não consegui ler a landing: <span className="font-normal">{feedback.errorMsg}</span>
+                    </div>
+                  ) : (
+                    <div className="font-medium">
+                      ✔ Pronto. Os campos abaixo já reflectem a landing — confirma e edita o que quiseres.
+                    </div>
+                  )}
+                  {feedback.status !== "error" ? (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {feedback.steps.map((step) => (
+                        <li key={step.key} className="flex items-center gap-2 text-[11px]">
+                          {step.state === "pending" ? (
+                            <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+                          ) : step.state === "found" ? (
+                            <Check className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                          ) : (
+                            <CircleDashed className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden />
+                          )}
+                          <span
+                            className={
+                              step.state === "missing"
+                                ? "text-muted-foreground/80"
+                                : "text-foreground"
+                            }
+                          >
+                            {step.label}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               ) : null}
             </Field>
 
@@ -572,16 +619,60 @@ export function DpilotGoogleWizardPage() {
               />
               <p className="mt-1 text-right tabular-nums text-[11px] text-muted-foreground">{objective.length}/200</p>
             </Field>
-            <Field label="Orçamento diário (USD)">
-              <Input
-                type="number"
-                min={1}
-                step="0.01"
-                value={dailyBudget}
-                onChange={(e) => setDailyBudget(e.target.value)}
-                required
-              />
-            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Orçamento diário (USD)">
+                <Input
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  value={dailyBudget}
+                  onChange={(e) => setDailyBudget(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field
+                label="Cliques alvo / dia (opcional)"
+                hint="Em vez de pensar em CPC, indica quantos cliques queres por dia. Calculamos o CPC máximo possível."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  step="1"
+                  inputMode="numeric"
+                  placeholder="Ex.: 20"
+                  value={desiredClicks}
+                  onChange={(e) => setDesiredClicks(e.target.value)}
+                />
+              </Field>
+            </div>
+
+            {cpcCalc ? (
+              <div
+                className={
+                  "rounded-lg border px-3 py-2.5 text-[12px] " +
+                  (cpcCalc.tone === "ok"
+                    ? "border-emerald-500/20 bg-emerald-500/[0.06] text-foreground"
+                    : cpcCalc.tone === "warn-low"
+                      ? "border-amber-500/30 bg-amber-500/[0.08] text-foreground"
+                      : "border-rose-500/30 bg-rose-500/[0.08] text-foreground")
+                }
+                aria-live="polite"
+              >
+                <div className="font-medium">
+                  CPC máximo estimado: <span className="tabular-nums">${cpcCalc.value}</span> / clique
+                  <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                    (orçamento ÷ cliques alvo)
+                  </span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  {cpcCalc.tone === "ok" ? "✔ " : "⚠ "}
+                  {cpcCalc.message}
+                </div>
+                <div className="mt-1 text-[10px] text-muted-foreground/80">
+                  Estimativa indicativa. CPC real depende do nicho, palavras-chave e concorrência no leilão.
+                </div>
+              </div>
+            ) : null}
 
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
               <div className="space-y-1">
