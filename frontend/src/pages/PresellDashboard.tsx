@@ -1433,7 +1433,7 @@ export default function PresellDashboard() {
             value="rastreamento"
             className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
           >
-            Rastreamento (script nas presells)
+            Rastreamento (script)
           </TabsTrigger>
           <TabsTrigger
             value="pais"

@@ -1219,7 +1219,7 @@ function DashboardHeroMetrics({
           <p className="text-sm text-muted-foreground">
             Painel principal do período: <strong className="text-foreground/90 font-medium">vendas</strong>,{" "}
             <strong className="text-foreground/90 font-medium">Google Ads</strong> na conta ligada (se houver) e atalhos
-            abaixo. Métricas do <strong className="text-foreground/90 font-medium">script nas presells</strong> estão em{" "}
+            abaixo. Métricas do <strong className="text-foreground/90 font-medium">script nas páginas</strong> estão em{" "}
             <Link to="/presell/dashboard" className="text-primary font-medium underline underline-offset-2">
               Minhas Presells
             </Link>

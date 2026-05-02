@@ -76,12 +76,12 @@ export function PresellRastreamentoScriptCard({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-1">
           <h2 id="presell-rastreamento-heading" className="text-lg font-semibold tracking-tight text-foreground">
-            Rastreamento (script nas presells)
+            Rastreamento (script)
           </h2>
           <p className="text-sm text-muted-foreground max-w-2xl">
             Impressões, cliques e conversões onde o <strong className="font-medium text-foreground/90">script Clickora</strong>{" "}
             corre nas tuas páginas. Não substitui o relatório da conta Google Ads — só páginas com o script contam. Detalhe
-            por presell:{" "}
+            por página:{" "}
             <Link to="/tracking/analytics" className="text-primary font-medium underline underline-offset-2">
               Analytics
             </Link>
@@ -132,7 +132,7 @@ export function PresellRastreamentoScriptCard({
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="secondary" className="gap-1.5 rounded-lg" asChild>
               <Link to="/tracking/analytics">
-                Analytics por presell
+                Analytics por página
                 <BarChart3 className="h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -194,7 +194,7 @@ export function PresellRastreamentoScriptCard({
           ) : (
             <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-5 md:p-6">
               <p className="text-sm text-muted-foreground">
-                Ainda não há dados de gráfico neste período. Confirme o script no <span className="font-medium text-foreground/90">head</span> das presells.
+                Ainda não há dados de gráfico neste período. Confirme o script no <span className="font-medium text-foreground/90">head</span> das páginas.
               </p>
             </div>
           )}
@@ -241,7 +241,7 @@ export function PresellCliquesPorPaisCard({
             <p className="text-sm text-muted-foreground max-w-2xl">
               Cliques registados pelo <strong className="font-medium text-foreground/90">script Clickora</strong>, agrupados por
               país estimado via IP. O período é o mesmo que em{" "}
-              <strong className="font-medium text-foreground/90">Rastreamento (script nas presells)</strong>
+              <strong className="font-medium text-foreground/90">Rastreamento (script)</strong>
               {periodLabel ? (
                 <>
                   : <span className="font-medium text-foreground/90">{periodLabel}</span>.
@@ -355,7 +355,7 @@ export function PresellScriptAnalyticsPanel({ tenantKey, className }: { tenantKe
           value="rastreamento"
           className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
         >
-          Rastreamento (script nas presells)
+          Rastreamento (script)
         </TabsTrigger>
         <TabsTrigger
           value="pais"

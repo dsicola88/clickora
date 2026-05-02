@@ -1,4 +1,4 @@
-/** Query na lista de presells: métricas em separado por aba. */
+/** Query no dashboard de páginas: métricas em abas separadas. */
 export const PRESELL_DASH_ANALYTICS_TAB_PARAM = "aba" as const;
 
 export type PresellDashAnalyticsTab = "rastreamento" | "pais";

@@ -103,7 +103,7 @@ const trackingNavEssential: NavItem[] = [
     title: "Resumo e guia",
     url: "/tracking/dashboard",
     icon: LayoutDashboard,
-    hint: "KPIs do período (vendas, Google Ads na conta), guia e integrações. Métricas do script nas presells: Minhas Presells.",
+    hint: "KPIs do período (vendas, Google Ads na conta), guia e integrações. Métricas do script nas páginas: Minhas Presells.",
   },
   {
     title: "Vendas / Funil",
@@ -184,7 +184,7 @@ const trackingNavAdvanced: NavItem[] = [
 
 const presellNavMetrics: NavItem[] = [
   {
-    title: "Rastreamento (script nas presells)",
+    title: "Rastreamento (script)",
     url: presellDashboardAnalyticsHref("rastreamento"),
     icon: BarChart3,
     hint: "Aba: totais do script nas páginas, CTR e gráfico diário.",
