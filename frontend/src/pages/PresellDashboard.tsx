@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -52,9 +52,14 @@ import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
-import { PresellScriptAnalyticsPanel } from "@/components/presell/PresellScriptAnalyticsPanel";
+import {
+  PresellRastreamentoScriptCard,
+  PresellCliquesPorPaisCard,
+  usePresellAnalyticsDashboardQuery,
+} from "@/components/presell/PresellScriptAnalyticsPanel";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeLabel, getPresellTypeOption } from "@/lib/presellTypeOptions";
+import { rangeLast30Days } from "@/lib/dateRangePresets";
 
 type PresellSettings = PresellConfigSettings;
 
@@ -90,6 +95,24 @@ export default function PresellDashboard() {
   const [isSavingPage, setIsSavingPage] = useState(false);
   /** Assistente em 3 passos (criação; edição reutiliza o mesmo layout). */
   const [creatorStep, setCreatorStep] = useState(1);
+
+  const location = useLocation();
+  const dashRangePreset = useMemo(() => rangeLast30Days(), []);
+  const [dashFrom, setDashFrom] = useState(dashRangePreset.from);
+  const [dashTo, setDashTo] = useState(dashRangePreset.to);
+  const presellAnalyticsQuery = usePresellAnalyticsDashboardQuery(tenantKey, dashFrom, dashTo);
+  const analyticsPeriodLabel = presellAnalyticsQuery.data?.period
+    ? `${new Date(presellAnalyticsQuery.data.period.from + "T12:00:00").toLocaleDateString("pt-BR")} — ${new Date(presellAnalyticsQuery.data.period.to + "T12:00:00").toLocaleDateString("pt-BR")}`
+    : null;
+
+  useEffect(() => {
+    const raw = (location.hash || "").replace(/^#/, "");
+    if (raw !== "rastreamento-script" && raw !== "cliques-pais") return;
+    const t = window.setTimeout(() => {
+      document.getElementById(raw)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [location.pathname, location.hash]);
 
   /** Mesmo padrão do Tracking → dashboard: script a colar no &lt;head&gt; da presell. */
   const trackingEmbedScript = useMemo(() => {
@@ -1207,8 +1230,6 @@ export default function PresellDashboard() {
         }
       />
 
-      <PresellScriptAnalyticsPanel tenantKey={tenantKey} />
-
       {isAdmin ? (
         <div className="rounded-xl border border-border/50 bg-muted/25 px-4 py-4 sm:px-5 text-sm text-muted-foreground space-y-2">
           <p className="font-medium text-card-foreground">Por que presell?</p>
@@ -1380,6 +1401,26 @@ export default function PresellDashboard() {
           </table>
         </div>
       </div>
+
+      <PresellRastreamentoScriptCard
+        startDate={dashFrom}
+        endDate={dashTo}
+        onApply={({ from, to }) => {
+          setDashFrom(from);
+          setDashTo(to);
+        }}
+        query={presellAnalyticsQuery}
+      />
+      <PresellCliquesPorPaisCard
+        startDate={dashFrom}
+        endDate={dashTo}
+        onApply={({ from, to }) => {
+          setDashFrom(from);
+          setDashTo(to);
+        }}
+        periodLabel={analyticsPeriodLabel}
+        query={presellAnalyticsQuery}
+      />
     </div>
   );
 }

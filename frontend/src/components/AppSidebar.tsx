@@ -181,32 +181,72 @@ const trackingNavAdvanced: NavItem[] = [
   },
 ];
 
-function isActiveSubPath(item: NavItem, path: string): boolean {
-  if (path === item.url) return true;
-  if (item.url === "/presell/builder" && path.startsWith("/presell/builder")) return true;
-  if (item.url === "/tracking/relatorios" && path.startsWith("/tracking/relatorios")) return true;
-  if (item.url === "/tracking/analytics" && path.startsWith("/tracking/analytics")) return true;
-  if (item.url === "/presell/templates" && path.startsWith("/presell/templates")) return true;
-  if (item.url === "/tracking/tools" && path.startsWith("/tracking/tools")) return true;
+const presellNavMetrics: NavItem[] = [
+  {
+    title: "Rastreamento (script nas presells)",
+    url: "/presell/dashboard#rastreamento-script",
+    icon: BarChart3,
+    hint: "Totais do script nas páginas, CTR e gráfico diário — mesmo período que Cliques por país.",
+  },
+  {
+    title: "Cliques por país",
+    url: "/presell/dashboard#cliques-pais",
+    icon: Globe,
+    hint: "Cliques do script agrupados por país (IP), no período definido em Rastreamento.",
+  },
+];
+
+function isActiveSubPath(item: NavItem, path: string, locationHash: string = ""): boolean {
+  const rawUrl = item.url;
+  const hashIdx = rawUrl.indexOf("#");
+  if (hashIdx >= 0) {
+    const base = rawUrl.slice(0, hashIdx);
+    const frag = rawUrl.slice(hashIdx + 1);
+    if (path !== base) return false;
+    return locationHash === `#${frag}`;
+  }
+
+  if (rawUrl === "/presell/dashboard" && path === "/presell/dashboard") {
+    return locationHash === "" || locationHash === "#";
+  }
+
+  if (path === rawUrl) return true;
+  if (rawUrl === "/presell/builder" && path.startsWith("/presell/builder")) return true;
+  if (rawUrl === "/tracking/relatorios" && path.startsWith("/tracking/relatorios")) return true;
+  if (rawUrl === "/tracking/analytics" && path.startsWith("/tracking/analytics")) return true;
+  if (rawUrl === "/presell/templates" && path.startsWith("/presell/templates")) return true;
+  if (rawUrl === "/tracking/tools" && path.startsWith("/tracking/tools")) return true;
   return false;
 }
 
-function SubNavLinkRows({ items, path }: { items: NavItem[]; path: string }) {
+function SubNavLinkRows({
+  items,
+  path,
+  locationHash = "",
+}: {
+  items: NavItem[];
+  path: string;
+  locationHash?: string;
+}) {
   return (
     <>
       {items.map((item) => (
         <SidebarMenuSubItem key={item.url}>
-          <SidebarMenuSubButton asChild isActive={isActiveSubPath(item, path)} size="md">
+          <SidebarMenuSubButton asChild isActive={isActiveSubPath(item, path, locationHash)} size="md">
             <NavLink
               to={item.url}
-              end={item.url !== "/presell/builder" && item.url !== "/presell/templates"}
+              end={
+                item.url !== "/presell/builder" &&
+                item.url !== "/presell/templates" &&
+                !item.url.includes("#")
+              }
               title={item.hint ?? item.title}
               className={({ isActive: a }) =>
                 cn("no-underline", a && "bg-sidebar-accent text-sidebar-accent-foreground font-medium")
               }
             >
               <item.icon className="h-4 w-4" />
-              <span>{item.title}</span>
+              <span className="leading-snug">{item.title}</span>
             </NavLink>
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>
@@ -215,31 +255,47 @@ function SubNavLinkRows({ items, path }: { items: NavItem[]; path: string }) {
   );
 }
 
-function SubNavLinks({ items, path }: { items: NavItem[]; path: string }) {
+function SubNavLinks({
+  items,
+  path,
+  locationHash = "",
+}: {
+  items: NavItem[];
+  path: string;
+  locationHash?: string;
+}) {
   return (
     <SidebarMenuSub>
-      <SubNavLinkRows items={items} path={path} />
+      <SubNavLinkRows items={items} path={path} locationHash={locationHash} />
     </SidebarMenuSub>
   );
 }
 
 function PresellNavWithAdvanced({
   path,
+  locationHash,
   collapsed,
   advancedOpen,
   onAdvancedOpenChange,
 }: {
   path: string;
+  locationHash: string;
   collapsed: boolean;
   advancedOpen: boolean;
   onAdvancedOpenChange: (open: boolean) => void;
 }) {
   if (collapsed) {
-    return <SubNavLinks items={[...presellNavEssential, ...presellNavAdvanced]} path={path} />;
+    return (
+      <SubNavLinks
+        items={[...presellNavEssential, ...presellNavAdvanced, ...presellNavMetrics]}
+        path={path}
+        locationHash={locationHash}
+      />
+    );
   }
   return (
     <SidebarMenuSub>
-      <SubNavLinkRows items={presellNavEssential} path={path} />
+      <SubNavLinkRows items={presellNavEssential} path={path} locationHash={locationHash} />
       <SidebarMenuSubItem>
         <Collapsible open={advancedOpen} onOpenChange={onAdvancedOpenChange}>
           <CollapsibleTrigger asChild>
@@ -261,32 +317,35 @@ function PresellNavWithAdvanced({
           </CollapsibleTrigger>
           <CollapsibleContent className="data-[state=closed]:animate-none">
             <SidebarMenuSub className="mx-0 mt-0.5 border-l border-sidebar-border pl-2">
-              <SubNavLinkRows items={presellNavAdvanced} path={path} />
+              <SubNavLinkRows items={presellNavAdvanced} path={path} locationHash={locationHash} />
             </SidebarMenuSub>
           </CollapsibleContent>
         </Collapsible>
       </SidebarMenuSubItem>
+      <SubNavLinkRows items={presellNavMetrics} path={path} locationHash={locationHash} />
     </SidebarMenuSub>
   );
 }
 
 function TrackingNavWithAdvanced({
   path,
+  locationHash,
   collapsed,
   advancedOpen,
   onAdvancedOpenChange,
 }: {
   path: string;
+  locationHash: string;
   collapsed: boolean;
   advancedOpen: boolean;
   onAdvancedOpenChange: (open: boolean) => void;
 }) {
   if (collapsed) {
-    return <SubNavLinks items={[...trackingNavEssential, ...trackingNavAdvanced]} path={path} />;
+    return <SubNavLinks items={[...trackingNavEssential, ...trackingNavAdvanced]} path={path} locationHash={locationHash} />;
   }
   return (
     <SidebarMenuSub>
-      <SubNavLinkRows items={trackingNavEssential} path={path} />
+      <SubNavLinkRows items={trackingNavEssential} path={path} locationHash={locationHash} />
       <SidebarMenuSubItem>
         <Collapsible open={advancedOpen} onOpenChange={onAdvancedOpenChange}>
           <CollapsibleTrigger asChild>
@@ -315,7 +374,7 @@ function TrackingNavWithAdvanced({
           </CollapsibleTrigger>
           <CollapsibleContent className="data-[state=closed]:animate-none">
             <SidebarMenuSub className="mx-0 mt-0.5 border-l border-sidebar-border pl-2">
-              <SubNavLinkRows items={trackingNavAdvanced} path={path} />
+              <SubNavLinkRows items={trackingNavAdvanced} path={path} locationHash={locationHash} />
             </SidebarMenuSub>
           </CollapsibleContent>
         </Collapsible>
@@ -439,6 +498,7 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <PresellNavWithAdvanced
                       path={path}
+                      locationHash={location.hash}
                       collapsed={collapsed}
                       advancedOpen={presellAdvancedOpen}
                       onAdvancedOpenChange={setPresellAdvancedOpen}
@@ -474,6 +534,7 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <TrackingNavWithAdvanced
                       path={path}
+                      locationHash={location.hash}
                       collapsed={collapsed}
                       advancedOpen={trackingAdvancedOpen}
                       onAdvancedOpenChange={setTrackingAdvancedOpen}
