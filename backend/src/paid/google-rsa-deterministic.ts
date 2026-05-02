@@ -119,7 +119,7 @@ const HEADLINE_TEMPLATES: Record<Lang, { withSlug: string[]; extras: string[] }>
   },
   fr: {
     withSlug: [
-      "{slug2} — commandez vite",
+      "{slug2} — à commander",
       "Essayez {slug2}",
       "Découvrez {slug2}",
       "Achetez {slug2} en ligne",
@@ -129,8 +129,8 @@ const HEADLINE_TEMPLATES: Record<Lang, { withSlug: string[]; extras: string[] }>
       "Qualité {slug2} premium",
       "{slug2} au quotidien",
       "{slug2} à découvrir",
-      "{slug2} en quelques secondes",
-      "{slug2} expliqué simplement",
+      "{slug2} en quelques clics",
+      "{slug2} clair et simple",
     ],
     extras: ["Site officiel : {host}", "Fiable, rapide et sûr", "Achat simple et sécurisé"],
   },
@@ -307,7 +307,8 @@ function buildDynamicHeadlines(
       push(`${ctx.slug2} à ${s.price}`);
     }
     if (s.discount) {
-      push(`${ctx.slug2} ${s.discount} aujourd'hui`);
+      push(`${ctx.slug2} : ${s.discount}`);
+      push(`${s.discount} sur ${ctx.slug2}`);
       push(`Économisez ${s.discount}`);
     }
     if (s.guarantee) {
@@ -320,7 +321,7 @@ function buildDynamicHeadlines(
     }
     if (s.bonuses) {
       push(`${ctx.slug2} + ${s.bonuses}`);
-      push(`${s.bonuses} aujourd'hui`);
+      push(`${s.bonuses} offerts`);
     }
     if (s.certifications) push(s.certifications);
     if (s.bundles) for (const b of s.bundles) push(b);
@@ -490,19 +491,19 @@ function buildDynamicDescriptions(
     }
   } else if (lang === "fr") {
     if (s.discount && s.shipping) {
-      push(`Achetez ${ctx.slug2} sur le site officiel avec ${s.discount} + ${s.shipping} aujourd'hui.`);
+      push(`Achetez ${ctx.slug2} sur le site officiel — ${s.discount} + ${s.shipping}.`);
     }
     if (s.guarantee && s.shipping) {
       push(`${ctx.slug2} avec ${s.shipping}. Vous avez ${s.guarantee}.`);
     }
     if (s.guarantee) {
-      push(`${s.guarantee}. Profitez de l'offre et commandez ${ctx.slug2} aujourd'hui.`);
+      push(`${s.guarantee}. Profitez de l'offre et commandez ${ctx.slug2}.`);
     }
     if (s.price && s.shipping) {
       push(`Commandez ${ctx.slug2} dès ${s.price} sur le site officiel + ${s.shipping}.`);
     }
     if (s.bundles?.[0] && s.shipping) {
-      push(`${s.bundles[0]} + ${s.shipping}. Offre limitée — commandez aujourd'hui.`);
+      push(`${s.bundles[0]} + ${s.shipping}. Offre limitée — commandez vite.`);
     }
     if (s.certifications) {
       push(`${ctx.slug2} ${s.certifications}. Commandez sur le site officiel.`);
