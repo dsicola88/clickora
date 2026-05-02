@@ -71,6 +71,15 @@ function ensureUrl(u: string): string {
   return `https://${t}`;
 }
 
+function isAbsoluteHttpUrl(u: string): boolean {
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function publishLog(level: "info" | "warn" | "error", event: string, data: Record<string, unknown>) {
   const row = { event, ...data };
   if (level === "error") console.error("[google.publish]", row);
@@ -101,23 +110,50 @@ function isDuplicateCampaignNameError(msg: string): boolean {
   );
 }
 
-/** Junta detail `GoogleAdsFailure.errors[].message` ao texto genérico da Google. */
+/**
+ * Junta detail `GoogleAdsFailure.errors[]` ao texto genérico da Google. Inclui:
+ * - `message`
+ * - `location.fieldPathElements[].fieldName` → indica **qual** o campo em falta/inválido
+ * - `errorCode` → o nome curto do enum (ex.: REQUIRED_FIELD_MISSING)
+ */
 function enrichGoogleMutateError(raw: unknown): string {
   const root = raw as { error?: { message?: string; details?: unknown[] } };
   const base = root.error?.message ?? "Erro na Google Ads API.";
   const details = root.error?.details;
   const extras: string[] = [];
+
   if (Array.isArray(details)) {
     for (const d of details) {
       if (!d || typeof d !== "object") continue;
-      const errs = (d as { errors?: Array<{ message?: string }> }).errors;
+      const errs = (d as {
+        errors?: Array<{
+          message?: string;
+          errorCode?: Record<string, unknown>;
+          location?: { fieldPathElements?: Array<{ fieldName?: string; index?: number }> };
+        }>;
+      }).errors;
       if (!Array.isArray(errs)) continue;
       for (const e of errs) {
-        const m = e.message?.trim();
-        if (m && !extras.includes(m)) extras.push(m);
+        const msg = (e.message ?? "").trim();
+        const fieldPath = (e.location?.fieldPathElements ?? [])
+          .map((p) => (p.index != null ? `${p.fieldName ?? "?"}[${p.index}]` : (p.fieldName ?? "?")))
+          .filter(Boolean)
+          .join(".");
+        const codeName =
+          e.errorCode && typeof e.errorCode === "object"
+            ? Object.entries(e.errorCode as Record<string, unknown>).find(([, v]) => typeof v === "string")?.[1]
+            : undefined;
+
+        const parts: string[] = [];
+        if (msg) parts.push(msg);
+        if (fieldPath) parts.push(`(campo: ${fieldPath})`);
+        if (typeof codeName === "string" && codeName.length > 0) parts.push(`[${codeName}]`);
+        const combined = parts.join(" ").trim();
+        if (combined && !extras.includes(combined)) extras.push(combined);
       }
     }
   }
+
   if (extras.length === 0) return base;
   return `${base} — ${extras.join("; ")}`;
 }
@@ -262,8 +298,33 @@ export async function publishGoogleSearchCampaignFromLocal(
   publishLog("info", "start", { projectId, campaignId, customerId, adGroups: campaign.adGroups.length });
 
   for (const ag of campaign.adGroups) {
+    const agLabel = (ag.name ?? "").trim() || ag.id;
     if (!ag.adsRsa.length) {
-      return { ok: false, error: `O ad group «${ag.name}» precisa de pelo menos um anúncio RSA.` };
+      return { ok: false, error: `O ad group «${agLabel}» precisa de pelo menos um anúncio RSA.` };
+    }
+    if (!ag.keywords?.length) {
+      return {
+        ok: false,
+        error: `O grupo «${agLabel}» não tem palavras-chave. Campanhas Search precisam de palavras-chave.`,
+      };
+    }
+    for (const rsa of ag.adsRsa) {
+      const headlines = parseJsonStringArray(rsa.headlines);
+      const descriptions = parseJsonStringArray(rsa.descriptions);
+      const finalUrls = parseJsonStringArray(rsa.finalUrls);
+      if (headlines.length < 3) {
+        return { ok: false, error: `RSA no grupo «${agLabel}»: são necessários pelo menos 3 títulos.` };
+      }
+      if (descriptions.length < 2) {
+        return { ok: false, error: `RSA no grupo «${agLabel}»: são necessárias pelo menos 2 descrições.` };
+      }
+      const rawUrl = (finalUrls[0] ?? "").trim();
+      if (!rawUrl) {
+        return { ok: false, error: `RSA no grupo «${agLabel}»: indique uma URL final.` };
+      }
+      if (!isAbsoluteHttpUrl(ensureUrl(rawUrl))) {
+        return { ok: false, error: `RSA no grupo «${agLabel}»: URL final inválida (use http ou https).` };
+      }
     }
   }
 
@@ -329,6 +390,7 @@ export async function publishGoogleSearchCampaignFromLocal(
   const budgetName = `Budget ${campaign.name}`.slice(0, 250);
   const campaignName = campaign.name.slice(0, 250);
 
+  let currentStep = "orçamento";
   try {
     const { resourceNames: budgetResults } = await mutate(
       access,
@@ -355,6 +417,7 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
     publishLog("info", "budget.created", { campaignId, budgetRn });
 
+    currentStep = "campanha (Search)";
     let campaignRn: string | undefined;
     let campaignCreateError: Error | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -406,6 +469,7 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
     publishLog("info", "campaign.created", { campaignId, campaignRn });
 
+    currentStep = "geo-targets";
     for (const gtc of geoConstants) {
       await mutate(
         access,
@@ -426,6 +490,7 @@ export async function publishGoogleSearchCampaignFromLocal(
       );
     }
 
+    currentStep = "idiomas";
     for (const lang of languageConstants) {
       await mutate(
         access,
@@ -446,6 +511,7 @@ export async function publishGoogleSearchCampaignFromLocal(
       );
     }
 
+    currentStep = "extensões (sitelinks/callouts)";
     const assetExt = readGoogleAssetExtensionsFromBidding(campaign.biddingConfig);
     if (assetExt) {
       await publishGoogleCampaignAssetExtensions({
@@ -467,9 +533,13 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
 
     const agResourceByLocalId = new Map<string, string>();
+    const keywordsLinkedByAg = new Map<string, number>();
+    const rsaLinkedByAg = new Map<string, number>();
+
     for (let agIndex = 0; agIndex < campaign.adGroups.length; agIndex++) {
       const ag = campaign.adGroups[agIndex]!;
       const baseAgName = (ag.name || "").trim() || `Ad group ${agIndex + 1}`;
+      currentStep = `ad group «${baseAgName}»`;
       let agRn: string | undefined;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -506,6 +576,7 @@ export async function publishGoogleSearchCampaignFromLocal(
       agResourceByLocalId.set(ag.id, agRn);
       publishLog("info", "adgroup.created", { campaignId, adGroupId: ag.id, adGroupRn: agRn });
 
+      currentStep = `palavras-chave em «${baseAgName}»`;
       for (const kw of ag.keywords) {
         try {
           const { resourceNames: kwr } = await mutate(
@@ -531,28 +602,29 @@ export async function publishGoogleSearchCampaignFromLocal(
           );
           const critRn = kwr[0];
           if (critRn) {
+            keywordsLinkedByAg.set(ag.id, (keywordsLinkedByAg.get(ag.id) ?? 0) + 1);
             await prisma.paidAdsKeyword.update({
               where: { id: kw.id },
               data: { externalCriterionId: lastId(critRn), status: "live" as EntityStatus },
             });
           }
-        } catch {
-          publishLog("warn", "keyword.failed", { campaignId, adGroupId: ag.id, keywordId: kw.id });
+        } catch (ke) {
+          publishLog("warn", "keyword.failed", {
+            campaignId,
+            adGroupId: ag.id,
+            keywordId: kw.id,
+            message: ke instanceof Error ? ke.message : String(ke),
+          });
           continue;
         }
       }
 
-      const rsaRows = ag.adsRsa.length
-        ? ag.adsRsa
-        : [];
-      for (const rsa of rsaRows) {
+      currentStep = `RSA em «${baseAgName}»`;
+      for (const rsa of ag.adsRsa) {
         const headlines = parseJsonStringArray(rsa.headlines) as string[];
         const descriptions = parseJsonStringArray(rsa.descriptions) as string[];
         const finalUrls = parseJsonStringArray(rsa.finalUrls);
-        const url = ensureUrl(finalUrls[0] ?? "https://example.com");
-        if (headlines.length < 3 || descriptions.length < 2) {
-          continue;
-        }
+        const url = ensureUrl((finalUrls[0] ?? "").trim());
         const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
         const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
 
@@ -580,19 +652,69 @@ export async function publishGoogleSearchCampaignFromLocal(
           );
           const adGroupAdRn = adR[0];
           if (adGroupAdRn) {
+            rsaLinkedByAg.set(ag.id, (rsaLinkedByAg.get(ag.id) ?? 0) + 1);
             await prisma.paidAdsRsa.update({
               where: { id: rsa.id },
               data: { externalAdId: lastId(adGroupAdRn), status: "live" as EntityStatus },
             });
           }
-        } catch {
-          publishLog("warn", "rsa.failed", { campaignId, adGroupId: ag.id, rsaId: rsa.id });
+        } catch (re) {
+          publishLog("warn", "rsa.failed", {
+            campaignId,
+            adGroupId: ag.id,
+            rsaId: rsa.id,
+            message: re instanceof Error ? re.message : String(re),
+          });
           continue;
         }
       }
     }
 
     const extCamp = lastId(campaignRn);
+
+    for (const ag of campaign.adGroups) {
+      const rsaCount = rsaLinkedByAg.get(ag.id) ?? 0;
+      const kwCount = keywordsLinkedByAg.get(ag.id) ?? 0;
+      if (rsaCount >= 1 && kwCount >= 1) continue;
+
+      await prisma.paidAdsCampaign.update({
+        where: { id: campaign.id },
+        data: { externalCampaignId: extCamp, status: "error", languageTargets: resolvedLanguageIso },
+      });
+      for (const ag2 of campaign.adGroups) {
+        const rn = agResourceByLocalId.get(ag2.id);
+        if (rn) {
+          await prisma.paidAdsAdGroup.update({
+            where: { id: ag2.id },
+            data: { externalAdGroupId: lastId(rn), status: "live" as EntityStatus },
+          });
+        }
+      }
+
+      const detail =
+        rsaCount < 1 && kwCount < 1
+          ? "sem anúncios RSA nem palavras-chave criadas na rede"
+          : rsaCount < 1
+            ? "sem anúncios RSA criados na rede (revise títulos, URL e políticas)"
+            : "sem palavras-chave válidas na rede";
+      const agLabel = (ag.name ?? "").trim() || ag.id;
+
+      publishLog("error", "publish.partialFailure", {
+        campaignId,
+        extCamp,
+        failedAdGroupId: ag.id,
+        rsaLinkedByAg: Object.fromEntries(rsaLinkedByAg),
+        keywordsLinkedByAg: Object.fromEntries(keywordsLinkedByAg),
+      });
+
+      return {
+        ok: false,
+        error: humanizeGoogleAdsPublishError(
+          `Campanha ${extCamp} criada no Google mas ficou incompleta (${detail}) no grupo «${agLabel}». Abra o Google Ads para rever ou eliminar o rascunho.`,
+        ),
+      };
+    }
+
     await prisma.paidAdsCampaign.update({
       where: { id: campaign.id },
       data: {
@@ -612,8 +734,9 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
   } catch (e) {
     const raw = e instanceof Error ? e.message : "Falha na publicação Google Ads.";
-    publishLog("error", "publish.failed", { projectId, campaignId, message: raw });
-    return { ok: false, error: humanizeGoogleAdsPublishError(raw) };
+    publishLog("error", "publish.failed", { projectId, campaignId, step: currentStep, message: raw });
+    const stepPrefix = currentStep ? `Falhou no passo «${currentStep}». ` : "";
+    return { ok: false, error: `${stepPrefix}${humanizeGoogleAdsPublishError(raw)}` };
   }
 
   return { ok: true };
