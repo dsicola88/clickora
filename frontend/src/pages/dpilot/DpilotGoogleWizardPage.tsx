@@ -104,6 +104,7 @@ export function DpilotGoogleWizardPage() {
   /** Quando `true`, abre o painel "Detalhes do produto" para o utilizador ver de relance o que foi extraído (sem ter de o abrir à mão). */
   const [signalsOpen, setSignalsOpen] = useState(false);
   const [campaignSeedKeyword, setCampaignSeedKeyword] = useState<string | null>(null);
+  const [googleAdsLinked, setGoogleAdsLinked] = useState<boolean | null>(null);
 
   /** Estado do feedback ao vivo da extracção em background.
    *  - `extracting`: spinner + lista cinzenta enquanto fetch corre
@@ -274,6 +275,22 @@ export function DpilotGoogleWizardPage() {
       }
     };
   }, [landingUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await paidAdsService.getOverview(projectId);
+      if (cancelled) return;
+      if (error || !data?.connection) {
+        setGoogleAdsLinked(false);
+        return;
+      }
+      setGoogleAdsLinked(data.connection.status === "connected");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const landingHostname = useMemo(() => {
     const t = landingUrl.trim();
@@ -769,6 +786,9 @@ export function DpilotGoogleWizardPage() {
               desiredClicksPerDay={insightDesiredClicksPerDay}
               committedKeyword={campaignSeedKeyword}
               onCommitKeyword={setCampaignSeedKeyword}
+              requireGoogleAdsConnection
+              googleAdsConnected={googleAdsLinked}
+              connectionsPageHref={`${base}/ligacoes`}
             />
 
             <div className="space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4">

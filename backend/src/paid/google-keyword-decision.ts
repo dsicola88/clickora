@@ -1,6 +1,7 @@
 /**
  * Assistente de decisão de palavra-chave (Dopilot Search).
- * Métricas: Google Ads Keyword Ideas quando a conta está ligada; senão modelo estimado.
+ * Volumes oficiais: Google Ads Keyword Ideas (pesquisas mensais na Rede de Pesquisa Google,
+ * mesmo manancial que o Keyword Planner). Sem resposta da API: estimativa interna, claramente etiquetada.
  */
 import { z } from "zod";
 
@@ -290,12 +291,12 @@ export function generateKeywordDecision(input: {
   if (metrics_source === "google_ads") {
     sourceTrustPts = 5;
     breakdown.push({
-      text: "Volume e concorrência vêm do Google Ads (oficial) para este pedido.",
+      text: "Volume de pesquisas na Google e concorrência entre anunciantes vêm do Keyword Ideas (oficial) neste pedido.",
       tone: "positive",
     });
   } else {
     breakdown.push({
-      text: "Volume e concorrência são estimativa inteligente — liga a conta ao projeto para dados oficiais.",
+      text: "Volume não é dado de pesquisa Google neste pedido — só estimativa interna até a API Keyword Ideas responder.",
       tone: "neutral",
     });
   }
@@ -523,21 +524,27 @@ function analysisBullets(vol: number, comp: KeywordCompetition, iso: string): st
 function analysisBulletsGoogle(vol: number, comp: KeywordCompetition, iso: string): string[] {
   const bullets: string[] = [];
   if (vol >= 8000) {
-    bullets.push("Volume mensal segundo o Google (média 12 meses) — forte interesse de pesquisa.");
+    bullets.push(
+      "Volume médio mensal de pesquisas na Rede de Pesquisa Google (Keyword Ideas) — elevado para o período pedido.",
+    );
   } else if (vol >= 1500) {
-    bullets.push("Volume mensal segundo o Google — nível moderado; combina com criativos relevantes.");
+    bullets.push(
+      "Volume médio mensal de pesquisas na Google (Keyword Ideas) — moderado; reforça relevância do anúncio.",
+    );
   } else if (vol > 0) {
-    bullets.push("Volume mensal segundo o Google — mais baixo; pode ser nicho específico ou dados limitados.");
+    bullets.push(
+      "Volume médio mensal de pesquisas na Google (Keyword Ideas) — mais baixo; nicho específico ou dados limitados.",
+    );
   } else {
-    bullets.push("Volume: Google não reportou pesquisas médias para este critério — interpreta com cautela.");
+    bullets.push("A Google não reportou média de pesquisas para este critério no Keyword Ideas — interpreta com cautela.");
   }
 
   if (comp === "high") {
-    bullets.push("Concorrência (nível Google): alta.");
+    bullets.push("Concorrência entre anunciantes (nível Google): alta.");
   } else if (comp === "medium") {
-    bullets.push("Concorrência (nível Google): média.");
+    bullets.push("Concorrência entre anunciantes (nível Google): média.");
   } else {
-    bullets.push("Concorrência (nível Google): baixa.");
+    bullets.push("Concorrência entre anunciantes (nível Google): baixa.");
   }
   bullets.push(geoContextLine(iso));
   if (comp === "high" && vol >= 5000) {
@@ -594,7 +601,7 @@ function buildKeywordVolumeTrend(args: {
       points: sortVolumePoints(pts),
       point_source: "google_monthly",
       disclaimer_pt:
-        "Valores mensais segundo o Google Ads (Keyword Ideas). Podem diferir da média exibida para o conjunto do período.",
+        "Pesquisas mensais na Rede de Pesquisa Google segundo Keyword Ideas. Podem diferir ligeiramente da média do período mostrada acima.",
     };
   }
 
@@ -633,7 +640,7 @@ function keywordMetricsTemporalNotePt(input: GoogleKeywordInsightInput): string 
 
 export async function runGoogleKeywordInsight(
   raw: GoogleKeywordInsightInput,
-  opts?: { planner?: PlannerSnapshot | null },
+  opts?: { planner?: PlannerSnapshot | null; hadGoogleAdsConnection?: boolean },
 ): Promise<GoogleKeywordInsightOk> {
   const input = googleKeywordInsightInputSchema.parse(raw);
   const kw = input.keyword.trim();
@@ -642,6 +649,7 @@ export async function runGoogleKeywordInsight(
   const wc = words.length;
   const seed = fnv1a32(`${kw.toLowerCase()}\n${iso}`);
   const planner = opts?.planner ?? null;
+  const hadGoogleAdsConnection = opts?.hadGoogleAdsConnection === true;
 
   let monthly: number;
   let comp: KeywordCompetition;
@@ -658,7 +666,7 @@ export async function runGoogleKeywordInsight(
       avgCpcUsd = planner.avg_cpc_units;
       cpc_from_google_ads = true;
       dataNote =
-        "Volume e concorrência: Google Ads API (Keyword Ideas), conta ligada ao projeto — não usamos Semrush nem terceiros para estes números. CPC médio: dados da API (moeda da conta Google). Variações de keywords: IA/heurística.";
+        "Volume médio mensal de pesquisas na Rede de Pesquisa Google e nível de concorrência anunciantes: Google Ads API (Keyword Ideas — mesmo tipo de dados que o Keyword Planner). Sem Semrush. CPC médio: API (moeda da conta). Variações de keywords: IA/heurística.";
     } else {
       cpc_from_google_ads = false;
       avgCpcUsd =
@@ -666,7 +674,7 @@ export async function runGoogleKeywordInsight(
           (baseCpcUsd(comp, iso) * jitter(seed + 17, 0.85, 1.15) + Number.EPSILON) * 100,
         ) / 100;
       dataNote =
-        "Volume e concorrência: Google Ads (Keyword Ideas); CPC completado por modelo interno quando a API não devolve averageCpc — sem Semrush. Variações de keywords: IA/heurística.";
+        "Volume de pesquisas Google e concorrência: Keyword Ideas; CPC preenchido por modelo interno se a API não devolver averageCpc. Sem Semrush. Variações: IA/heurística.";
     }
   } else {
     const compHeur = scoreCompetition(kw, wc);
@@ -684,8 +692,9 @@ export async function runGoogleKeywordInsight(
       Math.round((baseCpcUsd(comp, iso) * jitter(seed + 17, 0.85, 1.15) + Number.EPSILON) * 100) / 100;
     metrics_source = "estimated";
     cpc_from_google_ads = false;
-    dataNote =
-      "Dados estimados por modelo interno (sem Keyword Ideas neste pedido — liga Google Ads ao projeto para métricas oficiais). Não usamos Semrush nem outros fornecedores externos para estes números. Variações: IA/heurística quando disponível.";
+    dataNote = hadGoogleAdsConnection
+      ? "Conta Google Ads ligada, mas a API Keyword Ideas não devolveu volume para esta palavra com país/idioma indicados. Os números abaixo são estimativa Clickora — não são contagens oficiais de pesquisa na Google. Tenta outro país, idioma ou keyword. Sem Semrush."
+      : "Sem Keyword Ideas: volume e CPC são estimativa interna (não refletem pesquisas reais na Google). Liga a conta Google Ads ao projecto para obter volumes oficiais da Rede de Pesquisa. Sem Semrush. Variações: IA/heurística quando disponível.";
   }
 
   if (metrics_source === "google_ads") {
@@ -712,11 +721,11 @@ export async function runGoogleKeywordInsight(
     const llm = await fetchRelatedKeywordsLlm(kw, iso, input.languageCode, input.offerContext);
     if (llm.length) {
       related = [...new Set([...llm, ...related])].slice(0, 8);
-      if (metrics_source === "estimated") {
-        dataNote =
-          "Estimativas internas + sugestões de variações assistidas por IA. Métricas permanecem indicativas até ligares Google Ads.";
+      if (metrics_source === "google_ads") {
+        dataNote += " Variações de keywords sugeridas também com IA.";
       } else {
-        dataNote += " Sugestões de variações refinadas com IA.";
+        dataNote +=
+          " Variações sugeridas com IA; volume e CPC acima continuam a não ser dados oficiais de pesquisa Google neste pedido.";
       }
     }
   }

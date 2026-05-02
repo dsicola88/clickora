@@ -502,6 +502,12 @@ export const paidController = {
       const codes = body.data.countryCodes?.length
         ? [...new Set(body.data.countryCodes)].slice(0, 10)
         : [body.data.countryCode];
+      const gaConn = await prisma.paidAdsGoogleAdsConnection.findUnique({
+        where: { projectId: parsed.data.projectId },
+        select: { status: true, googleCustomerId: true },
+      });
+      const hadGoogleAdsConnection =
+        gaConn?.status === "connected" && Boolean(gaConn?.googleCustomerId?.replace(/\D/g, ""));
       const plannerHit = await fetchKeywordPlannerMetrics(parsed.data.projectId, {
         keyword: body.data.keyword,
         countryCodes: codes,
@@ -511,6 +517,7 @@ export const paidController = {
       });
       const out = await runGoogleKeywordInsight(body.data, {
         planner: plannerHit.ok ? plannerHit.snapshot : null,
+        hadGoogleAdsConnection,
       });
       return res.json(out);
     } catch (e) {

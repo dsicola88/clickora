@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { AlertTriangle, Ban, CheckCircle2, Loader2, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +93,12 @@ export function DpilotKeywordDecisionCard({
   onCommitKeyword,
   /** Países do wizard (até 10) — mesmo critério multi-localização do Keyword Planner Google. */
   geoCountryCodes,
+  /** Assistente Google: obriga OAuth Ads para volumes oficiais de pesquisa (Keyword Ideas). */
+  requireGoogleAdsConnection = false,
+  /** Omitir noutros ecrãs; no wizard: `null` a carregar, `true`/`false` após overview. */
+  googleAdsConnected,
+  /** Rota para Dpilot «Ligações» (ex.: `/tracking/dpilot/p/{id}/ligacoes`). */
+  connectionsPageHref,
 }: {
   projectId: string;
   offer: string;
@@ -105,6 +112,9 @@ export function DpilotKeywordDecisionCard({
   committedKeyword: string | null;
   onCommitKeyword: (keyword: string) => void;
   geoCountryCodes: string[];
+  requireGoogleAdsConnection?: boolean;
+  googleAdsConnected?: boolean | null;
+  connectionsPageHref?: string;
 }) {
   const [draft, setDraft] = useState("");
   const [insight, setInsight] = useState<DpilotKeywordInsight | null>(null);
@@ -171,6 +181,9 @@ export function DpilotKeywordDecisionCard({
 
   const metricsMonthMaxStr = currentCalendarMonthMaxStr();
 
+  const canRunGoogleKeywordInsight =
+    !requireGoogleAdsConnection || googleAdsConnected === true;
+
   const runInsight = async () => {
     const kw = draft.trim();
     if (kw.length < 2) {
@@ -179,6 +192,16 @@ export function DpilotKeywordDecisionCard({
     }
     if (!primaryCountryCode && plannerCountryCodes.length === 0) {
       toast.error("Selecciona pelo menos um país de segmentação acima.");
+      return;
+    }
+    if (requireGoogleAdsConnection && googleAdsConnected !== true) {
+      if (googleAdsConnected === false) {
+        toast.error("Liga a conta Google Ads ao projecto", {
+          description: "Sem OAuth a API Keyword Ideas não devolve pesquisas reais na Google.",
+        });
+      } else {
+        toast.message("A verificar ligação Google Ads…");
+      }
       return;
     }
 
@@ -267,7 +290,7 @@ export function DpilotKeywordDecisionCard({
   const metricsBadge =
     insight?.metrics_source === "google_ads" ? (
       <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/[0.08] font-normal text-emerald-800 dark:text-emerald-200">
-        Dados: Google Ads (oficial)
+        Dados: pesquisas Google (Keyword Ideas)
       </Badge>
     ) : (
       <Badge variant="outline" className="font-normal text-muted-foreground">
@@ -300,13 +323,28 @@ export function DpilotKeywordDecisionCard({
             Análise de palavra-chave
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Com conta Google Ads: números da <strong className="font-medium text-foreground/90">API Keyword Ideas</strong>{" "}
-            (não Semrush), agregados por{" "}
-            <span className="font-medium text-foreground/90">
-              {geoSummaryLabel || countryLabel(primaryCountryCode)}
-            </span>
-            {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Sem conta: estimativa interna.
-            A janela temporal das médias é configurável abaixo (predefinição da API, 24/36 meses ou intervalo personalizado).
+            {requireGoogleAdsConnection ? (
+              <>
+                <strong className="font-medium text-foreground/90">Volumes oficiais de pesquisa na Google</strong> (Rede de
+                Pesquisa — API Keyword Ideas / Planner), agregados por{" "}
+                <span className="font-medium text-foreground/90">
+                  {geoSummaryLabel || countryLabel(primaryCountryCode)}
+                </span>
+                {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Este passo só analisa
+                com conta Google Ads ligada. Janela temporal abaixo.
+              </>
+            ) : (
+              <>
+                Com Google Ads ligado:{" "}
+                <strong className="font-medium text-foreground/90">pesquisas mensais na Google</strong> via Keyword
+                Ideas (não Semrush), por{" "}
+                <span className="font-medium text-foreground/90">
+                  {geoSummaryLabel || countryLabel(primaryCountryCode)}
+                </span>
+                {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Sem ligação: estimativa
+                interna (não reflete pesquisas reais na Google). Janela temporal abaixo.
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -318,6 +356,26 @@ export function DpilotKeywordDecisionCard({
           ) : null}
         </div>
       </div>
+
+      {requireGoogleAdsConnection && googleAdsConnected === null ? (
+        <p className="text-[11px] text-muted-foreground">A verificar ligação Google Ads ao projecto…</p>
+      ) : null}
+      {requireGoogleAdsConnection && googleAdsConnected === false ? (
+        <div className="rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-2.5 py-2 text-[11px] leading-snug text-amber-950 dark:text-amber-100">
+          <p className="font-medium text-foreground">Conta Google Ads necessária</p>
+          <p className="mt-1 text-muted-foreground">
+            Os volumes vêm da API Keyword Ideas (pesquisas reais na Google). Abre{" "}
+            {connectionsPageHref ? (
+              <Link to={connectionsPageHref} className="font-medium text-foreground underline underline-offset-2">
+                Ligações
+              </Link>
+            ) : (
+              "Ligações"
+            )}{" "}
+            e liga o projecto.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="kw-decision-draft" className="text-xs font-medium">
@@ -332,7 +390,13 @@ export function DpilotKeywordDecisionCard({
             maxLength={80}
             className="flex-1"
           />
-          <Button type="button" variant="default" className="shrink-0 gap-1" disabled={loadingInsight} onClick={runInsight}>
+          <Button
+            type="button"
+            variant="default"
+            className="shrink-0 gap-1"
+            disabled={loadingInsight || !canRunGoogleKeywordInsight}
+            onClick={runInsight}
+          >
             {loadingInsight ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
             Analisar
           </Button>
@@ -429,7 +493,7 @@ export function DpilotKeywordDecisionCard({
               <span className="text-muted-foreground">Volume (mensal)</span>
               <div className="font-semibold tabular-nums text-foreground">
                 {formatPtInt(insight.monthly_search_volume)}
-                {insight.metrics_source === "google_ads" ? " (Google)" : " (estim.)"}
+                {insight.metrics_source === "google_ads" ? " (pesquisas Google)" : " (estim.)"}
               </div>
             </div>
             <div>

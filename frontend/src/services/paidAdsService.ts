@@ -4,7 +4,13 @@ export type PaidAdsProjectRow = { id: string; name: string; createdAt: string };
 
 export type PaidOverviewDto = {
   project: { paid_mode: string };
-  connection: Record<string, unknown>;
+  connection: {
+    id: string;
+    status: string;
+    google_customer_id: string | null;
+    account_name: string | null;
+    error_message: string | null;
+  };
   guardrails: Record<string, unknown>;
   pending_approvals: number;
 };
