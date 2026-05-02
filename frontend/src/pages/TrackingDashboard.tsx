@@ -1441,7 +1441,10 @@ function DashboardHeroMetrics({
 
       <div className="mt-8 space-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Rastreamento (presell)</p>
-        <p className="text-xs text-muted-foreground pb-1">Impressões, cliques e conversões na presell (script Clickora).</p>
+        <p className="text-xs text-muted-foreground pb-1">
+          Impressões, cliques e conversões onde o <strong className="font-medium text-foreground/90">script Clickora</strong> na
+          presell corre. Isto não é o mesmo que «cliques nos anúncios» no Google — só páginas rastreadas contam.
+        </p>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className={statGridClass}>
             <p className={statGridLabel}>Impressões</p>
@@ -1471,14 +1474,17 @@ function DashboardHeroMetrics({
             <div>
               <p className="text-sm font-semibold text-foreground">Google Ads (conta)</p>
               <p className="text-[11px] text-muted-foreground">
-                Métricas da conta no período — custos{" "}
+                Toda a actividade de anúncios desta conta Google no período (API). Normalmente{" "}
+                <strong className="font-medium text-foreground/85">superior</strong> ao bloco presell: muitos cliques não
+                chegam à página com script ou vão para outros URLs. Custos{" "}
                 {googleCurrency ? (
                   <>
-                    em <span className="font-medium text-foreground/85">{googleCurrency}</span> (moeda da conta).
+                    em <span className="font-medium text-foreground/85">{googleCurrency}</span>
                   </>
                 ) : (
-                  <>na moeda da conta (código indisponível nesta resposta).</>
+                  <>na moeda da conta</>
                 )}
+                .
               </p>
             </div>
           </div>
