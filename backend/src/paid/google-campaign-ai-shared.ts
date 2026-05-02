@@ -2,7 +2,7 @@
  * Núcleo partilhado do assistente Google Search (`google-campaign-plan`):
  * SYSTEM_PROMPT, chamada OpenAI e fallback determinístico.
  */
-import { buildDeterministicRsa } from "./google-rsa-deterministic";
+import { buildDeterministicRsa, clipAtWord } from "./google-rsa-deterministic";
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
 
 /** Extensões que a IA pode preencher (parciais são completadas em `finalizeGoogleCampaignAssetExtensions`). */
@@ -64,7 +64,8 @@ Rules:
 - 5-10 keywords per ad group across exact/phrase/broad mix.
 - RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Each headline should ideally use 18-30 characters — avoid bare brand-only headlines, single words, or tepid filler; weave in concrete benefits, differentiators or commercial keywords. Across the 12 headlines, vary the angle: at least one CTA, one benefit, one proof/quality cue, one urgency/availability cue, and one branded headline naming the offer. Do NOT repeat the same stem (e.g. "Try X / Discover X / Buy X / Best X") more than once.
 - KEYWORD DENSITY (critical for Google Quality Score): at least 9 of the 12 headlines MUST contain the offer brand/keyword (the exact "Offer" string from the user prompt, or its first 1-2 words). The remaining 2-3 headlines may omit the keyword for variety, but never make them the majority. Never produce a set where the keyword appears in fewer than 9 headlines.
-- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with the Offer and what the Landing URL actually delivers. At least 2 of the 4 descriptions should mention the offer brand/keyword.
+- BRAND LENGTH HANDLING (critical — never produce mid-word truncation): If the brand/offer is long (≥ 18 chars), most "Verb + Brand + Suffix" templates will overflow 30 chars. NEVER let the system truncate a word — instead, choose templates that fit COMPLETELY in 30 chars before writing them. Strategies, in priority order: (1) prefer single-word brand reference ("Try BrandWord Today" instead of "Try Brand Full Name Today"); (2) prefer brand alone or brand + 1-2 chars suffix ("Brand — 30% Off"); (3) prefer benefit/CTA-first templates that put brand last ("Order Today: Brand"); (4) cut adjectives/articles before cutting the brand word; (5) NEVER ship a headline ending in a half-word like "Presentat" or "Presenta". Same rule applies to descriptions: if the full sentence exceeds 90 chars, rewrite it shorter rather than emitting truncated trailing text like "tonic.phytogree.n".
+- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with the Offer and what the Landing URL actually delivers. At least 2 of the 4 descriptions should mention the offer brand/keyword. Each description must explore a DIFFERENT angle (offer + price, risk-reversal/guarantee, social proof, urgency/CTA) — do not repeat the same phrase (e.g. the same guarantee/shipping line) across multiple descriptions.
 
 PRODUCT SIGNALS HANDLING (most critical rule):
 - A "Product signals" section MAY be included in the user message, listing TRUE facts about the product (price, full price, discount, guarantee, shipping, bundles, bonuses, certifications, attributes). USE THESE EXACT VALUES VERBATIM in headlines and descriptions whenever they fit (price/discount/guarantee/shipping are highest-value cues that lift CTR).
@@ -189,11 +190,16 @@ export function sanitizeAiPlanCopy(
   );
 
   const cleanedAdGroups = (plan.ad_groups ?? []).map((ag) => {
+    /** Usar `clipAtWord` em vez de hard slice evita publicar headlines como
+     *  "TonicGreens Presentation You C" ou descrições terminadas em "tonic.phytogree.n".
+     *  Quando a IA produz copy >30/90 chars, recortamos por fronteira de palavra; se isso
+     *  perderia >40 % do conteúdo (return null), descartamos e o gerador determinístico
+     *  preenche os mínimos. */
     const headlines = (ag.rsa?.headlines ?? [])
-      .map((h) => cleanCopyLine(h, ctx.objective).slice(0, 30))
+      .map((h) => clipAtWord(cleanCopyLine(h, ctx.objective), 30) ?? "")
       .filter((h) => h.length > 0);
     const descriptions = (ag.rsa?.descriptions ?? [])
-      .map((d) => cleanCopyLine(d, ctx.objective).slice(0, 90))
+      .map((d) => clipAtWord(cleanCopyLine(d, ctx.objective), 90) ?? "")
       .filter((d) => d.length > 0);
 
     /** Mínimos publicáveis: complementa do fallback determinístico (mesmo idioma) sem duplicar. */
@@ -242,12 +248,19 @@ export function buildDeterministicGoogleCampaignPlan(input: DeterministicPlanInp
     ad_groups: [
       {
         name: "Core intent",
+        /** 8 keywords cobrindo intents comerciais distintos (compra, comparação, preço,
+         *  reviews, oficial, descontos, localização). Os screenshots mostraram que com
+         *  apenas 5 keywords brand-only o Google marca a maioria como "baixo volume de
+         *  pesquisas / em análise" — esta variação amplia a superfície de matching. */
         keywords: [
           { text: slug.toLowerCase(), match_type: "exact" as const },
           { text: `buy ${slug}`.toLowerCase(), match_type: "phrase" as const },
           { text: `best ${slug}`.toLowerCase(), match_type: "phrase" as const },
-          { text: `${slug} pricing`.toLowerCase(), match_type: "phrase" as const },
-          { text: `${slug} review`.toLowerCase(), match_type: "broad" as const },
+          { text: `${slug} reviews`.toLowerCase(), match_type: "phrase" as const },
+          { text: `${slug} official site`.toLowerCase(), match_type: "phrase" as const },
+          { text: `${slug} discount`.toLowerCase(), match_type: "broad" as const },
+          { text: `where to buy ${slug}`.toLowerCase(), match_type: "broad" as const },
+          { text: `${slug} for sale`.toLowerCase(), match_type: "broad" as const },
         ],
         rsa,
       },

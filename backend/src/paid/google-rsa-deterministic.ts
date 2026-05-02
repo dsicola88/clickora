@@ -30,15 +30,51 @@ function norm(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function clip(s: string, n: number): string {
-  return norm(s).slice(0, n);
-}
-
 function words(s: string, n: number): string {
   return norm(s)
     .split(/\s+/)
     .slice(0, n)
     .join(" ");
+}
+
+/** Separadores onde é seguro cortar uma headline/descrição sem partir uma palavra. */
+const SAFE_SEP_RE = /[\s—\-:,;.·!?]/;
+const TRAIL_SEP_RE = /[\s—\-:,;.·!?]+$/;
+
+/**
+ * Corta `s` para caber em ≤ `max` caracteres preservando a palavra inteira.
+ *
+ * - Devolve `s` (normalizado) se já cabe.
+ * - Se o caractere imediatamente após `max` for separador, corta limpo.
+ * - Caso contrário, recua até ao último separador dentro de `max` chars.
+ * - Se isso significar perder mais de 40 % do conteúdo, devolve `null`
+ *   para o caller poder tentar um template alternativo (ex.: usar `slug1`).
+ *
+ * Esta é a peça que evita output como "TonicGreens Presentation You C"
+ * ou "official info at tonic.phytogree.n" que o Google Ads marca com
+ * "Qualidade do anúncio: Ruim".
+ */
+export function clipAtWord(s: string, max: number): string | null {
+  const t = norm(s);
+  if (!t) return null;
+  if (t.length <= max) return t;
+  /** Corte limpo: o caractere a seguir ao limite já é separador. */
+  if (SAFE_SEP_RE.test(t.charAt(max))) {
+    const cut = t.slice(0, max).replace(TRAIL_SEP_RE, "").trim();
+    return cut || null;
+  }
+  /** Recua até ao último separador. */
+  const candidate = t.slice(0, max);
+  let lastSep = -1;
+  for (let i = candidate.length - 1; i >= 0; i--) {
+    if (SAFE_SEP_RE.test(candidate.charAt(i))) {
+      lastSep = i;
+      break;
+    }
+  }
+  if (lastSep < Math.floor(max * 0.6)) return null;
+  const cut = candidate.slice(0, lastSep).replace(TRAIL_SEP_RE, "").trim();
+  return cut || null;
 }
 
 function hostLabel(url: string): string {
@@ -162,6 +198,27 @@ function fill(template: string, ctx: TemplateContext): string {
 }
 
 /**
+ * Preenche o template e devolve a versão que cabe em `max` chars sem cortar palavras.
+ *
+ * Estratégia em cascata:
+ *   1) `slug2` (até 2 palavras da oferta) — tentativa default
+ *   2) `slug1` (1 palavra) substituído em `{slug2}` e `{slug}` — para marcas longas
+ *
+ * Devolve `null` se nenhuma versão couber sem partir palavras (caller escolhe
+ * outro template do pool em vez de aceitar lixo recortado).
+ */
+function fillAndFit(template: string, ctx: TemplateContext, max: number): string | null {
+  const tryWith = (c: TemplateContext): string | null => clipAtWord(fill(template, c), max);
+  const r1 = tryWith(ctx);
+  if (r1) return r1;
+  if (ctx.slug2 !== ctx.slug1) {
+    const r2 = tryWith({ ...ctx, slug2: ctx.slug1, slug: ctx.slug1 });
+    if (r2) return r2;
+  }
+  return null;
+}
+
+/**
  * Templates dinâmicos *condicionais* aos sinais reais. Cada bloco só corre
  * se o sinal correspondente foi fornecido — isto garante que **nunca**
  * inventamos preço/desconto/garantia/envio/bundle/bónus/certificação/atributo.
@@ -173,28 +230,39 @@ function buildDynamicHeadlines(
 ): string[] {
   const out: string[] = [];
   /**
-   * Rejeita headlines em que o trunc a 30 chars cortou a marca ou um sinal
-   * relevante a meio da palavra (ex.: "Save 77% Off on Long Brand Na…"). Só
-   * aceitamos a versão integral quando cabe — caso contrário, o template
-   * é descartado e o pool tem alternativas que servem.
+   * Aceita uma headline-candidata só se couber inteira em ≤30 chars com corte
+   * por fronteira de palavra. Tenta primeiro com `slug2`; se não couber,
+   * recai para `slug1`. Se nem assim caber, descarta — o pool tem alternativas.
+   *
+   * Também recusa quando o corte perderia o slug ou um sinal relevante
+   * (preço/desconto/garantia/envio/bónus): é o que evita lixo como
+   * "Save 77% Off on Long Brand Na…".
    */
-  const push = (t: string): void => {
-    const full = norm(t);
-    if (!full) return;
-    const c = clip(full, H_MAX);
-    if (full.length > H_MAX) {
-      const slug2Lower = ctx.slug2.toLowerCase();
-      if (slug2Lower && full.toLowerCase().includes(slug2Lower) && !c.toLowerCase().includes(slug2Lower)) {
-        return;
-      }
-      const watch = [s.price, s.discount, s.guarantee, s.shipping, s.bonuses];
-      for (const w of watch) {
-        if (!w) continue;
-        const wl = w.toLowerCase();
-        if (full.toLowerCase().includes(wl) && !c.toLowerCase().includes(wl)) return;
-      }
+  const push = (rawWithSlug2: string): void => {
+    const fitted = (() => {
+      const a = clipAtWord(rawWithSlug2, H_MAX);
+      if (a) return a;
+      if (ctx.slug2 === ctx.slug1) return null;
+      const altRaw = rawWithSlug2.replaceAll(ctx.slug2, ctx.slug1);
+      return clipAtWord(altRaw, H_MAX);
+    })();
+    if (!fitted) return;
+    const fittedLower = fitted.toLowerCase();
+    const fullLower = norm(rawWithSlug2).toLowerCase();
+    /** Se a versão integral mencionava a marca/sinal mas a versão cortada já não, rejeita. */
+    const slug1Lower = ctx.slug1.toLowerCase();
+    const slug2Lower = ctx.slug2.toLowerCase();
+    if (slug2Lower && fullLower.includes(slug2Lower) && !fittedLower.includes(slug1Lower)) {
+      /** Aceita se ainda contém o slug1 (versão curta da marca). */
+      return;
     }
-    out.push(c);
+    const watch = [s.price, s.discount, s.guarantee, s.shipping, s.bonuses];
+    for (const w of watch) {
+      if (!w) continue;
+      const wl = w.toLowerCase();
+      if (fullLower.includes(wl) && !fittedLower.includes(wl)) return;
+    }
+    out.push(fitted);
   };
 
   if (lang === "en") {
@@ -331,47 +399,41 @@ function buildDynamicHeadlines(
   return out;
 }
 
-/** Descrições por idioma — sempre genéricas, sem inventar promo. */
-function staticDescriptions(lang: Lang, ctx: TemplateContext): string[] {
-  if (lang === "pt") {
-    return [
-      `${ctx.slug} explicado em detalhe — informação clara e oficial em ${ctx.host}.`,
-      `${ctx.slug2} pensado para o dia a dia — saiba o que inclui antes de comprar.`,
-      `Compra confiável, checkout rápido e apoio em ${ctx.host}.`,
-      `Visite ${ctx.host}, escolha a sua opção e peça ${ctx.slug2} em minutos.`,
-    ];
-  }
-  if (lang === "es") {
-    return [
-      `${ctx.slug} explicado al detalle — info clara y oficial en ${ctx.host}.`,
-      `${ctx.slug2} hecho para el día a día — descubra qué incluye antes de comprar.`,
-      `Compra fiable, pago rápido y soporte en ${ctx.host}.`,
-      `Visite ${ctx.host}, elija su opción y pida ${ctx.slug2} en minutos.`,
-    ];
-  }
-  if (lang === "de") {
-    return [
-      `${ctx.slug} klar erklärt — alle Infos und das Produkt auf ${ctx.host}.`,
-      `${ctx.slug2} für jeden Tag gemacht — vorab alle Details einsehen.`,
-      `Sicheres Einkaufen, schneller Checkout und Support auf ${ctx.host}.`,
-      `Besuchen Sie ${ctx.host} und bestellen Sie ${ctx.slug2} in Minuten.`,
-    ];
-  }
-  if (lang === "fr") {
-    return [
-      `${ctx.slug} expliqué en détail — info claire et officielle sur ${ctx.host}.`,
-      `${ctx.slug2} pensé pour le quotidien — voyez le contenu avant de commander.`,
-      `Achat fiable, paiement rapide et support sur ${ctx.host}.`,
-      `Visitez ${ctx.host} et commandez ${ctx.slug2} en quelques minutes.`,
-    ];
-  }
-  return [
-    `${ctx.slug} explained in detail — clear, official info at ${ctx.host}.`,
-    `${ctx.slug2} built for everyday use — see what's included before you order.`,
-    `Trusted shopping, fast checkout and full support at ${ctx.host}.`,
-    `Visit ${ctx.host} today, choose your option and order ${ctx.slug2} in minutes.`,
-  ];
-}
+/** Templates de descrições por idioma — sempre genéricos, sem inventar promo.
+ *  São strings com placeholders ({slug}, {slug2}, {host}) para `fillAndFit`
+ *  poder cair de slug2 → slug1 quando a versão completa não cabe em 90 chars. */
+const STATIC_DESCRIPTION_TEMPLATES: Record<Lang, string[]> = {
+  pt: [
+    "{slug} explicado em detalhe — informação clara e oficial em {host}.",
+    "{slug2} pensado para o dia a dia — saiba o que inclui antes de comprar.",
+    "Compra confiável, checkout rápido e apoio em {host}.",
+    "Visite {host}, escolha a sua opção e peça {slug2} em minutos.",
+  ],
+  es: [
+    "{slug} explicado al detalle — info clara y oficial en {host}.",
+    "{slug2} hecho para el día a día — descubra qué incluye antes de comprar.",
+    "Compra fiable, pago rápido y soporte en {host}.",
+    "Visite {host}, elija su opción y pida {slug2} en minutos.",
+  ],
+  de: [
+    "{slug} klar erklärt — alle Infos und das Produkt auf {host}.",
+    "{slug2} für jeden Tag gemacht — vorab alle Details einsehen.",
+    "Sicheres Einkaufen, schneller Checkout und Support auf {host}.",
+    "Besuchen Sie {host} und bestellen Sie {slug2} in Minuten.",
+  ],
+  fr: [
+    "{slug} expliqué en détail — info claire et officielle sur {host}.",
+    "{slug2} pensé pour le quotidien — voyez le contenu avant de commander.",
+    "Achat fiable, paiement rapide et support sur {host}.",
+    "Visitez {host} et commandez {slug2} en quelques minutes.",
+  ],
+  en: [
+    "{slug} explained in detail — clear, official info at {host}.",
+    "{slug2} built for everyday use — see what's included before you order.",
+    "Trusted shopping, fast checkout and full support at {host}.",
+    "Visit {host} today, choose your option and order {slug2} in minutes.",
+  ],
+};
 
 /**
  * Descrições dinâmicas — cada uma só é candidata se TODOS os sinais que
@@ -384,9 +446,19 @@ function buildDynamicDescriptions(
   s: GoogleProductSignals,
 ): string[] {
   const out: string[] = [];
-  const push = (t: string): void => {
-    const c = clip(t, D_MAX);
-    if (c) out.push(c);
+  /** Aceita uma descrição-candidata só se couber inteira em ≤90 chars sem partir palavras.
+   *  Tenta primeiro a versão com `slug2`; se não couber, retenta substituindo por `slug1`.
+   *  Se nem assim, descarta — as descrições estáticas posteriores preenchem. */
+  const push = (rawWithSlug2: string): void => {
+    const c = clipAtWord(rawWithSlug2, D_MAX);
+    if (c) {
+      out.push(c);
+      return;
+    }
+    if (ctx.slug2 === ctx.slug1) return;
+    const altRaw = rawWithSlug2.replaceAll(ctx.slug2, ctx.slug1);
+    const c2 = clipAtWord(altRaw, D_MAX);
+    if (c2) out.push(c2);
   };
 
   if (lang === "en") {
@@ -524,8 +596,8 @@ function selectHeadlines(
   const seen = new Set<string>();
   const picked: string[] = [];
 
-  const tryPush = (raw: string): void => {
-    const filled = clip(fill(raw, ctx), H_MAX);
+  const tryPush = (template: string): void => {
+    const filled = fillAndFit(template, ctx, H_MAX);
     if (!filled) return;
     const key = filled.toLowerCase();
     if (seen.has(key)) return;
@@ -578,8 +650,10 @@ function selectDescriptions(
   const seen = new Set<string>();
   const out: string[] = [];
 
-  const tryPush = (raw: string): void => {
-    const c = clip(raw, D_MAX);
+  /** Aceita uma descrição-candidata pré-renderizada (já com substituições) — usada para
+   *  as dinâmicas de signals que não passam por `fillAndFit` porque incluem valores reais. */
+  const tryPushFitted = (raw: string): void => {
+    const c = clipAtWord(raw, D_MAX);
     if (!c) return;
     const key = c.toLowerCase();
     if (seen.has(key)) return;
@@ -587,18 +661,29 @@ function selectDescriptions(
     out.push(c);
   };
 
+  /** Aceita um template estático (com {slug}/{slug2}/{host}) — usa fillAndFit para
+   *  cair em slug1 se a versão com slug2 não couber sem cortar palavras. */
+  const tryPushTemplate = (template: string): void => {
+    const filled = fillAndFit(template, ctx, D_MAX);
+    if (!filled) return;
+    const key = filled.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(filled);
+  };
+
   /** Sinais reais primeiro — até 3 descrições. */
   if (signals) {
     for (const d of buildDynamicDescriptions(lang, ctx, signals)) {
       if (out.length >= 3) break;
-      tryPush(d);
+      tryPushFitted(d);
     }
   }
 
   /** Completa com descrições estáticas (sempre verdadeiras). */
-  for (const d of staticDescriptions(lang, ctx)) {
+  for (const d of STATIC_DESCRIPTION_TEMPLATES[lang]) {
     if (out.length >= 4) break;
-    tryPush(d);
+    tryPushTemplate(d);
   }
 
   return out.slice(0, 4);
