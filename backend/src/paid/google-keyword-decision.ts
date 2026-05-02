@@ -45,6 +45,21 @@ export type KeywordDecisionLayer = {
   budget_insight_pt: string | null;
 };
 
+/** Ponto da série de volume (mensal vindo da API ou sintético). */
+export type KeywordVolumeTrendPoint = {
+  year: number;
+  month: number;
+  /** Reservado — o servidor envia null; granularidade diária é derivada no cliente. */
+  day: number | null;
+  volume: number;
+};
+
+export type KeywordVolumeTrend = {
+  points: KeywordVolumeTrendPoint[];
+  point_source: "google_monthly" | "synthetic_from_average" | "estimated_model";
+  disclaimer_pt: string;
+};
+
 export type GoogleKeywordInsightOk = {
   ok: true;
   keyword: string;
@@ -65,6 +80,8 @@ export type GoogleKeywordInsightOk = {
   /** Se false, o CPC médio mostrado foi preenchido por heurística (a API não devolveu averageCpc). */
   cpc_from_google_ads: boolean;
   decision: KeywordDecisionLayer;
+  /** Série temporal para o gráfico (mensal na API; diário = granularidade derivada no cliente). */
+  volume_trend: KeywordVolumeTrend;
 };
 
 function fnv1a32(s: string): number {
@@ -479,6 +496,75 @@ function analysisBulletsGoogle(vol: number, comp: KeywordCompetition, iso: strin
   return bullets;
 }
 
+function sortVolumePoints(pts: KeywordVolumeTrendPoint[]): KeywordVolumeTrendPoint[] {
+  return [...pts].sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    if (a.month !== b.month) return a.month - b.month;
+    const da = a.day ?? 0;
+    const db = b.day ?? 0;
+    return da - db;
+  });
+}
+
+function buildSyntheticMonthlyFromAverage(
+  avgMonthly: number,
+  monthsBack: number,
+  seed: number,
+): KeywordVolumeTrendPoint[] {
+  const out: KeywordVolumeTrendPoint[] = [];
+  const now = new Date();
+  const base = Math.max(1, avgMonthly);
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const j = jitter(seed + i * 97, 0.88, 1.14);
+    const seasonal = 1 + 0.08 * Math.sin(((monthsBack - 1 - i) / 12) * Math.PI * 2);
+    const v = Math.max(0, Math.round(base * j * seasonal));
+    out.push({ year: d.getFullYear(), month: d.getMonth() + 1, day: null, volume: v });
+  }
+  return sortVolumePoints(out);
+}
+
+function buildKeywordVolumeTrend(args: {
+  monthlyAvg: number;
+  planner: PlannerSnapshot | null;
+  metrics_source: KeywordMetricsSource;
+  seed: number;
+}): KeywordVolumeTrend {
+  const { monthlyAvg, planner, metrics_source, seed } = args;
+  const safeAvg = Math.max(0, monthlyAvg);
+
+  if (planner != null && planner.monthly_search_volumes.length > 0) {
+    const pts: KeywordVolumeTrendPoint[] = planner.monthly_search_volumes.map((r) => ({
+      year: r.year,
+      month: r.month,
+      day: null,
+      volume: Math.max(0, Math.round(r.monthly_searches)),
+    }));
+    return {
+      points: sortVolumePoints(pts),
+      point_source: "google_monthly",
+      disclaimer_pt:
+        "Valores mensais segundo o Google Ads (Keyword Ideas). Podem diferir da média exibida para o conjunto do período.",
+    };
+  }
+
+  if (metrics_source === "google_ads") {
+    return {
+      points: buildSyntheticMonthlyFromAverage(safeAvg > 0 ? safeAvg : 100, 12, seed),
+      point_source: "synthetic_from_average",
+      disclaimer_pt:
+        "A API não devolveu histórico mês a mês — a curva foi repartida a partir da média mensal (apenas para leitura visual).",
+    };
+  }
+
+  const base = safeAvg > 0 ? safeAvg : 500;
+  return {
+    points: buildSyntheticMonthlyFromAverage(base, 24, seed + 11),
+    point_source: "estimated_model",
+    disclaimer_pt: "Tendência gerada pelo modelo interno. Ligue a conta Google Ads ao projeto para dados oficiais.",
+  };
+}
+
 export async function runGoogleKeywordInsight(
   raw: GoogleKeywordInsightInput,
   opts?: { planner?: PlannerSnapshot | null },
@@ -575,6 +661,13 @@ export async function runGoogleKeywordInsight(
     local_cpc: local ? { amount: local.amount, suffix: local.suffix } : null,
   });
 
+  const volume_trend = buildKeywordVolumeTrend({
+    monthlyAvg: monthly,
+    planner,
+    metrics_source,
+    seed,
+  });
+
   return {
     ok: true,
     keyword: kw,
@@ -594,6 +687,7 @@ export async function runGoogleKeywordInsight(
     metrics_source,
     cpc_from_google_ads,
     decision,
+    volume_trend,
   };
 }
 

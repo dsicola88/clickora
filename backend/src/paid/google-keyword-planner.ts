@@ -13,7 +13,63 @@ export type PlannerSnapshot = {
   monthly_volume: number;
   avg_cpc_units: number;
   competition: "low" | "medium" | "high";
+  /** Histórico mensal quando a API devolve `monthlySearchVolumes` (Keyword Ideas). */
+  monthly_search_volumes: Array<{ year: number; month: number; monthly_searches: number }>;
 };
+
+const MONTH_ENUM: Record<string, number> = {
+  JANUARY: 1,
+  FEBRUARY: 2,
+  MARCH: 3,
+  APRIL: 4,
+  MAY: 5,
+  JUNE: 6,
+  JULY: 7,
+  AUGUST: 8,
+  SEPTEMBER: 9,
+  OCTOBER: 10,
+  NOVEMBER: 11,
+  DECEMBER: 12,
+};
+
+function parsePlannerMonth(raw: unknown): number {
+  if (typeof raw === "number" && raw >= 1 && raw <= 12) return Math.floor(raw);
+  const s = String(raw ?? "")
+    .toUpperCase()
+    .replace(/^MONTH_OF_YEAR_/i, "");
+  if (MONTH_ENUM[s] != null) return MONTH_ENUM[s]!;
+  const n = parseInt(String(raw).replace(/\D/g, ""), 10);
+  if (n >= 1 && n <= 12) return n;
+  return 0;
+}
+
+function parsePlannerYear(raw: unknown): number {
+  const n = Number(raw);
+  if (Number.isFinite(n) && n >= 2000 && n <= 2100) return Math.floor(n);
+  return 0;
+}
+
+function extractMonthlySearchVolumes(m: Record<string, unknown>): Array<{
+  year: number;
+  month: number;
+  monthly_searches: number;
+}> {
+  const raw = m.monthlySearchVolumes ?? m.monthly_search_volumes;
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ year: number; month: number; monthly_searches: number }> = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const year = parsePlannerYear(o.year ?? o.year_);
+    const month = parsePlannerMonth(o.month ?? o.month_ ?? o.monthOfYear);
+    let vol = numFromProto(o.monthlySearches ?? o.monthly_searches ?? o.monthly_searches_);
+    if (year < 2000 || month < 1 || month > 12) continue;
+    if (!Number.isFinite(vol) || vol < 0) vol = 0;
+    out.push({ year, month, monthly_searches: Math.round(vol) });
+  }
+  out.sort((a, b) => (a.year - b.year) || (a.month - b.month));
+  return out;
+}
 
 function normalizePhrase(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -147,6 +203,8 @@ export async function fetchKeywordPlannerMetrics(
       ? Math.round(avgCpcUnits * 100) / 100
       : 0;
 
+  const monthly_search_volumes = extractMonthlySearchVolumes(m);
+
   /** CPC pode faltar em nichos com poucos dados — aí o UI combina com heurística no serviço de insight. */
   if (monthly_volume === 0 && avg_cpc_units <= 0) return { ok: false };
 
@@ -156,6 +214,7 @@ export async function fetchKeywordPlannerMetrics(
       monthly_volume,
       avg_cpc_units,
       competition,
+      monthly_search_volumes,
     },
   };
 }

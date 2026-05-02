@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { countryLabel } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
+import { DpilotKeywordVolumeTrendChart } from "./DpilotKeywordVolumeTrendChart";
 
 function formatPtInt(n: number): string {
   return new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 0 }).format(n);
@@ -38,6 +39,11 @@ export type DpilotKeywordInsight = {
   metrics_source: "estimated" | "google_ads";
   cpc_from_google_ads: boolean;
   decision: DpilotKeywordDecision;
+  volume_trend: {
+    points: Array<{ year: number; month: number; day: number | null; volume: number }>;
+    point_source: "google_monthly" | "synthetic_from_average" | "estimated_model";
+    disclaimer_pt: string;
+  };
 };
 
 export function DpilotKeywordDecisionCard({
@@ -152,6 +158,7 @@ export function DpilotKeywordDecisionCard({
         metrics_source: data.metrics_source,
         cpc_from_google_ads: data.cpc_from_google_ads,
         decision: data.decision,
+        volume_trend: data.volume_trend,
       });
     } finally {
       setLoadingInsight(false);
@@ -290,6 +297,13 @@ export function DpilotKeywordDecisionCard({
               <div className="font-semibold text-foreground">{insight.competition_label_pt}</div>
             </div>
           </div>
+
+          <DpilotKeywordVolumeTrendChart
+            key={insight.generated_at}
+            trend={insight.volume_trend}
+            keyword={insight.keyword}
+            countryCode={insight.country_code}
+          />
 
           <div className="space-y-2 rounded-lg border border-violet-500/20 bg-violet-500/[0.04] p-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">

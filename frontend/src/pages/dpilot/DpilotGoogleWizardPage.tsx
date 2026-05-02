@@ -17,6 +17,16 @@ import { DpilotKeywordDecisionCard } from "./DpilotKeywordDecisionCard";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
+import {
+  DpilotGoogleWizardCampaignTypeStep,
+  DpilotGoogleWizardDetailsStepHeader,
+  DpilotGoogleWizardObjectiveStep,
+  GOOGLE_WIZARD_OBJECTIVES,
+} from "./DpilotGoogleWizardCampaignSetup";
+
+const DEFAULT_LEADS_OBJECTIVE =
+  GOOGLE_WIZARD_OBJECTIVES.find((o) => o.id === "leads")?.objective ??
+  "Gerar pedidos de contacto ou inscrições qualificadas com custo por lead sob controlo.";
 
 const schema = z.object({
   landingUrl: z.string().url("Informe uma URL válida").max(500),
@@ -24,25 +34,6 @@ const schema = z.object({
   objective: z.string().trim().min(3, "Indique o objetivo da campanha").max(200),
   dailyBudgetUsd: z.number().min(1).max(100000),
 });
-
-const OBJECTIVE_SUGGESTIONS: { label: string; objective: string }[] = [
-  {
-    label: "Leads / contactos",
-    objective: "Gerar pedidos de contacto ou inscrições qualificadas com custo por lead sob controlo.",
-  },
-  {
-    label: "Vendas / demos",
-    objective: "Gerar demos agendadas ou compras/conversões com foco em retorno sobre investimento.",
-  },
-  {
-    label: "Tráfego ao site",
-    objective: "Aumentar visitas qualificadas à landing e melhorar o custo médio por clique.",
-  },
-  {
-    label: "Marca / alcance",
-    objective: "Aumentar notoriedade e presença em pesquisas relevantes para a marca.",
-  },
-];
 
 type GoogleBiddingStrategy =
   | "manual_cpc"
@@ -84,7 +75,7 @@ export function DpilotGoogleWizardPage() {
 
   const [landingUrl, setLandingUrl] = useState("");
   const [offer, setOffer] = useState("");
-  const [objective, setObjective] = useState("Gerar leads no período de teste gratuito");
+  const [objective, setObjective] = useState(DEFAULT_LEADS_OBJECTIVE);
   const [dailyBudget, setDailyBudget] = useState("25");
   /** Cliques alvo por dia — alimenta o cálculo de CPC e o motor de decisão da análise de keyword. */
   const [desiredClicks, setDesiredClicks] = useState("");
@@ -522,7 +513,7 @@ export function DpilotGoogleWizardPage() {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="font-normal">
-                IA · Search
+                Google Ads · Search
               </Badge>
               <Button variant="ghost" asChild>
                 <Link to={`${base}/campanhas`}>
@@ -532,12 +523,16 @@ export function DpilotGoogleWizardPage() {
             </div>
           }
         />
-        <div className="mx-auto max-w-3xl space-y-5 px-0 py-4 sm:px-1 sm:py-6">
+        <div className="mx-auto max-w-5xl space-y-5 px-0 py-4 sm:px-1 sm:py-6">
           <DpilotCampaignReadinessCard platform="google" />
           <form
             onSubmit={onSubmit}
-            className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
+            className="space-y-6 rounded-2xl border border-border bg-card p-6 shadow-sm"
           >
+            <DpilotGoogleWizardObjectiveStep objective={objective} onObjectiveChange={setObjective} />
+            <DpilotGoogleWizardCampaignTypeStep />
+            <DpilotGoogleWizardDetailsStepHeader />
+
             <Field
               label="URL da landing page"
               hint="Cola o URL — a IA lê a página automaticamente e preenche os campos abaixo. Tudo é editável."
@@ -631,32 +626,6 @@ export function DpilotGoogleWizardPage() {
               </div>
             </Field>
 
-            <Field label="Objetivo da campanha">
-              <div className="flex flex-wrap gap-1.5 pb-2" role="group" aria-label="Sugestões de objetivo">
-                {OBJECTIVE_SUGGESTIONS.map((s) => (
-                  <Button
-                    key={s.label}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 rounded-full text-xs font-normal"
-                    onClick={() => setObjective(s.objective)}
-                  >
-                    {s.label}
-                  </Button>
-                ))}
-              </div>
-              <Textarea
-                id="g-wiz-objective"
-                rows={2}
-                maxLength={200}
-                value={objective}
-                onChange={(e) => setObjective(e.target.value)}
-                placeholder='Ex.: "Gerar ≥20 pedidos de demo qualificados por semana ao custo médio inferior a X € por demo."'
-                required
-              />
-              <p className="mt-1 text-right tabular-nums text-[11px] text-muted-foreground">{objective.length}/200</p>
-            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Orçamento diário (USD)">
                 <Input

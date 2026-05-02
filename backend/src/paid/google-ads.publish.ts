@@ -519,6 +519,8 @@ export async function publishGoogleSearchCampaignFromLocal(
     const agResourceByLocalId = new Map<string, string>();
     const keywordsLinkedByAg = new Map<string, number>();
     const rsaLinkedByAg = new Map<string, number>();
+    /** Última mensagem de falha ao criar RSA (por ad group), para o utilizador ver o motivo no UI. */
+    const lastRsaFailureMsgByAg = new Map<string, string>();
 
     /** Lance máximo CPC vindo do utilizador (campo «Cliques alvo» × estratégia `manual_cpc`).
      *  Quando definido, aplicamos como `cpcBidMicros` no AdGroup — passa a ser o lance por defeito
@@ -649,11 +651,13 @@ export async function publishGoogleSearchCampaignFromLocal(
             });
           }
         } catch (re) {
+          const msg = re instanceof Error ? re.message : String(re);
+          lastRsaFailureMsgByAg.set(ag.id, msg);
           publishLog("warn", "rsa.failed", {
             campaignId,
             adGroupId: ag.id,
             rsaId: rsa.id,
-            message: re instanceof Error ? re.message : String(re),
+            message: msg,
           });
           continue;
         }
@@ -688,6 +692,10 @@ export async function publishGoogleSearchCampaignFromLocal(
             ? "sem anúncios RSA criados na rede (revise títulos, URL e políticas)"
             : "sem palavras-chave válidas na rede";
       const agLabel = (ag.name ?? "").trim() || ag.id;
+      const googleDetail = lastRsaFailureMsgByAg.get(ag.id);
+      const googleBit = googleDetail
+        ? ` Motivo reportado: ${humanizeGoogleAdsPublishError(googleDetail).slice(0, 480)}`
+        : "";
 
       publishLog("error", "publish.partialFailure", {
         campaignId,
@@ -700,7 +708,7 @@ export async function publishGoogleSearchCampaignFromLocal(
       return {
         ok: false,
         error: humanizeGoogleAdsPublishError(
-          `Campanha ${extCamp} criada no Google mas ficou incompleta (${detail}) no grupo «${agLabel}». Abra o Google Ads para rever ou eliminar o rascunho.`,
+          `Campanha ${extCamp} criada no Google mas ficou incompleta (${detail}) no grupo «${agLabel}».${googleBit} Abra o Google Ads para rever ou eliminar o rascunho.`,
         ),
       };
     }

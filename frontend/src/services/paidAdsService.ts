@@ -281,6 +281,11 @@ export const paidAdsService = {
         next_action_pt: string;
         budget_insight_pt: string | null;
       };
+      volume_trend: {
+        points: Array<{ year: number; month: number; day: number | null; volume: number }>;
+        point_source: "google_monthly" | "synthetic_from_average" | "estimated_model";
+        disclaimer_pt: string;
+      };
     }>(`/paid/projects/${projectId}/google-keyword-insight`, body);
   },
 
