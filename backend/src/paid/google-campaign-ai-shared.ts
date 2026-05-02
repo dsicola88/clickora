@@ -35,7 +35,9 @@ Rules:
 - 2-3 ad groups, each tightly themed.
 - 5-10 keywords per ad group across exact/phrase/broad mix.
 - RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Each headline should ideally use 18-30 characters — avoid bare brand-only headlines, single words, or tepid filler; weave in concrete benefits, differentiators or commercial keywords. Across the 12 headlines, vary the angle: at least one CTA, one benefit, one proof/quality cue, one urgency/availability cue, and one branded headline naming the offer. Do NOT repeat the same stem (e.g. "Try X / Discover X / Buy X / Best X") more than once.
-- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with the Offer and what the Landing URL actually delivers.
+- KEYWORD DENSITY (critical for Google Quality Score): at least 9 of the 12 headlines MUST contain the offer brand/keyword (the exact "Offer" string from the user prompt, or its first 1-2 words). The remaining 2-3 headlines may omit the keyword for variety, but never make them the majority. Never produce a set where the keyword appears in fewer than 9 headlines.
+- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with the Offer and what the Landing URL actually delivers. At least 2 of the 4 descriptions should mention the offer brand/keyword.
+- Promotional claims (price, discount, free shipping, money-back guarantee, free trial, limited stock): include them ONLY if they appear explicitly in the user prompt (Offer or Objective text). NEVER fabricate prices, percentages, time-limits or guarantees that are not provided.
 - Keywords must be commercial-intent, not brand-only.
 - Never include the user's blocked keywords.
 
