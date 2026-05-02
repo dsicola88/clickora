@@ -32,15 +32,29 @@ function hashSeed(s: string): number {
   return h >>> 0;
 }
 
-/** Reparte um mês em dias com padrão determinístico; normaliza para somar ao volume mensal. */
+/** Reparte um mês em dias com padrão determinístico; normaliza para somar ao volume mensal.
+ *  Nunca inventa dias depois de «hoje» no mês corrente; meses futuros devolvem lista vazia. */
 function expandMonthToDaily(
   year: number,
   month: number,
   monthVolume: number,
   seed: number,
+  now: Date,
 ): { key: string; label: string; volume: number; t: number }[] {
-  const days = new Date(year, month, 0).getDate();
-  const weights = Array.from({ length: days }, (_, i) => {
+  const yNow = now.getFullYear();
+  const mNow = now.getMonth() + 1;
+  const dNow = now.getDate();
+
+  if (year > yNow || (year === yNow && month > mNow)) {
+    return [];
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const isCurrentMonth = year === yNow && month === mNow;
+  const lastDayInclusive = isCurrentMonth ? Math.min(daysInMonth, dNow) : daysInMonth;
+  if (lastDayInclusive < 1) return [];
+
+  const weights = Array.from({ length: lastDayInclusive }, (_, i) => {
     const d = i + 1;
     const weekend = [0, 6].includes(new Date(year, month - 1, d).getDay()) ? 0.88 : 1.05;
     const noise = 0.82 + ((seed + d * 47) % 37) / 100;
@@ -93,12 +107,18 @@ export function DpilotKeywordVolumeTrendChart({
       if (Number.isFinite(y)) pts = pts.filter((p) => p.year === y);
     }
     pts.sort((a, b) => a.year - b.year || a.month - b.month);
-    if (rangePreset === "12" && pts.length > 12) pts = pts.slice(-12);
+    const today = new Date();
+    const cy = today.getFullYear();
+    const cm = today.getMonth() + 1;
+    pts = pts.filter((p) => p.year < cy || (p.year === cy && p.month <= cm));
+    if (rangePreset === "1" && pts.length > 1) pts = pts.slice(-1);
+    else if (rangePreset === "12" && pts.length > 12) pts = pts.slice(-12);
     else if (rangePreset === "24" && pts.length > 24) pts = pts.slice(-24);
     return pts;
   }, [trend.points, yearFilter, rangePreset]);
 
   const chartData = useMemo(() => {
+    const now = new Date();
     if (granularity === "year") {
       const byYear = new Map<number, number>();
       for (const p of filteredMonths) {
@@ -115,7 +135,7 @@ export function DpilotKeywordVolumeTrendChart({
     if (granularity === "day") {
       const rows: { key: string; label: string; volume: number }[] = [];
       for (const p of filteredMonths) {
-        rows.push(...expandMonthToDaily(p.year, p.month, p.volume, seed + p.month * 13));
+        rows.push(...expandMonthToDaily(p.year, p.month, p.volume, seed + p.month * 13, now));
       }
       return rows;
     }
@@ -132,7 +152,7 @@ export function DpilotKeywordVolumeTrendChart({
     return (
       <div className="space-y-2 rounded-xl border border-border/90 bg-muted/20 p-4 text-center text-[12px] text-muted-foreground">
         <p className="font-medium text-foreground">Tendência de pesquisa</p>
-        <p>Não há pontos para os filtros seleccionados. Experimente «Todos os anos» ou «Toda a série».</p>
+        <p>Não há pontos para os filtros seleccionados. Experimente «Todos os anos», «Último mês» ou «Toda a série».</p>
       </div>
     );
   }
@@ -172,6 +192,7 @@ export function DpilotKeywordVolumeTrendChart({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="1">Último mês</SelectItem>
               <SelectItem value="12">Últimos 12 meses</SelectItem>
               <SelectItem value="24">Últimos 24 meses</SelectItem>
               <SelectItem value="all">Toda a série</SelectItem>
@@ -268,7 +289,8 @@ export function DpilotKeywordVolumeTrendChart({
       <p className="text-[10px] leading-relaxed text-muted-foreground">{trend.disclaimer_pt}</p>
       {granularity === "day" ? (
         <p className="text-[10px] leading-relaxed text-amber-800/90 dark:text-amber-200/90">
-          Vista diária: distribuição indicativa a partir dos totais mensais (não é dado horário da API).
+          Vista diária: distribuição indicativa a partir dos totais mensais (não é dado horário da API). No mês corrente só
+          aparecem dias até à data de hoje — não são gerados dias futuros.
         </p>
       ) : null}
     </div>
