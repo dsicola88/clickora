@@ -36,8 +36,14 @@ function parseMonthControlValue(s: string): { y: number; m: number } | null {
   return { y, m: mo };
 }
 
-function monthIndexDiff(a: { y: number; m: number }, b: { y: number; m: number }): number {
-  return (b.y - a.y) * 12 + (b.m - a.m);
+function monthIndex(y: number, m: number): number {
+  return y * 100 + m;
+}
+
+function currentCalendarMonthMaxStr(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 }
 
 export type DpilotKeywordDecision = {
@@ -163,6 +169,8 @@ export function DpilotKeywordDecisionCard({
     return plannerCountryCodes.map((c) => countryLabel(c)).join(", ");
   }, [plannerCountryCodes]);
 
+  const metricsMonthMaxStr = currentCalendarMonthMaxStr();
+
   const runInsight = async () => {
     const kw = draft.trim();
     if (kw.length < 2) {
@@ -193,6 +201,12 @@ export function DpilotKeywordDecisionCard({
       }
       if (monthIndexDiff(a, b) > 48) {
         toast.error("Intervalo demasiado largo", { description: "Máximo 48 meses (limite do servidor)." });
+        return;
+      }
+      const now = new Date();
+      const cur = monthIndex(now.getFullYear(), now.getMonth() + 1);
+      if (monthIndex(a.y, a.m) > cur || monthIndex(b.y, b.m) > cur) {
+        toast.error("Datas no futuro", { description: "O intervalo só pode ir até ao mês corrente (métricas históricas)." });
         return;
       }
       metricsPayload = {
@@ -350,8 +364,13 @@ export function DpilotKeywordDecisionCard({
                 id="kw-metrics-start"
                 type="month"
                 className="h-9 text-xs"
+                max={metricsMonthMaxStr}
                 value={customRange.start}
-                onChange={(e) => setCustomRange((r) => ({ ...r, start: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const next = v > metricsMonthMaxStr ? metricsMonthMaxStr : v;
+                  setCustomRange((r) => ({ ...r, start: next }));
+                }}
               />
             </div>
             <div className="flex-1 space-y-0.5">
@@ -362,14 +381,19 @@ export function DpilotKeywordDecisionCard({
                 id="kw-metrics-end"
                 type="month"
                 className="h-9 text-xs"
+                max={metricsMonthMaxStr}
                 value={customRange.end}
-                onChange={(e) => setCustomRange((r) => ({ ...r, end: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const next = v > metricsMonthMaxStr ? metricsMonthMaxStr : v;
+                  setCustomRange((r) => ({ ...r, end: next }));
+                }}
               />
             </div>
           </div>
         ) : null}
         <p className="text-[10px] leading-snug text-muted-foreground">
-          Para aproximar o que vês no Keyword Planner, usa o mesmo intervalo de datas. A predefinição segue a API Google.
+          Para aproximar o que vês no Keyword Planner, usa o mesmo intervalo de datas (só até ao mês corrente — dados históricos). A predefinição segue a API Google.
         </p>
       </div>
 

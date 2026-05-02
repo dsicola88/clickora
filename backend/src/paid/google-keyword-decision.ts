@@ -56,6 +56,17 @@ export const googleKeywordInsightInputSchema = z.object({
         path: ["keywordMetricsRange"],
       });
     }
+    const now = new Date();
+    const curY = now.getFullYear();
+    const curM = now.getMonth() + 1;
+    const cur = curY * 100 + curM;
+    if (a > cur || b > cur) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Métricas históricas só até ao mês corrente; ajuste início e fim.",
+        path: ["keywordMetricsRange"],
+      });
+    }
   });
 export type GoogleKeywordInsightInput = z.infer<typeof googleKeywordInsightInputSchema>;
 
