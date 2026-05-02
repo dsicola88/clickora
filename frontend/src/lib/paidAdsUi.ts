@@ -178,6 +178,11 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
   if (/invalid\s+argument/i.test(m)) {
     return "O Google Ads devolveu «invalid argument»: confirme liga OAuth, orçamento mínimo e critérios. Se já corrigiu o rascunho, pode tentar de novo.";
   }
+  if (/ACTION_NOT_PERMITTED_FOR_SUSPENDED_ACCOUNT|account is suspended|suspended account/i.test(m)) {
+    return (
+      "Conta Google Ads suspensa ou restrita — a Google bloqueia alterações até regularizares a conta em ads.google.com (e-mail e políticas da conta). Depois de resolvido, tenta outra vez «Aplicar na rede»."
+    );
+  }
   return null;
 }
 

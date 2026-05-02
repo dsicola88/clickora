@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { friendlyGoogleAdsNetworkError } from "@/lib/paidAdsUi";
 import {
   paidAdsService,
   type CampaignRow,
@@ -261,9 +262,13 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       try {
         const { error } = await paidAdsService.reviewChangeRequest({ id, status });
         if (error) {
+          const digest = friendlyGoogleAdsNetworkError(error) ?? error;
           const longErr =
-            error.length > 120 || error.includes("Como corrigir") || error.includes("até corrigir");
-          toast.error(error, {
+            digest.length > 120 ||
+            digest.includes("Como corrigir") ||
+            digest.includes("até corrigir") ||
+            digest.includes("suspensa");
+          toast.error(digest, {
             duration: longErr ? 16_000 : 5000,
           });
           return;
