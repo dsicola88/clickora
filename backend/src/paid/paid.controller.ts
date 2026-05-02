@@ -506,6 +506,8 @@ export const paidController = {
         keyword: body.data.keyword,
         countryCodes: codes,
         languageCode: body.data.languageCode,
+        keywordMetricsTimeframe: body.data.keywordMetricsTimeframe,
+        keywordMetricsRange: body.data.keywordMetricsRange,
       });
       const out = await runGoogleKeywordInsight(body.data, {
         planner: plannerHit.ok ? plannerHit.snapshot : null,

@@ -22,8 +22,41 @@ export const googleKeywordInsightInputSchema = z.object({
   /** Cliques alvo/dia do wizard — cruza com orçamento e CPC médio. */
   desiredClicksPerDay: z.number().int().min(1).max(50_000).optional(),
   offerContext: z.string().trim().max(500).optional(),
-});
-
+  /**
+   * Janela temporal das métricas no Keyword Ideas (só Google).
+   * Se `keywordMetricsRange` existir, tem precedência sobre `keywordMetricsTimeframe`.
+   */
+  keywordMetricsTimeframe: z.enum(["default", "last_24", "last_36"]).optional(),
+  keywordMetricsRange: z
+    .object({
+      startYear: z.number().int().min(2000).max(2100),
+      startMonth: z.number().int().min(1).max(12),
+      endYear: z.number().int().min(2000).max(2100),
+      endMonth: z.number().int().min(1).max(12),
+    })
+    .optional(),
+})
+  .superRefine((val, ctx) => {
+    const r = val.keywordMetricsRange;
+    if (!r) return;
+    const a = r.startYear * 100 + r.startMonth;
+    const b = r.endYear * 100 + r.endMonth;
+    if (a > b) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Intervalo inválido: início deve ser anterior ou igual ao fim.",
+        path: ["keywordMetricsRange"],
+      });
+    }
+    const months = (r.endYear - r.startYear) * 12 + (r.endMonth - r.startMonth);
+    if (months > 48) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Intervalo máximo: 48 meses (limite prático alinhado à API).",
+        path: ["keywordMetricsRange"],
+      });
+    }
+  });
 export type GoogleKeywordInsightInput = z.infer<typeof googleKeywordInsightInputSchema>;
 
 export const googleKeywordSuggestInputSchema = z.object({
@@ -571,6 +604,22 @@ function buildKeywordVolumeTrend(args: {
   };
 }
 
+function keywordMetricsTemporalNotePt(input: GoogleKeywordInsightInput): string {
+  const r = input.keywordMetricsRange;
+  if (r) {
+    const sm = String(r.startMonth).padStart(2, "0");
+    const em = String(r.endMonth).padStart(2, "0");
+    return ` Janela temporal: intervalo personalizado (${r.startYear}-${sm} a ${r.endYear}-${em}) pedido à API Google.`;
+  }
+  if (input.keywordMetricsTimeframe === "last_24") {
+    return " Janela temporal: últimos 24 meses até ao mês corrente (pedido explícito à API).";
+  }
+  if (input.keywordMetricsTimeframe === "last_36") {
+    return " Janela temporal: últimos 36 meses até ao mês corrente (pedido explícito à API).";
+  }
+  return " Janela temporal: predefinição da API (~12 meses em média). Para outro período — como no Keyword Planner — use 24/36 meses ou intervalo personalizado (até 48 meses).";
+}
+
 export async function runGoogleKeywordInsight(
   raw: GoogleKeywordInsightInput,
   opts?: { planner?: PlannerSnapshot | null },
@@ -629,8 +678,7 @@ export async function runGoogleKeywordInsight(
   }
 
   if (metrics_source === "google_ads") {
-    dataNote +=
-      " Janela temporal: média segundo a API Google (por omissão ~últimos 12 meses); pode não coincidir com um intervalo personalizado no site do Keyword Planner.";
+    dataNote += keywordMetricsTemporalNotePt(input);
   }
 
   const multiGeo =

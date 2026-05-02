@@ -32,6 +32,79 @@ const MONTH_ENUM: Record<string, number> = {
   DECEMBER: 12,
 };
 
+const GOOGLE_MONTH_ENUM_NAMES = [
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+] as const;
+
+function monthNumToGoogleEnum(month: number): string {
+  const m = Math.floor(Number(month));
+  if (m < 1 || m > 12) return "JANUARY";
+  return GOOGLE_MONTH_ENUM_NAMES[m - 1]!;
+}
+
+function addCalendarMonths(year: number, month: number, delta: number): { year: number; month: number } {
+  const idx = year * 12 + (month - 1) + delta;
+  const y = Math.floor(idx / 12);
+  const m = (idx % 12) + 1;
+  return { year: y, month: m };
+}
+
+export type KeywordPlannerMetricsInput = {
+  keyword: string;
+  countryCodes: string[];
+  languageCode: string;
+  keywordMetricsTimeframe?: "default" | "last_24" | "last_36";
+  keywordMetricsRange?: {
+    startYear: number;
+    startMonth: number;
+    endYear: number;
+    endMonth: number;
+  };
+};
+
+function historicalMetricsOptionsForPlanner(input: KeywordPlannerMetricsInput):
+  | { yearMonthRange: { start: { year: number; month: string }; end: { year: number; month: string } }; includeAverageCpc: boolean }
+  | null {
+  const explicit = input.keywordMetricsRange;
+  if (explicit) {
+    return {
+      yearMonthRange: {
+        start: {
+          year: explicit.startYear,
+          month: monthNumToGoogleEnum(explicit.startMonth),
+        },
+        end: { year: explicit.endYear, month: monthNumToGoogleEnum(explicit.endMonth) },
+      },
+      includeAverageCpc: true,
+    };
+  }
+  const tf = input.keywordMetricsTimeframe;
+  if (tf !== "last_24" && tf !== "last_36") return null;
+
+  const now = new Date();
+  const end = { year: now.getFullYear(), month: now.getMonth() + 1 };
+  const span = tf === "last_24" ? 23 : 35;
+  const start = addCalendarMonths(end.year, end.month, -span);
+  return {
+    yearMonthRange: {
+      start: { year: start.year, month: monthNumToGoogleEnum(start.month) },
+      end: { year: end.year, month: monthNumToGoogleEnum(end.month) },
+    },
+    includeAverageCpc: true,
+  };
+}
+
 function parsePlannerMonth(raw: unknown): number {
   if (typeof raw === "number" && raw >= 1 && raw <= 12) return Math.floor(raw);
   const s = String(raw ?? "")
@@ -98,7 +171,7 @@ type IdeaRow = {
 /** Tenta obter volume, CPC e concorrência reais; falha silenciosamente para o fluxo usar estimativas. */
 export async function fetchKeywordPlannerMetrics(
   projectId: string,
-  input: { keyword: string; countryCodes: string[]; languageCode: string },
+  input: KeywordPlannerMetricsInput,
 ): Promise<{ ok: false } | { ok: true; snapshot: PlannerSnapshot }> {
   const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({
     where: { projectId },
@@ -146,12 +219,14 @@ export async function fetchKeywordPlannerMetrics(
   const seedKw = input.keyword.trim().slice(0, 80);
   if (!seedKw) return { ok: false };
 
-  const reqBody = {
+  const reqBody: Record<string, unknown> = {
     language: `languageConstants/${langNum}`,
     geoTargetConstants,
     keywordPlanNetwork: "GOOGLE_SEARCH",
     keywordSeed: { keywords: [seedKw] },
   };
+  const hist = historicalMetricsOptionsForPlanner(input);
+  if (hist) reqBody.historicalMetricsOptions = hist;
 
   let res: Response;
   try {

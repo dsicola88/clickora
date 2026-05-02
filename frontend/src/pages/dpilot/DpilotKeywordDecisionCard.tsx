@@ -3,6 +3,7 @@ import { AlertTriangle, Ban, CheckCircle2, Loader2, Search, Sparkles } from "luc
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { countryLabel } from "@/lib/googleAdsTargeting";
@@ -11,6 +12,32 @@ import { DpilotKeywordVolumeTrendChart } from "./DpilotKeywordVolumeTrendChart";
 
 function formatPtInt(n: number): string {
   return new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 0 }).format(n);
+}
+
+type KeywordMetricsMode = "default" | "last_24" | "last_36" | "custom";
+
+function rollingMonthRangeMonths(spanMonths: number): { start: string; end: string } {
+  const back = Math.max(1, spanMonths) - 1;
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth() - back, 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    start: `${start.getFullYear()}-${pad(start.getMonth() + 1)}`,
+    end: `${end.getFullYear()}-${pad(end.getMonth() + 1)}`,
+  };
+}
+
+function parseMonthControlValue(s: string): { y: number; m: number } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  const y = parseInt(m[1]!, 10);
+  const mo = parseInt(m[2]!, 10);
+  if (mo < 1 || mo > 12) return null;
+  return { y, m: mo };
+}
+
+function monthIndexDiff(a: { y: number; m: number }, b: { y: number; m: number }): number {
+  return (b.y - a.y) * 12 + (b.m - a.m);
 }
 
 export type DpilotKeywordDecision = {
@@ -80,6 +107,8 @@ export function DpilotKeywordDecisionCard({
   const [loadingInsight, setLoadingInsight] = useState(false);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestReq = useRef(0);
+  const [metricsMode, setMetricsMode] = useState<KeywordMetricsMode>("default");
+  const [customRange, setCustomRange] = useState(() => rollingMonthRangeMonths(24));
 
   const loadSuggestions = useCallback(async () => {
     const o = offer.trim();
@@ -144,6 +173,38 @@ export function DpilotKeywordDecisionCard({
       toast.error("Selecciona pelo menos um país de segmentação acima.");
       return;
     }
+
+    let metricsPayload: {
+      keywordMetricsTimeframe?: "last_24" | "last_36";
+      keywordMetricsRange?: { startYear: number; startMonth: number; endYear: number; endMonth: number };
+    } = {};
+    if (metricsMode === "last_24") metricsPayload = { keywordMetricsTimeframe: "last_24" };
+    else if (metricsMode === "last_36") metricsPayload = { keywordMetricsTimeframe: "last_36" };
+    else if (metricsMode === "custom") {
+      const a = parseMonthControlValue(customRange.start);
+      const b = parseMonthControlValue(customRange.end);
+      if (!a || !b) {
+        toast.error("Intervalo inválido", { description: "Usa AAAA-MM no início e no fim." });
+        return;
+      }
+      if (a.y * 100 + a.m > b.y * 100 + b.m) {
+        toast.error("Intervalo inválido", { description: "O início deve ser anterior ou igual ao fim." });
+        return;
+      }
+      if (monthIndexDiff(a, b) > 48) {
+        toast.error("Intervalo demasiado largo", { description: "Máximo 48 meses (limite do servidor)." });
+        return;
+      }
+      metricsPayload = {
+        keywordMetricsRange: {
+          startYear: a.y,
+          startMonth: a.m,
+          endYear: b.y,
+          endMonth: b.m,
+        },
+      };
+    }
+
     setLoadingInsight(true);
     setInsight(null);
     try {
@@ -159,6 +220,7 @@ export function DpilotKeywordDecisionCard({
           ? { desiredClicksPerDay: Math.round(desiredClicksPerDay) }
           : {}),
         ...(offer.trim() ? { offerContext: offer.trim().slice(0, 500) } : {}),
+        ...metricsPayload,
       });
       if (error || !data?.ok) {
         toast.error("Não foi possível analisar", { description: error ?? "Erro desconhecido" });
@@ -230,7 +292,7 @@ export function DpilotKeywordDecisionCard({
               {geoSummaryLabel || countryLabel(primaryCountryCode)}
             </span>
             {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Sem conta: estimativa interna.
-            A janela de datas segue o padrão da API (~12 meses), não um intervalo manual do site Google.
+            A janela temporal das médias é configurável abaixo (predefinição da API, 24/36 meses ou intervalo personalizado).
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -261,6 +323,54 @@ export function DpilotKeywordDecisionCard({
             Analisar
           </Button>
         </div>
+      </div>
+
+      <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/40 p-2.5">
+        <Label htmlFor="kw-metrics-mode" className="text-xs font-medium">
+          Janela de métricas (Google Keyword Ideas)
+        </Label>
+        <Select value={metricsMode} onValueChange={(v) => setMetricsMode(v as KeywordMetricsMode)}>
+          <SelectTrigger id="kw-metrics-mode" className="h-9 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Predefinição API (~12 meses)</SelectItem>
+            <SelectItem value="last_24">Últimos 24 meses</SelectItem>
+            <SelectItem value="last_36">Últimos 36 meses</SelectItem>
+            <SelectItem value="custom">Personalizado (até 48 meses)</SelectItem>
+          </SelectContent>
+        </Select>
+        {metricsMode === "custom" ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-0.5">
+              <Label htmlFor="kw-metrics-start" className="text-[11px] text-muted-foreground">
+                Início
+              </Label>
+              <Input
+                id="kw-metrics-start"
+                type="month"
+                className="h-9 text-xs"
+                value={customRange.start}
+                onChange={(e) => setCustomRange((r) => ({ ...r, start: e.target.value }))}
+              />
+            </div>
+            <div className="flex-1 space-y-0.5">
+              <Label htmlFor="kw-metrics-end" className="text-[11px] text-muted-foreground">
+                Fim
+              </Label>
+              <Input
+                id="kw-metrics-end"
+                type="month"
+                className="h-9 text-xs"
+                value={customRange.end}
+                onChange={(e) => setCustomRange((r) => ({ ...r, end: e.target.value }))}
+              />
+            </div>
+          </div>
+        ) : null}
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          Para aproximar o que vês no Keyword Planner, usa o mesmo intervalo de datas. A predefinição segue a API Google.
+        </p>
       </div>
 
       {loadingSuggest ? (

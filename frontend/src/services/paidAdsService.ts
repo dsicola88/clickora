@@ -255,6 +255,14 @@ export const paidAdsService = {
       dailyBudgetUsd?: number;
       desiredClicksPerDay?: number;
       offerContext?: string;
+      /** Janela temporal Keyword Ideas (Google). Se `keywordMetricsRange` existir, prevalece. */
+      keywordMetricsTimeframe?: "default" | "last_24" | "last_36";
+      keywordMetricsRange?: {
+        startYear: number;
+        startMonth: number;
+        endYear: number;
+        endMonth: number;
+      };
     },
   ) {
     return apiClient.post<{
