@@ -1,11 +1,16 @@
-/** RSA de fallback 100% derivado da oferta, objetivo e URL (limite Google: 30/90). */
+/**
+ * RSA determinístico (sem IA) derivado da oferta e da landing — **nunca** do
+ * objective interno (esse é briefing). Persuasivo, idioma único, alinhado com
+ * os limites Google: headline ≤30, descrição ≤90.
+ */
 
-const H = 30;
-const D = 90;
+const H_MAX = 30;
+const D_MAX = 90;
 
 export type GoogleRsaDeterministicInput = {
   landingUrl: string;
   offer: string;
+  /** Mantido só para compatibilidade — não é usado no copy gerado. */
   objective: string;
 };
 
@@ -13,12 +18,8 @@ function norm(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function mkHead(s: string): string {
-  return norm(s).slice(0, H);
-}
-
-function mkDesc(s: string): string {
-  return norm(s).slice(0, D);
+function clip(s: string, n: number): string {
+  return norm(s).slice(0, n);
 }
 
 function words(s: string, n: number): string {
@@ -26,13 +27,6 @@ function words(s: string, n: number): string {
     .split(/\s+/)
     .slice(0, n)
     .join(" ");
-}
-
-/** Primeira frase ou segmento até ~maxC caracteres (para caber no RSA). */
-function objHead(obj: string, maxC: number): string {
-  const t = norm(obj);
-  const first = (t.split(/[.!?;\n]/)[0] ?? t).trim();
-  return first.slice(0, maxC);
 }
 
 function hostLabel(url: string): string {
@@ -43,188 +37,210 @@ function hostLabel(url: string): string {
   }
 }
 
-function uniqueHeads(seq: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of seq) {
-    const t = mkHead(raw);
-    if (!t || seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
-  }
-  return out;
+function pickPrimaryLang(iso: string): "pt" | "es" | "de" | "fr" | "en" {
+  const base = iso.trim().slice(0, 2).toLowerCase();
+  if (base === "pt" || base === "es" || base === "de" || base === "fr") return base;
+  return "en";
 }
 
-function padTo12(candidates: string[], offerFull: string, slug: string): string[] {
-  let merged = uniqueHeads(candidates);
-  if (merged.length >= 12) return merged.slice(0, 12);
-  for (let k = 8; k <= 40 && merged.length < 12; k++) {
-    merged = uniqueHeads([...merged, mkHead(words(offerFull, k))]);
+interface TemplateContext {
+  slug: string;
+  slug2: string;
+  slug1: string;
+  host: string;
+}
+
+/** Templates de headlines por idioma — cada string tem placeholders `{slug}` `{slug1}` `{slug2}` `{host}`. */
+const HEADLINE_TEMPLATES: Record<"pt" | "es" | "de" | "fr" | "en", string[]> = {
+  pt: [
+    "{slug2} — peça já",
+    "Experimente {slug2}",
+    "Descubra {slug1} hoje",
+    "Qualidade {slug1} Premium",
+    "Bem-estar em minutos",
+    "Compra simples e segura",
+    "Página oficial: {host}",
+    "Resultados que se notam",
+    "{slug1} top no site",
+    "Comece já em minutos",
+    "Confiável e rápido",
+    "Feito para o dia a dia",
+    "{slug2} sem complicação",
+    "Peça online em segundos",
+    "Veja {host} e decida",
+    "{slug1} de confiança",
+  ],
+  es: [
+    "{slug2} — pide ya",
+    "Prueba {slug2}",
+    "Descubre {slug1} hoy",
+    "Calidad {slug1} Premium",
+    "Bienestar en minutos",
+    "Compra simple y segura",
+    "Sitio oficial: {host}",
+    "Resultados que se notan",
+    "{slug1} top en la web",
+    "Empieza ya en minutos",
+    "Fiable y rápido",
+    "Hecho para el día a día",
+    "{slug2} sin complicarse",
+    "Pide online en segundos",
+    "Mira {host} y decide",
+    "{slug1} de confianza",
+  ],
+  de: [
+    "{slug2} — jetzt sichern",
+    "{slug2} testen",
+    "Entdecke {slug1} heute",
+    "{slug1} Premiumqualität",
+    "Wohlfühl-Boost",
+    "Einfach & sicher kaufen",
+    "Offizielle Seite: {host}",
+    "Spürbare Ergebnisse",
+    "Top {slug1} im Shop",
+    "In Minuten starten",
+    "Vertrauenswürdig & schnell",
+    "Für jeden Tag gemacht",
+    "{slug2} ganz einfach",
+    "In Sekunden bestellen",
+    "{host} besuchen",
+    "{slug1} Sie können vertrauen",
+  ],
+  fr: [
+    "{slug2} — commandez vite",
+    "Essayez {slug2}",
+    "Découvrez {slug1}",
+    "Qualité {slug1} premium",
+    "Bien-être en minutes",
+    "Achat simple et sûr",
+    "Site officiel : {host}",
+    "Des résultats concrets",
+    "{slug1} top sur le site",
+    "Démarrez en minutes",
+    "Fiable et rapide",
+    "Pensé pour le quotidien",
+    "{slug2} sans stress",
+    "Commandez en secondes",
+    "Voir {host} & choisir",
+    "{slug1} de confiance",
+  ],
+  en: [
+    "{slug2} — Order Now",
+    "Try {slug2} Today",
+    "Discover {slug1} Today",
+    "Premium {slug1} Quality",
+    "Boost Daily Wellness",
+    "Simple, Safe Checkout",
+    "Official Site: {host}",
+    "Real Results You Notice",
+    "Top {slug1} Online",
+    "Start in a Few Minutes",
+    "Trusted, Fast Service",
+    "Made for Everyday Use",
+    "{slug2} Made Easy",
+    "Order Online in Seconds",
+    "Visit {host} & Decide",
+    "{slug1} You Can Trust",
+  ],
+};
+
+/** Descrições por idioma — 4 ângulos: produto, benefício, confiança, CTA. */
+function descriptionsByLang(
+  lang: "pt" | "es" | "de" | "fr" | "en",
+  ctx: TemplateContext,
+): string[] {
+  if (lang === "pt") {
+    return [
+      `${ctx.slug} explicado em detalhe — informação clara e oficial em ${ctx.host}.`,
+      `Pensado para o dia a dia — saiba o que inclui antes de comprar.`,
+      `Compra confiável, checkout rápido e apoio em ${ctx.host}.`,
+      `Visite ${ctx.host} agora, escolha a sua opção e peça em minutos.`,
+    ];
   }
-  let i = 0;
-  while (merged.length < 12 && i < 48) {
-    const seg = mkHead(
-      norm(offerFull).slice(i, i + H) || `${slug} ${merged.length + 1}`,
-    );
-    merged = uniqueHeads([...merged, seg]);
-    i += 3;
+  if (lang === "es") {
+    return [
+      `${ctx.slug} explicado al detalle — info clara y oficial en ${ctx.host}.`,
+      `Hecho para el día a día — descubra qué incluye antes de comprar.`,
+      `Compra fiable, pago rápido y soporte en ${ctx.host}.`,
+      `Visite ${ctx.host} hoy, elija su opción y pida en minutos.`,
+    ];
   }
-  let guard = 0;
-  while (merged.length < 12 && guard < 20) {
-    guard += 1;
-    merged = uniqueHeads([...merged, mkHead(`${slug} · opt ${guard}`)]);
+  if (lang === "de") {
+    return [
+      `${ctx.slug} klar erklärt — alle Infos und das Produkt auf ${ctx.host}.`,
+      `Für jeden Tag gemacht — vorab alle Details zum Inhalt einsehen.`,
+      `Sicheres Einkaufen, schneller Checkout und Support auf ${ctx.host}.`,
+      `Besuchen Sie ${ctx.host}, wählen Sie Ihre Option und bestellen.`,
+    ];
   }
-  return merged.slice(0, 12);
+  if (lang === "fr") {
+    return [
+      `${ctx.slug} expliqué en détail — info claire et officielle sur ${ctx.host}.`,
+      `Pensé pour le quotidien — voyez le contenu avant de commander.`,
+      `Achat fiable, paiement rapide et support sur ${ctx.host}.`,
+      `Visitez ${ctx.host} aujourd'hui, choisissez votre option et commandez.`,
+    ];
+  }
+  return [
+    `${ctx.slug} explained in detail — clear, official info at ${ctx.host}.`,
+    `Built for everyday use — see what's included before you order.`,
+    `Trusted shopping, fast checkout and full support at ${ctx.host}.`,
+    `Visit ${ctx.host} today, choose your option and order in minutes.`,
+  ];
+}
+
+function fill(template: string, ctx: TemplateContext): string {
+  return template
+    .replace(/\{slug2\}/g, ctx.slug2)
+    .replace(/\{slug1\}/g, ctx.slug1)
+    .replace(/\{slug\}/g, ctx.slug)
+    .replace(/\{host\}/g, ctx.host);
+}
+
+function selectHeadlines(lang: "pt" | "es" | "de" | "fr" | "en", ctx: TemplateContext): string[] {
+  const seen = new Set<string>();
+  const picked: string[] = [];
+
+  for (const tpl of HEADLINE_TEMPLATES[lang]) {
+    if (picked.length >= 12) break;
+    const filled = clip(fill(tpl, ctx), H_MAX);
+    if (!filled || seen.has(filled.toLowerCase())) continue;
+    seen.add(filled.toLowerCase());
+    picked.push(filled);
+  }
+
+  /** Fallback raro: se algum template ficou vazio depois do clip, completar com variações curtas. */
+  let pad = 1;
+  while (picked.length < 3 && pad <= 8) {
+    const candidate = clip(`${ctx.slug2} ${pad}`, H_MAX);
+    if (!seen.has(candidate.toLowerCase())) {
+      seen.add(candidate.toLowerCase());
+      picked.push(candidate);
+    }
+    pad += 1;
+  }
+
+  return picked;
 }
 
 /**
- * Gera 12 títulos e 4 descrições alinhados com a campanha (sem IA).
- * `primaryLangIso`: primeiro segmento ISO 639-1 (ex.: pt, es, de, fr, en).
+ * Gera headlines (até 12) e 4 descrições alinhados com a oferta + landing,
+ * em **um só** idioma (`primaryLangIso`). Não usa o `objective`.
  */
 export function buildDeterministicRsa(
   input: GoogleRsaDeterministicInput,
   primaryLangIso: string,
 ): { headlines: string[]; descriptions: string[] } {
-  const slug = words(input.offer, 3);
-  const offerF = norm(input.offer);
-  const objF = norm(input.objective);
+  const lang = pickPrimaryLang(primaryLangIso);
+  const offer = norm(input.offer);
+  const slug = words(offer, 3);
+  const slug2 = words(offer, 2) || slug;
+  const slug1 = words(offer, 1) || slug2;
   const host = hostLabel(input.landingUrl);
-  const base = primaryLangIso.trim().slice(0, 2).toLowerCase();
+  const ctx: TemplateContext = { slug, slug2, slug1, host };
 
-  const d1 = mkDesc(offerF);
-  const dRest = (): [string, string, string] => {
-    if (base === "pt") {
-      return [
-        mkDesc(`${objHead(objF, 88)} Confira ${host}.`),
-        mkDesc(`Objetivo: ${words(objF, 14)} Página oficial com todos os detalhes.`),
-        mkDesc(`Compre com tranquilidade — informação completa em ${host}.`),
-      ];
-    }
-    if (base === "es") {
-      return [
-        mkDesc(`${objHead(objF, 88)} Más en ${host}.`),
-        mkDesc(`Objetivo: ${words(objF, 14)} Toda la info en la web oficial.`),
-        mkDesc(`Compra con calma — detalles completos en ${host}.`),
-      ];
-    }
-    if (base === "de") {
-      return [
-        mkDesc(`${objHead(objF, 88)} Mehr auf ${host}.`),
-        mkDesc(`Ziel: ${words(objF, 14)} Alle Infos auf der offiziellen Seite.`),
-        mkDesc(`Sicher bestellen — Details und Service bei ${host}.`),
-      ];
-    }
-    if (base === "fr") {
-      return [
-        mkDesc(`${objHead(objF, 88)} En savoir plus sur ${host}.`),
-        mkDesc(`Objectif : ${words(objF, 14)} Tout savoir sur la page officielle.`),
-        mkDesc(`Achats sereins — informations complètes sur ${host}.`),
-      ];
-    }
-    return [
-      mkDesc(`${objHead(objF, 88)} Details at ${host}.`),
-      mkDesc(`Goal: ${words(objF, 14)} Full story on the official site.`),
-      mkDesc(`Shop with confidence — everything explained at ${host}.`),
-    ];
-  };
+  const headlines = selectHeadlines(lang, ctx);
+  const descriptions = descriptionsByLang(lang, ctx).map((d) => clip(d, D_MAX));
 
-  let headlineSeeds: string[] = [];
-
-  if (base === "pt") {
-    headlineSeeds = [
-      slug,
-      `Descubra ${slug}`,
-      `Experimente ${slug}`,
-      words(offerF, 6),
-      objHead(objF, H),
-      `Compre ${slug} online`,
-      `${words(offerF, 3)} · ${host}`,
-      `Loja em ${host}`,
-      `Melhor escolha: ${words(offerF, 3)}`,
-      `Oferta: ${words(offerF, 4)}`,
-      `${slug} — peça já`,
-      `${words(offerF, 5)} hoje`,
-      `Qualidade ${words(offerF, 2)}`,
-      `Veja ${host} e decida`,
-      `Pedido simples · ${host}`,
-    ];
-  } else if (base === "es") {
-    headlineSeeds = [
-      slug,
-      `Prueba ${slug}`,
-      `Descubre ${slug}`,
-      words(offerF, 6),
-      objHead(objF, H),
-      `Compra ${slug} online`,
-      `${words(offerF, 3)} · ${host}`,
-      `Tienda en ${host}`,
-      `Mejor oferta: ${words(offerF, 3)}`,
-      `Oferta: ${words(offerF, 4)}`,
-      `${slug} — pide ya`,
-      `${words(offerF, 5)} hoy`,
-      `Calidad ${words(offerF, 2)}`,
-      `Mira ${host} y decide`,
-      `Pedido fácil · ${host}`,
-    ];
-  } else if (base === "de") {
-    headlineSeeds = [
-      slug,
-      `Entdecke ${slug}`,
-      `Jetzt ${slug} testen`,
-      words(offerF, 6),
-      objHead(objF, H),
-      `${slug} online kaufen`,
-      `${words(offerF, 3)} · ${host}`,
-      `Bei ${host} bestellen`,
-      `Beste Wahl: ${words(offerF, 3)}`,
-      `Angebot: ${words(offerF, 4)}`,
-      `${slug} — jetzt sichern`,
-      `${words(offerF, 5)} heute`,
-      `Qualität: ${words(offerF, 2)}`,
-      `${host} jetzt besuchen`,
-      `Schnell bestellen · ${host}`,
-    ];
-  } else if (base === "fr") {
-    headlineSeeds = [
-      slug,
-      `Découvrez ${slug}`,
-      `Essayez ${slug}`,
-      words(offerF, 6),
-      objHead(objF, H),
-      `Achetez ${slug} en ligne`,
-      `${words(offerF, 3)} · ${host}`,
-      `Sur ${host}`,
-      `Meilleur choix : ${words(offerF, 3)}`,
-      `Offre : ${words(offerF, 4)}`,
-      `${slug} — commandez vite`,
-      `${words(offerF, 5)} aujourd'hui`,
-      `Qualité ${words(offerF, 2)}`,
-      `Voir ${host} et choisir`,
-      `Commande facile · ${host}`,
-    ];
-  } else {
-    headlineSeeds = [
-      slug,
-      `Try ${slug}`,
-      `Discover ${slug}`,
-      words(offerF, 6),
-      objHead(objF, H),
-      `Buy ${slug} online`,
-      `${words(offerF, 3)} · ${host}`,
-      `Shop ${host}`,
-      `Best choice: ${words(offerF, 3)}`,
-      `Offer: ${words(offerF, 4)}`,
-      `${slug} — order now`,
-      `${words(offerF, 5)} today`,
-      `Quality ${words(offerF, 2)}`,
-      `See ${host} & decide`,
-      `Easy order · ${host}`,
-    ];
-  }
-
-  const [d2, d3, d4] = dRest();
-  return {
-    headlines: padTo12(headlineSeeds, offerF, slug),
-    descriptions: [d1, d2, d3, d4],
-  };
+  return { headlines, descriptions };
 }

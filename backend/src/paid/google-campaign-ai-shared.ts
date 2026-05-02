@@ -34,11 +34,18 @@ Rules:
 - Return JSON ONLY, matching the schema exactly. No prose, no markdown.
 - 2-3 ad groups, each tightly themed.
 - 5-10 keywords per ad group across exact/phrase/broad mix.
-- RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Prefer headlines that use almost the full 30-character budget — avoid tepid micro-copy like single words or obvious filler; weave in product-relevant phrases and commercial keywords where natural.
-- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with Objective and Offer.
+- RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Each headline should ideally use 18-30 characters — avoid bare brand-only headlines, single words, or tepid filler; weave in concrete benefits, differentiators or commercial keywords. Across the 12 headlines, vary the angle: at least one CTA, one benefit, one proof/quality cue, one urgency/availability cue, and one branded headline naming the offer. Do NOT repeat the same stem (e.g. "Try X / Discover X / Buy X / Best X") more than once.
+- Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with the Offer and what the Landing URL actually delivers.
 - Keywords must be commercial-intent, not brand-only.
 - Never include the user's blocked keywords.
-- RSA copy (headlines + descriptions): write EVERY string in the user's advertising languages given in the prompt (ISO codes; primary language first). Use native, idiomatic phrasing — one language per string; do not mix unrelated languages in the same headline/description. Do NOT use generic SaaS phrases (e.g. "built for teams", "free trial") unless they exactly match the product.
+
+LANGUAGE COMPLIANCE (critical):
+- The "Advertising languages" line in the user message lists ISO codes; the FIRST code is the PRIMARY language. Write EVERY headline and EVERY description in that primary language ONLY. Do not mix languages within an ad. Do not switch language across the 12 headlines. The hostname or product brand can stay as-is, but every other word must be in the primary language.
+- Use native, idiomatic phrasing — never machine-translated stems. Do NOT use generic SaaS clichés (e.g. "built for teams", "free trial") unless they exactly match the product.
+
+OBJECTIVE HANDLING (critical):
+- The "Objective" field is INTERNAL briefing context for the campaign strategist. NEVER copy it verbatim into a headline or description. NEVER prefix any headline/description with internal labels such as "Goal:", "Objetivo:", "Objective:", "Ziel:", "Objectif:", "Briefing:", "Details:".
+- Use the Objective only to set tone and intent (e.g. lead-gen, e-commerce, sign-ups). The user-facing copy must read like a polished ad, not a brief.
 
 Also output **campaign extensions** alongside RSA and keywords:
 - **Sitelinks (2–6)**: texts max 25 characters; **final_urls** absolute https, same hostname as Landing URL preferentially (landing page with a URL hash fragment is OK — e.g. #faq, #buy). Optional description lines ≤35 characters (fields description1 and description2 optional).
@@ -107,6 +114,73 @@ export async function fetchOpenAiGoogleCampaignPlan(userPrompt: string): Promise
     tokensOut: json.usage?.completion_tokens ?? 0,
     model: `openai/${model}`,
   };
+}
+
+/**
+ * Limpa o copy do RSA para garantir qualidade publicável:
+ * - Remove prefixos internos tipo `Goal:`, `Objetivo:`, `Objective:`, `Ziel:`, `Objectif:`, `Details:`.
+ * - Descarta strings que sejam essencialmente o objective verbatim.
+ * - Garante mínimos (≥3 headlines, ≥2 descriptions) recorrendo ao gerador determinístico.
+ */
+const INTERNAL_LABEL_RE = /^\s*(?:goal|objetivo|objective|ziel|objectif|briefing|details)\s*[:\-—]\s*/i;
+
+function looksLikeObjective(text: string, objective: string): boolean {
+  const a = text.replace(/\s+/g, " ").trim().toLowerCase();
+  const b = objective.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  /** Considera "verbatim" se ≥80 % do objective aparece na string. */
+  if (b.length >= 24 && a.includes(b.slice(0, Math.min(b.length, 60)))) return true;
+  return false;
+}
+
+function cleanCopyLine(s: string, objective: string): string {
+  const stripped = s.replace(INTERNAL_LABEL_RE, "").trim();
+  if (looksLikeObjective(stripped, objective)) return "";
+  return stripped;
+}
+
+export function sanitizeAiPlanCopy(
+  plan: GoogleCampaignAiPlan,
+  ctx: DeterministicPlanInput,
+): GoogleCampaignAiPlan {
+  const fallbackPrimary = ctx.languageTargets[0] ?? "en";
+  const fallbackRsa = buildDeterministicRsa(
+    { landingUrl: ctx.landingUrl, offer: ctx.offer, objective: ctx.objective },
+    fallbackPrimary,
+  );
+
+  const cleanedAdGroups = (plan.ad_groups ?? []).map((ag) => {
+    const headlines = (ag.rsa?.headlines ?? [])
+      .map((h) => cleanCopyLine(h, ctx.objective).slice(0, 30))
+      .filter((h) => h.length > 0);
+    const descriptions = (ag.rsa?.descriptions ?? [])
+      .map((d) => cleanCopyLine(d, ctx.objective).slice(0, 90))
+      .filter((d) => d.length > 0);
+
+    /** Mínimos publicáveis: complementa do fallback determinístico (mesmo idioma) sem duplicar. */
+    const seenH = new Set(headlines.map((h) => h.toLowerCase()));
+    for (const h of fallbackRsa.headlines) {
+      if (headlines.length >= 12) break;
+      if (h && !seenH.has(h.toLowerCase())) {
+        headlines.push(h);
+        seenH.add(h.toLowerCase());
+      }
+    }
+
+    const seenD = new Set(descriptions.map((d) => d.toLowerCase()));
+    for (const d of fallbackRsa.descriptions) {
+      if (descriptions.length >= 4) break;
+      if (d && !seenD.has(d.toLowerCase())) {
+        descriptions.push(d);
+        seenD.add(d.toLowerCase());
+      }
+    }
+
+    return { ...ag, rsa: { headlines, descriptions } };
+  });
+
+  return { ...plan, ad_groups: cleanedAdGroups };
 }
 
 /** Fallback sem IA — RSA alinhados com `buildDeterministicRsa`. */

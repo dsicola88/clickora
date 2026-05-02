@@ -11,6 +11,7 @@ import { evaluateGuardrails, type GuardrailLimits, type GuardrailViolation } fro
 import {
   buildDeterministicGoogleCampaignPlan,
   fetchOpenAiGoogleCampaignPlan,
+  sanitizeAiPlanCopy,
   type GoogleCampaignAiPlan,
 } from "./google-campaign-ai-shared";
 import { finalizeGoogleCampaignAssetExtensions } from "./google-campaign-asset-extensions";
@@ -160,14 +161,16 @@ export async function runGoogleCampaignPlan(
         : data.google_bidding_strategy === "target_roas" && data.google_target_roas != null
           ? `Google bidding — chosen strategy: target ROAS ${data.google_target_roas} (stored for publish).`
           : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
+    const primaryLang = languageTargetsNorm[0] ?? "en";
     const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
-Objective (business outcome): ${data.objective}
+Objective (INTERNAL briefing — do NOT copy verbatim into ad copy, do NOT use as a headline/description): ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
 Geo (countries): ${geoTargetsNorm.join(", ")}
-Advertising languages for RSA ad copy (ISO codes; PRIMARY first — write all RSA strings in these languages): ${languageTargetsNorm.join(", ")}
+Advertising languages (ISO codes; FIRST is primary): ${languageTargetsNorm.join(", ")}
+PRIMARY language for ALL RSA headlines and descriptions: ${primaryLang} — write every headline and every description in ${primaryLang} only, no mixing with other languages.
 ${bidHint}
-RSA headline reminder: ≤30 characters each, 12 headlines, benefit-led and aligned with the offer; descriptions ≤90 characters, 4 lines.
+RSA reminders: 12 headlines ≤30 chars each (vary the angle: CTA, benefit, proof, urgency, branded — never repeat the same stem), 4 descriptions ≤90 chars each (full persuasive sentences derived from the Offer and Landing — never echoing the Objective).
 Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     if (process.env.OPENAI_API_KEY) {
@@ -195,6 +198,15 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       languageTargets: languageTargetsNorm,
     });
   }
+
+  /** Limpa prefixos internos ("Goal:", "Objetivo:"…) e descrições que ecoem o objective; garante mínimos publicáveis. */
+  plan = sanitizeAiPlanCopy(plan, {
+    landingUrl: data.landingUrl,
+    offer: data.offer,
+    objective: data.objective,
+    geoTargets: geoTargetsNorm,
+    languageTargets: languageTargetsNorm,
+  });
 
   plan.ad_groups = (plan.ad_groups ?? []).map((ag) => ({
     ...ag,
