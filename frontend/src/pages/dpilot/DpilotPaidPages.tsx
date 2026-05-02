@@ -36,6 +36,7 @@ import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
 import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
 import { DpilotCampaignPurgeArchivedButton } from "./DpilotCampaignPurgeArchivedButton";
+import { DpilotChangeRequestPurgeButton } from "./DpilotChangeRequestPurgeButton";
 import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
 import { DpilotGuardrailsScopeCard } from "./DpilotGuardrailsScopeCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
@@ -1122,7 +1123,10 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
               >
                 Arquivar pedido
               </Button>
+              <DpilotChangeRequestPurgeButton changeRequestId={cr.id} reload={reload} />
             </div>
+          ) : cr.status === "rejected" ? (
+            <DpilotChangeRequestPurgeButton changeRequestId={cr.id} reload={reload} />
           ) : null}
         </div>
       </div>
@@ -1149,7 +1153,10 @@ export function DpilotAprovacoesPage() {
           <strong className="font-medium text-foreground">Aprovar</strong> apenas confirma no Clickora que o plano está
           aceite. Para alterar de facto a conta Google Ads, Meta ou TikTok, utilize{" "}
           <strong className="font-medium text-foreground">Aplicar na rede</strong>. Em cada cartão abaixo, leia «Porque
-          está aqui» — explica o papel do modo do projecto e dos guardrails.
+          está aqui» — explica o papel do modo do projecto e dos guardrails. Pedidos{" "}
+          <strong className="font-medium text-foreground">rejeitados</strong> ou{" "}
+          <strong className="font-medium text-foreground">falhados</strong> podem ser removidos da fila com «Apagar da
+          lista» (admin do projecto).
         </AlertDescription>
       </Alert>
       <Card className="mt-4">

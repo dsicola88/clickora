@@ -63,6 +63,7 @@ paidRouter.get("/projects/:projectId/change-requests", (req, res) =>
   void paidController.listChangeRequests(req, res),
 );
 paidRouter.post("/change-requests/review", (req, res) => void paidController.reviewChangeRequest(req, res));
+paidRouter.delete("/change-requests/:id", (req, res) => void paidController.deleteChangeRequest(req, res));
 paidRouter.get("/projects/:projectId/meta-connection", (req, res) =>
   void paidController.getMetaConnection(req, res),
 );

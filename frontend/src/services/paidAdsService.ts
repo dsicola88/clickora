@@ -383,6 +383,11 @@ export const paidAdsService = {
     return apiClient.delete<{ ok: boolean }>(`/paid/projects/${projectId}/campaigns/${campaignId}`);
   },
 
+  /** Remove pedido rejeitado ou falhado da fila (só admin do projecto). */
+  deleteChangeRequest(id: string) {
+    return apiClient.delete<{ ok: boolean }>(`/paid/change-requests/${id}`);
+  },
+
   patchCampaignOptimizerLimits(
     projectId: string,
     campaignId: string,

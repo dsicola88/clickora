@@ -283,6 +283,31 @@ export const paidController = {
     return res.json({ ok: true });
   },
 
+  /** Remove o registo do pedido (só rejeitado ou falhado). Não altera campanhas na rede. */
+  async deleteChangeRequest(req: Request, res: Response) {
+    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "ID inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+
+    const cr = await prisma.paidAdsChangeRequest.findFirst({
+      where: { id: parsed.data.id, project: { userId: a.tenantUserId } },
+      include: { project: true },
+    });
+    if (!cr) return res.status(404).json({ error: "Pedido não encontrado." });
+    if (!(await canAdminProject(cr.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão." });
+    }
+    if (cr.status !== "rejected" && cr.status !== "failed") {
+      return res.status(400).json({
+        error:
+          "Só pode apagar pedidos rejeitados ou falhados. Para fechar sem apagar, use «Arquivar pedido» ou «Rejeitar».",
+      });
+    }
+    await prisma.paidAdsChangeRequest.delete({ where: { id: cr.id } });
+    return res.json({ ok: true as const });
+  },
+
   async getMetaConnection(req: Request, res: Response) {
     const parsed = projectIdParam.safeParse(req.params);
     if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
