@@ -27,6 +27,8 @@ export type CampaignRow = {
   status: string;
   platform: string;
   created_at: string;
+  /** Presente quando a campanha chegou a ter ID na rede (Google/Meta/TikTok). */
+  external_campaign_id?: string | null;
   daily_budget_micros?: number | null;
   /** Códigos ISO de país (segmentação). */
   geo_targets?: string[] | null;
@@ -374,6 +376,11 @@ export const paidAdsService = {
       `/paid/projects/${projectId}/campaigns/${campaignId}/archive`,
       {},
     );
+  },
+
+  /** Remove o registo no Clickora (só campanhas arquivadas). Não apaga na Google/Meta/TikTok. */
+  deleteArchivedCampaign(projectId: string, campaignId: string) {
+    return apiClient.delete<{ ok: boolean }>(`/paid/projects/${projectId}/campaigns/${campaignId}`);
   },
 
   patchCampaignOptimizerLimits(

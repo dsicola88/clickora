@@ -755,6 +755,32 @@ export const paidController = {
     return res.json({ ok: true });
   },
 
+  /** Remove o registo local (e cascata: ad groups, keywords, RSA, decisões do motor…). Só `archived`. Não chama APIs da rede. */
+  async deleteArchivedCampaign(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const { projectId, campaignId } = parsed.data;
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para eliminar campanhas neste projecto." });
+    }
+    const row = await prisma.paidAdsCampaign.findFirst({
+      where: { id: campaignId, projectId },
+    });
+    if (!row) return res.status(404).json({ error: "Campanha não encontrada." });
+    if (row.status !== "archived") {
+      return res.status(400).json({
+        error:
+          "Só pode apagar campanhas no estado «Arquivada». Para as outras, arquivar primeiro (rascunho / erro) ou gerir na rede.",
+      });
+    }
+    await prisma.paidAdsCampaign.delete({ where: { id: row.id } });
+    return res.json({ ok: true as const });
+  },
+
   async patchCampaignOptimizerLimits(req: Request, res: Response) {
     const parsed = z
       .object({

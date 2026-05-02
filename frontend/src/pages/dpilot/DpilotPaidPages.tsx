@@ -35,6 +35,7 @@ import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
 import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
+import { DpilotCampaignPurgeArchivedButton } from "./DpilotCampaignPurgeArchivedButton";
 import { DpilotGuardrailsCeilingCard } from "./DpilotGuardrailsCeilingCard";
 import { DpilotGuardrailsScopeCard } from "./DpilotGuardrailsScopeCard";
 import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard";
@@ -418,6 +419,11 @@ function CampaignListWithFilters({
           </Select>
         </div>
       </div>
+      <p className="text-[10px] leading-snug text-muted-foreground">
+        Dica: o filtro por defeito é «Em trabalho (sem arquivadas)». Para libertar espaço, escolha «Arquivada» e use{" "}
+        <span className="font-medium text-foreground/90">Apagar</span> — remove só o registo no Clickora (não apaga na
+        rede).
+      </p>
       {campaignsTable(filtered, empty, { projectId, reload })}
     </div>
   );
@@ -469,11 +475,18 @@ function campaignsTable(
                     />
                   </TableCell>
                   <TableCell className="text-right align-middle">
-                    <DpilotCampaignArchiveButton
-                      projectId={controls.projectId}
-                      campaign={c}
-                      reload={controls.reload}
-                    />
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <DpilotCampaignArchiveButton
+                        projectId={controls.projectId}
+                        campaign={c}
+                        reload={controls.reload}
+                      />
+                      <DpilotCampaignPurgeArchivedButton
+                        projectId={controls.projectId}
+                        campaign={c}
+                        reload={controls.reload}
+                      />
+                    </div>
                   </TableCell>
                 </>
               ) : null}

@@ -53,6 +53,9 @@ paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-geo-to-guardrai
 paidRouter.post("/projects/:projectId/campaigns/:campaignId/archive", (req, res) =>
   void paidController.archiveCampaign(req, res),
 );
+paidRouter.delete("/projects/:projectId/campaigns/:campaignId", (req, res) =>
+  void paidController.deleteArchivedCampaign(req, res),
+);
 paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
   void paidController.listOptimizerDecisions(req, res),
 );

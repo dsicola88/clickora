@@ -168,6 +168,11 @@ export function campaignStatusArchivableLocally(status: string): boolean {
   return status === "draft" || status === "pending_publish" || status === "error";
 }
 
+/** Campanhas arquivadas podem ser apagadas definitivamente da lista (base Clickora). */
+export function campaignStatusPurgeableLocally(status: string): boolean {
+  return status === "archived";
+}
+
 /** Explicações legíveis para erros habituais da API Google Ads (mensagens já gravadas no pedido). */
 export function friendlyGoogleAdsNetworkError(message: string | null | undefined): string | null {
   if (!message?.trim()) return null;
