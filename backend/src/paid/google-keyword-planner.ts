@@ -98,7 +98,7 @@ type IdeaRow = {
 /** Tenta obter volume, CPC e concorrência reais; falha silenciosamente para o fluxo usar estimativas. */
 export async function fetchKeywordPlannerMetrics(
   projectId: string,
-  input: { keyword: string; countryCode: string; languageCode: string },
+  input: { keyword: string; countryCodes: string[]; languageCode: string },
 ): Promise<{ ok: false } | { ok: true; snapshot: PlannerSnapshot }> {
   const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({
     where: { projectId },
@@ -110,8 +110,17 @@ export async function fetchKeywordPlannerMetrics(
   const dev = getGoogleDeveloperToken();
   if (!dev) return { ok: false };
 
-  const geoId = GOOGLE_GEO_CRITERION_IDS[input.countryCode.toUpperCase()];
-  if (geoId == null) return { ok: false };
+  const codes = [...new Set(input.countryCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean))].slice(
+    0,
+    10,
+  );
+  const geoTargetConstants: string[] = [];
+  for (const code of codes) {
+    const id = GOOGLE_GEO_CRITERION_IDS[code];
+    if (id == null) continue;
+    geoTargetConstants.push(`geoTargetConstants/${id}`);
+  }
+  if (!geoTargetConstants.length) return { ok: false };
 
   const langIso = normalizeGoogleLanguageCode(input.languageCode) ?? "en";
   const langNum = GOOGLE_ADS_LANGUAGE_NUMERIC_ID[langIso];
@@ -139,7 +148,7 @@ export async function fetchKeywordPlannerMetrics(
 
   const reqBody = {
     language: `languageConstants/${langNum}`,
-    geoTargetConstants: [`geoTargetConstants/${geoId}`],
+    geoTargetConstants,
     keywordPlanNetwork: "GOOGLE_SEARCH",
     keywordSeed: { keywords: [seedKw] },
   };

@@ -763,6 +763,7 @@ export function DpilotGoogleWizardPage() {
               landingHostname={landingHostname}
               primaryCountryCode={(geoTargets[0] ?? "").trim().toUpperCase()}
               primaryLanguageCode={(languageTargets[0] ?? "pt").trim().toLowerCase()}
+              geoCountryCodes={geoTargets.map((g) => g.trim().toUpperCase()).filter(Boolean)}
               userCpcUsd={cpcCalc != null ? Number(cpcCalc.value) : null}
               dailyBudgetUsd={insightBudgetUsd}
               desiredClicksPerDay={insightDesiredClicksPerDay}

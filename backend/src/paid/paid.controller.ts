@@ -499,9 +499,12 @@ export const paidController = {
       return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
     }
     try {
+      const codes = body.data.countryCodes?.length
+        ? [...new Set(body.data.countryCodes)].slice(0, 10)
+        : [body.data.countryCode];
       const plannerHit = await fetchKeywordPlannerMetrics(parsed.data.projectId, {
         keyword: body.data.keyword,
-        countryCode: body.data.countryCode,
+        countryCodes: codes,
         languageCode: body.data.languageCode,
       });
       const out = await runGoogleKeywordInsight(body.data, {

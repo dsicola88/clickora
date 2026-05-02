@@ -248,6 +248,8 @@ export const paidAdsService = {
     body: {
       keyword: string;
       countryCode: string;
+      /** Até 10 países ISO — mesmo pedido que o Keyword Planner multi-localização. */
+      countryCodes?: string[];
       languageCode: string;
       userCpcUsd?: number;
       dailyBudgetUsd?: number;

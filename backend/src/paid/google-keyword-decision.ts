@@ -8,7 +8,13 @@ import type { PlannerSnapshot } from "./google-keyword-planner";
 
 export const googleKeywordInsightInputSchema = z.object({
   keyword: z.string().trim().min(2).max(80),
+  /** País principal (segmentação, copy local, decisão CPC/volume heurístico). */
   countryCode: z.string().length(2).transform((s) => s.toUpperCase()),
+  /** Opcional: vários países ISO (máx. 10). Quando enviado, o Keyword Ideas usa todos — como no Planner com várias localizações. */
+  countryCodes: z
+    .array(z.string().length(2).transform((s) => s.toUpperCase()))
+    .max(10)
+    .optional(),
   languageCode: z.string().min(2).max(8).transform((s) => s.toLowerCase()),
   userCpcUsd: z.number().positive().max(1000).optional(),
   /** Orçamento diário (USD) do wizard — só entra no motor de decisão / orçamento (dados do projecto autenticado). */
@@ -592,7 +598,7 @@ export async function runGoogleKeywordInsight(
       avgCpcUsd = planner.avg_cpc_units;
       cpc_from_google_ads = true;
       dataNote =
-        "Volume e concorrência: Google Ads (Keyword Ideas) para a conta ligada ao projeto. CPC médio: dados da API (reflete a moeda da conta Google). Variações relacionadas podem vir de IA/heurística.";
+        "Volume e concorrência: Google Ads API (Keyword Ideas), conta ligada ao projeto — não usamos Semrush nem terceiros para estes números. CPC médio: dados da API (moeda da conta Google). Variações de keywords: IA/heurística.";
     } else {
       cpc_from_google_ads = false;
       avgCpcUsd =
@@ -600,7 +606,7 @@ export async function runGoogleKeywordInsight(
           (baseCpcUsd(comp, iso) * jitter(seed + 17, 0.85, 1.15) + Number.EPSILON) * 100,
         ) / 100;
       dataNote =
-        "Volume e concorrência: Google Ads (Keyword Ideas). CPC médio: não devolvido pela API para este termo — completado por modelo interno (indicativo, mesma unidade que o teu plano). Variações relacionadas: IA/heurística.";
+        "Volume e concorrência: Google Ads (Keyword Ideas); CPC completado por modelo interno quando a API não devolve averageCpc — sem Semrush. Variações de keywords: IA/heurística.";
     }
   } else {
     const compHeur = scoreCompetition(kw, wc);
@@ -619,7 +625,19 @@ export async function runGoogleKeywordInsight(
     metrics_source = "estimated";
     cpc_from_google_ads = false;
     dataNote =
-      "Dados estimados por modelo interno (sem Keyword Ideas neste pedido — liga Google Ads ao projeto para métricas oficiais). Variações: IA/heurística quando disponível.";
+      "Dados estimados por modelo interno (sem Keyword Ideas neste pedido — liga Google Ads ao projeto para métricas oficiais). Não usamos Semrush nem outros fornecedores externos para estes números. Variações: IA/heurística quando disponível.";
+  }
+
+  if (metrics_source === "google_ads") {
+    dataNote +=
+      " Janela temporal: média segundo a API Google (por omissão ~últimos 12 meses); pode não coincidir com um intervalo personalizado no site do Keyword Planner.";
+  }
+
+  const multiGeo =
+    planner != null && input.countryCodes != null && input.countryCodes.length > 1;
+  if (multiGeo) {
+    const list = [...new Set(input.countryCodes!.map((c) => c.toUpperCase()))].join(", ");
+    dataNote += ` Métricas agregadas para ${input.countryCodes!.length} países (${list}), como no Planner com várias localizações.`;
   }
 
   let user_cpc_verdict_pt: string | null = null;

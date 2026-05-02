@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Loader2, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,8 @@ export function DpilotKeywordDecisionCard({
   desiredClicksPerDay,
   committedKeyword,
   onCommitKeyword,
+  /** Países do wizard (até 10) — mesmo critério multi-localização do Keyword Planner Google. */
+  geoCountryCodes,
 }: {
   projectId: string;
   offer: string;
@@ -69,6 +71,7 @@ export function DpilotKeywordDecisionCard({
   desiredClicksPerDay: number | null;
   committedKeyword: string | null;
   onCommitKeyword: (keyword: string) => void;
+  geoCountryCodes: string[];
 }) {
   const [draft, setDraft] = useState("");
   const [insight, setInsight] = useState<DpilotKeywordInsight | null>(null);
@@ -113,22 +116,42 @@ export function DpilotKeywordDecisionCard({
     };
   }, [loadSuggestions]);
 
+  const plannerCountryCodes = useMemo(
+    () =>
+      [
+        ...new Set(
+          (geoCountryCodes.length ? geoCountryCodes : primaryCountryCode ? [primaryCountryCode] : [])
+            .map((c) => c.trim().toUpperCase())
+            .filter(Boolean),
+        ),
+      ].slice(0, 10),
+    [geoCountryCodes, primaryCountryCode],
+  );
+
+  const geoSummaryLabel = useMemo(() => {
+    if (plannerCountryCodes.length === 0) return "";
+    if (plannerCountryCodes.length === 1) return countryLabel(plannerCountryCodes[0]!);
+    return plannerCountryCodes.map((c) => countryLabel(c)).join(", ");
+  }, [plannerCountryCodes]);
+
   const runInsight = async () => {
     const kw = draft.trim();
     if (kw.length < 2) {
       toast.error("Indica uma palavra-chave.");
       return;
     }
-    if (!primaryCountryCode) {
+    if (!primaryCountryCode && plannerCountryCodes.length === 0) {
       toast.error("Selecciona pelo menos um país de segmentação acima.");
       return;
     }
     setLoadingInsight(true);
     setInsight(null);
     try {
+      const primary = (plannerCountryCodes[0] ?? primaryCountryCode).trim().toUpperCase();
       const { data, error } = await paidAdsService.postGoogleKeywordInsight(projectId, {
         keyword: kw,
-        countryCode: primaryCountryCode,
+        countryCode: primary,
+        ...(plannerCountryCodes.length > 1 ? { countryCodes: plannerCountryCodes } : {}),
         languageCode: primaryLanguageCode,
         ...(userCpcUsd != null && Number.isFinite(userCpcUsd) ? { userCpcUsd } : {}),
         ...(dailyBudgetUsd != null && Number.isFinite(dailyBudgetUsd) ? { dailyBudgetUsd } : {}),
@@ -164,8 +187,6 @@ export function DpilotKeywordDecisionCard({
       setLoadingInsight(false);
     }
   };
-
-  const countryName = countryLabel(primaryCountryCode);
 
   const metricsBadge =
     insight?.metrics_source === "google_ads" ? (
@@ -203,8 +224,13 @@ export function DpilotKeywordDecisionCard({
             Análise de palavra-chave
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Usa o primeiro país ({countryName}) e o primeiro idioma seleccionados. Com conta Google Ads ligada ao
-            projeto, volume e concorrência vêm do Keyword Ideas; caso contrário, do modelo interno.
+            Com conta Google Ads: números da <strong className="font-medium text-foreground/90">API Keyword Ideas</strong>{" "}
+            (não Semrush), agregados por{" "}
+            <span className="font-medium text-foreground/90">
+              {geoSummaryLabel || countryLabel(primaryCountryCode)}
+            </span>
+            {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Sem conta: estimativa interna.
+            A janela de datas segue o padrão da API (~12 meses), não um intervalo manual do site Google.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
