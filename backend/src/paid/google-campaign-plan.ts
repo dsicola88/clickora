@@ -24,6 +24,25 @@ const googleBiddingStrategyEnum = z.enum([
   "target_roas",
 ]);
 
+/**
+ * Sinais reais opcionais sobre o produto. **Nunca** inventados — quando ausentes,
+ * o copy gerado simplesmente omite a referência. Os limites de comprimento são
+ * compatíveis com o uso em headlines (≤30) e descrições (≤90) do Google Ads.
+ */
+const productSignalsSchema = z
+  .object({
+    price: z.string().trim().max(20).optional(),
+    price_full: z.string().trim().max(20).optional(),
+    discount: z.string().trim().max(28).optional(),
+    guarantee: z.string().trim().max(40).optional(),
+    shipping: z.string().trim().max(28).optional(),
+    bundles: z.array(z.string().trim().max(30)).max(6).optional(),
+    bonuses: z.string().trim().max(28).optional(),
+    certifications: z.string().trim().max(40).optional(),
+    attributes: z.array(z.string().trim().max(30)).max(8).optional(),
+  })
+  .partial();
+
 export const googleCampaignPlanInputSchema = z
   .object({
     landingUrl: z.string().url().max(500),
@@ -39,6 +58,8 @@ export const googleCampaignPlanInputSchema = z
     /** Override opcional do optimizer para esta campanha (null omitido = herdar projecto). */
     optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
     optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
+    /** Sinais reais do produto. Quando preenchidos, o copy menciona-os literalmente. */
+    product_signals: productSignalsSchema.optional(),
   })
   .superRefine((val, ctx) => {
     if (val.google_bidding_strategy === "target_cpa") {
@@ -162,6 +183,23 @@ export async function runGoogleCampaignPlan(
           ? `Google bidding — chosen strategy: target ROAS ${data.google_target_roas} (stored for publish).`
           : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
     const primaryLang = languageTargetsNorm[0] ?? "en";
+    const ps = data.product_signals;
+    const productSignalsLines = (() => {
+      if (!ps) return "";
+      const lines: string[] = [];
+      if (ps.price) lines.push(`- price: "${ps.price}"`);
+      if (ps.price_full) lines.push(`- price_full: "${ps.price_full}"`);
+      if (ps.discount) lines.push(`- discount: "${ps.discount}"`);
+      if (ps.guarantee) lines.push(`- guarantee: "${ps.guarantee}"`);
+      if (ps.shipping) lines.push(`- shipping: "${ps.shipping}"`);
+      if (ps.bundles?.length) lines.push(`- bundles: ${ps.bundles.map((b) => `"${b}"`).join(", ")}`);
+      if (ps.bonuses) lines.push(`- bonuses: "${ps.bonuses}"`);
+      if (ps.certifications) lines.push(`- certifications: "${ps.certifications}"`);
+      if (ps.attributes?.length) lines.push(`- attributes: ${ps.attributes.map((a) => `"${a}"`).join(", ")}`);
+      if (!lines.length) return "";
+      return `\nProduct signals (TRUE facts about this offer — use VERBATIM where they fit; do NOT invent any other promo claim):\n${lines.join("\n")}`;
+    })();
+
     const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
 Objective (INTERNAL briefing — do NOT copy verbatim into ad copy, do NOT use as a headline/description): ${data.objective}
@@ -170,7 +208,7 @@ Geo (countries): ${geoTargetsNorm.join(", ")}
 Advertising languages (ISO codes; FIRST is primary): ${languageTargetsNorm.join(", ")}
 PRIMARY language for ALL RSA headlines and descriptions: ${primaryLang} — write every headline and every description in ${primaryLang} only, no mixing with other languages.
 ${bidHint}
-RSA reminders: 12 headlines ≤30 chars each (vary the angle: CTA, benefit, proof, urgency, branded — never repeat the same stem), 4 descriptions ≤90 chars each (full persuasive sentences derived from the Offer and Landing — never echoing the Objective).
+RSA reminders: 12 headlines ≤30 chars each (vary the angle: CTA, benefit, proof, urgency, branded — never repeat the same stem), 4 descriptions ≤90 chars each (full persuasive sentences derived from the Offer, Landing and Product signals — never echoing the Objective).${productSignalsLines}
 Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     if (process.env.OPENAI_API_KEY) {
@@ -186,6 +224,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         objective: data.objective,
         geoTargets: geoTargetsNorm,
         languageTargets: languageTargetsNorm,
+        productSignals: data.product_signals,
       });
     }
   } catch (e) {
@@ -196,6 +235,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       objective: data.objective,
       geoTargets: geoTargetsNorm,
       languageTargets: languageTargetsNorm,
+      productSignals: data.product_signals,
     });
   }
 
@@ -206,6 +246,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     objective: data.objective,
     geoTargets: geoTargetsNorm,
     languageTargets: languageTargetsNorm,
+    productSignals: data.product_signals,
   });
 
   plan.ad_groups = (plan.ad_groups ?? []).map((ag) => ({

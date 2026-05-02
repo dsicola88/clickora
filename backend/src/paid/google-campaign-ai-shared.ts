@@ -8,6 +8,32 @@ import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asse
 /** Extensões que a IA pode preencher (parciais são completadas em `finalizeGoogleCampaignAssetExtensions`). */
 export type GoogleCampaignAiExtensionsPartial = Partial<GoogleCampaignAssetExtensionsStored>;
 
+/**
+ * Sinais reais do produto. **Apenas** dados que existam mesmo. Quando ausentes,
+ * o copy nunca os menciona. Inspirado em copies vencedores (preço, desconto,
+ * garantia, envio, bundles, bónus, certificações, atributos).
+ */
+export interface GoogleProductSignals {
+  /** Preço actual de venda (já inclui símbolo/moeda). Ex.: "$49", "49 €". */
+  price?: string;
+  /** Preço cheio antes de desconto. Ex.: "$79". */
+  price_full?: string;
+  /** Texto do desconto. Ex.: "77% Off", "$120 Off". */
+  discount?: string;
+  /** Texto da garantia. Ex.: "180 Day Money Back", "30-Day Guarantee". */
+  guarantee?: string;
+  /** Texto do envio. Ex.: "Free US Shipping", "Fast Shipping". */
+  shipping?: string;
+  /** Bundles/packs já formatados. Ex.: ["1 Bottle $69", "3 Bottles $177", "6 Bottles $294"]. */
+  bundles?: string[];
+  /** Bónus incluídos. Ex.: "2 Free Bonuses", "Free e-book". */
+  bonuses?: string;
+  /** Certificações reais. Ex.: "FDA Approved & GMP Certified". */
+  certifications?: string;
+  /** Atributos do produto. Ex.: ["100% Organic", "100% Natural", "Vegan"]. */
+  attributes?: string[];
+}
+
 export interface GoogleCampaignAiPlan {
   campaign: { name: string; objective_summary: string };
   ad_groups: Array<{
@@ -25,6 +51,8 @@ export type DeterministicPlanInput = {
   objective: string;
   geoTargets: string[];
   languageTargets: string[];
+  /** Sinais reais do produto — usados para gerar copy verdadeiro (preço, desconto, garantia, etc.). */
+  productSignals?: GoogleProductSignals;
 };
 
 /** Igual ao modelo usado pela API oficial `POST …/google-campaign-plan`. */
@@ -37,7 +65,14 @@ Rules:
 - RSA: Exactly 12 headlines and 4 descriptions per ad group whenever possible (Google RSA limits: each headline MAX 30 characters including spaces/punctuation — count carefully; each description MAX 90 characters). Headlines must be persuasive and SPECIFIC to the Offer and Landing URL (benefits, outcomes, reassurance, urgency only if truthful). Each headline should ideally use 18-30 characters — avoid bare brand-only headlines, single words, or tepid filler; weave in concrete benefits, differentiators or commercial keywords. Across the 12 headlines, vary the angle: at least one CTA, one benefit, one proof/quality cue, one urgency/availability cue, and one branded headline naming the offer. Do NOT repeat the same stem (e.g. "Try X / Discover X / Buy X / Best X") more than once.
 - KEYWORD DENSITY (critical for Google Quality Score): at least 9 of the 12 headlines MUST contain the offer brand/keyword (the exact "Offer" string from the user prompt, or its first 1-2 words). The remaining 2-3 headlines may omit the keyword for variety, but never make them the majority. Never produce a set where the keyword appears in fewer than 9 headlines.
 - Descriptions must be full persuasive sentences up to ~90 chars: clear value proposition, proof angle, delivery/trust cues when appropriate; align tightly with the Offer and what the Landing URL actually delivers. At least 2 of the 4 descriptions should mention the offer brand/keyword.
-- Promotional claims (price, discount, free shipping, money-back guarantee, free trial, limited stock): include them ONLY if they appear explicitly in the user prompt (Offer or Objective text). NEVER fabricate prices, percentages, time-limits or guarantees that are not provided.
+
+PRODUCT SIGNALS HANDLING (most critical rule):
+- A "Product signals" section MAY be included in the user message, listing TRUE facts about the product (price, full price, discount, guarantee, shipping, bundles, bonuses, certifications, attributes). USE THESE EXACT VALUES VERBATIM in headlines and descriptions whenever they fit (price/discount/guarantee/shipping are highest-value cues that lift CTR).
+- If a Product signals section is **NOT** present, or a specific signal is missing, you MUST NOT mention or imply that signal. NEVER invent a price ("$49"), a percentage ("77% Off"), a guarantee duration ("180 day money back"), shipping ("free shipping"), bonuses, certifications ("FDA Approved") or any factual product claim. When in doubt, omit.
+- Reference patterns drawn from validated affiliate copy (use them only with the actual signals provided):
+  - Headlines: "{Offer} Just {price}", "{Offer} {discount} Today", "{Offer} + {shipping}", "{guarantee}", "Save {discount} on {Offer}", "{Offer} + {bonuses}", "{certifications}", bundle text verbatim ("6 Bottles For Only $294").
+  - Descriptions: "Buy {Offer} now on the official site with {discount} + {shipping} today.", "{guarantee}. Take advantage of this offer and order {Offer} today.", "Get {Offer} with {shipping}. You have {guarantee}.", "Only {price}/unit + {shipping}. {certifications}".
+- Compose every output (headlines, descriptions, sitelinks, callouts, structured snippet) using ONLY: the Offer text, the Landing URL/host, and the Product signals provided. No outside claims.
 - Keywords must be commercial-intent, not brand-only.
 - Never include the user's blocked keywords.
 
@@ -150,6 +185,7 @@ export function sanitizeAiPlanCopy(
   const fallbackRsa = buildDeterministicRsa(
     { landingUrl: ctx.landingUrl, offer: ctx.offer, objective: ctx.objective },
     fallbackPrimary,
+    ctx.productSignals,
   );
 
   const cleanedAdGroups = (plan.ad_groups ?? []).map((ag) => {
@@ -196,6 +232,7 @@ export function buildDeterministicGoogleCampaignPlan(input: DeterministicPlanInp
       objective: input.objective,
     },
     primaryLang,
+    input.productSignals,
   );
   return {
     campaign: {

@@ -236,6 +236,18 @@ export const paidAdsService = {
       google_target_roas?: number;
       optimizer_pause_spend_usd?: number | null;
       optimizer_pause_min_clicks?: number | null;
+      /** Sinais reais do produto (todos opcionais). Campos vazios são ignorados; nada é inventado. */
+      product_signals?: {
+        price?: string;
+        price_full?: string;
+        discount?: string;
+        guarantee?: string;
+        shipping?: string;
+        bundles?: string[];
+        bonuses?: string;
+        certifications?: string;
+        attributes?: string[];
+      };
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/google-campaign-plan`, body);

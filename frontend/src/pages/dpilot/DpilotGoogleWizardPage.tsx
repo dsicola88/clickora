@@ -93,8 +93,47 @@ export function DpilotGoogleWizardPage() {
     useState<GoogleBiddingStrategy>("maximize_conversions");
   const [googleTargetCpaUsd, setGoogleTargetCpaUsd] = useState("");
   const [googleTargetRoas, setGoogleTargetRoas] = useState("");
+  /** Sinais reais do produto — usados textualmente nos anúncios; campos vazios são ignorados (nada é inventado). */
+  const [psPrice, setPsPrice] = useState("");
+  const [psPriceFull, setPsPriceFull] = useState("");
+  const [psDiscount, setPsDiscount] = useState("");
+  const [psGuarantee, setPsGuarantee] = useState("");
+  const [psShipping, setPsShipping] = useState("");
+  const [psBonuses, setPsBonuses] = useState("");
+  const [psCertifications, setPsCertifications] = useState("");
+  /** Bundles separados por nova linha (ex.: "1 Bottle $69" / "3 Bottles $177" / "6 Bottles $294"). */
+  const [psBundles, setPsBundles] = useState("");
+  /** Atributos separados por vírgula ou nova linha (ex.: "100% Organic, 100% Natural"). */
+  const [psAttributes, setPsAttributes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Constrói o objecto product_signals só com os campos preenchidos; devolve undefined se tudo vazio. */
+  const buildProductSignals = (): NonNullable<
+    Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1]["product_signals"]
+  > | undefined => {
+    const splitLines = (raw: string, max: number): string[] =>
+      raw
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, max);
+    const ps: NonNullable<
+      Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1]["product_signals"]
+    > = {};
+    if (psPrice.trim()) ps.price = psPrice.trim();
+    if (psPriceFull.trim()) ps.price_full = psPriceFull.trim();
+    if (psDiscount.trim()) ps.discount = psDiscount.trim();
+    if (psGuarantee.trim()) ps.guarantee = psGuarantee.trim();
+    if (psShipping.trim()) ps.shipping = psShipping.trim();
+    if (psBonuses.trim()) ps.bonuses = psBonuses.trim();
+    if (psCertifications.trim()) ps.certifications = psCertifications.trim();
+    const bundles = splitLines(psBundles, 6);
+    if (bundles.length) ps.bundles = bundles;
+    const attrs = splitLines(psAttributes, 8);
+    if (attrs.length) ps.attributes = attrs;
+    return Object.keys(ps).length ? ps : undefined;
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +215,9 @@ export function DpilotGoogleWizardPage() {
       }
       if (optimizer_pause_spend_usd !== undefined) body.optimizer_pause_spend_usd = optimizer_pause_spend_usd;
       if (optimizer_pause_min_clicks !== undefined) body.optimizer_pause_min_clicks = optimizer_pause_min_clicks;
+
+      const productSignals = buildProductSignals();
+      if (productSignals) body.product_signals = productSignals;
 
       const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
@@ -399,6 +441,101 @@ export function DpilotGoogleWizardPage() {
                 </Field>
               </div>
             </div>
+
+            <details className="group space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-foreground">
+                <span>
+                  Detalhes do produto (opcional) — usados textualmente nos anúncios
+                </span>
+                <span className="text-muted-foreground transition-transform group-open:rotate-180" aria-hidden>
+                  ▾
+                </span>
+              </summary>
+              <p className="pt-1 text-[11px] text-muted-foreground">
+                Preencha apenas o que for verdade. Campos vazios são ignorados — o gerador <strong>nunca</strong> inventa
+                preços, descontos, garantias, envios ou certificações.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Preço actual" hint='Ex.: "$49" ou "49 €"'>
+                  <Input
+                    placeholder="$49"
+                    maxLength={20}
+                    value={psPrice}
+                    onChange={(e) => setPsPrice(e.target.value)}
+                  />
+                </Field>
+                <Field label="Preço cheio (opcional)" hint='Ex.: "$79"'>
+                  <Input
+                    placeholder="$79"
+                    maxLength={20}
+                    value={psPriceFull}
+                    onChange={(e) => setPsPriceFull(e.target.value)}
+                  />
+                </Field>
+                <Field label="Desconto" hint='Ex.: "77% Off" ou "$120 Off"'>
+                  <Input
+                    placeholder="77% Off"
+                    maxLength={28}
+                    value={psDiscount}
+                    onChange={(e) => setPsDiscount(e.target.value)}
+                  />
+                </Field>
+                <Field label="Garantia" hint='Ex.: "180 Day Money Back"'>
+                  <Input
+                    placeholder="180 Day Money Back"
+                    maxLength={40}
+                    value={psGuarantee}
+                    onChange={(e) => setPsGuarantee(e.target.value)}
+                  />
+                </Field>
+                <Field label="Envio" hint='Ex.: "Free US Shipping"'>
+                  <Input
+                    placeholder="Free US Shipping"
+                    maxLength={28}
+                    value={psShipping}
+                    onChange={(e) => setPsShipping(e.target.value)}
+                  />
+                </Field>
+                <Field label="Bónus incluídos" hint='Ex.: "2 Free Bonuses"'>
+                  <Input
+                    placeholder="2 Free Bonuses"
+                    maxLength={28}
+                    value={psBonuses}
+                    onChange={(e) => setPsBonuses(e.target.value)}
+                  />
+                </Field>
+              </div>
+              <Field label="Certificações" hint='Ex.: "FDA Approved & GMP Certified"'>
+                <Input
+                  placeholder="FDA Approved & GMP Certified"
+                  maxLength={40}
+                  value={psCertifications}
+                  onChange={(e) => setPsCertifications(e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Bundles / packs (uma linha por bundle, ≤30 caracteres)"
+                hint={'Ex.: "1 Bottle $69" / "3 Bottles $177" / "6 Bottles $294"'}
+              >
+                <Textarea
+                  rows={3}
+                  placeholder={"1 Bottle $69\n3 Bottles $177\n6 Bottles $294"}
+                  value={psBundles}
+                  onChange={(e) => setPsBundles(e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Atributos do produto (separados por vírgula ou nova linha, ≤30 caracteres cada)"
+                hint='Ex.: "100% Organic, 100% Natural, Vegan"'
+              >
+                <Textarea
+                  rows={2}
+                  placeholder="100% Organic, 100% Natural"
+                  value={psAttributes}
+                  onChange={(e) => setPsAttributes(e.target.value)}
+                />
+              </Field>
+            </details>
 
             {error ? (
               <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
