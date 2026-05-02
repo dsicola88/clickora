@@ -4,8 +4,10 @@ import { ArrowRight, BarChart3, Globe } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { PresellAnalyticsPeriodControls } from "@/components/presell/PresellAnalyticsPeriodControls";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyticsService } from "@/services/analyticsService";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
+import type { PresellDashAnalyticsTab } from "@/lib/presellDashboardAnalyticsTab";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -31,13 +33,12 @@ type DateRangeProps = {
 
 /** Bloco 1: KPIs do script + gráfico diário (cartão próprio). */
 export function PresellRastreamentoScriptCard({
-  id = "rastreamento-script",
   startDate,
   endDate,
   onApply,
   query,
   className,
-}: DateRangeProps & { id?: string; query: PresellAnalyticsQueryShape; className?: string }) {
+}: DateRangeProps & { query: PresellAnalyticsQueryShape; className?: string }) {
   const gradId = useId().replace(/:/g, "");
   const { data: dashboard, isLoading, isError, error, refetch } = query;
 
@@ -66,9 +67,8 @@ export function PresellRastreamentoScriptCard({
 
   return (
     <section
-      id={id}
       className={cn(
-        "scroll-mt-24 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7 space-y-6",
+        "rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7 space-y-6",
         className,
       )}
       aria-labelledby="presell-rastreamento-heading"
@@ -206,7 +206,6 @@ export function PresellRastreamentoScriptCard({
 
 /** Bloco 2: cliques por país (cartão próprio; período partilhado com Rastreamento). */
 export function PresellCliquesPorPaisCard({
-  id = "cliques-pais",
   startDate,
   endDate,
   onApply,
@@ -214,7 +213,6 @@ export function PresellCliquesPorPaisCard({
   query,
   className,
 }: DateRangeProps & {
-  id?: string;
   periodLabel: string | null;
   query: PresellAnalyticsQueryShape;
   className?: string;
@@ -225,9 +223,8 @@ export function PresellCliquesPorPaisCard({
 
   return (
     <section
-      id={id}
       className={cn(
-        "scroll-mt-24 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7 space-y-4",
+        "rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7 space-y-4",
         className,
       )}
       aria-labelledby="presell-pais-heading"
@@ -342,31 +339,54 @@ export function PresellScriptAnalyticsPanel({ tenantKey, className }: { tenantKe
   const initial = useMemo(() => rangeLast30Days(), []);
   const [startDate, setStartDate] = useState(initial.from);
   const [endDate, setEndDate] = useState(initial.to);
+  const [analyticsTab, setAnalyticsTab] = useState<PresellDashAnalyticsTab>("rastreamento");
   const q = usePresellAnalyticsDashboardQuery(tenantKey, startDate, endDate);
   const periodLabel = q.data?.period
     ? `${new Date(q.data.period.from + "T12:00:00").toLocaleDateString("pt-BR")} — ${new Date(q.data.period.to + "T12:00:00").toLocaleDateString("pt-BR")}`
     : null;
   return (
-    <div className={cn("space-y-6", className)}>
-      <PresellRastreamentoScriptCard
-        startDate={startDate}
-        endDate={endDate}
-        onApply={({ from, to }) => {
-          setStartDate(from);
-          setEndDate(to);
-        }}
-        query={q}
-      />
-      <PresellCliquesPorPaisCard
-        startDate={startDate}
-        endDate={endDate}
-        onApply={({ from, to }) => {
-          setStartDate(from);
-          setEndDate(to);
-        }}
-        periodLabel={periodLabel}
-        query={q}
-      />
-    </div>
+    <Tabs
+      value={analyticsTab}
+      onValueChange={(v) => setAnalyticsTab(v as PresellDashAnalyticsTab)}
+      className={cn("w-full", className)}
+    >
+      <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 p-1 sm:inline-flex sm:h-auto sm:min-h-10 sm:w-auto sm:grid-cols-none">
+        <TabsTrigger
+          value="rastreamento"
+          className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
+        >
+          Rastreamento (script nas presells)
+        </TabsTrigger>
+        <TabsTrigger
+          value="pais"
+          className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:text-center sm:text-sm sm:py-2"
+        >
+          Cliques por país
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="rastreamento" className="mt-4 outline-none">
+        <PresellRastreamentoScriptCard
+          startDate={startDate}
+          endDate={endDate}
+          onApply={({ from, to }) => {
+            setStartDate(from);
+            setEndDate(to);
+          }}
+          query={q}
+        />
+      </TabsContent>
+      <TabsContent value="pais" className="mt-4 outline-none">
+        <PresellCliquesPorPaisCard
+          startDate={startDate}
+          endDate={endDate}
+          onApply={({ from, to }) => {
+            setStartDate(from);
+            setEndDate(to);
+          }}
+          periodLabel={periodLabel}
+          query={q}
+        />
+      </TabsContent>
+    </Tabs>
   );
 }

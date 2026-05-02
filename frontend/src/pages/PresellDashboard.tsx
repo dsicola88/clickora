@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +61,12 @@ import {
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeLabel, getPresellTypeOption } from "@/lib/presellTypeOptions";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
+import {
+  PRESELL_DASH_ANALYTICS_TAB_PARAM,
+  PRESELL_DASH_DEFAULT_ANALYTICS_TAB,
+  parsePresellDashAnalyticsTab,
+  type PresellDashAnalyticsTab,
+} from "@/lib/presellDashboardAnalyticsTab";
 
 type PresellSettings = PresellConfigSettings;
 
@@ -97,6 +104,7 @@ export default function PresellDashboard() {
   const [creatorStep, setCreatorStep] = useState(1);
 
   const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
   const dashRangePreset = useMemo(() => rangeLast30Days(), []);
   const [dashFrom, setDashFrom] = useState(dashRangePreset.from);
   const [dashTo, setDashTo] = useState(dashRangePreset.to);
@@ -105,14 +113,27 @@ export default function PresellDashboard() {
     ? `${new Date(presellAnalyticsQuery.data.period.from + "T12:00:00").toLocaleDateString("pt-BR")} — ${new Date(presellAnalyticsQuery.data.period.to + "T12:00:00").toLocaleDateString("pt-BR")}`
     : null;
 
+  const analyticsTab: PresellDashAnalyticsTab =
+    parsePresellDashAnalyticsTab(location.search) ?? PRESELL_DASH_DEFAULT_ANALYTICS_TAB;
+
+  /** Migra bookmarks antigos (#rastreamento-script / #cliques-pais) para ?aba=. */
   useEffect(() => {
     const raw = (location.hash || "").replace(/^#/, "");
     if (raw !== "rastreamento-script" && raw !== "cliques-pais") return;
-    const t = window.setTimeout(() => {
-      document.getElementById(raw)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-    return () => window.clearTimeout(t);
-  }, [location.pathname, location.hash]);
+    const search =
+      raw === "rastreamento-script"
+        ? `?${PRESELL_DASH_ANALYTICS_TAB_PARAM}=rastreamento`
+        : `?${PRESELL_DASH_ANALYTICS_TAB_PARAM}=pais`;
+    navigate({ pathname: "/presell/dashboard", search, hash: "" }, { replace: true });
+  }, [location.hash, navigate]);
+
+  const onAnalyticsTabChange = (v: PresellDashAnalyticsTab) => {
+    if (v === PRESELL_DASH_DEFAULT_ANALYTICS_TAB) {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ [PRESELL_DASH_ANALYTICS_TAB_PARAM]: v }, { replace: true });
+    }
+  };
 
   /** Mesmo padrão do Tracking → dashboard: script a colar no &lt;head&gt; da presell. */
   const trackingEmbedScript = useMemo(() => {
@@ -1402,25 +1423,49 @@ export default function PresellDashboard() {
         </div>
       </div>
 
-      <PresellRastreamentoScriptCard
-        startDate={dashFrom}
-        endDate={dashTo}
-        onApply={({ from, to }) => {
-          setDashFrom(from);
-          setDashTo(to);
-        }}
-        query={presellAnalyticsQuery}
-      />
-      <PresellCliquesPorPaisCard
-        startDate={dashFrom}
-        endDate={dashTo}
-        onApply={({ from, to }) => {
-          setDashFrom(from);
-          setDashTo(to);
-        }}
-        periodLabel={analyticsPeriodLabel}
-        query={presellAnalyticsQuery}
-      />
+      <Tabs
+        value={analyticsTab}
+        onValueChange={(v) => onAnalyticsTabChange(v as PresellDashAnalyticsTab)}
+        className="w-full"
+      >
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 p-1 sm:inline-flex sm:h-auto sm:min-h-10 sm:w-auto sm:grid-cols-none">
+          <TabsTrigger
+            value="rastreamento"
+            className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
+          >
+            Rastreamento (script nas presells)
+          </TabsTrigger>
+          <TabsTrigger
+            value="pais"
+            className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:text-center sm:text-sm sm:py-2"
+          >
+            Cliques por país
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="rastreamento" className="mt-4 outline-none">
+          <PresellRastreamentoScriptCard
+            startDate={dashFrom}
+            endDate={dashTo}
+            onApply={({ from, to }) => {
+              setDashFrom(from);
+              setDashTo(to);
+            }}
+            query={presellAnalyticsQuery}
+          />
+        </TabsContent>
+        <TabsContent value="pais" className="mt-4 outline-none">
+          <PresellCliquesPorPaisCard
+            startDate={dashFrom}
+            endDate={dashTo}
+            onApply={({ from, to }) => {
+              setDashFrom(from);
+              setDashTo(to);
+            }}
+            periodLabel={analyticsPeriodLabel}
+            query={presellAnalyticsQuery}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
