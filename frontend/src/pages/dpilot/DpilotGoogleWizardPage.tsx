@@ -111,9 +111,30 @@ export function DpilotGoogleWizardPage() {
   const [extracting, setExtracting] = useState(false);
   /** Sumário do que foi pré-preenchido pela última extracção (mostrado abaixo da Oferta para o utilizador validar). */
   const [extractedSummary, setExtractedSummary] = useState<string | null>(null);
+  /** Quando `true`, abre o painel "Detalhes do produto" para o utilizador ver de relance o que foi extraído (sem ter de o abrir à mão). */
+  const [signalsOpen, setSignalsOpen] = useState(false);
 
-  /** Vai à landing, lê dados verificáveis e pré-preenche os campos. Utilizador valida antes de submeter. */
-  const onExtractLanding = async () => {
+  /** Tipo dos overrides aceites por `submitPlan` quando os valores acabaram de ser extraídos
+   *  e ainda não estão reflectidos no state (React não actualiza state sincronamente). */
+  type SubmitOverrides = {
+    offer?: string;
+    objective?: string;
+    languageTargets?: string[];
+    productSignals?: ReturnType<typeof buildProductSignals>;
+  };
+
+  /** Resultado de uma extracção bem-sucedida — usado tanto pelo botão «Buscar dados»
+   *  (faz setState e mostra resumo) como por «Buscar e gerar» (envia logo para `submitPlan`). */
+  type ExtractionResult = {
+    summary: string;
+    effective: Required<Omit<SubmitOverrides, "productSignals">> & {
+      productSignals: ReturnType<typeof buildProductSignals>;
+    };
+  };
+
+  /** Lê a landing, faz setState dos campos pré-preenchidos e devolve os valores efectivos
+   *  para uso imediato (sem esperar pelo re-render). Devolve `null` se a URL/extracção falhar. */
+  const runExtraction = async (): Promise<ExtractionResult | null> => {
     setError(null);
     setExtractedSummary(null);
     const urlOk = z.string().url().safeParse(landingUrl);
@@ -121,78 +142,150 @@ export function DpilotGoogleWizardPage() {
       const msg = "Indique primeiro uma URL válida da landing.";
       setError(msg);
       toast.error("URL inválida", { description: msg });
-      return;
+      return null;
     }
+    const { data, error: apiErr } = await paidAdsService.extractGoogleLanding(projectId, {
+      landingUrl,
+    });
+    if (apiErr || !data?.ok) {
+      const msg = apiErr || "Não foi possível ler a landing.";
+      setError(msg);
+      toast.error("Falha ao buscar dados", { description: msg });
+      return null;
+    }
+
+    const filled: string[] = [];
+    /** Oferta: usa a sugestão da landing se houver, senão preserva o que o utilizador já tinha. */
+    const effOffer = data.offer_suggestion?.trim() || offer;
+    if (data.offer_suggestion) {
+      setOffer(data.offer_suggestion);
+      filled.push("Oferta");
+    }
+
+    /** Idioma: só aceita se for um dos suportados pelo Google Ads e ainda não estiver na lista. */
+    let effLangs = languageTargets;
+    if (data.language) {
+      const lang = data.language.toLowerCase();
+      const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.value === lang);
+      if (known && !languageTargets.includes(lang)) {
+        effLangs = [lang, ...languageTargets].slice(0, 10);
+        setLanguageTargets(effLangs);
+        filled.push(`Idioma (${lang})`);
+      }
+    }
+
+    /** Sinais do produto: monta o objecto efectivo (para submit imediato) ao mesmo tempo que faz setState. */
+    const ps: NonNullable<ReturnType<typeof buildProductSignals>> = {};
+    const s = data.signals;
+    if (s.price) {
+      setPsPrice(s.price);
+      ps.price = s.price;
+      filled.push("preço");
+    }
+    if (s.price_full) {
+      setPsPriceFull(s.price_full);
+      ps.price_full = s.price_full;
+      filled.push("preço cheio");
+    }
+    if (s.discount) {
+      setPsDiscount(s.discount);
+      ps.discount = s.discount;
+      filled.push("desconto");
+    }
+    if (s.guarantee) {
+      setPsGuarantee(s.guarantee);
+      ps.guarantee = s.guarantee;
+      filled.push("garantia");
+    }
+    if (s.shipping) {
+      setPsShipping(s.shipping);
+      ps.shipping = s.shipping;
+      filled.push("envio");
+    }
+    if (s.certifications) {
+      setPsCertifications(s.certifications);
+      ps.certifications = s.certifications;
+      filled.push("certificações");
+    }
+    if (s.attributes?.length) {
+      setPsAttributes(s.attributes.join(", "));
+      ps.attributes = s.attributes.slice(0, 8);
+      filled.push("atributos");
+    }
+    if (s.bundles?.length) {
+      setPsBundles(s.bundles.join("\n"));
+      ps.bundles = s.bundles.slice(0, 6);
+      filled.push("bundles");
+    }
+    if (s.bonuses) {
+      setPsBonuses(s.bonuses);
+      ps.bonuses = s.bonuses;
+      filled.push("bónus");
+    }
+    /** Mistura sinais já existentes no state (que o utilizador pode ter escrito antes de extrair)
+     *  com os recém-extraídos. Os extraídos têm prioridade em caso de colisão. */
+    const baseSignals = buildProductSignals();
+    const effProductSignals = { ...(baseSignals ?? {}), ...ps };
+    const finalSignals = Object.keys(effProductSignals).length ? effProductSignals : undefined;
+
+    /** Objectivo: respeita o que o utilizador escreveu; se vazio, infere a partir do hostname
+     *  para que o caminho «Buscar e gerar» não falhe na validação obrigatória do schema. */
+    const effObjective =
+      objective.trim() ||
+      `Gerar conversões a partir de ${data.hostname} — alinhado com a oferta extraída da landing.`;
+
+    /** Abre o painel «Detalhes do produto» para o utilizador ver de relance o que ficou pré-preenchido. */
+    setSignalsOpen(true);
+
+    const summary = filled.length
+      ? `Pré-preenchi: ${filled.join(", ")}. Validação opcional — podes gerar já ou ajustar abaixo.`
+      : "Página acedida, mas não consegui extrair sinais. Preenche manualmente o que for verdadeiro.";
+    setExtractedSummary(summary);
+
+    return {
+      summary,
+      effective: {
+        offer: effOffer,
+        objective: effObjective,
+        languageTargets: effLangs,
+        productSignals: finalSignals,
+      },
+    };
+  };
+
+  /** Apenas extrai e pré-preenche — utilizador revê e clica «Gerar plano» no fim. */
+  const onExtractLanding = async () => {
+    if (extracting || submitting) return;
     setExtracting(true);
     try {
-      const { data, error: apiErr } = await paidAdsService.extractGoogleLanding(projectId, {
-        landingUrl,
-      });
-      if (apiErr || !data?.ok) {
-        const msg = apiErr || "Não foi possível ler a landing.";
-        setError(msg);
-        toast.error("Falha ao buscar dados", { description: msg });
-        return;
+      const r = await runExtraction();
+      if (r) {
+        toast.success("Dados da landing carregados", { description: r.summary });
       }
-      const filled: string[] = [];
-      if (data.offer_suggestion) {
-        setOffer(data.offer_suggestion);
-        filled.push("Oferta");
-      }
-      if (data.language) {
-        const lang = data.language.toLowerCase();
-        const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.value === lang);
-        if (known && !languageTargets.includes(lang)) {
-          setLanguageTargets([lang, ...languageTargets].slice(0, 10));
-          filled.push(`Idioma (${lang})`);
-        }
-      }
-      const s = data.signals;
-      if (s.price) {
-        setPsPrice(s.price);
-        filled.push("preço");
-      }
-      if (s.price_full) {
-        setPsPriceFull(s.price_full);
-        filled.push("preço cheio");
-      }
-      if (s.discount) {
-        setPsDiscount(s.discount);
-        filled.push("desconto");
-      }
-      if (s.guarantee) {
-        setPsGuarantee(s.guarantee);
-        filled.push("garantia");
-      }
-      if (s.shipping) {
-        setPsShipping(s.shipping);
-        filled.push("envio");
-      }
-      if (s.certifications) {
-        setPsCertifications(s.certifications);
-        filled.push("certificações");
-      }
-      if (s.attributes?.length) {
-        setPsAttributes(s.attributes.join(", "));
-        filled.push("atributos");
-      }
-      if (s.bundles?.length) {
-        setPsBundles(s.bundles.join("\n"));
-        filled.push("bundles");
-      }
-      if (s.bonuses) {
-        setPsBonuses(s.bonuses);
-        filled.push("bónus");
-      }
-      const summary = filled.length
-        ? `Pré-preenchi: ${filled.join(", ")}. Confirma e ajusta antes de gerar.`
-        : "Página acedida, mas não consegui extrair sinais. Preenche manualmente o que for verdadeiro.";
-      setExtractedSummary(summary);
-      toast.success("Dados da landing carregados", { description: summary });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro inesperado";
       setError(msg);
       toast.error("Falha ao buscar dados", { description: msg });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  /** Caminho 1-clique: extrai a landing, pré-preenche tudo e gera o plano sem exigir validação humana.
+   *  Os campos continuam editáveis depois — a validação é opcional, não obrigatória. */
+  const onExtractAndGenerate = async () => {
+    if (extracting || submitting) return;
+    setExtracting(true);
+    try {
+      const r = await runExtraction();
+      if (!r) return;
+      /** Liberta o estado «A ler…» antes de entrar no estado «A gerar plano…» (gerido por `submitPlan`). */
+      setExtracting(false);
+      await submitPlan(r.effective);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro inesperado";
+      setError(msg);
+      toast.error("Falha ao gerar a partir da landing", { description: msg });
     } finally {
       setExtracting(false);
     }
@@ -225,13 +318,22 @@ export function DpilotGoogleWizardPage() {
     return Object.keys(ps).length ? ps : undefined;
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /** Lógica central de submissão. Aceita `overrides` para usar valores acabados de extrair
+   *  da landing (que ainda não estão reflectidos no React state). Tudo o que não for
+   *  sobreposto vem do state actual do formulário. */
+  const submitPlan = async (overrides: SubmitOverrides = {}) => {
     setError(null);
+    /** Valores efectivos: prioridade aos overrides (extracção), senão state. */
+    const effOffer = overrides.offer ?? offer;
+    const effObjective = overrides.objective ?? objective;
+    const effLangs = overrides.languageTargets ?? languageTargets;
+    const effProductSignals =
+      overrides.productSignals !== undefined ? overrides.productSignals : buildProductSignals();
+
     const parsed = schema.safeParse({
       landingUrl,
-      offer,
-      objective,
+      offer: effOffer,
+      objective: effObjective,
       dailyBudgetUsd: Number(dailyBudget),
     });
     if (!parsed.success) {
@@ -243,7 +345,7 @@ export function DpilotGoogleWizardPage() {
       setError("Seleccione pelo menos uma localização (país).");
       return;
     }
-    const langArr = languageTargets.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
+    const langArr = effLangs.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (!langArr.length) {
       setError("Selecione pelo menos um idioma dos anúncios.");
       return;
@@ -306,8 +408,7 @@ export function DpilotGoogleWizardPage() {
       if (optimizer_pause_spend_usd !== undefined) body.optimizer_pause_spend_usd = optimizer_pause_spend_usd;
       if (optimizer_pause_min_clicks !== undefined) body.optimizer_pause_min_clicks = optimizer_pause_min_clicks;
 
-      const productSignals = buildProductSignals();
-      if (productSignals) body.product_signals = productSignals;
+      if (effProductSignals) body.product_signals = effProductSignals;
 
       const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
@@ -343,6 +444,12 @@ export function DpilotGoogleWizardPage() {
     }
   };
 
+  /** Handler do submit do formulário — usa apenas o que o utilizador tem no state. */
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitPlan();
+  };
+
   return (
     <Gate>
       <div className="pb-12">
@@ -369,7 +476,7 @@ export function DpilotGoogleWizardPage() {
           >
             <Field
               label="URL da landing page"
-              hint="Cola a URL e carrega «Buscar dados» — extraio título, idioma, preço, garantia, envio e certificações que existam mesmo na página."
+              hint="Cola e clica «Buscar e gerar» — a IA lê a página, preenche tudo e cria o anúncio. Validação opcional: usa «Apenas buscar dados» se quiseres rever antes."
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                 <Input
@@ -383,13 +490,25 @@ export function DpilotGoogleWizardPage() {
                 />
                 <Button
                   type="button"
-                  variant="secondary"
                   className="shrink-0"
-                  onClick={onExtractLanding}
-                  disabled={extracting || !landingUrl.trim()}
+                  onClick={onExtractAndGenerate}
+                  disabled={extracting || submitting || !landingUrl.trim()}
+                  title="Lê a landing, preenche tudo e gera o anúncio num só clique. Os campos ficam editáveis."
                 >
                   <Wand2 className="mr-1 h-4 w-4" />
-                  {extracting ? "A ler…" : "Buscar dados"}
+                  {extracting ? "A ler landing…" : submitting ? "A gerar…" : "Buscar e gerar"}
+                </Button>
+              </div>
+              <div className="mt-1 flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-[11px] font-normal text-muted-foreground"
+                  onClick={onExtractLanding}
+                  disabled={extracting || submitting || !landingUrl.trim()}
+                >
+                  {extracting ? "A ler…" : "Apenas buscar dados (rever antes de gerar)"}
                 </Button>
               </div>
               {extractedSummary ? (
@@ -553,7 +672,11 @@ export function DpilotGoogleWizardPage() {
               </div>
             </div>
 
-            <details className="group space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4 [&_summary::-webkit-details-marker]:hidden">
+            <details
+              open={signalsOpen}
+              onToggle={(e) => setSignalsOpen(e.currentTarget.open)}
+              className="group space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4 [&_summary::-webkit-details-marker]:hidden"
+            >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-foreground">
                 <span>
                   Detalhes do produto (opcional) — usados textualmente nos anúncios
