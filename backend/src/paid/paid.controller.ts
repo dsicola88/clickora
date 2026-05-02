@@ -10,6 +10,7 @@ import { intersectGeoTargetsWithAllowedCountries } from "./guardrails-eval";
 import { ensurePaidAdsBootstrapForUser, ensurePaidAdsProjectRows } from "./bootstrap";
 import { prisma } from "./paidPrisma";
 import { googleCampaignPlanInputSchema, runGoogleCampaignPlan } from "./google-campaign-plan";
+import { extractGoogleLanding } from "./google-landing-extract";
 import { metaCampaignPlanInputSchema, runMetaCampaignPlan } from "./meta-campaign-plan";
 import { reconcileProjectCampaigns } from "./reconcile-campaigns";
 import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-campaign-plan";
@@ -453,6 +454,29 @@ export const paidController = {
       autoApplied: out.autoApplied,
       reasons: out.reasons,
     });
+  },
+
+  /**
+   * Lê a landing URL do utilizador e devolve dados que conseguiu detectar
+   * (oferta sugerida, idioma e sinais reais do produto). O frontend
+   * pré-preenche o formulário e o utilizador valida/edita antes de submeter.
+   */
+  async googleLandingExtract(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso a este projecto." });
+    }
+    const bodySchema = z.object({ landingUrl: z.string().url().max(500) });
+    const body = bodySchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "URL inválida.", details: body.error.flatten() });
+    }
+    const out = await extractGoogleLanding(body.data.landingUrl);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json(out);
   },
 
   async metaCampaignPlan(req: Request, res: Response) {

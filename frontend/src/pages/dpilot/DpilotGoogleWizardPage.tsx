@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { PageHeader } from "@/components/PageHeader";
@@ -107,6 +107,96 @@ export function DpilotGoogleWizardPage() {
   const [psAttributes, setPsAttributes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Estado da extracção da landing (botão «Buscar dados»). */
+  const [extracting, setExtracting] = useState(false);
+  /** Sumário do que foi pré-preenchido pela última extracção (mostrado abaixo da Oferta para o utilizador validar). */
+  const [extractedSummary, setExtractedSummary] = useState<string | null>(null);
+
+  /** Vai à landing, lê dados verificáveis e pré-preenche os campos. Utilizador valida antes de submeter. */
+  const onExtractLanding = async () => {
+    setError(null);
+    setExtractedSummary(null);
+    const urlOk = z.string().url().safeParse(landingUrl);
+    if (!urlOk.success) {
+      const msg = "Indique primeiro uma URL válida da landing.";
+      setError(msg);
+      toast.error("URL inválida", { description: msg });
+      return;
+    }
+    setExtracting(true);
+    try {
+      const { data, error: apiErr } = await paidAdsService.extractGoogleLanding(projectId, {
+        landingUrl,
+      });
+      if (apiErr || !data?.ok) {
+        const msg = apiErr || "Não foi possível ler a landing.";
+        setError(msg);
+        toast.error("Falha ao buscar dados", { description: msg });
+        return;
+      }
+      const filled: string[] = [];
+      if (data.offer_suggestion) {
+        setOffer(data.offer_suggestion);
+        filled.push("Oferta");
+      }
+      if (data.language) {
+        const lang = data.language.toLowerCase();
+        const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.value === lang);
+        if (known && !languageTargets.includes(lang)) {
+          setLanguageTargets([lang, ...languageTargets].slice(0, 10));
+          filled.push(`Idioma (${lang})`);
+        }
+      }
+      const s = data.signals;
+      if (s.price) {
+        setPsPrice(s.price);
+        filled.push("preço");
+      }
+      if (s.price_full) {
+        setPsPriceFull(s.price_full);
+        filled.push("preço cheio");
+      }
+      if (s.discount) {
+        setPsDiscount(s.discount);
+        filled.push("desconto");
+      }
+      if (s.guarantee) {
+        setPsGuarantee(s.guarantee);
+        filled.push("garantia");
+      }
+      if (s.shipping) {
+        setPsShipping(s.shipping);
+        filled.push("envio");
+      }
+      if (s.certifications) {
+        setPsCertifications(s.certifications);
+        filled.push("certificações");
+      }
+      if (s.attributes?.length) {
+        setPsAttributes(s.attributes.join(", "));
+        filled.push("atributos");
+      }
+      if (s.bundles?.length) {
+        setPsBundles(s.bundles.join("\n"));
+        filled.push("bundles");
+      }
+      if (s.bonuses) {
+        setPsBonuses(s.bonuses);
+        filled.push("bónus");
+      }
+      const summary = filled.length
+        ? `Pré-preenchi: ${filled.join(", ")}. Confirma e ajusta antes de gerar.`
+        : "Página acedida, mas não consegui extrair sinais. Preenche manualmente o que for verdadeiro.";
+      setExtractedSummary(summary);
+      toast.success("Dados da landing carregados", { description: summary });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro inesperado";
+      setError(msg);
+      toast.error("Falha ao buscar dados", { description: msg });
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   /** Constrói o objecto product_signals só com os campos preenchidos; devolve undefined se tudo vazio. */
   const buildProductSignals = (): NonNullable<
@@ -277,15 +367,36 @@ export function DpilotGoogleWizardPage() {
             onSubmit={onSubmit}
             className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
           >
-            <Field label="URL da landing page">
-              <Input
-                id="g-wiz-landing"
-                type="url"
-                value={landingUrl}
-                onChange={(e) => setLandingUrl(e.target.value)}
-                autoComplete="url"
-                required
-              />
+            <Field
+              label="URL da landing page"
+              hint="Cola a URL e carrega «Buscar dados» — extraio título, idioma, preço, garantia, envio e certificações que existam mesmo na página."
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                <Input
+                  id="g-wiz-landing"
+                  type="url"
+                  value={landingUrl}
+                  onChange={(e) => setLandingUrl(e.target.value)}
+                  autoComplete="url"
+                  required
+                  className="sm:flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="shrink-0"
+                  onClick={onExtractLanding}
+                  disabled={extracting || !landingUrl.trim()}
+                >
+                  <Wand2 className="mr-1 h-4 w-4" />
+                  {extracting ? "A ler…" : "Buscar dados"}
+                </Button>
+              </div>
+              {extractedSummary ? (
+                <p className="mt-1 rounded-md bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+                  {extractedSummary}
+                </p>
+              ) : null}
             </Field>
 
             <Field

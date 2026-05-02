@@ -217,6 +217,32 @@ export const paidAdsService = {
     return apiClient.post<Record<string, unknown>>("/paid/guardrails", body);
   },
 
+  /**
+   * Lê a landing e devolve dados detectados (oferta sugerida, idioma, sinais
+   * reais do produto). O utilizador valida/edita antes de submeter o plano.
+   */
+  extractGoogleLanding(projectId: string, body: { landingUrl: string }) {
+    return apiClient.post<{
+      ok: true;
+      url: string;
+      hostname: string;
+      language: string | null;
+      offer_suggestion: string | null;
+      signals: {
+        price?: string;
+        price_full?: string;
+        discount?: string;
+        guarantee?: string;
+        shipping?: string;
+        bundles?: string[];
+        bonuses?: string;
+        certifications?: string;
+        attributes?: string[];
+      };
+      sources: Record<string, string | undefined>;
+    }>(`/paid/projects/${projectId}/google-landing-extract`, body);
+  },
+
   postGoogleCampaignPlan(
     projectId: string,
     body: {
