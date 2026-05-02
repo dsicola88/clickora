@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { googleCampaignCreateBiddingOneof, storedGoogleBiddingFromPlanInput } from "./google-campaign-bidding";
+import {
+  googleAdGroupCpcBidMicros,
+  googleCampaignCreateBiddingOneof,
+  storedGoogleBiddingFromPlanInput,
+} from "./google-campaign-bidding";
 
 describe("storedGoogleBiddingFromPlanInput", () => {
   it("persiste CPA em micros USD", () => {
@@ -21,6 +25,44 @@ describe("storedGoogleBiddingFromPlanInput", () => {
       google_target_roas: 4.25,
     });
     assert.equal(o.google.targetRoas, 4.25);
+  });
+
+  it("persiste CPC máximo manual em micros USD (1.25 USD → 1_250_000)", () => {
+    const o = storedGoogleBiddingFromPlanInput({
+      strategy: "manual_cpc",
+      google_target_cpa_usd: null,
+      google_target_roas: null,
+      google_max_cpc_usd: 1.25,
+    });
+    assert.equal(o.google.strategy, "manual_cpc");
+    assert.equal(o.google.manualCpcMicros, "1250000");
+  });
+
+  it("ignora CPC máximo quando estratégia ≠ manual_cpc", () => {
+    const o = storedGoogleBiddingFromPlanInput({
+      strategy: "maximize_conversions",
+      google_target_cpa_usd: null,
+      google_target_roas: null,
+      google_max_cpc_usd: 5,
+    });
+    assert.equal(o.google.manualCpcMicros, undefined);
+  });
+
+  it("ignora CPC máximo zero/negativo/null mesmo em manual_cpc", () => {
+    const a = storedGoogleBiddingFromPlanInput({
+      strategy: "manual_cpc",
+      google_target_cpa_usd: null,
+      google_target_roas: null,
+      google_max_cpc_usd: 0,
+    });
+    const b = storedGoogleBiddingFromPlanInput({
+      strategy: "manual_cpc",
+      google_target_cpa_usd: null,
+      google_target_roas: null,
+      google_max_cpc_usd: null,
+    });
+    assert.equal(a.google.manualCpcMicros, undefined);
+    assert.equal(b.google.manualCpcMicros, undefined);
   });
 });
 
@@ -51,5 +93,43 @@ describe("googleCampaignCreateBiddingOneof", () => {
       google: { strategy: "target_cpa" },
     });
     assert.deepEqual(b, { manualCpc: {} });
+  });
+
+  it("manual_cpc no oneof do Campaign continua vazio (CPC vai por AdGroup)", () => {
+    const b = googleCampaignCreateBiddingOneof({
+      google: { strategy: "manual_cpc", manualCpcMicros: "1500000" },
+    });
+    assert.deepEqual(b, { manualCpc: {} });
+  });
+});
+
+describe("googleAdGroupCpcBidMicros", () => {
+  it("devolve micros quando estratégia=manual_cpc + valor positivo", () => {
+    const v = googleAdGroupCpcBidMicros({
+      google: { strategy: "manual_cpc", manualCpcMicros: "1250000" },
+    });
+    assert.equal(v, "1250000");
+  });
+
+  it("devolve null sem manualCpcMicros mesmo em manual_cpc", () => {
+    const v = googleAdGroupCpcBidMicros({
+      google: { strategy: "manual_cpc" },
+    });
+    assert.equal(v, null);
+  });
+
+  it("devolve null para qualquer estratégia que não manual_cpc", () => {
+    const v = googleAdGroupCpcBidMicros({
+      google: { strategy: "maximize_conversions", manualCpcMicros: "1250000" },
+    });
+    assert.equal(v, null);
+  });
+
+  it("devolve null para input inválido (string vazia, número, array, etc.)", () => {
+    assert.equal(googleAdGroupCpcBidMicros(null), null);
+    assert.equal(googleAdGroupCpcBidMicros(undefined), null);
+    assert.equal(googleAdGroupCpcBidMicros("nope"), null);
+    assert.equal(googleAdGroupCpcBidMicros([1, 2, 3]), null);
+    assert.equal(googleAdGroupCpcBidMicros({}), null);
   });
 });

@@ -55,6 +55,9 @@ export const googleCampaignPlanInputSchema = z
     google_bidding_strategy: googleBiddingStrategyEnum.optional().default("maximize_conversions"),
     google_target_cpa_usd: z.number().positive().max(10000).nullable().optional(),
     google_target_roas: z.number().positive().max(100).nullable().optional(),
+    /** Lance máximo CPC em USD quando estratégia = `manual_cpc`. Reflecte a equação do UI
+     *  «CPC = orçamento ÷ cliques alvo». Aplicado como `cpcBidMicros` no AdGroup ao publicar. */
+    google_max_cpc_usd: z.number().positive().max(1000).nullable().optional(),
     /** Override opcional do optimizer para esta campanha (null omitido = herdar projecto). */
     optimizer_pause_spend_usd: z.number().positive().max(1_000_000).nullable().optional(),
     optimizer_pause_min_clicks: z.number().int().min(0).max(500).nullable().optional(),
@@ -155,6 +158,7 @@ export async function runGoogleCampaignPlan(
     strategy: data.google_bidding_strategy,
     google_target_cpa_usd: data.google_target_cpa_usd ?? null,
     google_target_roas: data.google_target_roas ?? null,
+    google_max_cpc_usd: data.google_max_cpc_usd ?? null,
   });
 
   const aiRun = await prisma.paidAdsAiRun.create({
@@ -181,7 +185,9 @@ export async function runGoogleCampaignPlan(
         ? `Google bidding — chosen strategy: target CPA at $${data.google_target_cpa_usd} USD (stored for publish).`
         : data.google_bidding_strategy === "target_roas" && data.google_target_roas != null
           ? `Google bidding — chosen strategy: target ROAS ${data.google_target_roas} (stored for publish).`
-          : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
+          : data.google_bidding_strategy === "manual_cpc" && data.google_max_cpc_usd != null
+            ? `Google bidding — chosen strategy: manual CPC capped at $${data.google_max_cpc_usd} USD per click (stored for publish).`
+            : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
     const primaryLang = languageTargetsNorm[0] ?? "en";
     const ps = data.product_signals;
     const productSignalsLines = (() => {

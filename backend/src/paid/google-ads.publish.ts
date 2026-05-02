@@ -11,7 +11,7 @@ import type {
 import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
 import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
-import { googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
+import { googleAdGroupCpcBidMicros, googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
 import { normalizeGoogleLanguageCode } from "./language-google";
 import {
   publishGoogleCampaignAssetExtensions,
@@ -544,6 +544,11 @@ export async function publishGoogleSearchCampaignFromLocal(
     const keywordsLinkedByAg = new Map<string, number>();
     const rsaLinkedByAg = new Map<string, number>();
 
+    /** Lance máximo CPC vindo do utilizador (campo «Cliques alvo» × estratégia `manual_cpc`).
+     *  Quando definido, aplicamos como `cpcBidMicros` no AdGroup — passa a ser o lance por defeito
+     *  para todas as keywords desse grupo. Sem isto, o Google define lance automático ao publicar. */
+    const adGroupCpcBidMicros = googleAdGroupCpcBidMicros(campaign.biddingConfig);
+
     for (let agIndex = 0; agIndex < campaign.adGroups.length; agIndex++) {
       const ag = campaign.adGroups[agIndex]!;
       const baseAgName = (ag.name || "").trim() || `Ad group ${agIndex + 1}`;
@@ -564,6 +569,7 @@ export async function publishGoogleSearchCampaignFromLocal(
                     campaign: campaignRn,
                     status: "ENABLED",
                     type: "SEARCH_STANDARD",
+                    ...(adGroupCpcBidMicros ? { cpcBidMicros: adGroupCpcBidMicros } : {}),
                   },
                 },
               ],

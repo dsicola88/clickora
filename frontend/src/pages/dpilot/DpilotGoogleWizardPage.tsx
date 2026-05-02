@@ -430,6 +430,15 @@ export function DpilotGoogleWizardPage() {
       if (googleBiddingStrategy === "target_roas") {
         body.google_target_roas = parseFloat(googleTargetRoas.replace(",", "."));
       }
+      /** CPC calculado a partir de "Cliques alvo / dia" — só faz sentido com `manual_cpc`,
+       *  onde vira o `cpcBidMicros` por defeito do AdGroup. Para outras estratégias o Google
+       *  define o lance dinamicamente, por isso não enviamos. */
+      if (googleBiddingStrategy === "manual_cpc" && cpcCalc) {
+        const cpcNumber = Number(cpcCalc.value);
+        if (Number.isFinite(cpcNumber) && cpcNumber > 0) {
+          body.google_max_cpc_usd = cpcNumber;
+        }
+      }
       if (optimizer_pause_spend_usd !== undefined) body.optimizer_pause_spend_usd = optimizer_pause_spend_usd;
       if (optimizer_pause_min_clicks !== undefined) body.optimizer_pause_min_clicks = optimizer_pause_min_clicks;
 
@@ -668,6 +677,15 @@ export function DpilotGoogleWizardPage() {
                   {cpcCalc.tone === "ok" ? "✔ " : "⚠ "}
                   {cpcCalc.message}
                 </div>
+                {googleBiddingStrategy === "manual_cpc" ? (
+                  <div className="mt-1.5 rounded-sm bg-emerald-500/15 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+                    ✔ Vai ser aplicado como lance máximo CPC (`cpcBidMicros`) em cada AdGroup ao publicar.
+                  </div>
+                ) : (
+                  <div className="mt-1.5 rounded-sm bg-amber-500/15 px-2 py-1 text-[11px] text-amber-800 dark:text-amber-300">
+                    ⓘ Apenas indicativo: a estratégia escolhida ({GOOGLE_BIDDING_OPTIONS.find((o) => o.value === googleBiddingStrategy)?.label ?? googleBiddingStrategy}) deixa o Google definir o CPC. Para aplicar este valor, escolhe «CPC manual» abaixo.
+                  </div>
+                )}
                 <div className="mt-1 text-[10px] text-muted-foreground/80">
                   Estimativa indicativa. CPC real depende do nicho, palavras-chave e concorrência no leilão.
                 </div>

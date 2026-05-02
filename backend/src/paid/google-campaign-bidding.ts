@@ -16,14 +16,25 @@ export type StoredGoogleBidding = {
   targetCpaMicros?: string;
   /** Razão receita/custo quando strategy === target_roas */
   targetRoas?: number;
+  /** Lance máximo CPC em micro-unidades USD quando strategy === manual_cpc.
+   *  Aplicado como `cpcBidMicros` ao criar cada AdGroup; serve de tecto aos lances
+   *  por palavra-chave e materializa a equação «CPC = orçamento ÷ cliques alvo» do UI. */
+  manualCpcMicros?: string;
 };
 
 export function storedGoogleBiddingFromPlanInput(args: {
   strategy: GoogleBiddingStrategy;
   google_target_cpa_usd?: number | null;
   google_target_roas?: number | null;
+  /** USD por clique escolhido pelo utilizador para `manual_cpc` (opcional). */
+  google_max_cpc_usd?: number | null;
 }): { google: StoredGoogleBidding } {
-  const { strategy, google_target_cpa_usd: cpaUsd, google_target_roas: roas } = args;
+  const {
+    strategy,
+    google_target_cpa_usd: cpaUsd,
+    google_target_roas: roas,
+    google_max_cpc_usd: maxCpcUsd,
+  } = args;
   const google: StoredGoogleBidding = { strategy };
   if (strategy === "target_cpa" && cpaUsd != null && Number.isFinite(cpaUsd) && cpaUsd > 0) {
     google.targetCpaMicros = String(Math.round(cpaUsd * 1_000_000));
@@ -31,7 +42,25 @@ export function storedGoogleBiddingFromPlanInput(args: {
   if (strategy === "target_roas" && roas != null && Number.isFinite(roas) && roas > 0) {
     google.targetRoas = roas;
   }
+  if (strategy === "manual_cpc" && maxCpcUsd != null && Number.isFinite(maxCpcUsd) && maxCpcUsd > 0) {
+    google.manualCpcMicros = String(Math.round(maxCpcUsd * 1_000_000));
+  }
   return { google };
+}
+
+/** Devolve o `cpcBidMicros` a aplicar em cada AdGroup quando o utilizador definiu CPC máximo
+ *  e escolheu `manual_cpc`. Em qualquer outra estratégia (ou sem valor) devolve `null`. */
+export function googleAdGroupCpcBidMicros(biddingConfig: unknown): string | null {
+  const root =
+    biddingConfig &&
+    typeof biddingConfig === "object" &&
+    !Array.isArray(biddingConfig) &&
+    "google" in biddingConfig
+      ? (biddingConfig as { google?: Record<string, unknown> }).google
+      : undefined;
+  const strategy = typeof root?.strategy === "string" ? root.strategy : null;
+  if (strategy !== "manual_cpc") return null;
+  return parsePositiveMicros(root?.manualCpcMicros);
 }
 
 /** Um só campo «oneof» de licitação compatível com a Campaign REST JSON da Google Ads API. */

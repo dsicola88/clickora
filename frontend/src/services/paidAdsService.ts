@@ -260,6 +260,9 @@ export const paidAdsService = {
         | "target_roas";
       google_target_cpa_usd?: number;
       google_target_roas?: number;
+      /** Lance máximo CPC em USD quando estratégia = `manual_cpc`. Vem do cálculo do UI:
+       *  `CPC = orçamento ÷ cliques alvo`. Aplicado como `cpcBidMicros` no AdGroup ao publicar. */
+      google_max_cpc_usd?: number;
       optimizer_pause_spend_usd?: number | null;
       optimizer_pause_min_clicks?: number | null;
       /** Sinais reais do produto (todos opcionais). Campos vazios são ignorados; nada é inventado. */
