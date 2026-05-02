@@ -63,7 +63,6 @@ import { getPresellTypeLabel, getPresellTypeOption } from "@/lib/presellTypeOpti
 import { rangeLast30Days } from "@/lib/dateRangePresets";
 import {
   PRESELL_DASH_ANALYTICS_TAB_PARAM,
-  PRESELL_DASH_DEFAULT_ANALYTICS_TAB,
   parsePresellDashAnalyticsTab,
   type PresellDashAnalyticsTab,
 } from "@/lib/presellDashboardAnalyticsTab";
@@ -113,8 +112,8 @@ export default function PresellDashboard() {
     ? `${new Date(presellAnalyticsQuery.data.period.from + "T12:00:00").toLocaleDateString("pt-BR")} — ${new Date(presellAnalyticsQuery.data.period.to + "T12:00:00").toLocaleDateString("pt-BR")}`
     : null;
 
-  const analyticsTab: PresellDashAnalyticsTab =
-    parsePresellDashAnalyticsTab(location.search) ?? PRESELL_DASH_DEFAULT_ANALYTICS_TAB;
+  const abaInUrl = parsePresellDashAnalyticsTab(location.search);
+  const isMetricsView = abaInUrl !== null;
 
   /** Migra bookmarks antigos (#rastreamento-script / #cliques-pais) para ?aba=. */
   useEffect(() => {
@@ -128,11 +127,7 @@ export default function PresellDashboard() {
   }, [location.hash, navigate]);
 
   const onAnalyticsTabChange = (v: PresellDashAnalyticsTab) => {
-    if (v === PRESELL_DASH_DEFAULT_ANALYTICS_TAB) {
-      setSearchParams({}, { replace: true });
-    } else {
-      setSearchParams({ [PRESELL_DASH_ANALYTICS_TAB_PARAM]: v }, { replace: true });
-    }
+    setSearchParams({ [PRESELL_DASH_ANALYTICS_TAB_PARAM]: v }, { replace: true });
   };
 
   /** Mesmo padrão do Tracking → dashboard: script a colar no &lt;head&gt; da presell. */
@@ -1201,7 +1196,7 @@ export default function PresellDashboard() {
   if (isLoading) return <LoadingState message="Carregando suas presells..." />;
   if (isError) return <ErrorState message="Erro ao carregar presells." onRetry={() => refetch()} />;
 
-  if (pages.length === 0) {
+  if (pages.length === 0 && !isMetricsView) {
     return (
       <EmptyState
         title="Nenhuma presell criada"
@@ -1223,6 +1218,69 @@ export default function PresellDashboard() {
         secondaryOnAction={canWritePresells ? () => navigate("/presell/builder") : undefined}
         icon={<FileText className="h-8 w-8 text-muted-foreground" />}
       />
+    );
+  }
+
+  if (abaInUrl) {
+    return (
+      <div className={cn(APP_PAGE_SHELL, "space-y-6")}>
+        <PageHeader
+          title="Métricas do script"
+          description="Impressões, cliques e conversões das presells com o script Clickora no head."
+          actions={
+            <Button variant="outline" asChild className="gap-1">
+              <Link to="/presell/dashboard">
+                <ChevronLeft className="h-4 w-4" />
+                Voltar às presells
+              </Link>
+            </Button>
+          }
+        />
+
+        <Tabs
+          value={abaInUrl}
+          onValueChange={(v) => onAnalyticsTabChange(v as PresellDashAnalyticsTab)}
+          className="w-full"
+        >
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 p-1 sm:inline-flex sm:h-auto sm:min-h-10 sm:w-auto sm:grid-cols-none">
+            <TabsTrigger
+              value="rastreamento"
+              className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
+            >
+              Rastreamento (script)
+            </TabsTrigger>
+            <TabsTrigger
+              value="pais"
+              className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:text-center sm:text-sm sm:py-2"
+            >
+              Cliques por país
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="rastreamento" className="mt-4 outline-none">
+            <PresellRastreamentoScriptCard
+              startDate={dashFrom}
+              endDate={dashTo}
+              onApply={({ from, to }) => {
+                setDashFrom(from);
+                setDashTo(to);
+              }}
+              query={presellAnalyticsQuery}
+            />
+          </TabsContent>
+          <TabsContent value="pais" className="mt-4 outline-none">
+            <PresellCliquesPorPaisCard
+              startDate={dashFrom}
+              endDate={dashTo}
+              onApply={({ from, to }) => {
+                setDashFrom(from);
+                setDashTo(to);
+              }}
+              periodLabel={analyticsPeriodLabel}
+              query={presellAnalyticsQuery}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     );
   }
 
@@ -1422,50 +1480,6 @@ export default function PresellDashboard() {
           </table>
         </div>
       </div>
-
-      <Tabs
-        value={analyticsTab}
-        onValueChange={(v) => onAnalyticsTabChange(v as PresellDashAnalyticsTab)}
-        className="w-full"
-      >
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 p-1 sm:inline-flex sm:h-auto sm:min-h-10 sm:w-auto sm:grid-cols-none">
-          <TabsTrigger
-            value="rastreamento"
-            className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
-          >
-            Rastreamento (script)
-          </TabsTrigger>
-          <TabsTrigger
-            value="pais"
-            className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:text-center sm:text-sm sm:py-2"
-          >
-            Cliques por país
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="rastreamento" className="mt-4 outline-none">
-          <PresellRastreamentoScriptCard
-            startDate={dashFrom}
-            endDate={dashTo}
-            onApply={({ from, to }) => {
-              setDashFrom(from);
-              setDashTo(to);
-            }}
-            query={presellAnalyticsQuery}
-          />
-        </TabsContent>
-        <TabsContent value="pais" className="mt-4 outline-none">
-          <PresellCliquesPorPaisCard
-            startDate={dashFrom}
-            endDate={dashTo}
-            onApply={({ from, to }) => {
-              setDashFrom(from);
-              setDashTo(to);
-            }}
-            periodLabel={analyticsPeriodLabel}
-            query={presellAnalyticsQuery}
-          />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

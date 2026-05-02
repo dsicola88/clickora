@@ -13,6 +13,3 @@ export function parsePresellDashAnalyticsTab(search: string): PresellDashAnalyti
   if (v === "rastreamento" || v === "pais") return v;
   return null;
 }
-
-/** Primeira aba quando não há `aba` na URL (só a lista, sem métricas). */
-export const PRESELL_DASH_DEFAULT_ANALYTICS_TAB: PresellDashAnalyticsTab = "rastreamento";

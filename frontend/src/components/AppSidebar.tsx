@@ -215,7 +215,7 @@ function isActiveSubPath(
   }
 
   if (rawUrl === presellDashboardAnalyticsHref("rastreamento")) {
-    return path === "/presell/dashboard" && abaPresell !== "pais";
+    return path === "/presell/dashboard" && abaPresell === "rastreamento";
   }
   if (rawUrl === presellDashboardAnalyticsHref("pais")) {
     return path === "/presell/dashboard" && abaPresell === "pais";
