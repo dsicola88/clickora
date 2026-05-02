@@ -102,7 +102,7 @@ const trackingNavEssential: NavItem[] = [
     title: "Resumo e guia",
     url: "/tracking/dashboard",
     icon: LayoutDashboard,
-    hint: "Painel principal: KPIs por período, gráfico e guia (script, postback). Comece aqui.",
+    hint: "KPIs do período (vendas, Google Ads na conta), guia e integrações. Métricas do script nas presells: Minhas Presells.",
   },
   {
     title: "Vendas / Funil",

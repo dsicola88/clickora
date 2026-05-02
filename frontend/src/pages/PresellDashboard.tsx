@@ -52,6 +52,7 @@ import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
+import { PresellScriptAnalyticsPanel } from "@/components/presell/PresellScriptAnalyticsPanel";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeLabel, getPresellTypeOption } from "@/lib/presellTypeOptions";
 
@@ -1182,7 +1183,7 @@ export default function PresellDashboard() {
   }
 
   return (
-    <div className={APP_PAGE_SHELL}>
+    <div className={cn(APP_PAGE_SHELL, "space-y-6")}>
       <PageHeader
         title="Lista de páginas Presell"
         description={isAdmin ? "Duplicar, publicar e organizar num só sítio." : undefined}
@@ -1205,6 +1206,8 @@ export default function PresellDashboard() {
           ) : null
         }
       />
+
+      <PresellScriptAnalyticsPanel tenantKey={tenantKey} />
 
       {isAdmin ? (
         <div className="rounded-xl border border-border/50 bg-muted/25 px-4 py-4 sm:px-5 text-sm text-muted-foreground space-y-2">

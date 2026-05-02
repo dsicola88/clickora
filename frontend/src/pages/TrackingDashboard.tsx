@@ -23,7 +23,6 @@ import {
   ListChecks,
   Music2,
 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,6 @@ import { integrationsService } from "@/services/integrationsService";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { formatGoogleAdsDashboardMoney } from "@/lib/googleAdsDashboardMoney";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -1035,154 +1033,6 @@ function TiktokEventsIntegrationCard({
   );
 }
 
-/** Nome do país (ISO 3166-1 alpha-2) para o painel. */
-type DashboardGoogleGeoInput = {
-  google_ads_metrics?: {
-    impressions: number;
-    clicks: number;
-    conversions: number;
-    cost_micros: number;
-    currency_code?: string | null;
-  } | null;
-  google_ads_metrics_error?: string | null;
-  clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
-  tracking_pipeline?: { google_ads_metrics_available?: boolean };
-};
-
-function DashboardGoogleGeoSection({
-  dashboard,
-  hideGoogleAdsBlock = false,
-}: {
-  dashboard: DashboardGoogleGeoInput | null | undefined;
-  /** Quando true, o bloco Google Ads não é repetido (já mostrado no topo). */
-  hideGoogleAdsBlock?: boolean;
-}) {
-  const g = dashboard?.google_ads_metrics;
-  const err = dashboard?.google_ads_metrics_error;
-  const countries = dashboard?.clicks_by_country ?? [];
-  const canGoogle = dashboard?.tracking_pipeline?.google_ads_metrics_available;
-  const showGoogleBlock = !hideGoogleAdsBlock && (g != null || err || canGoogle);
-  const showGeo = countries.length > 0;
-  if (!showGoogleBlock && !showGeo) return null;
-
-  return (
-    <div className="space-y-4">
-      {showGoogleBlock ? (
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
-              <Target className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 space-y-0.5">
-              <h3 className="font-semibold text-card-foreground">Google Ads (conta)</h3>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Métricas da conta Google Ads neste período. Custos reportados pela API{" "}
-                {g?.currency_code ? (
-                  <span className="text-foreground/80 font-medium">
-                    na moeda da conta ({String(g.currency_code).toUpperCase()})
-                  </span>
-                ) : (
-                  <span className="text-foreground/80">na moeda da conta</span>
-                )}
-                .
-              </p>
-            </div>
-          </div>
-          {err ? (
-            <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">{err}</p>
-          ) : null}
-          {g ? (
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground text-xs">Impressões</dt>
-                <dd className="font-semibold tabular-nums">{g.impressions.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground text-xs">Cliques</dt>
-                <dd className="font-semibold tabular-nums">{g.clicks.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground text-xs">Conversões</dt>
-                <dd className="font-semibold tabular-nums">{Number(g.conversions).toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground text-xs">Custo (conta)</dt>
-                <dd className="font-semibold tabular-nums">{formatGoogleAdsDashboardMoney(g.cost_micros / 1_000_000, g.currency_code)}</dd>
-              </div>
-            </dl>
-          ) : !err && !canGoogle ? (
-            <p className="text-xs text-muted-foreground">
-              Configure o envio automático em Meu rastreamento ou o URL de conversões em Integrações.
-            </p>
-          ) : !err && canGoogle && !g ? (
-            <p className="text-xs text-muted-foreground">Sem dados da API para este período.</p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {showGeo ? (
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-              <Globe className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 space-y-0.5">
-              <h3 className="font-semibold text-card-foreground">Cliques por país</h3>
-              <p className="text-[11px] text-muted-foreground leading-snug">País estimado por IP (se não houver dados: Desconhecido).</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto rounded-lg border border-border/60">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/60 bg-muted/30 text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">País</th>
-                  <th className="px-3 py-2 font-medium text-right">Cliques</th>
-                </tr>
-              </thead>
-              <tbody>
-                {countries.map((row, i) => {
-                  const iso = normalizeIsoCountryCode(row.country_code);
-                  const label = countryDisplayLabel(row.country_code);
-                  return (
-                    <tr key={`${row.country_code ?? "x"}-${i}`} className="border-b border-border/40 last:border-0">
-                      <td className="px-3 py-2">
-                        <span
-                          className="inline-flex items-center gap-2.5 min-w-0 max-w-[min(100%,20rem)]"
-                          title={iso ? `${label} (${iso})` : label}
-                        >
-                          <span
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-[1.35rem] leading-none shadow-inner"
-                            aria-hidden
-                          >
-                            {countryFlagEmoji(row.country_code)}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="font-medium text-foreground">{label}</span>
-                            {iso ? (
-                              <span className="ml-2 text-xs font-mono text-muted-foreground tabular-nums">{iso}</span>
-                            ) : null}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums font-medium">{row.clicks.toLocaleString()}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : showGoogleBlock ? (
-        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-5 md:p-6">
-          <p className="text-sm text-muted-foreground">
-            Ainda não há cliques com país neste período. Os novos eventos passam a guardar o país automaticamente.
-          </p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function CopyFieldRow({
   value,
   disabled,
@@ -1311,13 +1161,15 @@ function TrackingScriptCsvBlocks({
 }
 
 type DashboardHeroInput = {
-  total_clicks?: number;
-  total_impressions?: number;
-  total_conversions?: number;
-  ctr?: number;
   approved_sales_count?: number;
   affiliate_platforms_count?: number;
-  google_ads_metrics?: DashboardGoogleGeoInput["google_ads_metrics"];
+  google_ads_metrics?: {
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    cost_micros: number;
+    currency_code?: string | null;
+  } | null;
   google_ads_metrics_error?: string | null;
   tracking_pipeline?: { google_ads_metrics_available?: boolean };
 };
@@ -1349,11 +1201,6 @@ function DashboardHeroMetrics({
   const salesCount = dashboard?.approved_sales_count ?? 0;
   const platformsCount = dashboard?.affiliate_platforms_count ?? 0;
 
-  const imps = dashboard?.total_impressions ?? 0;
-  const clicks = dashboard?.total_clicks ?? 0;
-  const convs = dashboard?.total_conversions ?? 0;
-  const ctr = dashboard?.ctr ?? 0;
-
   const googleCost = g != null ? g.cost_micros / 1_000_000 : 0;
   const googleCurrency = g?.currency_code ?? null;
   const googleCpc = g != null && g.clicks > 0 ? googleCost / g.clicks : null;
@@ -1363,10 +1210,6 @@ function DashboardHeroMetrics({
   const statClass = "rounded-xl border border-border/60 bg-background/80 px-4 py-4 sm:px-5";
   const statLabel = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
   const statValue = "mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-3xl";
-  const statGridClass =
-    "rounded-xl border border-border/60 bg-background/80 px-3 py-3 sm:px-4";
-  const statGridLabel = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
-  const statGridValue = "mt-0.5 text-lg font-semibold tabular-nums text-foreground sm:text-xl";
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7" aria-label="Resumo do período">
@@ -1374,9 +1217,14 @@ function DashboardHeroMetrics({
         <div className="min-w-0 space-y-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{greeting}</h1>
           <p className="text-sm text-muted-foreground">
-            Painel principal do período: vendas, presell e Google Ads (se estiver ligado). Para{" "}
-            <strong className="text-foreground/90 font-medium">tabelas com filtro por data</strong> use Relatórios; para{" "}
-            <strong className="text-foreground/90 font-medium">visão rápida por página</strong>, Analytics.
+            Painel principal do período: <strong className="text-foreground/90 font-medium">vendas</strong>,{" "}
+            <strong className="text-foreground/90 font-medium">Google Ads</strong> na conta ligada (se houver) e atalhos
+            abaixo. Métricas do <strong className="text-foreground/90 font-medium">script nas presells</strong> estão em{" "}
+            <Link to="/presell/dashboard" className="text-primary font-medium underline underline-offset-2">
+              Minhas Presells
+            </Link>
+            . Para <strong className="text-foreground/90 font-medium">tabelas com filtro por data</strong> use Relatórios;
+            para <strong className="text-foreground/90 font-medium">visão por página</strong>, Analytics.
           </p>
         </div>
         <div className="flex w-full min-w-0 flex-col gap-2 sm:max-w-md lg:max-w-lg">
@@ -1439,32 +1287,6 @@ function DashboardHeroMetrics({
         </div>
       </div>
 
-      <div className="mt-8 space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Rastreamento (presell)</p>
-        <p className="text-xs text-muted-foreground pb-1">
-          Impressões, cliques e conversões onde o <strong className="font-medium text-foreground/90">script Clickora</strong> na
-          presell corre. Isto não é o mesmo que «cliques nos anúncios» no Google — só páginas rastreadas contam.
-        </p>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className={statGridClass}>
-            <p className={statGridLabel}>Impressões</p>
-            <p className={statGridValue}>{imps.toLocaleString()}</p>
-          </div>
-          <div className={statGridClass}>
-            <p className={statGridLabel}>Cliques</p>
-            <p className={statGridValue}>{clicks.toLocaleString()}</p>
-          </div>
-          <div className={statGridClass}>
-            <p className={statGridLabel}>Conversões</p>
-            <p className={statGridValue}>{convs.toLocaleString()}</p>
-          </div>
-          <div className={statGridClass}>
-            <p className={statGridLabel}>CTR</p>
-            <p className={statGridValue}>{ctr.toFixed(1)}%</p>
-          </div>
-        </div>
-      </div>
-
       {showGoogleRow ? (
         <div className="mt-8 space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 md:p-5">
           <div className="flex items-center gap-2">
@@ -1474,9 +1296,9 @@ function DashboardHeroMetrics({
             <div>
               <p className="text-sm font-semibold text-foreground">Google Ads (conta)</p>
               <p className="text-[11px] text-muted-foreground">
-                Toda a actividade de anúncios desta conta Google no período (API). Normalmente{" "}
-                <strong className="font-medium text-foreground/85">superior</strong> ao bloco presell: muitos cliques não
-                chegam à página com script ou vão para outros URLs. Custos{" "}
+                Toda a actividade de anúncios desta conta Google no período (API). Pode ser{" "}
+                <strong className="font-medium text-foreground/85">superior</strong> ao tráfego que o script regista nas
+                presells: nem todos os cliques chegam à página com o script ou usam o mesmo URL. Custos{" "}
                 {googleCurrency ? (
                   <>
                     em <span className="font-medium text-foreground/85">{googleCurrency}</span>
@@ -1806,13 +1628,6 @@ export default function TrackingDashboard() {
     );
   }
 
-  const chartData =
-    dashboard?.chart_data?.map((d) => ({
-      name: new Date(d.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-      cliques: d.clicks,
-      impressoes: d.impressions,
-    })) ?? [];
-
   const periodLabel = dashboard?.period
     ? `${new Date(dashboard.period.from + "T12:00:00").toLocaleDateString("pt-BR")} — ${new Date(dashboard.period.to + "T12:00:00").toLocaleDateString("pt-BR")}`
     : null;
@@ -1820,11 +1635,8 @@ export default function TrackingDashboard() {
   const revenue = dashboard?.revenue ?? 0;
   const csvPlaceholder = dashboard ? "Atualize a API para obter o link com token." : "Carregando…";
 
-  /** Assinantes: mesmo resumo, atalhos, script/CSV, envio Google Ads (API) e gráficos; guia longa só para admin. */
+  /** Assinantes: mesmo resumo, atalhos, script/CSV, envio Google Ads (API); gráfico presell em Minhas Presells. */
   if (!isAdmin) {
-    const hasGeoRows = (dashboard?.clicks_by_country?.length ?? 0) > 0;
-    const showDetailSection = chartData.length > 0 || hasGeoRows;
-
     return (
       <div className={cn(APP_PAGE_SHELL, "space-y-8")}>
         <DashboardHeroMetrics
@@ -1954,55 +1766,9 @@ export default function TrackingDashboard() {
           saveTiktok={saveTiktokEvents}
           integrationsLocked={integrationsLocked}
         />
-
-        {showDetailSection ? (
-          <section
-            className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
-            aria-labelledby="tracking-detail-heading"
-          >
-            <div className="space-y-1 border-b border-border/50 pb-4">
-              <h2 id="tracking-detail-heading" className="text-lg font-semibold tracking-tight text-foreground">
-                Evolução e geografia
-              </h2>
-              <p className="text-sm text-muted-foreground">Gráfico diário e cliques por país.</p>
-            </div>
-            <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock />
-            {chartData.length > 0 ? (
-              <div className="rounded-xl border border-border/60 bg-background/50 p-5 shadow-sm md:p-6">
-                <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões</h3>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="subCliques" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="subImps" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
-                      <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
-                      <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
-                      <Legend />
-                      <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#subImps)" strokeWidth={2} name="Impressões" />
-                      <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#subCliques)" strokeWidth={2} name="Cliques" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
       </div>
     );
   }
-
-  const hasGeoRowsAdmin = (dashboard?.clicks_by_country?.length ?? 0) > 0;
-  const showDetailSectionAdmin = chartData.length > 0 || hasGeoRowsAdmin;
 
   return (
     <div className={cn(APP_PAGE_SHELL, "space-y-8")}>
@@ -2171,49 +1937,6 @@ export default function TrackingDashboard() {
           integrationsLocked={integrationsLocked}
         />
       </section>
-
-      {showDetailSectionAdmin ? (
-        <section
-          className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:p-7"
-          aria-labelledby="tracking-detail-heading-admin"
-        >
-          <div className="space-y-1 border-b border-border/50 pb-4">
-            <h2 id="tracking-detail-heading-admin" className="text-lg font-semibold tracking-tight text-foreground">
-              Evolução e geografia
-            </h2>
-            <p className="text-sm text-muted-foreground">Gráfico diário e cliques por país.</p>
-          </div>
-          <DashboardGoogleGeoSection dashboard={dashboard} hideGoogleAdsBlock />
-          {chartData.length > 0 ? (
-            <div className="rounded-xl border border-border/60 bg-background/50 p-5 shadow-sm md:p-6">
-              <h3 className="text-base font-semibold text-card-foreground mb-4">Cliques e impressões no período</h3>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="cCliques" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="cImps" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(28 92% 48%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(28 92% 48%)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(38 20% 88%)" />
-                    <XAxis dataKey="name" stroke="hsl(215 16% 47%)" fontSize={12} />
-                    <YAxis stroke="hsl(215 16% 47%)" fontSize={12} />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(38 20% 88%)", borderRadius: "0.5rem" }} />
-                    <Legend />
-                    <Area type="monotone" dataKey="impressoes" stroke="hsl(28 92% 48%)" fill="url(#cImps)" strokeWidth={2} name="Impressões" />
-                    <Area type="monotone" dataKey="cliques" stroke="hsl(172 66% 38%)" fill="url(#cCliques)" strokeWidth={2} name="Cliques" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
     </div>
   );
 }
