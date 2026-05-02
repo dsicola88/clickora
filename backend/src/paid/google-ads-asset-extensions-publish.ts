@@ -81,8 +81,13 @@ export async function publishGoogleCampaignAssetExtensions(args: {
     const sitelinkAsset: Record<string, unknown> = {
       linkText: s.link_text.slice(0, 25),
     };
-    if (s.description1) sitelinkAsset.description1 = s.description1.slice(0, 35);
-    if (s.description2) sitelinkAsset.description2 = s.description2.slice(0, 35);
+    /** Sitelink: description1 e description2 são *par* — a Google rejeita se vier só uma. */
+    const d1 = (s.description1 ?? "").trim();
+    const d2 = (s.description2 ?? "").trim();
+    if (d1 && d2) {
+      sitelinkAsset.description1 = d1.slice(0, 35);
+      sitelinkAsset.description2 = d2.slice(0, 35);
+    }
     operations.push({
       create: {
         finalUrls: [s.final_url],

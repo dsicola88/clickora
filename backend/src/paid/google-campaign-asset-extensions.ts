@@ -100,7 +100,7 @@ export function buildDeterministicGoogleAssetExtensions(seed: GoogleAssetExtensi
           { tx: "Contacto", frag: "#contacto" },
         ]
       : [
-          { tx: "Offer", d1: "See landing", frag: "#offer" },
+          { tx: "Offer", frag: "#offer" },
           { tx: "Benefits", frag: "#benefits" },
           { tx: "FAQ", frag: "#faq" },
           { tx: "Buy now", frag: "#buy" },
@@ -108,12 +108,16 @@ export function buildDeterministicGoogleAssetExtensions(seed: GoogleAssetExtensi
           { tx: "Contact", frag: "#contact" },
         ];
 
-  const sitelinks = labels.slice(0, 6).map((x) => ({
-    link_text: clip(x.tx, SITELINK_TEXT_MAX),
-    final_url: `${base}${x.frag}`,
-    ...(x.d1 ? { description1: clip(x.d1, 35) } : {}),
-    ...(x.d2 ? { description2: clip(x.d2, 35) } : {}),
-  }));
+  /** Sitelink descriptions são *par* (a Google rejeita só uma) — só vão se ambas existirem. */
+  const sitelinks = labels.slice(0, 6).map((x) => {
+    const d1 = (x.d1 ?? "").trim();
+    const d2 = (x.d2 ?? "").trim();
+    return {
+      link_text: clip(x.tx, SITELINK_TEXT_MAX),
+      final_url: `${base}${x.frag}`,
+      ...(d1 && d2 ? { description1: clip(d1, 35), description2: clip(d2, 35) } : {}),
+    };
+  });
 
   const calloutsRaw = pt
     ? [
@@ -171,11 +175,12 @@ export function finalizeGoogleCampaignAssetExtensions(
     .map((s) => {
       const url = clip((s.final_url || seed.landingUrl).trim(), 1024);
       if (!/^https:\/\//i.test(url)) return null;
+      const d1 = (s.description1 ?? "").trim();
+      const d2 = (s.description2 ?? "").trim();
       return {
         link_text: clip(s.link_text || "More", SITELINK_TEXT_MAX),
         final_url: url,
-        ...(s.description1 ? { description1: clip(s.description1, 35) } : {}),
-        ...(s.description2 ? { description2: clip(s.description2, 35) } : {}),
+        ...(d1 && d2 ? { description1: clip(d1, 35), description2: clip(d2, 35) } : {}),
       };
     })
     .filter(Boolean) as GoogleCampaignAssetExtensionsStored["sitelinks"];
