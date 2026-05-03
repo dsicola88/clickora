@@ -147,8 +147,12 @@ export function DpilotGoogleWizardObjectiveStep({
           Qual é o objetivo da campanha?
         </h2>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Escolha um objetivo para orientar o plano, os anúncios e o assistente de palavras-chave. Pode refinar o texto
-          abaixo em qualquer momento.
+          O cartão que escolher preenche um <strong className="font-medium text-foreground">briefing em texto</strong>{" "}
+          para o plano: nome da campanha, palavras-chave sugeridas e copy dos anúncios (RSA). Isto orienta a nossa IA —
+          <strong className="font-medium text-foreground"> não</strong> substitui o campo de «objetivo» do Google Ads.
+          Na conta Google, o que o leilão optimiza vem sobretudo da{" "}
+          <strong className="font-medium text-foreground">estratégia de licitação</strong> que definir no passo de
+          configuração (e das conversões / dados ligados à conta).
         </p>
       </div>
 
@@ -197,7 +201,7 @@ export function DpilotGoogleWizardObjectiveStep({
 
       <div className="space-y-2 border-t border-border/60 pt-4">
         <label htmlFor="g-wiz-objective-refine" className="text-xs font-medium text-foreground">
-          Detalhe ou personalize o objetivo
+          Detalhe ou personalize o objetivo (briefing para o plano)
         </label>
         <textarea
           id="g-wiz-objective-refine"
@@ -205,7 +209,7 @@ export function DpilotGoogleWizardObjectiveStep({
           maxLength={200}
           value={objective}
           onChange={(e) => onObjectiveChange(e.target.value)}
-          placeholder='Ex.: "Gerar ≥20 pedidos de demo por semana com CPA inferior a 30 USD."'
+          placeholder='Ex.: "Vendas: gerar compras com ROAS mínimo 3; refinar palavras de compra."'
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
           required
         />
@@ -224,9 +228,12 @@ export function DpilotGoogleWizardCampaignTypeStep() {
           Tipo de campanha
         </h2>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Este assistente gera hoje apenas campanhas de <strong className="font-medium text-foreground">Pesquisa</strong>{" "}
-          (Search) com palavras-chave e anúncios RSA. Outros tipos ficam visíveis para contexto e chegarão em versões
-          futuras.
+          Ao <strong className="font-medium text-foreground">publicar</strong> na Google, criamos sempre uma campanha de{" "}
+          <strong className="font-medium text-foreground">Pesquisa (Search)</strong>:{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">advertisingChannelType: SEARCH</code>, rede de
+          pesquisa, palavras-chave e RSA. O cartão <strong className="font-medium text-foreground">Pesquisar</strong>{" "}
+          é o único ativo; os restantes aparecem só como referência («em breve») e{" "}
+          <strong className="font-medium text-foreground">não</strong> alteram o pedido à API.
         </p>
       </div>
 
@@ -281,9 +288,20 @@ export function DpilotGoogleWizardCampaignTypeStep() {
 /** Marcador visual do passo seguinte (detalhes da campanha). */
 export function DpilotGoogleWizardDetailsStepHeader() {
   return (
-    <div className="flex items-center gap-2 border-b border-border/70 pb-3">
-      <StepBadge step={3} label="Configuração" />
-      <span className="text-sm text-muted-foreground">Landing, orçamento, segmentação e palavras-chave</span>
+    <div className="space-y-2 border-b border-border/70 pb-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <StepBadge step={3} label="Configuração" />
+        <span className="text-sm text-muted-foreground">
+          Landing, orçamento,{" "}
+          <span className="font-medium text-foreground">licitação (o que o Google optimiza)</span>, segmentação e
+          palavras-chave
+        </span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Resumo: passo 1 = briefing para o plano e anúncios · passo 2 = tipo{" "}
+        <strong className="font-medium text-foreground">Search</strong> na publicação · abaixo = opções que a API Google
+        aplica ao leilão (orçamento, licitação, geo, idiomas).
+      </p>
     </div>
   );
 }

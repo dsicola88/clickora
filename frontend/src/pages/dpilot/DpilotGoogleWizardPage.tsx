@@ -527,6 +527,13 @@ export function DpilotGoogleWizardPage() {
       <div className="pb-12">
         <PageHeader
           title="Nova campanha"
+          description={
+            <span className="block max-w-3xl">
+              Assistência para campanhas de <strong className="font-medium text-foreground">Pesquisa Google</strong>. O
+              objetivo em cartão guia o texto do plano; a estratégia de licitação define o que o Google optimiza no
+              leilão (conversões, cliques ou CPC manual).
+            </span>
+          }
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="font-normal">
@@ -708,10 +715,18 @@ export function DpilotGoogleWizardPage() {
             ) : null}
 
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label htmlFor="g-bidding-strat" className="text-xs font-medium">
-                  Estratégia de licitação
+                  Estratégia de licitação (enviada à Google Ads)
                 </Label>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Isto é o que a <strong className="font-medium text-foreground">conta Google</strong> usa no leilão.
+                  «Maximizar conversões», «CPA alvo» ou «ROAS alvo» combinam melhor com o briefing{" "}
+                  <strong className="font-medium text-foreground">Vendas</strong> ou{" "}
+                  <strong className="font-medium text-foreground">Leads</strong> — desde que tenha conversões e dados
+                  configurados. «Maximizar cliques» ou «CPC manual» alinham mais com{" "}
+                  <strong className="font-medium text-foreground">Tráfego do site</strong>.
+                </p>
               </div>
               <select
                 id="g-bidding-strat"
