@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Copy, Check, Plus, X, ChevronsUpDown, ChevronDown, ExternalLink, BookOpen } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Copy, Check, Plus, X, ChevronsUpDown, ChevronDown, ExternalLink, BookOpen, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 import { orderedAdNetworkTokenSections } from "@/lib/adNetworkDynamicTokens";
 import { UrlBuilderTokenModalBody } from "@/components/tracking/UrlBuilderTokenModalBody";
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Command,
   CommandEmpty,
@@ -367,6 +368,24 @@ export default function UrlBuilder() {
 
   const tokenSectionsOrdered = useMemo(() => orderedAdNetworkTokenSections(platform), [platform]);
 
+  const baseUrlValid = useMemo(
+    () => baseUrl.trim().length > 0 && isAbsoluteHttpUrl(baseUrl.trim()),
+    [baseUrl],
+  );
+
+  const buildStatus = useMemo(() => {
+    if (!baseUrl.trim()) {
+      return { label: "Indique o URL base", variant: "secondary" as const };
+    }
+    if (!baseUrlValid) {
+      return { label: "URL base inválido", variant: "destructive" as const };
+    }
+    if (!platform) {
+      return { label: "Plataforma por definir", variant: "outline" as const };
+    }
+    return { label: "Pronto para copiar", variant: "default" as const };
+  }, [baseUrl, baseUrlValid, platform]);
+
   const flowSteps = [
     "Construtor de URL: defines o link da presell com UTMs e IDs de clique (ex.: gclid, fbclid, ttclid) conforme a plataforma escolhida.",
     "O visitante clica no anúncio; a rede substitui as macros pelos valores reais.",
@@ -422,261 +441,323 @@ export default function UrlBuilder() {
         </div>
       ) : null}
 
-      <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
-        <p className="text-sm font-semibold text-foreground">Fluxo: tracking → oferta → postback</p>
-        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-          Montas o link público da presell com UTMs e macros; no clique a rede preenche os IDs; o redirect acrescenta{" "}
-          <span className="font-mono text-[11px]">clickora_click_id</span> na oferta; o postback em Integrações fecha a conversão.
-        </p>
-        <Collapsible defaultOpen={false} className="space-y-2">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-lg border border-primary/15 bg-background/60 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-background/90 transition-colors [&[data-state=open]>svg]:rotate-180"
+      <div className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/25 px-4 py-4 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <nav
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground"
+              aria-label="Navegação contextual"
             >
-              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" aria-hidden />
-              Ver passo a passo detalhado (8 pontos) e nota sobre URL final na rede
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 data-[state=closed]:animate-none">
-            <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              {flowSteps.map((s, i) => (
-                <li key={i} className="pl-1 marker:text-primary marker:font-medium">
-                  {s}
-                </li>
-              ))}
-            </ol>
-            <p className="text-[11px] text-muted-foreground leading-snug border-t border-primary/10 pt-3">
-              Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da presell (ex.{" "}
-              <span className="font-mono text-[10px]">https://dclickora.com/p/&lt;uuid-da-presell&gt;</span>
-              ), não o link direto da rede. O script da presell e o redirect <span className="font-mono">/track/r/…</span> tratam do
-              resto. Para ver estatística por anúncio, pode sufixar o link de clique:{" "}
-              <span className="font-mono text-[10px]">…/track/r/&lt;uuid&gt;/fb/meu-anuncio?to=…</span> (até 10 níveis).
-            </p>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
-        {/* Plataforma — linha completa (estilo painel) */}
-        <div className="space-y-2">
-          <Label htmlFor="platform-combobox">Plataforma</Label>
-          <Popover open={platformOpen} onOpenChange={setPlatformOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                id="platform-combobox"
-                type="button"
-                variant="outline"
-                role="combobox"
-                aria-expanded={platformOpen}
-                className="w-full max-w-xl justify-between font-normal h-11 px-3"
-              >
-                <span className={cn("truncate", !platform && "text-muted-foreground")}>
-                  {platform || "Escolher plataforma (ex.: BuyGoods, Google Ads)…"}
-                </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[min(28rem,calc(100vw-2rem))]" align="start">
-              <Command>
-                <CommandInput placeholder="Filtrar plataformas…" className="h-11" />
-                <CommandList>
-                  <CommandEmpty>Nenhuma plataforma encontrada.</CommandEmpty>
-                  <CommandGroup>
-                    {URL_BUILDER_PLATFORMS.map((p) => (
-                      <CommandItem
-                        key={p}
-                        value={p}
-                        onSelect={() => {
-                          handlePlatformChange(p);
-                          setPlatformOpen(false);
-                        }}
-                      >
-                        {p}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          <p className="text-[11px] text-muted-foreground">
-            Afiliados (subid, hop…) ou rede de anúncios (UTMs, ValueTrack). Escreve para filtrar.
-          </p>
+              <Link to="/tracking/dashboard" className="hover:text-foreground transition-colors">
+                Tracking
+              </Link>
+              <ChevronRight className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
+              <span className="font-medium text-foreground">Construtor de URL</span>
+              {platform ? (
+                <>
+                  <ChevronRight className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
+                  <span className="truncate font-medium text-foreground/85 max-w-[12rem] sm:max-w-xs">
+                    {platform}
+                  </span>
+                </>
+              ) : null}
+            </nav>
+            <h2 className="text-base font-semibold text-foreground tracking-tight">
+              Montar link público da presell
+            </h2>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0">
+            {baseUrlValid ? (
+              <span
+                className="hidden sm:inline h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.45)]"
+                title="URL base HTTPS válido"
+                aria-hidden
+              />
+            ) : null}
+            <Badge variant={buildStatus.variant} className="font-medium">
+              {buildStatus.label}
+            </Badge>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>URL base (presell pública)</Label>
-          <Input
-            placeholder="https://dclickora.com/p/uuid-da-presell"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            className="font-mono text-sm max-w-4xl"
-          />
-          {platform === "Google Ads" && (
-            <p className="text-[11px] text-muted-foreground max-w-4xl">
-              Usa o URL da página presell (rota <span className="font-mono">/p/…</span>). Os parâmetros incluem{" "}
-              <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
-                gclid=&#123;gclid&#125;
-              </strong>{" "}
-              e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
-            </p>
-          )}
-        </div>
+        <div className="p-4 sm:p-6">
+          <Tabs defaultValue="configure" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto h-auto gap-1 p-1">
+              <TabsTrigger value="configure" className="text-xs sm:text-sm px-2 sm:px-3">
+                Configurar
+              </TabsTrigger>
+              <TabsTrigger value="result" className="text-xs sm:text-sm px-2 sm:px-3">
+                Resultado
+              </TabsTrigger>
+              <TabsTrigger value="guide" className="text-xs sm:text-sm px-2 sm:px-3">
+                Guia
+              </TabsTrigger>
+            </TabsList>
 
-        {platform && (
-          <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <Label className="text-sm font-semibold">Parâmetros</Label>
-              <p className="text-[10px] text-muted-foreground">
-                Em cada linha: valor + <span className="font-mono">+</span> para tokens Google / Microsoft (+ outras redes).
-              </p>
-            </div>
-            <div className="space-y-2">
-              {params.map((param, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-lg border border-border/50 bg-background/90 px-3 py-2.5 transition-colors",
-                    param.highlight && "border-primary/35 bg-primary/[0.06] ring-1 ring-primary/15",
-                  )}
-                >
-                  {param.highlight ? (
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-2">
-                      ID de clique — recomendado
+            <TabsContent value="configure" className="mt-5 space-y-6 outline-none">
+              <div className="space-y-2">
+                <Label htmlFor="platform-combobox">Plataforma</Label>
+                <Popover open={platformOpen} onOpenChange={setPlatformOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="platform-combobox"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={platformOpen}
+                      className="w-full max-w-xl justify-between font-normal h-11 px-3"
+                    >
+                      <span className={cn("truncate", !platform && "text-muted-foreground")}>
+                        {platform || "Escolher plataforma (ex.: BuyGoods, Google Ads)…"}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-[min(28rem,calc(100vw-2rem))]" align="start">
+                    <Command>
+                      <CommandInput placeholder="Filtrar plataformas…" className="h-11" />
+                      <CommandList>
+                        <CommandEmpty>Nenhuma plataforma encontrada.</CommandEmpty>
+                        <CommandGroup>
+                          {URL_BUILDER_PLATFORMS.map((p) => (
+                            <CommandItem
+                              key={p}
+                              value={p}
+                              onSelect={() => {
+                                handlePlatformChange(p);
+                                setPlatformOpen(false);
+                              }}
+                            >
+                              {p}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-[11px] text-muted-foreground">
+                  Afiliados (subid, hop…) ou rede de anúncios (UTMs, ValueTrack). Escreve para filtrar.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>URL base (presell pública)</Label>
+                <Input
+                  placeholder="https://dclickora.com/p/uuid-da-presell"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  className="font-mono text-sm max-w-4xl"
+                />
+                {platform === "Google Ads" && (
+                  <p className="text-[11px] text-muted-foreground max-w-4xl">
+                    Usa o URL da página presell (rota <span className="font-mono">/p/…</span>). Os parâmetros incluem{" "}
+                    <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
+                      gclid=&#123;gclid&#125;
+                    </strong>{" "}
+                    e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
+                  </p>
+                )}
+              </div>
+
+              {platform && (
+                <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Label className="text-sm font-semibold">Parâmetros</Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Valor + <span className="font-mono">+</span> para tokens Google / Microsoft (+ outras redes).
                     </p>
-                  ) : null}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                    <div className="w-full sm:w-[8.5rem] shrink-0">
-                      {param.highlight ? (
-                        <Badge
-                          variant="default"
-                          className="w-full justify-center text-xs font-mono py-1.5 bg-primary text-primary-foreground font-bold underline underline-offset-2 decoration-primary-foreground/80"
-                        >
-                          {param.key || "param"}
-                        </Badge>
-                      ) : param.keyReadonly ? (
-                        <div className="flex h-10 items-center rounded-md border border-border/70 bg-muted/30 px-3 font-mono text-xs font-medium text-foreground">
-                          {param.key}
+                  </div>
+                  <div className="space-y-2">
+                    {params.map((param, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "rounded-lg border border-border/50 bg-background/90 px-3 py-2.5 transition-colors",
+                          param.highlight && "border-primary/35 bg-primary/[0.06] ring-1 ring-primary/15",
+                        )}
+                      >
+                        {param.highlight ? (
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-2">
+                            ID de clique — recomendado
+                          </p>
+                        ) : null}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                          <div className="w-full sm:w-[8.5rem] shrink-0">
+                            {param.highlight ? (
+                              <Badge
+                                variant="default"
+                                className="w-full justify-center text-xs font-mono py-1.5 bg-primary text-primary-foreground font-bold underline underline-offset-2 decoration-primary-foreground/80"
+                              >
+                                {param.key || "param"}
+                              </Badge>
+                            ) : param.keyReadonly ? (
+                              <div className="flex h-10 items-center rounded-md border border-border/70 bg-muted/30 px-3 font-mono text-xs font-medium text-foreground">
+                                {param.key}
+                              </div>
+                            ) : (
+                              <Input
+                                value={param.key}
+                                onChange={(e) => updateParam(i, "key", e.target.value)}
+                                className="font-mono text-xs h-10"
+                                placeholder="chave"
+                              />
+                            )}
+                          </div>
+                          <Input
+                            value={param.value}
+                            onChange={(e) => updateParam(i, "value", e.target.value)}
+                            className={cn(
+                              "font-mono text-xs flex-1 min-w-0 h-10",
+                              param.highlight && "border-primary/40 font-medium",
+                            )}
+                            placeholder={
+                              param.valuePlaceholder
+                                ? param.valuePlaceholder
+                                : param.highlight
+                                  ? "Insira o token (+) ou {gclid} / {msclkid}"
+                                  : param.key === "gbraid" || param.key === "wbraid"
+                                    ? "Opcional (iOS / apps)"
+                                    : "Valor ou macro"
+                            }
+                          />
+                          <div className="flex items-center gap-1 shrink-0 justify-end sm:justify-start">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-10 w-10 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
+                              onClick={() => setTokenDialog({ open: true, rowIndex: i })}
+                              title="Selecionar token"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeParam(i)}
+                              title="Remover linha"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                      ) : (
-                        <Input
-                          value={param.key}
-                          onChange={(e) => updateParam(i, "key", e.target.value)}
-                          className="font-mono text-xs h-10"
-                          placeholder="chave"
-                        />
-                      )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={addParam} className="mt-1">
+                    <Plus className="h-3 w-3 mr-1" /> Adicionar parâmetro
+                  </Button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground">
+                O URL completo e o sufixo Google Ads estão no separador <strong className="text-foreground/90">Resultado</strong>.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="result" className="mt-5 space-y-6 outline-none">
+              {platform === "Google Ads" && trackingQueryString ? (
+                <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-4 space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">Sufixo do URL final (Google Ads)</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      No <strong className="text-foreground/90">URL final</strong> use só a presell (ex.{" "}
+                      <span className="font-mono text-[10px]">https://…/p/…</span> <strong className="text-foreground/90">sem</strong> query). Em{" "}
+                      <strong className="text-foreground/90">Sufixo do URL final</strong> cole a linha abaixo —{" "}
+                      <strong className="text-foreground/90">sem</strong> <span className="font-mono">?</span> no início.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+                    <div
+                      className="flex min-h-[4.5rem] flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground break-all shadow-sm"
+                      role="status"
+                    >
+                      {trackingQueryString}
                     </div>
-                    <Input
-                      value={param.value}
-                      onChange={(e) => updateParam(i, "value", e.target.value)}
-                      className={cn(
-                        "font-mono text-xs flex-1 min-w-0 h-10",
-                        param.highlight && "border-primary/40 font-medium",
-                      )}
-                      placeholder={
-                        param.valuePlaceholder
-                          ? param.valuePlaceholder
-                          : param.highlight
-                            ? "Insira o token (+) ou {gclid} / {msclkid}"
-                            : param.key === "gbraid" || param.key === "wbraid"
-                              ? "Opcional (iOS / apps)"
-                              : "Valor ou macro"
-                      }
-                    />
-                    <div className="flex items-center gap-1 shrink-0 justify-end sm:justify-start">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-10 w-10 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
-                        onClick={() => setTokenDialog({ open: true, rowIndex: i })}
-                        title="Selecionar token"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeParam(i)}
-                        title="Remover linha"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="shrink-0 gap-2 sm:self-start"
+                      onClick={handleCopyGoogleAdsSuffix}
+                    >
+                      {copiedGoogleSuffix ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      {copiedGoogleSuffix ? "Copiado" : "Copiar sufixo"}
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-            <Button variant="outline" size="sm" onClick={addParam} className="mt-1">
-              <Plus className="h-3 w-3 mr-1" /> Adicionar parâmetro
-            </Button>
-          </div>
-        )}
+              ) : null}
 
-        {platform === "Google Ads" && trackingQueryString ? (
-          <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-4 space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Sufixo para colar no Google Ads</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                No Google Ads, no <strong className="text-foreground/90">URL final</strong> use só o endereço da presell (ex.{" "}
-                <span className="font-mono text-[10px]">https://…/p/…</span> <strong className="text-foreground/90">sem</strong> parâmetros). Em{" "}
-                <strong className="text-foreground/90">Opções do URL da campanha</strong> (ou do grupo / anúncio) abra{" "}
-                <strong className="text-foreground/90">Sufixo do URL final</strong> e cole a linha abaixo —{" "}
-                <strong className="text-foreground/90">sem</strong> <span className="font-mono">?</span> no início. O Google junta isto ao URL
-                final no clique e substitui <span className="font-mono">{"{…}"}</span> pelos valores ValueTrack.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
-              <div
-                className="flex min-h-[4.5rem] flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground break-all shadow-sm"
-                role="status"
-              >
-                {trackingQueryString}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  URL gerado (IDs de clique em negrito e sublinhados)
+                </Label>
+                <div className="flex items-stretch gap-2">
+                  <div
+                    role="status"
+                    aria-label="URL gerada"
+                    className={cn(
+                      "flex min-h-[4rem] flex-1 rounded-md border border-input bg-muted/10 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground shadow-inner",
+                      !generatedUrl && "text-muted-foreground items-center",
+                    )}
+                  >
+                    {generatedUrl ? (
+                      highlightGeneratedUrlPreview(generatedUrl)
+                    ) : (
+                      "Configura o URL base no separador «Configurar»."
+                    )}
+                  </div>
+                  {generatedUrl && isAbsoluteHttpUrl(generatedUrl) ? (
+                    <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" asChild title="Abrir num separador">
+                      <a href={generatedUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  ) : null}
+                  <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title="Copiar URL">
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                className="shrink-0 gap-2 sm:self-start"
-                onClick={handleCopyGoogleAdsSuffix}
-              >
-                {copiedGoogleSuffix ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                {copiedGoogleSuffix ? "Copiado" : "Copiar sufixo"}
-              </Button>
-            </div>
-          </div>
-        ) : null}
+            </TabsContent>
 
-        {/* Generated URL */}
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">URL gerado (IDs de clique em negrito e sublinhados)</Label>
-          <div className="flex items-stretch gap-2">
-            <div
-              role="status"
-              aria-label="URL gerada"
-              className={cn(
-                "flex min-h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm",
-                !generatedUrl && "text-muted-foreground",
-              )}
-            >
-              {generatedUrl ? (
-                highlightGeneratedUrlPreview(generatedUrl)
-              ) : (
-                "Indica o URL base da presell (https://…/p/…). Opcional: escolhe a plataforma para carregar UTMs e IDs de clique."
-              )}
-            </div>
-            {generatedUrl && isAbsoluteHttpUrl(generatedUrl) ? (
-              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" asChild title="Abrir num separador (teste)">
-                <a href={generatedUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            ) : null}
-            <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title="Copiar URL">
-              {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
+            <TabsContent value="guide" className="mt-5 space-y-4 outline-none">
+              <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
+                <p className="text-sm font-semibold text-foreground">Fluxo: tracking → oferta → postback</p>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Montas o link público da presell com UTMs e macros; no clique a rede preenche os IDs; o redirect acrescenta{" "}
+                  <span className="font-mono text-[11px]">clickora_click_id</span> na oferta; o postback em Integrações fecha a conversão.
+                </p>
+                <Collapsible defaultOpen={false} className="space-y-2">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg border border-primary/15 bg-background/60 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-background/90 transition-colors [&[data-state=open]>svg]:rotate-180"
+                    >
+                      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" aria-hidden />
+                      Passo a passo detalhado e nota sobre URL final na rede
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 data-[state=closed]:animate-none">
+                    <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                      {flowSteps.map((s, i) => (
+                        <li key={i} className="pl-1 marker:text-primary marker:font-medium">
+                          {s}
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="text-[11px] text-muted-foreground leading-snug border-t border-primary/10 pt-3">
+                      Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da presell (ex.{" "}
+                      <span className="font-mono text-[10px]">https://dclickora.com/p/&lt;uuid-da-presell&gt;</span>
+                      ), não o link direto da rede. O script da presell e o redirect <span className="font-mono">/track/r/…</span> tratam do
+                      resto. Para ver estatística por anúncio, pode sufixar o link de clique:{" "}
+                      <span className="font-mono text-[10px]">…/track/r/&lt;uuid&gt;/fb/meu-anuncio?to=…</span> (até 10 níveis).
+                    </p>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
