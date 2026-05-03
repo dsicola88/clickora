@@ -661,8 +661,17 @@ export default function PublicPresell() {
     !isGhostPage &&
     page.type !== "builder";
 
+  /**
+   * Com espelho HTML, o layout React fica oculto e só aparece o iframe — por baixo do modal de cookies
+   * parecia página em branco. Enquanto o modal está aberto, forçar o layout React; Allow/Close/fundo
+   * redirecionam na mesma para o link rastreado.
+   */
+  const cookieModalBlocking =
+    gateKind === "cookies" && !cookieAccepted && !cookieDismissed;
+
   /** Espelho HTML importado; se o documento vier vazio (ex.: só JS na origem), volta ao layout React. */
-  const showImportedMirror = mirrorEligible && !mirrorUseTemplateFallback;
+  const showImportedMirror =
+    mirrorEligible && !mirrorUseTemplateFallback && !cookieModalBlocking;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
