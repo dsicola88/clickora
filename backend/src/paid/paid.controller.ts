@@ -17,6 +17,7 @@ import {
   googleCampaignDraftPatchSchema,
   patchGoogleCampaignDraft as applyGoogleCampaignDraftPatchToDb,
 } from "./google-campaign-studio.service";
+import { fetchGoogleCampaignPerformanceSeries } from "./google-campaign-performance.service";
 import {
   googleKeywordInsightInputSchema,
   googleKeywordSuggestInputSchema,
@@ -857,6 +858,31 @@ export const paidController = {
       },
     });
     return res.json({ campaign: mappers.mapPaidCampaign(updated) });
+  },
+
+  /** Métricas de campanha (GAQL na conta OAuth do projecto) — período inclusive. */
+  async googleCampaignPerformance(req: Request, res: Response) {
+    const params = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    const q = z
+      .object({
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      })
+      .safeParse(req.query);
+    if (!params.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    if (!q.success) return res.status(400).json({ error: "Indique «from» e «to» (YYYY-MM-DD)." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = params.data;
+    const { from, to } = q.data;
+    if (!(await canAccessProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchGoogleCampaignPerformanceSeries(projectId, campaignId, from, to);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json(out);
   },
 
   /** Árvore local de campanha Google Search (estúdio de gestão). */

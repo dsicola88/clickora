@@ -12,6 +12,7 @@ export const CHANGE_REQUEST_TYPE_LABELS: Record<string, string> = {
   remove_keyword: "Google Ads — remover palavra-chave",
   update_rsa_copy: "Google Ads — actualizar textos RSA",
   update_ad_group_cpc: "Google Ads — ajustar CPC do grupo",
+  update_campaign_bidding: "Google Ads — alterar estratégia de licitação",
   meta_create_campaign: "Meta — nova campanha",
   meta_update_budget: "Meta — alteração de orçamento",
   meta_publish_creative: "Meta — publicar criativo",
@@ -405,4 +406,68 @@ export function summarizeChangeRequestPayload(
   if (hint) lines.push(hint);
 
   return { lines: lines.slice(0, 20), guardrailMessages };
+}
+
+export type GoogleStudioBiddingStrategyKey =
+  | "manual_cpc"
+  | "maximize_clicks"
+  | "maximize_conversions"
+  | "target_cpa"
+  | "target_roas";
+
+const GOOGLE_STUDIO_STRATEGY_SET = new Set<string>([
+  "manual_cpc",
+  "maximize_clicks",
+  "maximize_conversions",
+  "target_cpa",
+  "target_roas",
+]);
+
+/** Valores iniciais do editor de licitação (Gestão Google) a partir de `bidding_config`. */
+export function googleStudioBiddingFormDefaultsFromCampaign(campaign: Record<string, unknown>): {
+  strategy: GoogleStudioBiddingStrategyKey;
+  targetCpaUsd: string;
+  targetRoas: string;
+  maxCpcUsd: string;
+} {
+  const bc = campaign.bidding_config ?? campaign.biddingConfig;
+  const g =
+    bc && typeof bc === "object" && bc !== null && "google" in bc
+      ? (bc as { google?: Record<string, unknown> }).google
+      : undefined;
+  const stratRaw = typeof g?.strategy === "string" ? g.strategy : "maximize_conversions";
+  const strategy = GOOGLE_STUDIO_STRATEGY_SET.has(stratRaw)
+    ? (stratRaw as GoogleStudioBiddingStrategyKey)
+    : "maximize_conversions";
+
+  let targetCpaUsd = "";
+  if (strategy === "target_cpa") {
+    const micros = g?.targetCpaMicros;
+    const ms =
+      typeof micros === "string" && /^\d+$/.test(micros)
+        ? Number(micros)
+        : typeof micros === "number"
+          ? micros
+          : NaN;
+    if (Number.isFinite(ms) && ms > 0) targetCpaUsd = (ms / 1_000_000).toFixed(2);
+  }
+
+  let targetRoas = "";
+  if (strategy === "target_roas" && typeof g?.targetRoas === "number" && Number.isFinite(g.targetRoas)) {
+    targetRoas = String(g.targetRoas);
+  }
+
+  let maxCpcUsd = "";
+  if (strategy === "manual_cpc") {
+    const micros = g?.manualCpcMicros;
+    const ms =
+      typeof micros === "string" && /^\d+$/.test(micros)
+        ? Number(micros)
+        : typeof micros === "number"
+          ? micros
+          : NaN;
+    if (Number.isFinite(ms) && ms > 0) maxCpcUsd = (ms / 1_000_000).toFixed(2);
+  }
+
+  return { strategy, targetCpaUsd, targetRoas, maxCpcUsd };
 }

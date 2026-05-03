@@ -1,15 +1,26 @@
 /**
  * Estúdio pós-publicação Google Search: detalhe local + fila de pedidos (modo Copilot / Autopilot).
  */
-import type { PaidAdsChangeRequestType } from "@prisma/client";
+import type { PaidAdsChangeRequestType, Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { workspaceAllowsApplyBeforeRemote } from "./apply-workspace-guard";
 import { applyChangeRequestRemote } from "./change-request-apply";
 import * as mappers from "./api-mappers";
+import {
+  mergeGoogleBiddingConfigPreservingExtras,
+  storedGoogleBiddingFromPlanInput,
+} from "./google-campaign-bidding";
 import { prisma } from "./paidPrisma";
 
 const matchEnum = z.enum(["exact", "phrase", "broad"]);
+const googleBiddingStudioEnum = z.enum([
+  "manual_cpc",
+  "maximize_clicks",
+  "maximize_conversions",
+  "target_cpa",
+  "target_roas",
+]);
 
 export const googleStudioActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("pause_campaign") }),
@@ -52,9 +63,17 @@ export const googleStudioActionSchema = z.discriminatedUnion("action", [
     ad_group_id: z.string().uuid(),
     max_cpc_usd: z.number().positive(),
   }),
+  z.object({
+    action: z.literal("update_campaign_bidding"),
+    google_bidding_strategy: googleBiddingStudioEnum,
+    google_target_cpa_usd: z.number().positive().max(10000).nullable().optional(),
+    google_target_roas: z.number().positive().max(100).nullable().optional(),
+    google_max_cpc_usd: z.number().positive().max(1000).nullable().optional(),
+  }),
 ]);
 
-export const googleCampaignDraftPatchSchema = z.object({
+export const googleCampaignDraftPatchSchema = z
+  .object({
   name: z.string().min(1).max(200).optional(),
   objective_summary: z.string().max(4000).nullable().optional(),
   daily_budget_micros: z.union([z.number().int().min(100_000).max(100_000_000_000), z.null()]).optional(),
@@ -84,7 +103,33 @@ export const googleCampaignDraftPatchSchema = z.object({
       }),
     )
     .optional(),
-});
+    google_bidding_strategy: googleBiddingStudioEnum.optional(),
+    google_target_cpa_usd: z.number().positive().max(10000).nullable().optional(),
+    google_target_roas: z.number().positive().max(100).nullable().optional(),
+    google_max_cpc_usd: z.number().positive().max(1000).nullable().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.google_bidding_strategy === "target_cpa") {
+      const v = val.google_target_cpa_usd;
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "CPA alvo (USD) obrigatório para «Maximizar conversões com CPA alvo».",
+          path: ["google_target_cpa_usd"],
+        });
+      }
+    }
+    if (val.google_bidding_strategy === "target_roas") {
+      const v = val.google_target_roas;
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "ROAS alvo obrigatório para esta estratégia.",
+          path: ["google_target_roas"],
+        });
+      }
+    }
+  });
 
 function strArr(j: unknown): string[] {
   if (!Array.isArray(j)) return [];
@@ -339,6 +384,26 @@ export async function executeGoogleStudioAction(
       const cpc_bid_micros = Math.round(a.max_cpc_usd * 1_000_000);
       return submit("update_ad_group_cpc", { ad_group_id: a.ad_group_id, cpc_bid_micros });
     }
+    case "update_campaign_bidding": {
+      if (a.google_bidding_strategy === "target_cpa") {
+        const v = a.google_target_cpa_usd;
+        if (v == null || !Number.isFinite(v)) {
+          return { ok: false, error: "Indique o CPA alvo (USD) para esta estratégia." };
+        }
+      }
+      if (a.google_bidding_strategy === "target_roas") {
+        const v = a.google_target_roas;
+        if (v == null || !Number.isFinite(v)) {
+          return { ok: false, error: "Indique o ROAS alvo para esta estratégia." };
+        }
+      }
+      return submit("update_campaign_bidding", {
+        google_bidding_strategy: a.google_bidding_strategy,
+        google_target_cpa_usd: a.google_target_cpa_usd ?? null,
+        google_target_roas: a.google_target_roas ?? null,
+        google_max_cpc_usd: a.google_max_cpc_usd ?? null,
+      });
+    }
     default:
       return { ok: false, error: "Acção não suportada." };
   }
@@ -390,6 +455,19 @@ export async function patchGoogleCampaignDraft(
               ? { dailyBudgetMicros: d.daily_budget_micros != null ? BigInt(d.daily_budget_micros) : null }
               : {}),
           },
+        });
+      }
+      if (d.google_bidding_strategy != null) {
+        const stored = storedGoogleBiddingFromPlanInput({
+          strategy: d.google_bidding_strategy,
+          google_target_cpa_usd: d.google_target_cpa_usd,
+          google_target_roas: d.google_target_roas,
+          google_max_cpc_usd: d.google_max_cpc_usd,
+        });
+        const merged = mergeGoogleBiddingConfigPreservingExtras(camp.biddingConfig, stored);
+        await tx.paidAdsCampaign.update({
+          where: { id: camp.id },
+          data: { biddingConfig: merged as Prisma.InputJsonValue },
         });
       }
       if (d.ad_groups) {

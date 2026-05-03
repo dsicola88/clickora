@@ -22,7 +22,9 @@ import {
   campaignStatusLabel,
   formatUsdFromMicros,
   googleBiddingSummaryLinesFromPayload,
+  googleStudioBiddingFormDefaultsFromCampaign,
   publishedBidStrategyHint,
+  type GoogleStudioBiddingStrategyKey,
 } from "@/lib/paidAdsUi";
 import type {
   CampaignRow,
@@ -40,6 +42,14 @@ import { StudioSettingsPanel, StudioSettingsRow } from "./dpilotGoogleStudioSett
 type MatchSel = "exact" | "phrase" | "broad";
 
 type StudioSection = "visao" | "conteudos" | "leiloes" | "controlo" | "insights";
+
+function isoRangeDefaultLast14(): { from: string; to: string } {
+  const to = new Date();
+  const utcMid = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
+  const from = new Date(utcMid);
+  from.setUTCDate(from.getUTCDate() - 13);
+  return { from: from.toISOString().slice(0, 10), to: utcMid.toISOString().slice(0, 10) };
+}
 
 function firstLanguageCode(c: CampaignRow): string {
   const raw = (c as { language_targets?: unknown }).language_targets;
@@ -142,6 +152,23 @@ export function DpilotGoogleCampaignStudioPage() {
   const [budgetUsd, setBudgetUsd] = useState("");
   const [campaignIdentityName, setCampaignIdentityName] = useState("");
   const [campaignObjectiveDraft, setCampaignObjectiveDraft] = useState("");
+  const [bidStrategy, setBidStrategy] = useState<GoogleStudioBiddingStrategyKey>("maximize_conversions");
+  const [bidCpaUsd, setBidCpaUsd] = useState("");
+  const [bidRoas, setBidRoas] = useState("");
+  const [bidMaxCpcUsd, setBidMaxCpcUsd] = useState("");
+  const [perfFrom, setPerfFrom] = useState(() => isoRangeDefaultLast14().from);
+  const [perfTo, setPerfTo] = useState(() => isoRangeDefaultLast14().to);
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfErr, setPerfErr] = useState<string | null>(null);
+  const [perfRows, setPerfRows] = useState<
+    Array<{ date: string; impressions: number; clicks: number; cost_micros: number; conversions: number }>
+  >([]);
+  const [perfTotals, setPerfTotals] = useState<{
+    impressions: number;
+    clicks: number;
+    cost_micros: number;
+    conversions: number;
+  } | null>(null);
   /** Ao vivo por grupo — acrescentar palavras. */
   const [liveAddText, setLiveAddText] = useState<Record<string, string>>({});
   const [liveAddMatch, setLiveAddMatch] = useState<Record<string, MatchSel>>({});
@@ -203,6 +230,11 @@ export function DpilotGoogleCampaignStudioPage() {
     setCampaignObjectiveDraft(
       ((data.campaign as { objective_summary?: string | null }).objective_summary ?? "").trim(),
     );
+    const bids = googleStudioBiddingFormDefaultsFromCampaign(data.campaign as unknown as Record<string, unknown>);
+    setBidStrategy(bids.strategy);
+    setBidCpaUsd(bids.targetCpaUsd);
+    setBidRoas(bids.targetRoas);
+    setBidMaxCpcUsd(bids.maxCpcUsd);
 
     const cur = data.campaign.daily_budget_micros;
     setBudgetUsd(
@@ -280,6 +312,81 @@ export function DpilotGoogleCampaignStudioPage() {
       await reloadPaid();
     }
   }
+
+  async function saveCampaignBiddingConfig() {
+    if (!ok || !studio) return;
+    const nCpa = bidStrategy === "target_cpa" ? Number(bidCpaUsd.replace(",", ".")) : null;
+    const nRoas = bidStrategy === "target_roas" ? Number(bidRoas.replace(",", ".")) : null;
+    const nMax = bidStrategy === "manual_cpc" ? Number(bidMaxCpcUsd.replace(",", ".")) : null;
+    if (bidStrategy === "target_cpa") {
+      if (!Number.isFinite(nCpa as number) || (nCpa as number) <= 0) {
+        toast.error("Indique um CPA alvo válido (USD).");
+        return;
+      }
+    }
+    if (bidStrategy === "target_roas") {
+      if (!Number.isFinite(nRoas as number) || (nRoas as number) <= 0) {
+        toast.error("Indique um ROAS alvo válido.");
+        return;
+      }
+    }
+    if (bidStrategy === "manual_cpc" && bidMaxCpcUsd.trim() !== "") {
+      if (!Number.isFinite(nMax as number) || (nMax as number) <= 0) {
+        toast.error("CPC máximo inválido (USD), ou deixe em branco.");
+        return;
+      }
+    }
+
+    const patchBody = {
+      google_bidding_strategy: bidStrategy,
+      google_target_cpa_usd: bidStrategy === "target_cpa" ? nCpa : null,
+      google_target_roas: bidStrategy === "target_roas" ? nRoas : null,
+      google_max_cpc_usd:
+        bidStrategy === "manual_cpc" && Number.isFinite(nMax as number) && (nMax as number) > 0 ? nMax : null,
+    };
+
+    if (published) {
+      await enqueue({
+        action: "update_campaign_bidding",
+        ...patchBody,
+      });
+    } else {
+      const { error, data } = await paidAdsService.patchGoogleCampaignDraft(projectId!, campaignId!, patchBody);
+      if (error) toast.error(error);
+      else {
+        toast.success("Estratégia de licitação gravada no rascunho.");
+        if (data?.studio) setStudio(data.studio);
+        await reloadPaid();
+      }
+    }
+  }
+
+  const loadCampaignPerformance = useCallback(async () => {
+    if (!ok || !published || !projectId || !campaignId) return;
+    setPerfLoading(true);
+    setPerfErr(null);
+    const { data, error } = await paidAdsService.getGoogleCampaignPerformance(
+      projectId,
+      campaignId,
+      perfFrom,
+      perfTo,
+    );
+    setPerfLoading(false);
+    if (error) {
+      setPerfErr(error);
+      setPerfRows([]);
+      setPerfTotals(null);
+      return;
+    }
+    if (!data) {
+      setPerfErr("Resposta vazia.");
+      setPerfRows([]);
+      setPerfTotals(null);
+      return;
+    }
+    setPerfRows(data.rows);
+    setPerfTotals(data.totals);
+  }, [ok, published, projectId, campaignId, perfFrom, perfTo]);
 
   async function saveBudget(publishedCampaign: boolean) {
     const n = Number(budgetUsd.replace(",", "."));
@@ -1028,26 +1135,94 @@ export function DpilotGoogleCampaignStudioPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Orçamento e lances</CardTitle>
                   <CardDescription>
-                    Resumo tipo «orçamentos e licitação» na Google — edite aqui apenas o dia a dia; estratégias avançadas
-                    ficam na consola quando necessário.
+                    URL final e textos RSA ficam em «Keywords e RSA». Aqui ajusta orçamento diário, estratégia de
+                    licitação (CPC, CPA, ROAS, maximizar conversões) e consulta métricas da rede quando a campanha já
+                    existe na conta Google.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 text-sm">
-                  <p className="leading-relaxed text-muted-foreground">
-                    Orçamento diário de referência:&nbsp;
-                    <strong className="font-medium text-foreground">
-                      {typeof campaign.daily_budget_micros === "number" && Number.isFinite(campaign.daily_budget_micros)
-                        ? `${formatUsdFromMicros(campaign.daily_budget_micros)}`
-                        : budgetUsd
-                          ? `${budgetUsd} USD`
-                          : "—"}
-                    </strong>
-                    . Licitação:&nbsp;
-                    <strong className="font-medium text-foreground">{googleBiddingStrategyShort(campaign)}</strong>
-                    {googleBiddingSummaryLinesFromPayload(campaign as unknown as Record<string, unknown>).length > 1
-                      ? " — consulte a linha de detalhe abaixo quando existir CPA ou ROAS alvo."
-                      : "."}
-                  </p>
+                <CardContent className="space-y-6 text-sm">
+                  <ul className="list-inside list-disc space-y-1 text-[12px] text-muted-foreground">
+                    {googleBiddingSummaryLinesFromPayload(campaign as unknown as Record<string, unknown>).map(
+                      (line) => (
+                        <li key={line.slice(0, 80)}>{line}</li>
+                      ),
+                    )}
+                  </ul>
+
+                  <div className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Estratégia de licitação · editar
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="studio-bid-strategy">Estratégia</Label>
+                        <Select
+                          value={bidStrategy}
+                          onValueChange={(v) => setBidStrategy(v as GoogleStudioBiddingStrategyKey)}
+                        >
+                          <SelectTrigger id="studio-bid-strategy" className="max-w-md">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="maximize_conversions">Maximizar conversões</SelectItem>
+                            <SelectItem value="target_cpa">Maximizar conversões · CPA alvo</SelectItem>
+                            <SelectItem value="target_roas">ROAS alvo</SelectItem>
+                            <SelectItem value="maximize_clicks">Maximizar cliques</SelectItem>
+                            <SelectItem value="manual_cpc">CPC manual (com tecto por grupo)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {bidStrategy === "target_cpa" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="studio-bid-cpa">CPA alvo (USD / conversão)</Label>
+                          <Input
+                            id="studio-bid-cpa"
+                            inputMode="decimal"
+                            value={bidCpaUsd}
+                            onChange={(e) => setBidCpaUsd(e.target.value)}
+                            placeholder="ex. 25"
+                            className="max-w-[11rem]"
+                          />
+                        </div>
+                      ) : null}
+                      {bidStrategy === "target_roas" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="studio-bid-roas">ROAS alvo</Label>
+                          <Input
+                            id="studio-bid-roas"
+                            inputMode="decimal"
+                            value={bidRoas}
+                            onChange={(e) => setBidRoas(e.target.value)}
+                            placeholder="ex. 3.5"
+                            className="max-w-[11rem]"
+                          />
+                        </div>
+                      ) : null}
+                      {bidStrategy === "manual_cpc" ? (
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="studio-bid-max-cpc">Lance máximo por clique (USD)</Label>
+                          <Input
+                            id="studio-bid-max-cpc"
+                            inputMode="decimal"
+                            value={bidMaxCpcUsd}
+                            onChange={(e) => setBidMaxCpcUsd(e.target.value)}
+                            placeholder="Opcional — aplica-se a todos os grupos na rede"
+                            className="max-w-[11rem]"
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Valor usado como tecto inicial em cada grupo; pode afinar por grupo abaixo quando a
+                            estratégia for CPC manual.
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button type="button" onClick={() => void saveCampaignBiddingConfig()}>
+                        {published ? "Enviar estratégia à rede (fila / Autopilot)" : "Gravar estratégia no rascunho"}
+                      </Button>
+                    </div>
+                  </div>
+
                   <StudioSettingsPanel>
                     <StudioSettingsRow
                       label="Orçamento (USD / dia)"
@@ -1073,18 +1248,137 @@ export function DpilotGoogleCampaignStudioPage() {
                         </div>
                       }
                     />
-                    <StudioSettingsRow label="Estratégia de licitação" value={googleBiddingStrategyShort(campaign)} subdued />
-                    {googleBiddingSummaryLinesFromPayload(campaign as unknown as Record<string, unknown>)
-                      .slice(1)
-                      .map((line, ix) => (
-                        <StudioSettingsRow
-                          key={`bid-extra-${ix}-${line.slice(0, 48)}`}
-                          label={ix === 0 ? "Meta / parâmetro" : "Parâmetro"}
-                          value={<span className="text-muted-foreground">{line}</span>}
-                          subdued
-                        />
-                      ))}
                   </StudioSettingsPanel>
+                </CardContent>
+              </Card>
+
+              <Card className="border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Desempenho na rede</CardTitle>
+                  <CardDescription>
+                    Dados reportados pela Google Ads para esta campanha (soma por dia no intervalo).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  {!published ? (
+                    <p className="text-muted-foreground">
+                      As métricas aparecem aqui depois de publicar a campanha na conta OAuth do projecto.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="perf-from">Desde</Label>
+                          <Input
+                            id="perf-from"
+                            type="date"
+                            value={perfFrom}
+                            onChange={(e) => setPerfFrom(e.target.value)}
+                            className="w-[11rem]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="perf-to">Até</Label>
+                          <Input
+                            id="perf-to"
+                            type="date"
+                            value={perfTo}
+                            onChange={(e) => setPerfTo(e.target.value)}
+                            className="w-[11rem]"
+                          />
+                        </div>
+                        <Button type="button" variant="secondary" disabled={perfLoading} onClick={() => void loadCampaignPerformance()}>
+                          {perfLoading ? (
+                            <span className="inline-flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              A carregar…
+                            </span>
+                          ) : (
+                            "Carregar métricas"
+                          )}
+                        </Button>
+                      </div>
+                      {perfErr ? (
+                        <p className="text-sm text-destructive">{perfErr}</p>
+                      ) : null}
+                      {perfTotals ? (
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 text-[13px]">
+                          <div className="rounded-md border bg-muted/15 px-3 py-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Impressões
+                            </p>
+                            <p className="font-semibold tabular-nums">{perfTotals.impressions.toLocaleString("pt-PT")}</p>
+                          </div>
+                          <div className="rounded-md border bg-muted/15 px-3 py-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Cliques
+                            </p>
+                            <p className="font-semibold tabular-nums">{perfTotals.clicks.toLocaleString("pt-PT")}</p>
+                          </div>
+                          <div className="rounded-md border bg-muted/15 px-3 py-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              CPC médio
+                            </p>
+                            <p className="font-semibold tabular-nums">
+                              {perfTotals.clicks > 0
+                                ? formatUsdFromMicros(Math.round(perfTotals.cost_micros / perfTotals.clicks))
+                                : "—"}
+                            </p>
+                          </div>
+                          <div className="rounded-md border bg-muted/15 px-3 py-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Custo</p>
+                            <p className="font-semibold tabular-nums">{formatUsdFromMicros(perfTotals.cost_micros)}</p>
+                          </div>
+                          <div className="rounded-md border bg-muted/15 px-3 py-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Conversões
+                            </p>
+                            <p className="font-semibold tabular-nums">
+                              {perfTotals.conversions.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {perfRows.length > 0 ? (
+                        <div className="max-h-[min(420px,50vh)] overflow-auto rounded-md border">
+                          <table className="w-full text-xs">
+                            <thead className="sticky top-0 bg-muted/80">
+                              <tr className="border-b">
+                                <th className="p-2 text-left font-medium">Dia</th>
+                                <th className="p-2 text-right font-medium">Impr.</th>
+                                <th className="p-2 text-right font-medium">Cli.</th>
+                                <th className="p-2 text-right font-medium">CPC méd.</th>
+                                <th className="p-2 text-right font-medium">Custo</th>
+                                <th className="p-2 text-right font-medium">Conv.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {perfRows.map((row) => (
+                                <tr key={row.date} className="border-b last:border-0">
+                                  <td className="p-2 font-mono">{row.date}</td>
+                                  <td className="p-2 text-right tabular-nums">{row.impressions.toLocaleString("pt-PT")}</td>
+                                  <td className="p-2 text-right tabular-nums">{row.clicks.toLocaleString("pt-PT")}</td>
+                                  <td className="p-2 text-right tabular-nums">
+                                    {row.clicks > 0
+                                      ? formatUsdFromMicros(Math.round(row.cost_micros / row.clicks))
+                                      : "—"}
+                                  </td>
+                                  <td className="p-2 text-right tabular-nums">{formatUsdFromMicros(row.cost_micros)}</td>
+                                  <td className="p-2 text-right tabular-nums">
+                                    {row.conversions.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : published && !perfLoading && !perfErr && perfTotals === null ? (
+                        <p className="text-muted-foreground text-xs">
+                          Escolha as datas e use «Carregar métricas» (máx. 95 dias por pedido).
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

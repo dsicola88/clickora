@@ -77,6 +77,19 @@ export type GoogleCampaignStudioDto = {
   ad_groups: GoogleStudioAdGroupRow[];
 };
 
+export type GoogleCampaignPerformanceDayRow = {
+  date: string;
+  impressions: number;
+  clicks: number;
+  cost_micros: number;
+  conversions: number;
+};
+
+export type GoogleCampaignPerformanceResponse = {
+  rows: GoogleCampaignPerformanceDayRow[];
+  totals: Omit<GoogleCampaignPerformanceDayRow, "date">;
+};
+
 export type ChangeRequestRow = {
   id: string;
   type: string;
@@ -412,6 +425,13 @@ export const paidAdsService = {
 
   getGoogleCampaignStudio(projectId: string, campaignId: string) {
     return apiClient.get<GoogleCampaignStudioDto>(`/paid/projects/${projectId}/campaigns/${campaignId}/google-studio`);
+  },
+
+  getGoogleCampaignPerformance(projectId: string, campaignId: string, from: string, to: string) {
+    const qs = `?from=${encodeURIComponent(from.trim().slice(0, 10))}&to=${encodeURIComponent(to.trim().slice(0, 10))}`;
+    return apiClient.get<GoogleCampaignPerformanceResponse>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/google-performance${qs}`,
+    );
   },
 
   postGoogleStudioActions(projectId: string, campaignId: string, body: Record<string, unknown>) {

@@ -629,6 +629,7 @@ enum PaidAdsChangeRequestType {
   remove_keyword
   update_rsa_copy
   update_ad_group_cpc
+  update_campaign_bidding
   meta_create_campaign
   meta_update_budget
   meta_publish_creative

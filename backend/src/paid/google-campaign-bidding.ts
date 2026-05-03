@@ -64,6 +64,34 @@ export function googleAdGroupCpcBidMicros(biddingConfig: unknown): string | null
 }
 
 /** Um só campo «oneof» de licitação compatível com a Campaign REST JSON da Google Ads API. */
+/** Campos snake_case esperados pelo `updateMask` na mutação `campaigns` ao alterar apenas a licitação. */
+export function googleCampaignBiddingUpdateMask(fragment: Record<string, unknown>): string {
+  const parts: string[] = [];
+  if ("manualCpc" in fragment) parts.push("manual_cpc");
+  if ("maximizeConversions" in fragment) parts.push("maximize_conversions");
+  if ("targetCpa" in fragment) parts.push("target_cpa");
+  if ("targetRoas" in fragment) parts.push("target_roas");
+  if ("targetSpend" in fragment) parts.push("target_spend");
+  return [...new Set(parts)].join(",");
+}
+
+/** Preserva `google_asset_extensions` e outros extras em `biddingConfig` ao trocar a estratégia. */
+export function mergeGoogleBiddingConfigPreservingExtras(
+  previous: unknown,
+  nextStored: { google: StoredGoogleBidding },
+): Record<string, unknown> {
+  const prev =
+    previous && typeof previous === "object" && !Array.isArray(previous)
+      ? (previous as Record<string, unknown>)
+      : {};
+  const { google_asset_extensions: ext, google: _g, ...rest } = prev;
+  return {
+    ...rest,
+    google: nextStored.google,
+    ...(ext !== undefined ? { google_asset_extensions: ext } : {}),
+  };
+}
+
 export function googleCampaignCreateBiddingOneof(biddingConfig: unknown): Record<string, unknown> {
   const root =
     biddingConfig &&

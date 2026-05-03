@@ -8,7 +8,7 @@
  * - `resume_entity` (Google): { entity: campaign|ad_group|keyword|rsa, id: uuid local }
  * - `remove_keyword` (Google): { keyword_id: uuid }
  * - `update_rsa_copy` (Google): { paid_ads_rsa_id, headlines: string[], descriptions: string[], final_urls?: string[], path1?, path2? }
- * - `update_ad_group_cpc` (Google): { ad_group_id, cpc_bid_micros }
+ * - `update_campaign_bidding` (Google): { campaign_id, google_bidding_strategy, google_target_cpa_usd?, google_target_roas?, google_max_cpc_usd? }
  * - `meta_update_budget` (Meta): { meta_adset_id, daily_budget_cents }
  * - `meta_publish_creative` (Meta): { creative_id }
  * - `meta_pause_entity` (Meta): { level: campaign|adset|ad, id: uuid local }
@@ -25,6 +25,7 @@ import {
   applyGoogleResumeEntity,
   applyGoogleUpdateAdGroupCpc,
   applyGoogleUpdateBudget,
+  applyGoogleUpdateCampaignBidding,
   applyGoogleUpdateRsaCopy,
 } from "./google-ads.mutations";
 import { publishGoogleSearchCampaignFromLocal as publishGoogleCampaign } from "./google-ads.publish";
@@ -153,6 +154,23 @@ export async function applyChangeRequestRemote(
           ...(finalUrls ? { final_urls: finalUrls } : {}),
           ...(path1 !== undefined ? { path1 } : {}),
           ...(path2 !== undefined ? { path2 } : {}),
+        });
+      }
+      case "update_campaign_bidding": {
+        const cid = getStr(p, "campaign_id");
+        const strat = p.google_bidding_strategy;
+        if (!cid || typeof strat !== "string") {
+          return { ok: false, error: "Payload: campaign_id e google_bidding_strategy." };
+        }
+        const targetCpa = p.google_target_cpa_usd;
+        const targetRoas = p.google_target_roas;
+        const maxCpc = p.google_max_cpc_usd;
+        return await applyGoogleUpdateCampaignBidding(projectId, {
+          campaign_id: cid,
+          google_bidding_strategy: strat as import("./google-campaign-bidding").GoogleBiddingStrategy,
+          google_target_cpa_usd: typeof targetCpa === "number" ? targetCpa : targetCpa == null ? null : undefined,
+          google_target_roas: typeof targetRoas === "number" ? targetRoas : targetRoas == null ? null : undefined,
+          google_max_cpc_usd: typeof maxCpc === "number" ? maxCpc : maxCpc == null ? null : undefined,
         });
       }
       case "update_ad_group_cpc": {

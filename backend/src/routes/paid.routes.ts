@@ -44,7 +44,10 @@ paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidControll
 paidRouter.patch("/projects/:projectId/campaigns/:campaignId/optimizer-limits", (req, res) =>
   void paidController.patchCampaignOptimizerLimits(req, res),
 );
-paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-studio", (req, res) =>
+  paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-performance", (req, res) =>
+    void paidController.googleCampaignPerformance(req, res),
+  );
+  paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-studio", (req, res) =>
   void paidController.getGoogleCampaignStudio(req, res),
 );
 paidRouter.patch("/projects/:projectId/campaigns/:campaignId/google-draft", (req, res) =>

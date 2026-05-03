@@ -2,7 +2,7 @@
  * Mutações Google Ads (pós-criação): orçamento, palavras-chave, RSA, pausas.
  * Contrato do payload: ver `change-request-apply.ts`.
  */
-import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMatchType as MatchType } from "@prisma/client";
+import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMatchType as MatchType, Prisma } from "@prisma/client";
 
 import {
   getAccessFromRefreshToken,
@@ -10,6 +10,14 @@ import {
   runGoogleAdsMutate,
   runGoogleAdsSearch,
 } from "./google-ads.api";
+import {
+  googleAdGroupCpcBidMicros,
+  googleCampaignBiddingUpdateMask,
+  googleCampaignCreateBiddingOneof,
+  mergeGoogleBiddingConfigPreservingExtras,
+  storedGoogleBiddingFromPlanInput,
+  type GoogleBiddingStrategy,
+} from "./google-campaign-bidding";
 import { prisma } from "./paidPrisma";
 
 const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
@@ -686,5 +694,105 @@ export async function applyGoogleUpdateAdGroupCpc(
     where: { id: ag.id },
     data: { cpcBidMicros: BigInt(micros) },
   });
+  return { ok: true };
+}
+
+export async function applyGoogleUpdateCampaignBidding(
+  projectId: string,
+  p: {
+    campaign_id: string;
+    google_bidding_strategy: GoogleBiddingStrategy;
+    google_target_cpa_usd?: number | null;
+    google_target_roas?: number | null;
+    google_max_cpc_usd?: number | null;
+  },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+
+  const camp = await prisma.paidAdsCampaign.findFirst({
+    where: { id: p.campaign_id, projectId, platform: "google_ads" },
+    include: { adGroups: true },
+  });
+  if (!camp?.externalCampaignId) {
+    return { ok: false, error: "Campanha não publicada na Google — altere estratégia no rascunho." };
+  }
+
+  const stored = storedGoogleBiddingFromPlanInput({
+    strategy: p.google_bidding_strategy,
+    google_target_cpa_usd: p.google_target_cpa_usd,
+    google_target_roas: p.google_target_roas,
+    google_max_cpc_usd: p.google_max_cpc_usd,
+  });
+  const mergedConfig = mergeGoogleBiddingConfigPreservingExtras(camp.biddingConfig, stored);
+  const oneof = googleCampaignCreateBiddingOneof(mergedConfig);
+  const updateMask = googleCampaignBiddingUpdateMask(oneof);
+  if (!updateMask) return { ok: false, error: "Combinação de licitação inválida." };
+
+  const extId = camp.externalCampaignId.replace(/\D/g, "");
+  const resourceName = `customers/${customerId}/campaigns/${extId}`;
+  const m = await runGoogleAdsMutate(
+    access,
+    customerId,
+    dev,
+    "campaigns",
+    {
+      operations: [
+        {
+          update: {
+            resourceName,
+            ...oneof,
+          },
+          updateMask,
+        },
+      ],
+    },
+    LOGIN,
+  );
+  if (m.error) return { ok: false, error: m.error.message ?? "Actualizar estratégia de licitação" };
+
+  await prisma.paidAdsCampaign.update({
+    where: { id: camp.id },
+    data: { biddingConfig: mergedConfig as Prisma.InputJsonValue },
+  });
+
+  const agMicro = googleAdGroupCpcBidMicros(mergedConfig);
+  const cidRoot = `customers/${customerId}`;
+  if (p.google_bidding_strategy === "manual_cpc" && agMicro && camp.adGroups.length) {
+    const microStr = String(agMicro);
+    const microm = Number(microStr);
+    if (Number.isFinite(microm) && microm >= 1) {
+      for (const agRow of camp.adGroups) {
+        if (!agRow.externalAdGroupId) continue;
+        const um = await runGoogleAdsMutate(
+          access,
+          customerId,
+          dev,
+          "adGroups",
+          {
+            operations: [
+              {
+                update: {
+                  resourceName: `${cidRoot}/adGroups/${agRow.externalAdGroupId.replace(/\D/g, "")}`,
+                  cpcBidMicros: microStr,
+                },
+                updateMask: "cpcBidMicros",
+              },
+            ],
+          },
+          LOGIN,
+        );
+        if (um.error) {
+          return { ok: false, error: um.error.message ?? "Actualizar CPC dos grupos" };
+        }
+        await prisma.paidAdsAdGroup.update({
+          where: { id: agRow.id },
+          data: { cpcBidMicros: BigInt(microm) },
+        });
+      }
+    }
+  }
+
   return { ok: true };
 }

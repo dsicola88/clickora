@@ -131,6 +131,20 @@ export async function workspaceAllowsApplyBeforeRemote(
       }
       return { ok: true };
     }
+    case "update_campaign_bidding": {
+      const strat = typeof p.google_bidding_strategy === "string" ? p.google_bidding_strategy : "";
+      if (strat !== "manual_cpc") return { ok: true };
+      const usd = getNum(p, "google_max_cpc_usd");
+      if (usd == null || limits.max_cpc_micros == null) return { ok: true };
+      const mic = Math.round(usd * 1_000_000);
+      if (mic > Number(limits.max_cpc_micros)) {
+        return {
+          ok: false,
+          message: `O CPC máximo proposto (${usd.toFixed(2)} USD) excede o teto CPC dos guardrails (${(Number(limits.max_cpc_micros) / 1_000_000).toFixed(2)} USD).`,
+        };
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
