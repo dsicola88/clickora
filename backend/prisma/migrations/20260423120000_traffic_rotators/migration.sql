@@ -46,3 +46,6 @@ CREATE INDEX "traffic_rotator_arms_rotator_id_order_index_idx" ON "traffic_rotat
 ALTER TABLE "traffic_rotators" ADD CONSTRAINT "traffic_rotators_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "traffic_rotators" ADD CONSTRAINT "traffic_rotators_context_presell_id_fkey" FOREIGN KEY ("context_presell_id") REFERENCES "presell_pages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "traffic_rotator_arms" ADD CONSTRAINT "traffic_rotator_arms_rotator_id_fkey" FOREIGN KEY ("rotator_id") REFERENCES "traffic_rotators"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Coluna esperada pelo schema workspace/routing (adicional ao rotador core); estava antes numa migração com timestamp anterior ao CREATE TABLE dos rotadores.
+ALTER TABLE "traffic_rotators" ADD COLUMN "rules_policy" JSONB;

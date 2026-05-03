@@ -33,6 +33,7 @@ function deriveSectionOpen(base: string, pathname: string) {
   return {
     g:
       pathname.startsWith(`${base}/google`) ||
+      pathname.startsWith(`${base}/campanhas`) ||
       pathname.startsWith(`${base}/campanhas/nova`),
     m: pathname.startsWith(`${base}/meta`),
     t: pathname.startsWith(`${base}/tiktok`),
@@ -63,8 +64,11 @@ export function DpilotPaidLayout() {
     <div className="flex flex-col gap-6 px-2 py-4 lg:flex-row lg:px-4">
       <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[15.5rem]">
         <div className="mb-4 space-y-1">
-          <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Paid Autopilot</p>
-          <p className="px-1 text-[11px] text-muted-foreground">Revisão, limites e publicação nas redes</p>
+          <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Studio de anúncios</p>
+          <p className="px-1 text-[11px] leading-snug text-muted-foreground">
+            Piloto dentro dos seus limites: criação guiada nas três redes. Em modo automático pode publicar sozinho; em modo
+            com confirmação, sempre passa primeiro por «Aprovações».
+          </p>
         </div>
         <nav className="flex flex-col gap-1">
           <NavLink to={`${base}/visao`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>

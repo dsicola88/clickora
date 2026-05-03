@@ -99,27 +99,22 @@ export function DpilotOptimizerPauseLimitsCard() {
     <Card className="border-sky-500/15 bg-sky-500/[0.03]">
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          Pausa automática sem conversões
-          <span className="text-[11px] font-normal text-muted-foreground">(optimizer)</span>
+          Pausa por gasto sem conversões
+          <span className="text-[11px] font-normal text-muted-foreground">· motor</span>
         </CardTitle>
         <CardDescription>
-          Na janela de análise do motor, campanhas <strong className="font-medium text-foreground">live</strong> são
-          pausadas quando o gasto nas redes ≥ este limiar USD e não há conversões atribuídas no tracking, com pelo menos{" "}
-          <strong className="font-medium text-foreground">N</strong> cliques. Se houver conversões (ou lucro suficiente
-          para ROAS), a regra de pausa não aplica dessa forma.
+          Com o motor optimizador activo, campanhas com gasto elevado e <strong>zero conversões</strong> dentro do período
+          podem ser pausadas automaticamente até rever a oferta. Campos vazios utilizam valores por omissão da instalação.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert className="border-muted">
           <Info className="h-4 w-4 text-muted-foreground" />
-          <AlertTitle className="text-sm">Opcional por projecto</AlertTitle>
+          <AlertTitle className="text-sm">Opcional</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground space-y-2">
             <p>
-              Se deixar os campos <strong className="text-foreground font-medium">vazios</strong>, usamos os limites
-              definidos pelo servidor para este produto (os mesmos para todos os projectos que não sobrescrevem aqui).
-              Para alterações irem ao vivo nas redes, o motor automático tem de estar activo e o projecto em modo
-              adequado (Autopilot ou fluxo de aprovações já descrito na Visão geral). Apenas admins do workspace podem
-              gravar.
+              Deixe vazio para seguir o comportamento padrão do produto. Alterações profundas ficam para quem administra o
+              workspace; o piloto automático precisa de estar ligado no servidor.
             </p>
             <details className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
               <summary className="cursor-pointer text-[11px] font-medium text-foreground">
@@ -161,7 +156,7 @@ export function DpilotOptimizerPauseLimitsCard() {
           </div>
         </div>
         <Button type="button" size="sm" onClick={() => void onSave()} disabled={saving || !gr}>
-          {saving ? "A guardar…" : "Guardar limites do motor"}
+          {saving ? "A guardar…" : "Guardar regra de pausa"}
         </Button>
       </CardContent>
     </Card>

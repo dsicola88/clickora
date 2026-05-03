@@ -43,6 +43,7 @@ import { DpilotOptimizerPauseLimitsCard } from "./DpilotOptimizerPauseLimitsCard
 import { DpilotTransparencyMotorCard } from "./DpilotTransparencyMotorCard";
 import { DpilotWeeklyMotorDigestCard } from "./DpilotWeeklyMotorDigestCard";
 import { DpilotTransparencyPrinciplesCard } from "./DpilotTransparencyPrinciplesCard";
+import { DpilotAutopilotSimpleBanner } from "./DpilotAutopilotSimpleBanner";
 
 export function Gate({ children }: { children: React.ReactNode }) {
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
@@ -89,15 +90,21 @@ export function DpilotVisaoPage() {
 
   return (
     <Gate>
-      <PageHeader title="Visão geral" />
+      <PageHeader
+        title="Visão geral"
+        description="Limites claros para o modo do projecto (Copilot ou Autopilot) e onde agir nesta navegação. A criação de campanha continua um fluxo guiado nas redes à esquerda; depois da publicação, utilize «Gestão» na lista de campanhas Google para edição manual que pode aparecer aqui como pedido quando o modo não aplica ao vivo automaticamente."
+      />
+      <div className="mt-4">
+        <DpilotAutopilotSimpleBanner />
+      </div>
       {p.overview && (
-        <p className="text-xs text-muted-foreground">
+        <p className="mt-4 text-xs text-muted-foreground">
           ID do projecto (suporte): <code className="rounded bg-muted px-1 py-0.5">{p.projectId}</code>
         </p>
       )}
       <Card className="mt-4 border-border/80 bg-muted/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Passos</CardTitle>
+          <CardTitle className="text-base">Fluxo rápido</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
@@ -122,10 +129,15 @@ export function DpilotVisaoPage() {
               2
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Criar campanha</p>
-              <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Ver campanhas e criar</Link>
-              </Button>
+              <p className="text-sm font-medium">Presell e criativos nas redes</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                  <Link to="/presell/dashboard">Presells / landings</Link>
+                </Button>
+                <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                  <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Campanhas</Link>
+                </Button>
+              </div>
             </div>
           </div>
           <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
@@ -205,13 +217,16 @@ export function DpilotVisaoPage() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            Motor automático (Autopilot)
+            Registo do piloto / motor
           </CardTitle>
-          <CardDescription>Autopilot · auditoria</CardDescription>
+          <CardDescription>
+            Opcional — histórico de decisões técnicas. Na rotina pode ignorar esta página inteira e usar só Assistência e
+            Aprovações.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" size="sm" asChild>
-            <Link to={`/tracking/dpilot/p/${p.projectId}/auditoria`}>Abrir auditoria completa</Link>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/auditoria`}>Abrir auditoria e execuções</Link>
           </Button>
         </CardContent>
       </Card>
@@ -477,6 +492,11 @@ function campaignsTable(
                   </TableCell>
                   <TableCell className="text-right align-middle">
                     <div className="flex flex-wrap items-center justify-end gap-1">
+                      {c.platform === "google_ads" && c.status !== "archived" ? (
+                        <Button variant="secondary" size="sm" className="h-8" asChild>
+                          <Link to={`/tracking/dpilot/p/${controls.projectId}/campanhas/${c.id}/google`}>Gestão</Link>
+                        </Button>
+                      ) : null}
                       <DpilotCampaignArchiveButton
                         projectId={controls.projectId}
                         campaign={c}
@@ -521,6 +541,18 @@ export function DpilotCampanhasPage() {
     <Gate>
       <PageHeader
         title="Campanhas"
+        description={
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            <strong className="font-medium text-foreground">Google Ads · Pesquisa</strong> neste projecto estrutura-se em dois
+            momentos. Na <strong className="font-medium text-foreground">criação</strong>, «Nova campanha Google» permite gerar o
+            plano com assistência de IA ou defini-lo na totalidade de forma manual até à primeira publicação, respeitando os
+            guardrails do projecto. Na <strong className="font-medium text-foreground">operação contínua</strong>, o botão{" "}
+            <strong className="font-medium text-foreground">Gestão</strong> ao nível das linhas Google abre o estúdio onde
+            pode afinar estruturas, RSA, CPC, pausas e orçamento de forma próxima ao gestor de Pesquisa na conta: as mudanças
+            na rede seguem o modo Copilot («Aprovações») ou Autopilot (aplicação imediata). Outras redes usam os respectivos
+            assistentes.
+          </p>
+        }
         actions={
           <Button asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
@@ -534,7 +566,7 @@ export function DpilotCampanhasPage() {
             projectId={projectId}
             reload={reload}
             showPlatformFilter
-            empty="Ainda não há campanhas neste projecto. Utilize o assistente «Nova campanha» na rede pretendida e conclua ou aplique os pedidos em «Aprovações», conforme o modo Copilot ou Autopilot."
+            empty="Ainda não há campanhas neste projecto. Crie uma com «Nova campanha Google», conclua o assistente ou aplique o pedido em «Aprovações» conforme Copilot ou Autopilot. Para campanhas Google já visíveis, use «Gestão» para operações tipo gestor da rede."
           />
         </CardContent>
       </Card>
@@ -1145,6 +1177,7 @@ export function DpilotAprovacoesPage() {
     <Gate>
       <PageHeader
         title="Aprovações"
+        description="Fila dos pedidos a revisar antes de aplicar na rede quando o modo do projecto o exige. Inclui criações novas e alterações vindas da Gestão Google Search (keywords, RSA, orçamento, pausas) sempre que estas não são enviadas de imediato à Google."
       />
       <Alert className="mt-4 border-primary/20 bg-primary/5">
         <Info className="h-4 w-4 text-primary" aria-hidden />

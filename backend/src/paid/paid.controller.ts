@@ -12,6 +12,12 @@ import { prisma } from "./paidPrisma";
 import { googleCampaignPlanInputSchema, runGoogleCampaignPlan } from "./google-campaign-plan";
 import { extractGoogleLanding } from "./google-landing-extract";
 import {
+  executeGoogleStudioAction,
+  getGoogleCampaignStudioDetail,
+  googleCampaignDraftPatchSchema,
+  patchGoogleCampaignDraft as applyGoogleCampaignDraftPatchToDb,
+} from "./google-campaign-studio.service";
+import {
   googleKeywordInsightInputSchema,
   googleKeywordSuggestInputSchema,
   runGoogleKeywordInsight,
@@ -31,7 +37,8 @@ function parseGeoTargetsJson(j: unknown): string[] {
 }
 
 /** Campanhas geradas sem chamada ao modelo usam `fallback/deterministic` no registo AI. */
-function planSourceFromModel(model: string): "llm" | "deterministic" {
+function planSourceFromModel(model: string): "llm" | "deterministic" | "manual" {
+  if (model.startsWith("manual/")) return "manual";
   return model.startsWith("fallback/") ? "deterministic" : "llm";
 }
 
@@ -850,6 +857,67 @@ export const paidController = {
       },
     });
     return res.json({ campaign: mappers.mapPaidCampaign(updated) });
+  },
+
+  /** Árvore local de campanha Google Search (estúdio de gestão). */
+  async getGoogleCampaignStudio(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canAccessProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const row = await getGoogleCampaignStudioDetail(projectId, campaignId);
+    if (!row) return res.status(404).json({ error: "Campanha não encontrada." });
+    return res.json(row);
+  },
+
+  /** Fila de alterações ao vivo na Google (ou aplicação imediata em Autopilot). */
+  async postGoogleCampaignStudioActions(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para gerir esta campanha." });
+    }
+    const out = await executeGoogleStudioAction(projectId, campaignId, req.body, a.userId);
+    if (!out.ok) {
+      return res.status(400).json({
+        error: out.error,
+        ...(out.change_request_id ? { change_request_id: out.change_request_id } : {}),
+      });
+    }
+    return res.json({ ok: true as const, change_request: out.change_request });
+  },
+
+  /** Edição directa de rascunho (sem IDs externos Google). */
+  async patchGoogleCampaignDraft(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para editar esta campanha." });
+    }
+    const body = googleCampaignDraftPatchSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    const r = await applyGoogleCampaignDraftPatchToDb(projectId, campaignId, body.data);
+    if (!r.ok) return res.status(400).json({ error: r.error });
+    const refreshed = await getGoogleCampaignStudioDetail(projectId, campaignId);
+    return res.json({ ok: true as const, studio: refreshed });
   },
 
   async reconcileCampaigns(req: Request, res: Response) {

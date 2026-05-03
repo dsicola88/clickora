@@ -356,3 +356,291 @@ export async function applyGooglePauseEntity(
   await prisma.paidAdsRsa.update({ where: { id: rsa.id }, data: { status: "paused" } });
   return { ok: true };
 }
+
+/** Reverte pausas criadas pela app (ENABLED no Google ↔ status `live` local). Mesmo formato de payload que pause_entity. */
+export async function applyGoogleResumeEntity(
+  projectId: string,
+  p: { entity: "campaign" | "ad_group" | "keyword" | "rsa"; id: string },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+  const cid = `customers/${customerId}`;
+
+  if (p.entity === "campaign") {
+    const camp = await prisma.paidAdsCampaign.findFirst({
+      where: { id: p.id, projectId, platform: "google_ads" },
+    });
+    if (!camp?.externalCampaignId) {
+      return { ok: false, error: "Campanha sem ID Google." };
+    }
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "campaigns",
+      {
+        operations: [
+          {
+            update: {
+              resourceName: `${cid}/campaigns/${camp.externalCampaignId.replace(/\D/g, "")}`,
+              status: "ENABLED",
+            },
+            updateMask: "status",
+          },
+        ],
+      },
+      LOGIN,
+    );
+    if (m.error) return { ok: false, error: m.error.message ?? "Reactivar campanha" };
+    await prisma.paidAdsCampaign.update({
+      where: { id: camp.id },
+      data: { status: "live" },
+    });
+    return { ok: true };
+  }
+  if (p.entity === "ad_group") {
+    const ag = await prisma.paidAdsAdGroup.findFirst({
+      where: { id: p.id, campaign: { projectId, platform: "google_ads" } },
+    });
+    if (!ag?.externalAdGroupId) {
+      return { ok: false, error: "Ad group sem ID Google." };
+    }
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "adGroups",
+      {
+        operations: [
+          {
+            update: {
+              resourceName: `${cid}/adGroups/${ag.externalAdGroupId.replace(/\D/g, "")}`,
+              status: "ENABLED",
+            },
+            updateMask: "status",
+          },
+        ],
+      },
+      LOGIN,
+    );
+    if (m.error) return { ok: false, error: m.error.message ?? "Reactivar ad group" };
+    await prisma.paidAdsAdGroup.update({ where: { id: ag.id }, data: { status: "live" } });
+    return { ok: true };
+  }
+  if (p.entity === "keyword") {
+    const kw = await prisma.paidAdsKeyword.findFirst({
+      where: { id: p.id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
+      include: { adGroup: true },
+    });
+    if (!kw?.externalCriterionId || !kw.adGroup.externalAdGroupId) {
+      return { ok: false, error: "Palavra-chave sem ID remoto completo." };
+    }
+    const agId = kw.adGroup.externalAdGroupId.replace(/\D/g, "");
+    const crit = kw.externalCriterionId.replace(/\D/g, "");
+    const resourceName = `${cid}/adGroupCriteria/${agId}~${crit}`;
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "adGroupCriteria",
+      {
+        operations: [
+          {
+            update: {
+              resourceName,
+              status: "ENABLED",
+            },
+            updateMask: "status",
+          },
+        ],
+      },
+      LOGIN,
+    );
+    if (m.error) return { ok: false, error: m.error.message ?? "Reactivar critério" };
+    await prisma.paidAdsKeyword.update({ where: { id: kw.id }, data: { status: "live" } });
+    return { ok: true };
+  }
+  const rsa = await prisma.paidAdsRsa.findFirst({
+    where: { id: p.id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
+    include: { adGroup: true },
+  });
+  if (!rsa?.externalAdId || !rsa.adGroup.externalAdGroupId) {
+    return { ok: false, error: "Anúncio RSA sem ID Google no ad group publicado." };
+  }
+  const m = await runGoogleAdsMutate(
+    access,
+    customerId,
+    dev,
+    "adGroupAds",
+    {
+      operations: [
+        {
+          update: {
+            resourceName: `${cid}/adGroupAds/${rsa.adGroup.externalAdGroupId.replace(/\D/g, "")}~${rsa.externalAdId.replace(/\D/g, "")}`,
+            status: "ENABLED",
+          },
+          updateMask: "status",
+        },
+      ],
+    },
+    LOGIN,
+  );
+  if (m.error) return { ok: false, error: m.error.message ?? "Reactivar anúncio" };
+  await prisma.paidAdsRsa.update({ where: { id: rsa.id }, data: { status: "live" } });
+  return { ok: true };
+}
+
+/** Remove o critério de palavra-chave na Google e apaga a linha local. */
+export async function applyGoogleRemoveKeyword(
+  projectId: string,
+  p: { keyword_id: string },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+  const cid = `customers/${customerId}`;
+
+  const kw = await prisma.paidAdsKeyword.findFirst({
+    where: { id: p.keyword_id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
+    include: { adGroup: true },
+  });
+  if (!kw) return { ok: false, error: "Palavra-chave não encontrada." };
+  if (!kw.externalCriterionId || !kw.adGroup.externalAdGroupId) {
+    return { ok: false, error: "Palavra-chave não publicada no Google; elimine-a no editor de rascunho." };
+  }
+  const agId = kw.adGroup.externalAdGroupId.replace(/\D/g, "");
+  const crit = kw.externalCriterionId.replace(/\D/g, "");
+  const resourceName = `${cid}/adGroupCriteria/${agId}~${crit}`;
+  const m = await runGoogleAdsMutate(
+    access,
+    customerId,
+    dev,
+    "adGroupCriteria",
+    {
+      operations: [{ remove: resourceName }],
+    },
+    LOGIN,
+  );
+  if (m.error) return { ok: false, error: m.error.message ?? "Remover palavra-chave" };
+  await prisma.paidAdsKeyword.delete({ where: { id: kw.id } });
+  return { ok: true };
+}
+
+export async function applyGoogleUpdateRsaCopy(
+  projectId: string,
+  p: {
+    paid_ads_rsa_id: string;
+    headlines: string[];
+    descriptions: string[];
+    /** Se presente na API, atualiza primeiro URL no anúncio (recomendável manter igual à landing da campanha). */
+    final_urls?: string[];
+  },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+
+  const rsa = await prisma.paidAdsRsa.findFirst({
+    where: { id: p.paid_ads_rsa_id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
+    include: { adGroup: { include: { campaign: true } } },
+  });
+  if (!rsa) return { ok: false, error: "RSA não encontrado." };
+
+  const headlines = (p.headlines ?? []).map((t) => String(t).trim()).filter(Boolean);
+  const descriptions = (p.descriptions ?? []).map((t) => String(t).trim()).filter(Boolean);
+  if (headlines.length < 3 || descriptions.length < 2) {
+    return { ok: false, error: "RSA: mínimo 3 títulos e 2 descrições." };
+  }
+
+  let finalUrls: string[];
+  if (p.final_urls && p.final_urls.length > 0) {
+    finalUrls = p.final_urls.map((u) => String(u).trim()).filter(Boolean);
+  } else {
+    finalUrls = parseJsonStringArray(rsa.finalUrls);
+  }
+
+  await prisma.paidAdsRsa.update({
+    where: { id: rsa.id },
+    data: {
+      headlines: headlines.slice(0, 15),
+      descriptions: descriptions.slice(0, 4),
+      ...(finalUrls.length ? { finalUrls } : {}),
+    },
+  });
+
+  if (!rsa.externalAdId || !rsa.adGroup.externalAdGroupId) {
+    return { ok: true };
+  }
+
+  const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
+  const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
+  const url0 = finalUrls[0]?.match(/^https?:\/\//i) ? finalUrls[0] : `https://${finalUrls[0] ?? "example.com"}`;
+
+  const updateBody: Record<string, unknown> = {
+    operations: [
+      {
+        update: {
+          resourceName: `customers/${customerId}/adGroupAds/${rsa.adGroup.externalAdGroupId.replace(/\D/g, "")}~${rsa.externalAdId.replace(/\D/g, "")}`,
+          ad: {
+            finalUrls: [url0],
+            responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+          },
+        },
+        updateMask: "ad.final_urls,ad.responsive_search_ad.headlines,ad.responsive_search_ad.descriptions",
+      },
+    ],
+  };
+
+  const m = await runGoogleAdsMutate(access, customerId, dev, "adGroupAds", updateBody as { operations: unknown[] }, LOGIN);
+  if (m.error) return { ok: false, error: m.error.message ?? "Actualizar anúncio RSA" };
+  return { ok: true };
+}
+
+export async function applyGoogleUpdateAdGroupCpc(
+  projectId: string,
+  p: { ad_group_id: string; cpc_bid_micros: number },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+  const cid = `customers/${customerId}`;
+
+  const micros = Math.round(p.cpc_bid_micros);
+  if (!Number.isFinite(micros) || micros < 1) {
+    return { ok: false, error: "CPC inválido (micros)." };
+  }
+
+  const ag = await prisma.paidAdsAdGroup.findFirst({
+    where: { id: p.ad_group_id, campaign: { projectId, platform: "google_ads" } },
+    include: { campaign: true },
+  });
+  if (!ag?.externalAdGroupId) {
+    return { ok: false, error: "Ad group sem ID Google; publique antes de ajustar CPC." };
+  }
+
+  const m = await runGoogleAdsMutate(
+    access,
+    customerId,
+    dev,
+    "adGroups",
+    {
+      operations: [
+        {
+          update: {
+            resourceName: `${cid}/adGroups/${ag.externalAdGroupId.replace(/\D/g, "")}`,
+            cpcBidMicros: String(micros),
+          },
+          updateMask: "cpcBidMicros",
+        },
+      ],
+    },
+    LOGIN,
+  );
+  if (m.error) return { ok: false, error: m.error.message ?? "Actualizar CPC do grupo" };
+  await prisma.paidAdsAdGroup.update({
+    where: { id: ag.id },
+    data: { cpcBidMicros: BigInt(micros) },
+  });
+  return { ok: true };
+}

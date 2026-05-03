@@ -19,7 +19,7 @@ type Gr = {
   optimizer_pause_min_clicks?: number | null;
 };
 
-/** Teto de orçamento diário guardado em BD (guardrails) — edição por admins do workspace. */
+/** Teto diário por campanha — base para todas as propostas de orçamento neste projeto (automático ou com aprovação). */
 export function DpilotGuardrailsCeilingCard() {
   const { projectId, overview, reload } = useDpilotPaid();
   const gr = overview?.guardrails as Gr | undefined;
@@ -59,8 +59,8 @@ export function DpilotGuardrailsCeilingCard() {
         toast.error(error);
         return;
       }
-      toast.success("Teto de orçamento diário actualizado.", {
-        description: "Este valor será usado nas aprovações e no botão para alinhar orçamentos.",
+      toast.success("Teto actualizado", {
+        description: "Orçamentos novos respeitam já este limite diário.",
       });
       reload();
     } finally {
@@ -74,46 +74,38 @@ export function DpilotGuardrailsCeilingCard() {
       : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Limites de segurança</CardTitle>
-        <CardDescription>Orçamento máximo diário por campanha (guardrails neste projecto)</CardDescription>
+    <Card className="border-blue-600/14 shadow-sm dark:border-blue-400/22">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Teto diário por campanha</CardTitle>
+        <CardDescription>
+          Orçamentos diários propostos não ultrapassam este valor até o ajustar aqui ou no assistente de campanha.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {previewMicros != null ? (
           <p className="text-sm text-muted-foreground">
-            Actualmente registado como{" "}
-            <strong className="font-medium tabular-nums text-foreground">{formatUsdFromMicros(previewMicros)}</strong>{" "}
-            por dia.
+            Actual:{" "}
+            <strong className="font-semibold tabular-nums text-foreground">{formatUsdFromMicros(previewMicros)}</strong>
+            /dia.
           </p>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="guardrails-daily-usd">Novo teto diário máximo (USD)</Label>
+          <Label htmlFor="guardrails-daily-usd">Ajustar teto diário (USD)</Label>
           <Input
             id="guardrails-daily-usd"
             inputMode="decimal"
             autoComplete="off"
-            placeholder="Ex.: 150"
+            placeholder="Ex.: 100"
             value={usdStr}
             onChange={(e) => setUsdStr(e.target.value)}
           />
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            O montante aparece como limite nas aprovações e nos botões de alinhamento rápido — definido pelo{" "}
-            <strong className="font-medium text-foreground">workspace</strong> (não vale fixado na «aplicação»). Novos
-            projectos podem começar com um valor inicial na base de dados até ser alterado aqui. Apenas administradores do
-            workspace podem gravar guardrails completos via API — se vir erro de permissão, peça ao responsável pela equipa.
-          </p>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Para <strong className="font-medium text-foreground">países permitidos</strong>, palavras bloqueadas e limites
-            mensais, use o cartão{" "}
-            <a href="#dpilot-guardrails-scope" className="font-medium text-primary underline underline-offset-2">
-              Escopo geográfico e políticas
-            </a>{" "}
-            logo abaixo.
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            País, CPC e outros limites ficam no cartão «Escopo». Apenas utilizadores do workspace com permissões adequadas
+            alteram estes valores.
           </p>
         </div>
         <Button type="button" size="sm" onClick={() => void onSave()} disabled={saving || !gr}>
-          {saving ? "A guardar…" : "Guardar teto diário"}
+          {saving ? "A guardar…" : "Guardar teto"}
         </Button>
       </CardContent>
     </Card>

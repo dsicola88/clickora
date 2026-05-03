@@ -3,7 +3,71 @@ import { Prisma } from "@prisma/client";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Junta query string + corpo (JSON ou form) num mapa de strings. */
+const MAX_MERGE_DEPTH = 12;
+const MAX_FLAT_KEYS = 480;
+
+function primitiveToFlatString(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return null;
+}
+
+/** Último segmento de uma chave dotted (ex.: data.subid1 → subid1, items[0].amount → amount). */
+function leafKeyFromPrefixed(fullKey: string): string | null {
+  if (!fullKey) return null;
+  const afterLastDot = fullKey.includes(".") ? fullKey.slice(fullKey.lastIndexOf(".") + 1) : fullKey;
+  const trimmed = afterLastDot.replace(/\[.*$/u, "").trim();
+  if (!trimmed) return null;
+  return trimmed;
+}
+
+function applyLeafAliases(out: Record<string, string>, fullKey: string, value: string): void {
+  const leaf = leafKeyFromPrefixed(fullKey);
+  if (leaf && out[leaf] === undefined && !/^[\s\d]+$/.test(leaf)) {
+    out[leaf] = value;
+  }
+}
+
+/**
+ * Recursivamente achata JSON POST em strings (paths tipo `parent.child`, arrays como `items[0].k`).
+ * Chaves compostas fazem overwrite; aliases de folha (`subid1` desde `data.subid1`) só preenchem se a folha estiver livre —
+ * para não pisar params de nível topo vindos da query antes do merge.
+ */
+export function mergeJsonBodyIntoFlatRecord(body: unknown, out: Record<string, string>): void {
+  function walk(node: unknown, prefix: string, depth: number): void {
+    if (Object.keys(out).length >= MAX_FLAT_KEYS || depth > MAX_MERGE_DEPTH) return;
+    const prim = primitiveToFlatString(node);
+    if (prim !== null) {
+      if (prefix) {
+        out[prefix] = prim;
+        applyLeafAliases(out, prefix, prim);
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      const cap = Math.min(node.length, 24);
+      for (let i = 0; i < cap; i++) {
+        if (Object.keys(out).length >= MAX_FLAT_KEYS) return;
+        const p = prefix ? `${prefix}[${i}]` : `[${i}]`;
+        walk(node[i], p, depth + 1);
+      }
+      return;
+    }
+    if (node && typeof node === "object") {
+      for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+        if (Object.keys(out).length >= MAX_FLAT_KEYS) return;
+        const p = prefix ? `${prefix}.${k}` : k;
+        walk(v, p, depth + 1);
+      }
+    }
+  }
+
+  walk(body, "", 0);
+}
+
+/** Junta query string + corpo (JSON ou form aninhado) num mapa de strings. */
 export function flattenAffiliatePayload(req: Request): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(req.query)) {
@@ -11,12 +75,10 @@ export function flattenAffiliatePayload(req: Request): Record<string, string> {
     out[k] = Array.isArray(v) ? String(v[0]) : String(v);
   }
   const b = req.body;
-  if (b && typeof b === "object" && !Array.isArray(b)) {
-    for (const [k, v] of Object.entries(b as Record<string, unknown>)) {
-      if (v == null) continue;
-      if (typeof v === "object") continue;
-      out[k] = String(v);
-    }
+  if (Array.isArray(b)) {
+    mergeJsonBodyIntoFlatRecord({ items: b }, out);
+  } else if (b && typeof b === "object") {
+    mergeJsonBodyIntoFlatRecord(b, out);
   }
   return out;
 }

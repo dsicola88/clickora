@@ -128,18 +128,15 @@ export function DpilotGuardrailsScopeCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Shield className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" aria-hidden />
-          Escopo geográfico e políticas
+          Escopo: país, bloqueios e limites extras
         </CardTitle>
         <CardDescription>
-          Opcionalmente restrinja países; se não escolher nenhum, os guardrails permitem{" "}
-          <strong className="font-medium text-foreground">qualquer país</strong> nas campanhas (Google Ads incluído).
-          Termos proibidos e outros limites abaixo. O{" "}
-          <strong className="font-medium text-foreground">teto de orçamento diário por campanha</strong> continua no
-          cartão «Limites de segurança». Apenas administradores do workspace podem gravar.
+          Lista de país vazio = sem bloqueio geográfico específico neste projeto (dentro das regras de cada rede e do{" "}
+          <strong>teto diário</strong>). Keywords bloqueadas aplicam‑se sobretudo ao Search.
         </CardDescription>
         {dailyPreview != null ? (
           <p className="text-xs text-muted-foreground pt-1">
-            Teto diário actual (referência):{" "}
+            Teto diário (referência):{" "}
             <strong className="tabular-nums text-foreground">{formatUsdFromMicros(dailyPreview)}</strong> / dia.
           </p>
         ) : null}

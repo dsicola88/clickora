@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ImageIcon, Loader2, Music2, Sparkles, Upload, X } from "lucide-react";
+import { ImageIcon, Loader2, Music2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,10 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
+import { DpilotAdsCampaignWizardShell } from "./DpilotAdsCampaignWizardShell";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
+import { DpilotWizardFormSection } from "./DpilotWizardFormSection";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
+import { DpilotTiktokInFeedPreview } from "./DpilotTiktokInFeedPreview";
 
 const objectives = [
   {
@@ -68,6 +70,16 @@ const TIKTOK_BIDDING_OPTIONS: { value: TiktokBiddingStrategy; label: string; hin
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"];
 const MAX_BYTES = 25 * 1024 * 1024;
+
+const DPILOT_TIKTOK_CAMPAIGN_STEPS = [
+  { id: "dpilot-wiz-tiktok-offer", label: "Destino e público" },
+  { id: "dpilot-wiz-tiktok-obj", label: "Objetivo e orçamento" },
+  { id: "dpilot-wiz-tiktok-bidding", label: "Licitação" },
+  { id: "dpilot-wiz-tiktok-target", label: "Segmentação" },
+  { id: "dpilot-wiz-tiktok-creative", label: "Criativo" },
+  { id: "dpilot-wiz-tiktok-compliance", label: "Conformidade" },
+  { id: "dpilot-wiz-tiktok-submit", label: "Gerar plano" },
+] as const;
 
 const schema = z.object({
   landingUrl: z.string().url("Informe uma URL válida").max(500),
@@ -258,23 +270,44 @@ export function DpilotTiktokWizardPage() {
 
   return (
     <Gate>
-      <div className="pb-12">
-        <PageHeader
-          title="Nova campanha TikTok"
-          actions={
-            <Button variant="outline" asChild>
-              <Link to={`${base}/tiktok`}>
-                <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
-              </Link>
-            </Button>
-          }
-        />
-        <div className="mt-2 px-0 py-2 sm:px-1">
-          <div className="mx-auto max-w-3xl space-y-5">
-            <form
-              onSubmit={onSubmit}
-              className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm"
-            >
+      <DpilotAdsCampaignWizardShell
+        platform="tiktok"
+        platformBadge="TikTok Ads · Campanhas e grupos API v1.3"
+        steps={[...DPILOT_TIKTOK_CAMPAIGN_STEPS]}
+        subtitle={
+          <>
+            Fluxo paralelo ao <strong className="font-medium text-foreground">Ads Manager</strong>: objectivos de campanha
+            compatíveis com a API v1.3, licitações reais ao nível do grupo e criativo antes da geração de texto por IA.
+          </>
+        }
+        hint={
+          <>
+            Consulte sempre os mínimos de orçamento e políticas do mercado. Destinos Clickora podem usar tracking já
+            preparado nos presells.
+          </>
+        }
+        backHref={`${base}/tiktok`}
+        backLabel="Voltar ao TikTok Ads"
+        readiness={<DpilotCampaignReadinessCard platform="tiktok" />}
+      >
+        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-10 xl:gap-12">
+          <aside className="mx-auto w-full max-w-[280px] shrink-0 lg:sticky lg:top-28 lg:mx-0 lg:w-[min(280px,30vw)] lg:self-start">
+            <DpilotTiktokInFeedPreview
+              landingUrl={landingUrl}
+              offer={offer}
+              objectiveId={objective}
+              mediaPreview={videoPreview}
+              mediaIsVideo={videoIsVideo}
+            />
+          </aside>
+          <form onSubmit={onSubmit} className="min-w-0 flex-1 space-y-6">
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-offer"
+            platform="tiktok"
+            stepLabel="Passo 1 de 7"
+            title="Destino e contexto criativo"
+            description="Landing, mensagem principal e público esperado para alinhar formato vertical e texto gerado por IA."
+          >
             <div className="grid gap-2">
               <Label htmlFor="t-url">URL de destino</Label>
               <Input
@@ -321,7 +354,15 @@ export function DpilotTiktokWizardPage() {
                 required
               />
             </div>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-obj"
+            platform="tiktok"
+            stepLabel="Passo 2 de 7"
+            title="Objetivo e investimento diário"
+            description="Selecciona o tipo de resultado da campanha e o gasto médio previsto por dia na moeda configurada na conta."
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="t-obj">Objetivo da campanha</Label>
@@ -352,8 +393,16 @@ export function DpilotTiktokWizardPage() {
                 />
               </div>
             </div>
+          </DpilotWizardFormSection>
 
-            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-4">
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-bidding"
+            platform="tiktok"
+            stepLabel="Passo 3 de 7"
+            title="Licitação do grupo de anúncios"
+            description="Bid automático TikTok ou teto monetário quando a API do plano assim o aplicar ao grupo."
+          >
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/25 p-4 dark:bg-muted/15">
               <Label htmlFor="t-bidding-strat" className="text-xs font-medium">
                 Licitação do grupo
               </Label>
@@ -384,7 +433,15 @@ export function DpilotTiktokWizardPage() {
                 </div>
               ) : null}
             </div>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-target"
+            platform="tiktok"
+            stepLabel="Passo 4 de 7"
+            title="Mercado e idade"
+            description="Ao menos uma região; faixa etária coerente com políticas TikTok Ads e com o próprio criativo."
+          >
             <GoogleAdsCountriesSelect
               label="País"
               hint=""
@@ -421,7 +478,15 @@ export function DpilotTiktokWizardPage() {
                 />
               </div>
             </div>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-creative"
+            platform="tiktok"
+            stepLabel="Passo 5 de 7"
+            title="Criativo inicial (recomendado)"
+            description="Vídeo vertical 9:16 funciona melhor; pode ficar por gerar apenas no plano de IA quando preferir."
+          >
             <div className="grid gap-2">
               <Label>Criativo (vídeo ou imagem, opcional)</Label>
               {videoPath ? (
@@ -459,8 +524,16 @@ export function DpilotTiktokWizardPage() {
                 </label>
               )}
             </div>
+          </DpilotWizardFormSection>
 
-            <div className="grid gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-compliance"
+            platform="tiktok"
+            stepLabel="Passo 6 de 7"
+            title="Compliance TikTok Ads"
+            description="Conversões e medição frequentemente dependem de pixel/app e de regras de conteúdo por sector."
+          >
+            <div className="grid gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4 dark:bg-amber-500/10">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="border-amber-500/50">
                   <Music2 className="mr-1 h-3 w-3" />
@@ -489,26 +562,38 @@ export function DpilotTiktokWizardPage() {
                 </span>
               </label>
             </div>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-tiktok-submit"
+            platform="tiktok"
+            stepLabel="Passo 7 de 7"
+            title="Gerar plano técnico"
+            description="Plano registado neste workspace; só entra ao vivo quando a fila autorizar alterações na conta."
+          >
             {error ? (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
             ) : null}
 
-            <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-              <Button type="button" variant="ghost" asChild>
+            <div className="flex flex-col-reverse gap-3 border-t border-border/80 pt-5 sm:flex-row sm:items-center sm:justify-end">
+              <Button type="button" variant="outline" className="sm:mr-auto" asChild>
                 <Link to={`${base}/tiktok`}>Cancelar</Link>
               </Button>
-              <Button type="submit" disabled={!canSubmit}>
-                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+              <Button type="submit" size="lg" className="min-w-[220px] font-semibold" disabled={!canSubmit}>
+                {submitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
                 {submitting ? "A gerar plano…" : "Gerar plano com IA"}
               </Button>
             </div>
-          </form>
-          </div>
+          </DpilotWizardFormSection>
+        </form>
         </div>
-      </div>
+      </DpilotAdsCampaignWizardShell>
     </Gate>
   );
 }

@@ -625,6 +625,10 @@ enum PaidAdsChangeRequestType {
   add_keywords
   publish_rsa
   pause_entity
+  resume_entity
+  remove_keyword
+  update_rsa_copy
+  update_ad_group_cpc
   meta_create_campaign
   meta_update_budget
   meta_publish_creative
@@ -808,6 +812,8 @@ model PaidAdsAdGroup {
   name              String
   status            PaidAdsEntityStatus @default(draft)
   externalAdGroupId String?             @map("external_ad_group_id")
+  /** CPC máximo do grupo em micro-USD quando compatível com a estratégia (ex. manual CPC). Null = servidor/Google default. */
+  cpcBidMicros      BigInt?             @map("cpc_bid_micros")
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
 

@@ -41,6 +41,39 @@ export type CampaignRow = {
   optimizer_flags?: Record<string, unknown>;
 };
 
+export type GoogleStudioKeywordRow = {
+  id: string;
+  text: string;
+  match_type: string;
+  status: string;
+  external_criterion_id?: string | null;
+};
+
+export type GoogleStudioRsaRow = {
+  id: string;
+  headlines: string[];
+  descriptions: string[];
+  final_urls: string[];
+  status: string;
+  external_ad_id: string | null;
+};
+
+export type GoogleStudioAdGroupRow = {
+  id: string;
+  name: string;
+  status: string;
+  external_ad_group_id: string | null;
+  cpc_bid_micros: number | null;
+  keywords: GoogleStudioKeywordRow[];
+  rsa: GoogleStudioRsaRow[];
+};
+
+export type GoogleCampaignStudioDto = {
+  campaign: CampaignRow & { objective_summary?: string | null; language_targets?: string[] };
+  published: boolean;
+  ad_groups: GoogleStudioAdGroupRow[];
+};
+
 export type ChangeRequestRow = {
   id: string;
   type: string;
@@ -51,12 +84,12 @@ export type ChangeRequestRow = {
   payload?: Record<string, unknown> | null;
 };
 
-/** Resposta ao gerar plano (assistentes Google / Meta / TikTok). `planSource` distingue IA de fallback determinístico. */
+/** Resposta ao gerar plano (assistentes Google / Meta / TikTok). `planSource` distingue IA, fallback e plano manual. */
 export type CampaignPlanAssistantOk = {
   ok: boolean;
   campaignId: string;
   model: string;
-  planSource: "llm" | "deterministic";
+  planSource: "llm" | "deterministic" | "manual";
   autoApplied: boolean;
   reasons: { code: string; message: string }[];
 };
@@ -352,6 +385,16 @@ export const paidAdsService = {
         attributes?: string[];
       };
       campaign_seed_keyword?: string;
+      google_search_plan_mode?: "assistant" | "manual";
+      /** Obrigatório quando `google_search_plan_mode` = `manual` — mesma forma que a API Google Search (grupos + keywords + RSA). */
+      google_manual_search_plan?: {
+        campaign: { name: string; objective_summary: string };
+        ad_groups: Array<{
+          name: string;
+          keywords: Array<{ text: string; match_type: "exact" | "phrase" | "broad" }>;
+          rsa: { headlines: string[]; descriptions: string[] };
+        }>;
+      };
     },
   ) {
     return apiClient.post<CampaignPlanAssistantOk>(`/paid/projects/${projectId}/google-campaign-plan`, body);
@@ -361,6 +404,24 @@ export const paidAdsService = {
     return apiClient.post<{ campaign: CampaignRow; adjusted: boolean }>(
       `/paid/projects/${projectId}/campaigns/${campaignId}/snap-geo-to-guardrail`,
       {},
+    );
+  },
+
+  getGoogleCampaignStudio(projectId: string, campaignId: string) {
+    return apiClient.get<GoogleCampaignStudioDto>(`/paid/projects/${projectId}/campaigns/${campaignId}/google-studio`);
+  },
+
+  postGoogleStudioActions(projectId: string, campaignId: string, body: Record<string, unknown>) {
+    return apiClient.post<{ ok: true; change_request: { id: string; status: string } }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/google-studio-actions`,
+      body,
+    );
+  },
+
+  patchGoogleCampaignDraft(projectId: string, campaignId: string, body: Record<string, unknown>) {
+    return apiClient.patch<{ ok: true; studio: GoogleCampaignStudioDto }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/google-draft`,
+      body,
     );
   },
 

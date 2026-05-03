@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, CircleDashed, Loader2, Sparkles } from "lucide-react";
+import { Check, CircleDashed, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { PageHeader } from "@/components/PageHeader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,17 +10,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
+import { DpilotAdsCampaignWizardShell } from "./DpilotAdsCampaignWizardShell";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
+import { DpilotWizardFormSection } from "./DpilotWizardFormSection";
+import {
+  DpilotGoogleManualSearchCampaignBlock,
+  type GoogleManualWizardContextPreview,
+} from "./DpilotGoogleManualSearchCampaignBlock";
+import { DpilotGoogleSearchAdPreview } from "./DpilotGoogleSearchAdPreview";
 import { DpilotKeywordDecisionCard } from "./DpilotKeywordDecisionCard";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
+import {
+  createEmptyGoogleManualPlanForm,
+  formStateToGoogleManualPlanPayload,
+  hydrateManualGoogleFormFromBrief,
+} from "./googleManualSearchPlanForm";
 import {
   DpilotGoogleWizardCampaignTypeStep,
   DpilotGoogleWizardDetailsStepHeader,
   DpilotGoogleWizardObjectiveStep,
   GOOGLE_WIZARD_OBJECTIVES,
 } from "./DpilotGoogleWizardCampaignSetup";
+
+const DPILOT_GOOGLE_CAMPAIGN_STEPS = [
+  { id: "dpilot-wiz-google-obj", label: "Objetivo e tipo" },
+  { id: "dpilot-wiz-google-offer", label: "Landing e oferta" },
+  { id: "dpilot-wiz-google-budget", label: "Orçamento e licitação" },
+  { id: "dpilot-wiz-google-geo", label: "Localização e idioma" },
+  { id: "dpilot-wiz-google-kw", label: "Palavras-chave" },
+  { id: "dpilot-wiz-google-signals", label: "Sinais do produto" },
+  { id: "dpilot-wiz-google-submit", label: "Gerar plano" },
+] as const;
 
 const DEFAULT_LEADS_OBJECTIVE =
   GOOGLE_WIZARD_OBJECTIVES.find((o) => o.id === "leads")?.objective ??
@@ -105,6 +125,8 @@ export function DpilotGoogleWizardPage() {
   const [signalsOpen, setSignalsOpen] = useState(false);
   const [campaignSeedKeyword, setCampaignSeedKeyword] = useState<string | null>(null);
   const [googleAdsLinked, setGoogleAdsLinked] = useState<boolean | null>(null);
+  const [googleSearchPlanMode, setGoogleSearchPlanMode] = useState<"assistant" | "manual">("assistant");
+  const [manualPlanForm, setManualPlanForm] = useState(createEmptyGoogleManualPlanForm());
 
   /** Estado do feedback ao vivo da extracção em background.
    *  - `extracting`: spinner + lista cinzenta enquanto fetch corre
@@ -451,6 +473,19 @@ export function DpilotGoogleWizardPage() {
         }
       }
 
+      let google_manual_search_plan:
+        | Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1]["google_manual_search_plan"]
+        | undefined;
+      if (googleSearchPlanMode === "manual") {
+        const mp = formStateToGoogleManualPlanPayload(manualPlanForm);
+        if (!mp.ok) {
+          setError(mp.error);
+          setSubmitting(false);
+          return;
+        }
+        google_manual_search_plan = mp.plan;
+      }
+
       const body: Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1] = {
         landingUrl: parsed.data.landingUrl,
         offer: parsed.data.offer,
@@ -459,6 +494,8 @@ export function DpilotGoogleWizardPage() {
         geoTargets: geoArr,
         languageTargets: langArr,
         google_bidding_strategy: googleBiddingStrategy,
+        google_search_plan_mode: googleSearchPlanMode,
+        ...(google_manual_search_plan ? { google_manual_search_plan } : {}),
       };
       if (googleBiddingStrategy === "target_cpa") {
         body.google_target_cpa_usd = parseFloat(googleTargetCpaUsd.replace(",", "."));
@@ -480,7 +517,9 @@ export function DpilotGoogleWizardPage() {
 
       const productSignals = buildProductSignals();
       if (productSignals) body.product_signals = productSignals;
-      if (campaignSeedKeyword?.trim()) body.campaign_seed_keyword = campaignSeedKeyword.trim().slice(0, 80);
+      if (campaignSeedKeyword?.trim() && googleSearchPlanMode === "assistant") {
+        body.campaign_seed_keyword = campaignSeedKeyword.trim().slice(0, 80);
+      }
 
       const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
@@ -490,9 +529,11 @@ export function DpilotGoogleWizardPage() {
         return;
       }
       const planGenNote =
-        data.planSource === "deterministic"
-          ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
-          : " Texto gerado com chamada ao modelo de IA.";
+        data.planSource === "manual"
+          ? " Plano Pesquisa manual (sem IA; estrutura editada no assistente)."
+          : data.planSource === "deterministic"
+            ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
+            : " Texto gerado com chamada ao modelo de IA.";
       if (data.autoApplied) {
         toast.success("Plano aplicado pelo Autopilot", {
           description: `Dentro dos guardrails — publicação no Google tentada.${planGenNote}`,
@@ -522,41 +563,81 @@ export function DpilotGoogleWizardPage() {
     await submitPlan();
   };
 
+  const manualWizardContextPreview = useMemo((): GoogleManualWizardContextPreview => {
+    return {
+      dailyBudgetUsd: dailyBudget.trim() || undefined,
+      biddingStrategyLabel: GOOGLE_BIDDING_OPTIONS.find((o) => o.value === googleBiddingStrategy)?.label,
+      geoSummary: geoTargets.length ? geoTargets.join(", ") : undefined,
+      languageSummary: languageTargets.length ? languageTargets.join(", ") : undefined,
+    };
+  }, [dailyBudget, googleBiddingStrategy, geoTargets, languageTargets]);
+
   return (
     <Gate>
-      <div className="pb-12">
-        <PageHeader
-          title="Nova campanha"
-          description={
-            <span className="block max-w-3xl">
-              Assistência para campanhas de <strong className="font-medium text-foreground">Pesquisa Google</strong>. O
-              objetivo em cartão guia o texto do plano; a estratégia de licitação define o que o Google optimiza no
-              leilão (conversões, cliques ou CPC manual).
-            </span>
-          }
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="font-normal">
-                Google Ads · Search
-              </Badge>
-              <Button variant="ghost" asChild>
-                <Link to={`${base}/campanhas`}>
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
-                </Link>
-              </Button>
-            </div>
-          }
-        />
-        <div className="mx-auto max-w-5xl space-y-5 px-0 py-4 sm:px-1 sm:py-6">
-          <DpilotCampaignReadinessCard platform="google" />
-          <form
-            onSubmit={onSubmit}
-            className="space-y-6 rounded-2xl border border-border bg-card p-6 shadow-sm"
+      <DpilotAdsCampaignWizardShell
+        platform="google"
+        platformBadge="Google Ads · Pesquisa"
+        steps={[...DPILOT_GOOGLE_CAMPAIGN_STEPS]}
+        subtitle={
+          <>
+            Assistente alinhado com o fluxo de <strong className="font-medium text-foreground">Pesquisa</strong> no Google Ads:
+            objectivo da campanha, estratégia de licitação, segmentação e palavras‑chave, com pré‑via automática opcional da
+            landing — só incorporamos sinais que valida antes de criar.
+          </>
+        }
+        hint={
+          <span className="text-muted-foreground">
+            <strong className="font-medium text-foreground">Antes da primeira publicação</strong>, escolha mais abaixo se o
+            plano é{" "}
+            <strong className="font-medium text-foreground">
+              gerado com apoio de IA ou definido integralmente manualmente
+            </strong>
+            — ambos ficam dentro dos guardrails ao submeter «Gerar plano».{" "}
+            <strong className="font-medium text-foreground">Depois de estar na conta Google</strong>, atualize grupos,
+            palavras‑chave, anúncios RSA, CPC, pausas e orçamento na página{" "}
+            <Link to={`${base}/campanhas`} className="font-medium text-foreground underline underline-offset-2 hover:text-primary">
+              Campanhas
+            </Link>{" "}
+            (botão «Gestão» nas linhas Google) — modo Copilot regista auditoria através de «Aprovações» quando aplicável.
+          </span>
+        }
+        backHref={`${base}/campanhas`}
+        backLabel="Voltar às campanhas"
+        readiness={<DpilotCampaignReadinessCard platform="google" />}
+      >
+        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-10 xl:gap-12">
+          <aside className="mx-auto w-full max-w-md shrink-0 lg:sticky lg:top-28 lg:mx-0 lg:w-[min(392px,32vw)] xl:w-[408px] lg:self-start">
+            <DpilotGoogleSearchAdPreview
+              landingUrl={landingUrl}
+              offer={offer}
+              seedKeyword={campaignSeedKeyword}
+              price={psPrice}
+              discount={psDiscount}
+              guarantee={psGuarantee}
+              shipping={psShipping}
+              bundles={psBundles}
+            />
+          </aside>
+          <form onSubmit={onSubmit} className="min-w-0 flex-1 space-y-6">
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-obj"
+            platform="google"
+            stepLabel="Passo 1 de 7"
+            title="Objetivo e tipo de campanha"
+            description="Defina o raciocínio comercial e o posicionamento antes de destino, modo de construção e orçamento."
           >
             <DpilotGoogleWizardObjectiveStep objective={objective} onObjectiveChange={setObjective} />
             <DpilotGoogleWizardCampaignTypeStep />
             <DpilotGoogleWizardDetailsStepHeader />
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-offer"
+            platform="google"
+            stepLabel="Passo 2 de 7"
+            title="Landing e proposta de valor"
+            description="URL obrigatória; a extracção pode pré‑preencher a oferta — confirme factos antes de publicar. Neste passo escolhe também se a estrutura de Pesquisa é sugerida pela IA ou definida manualmente (cartão imediatamente abaixo)."
+          >
             <Field
               label="URL da landing page"
               hint="Cola o URL — a IA lê a página automaticamente e preenche os campos abaixo. Tudo é editável."
@@ -650,6 +731,33 @@ export function DpilotGoogleWizardPage() {
               </div>
             </Field>
 
+            <DpilotGoogleManualSearchCampaignBlock
+              mode={googleSearchPlanMode}
+              onModeChange={(m) => {
+                setGoogleSearchPlanMode(m);
+                if (m === "manual") {
+                  setManualPlanForm((prev) =>
+                    hydrateManualGoogleFormFromBrief(prev, {
+                      offer,
+                      objective,
+                      seed: campaignSeedKeyword,
+                    }),
+                  );
+                }
+              }}
+              manualForm={manualPlanForm}
+              onManualFormChange={setManualPlanForm}
+              wizardContextPreview={manualWizardContextPreview}
+            />
+          </DpilotWizardFormSection>
+
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-budget"
+            platform="google"
+            stepLabel="Passo 3 de 7"
+            title="Orçamento e licitação"
+            description="Combina gasto diário com estratégia de conversões ou cliques; estimativas são indicativas para o briefing."
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Orçamento diário (USD)">
                 <Input
@@ -765,7 +873,15 @@ export function DpilotGoogleWizardPage() {
                 </Field>
               ) : null}
             </div>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-geo"
+            platform="google"
+            stepLabel="Passo 4 de 7"
+            title="Segmentação geo e idioma"
+            description="Áreas e idiomas alinhados à proposta — condicionam texto e dados de pesquisa no motor."
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <GoogleAdsCountriesSelect
                 label="País"
@@ -788,23 +904,39 @@ export function DpilotGoogleWizardPage() {
                 max={10}
               />
             </div>
+          </DpilotWizardFormSection>
 
-            <DpilotKeywordDecisionCard
-              projectId={projectId}
-              offer={offer}
-              landingHostname={landingHostname}
-              primaryCountryCode={(geoTargets[0] ?? "").trim().toUpperCase()}
-              primaryLanguageCode={(languageTargets[0] ?? "pt").trim().toLowerCase()}
-              geoCountryCodes={geoTargets.map((g) => g.trim().toUpperCase()).filter(Boolean)}
-              userCpcUsd={cpcCalc != null ? Number(cpcCalc.value) : null}
-              dailyBudgetUsd={insightBudgetUsd}
-              desiredClicksPerDay={insightDesiredClicksPerDay}
-              committedKeyword={campaignSeedKeyword}
-              onCommitKeyword={setCampaignSeedKeyword}
-              requireGoogleAdsConnection
-              googleAdsConnected={googleAdsLinked}
-              connectionsPageHref={`${base}/ligacoes`}
-            />
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-kw"
+            platform="google"
+            stepLabel="Passo 5 de 7"
+            title="Palavras‑chave e protecção da campanha"
+            description="Volumes, intenção e palavra-semente para o grupo; opcionalmente regras de pausa antes de despesa sem conversão."
+          >
+            {googleSearchPlanMode === "assistant" ? (
+              <DpilotKeywordDecisionCard
+                projectId={projectId}
+                offer={offer}
+                landingHostname={landingHostname}
+                primaryCountryCode={(geoTargets[0] ?? "").trim().toUpperCase()}
+                primaryLanguageCode={(languageTargets[0] ?? "pt").trim().toLowerCase()}
+                geoCountryCodes={geoTargets.map((g) => g.trim().toUpperCase()).filter(Boolean)}
+                userCpcUsd={cpcCalc != null ? Number(cpcCalc.value) : null}
+                dailyBudgetUsd={insightBudgetUsd}
+                desiredClicksPerDay={insightDesiredClicksPerDay}
+                committedKeyword={campaignSeedKeyword}
+                onCommitKeyword={setCampaignSeedKeyword}
+                requireGoogleAdsConnection
+                googleAdsConnected={googleAdsLinked}
+                connectionsPageHref={`${base}/ligacoes`}
+              />
+            ) : (
+              <div className="rounded-lg border border-dashed border-border/80 bg-muted/25 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                No modo <strong className="text-foreground">manual</strong>, as correspondências das palavras-chave e todo
+                o RSA estão definidos no passo «Landing e oferta». O orçamento, a licitação e a pausa automática continuam a
+                aplicar‑se igualmente à campanha.
+              </div>
+            )}
 
             <div className="space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4">
               <p className="text-xs font-medium text-foreground">Pausa automática (opcional)</p>
@@ -827,7 +959,15 @@ export function DpilotGoogleWizardPage() {
                 </Field>
               </div>
             </div>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-signals"
+            platform="google"
+            stepLabel="Passo 6 de 7"
+            title="Sinais opcionais do produto"
+            description="Só valores que pode sustentar; campos em branco não são inferidos pela IA."
+          >
             <details
               open={signalsOpen}
               onToggle={(e) => setSignalsOpen(e.currentTarget.open)}
@@ -926,22 +1066,31 @@ export function DpilotGoogleWizardPage() {
                 />
               </Field>
             </details>
+          </DpilotWizardFormSection>
 
+          <DpilotWizardFormSection
+            id="dpilot-wiz-google-submit"
+            platform="google"
+            stepLabel="Passo 7 de 7"
+            title="Concluir e gerar plano"
+            description="Cria pedido técnico e rascunho; em Copilot, confirme em «Aprovações» antes de «Aplicar na rede»."
+          >
             {error ? (
               <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
-              <Button type="submit" disabled={submitting}>
-                <Sparkles className="mr-1 h-4 w-4" />
-                {submitting ? "A gerar plano…" : "Gerar plano"}
+            <div className="flex flex-col gap-3 border-t border-border/80 pt-5 sm:flex-row sm:items-center sm:justify-end">
+              <Button type="submit" size="lg" disabled={submitting} className="min-w-[200px] font-semibold">
+                <Sparkles className="mr-2 h-4 w-4" />
+                {submitting ? "A gerar plano…" : "Gerar plano com IA"}
               </Button>
             </div>
-          </form>
+          </DpilotWizardFormSection>
+        </form>
         </div>
-      </div>
+      </DpilotAdsCampaignWizardShell>
     </Gate>
   );
 }

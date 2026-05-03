@@ -5,6 +5,10 @@
  * - `add_keywords` (Google): { ad_group_id, keywords: [{ text, match_type: exact|phrase|broad }] }
  * - `publish_rsa` (Google): { paid_ads_rsa_id }
  * - `pause_entity` (Google): { entity: campaign|ad_group|keyword|rsa, id: uuid local }
+ * - `resume_entity` (Google): { entity: campaign|ad_group|keyword|rsa, id: uuid local }
+ * - `remove_keyword` (Google): { keyword_id: uuid }
+ * - `update_rsa_copy` (Google): { paid_ads_rsa_id, headlines: string[], descriptions: string[], final_urls?: string[] }
+ * - `update_ad_group_cpc` (Google): { ad_group_id, cpc_bid_micros }
  * - `meta_update_budget` (Meta): { meta_adset_id, daily_budget_cents }
  * - `meta_publish_creative` (Meta): { creative_id }
  * - `meta_pause_entity` (Meta): { level: campaign|adset|ad, id: uuid local }
@@ -17,7 +21,11 @@ import {
   applyGoogleAddKeywords,
   applyGooglePauseEntity,
   applyGooglePublishRsa,
+  applyGoogleRemoveKeyword,
+  applyGoogleResumeEntity,
+  applyGoogleUpdateAdGroupCpc,
   applyGoogleUpdateBudget,
+  applyGoogleUpdateRsaCopy,
 } from "./google-ads.mutations";
 import { publishGoogleSearchCampaignFromLocal as publishGoogleCampaign } from "./google-ads.publish";
 import { publishMetaCreateCampaignFromLocal } from "./meta-ads.publish";
@@ -34,6 +42,13 @@ export type ApplyCrResult = { ok: true } | { ok: false; error: string };
 function getStr(p: Record<string, unknown>, k: string): string | undefined {
   const v = p[k];
   return typeof v === "string" ? v : undefined;
+}
+
+function getStrList(p: Record<string, unknown>, k: string): string[] | null {
+  const v = p[k];
+  if (!Array.isArray(v)) return null;
+  const out = v.map((x) => String(x).trim()).filter(Boolean);
+  return out.length ? out : null;
 }
 
 function getNum(p: Record<string, unknown>, k: string): number | undefined {
@@ -101,6 +116,48 @@ export async function applyChangeRequestRemote(
         }
         if (!id) return { ok: false, error: "Payload: id em falta." };
         return await applyGooglePauseEntity(projectId, { entity, id });
+      }
+      case "resume_entity": {
+        const entity = p.entity;
+        const id = getStr(p, "id");
+        if (
+          entity !== "campaign" &&
+          entity !== "ad_group" &&
+          entity !== "keyword" &&
+          entity !== "rsa"
+        ) {
+          return { ok: false, error: "Payload: entity (campaign|ad_group|keyword|rsa) e id." };
+        }
+        if (!id) return { ok: false, error: "Payload: id em falta." };
+        return await applyGoogleResumeEntity(projectId, { entity, id });
+      }
+      case "remove_keyword": {
+        const kid = getStr(p, "keyword_id");
+        if (!kid) return { ok: false, error: "Payload: keyword_id." };
+        return await applyGoogleRemoveKeyword(projectId, { keyword_id: kid });
+      }
+      case "update_rsa_copy": {
+        const rid = getStr(p, "paid_ads_rsa_id");
+        const headlines = getStrList(p, "headlines");
+        const descriptions = getStrList(p, "descriptions");
+        if (!rid || !headlines || !descriptions) {
+          return { ok: false, error: "Payload: paid_ads_rsa_id, headlines[], descriptions[]." };
+        }
+        const finalUrls = getStrList(p, "final_urls") ?? undefined;
+        return await applyGoogleUpdateRsaCopy(projectId, {
+          paid_ads_rsa_id: rid,
+          headlines,
+          descriptions,
+          ...(finalUrls ? { final_urls: finalUrls } : {}),
+        });
+      }
+      case "update_ad_group_cpc": {
+        const ag = getStr(p, "ad_group_id");
+        const mic = getNum(p, "cpc_bid_micros");
+        if (!ag || mic == null) {
+          return { ok: false, error: "Payload: ad_group_id, cpc_bid_micros." };
+        }
+        return await applyGoogleUpdateAdGroupCpc(projectId, { ad_group_id: ag, cpc_bid_micros: mic });
       }
       case "meta_create_campaign": {
         const id = getStr(p, "campaign_id");

@@ -62,9 +62,6 @@ ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_user_id_fkey" 
 -- AddForeignKey
 ALTER TABLE "workspace_audit_logs" ADD CONSTRAINT "workspace_audit_logs_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AlterTable
-ALTER TABLE "traffic_rotators" ADD COLUMN "rules_policy" JSONB;
-
 -- Backfill: um workspace por utilizador existente (id = users.workspace_id)
 INSERT INTO "workspaces" ("id", "name", "owner_user_id", "created_at", "updated_at")
 SELECT u."workspace_id", LEFT(COALESCE(u."full_name", u."email"), 200), u."id", u."created_at", NOW()

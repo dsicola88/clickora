@@ -57,7 +57,11 @@ export function DpilotCampaignReadinessCard({ platform }: { platform: "google" |
   return (
     <Card className="border-primary/15 bg-muted/25">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Conta</CardTitle>
+        <CardTitle className="text-base">Conta {label}</CardTitle>
+        <p className="text-[11px] leading-snug text-muted-foreground pt-1">
+          Ligue primeiro a conta onde as campanhas serão criadas — o fluxo seguinte mantém‑se dentro dos guardrails deste
+          projeto.
+        </p>
       </CardHeader>
       <CardContent className="space-y-3">
         {!available ? (

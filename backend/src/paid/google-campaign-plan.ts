@@ -8,13 +8,39 @@ import { normalizeGoogleLanguageTargetsOrThrow } from "./language-google";
 import { prisma } from "./paidPrisma";
 import { canWriteProject } from "./permissions";
 import { evaluateGuardrails, type GuardrailLimits, type GuardrailViolation } from "./guardrails-eval";
+import { finalizeGoogleCampaignAssetExtensions } from "./google-campaign-asset-extensions";
 import {
   buildDeterministicGoogleCampaignPlan,
   fetchOpenAiGoogleCampaignPlan,
   sanitizeAiPlanCopy,
   type GoogleCampaignAiPlan,
 } from "./google-campaign-ai-shared";
-import { finalizeGoogleCampaignAssetExtensions } from "./google-campaign-asset-extensions";
+
+const googleManualKeywordSchema = z.object({
+  text: z.string().trim().min(1).max(80),
+  match_type: z.enum(["exact", "phrase", "broad"]),
+});
+
+const googleManualRsaSchema = z.object({
+  headlines: z.array(z.string()).min(3).max(15),
+  descriptions: z.array(z.string()).min(2).max(4),
+});
+
+const googleManualAdGroupSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  keywords: z.array(googleManualKeywordSchema).min(1).max(50),
+  rsa: googleManualRsaSchema,
+});
+
+const googleManualSearchPlanSchema = z.object({
+  campaign: z.object({
+    name: z.string().trim().min(1).max(250),
+    objective_summary: z.string().trim().min(1).max(500),
+  }),
+  ad_groups: z.array(googleManualAdGroupSchema).min(1).max(5),
+});
+
+export type GoogleManualSearchPlan = z.infer<typeof googleManualSearchPlanSchema>;
 
 const googleBiddingStrategyEnum = z.enum([
   "manual_cpc",
@@ -64,6 +90,9 @@ export const googleCampaignPlanInputSchema = z
     /** Sinais reais do produto. Quando preenchidos, o copy menciona-os literalmente. */
     product_signals: productSignalsSchema.optional(),
     campaign_seed_keyword: z.string().trim().min(2).max(80).optional(),
+    /** Pesquisa: assistente IA vs plano com a mesma estrutura de entidades Search do Google Ads (manual). */
+    google_search_plan_mode: z.enum(["assistant", "manual"]).optional().default("assistant"),
+    google_manual_search_plan: googleManualSearchPlanSchema.optional(),
   })
   .superRefine((val, ctx) => {
     if (val.google_bidding_strategy === "target_cpa") {
@@ -85,6 +114,21 @@ export const googleCampaignPlanInputSchema = z
           path: ["google_target_roas"],
         });
       }
+    }
+    if (val.google_search_plan_mode === "manual" && !val.google_manual_search_plan) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Com modo «manual», envie google_manual_search_plan (campanha, grupos, keywords e RSA).',
+        path: ["google_manual_search_plan"],
+      });
+    }
+    if (val.google_search_plan_mode === "assistant" && val.google_manual_search_plan != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Remova google_manual_search_plan quando usar o assistente IA.",
+        path: ["google_manual_search_plan"],
+      });
     }
   });
 
@@ -183,14 +227,18 @@ export async function runGoogleCampaignPlan(
     google_max_cpc_usd: data.google_max_cpc_usd ?? null,
   });
 
+  const isManualPlan = data.google_search_plan_mode === "manual";
+
   const aiRun = await prisma.paidAdsAiRun.create({
     data: {
       userId: ownerUserId,
       projectId: project.id,
       feature: "campaign_plan",
       model: "pending",
-      promptVersion: "google_v1",
-      inputSummary: `${data.objective} · ${data.landingUrl}`,
+      promptVersion: isManualPlan ? "google_manual_search_v1" : "google_v1",
+      inputSummary: isManualPlan
+        ? `manual Search · ${data.google_manual_search_plan!.campaign.name} · ${data.landingUrl}`
+        : `${data.objective} · ${data.landingUrl}`,
       status: "pending",
       createdById: actor.userId,
     },
@@ -201,40 +249,45 @@ export async function runGoogleCampaignPlan(
   let tokensIn = 0;
   let tokensOut = 0;
   let model = "fallback/deterministic";
-  try {
-    const bidHint =
-      data.google_bidding_strategy === "target_cpa" && data.google_target_cpa_usd != null
-        ? `Google bidding — chosen strategy: target CPA at $${data.google_target_cpa_usd} USD (stored for publish).`
-        : data.google_bidding_strategy === "target_roas" && data.google_target_roas != null
-          ? `Google bidding — chosen strategy: target ROAS ${data.google_target_roas} (stored for publish).`
-          : data.google_bidding_strategy === "manual_cpc" && data.google_max_cpc_usd != null
-            ? `Google bidding — chosen strategy: manual CPC capped at $${data.google_max_cpc_usd} USD per click (stored for publish).`
-            : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
-    const primaryLang = languageTargetsNorm[0] ?? "en";
-    const ps = data.product_signals;
-    const productSignalsLines = (() => {
-      if (!ps) return "";
-      const lines: string[] = [];
-      if (ps.price) lines.push(`- price: "${ps.price}"`);
-      if (ps.price_full) lines.push(`- price_full: "${ps.price_full}"`);
-      if (ps.discount) lines.push(`- discount: "${ps.discount}"`);
-      if (ps.guarantee) lines.push(`- guarantee: "${ps.guarantee}"`);
-      if (ps.shipping) lines.push(`- shipping: "${ps.shipping}"`);
-      if (ps.bundles?.length) lines.push(`- bundles: ${ps.bundles.map((b) => `"${b}"`).join(", ")}`);
-      if (ps.bonuses) lines.push(`- bonuses: "${ps.bonuses}"`);
-      if (ps.certifications) lines.push(`- certifications: "${ps.certifications}"`);
-      if (ps.attributes?.length) lines.push(`- attributes: ${ps.attributes.map((a) => `"${a}"`).join(", ")}`);
-      if (!lines.length) return "";
-      return `\nProduct signals (TRUE facts about this offer — use VERBATIM where they fit; do NOT invent any other promo claim):\n${lines.join("\n")}`;
-    })();
 
-    const seedLine =
-      data.campaign_seed_keyword?.trim() &&
-      !blocked.has(data.campaign_seed_keyword.trim().toLowerCase())
-        ? `\nPrimary keyword (user-chosen Search theme — centre keywords and RSA on this intent; include exact+phrase+broad variants across ad groups): ${data.campaign_seed_keyword.trim()}`
-        : "";
+  if (isManualPlan) {
+    plan = data.google_manual_search_plan as AiPlan;
+    model = "manual/editor";
+  } else {
+    try {
+      const bidHint =
+        data.google_bidding_strategy === "target_cpa" && data.google_target_cpa_usd != null
+          ? `Google bidding — chosen strategy: target CPA at $${data.google_target_cpa_usd} USD (stored for publish).`
+          : data.google_bidding_strategy === "target_roas" && data.google_target_roas != null
+            ? `Google bidding — chosen strategy: target ROAS ${data.google_target_roas} (stored for publish).`
+            : data.google_bidding_strategy === "manual_cpc" && data.google_max_cpc_usd != null
+              ? `Google bidding — chosen strategy: manual CPC capped at $${data.google_max_cpc_usd} USD per click (stored for publish).`
+              : `Google bidding — chosen strategy: ${data.google_bidding_strategy} (stored for publish; Google sets actual CPC per auction).`;
+      const primaryLang = languageTargetsNorm[0] ?? "en";
+      const ps = data.product_signals;
+      const productSignalsLines = (() => {
+        if (!ps) return "";
+        const lines: string[] = [];
+        if (ps.price) lines.push(`- price: "${ps.price}"`);
+        if (ps.price_full) lines.push(`- price_full: "${ps.price_full}"`);
+        if (ps.discount) lines.push(`- discount: "${ps.discount}"`);
+        if (ps.guarantee) lines.push(`- guarantee: "${ps.guarantee}"`);
+        if (ps.shipping) lines.push(`- shipping: "${ps.shipping}"`);
+        if (ps.bundles?.length) lines.push(`- bundles: ${ps.bundles.map((b) => `"${b}"`).join(", ")}`);
+        if (ps.bonuses) lines.push(`- bonuses: "${ps.bonuses}"`);
+        if (ps.certifications) lines.push(`- certifications: "${ps.certifications}"`);
+        if (ps.attributes?.length) lines.push(`- attributes: ${ps.attributes.map((a) => `"${a}"`).join(", ")}`);
+        if (!lines.length) return "";
+        return `\nProduct signals (TRUE facts about this offer — use VERBATIM where they fit; do NOT invent any other promo claim):\n${lines.join("\n")}`;
+      })();
 
-    const userPrompt = `Landing URL: ${data.landingUrl}
+      const seedLine =
+        data.campaign_seed_keyword?.trim() &&
+        !blocked.has(data.campaign_seed_keyword.trim().toLowerCase())
+          ? `\nPrimary keyword (user-chosen Search theme — centre keywords and RSA on this intent; include exact+phrase+broad variants across ad groups): ${data.campaign_seed_keyword.trim()}`
+          : "";
+
+      const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
 Objective (INTERNAL briefing — do NOT copy verbatim into ad copy, do NOT use as a headline/description): ${data.objective}
 Daily budget: $${data.dailyBudgetUsd}
@@ -245,13 +298,25 @@ ${bidHint}${seedLine}
 RSA reminders: 12 headlines ≤30 chars each (vary the angle: CTA, benefit, proof, urgency, branded — never repeat the same stem), 4 descriptions ≤90 chars each (full persuasive sentences derived from the Offer, Landing and Product signals — never echoing the Objective).${productSignalsLines}
 Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
-    if (process.env.OPENAI_API_KEY) {
-      const out = await fetchOpenAiGoogleCampaignPlan(userPrompt);
-      plan = out.plan;
-      tokensIn = out.tokensIn;
-      tokensOut = out.tokensOut;
-      model = out.model;
-    } else {
+      if (process.env.OPENAI_API_KEY) {
+        const out = await fetchOpenAiGoogleCampaignPlan(userPrompt);
+        plan = out.plan;
+        tokensIn = out.tokensIn;
+        tokensOut = out.tokensOut;
+        model = out.model;
+      } else {
+        plan = buildDeterministicGoogleCampaignPlan({
+          landingUrl: data.landingUrl,
+          offer: data.offer,
+          objective: data.objective,
+          geoTargets: geoTargetsNorm,
+          languageTargets: languageTargetsNorm,
+          productSignals: data.product_signals,
+          campaignSeedKeyword: data.campaign_seed_keyword,
+        });
+      }
+    } catch (e) {
+      console.error("Google AI call failed, using deterministic fallback:", e);
       plan = buildDeterministicGoogleCampaignPlan({
         landingUrl: data.landingUrl,
         offer: data.offer,
@@ -262,20 +327,9 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         campaignSeedKeyword: data.campaign_seed_keyword,
       });
     }
-  } catch (e) {
-    console.error("Google AI call failed, using deterministic fallback:", e);
-    plan = buildDeterministicGoogleCampaignPlan({
-      landingUrl: data.landingUrl,
-      offer: data.offer,
-      objective: data.objective,
-      geoTargets: geoTargetsNorm,
-      languageTargets: languageTargetsNorm,
-      productSignals: data.product_signals,
-      campaignSeedKeyword: data.campaign_seed_keyword,
-    });
-  }
 
-  plan = mergeCampaignSeedKeyword(plan, data.campaign_seed_keyword, blocked);
+    plan = mergeCampaignSeedKeyword(plan, data.campaign_seed_keyword, blocked);
+  }
 
   /** Limpa prefixos internos ("Goal:", "Objetivo:"…) e descrições que ecoem o objective; garante mínimos publicáveis. */
   plan = sanitizeAiPlanCopy(plan, {
@@ -292,6 +346,25 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     keywords: (ag.keywords ?? []).filter((k) => !blocked.has(k.text.toLowerCase())),
   }));
 
+  const groupWithoutKeywords = plan.ad_groups.find((ag) => (ag.keywords ?? []).length === 0);
+  if (groupWithoutKeywords) {
+    await prisma.paidAdsAiRun.update({
+      where: { id: aiRun.id },
+      data: {
+        status: "error",
+        model,
+        tokensIn,
+        tokensOut,
+        outputSummary:
+          'Sem palavras-chave válidas num grupo — verifique termos bloqueados nos guardrails ou preencha outras keywords.',
+      },
+    });
+    return {
+      ok: false,
+      error:
+        `O grupo «${groupWithoutKeywords.name}» ficou sem palavras-chave (provavelmente bloqueadas pelo projecto). Ajuste o texto ou os guardrails.`,
+    };
+  }
   const google_asset_extensions = finalizeGoogleCampaignAssetExtensions(plan.extensions, {
     landingUrl: data.landingUrl,
     offer: data.offer,

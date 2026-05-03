@@ -44,6 +44,15 @@ paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidControll
 paidRouter.patch("/projects/:projectId/campaigns/:campaignId/optimizer-limits", (req, res) =>
   void paidController.patchCampaignOptimizerLimits(req, res),
 );
+paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-studio", (req, res) =>
+  void paidController.getGoogleCampaignStudio(req, res),
+);
+paidRouter.patch("/projects/:projectId/campaigns/:campaignId/google-draft", (req, res) =>
+  void paidController.patchGoogleCampaignDraft(req, res),
+);
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/google-studio-actions", (req, res) =>
+  void paidController.postGoogleCampaignStudioActions(req, res),
+);
 paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-daily-budget-to-guardrail", (req, res) =>
   void paidController.snapCampaignDailyBudgetToGuardrailCeiling(req, res),
 );

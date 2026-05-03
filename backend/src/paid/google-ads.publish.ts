@@ -526,6 +526,7 @@ export async function publishGoogleSearchCampaignFromLocal(
      *  Quando definido, aplicamos como `cpcBidMicros` no AdGroup — passa a ser o lance por defeito
      *  para todas as keywords desse grupo. Sem isto, o Google define lance automático ao publicar. */
     const adGroupCpcBidMicros = googleAdGroupCpcBidMicros(campaign.biddingConfig);
+    const cpcBidMicrosStored = adGroupCpcBidMicros ? BigInt(adGroupCpcBidMicros) : undefined;
 
     for (let agIndex = 0; agIndex < campaign.adGroups.length; agIndex++) {
       const ag = campaign.adGroups[agIndex]!;
@@ -680,7 +681,11 @@ export async function publishGoogleSearchCampaignFromLocal(
         if (rn) {
           await prisma.paidAdsAdGroup.update({
             where: { id: ag2.id },
-            data: { externalAdGroupId: lastId(rn), status: "live" as EntityStatus },
+            data: {
+              externalAdGroupId: lastId(rn),
+              status: "live" as EntityStatus,
+              ...(cpcBidMicrosStored !== undefined ? { cpcBidMicros: cpcBidMicrosStored } : {}),
+            },
           });
         }
       }
@@ -726,7 +731,11 @@ export async function publishGoogleSearchCampaignFromLocal(
       if (rn) {
         await prisma.paidAdsAdGroup.update({
           where: { id: ag.id },
-          data: { externalAdGroupId: lastId(rn), status: "live" as EntityStatus },
+          data: {
+            externalAdGroupId: lastId(rn),
+            status: "live" as EntityStatus,
+            ...(cpcBidMicrosStored !== undefined ? { cpcBidMicros: cpcBidMicrosStored } : {}),
+          },
         });
       }
     }

@@ -576,6 +576,8 @@ export default function PresellDashboard() {
             } else {
               video_url = resolveVideoEmbedSrc(manualYt);
             }
+          } else if (editingPage.video_url) {
+            video_url = editingPage.video_url;
           }
         }
         const prevContent = editingPage.content as Record<string, unknown>;

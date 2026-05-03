@@ -8,6 +8,7 @@ import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotPaidLayout } from "./DpilotPaidLayout";
 import { DpilotPaidProvider, UUID_RE } from "./DpilotPaidContext";
 import { DpilotGoogleWizardPage } from "./DpilotGoogleWizardPage";
+import { DpilotGoogleCampaignStudioPage } from "./DpilotGoogleCampaignStudioPage";
 import { DpilotMetaWizardPage } from "./DpilotMetaWizardPage";
 import { DpilotTiktokWizardPage } from "./DpilotTiktokWizardPage";
 import {
@@ -142,6 +143,7 @@ export function DpilotPaidApp() {
           <Route path="tiktok" element={<DpilotTiktokPage />} />
           <Route path="tiktok/campanhas" element={<DpilotTiktokCampanhasPage />} />
           <Route path="campanhas/nova" element={<DpilotGoogleWizardPage />} />
+          <Route path="campanhas/:campaignId/google" element={<DpilotGoogleCampaignStudioPage />} />
           <Route path="campanhas" element={<DpilotCampanhasPage />} />
           <Route path="aprovacoes" element={<DpilotAprovacoesPage />} />
           <Route path="auditoria" element={<DpilotAuditoriaPage />} />
