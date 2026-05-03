@@ -129,7 +129,8 @@ export function ImportedPageMirrorIframe({
         onLoad={onLoad}
         className="w-full max-w-full border-0 block bg-white min-h-[min(72vh,520px)]"
         style={{ height, width: "100%", maxWidth: "100%" }}
-        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin"
+        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         referrerPolicy="no-referrer-when-downgrade"
       />
     </div>

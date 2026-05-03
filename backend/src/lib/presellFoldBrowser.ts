@@ -8,7 +8,7 @@ const DEFAULT_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 const GOTO_MS = 22_000;
-const HYDRATE_MS = 3_500;
+const HYDRATE_MS = 4_800;
 
 /** Cabeçalho Accept-Language alinhado ao idioma escolhido na criação da presell. */
 export function acceptLanguageForPresellImport(language: string | undefined): string {
@@ -81,13 +81,18 @@ export async function fetchRenderedPageBundle(
 
     type MirrorEval = { baseHref: string; headSnip: string; bodyInner: string; ok: boolean };
     const mirrorParts = (await page.evaluate(`(() => {
-      const MAX_HEAD = 180000;
+      const MAX_HEAD = 250000;
       const MAX_BODY = 550000;
-      const headEls = document.querySelectorAll(
-        'head link[rel="stylesheet"], head link[rel="preconnect"], head link[rel="dns-prefetch"], head style',
-      );
       const parts = [];
-      headEls.forEach((el) => parts.push(el.outerHTML));
+      document.head.querySelectorAll("link, style").forEach((el) => {
+        if (el.tagName === "LINK") {
+          const rel = (el.getAttribute("rel") || "").toLowerCase();
+          if (rel === "alternate" || rel === "canonical" || rel === "modulepreload" || rel === "prefetch") return;
+          const asAttr = (el.getAttribute("as") || "").toLowerCase();
+          if (asAttr === "script") return;
+        }
+        parts.push(el.outerHTML);
+      });
       let headSnip = parts.join("\\n");
       if (headSnip.length > MAX_HEAD) headSnip = headSnip.slice(0, MAX_HEAD);
       const raw = document.body && document.body.cloneNode(true);
@@ -95,7 +100,8 @@ export async function fetchRenderedPageBundle(
         return { baseHref: "", headSnip: "", bodyInner: "", ok: false };
       }
       const b = raw;
-      b.querySelectorAll("script, iframe, noscript, object, embed").forEach((n) => n.remove());
+      b.querySelectorAll("script, object, embed").forEach((n) => n.remove());
+      b.querySelectorAll("noscript").forEach((n) => n.remove());
       let bodyInner = b.innerHTML;
       if (bodyInner.length > MAX_BODY) bodyInner = bodyInner.slice(0, MAX_BODY);
       const baseHref = document.baseURI || window.location.href.split("#")[0];
