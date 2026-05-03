@@ -17,6 +17,161 @@ function escapeBaseHref(href: string): string {
   return href.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+/**
+ * Os mirrors removem `<script>` e depois cortam `on*`; botões que só navegam com `onclick`
+ * ficam mortos. Extraímos URLs em `onclick` comuns antes desse passo para sintetizar `<a href>`.
+ */
+export function tryExtractUrlFromInlineHandler(raw: string): string | null {
+  if (!raw || !raw.trim()) return null;
+  const s = raw
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const patterns: RegExp[] = [
+    /window\.open\s*\(\s*['"]([^'"]+)['"]/i,
+    /location\.(?:assign|replace)\s*\(\s*['"]([^'"]+)['"]/i,
+    /(?:(?:window|top|parent)\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]/i,
+  ];
+
+  for (const re of patterns) {
+    const m = s.match(re);
+    const u = m?.[1]?.trim();
+    if (u && !u.toLowerCase().startsWith("javascript:")) return u;
+  }
+  return null;
+}
+
+function findAncestorForm(el: HTMLElement): HTMLElement | null {
+  let p = el.parentNode as HTMLElement | null;
+  while (p) {
+    if (p.tagName?.toLowerCase() === "form") return p;
+    p = p.parentNode as HTMLElement | null;
+  }
+  return null;
+}
+
+function copyMirrorPresentationAttrs(from: HTMLElement, to: HTMLElement): void {
+  for (const name of ["class", "id", "style", "aria-label", "title"]) {
+    const v = from.getAttribute(name);
+    if (v) to.setAttribute(name, v);
+  }
+}
+
+function mirrorApplyHrefToAnchor(a: HTMLElement, hrefValue: string): void {
+  a.setAttribute("href", hrefValue);
+  a.setAttribute("target", "_top");
+  a.setAttribute("rel", "noopener noreferrer");
+  a.removeAttribute("onclick");
+}
+
+type MirrorNavInnerMode = "children" | "inputValue" | "inputImage";
+
+function mirrorReplaceWithNavAnchor(el: HTMLElement, hrefValue: string, innerMode: MirrorNavInnerMode): void {
+  const doc = parse("<html><body><a></a></body></html>", { comment: true });
+  const a = doc.querySelector("a");
+  if (!a) return;
+  copyMirrorPresentationAttrs(el, a);
+  if (innerMode === "children") {
+    a.innerHTML = el.innerHTML;
+  } else if (innerMode === "inputImage") {
+    const label =
+      el.getAttribute("alt")?.trim() ||
+      el.getAttribute("value")?.trim() ||
+      el.getAttribute("aria-label")?.trim() ||
+      el.getAttribute("title")?.trim() ||
+      "Continue";
+    a.textContent = label;
+  } else {
+    const label =
+      el.getAttribute("value")?.trim() ||
+      el.getAttribute("aria-label")?.trim() ||
+      el.getAttribute("title")?.trim() ||
+      "Continue";
+    a.textContent = label;
+  }
+  mirrorApplyHrefToAnchor(a, hrefValue);
+  el.replaceWith(a);
+}
+
+function rewriteFormActionsForMirror(root: HTMLElement, base: URL, hosts: Set<string>): void {
+  const patchFormTarget = (form: HTMLElement | null) => {
+    if (!form || form.tagName?.toLowerCase() !== "form") return;
+    form.setAttribute("target", "_top");
+  };
+
+  const rewriteUrlAttr = (el: HTMLElement, attr: "action" | "formaction") => {
+    const v = el.getAttribute(attr)?.trim();
+    if (!v || v.startsWith("#") || v.trim().toLowerCase().startsWith("javascript:")) return;
+    let abs: URL;
+    try {
+      abs = new URL(v, base);
+    } catch {
+      return;
+    }
+    if (abs.protocol !== "http:" && abs.protocol !== "https:") return;
+    const h = abs.hostname.replace(/^www\./, "").toLowerCase();
+    if (!(hosts.size > 0 && hosts.has(h))) return;
+    el.setAttribute(attr, CLICKORA_MIRROR_TRACK_MARKER);
+    if (attr === "action") {
+      patchFormTarget(el);
+    } else {
+      patchFormTarget(findAncestorForm(el));
+    }
+  };
+
+  root.querySelectorAll("form[action]").forEach((f) => rewriteUrlAttr(f as HTMLElement, "action"));
+  root.querySelectorAll("[formaction]").forEach((el) => rewriteUrlAttr(el as HTMLElement, "formaction"));
+}
+
+function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: Set<string>): void {
+  root.querySelectorAll("[onclick]").forEach((node) => {
+    const el = node as HTMLElement;
+    const handler = el.getAttribute("onclick");
+    if (!handler) return;
+    const rawUrl = tryExtractUrlFromInlineHandler(handler);
+    if (!rawUrl) return;
+    let abs: URL;
+    try {
+      abs = new URL(rawUrl, base);
+    } catch {
+      return;
+    }
+    if (abs.protocol !== "http:" && abs.protocol !== "https:") return;
+    const h = abs.hostname.replace(/^www\./, "").toLowerCase();
+    const hrefValue = hosts.size > 0 && hosts.has(h) ? CLICKORA_MIRROR_TRACK_MARKER : abs.href;
+
+    const tag = el.tagName?.toLowerCase() ?? "";
+
+    if (tag === "a") {
+      mirrorApplyHrefToAnchor(el, hrefValue);
+      return;
+    }
+
+    if (tag === "button") {
+      mirrorReplaceWithNavAnchor(el, hrefValue, "children");
+      return;
+    }
+
+    if (tag === "input") {
+      const t = (el.getAttribute("type") || "text").toLowerCase();
+      if (t === "button" || t === "submit") {
+        mirrorReplaceWithNavAnchor(el, hrefValue, "inputValue");
+        return;
+      }
+      if (t === "image") {
+        mirrorReplaceWithNavAnchor(el, hrefValue, "inputImage");
+        return;
+      }
+    }
+
+    const role = (el.getAttribute("role") || "").toLowerCase();
+    if ((tag === "div" || tag === "span") && (role === "button" || role === "link")) {
+      mirrorReplaceWithNavAnchor(el, hrefValue, "children");
+    }
+  });
+}
+
 /** Injetado antes do CSS original — base para mobile / overflow / media fluidos. */
 export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}body{margin:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-wrap:anywhere;word-wrap:break-word;}*,*::before,*::after{box-sizing:border-box;}img,picture,video,canvas,svg{max-width:100%;height:auto;}iframe{max-width:100%;}table{max-width:100%;}</style>`;
 
@@ -95,6 +250,9 @@ export function finalizeMirrorSrcDocForImport(
       a.setAttribute("href", abs.href);
     }
   });
+
+  rewriteFormActionsForMirror(root, base, hosts);
+  rewriteOnclickNavigatorsForMirror(root, base, hosts);
 
   let out = root.toString();
   out = out.replace(/<script\b[\s\S]*?<\/script>/gi, "");
