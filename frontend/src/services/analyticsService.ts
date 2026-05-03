@@ -18,6 +18,7 @@ export type GoogleAdsInsightsKeywordRow = {
   impressions: number;
   clicks: number;
   cost_micros: number;
+  conversions: number;
 };
 
 export type GoogleAdsInsightsSearchTermRow = {
@@ -27,6 +28,7 @@ export type GoogleAdsInsightsSearchTermRow = {
   impressions: number;
   clicks: number;
   cost_micros: number;
+  conversions: number;
 };
 
 export type GoogleAdsInsightsDemoRow = {
@@ -35,6 +37,7 @@ export type GoogleAdsInsightsDemoRow = {
   segment_label: string;
   impressions: number;
   clicks: number;
+  conversions: number;
 };
 
 export type GoogleAdsInsightsBundle = {

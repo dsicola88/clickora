@@ -86,6 +86,8 @@ export type GoogleAdsKeywordRow = {
   impressions: number;
   clicks: number;
   cost_micros: number;
+  /** Conversões com atribuição do modelo da conta (soma no período). */
+  conversions: number;
 };
 
 export type GoogleAdsSearchTermRow = {
@@ -95,6 +97,7 @@ export type GoogleAdsSearchTermRow = {
   impressions: number;
   clicks: number;
   cost_micros: number;
+  conversions: number;
 };
 
 export type GoogleAdsDemoRow = {
@@ -103,6 +106,7 @@ export type GoogleAdsDemoRow = {
   segment_label: string;
   impressions: number;
   clicks: number;
+  conversions: number;
 };
 
 function runQuery(customer: { query: (gaql: string) => Promise<unknown> }, gaql: string) {
@@ -113,18 +117,19 @@ function runQuery(customer: { query: (gaql: string) => Promise<unknown> }, gaql:
 function mergeMetricRows(
   rows: unknown[],
   keyParts: (row: Record<string, unknown>) => string[],
-  readMetrics: (row: Record<string, unknown>) => { im: number; cl: number; co: number },
-): Map<string, { impressions: number; clicks: number; cost_micros: number }> {
-  const acc = new Map<string, { impressions: number; clicks: number; cost_micros: number }>();
+  readMetrics: (row: Record<string, unknown>) => { im: number; cl: number; co: number; cv: number },
+): Map<string, { impressions: number; clicks: number; cost_micros: number; conversions: number }> {
+  const acc = new Map<string, { impressions: number; clicks: number; cost_micros: number; conversions: number }>();
   const list = Array.isArray(rows) ? rows : [];
   for (const raw of list) {
     const row = raw as Record<string, unknown>;
     const k = keyParts(row).join("\t");
-    const { im, cl, co } = readMetrics(row);
-    const cur = acc.get(k) || { impressions: 0, clicks: 0, cost_micros: 0 };
+    const { im, cl, co, cv } = readMetrics(row);
+    const cur = acc.get(k) || { impressions: 0, clicks: 0, cost_micros: 0, conversions: 0 };
     cur.impressions += im;
     cur.clicks += cl;
     cur.cost_micros += co;
+    cur.conversions += cv;
     acc.set(k, cur);
   }
   return acc;
@@ -148,7 +153,8 @@ export async function fetchGoogleAdsKeywordInsights(input: {
       ad_group_criterion.keyword.text,
       metrics.impressions,
       metrics.clicks,
-      metrics.cost_micros
+      metrics.cost_micros,
+      metrics.conversions
     FROM keyword_view
     WHERE segments.date BETWEEN '${fromStr}' AND '${toStr}'
     ORDER BY metrics.impressions DESC
@@ -167,11 +173,17 @@ export async function fetchGoogleAdsKeywordInsights(input: {
         return [camp, ag, kw];
       },
       (row) => {
-        const m = row.metrics as { impressions?: unknown; clicks?: unknown; cost_micros?: unknown } | undefined;
+        const m = row.metrics as {
+          impressions?: unknown;
+          clicks?: unknown;
+          cost_micros?: unknown;
+          conversions?: unknown;
+        } | undefined;
         return {
           im: Number(m?.impressions ?? 0),
           cl: Number(m?.clicks ?? 0),
           co: Number(m?.cost_micros ?? 0),
+          cv: Number(m?.conversions ?? 0),
         };
       },
     );
@@ -185,6 +197,7 @@ export async function fetchGoogleAdsKeywordInsights(input: {
         impressions: met.impressions,
         clicks: met.clicks,
         cost_micros: met.cost_micros,
+        conversions: met.conversions,
       });
     }
     out.sort((a, b) => b.impressions - a.impressions);
@@ -213,7 +226,8 @@ export async function fetchGoogleAdsSearchTermInsights(input: {
       search_term_view.search_term,
       metrics.impressions,
       metrics.clicks,
-      metrics.cost_micros
+      metrics.cost_micros,
+      metrics.conversions
     FROM search_term_view
     WHERE segments.date BETWEEN '${fromStr}' AND '${toStr}'
     ORDER BY metrics.impressions DESC
@@ -231,11 +245,17 @@ export async function fetchGoogleAdsSearchTermInsights(input: {
         return [camp, ag, st];
       },
       (row) => {
-        const m = row.metrics as { impressions?: unknown; clicks?: unknown; cost_micros?: unknown } | undefined;
+        const m = row.metrics as {
+          impressions?: unknown;
+          clicks?: unknown;
+          cost_micros?: unknown;
+          conversions?: unknown;
+        } | undefined;
         return {
           im: Number(m?.impressions ?? 0),
           cl: Number(m?.clicks ?? 0),
           co: Number(m?.cost_micros ?? 0),
+          cv: Number(m?.conversions ?? 0),
         };
       },
     );
@@ -249,6 +269,7 @@ export async function fetchGoogleAdsSearchTermInsights(input: {
         impressions: met.impressions,
         clicks: met.clicks,
         cost_micros: met.cost_micros,
+        conversions: met.conversions,
       });
     }
     out.sort((a, b) => b.impressions - a.impressions);
@@ -284,7 +305,8 @@ export async function fetchGoogleAdsDemographicInsights(input: {
       ad_group.name,
       ad_group_criterion.gender.type,
       metrics.impressions,
-      metrics.clicks
+      metrics.clicks,
+      metrics.conversions
     FROM gender_view
     WHERE segments.date BETWEEN '${fromStr}' AND '${toStr}'
     ORDER BY metrics.impressions DESC
@@ -296,7 +318,8 @@ export async function fetchGoogleAdsDemographicInsights(input: {
       ad_group.name,
       ad_group_criterion.age_range.type,
       metrics.impressions,
-      metrics.clicks
+      metrics.clicks,
+      metrics.conversions
     FROM age_range_view
     WHERE segments.date BETWEEN '${fromStr}' AND '${toStr}'
     ORDER BY metrics.impressions DESC
@@ -320,8 +343,13 @@ export async function fetchGoogleAdsDemographicInsights(input: {
         return [camp, ag, String(typ ?? "")];
       },
       (row) => {
-        const m = row.metrics as { impressions?: unknown; clicks?: unknown } | undefined;
-        return { im: Number(m?.impressions ?? 0), cl: Number(m?.clicks ?? 0), co: 0 };
+        const m = row.metrics as { impressions?: unknown; clicks?: unknown; conversions?: unknown } | undefined;
+        return {
+          im: Number(m?.impressions ?? 0),
+          cl: Number(m?.clicks ?? 0),
+          co: 0,
+          cv: Number(m?.conversions ?? 0),
+        };
       },
     );
     const aMerged = mergeMetricRows(
@@ -333,8 +361,13 @@ export async function fetchGoogleAdsDemographicInsights(input: {
         return [camp, ag, String(typ ?? "")];
       },
       (row) => {
-        const m = row.metrics as { impressions?: unknown; clicks?: unknown } | undefined;
-        return { im: Number(m?.impressions ?? 0), cl: Number(m?.clicks ?? 0), co: 0 };
+        const m = row.metrics as { impressions?: unknown; clicks?: unknown; conversions?: unknown } | undefined;
+        return {
+          im: Number(m?.impressions ?? 0),
+          cl: Number(m?.clicks ?? 0),
+          co: 0,
+          cv: Number(m?.conversions ?? 0),
+        };
       },
     );
 
@@ -348,6 +381,7 @@ export async function fetchGoogleAdsDemographicInsights(input: {
         segment_label: genderTypeLabel(typ),
         impressions: met.impressions,
         clicks: met.clicks,
+        conversions: met.conversions,
       });
     }
     gender.sort((a, b) => b.impressions - a.impressions);
@@ -362,6 +396,7 @@ export async function fetchGoogleAdsDemographicInsights(input: {
         segment_label: ageRangeTypeLabel(typ),
         impressions: met.impressions,
         clicks: met.clicks,
+        conversions: met.conversions,
       });
     }
     age.sort((a, b) => b.impressions - a.impressions);
