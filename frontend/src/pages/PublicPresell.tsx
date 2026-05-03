@@ -328,6 +328,212 @@ function StorefrontTintSubtitle({ subtitle }: { subtitle: string }) {
 }
 
 /**
+ * Hero com imagem extraída da oferta acima do iframe do espelho importado.
+ * O espelho nem sempre mostra o pack a bom contraste; esta faixa garante destaque do produto.
+ */
+function ImportedMirrorProductSpotlight({
+  productImages,
+  storefrontMainIdx,
+  setStorefrontMainIdx,
+  primarySeoLabel,
+  productNameLabel,
+  title,
+  subtitle,
+  showStorefrontRating,
+  ratingValue,
+  ratingStars,
+  useDarkTheme,
+  useTintedTheme,
+  href,
+  ctaEnabled,
+  ctaText,
+  language,
+}: {
+  productImages: string[];
+  storefrontMainIdx: number;
+  setStorefrontMainIdx: (i: number) => void;
+  primarySeoLabel: string;
+  productNameLabel: string;
+  title: string;
+  subtitle: string;
+  showStorefrontRating: boolean;
+  ratingValue: string;
+  ratingStars: number;
+  useDarkTheme: boolean;
+  useTintedTheme: boolean;
+  href: string;
+  ctaEnabled: boolean;
+  ctaText: string;
+  language: string;
+}) {
+  const mainSrc = productImages[Math.min(storefrontMainIdx, productImages.length - 1)];
+  const midCta = getPresellUiStrings(language).midCta;
+
+  const imageBlock = (
+    <div className="space-y-4 md:sticky md:top-6">
+      <div
+        className={cn(
+          "rounded-2xl p-4 sm:p-5 shadow-lg",
+          useDarkTheme && "border border-amber-500/35 bg-black/35 shadow-[0_0_56px_-8px_rgba(251,191,36,0.22)]",
+          useTintedTheme &&
+            "border border-white/50 bg-white/30 shadow-[0_16px_48px_-12px_rgba(91,33,182,0.28)] backdrop-blur-[2px]",
+          !useDarkTheme &&
+            !useTintedTheme &&
+            "border border-slate-200/90 bg-white shadow-md dark:border-border/60 dark:bg-card",
+        )}
+      >
+        <img
+          src={mainSrc}
+          alt={primarySeoLabel}
+          className={cn(
+            "w-full rounded-2xl object-contain mx-auto",
+            "max-h-[min(560px,70vh)] min-h-[12rem]",
+            useTintedTheme && "bg-white/50",
+            !useDarkTheme && !useTintedTheme && "bg-slate-50/90 dark:bg-muted/25",
+          )}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+        />
+      </div>
+      {productImages.length > 1 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+          {productImages.map((src, i) => (
+            <button
+              key={`${i}-${src.slice(0, 48)}`}
+              type="button"
+              onClick={() => setStorefrontMainIdx(i)}
+              className={cn(
+                "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2",
+                useDarkTheme && "focus-visible:ring-amber-400/90",
+                useTintedTheme && "focus-visible:ring-white/90",
+                !useDarkTheme && !useTintedTheme && "focus-visible:ring-orange-500/80",
+                useDarkTheme &&
+                  (i === storefrontMainIdx
+                    ? "border-amber-400 ring-2 ring-amber-400/40 shadow-md"
+                    : "border-white/20 opacity-90 hover:opacity-100"),
+                useTintedTheme &&
+                  (i === storefrontMainIdx
+                    ? "border-white ring-2 ring-white/55 shadow-md"
+                    : "border-white/45 opacity-95 hover:opacity-100"),
+                !useDarkTheme &&
+                  !useTintedTheme &&
+                  (i === storefrontMainIdx
+                    ? "border-orange-500 ring-2 ring-orange-500/35 shadow-sm"
+                    : "border-border/60 opacity-90 hover:opacity-100"),
+              )}
+              aria-label={`Imagem ${i + 1}`}
+            >
+              <img src={src} alt="" className="h-16 w-16 sm:h-20 sm:w-20 object-cover" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const copyBlock = (
+    <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
+      {productNameLabel ? (
+        <p
+          className={cn(
+            "text-xs font-semibold uppercase tracking-wider",
+            useDarkTheme && "text-amber-500/95",
+            useTintedTheme && "text-white/95 drop-shadow-sm",
+            !useDarkTheme && !useTintedTheme && "text-muted-foreground",
+          )}
+        >
+          {productNameLabel}
+        </p>
+      ) : null}
+      <h1
+        className={cn(
+          "text-2xl sm:text-3xl lg:text-[2.5rem] font-extrabold leading-tight break-words tracking-tight",
+          useDarkTheme && "font-sans uppercase text-white",
+          useTintedTheme &&
+            "font-sans font-bold text-white leading-[1.15] drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)]",
+          !useDarkTheme && !useTintedTheme && "font-serif font-bold text-foreground",
+        )}
+      >
+        {title}
+      </h1>
+      {showStorefrontRating ? (
+        <StorefrontRatingRow
+          value={ratingValue}
+          stars={ratingStars}
+          variant={useDarkTheme ? "darkHero" : useTintedTheme ? "tintHero" : "default"}
+        />
+      ) : null}
+      {subtitle ? (
+        useDarkTheme ? (
+          <StorefrontDarkSubtitle subtitle={subtitle} />
+        ) : useTintedTheme ? (
+          <StorefrontTintSubtitle subtitle={subtitle} />
+        ) : (
+          <p className="text-base text-muted-foreground leading-relaxed">{subtitle}</p>
+        )
+      ) : null}
+      <div className="pt-1">
+        <PresellCta
+          href={href}
+          disabled={!ctaEnabled}
+          stretch
+          surface={
+            useDarkTheme ? "dark" : useTintedTheme ? "tintHero" : "commerce"
+          }
+        >
+          {ctaText}
+        </PresellCta>
+      </div>
+      <p
+        className={cn(
+          "text-xs leading-relaxed border-t pt-4",
+          useDarkTheme && "text-slate-500 border-white/10",
+          useTintedTheme && "text-violet-950/75 border-violet-400/35",
+          !useDarkTheme && !useTintedTheme && "text-muted-foreground border-border/50",
+        )}
+      >
+        {midCta}
+      </p>
+    </div>
+  );
+
+  return (
+    <section
+      className={cn(
+        "relative overflow-hidden border-b",
+        useDarkTheme && "border-amber-900/30",
+        useTintedTheme && "border-violet-400/25",
+        !useDarkTheme && !useTintedTheme && "border-border/40 bg-muted/25",
+      )}
+      style={
+        useDarkTheme
+          ? {
+              backgroundColor: "#070b14",
+              backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.022) 2px, rgba(255,255,255,0.022) 4px)`,
+            }
+          : useTintedTheme
+            ? {
+                background:
+                  "linear-gradient(155deg, #a78bfa 0%, #c4b5fd 18%, #ddd6fe 48%, #ede9fe 78%, #f5f3ff 100%)",
+              }
+            : undefined
+      }
+    >
+      {useTintedTheme ? (
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_75%_at_15%_10%,rgba(255,255,255,0.38),transparent_58%)]" />
+      ) : null}
+      <div className="relative w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-8 md:pb-12">
+        <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+          {imageBlock}
+          {copyBlock}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
  * Camada sobre o canto inferior direito do embed do YouTube para absorver cliques no logo (abre youtube.com).
  * Não há parâmetro oficial no iframe para remover o logo; a área é estreita para não tapar ecrã inteiro / definições.
  */
@@ -749,6 +955,27 @@ export default function PublicPresell() {
             />
           </div>
         </section>
+      ) : null}
+
+      {showImportedMirror && productImages.length > 0 ? (
+        <ImportedMirrorProductSpotlight
+          productImages={productImages}
+          storefrontMainIdx={storefrontMainIdx}
+          setStorefrontMainIdx={setStorefrontMainIdx}
+          primarySeoLabel={primarySeoLabel}
+          productNameLabel={productNameLabel}
+          title={title}
+          subtitle={subtitle}
+          showStorefrontRating={showStorefrontRating}
+          ratingValue={String(content.ratingValue ?? "")}
+          ratingStars={typeof content.ratingStars === "number" ? content.ratingStars : 5}
+          useDarkTheme={useDarkMirrorStorefront}
+          useTintedTheme={useTintedCommerceStorefront}
+          href={href}
+          ctaEnabled={ctaEnabled}
+          ctaText={ctaText}
+          language={uiLang}
+        />
       ) : null}
 
       {showImportedMirror ? (

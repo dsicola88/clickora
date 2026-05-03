@@ -1289,7 +1289,26 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   }
 
   const price = detectPrice(html);
-  const images = extractProductImages(html, finalUrl, foldHtml);
+  let images = extractProductImages(html, finalUrl, foldHtml);
+  if (
+    images.length === 0 &&
+    import_mirror_src_doc &&
+    import_mirror_src_doc.length > 800
+  ) {
+    const mirrorFold = import_mirror_src_doc.slice(
+      0,
+      Math.min(import_mirror_src_doc.length, 150_000),
+    );
+    const fromMirror = extractProductImages(import_mirror_src_doc, finalUrl, mirrorFold);
+    const seen = new Set(images);
+    for (const u of fromMirror) {
+      if (!seen.has(u)) {
+        seen.add(u);
+        images.push(u);
+      }
+    }
+    images = images.slice(0, 18);
+  }
   const video_url = extractVideoUrl(foldHtml, finalUrl);
 
   const metaTitleForHero = ogTitle || titleTag;
