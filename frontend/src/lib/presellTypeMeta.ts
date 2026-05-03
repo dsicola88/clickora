@@ -6,11 +6,10 @@
  * | cookies     | Modal de cookies; cliques redirecionam para o link da presell. |
  * | desconto    | Faixa de urgência + modal de desconto sobre o conteúdo. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
- * | vsl         | Layout VSL (fundo escuro): vídeo ou fallback; CTA; sem secção de carta longa abaixo. |
- * | vsl_tsl     | Mesmo hero VSL + secção TSL abaixo (texto importado completo, CTA intercalado). |
- * | tsl, dtc, review | Layout padrão (hero claro): texto e imagens importados. |
- * | sexo, idade, grupo_*, pais, captcha, modelos | Formulário antes do CTA; CTA só ativo com dados válidos. |
- * | builder     | Layout do editor visual (`content.pageDocument`); sem gate automático. |
+ * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |
+ * | tsl, dtc, review | Layout padrão (hero claro) com texto e imagens importados; com espelho importado, o iframe substitui esse bloco mantendo overlays e gates. |
+ * | sexo, idade, grupo_*, pais, captcha, modelos | Formulário antes do CTA; CTA só ativo com dados válidos; com espelho HTML, o formulário fica acima do iframe. |
+ * | builder     | Editor visual; se existir espelho importado (`importMirrorSrcDoc`), usa-se o espelho com as regras abaixo. |
  */
 export type PresellGateKind =
   | "none"

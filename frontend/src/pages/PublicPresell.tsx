@@ -654,17 +654,12 @@ export default function PublicPresell() {
     storefrontLayout && storefrontTheme !== "dark_commerce" && storefrontHeroTint;
   /** Corpo claro em largura total (como a landing original por baixo do hero). */
   const storefrontMirrorLightBody = useDarkMirrorStorefront || useTintedCommerceStorefront;
+  /** Espelho da página de produto: activo em qualquer tipo de presell quando o import guardou HTML (~Playwright). Cookies, desconto, fantasma, formulário interactivo e CTAs aplicam-se em paralelo (ver `pageBody`). */
   const mirrorEligible =
-    importMirrorSrcDocRaw.length > 800 &&
-    mirrorSrcDoc.length > 800 &&
-    !isVslLayout &&
-    !isGhostPage &&
-    page.type !== "builder";
+    importMirrorSrcDocRaw.length > 800 && mirrorSrcDoc.length > 800;
 
   /**
-   * Com espelho HTML, o layout React fica oculto e só aparece o iframe — por baixo do modal de cookies
-   * parecia página em branco. Enquanto o modal está aberto, forçar o layout React; Allow/Close/fundo
-   * redirecionam na mesma para o link rastreado.
+   * Com o modal de cookies aberto, não usar só o iframe do espelho: o overlay escuro sobre iframe claro parecia “página em branco”. Mostra o layout React por baixo; Allow/Close/fundo redirecionam na mesma para o link rastreado.
    */
   const cookieModalBlocking =
     gateKind === "cookies" && !cookieAccepted && !cookieDismissed;
@@ -688,7 +683,8 @@ export default function PublicPresell() {
     content.ratingValue.trim().length > 0;
 
   const builderDoc = parsePresellBuilderPageDocument(page.content);
-  if (page.type === "builder") {
+  /** Presell manual: só o editor, salvo quando não há espelho importado para mostrar. */
+  if (page.type === "builder" && !showImportedMirror) {
     if (!builderDoc) {
       return (
         <ErrorState
@@ -733,6 +729,25 @@ export default function PublicPresell() {
           language={uiLang}
           onClick={() => setCookieDismissed(false)}
         />
+      ) : null}
+
+      {showImportedMirror && interactiveKind ? (
+        <section
+          className={cn(
+            "relative z-[30] w-full border-b border-border/60 bg-muted/40 px-3 py-6 sm:px-4 backdrop-blur-[2px]",
+            isVslLayout &&
+              "border-white/10 bg-slate-900/92 text-slate-100 shadow-[0_1px_0_rgba(255,255,255,0.06)] [&_label]:text-slate-100 [&_p]:text-slate-200",
+          )}
+        >
+          <div className="max-w-3xl mx-auto text-center [&_.space-y-2]:text-left sm:[&_.space-y-2]:text-left">
+            <PresellGateFields
+              gateKind={interactiveKind}
+              language={uiLang}
+              settings={settings}
+              onPayload={handleFieldPayload}
+            />
+          </div>
+        </section>
       ) : null}
 
       {showImportedMirror ? (
