@@ -16,6 +16,7 @@ import {
   CookieConsentModal,
   CookieSettingsChip,
   PresellGateFields,
+  useCookieAcceptedState,
   type GatePayload,
 } from "@/components/presell/PresellTypeControls";
 import {
