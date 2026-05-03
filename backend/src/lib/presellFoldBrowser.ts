@@ -93,8 +93,10 @@ export async function fetchRenderedPageBundle(
         }
         parts.push(el.outerHTML);
       });
+      while (parts.join("\\n").length > MAX_HEAD && parts.length > 0) {
+        parts.pop();
+      }
       let headSnip = parts.join("\\n");
-      if (headSnip.length > MAX_HEAD) headSnip = headSnip.slice(0, MAX_HEAD);
       const raw = document.body && document.body.cloneNode(true);
       if (!raw || raw.nodeType !== 1) {
         return { baseHref: "", headSnip: "", bodyInner: "", ok: false };
@@ -102,8 +104,20 @@ export async function fetchRenderedPageBundle(
       const b = raw;
       b.querySelectorAll("script, object, embed").forEach((n) => n.remove());
       b.querySelectorAll("noscript").forEach((n) => n.remove());
+      const truncateBodyHtml = (html, max) => {
+        if (html.length <= max) return html;
+        const div = document.createElement("div");
+        div.innerHTML = html;
+        let guard = 0;
+        while (div.innerHTML.length > max && div.lastChild && guard++ < 1200) {
+          div.removeChild(div.lastChild);
+        }
+        const out = div.innerHTML;
+        if (out.length > max) return html.slice(0, max);
+        return out;
+      };
       let bodyInner = b.innerHTML;
-      if (bodyInner.length > MAX_BODY) bodyInner = bodyInner.slice(0, MAX_BODY);
+      if (bodyInner.length > MAX_BODY) bodyInner = truncateBodyHtml(bodyInner, MAX_BODY);
       const baseHref = document.baseURI || window.location.href.split("#")[0];
       return { baseHref, headSnip, bodyInner, ok: bodyInner.length > 200 };
     })()`)) as MirrorEval;

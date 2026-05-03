@@ -1,5 +1,6 @@
 import type { Presell } from "@/types/api";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 
 /** Alinhar com `frontend/index.html` — valor ao sair da página pública. */
 export const DEFAULT_BROWSER_TAB_TITLE =
@@ -27,7 +28,7 @@ function clampLabel(s: string): string {
  */
 export function getPresellProductLabel(page: Presell): string {
   const c = (page.content || {}) as Record<string, unknown>;
-  const fromImport = clampLabel(String(c.productName ?? c.product_name ?? ""));
+  const fromImport = clampLabel(plainTextFromMaybeHtml(String(c.productName ?? c.product_name ?? "")));
   if (fromImport) return fromImport;
   const pageName = clampLabel(String(page.title ?? ""));
   if (pageName) return pageName;
@@ -53,7 +54,7 @@ export function getPresellSeoPrimaryTitle(page: Presell): string {
       if (nm) return clampSeoTitle(nm);
     }
   }
-  const headline = String(c.title ?? "").trim();
+  const headline = plainTextFromMaybeHtml(String(c.title ?? "").trim());
   if (headline) return clampSeoTitle(headline);
   return getPresellProductLabel(page);
 }

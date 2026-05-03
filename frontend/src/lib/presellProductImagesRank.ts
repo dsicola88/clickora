@@ -22,6 +22,7 @@ export function scorePresellProductImageUrl(url: string): number {
 
   boost(/\b(bottle|flacon|jar|supplement|packshot|package|prod(uct)?[_-]?image|hero|featured|main[_-]?image|primary|sku|label|render|mockup|bundle|offer|vitamin|capsule)\b/i, 28);
   boost(/\b(nitric|probiotic|collagen|keto|ketogenic|ashwagandha|metabolic|gummies)\b/i, 18);
+  boost(/\b(prostate|bladder|urinary|ED\b|erectile|testo|testosterone|mens[_-]?health)\b/i, 16);
   boost(/\/products?\//, 12);
   boost(/\b(large|xlarge|full|retina|hi[_-]?res|original)\b/, 10);
   boost(/(?:[?&/_-])(?:w|width)=?(?:640|720|800|960|1024|1200|1280|1600|1920|2048)(?:[^0-9]|$)/, 14);
@@ -44,7 +45,9 @@ export function scorePresellProductImageUrl(url: string): number {
   penal(/(32x32|40x40|48x48|56x56|64x64|96x96|100x100|128x128)/, 40);
   penal(/(?:[?&/_-])(?:w|width|h|height)=?(?:16|20|24|32|40|48|56|64|80|96|100|120)(?:[^0-9]|$)/, 30);
   penal(/([_-](xs|sm|thumb|thumbnail)\b|\/thumbs?\/)/i, 22);
-  penal(/chart\.googleapis\.com|googleusercontent\.com\/.*(photo|a-)/i, 40);
+  penal(/\b(cosmetics|parfum|perfume|makeup|skincare)\b/i, 14);
+  penal(/\b(site[_-]?)?logo(?:\/|\.|$)|\/logos?\/|[-_]logo\.|\/brand\//i, 42);
+  penal(/\b(wordmark|lettermark)\b/i, 30);
 
   return score;
 }

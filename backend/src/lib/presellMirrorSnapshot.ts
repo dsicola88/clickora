@@ -105,8 +105,47 @@ export function finalizeMirrorSrcDocForImport(
   }
 
   if (out.length > MAX_MIRROR_CHARS) {
-    out = `${out.slice(0, MAX_MIRROR_CHARS)}\n<!-- clickora: mirror truncado -->`;
+    out = truncateMirrorHtmlToLimit(out, MAX_MIRROR_CHARS);
   }
 
   return out.length > 500 ? out : null;
+}
+
+/**
+ * Nunca cortar a meio de uma tag — evita CSS e markup a aparecerem como texto no iframe.
+ */
+function truncateMirrorHtmlToLimit(html: string, maxChars: number): string {
+  if (html.length <= maxChars) return html;
+  let root: HTMLElement;
+  try {
+    root = parse(html, { comment: true }) as HTMLElement;
+  } catch {
+    const cut = html.lastIndexOf(">", Math.min(html.length - 1, maxChars - 48));
+    const base = cut > maxChars * 0.85 ? cut + 1 : maxChars - 40;
+    return `${html.slice(0, Math.max(0, base))}\n<!-- clickora: mirror truncado -->`;
+  }
+
+  for (let guard = 0; guard < 3000; guard++) {
+    if (root.toString().length <= maxChars) break;
+    const body = root.querySelector("body");
+    if (body?.lastChild) {
+      body.lastChild.remove();
+      continue;
+    }
+    const head = root.querySelector("head");
+    if (head?.lastChild) {
+      head.lastChild.remove();
+      continue;
+    }
+    break;
+  }
+
+  let out = root.toString();
+  if (out.length > maxChars) {
+    const sliceAt = Math.min(out.length - 1, maxChars - 48);
+    const cut = out.lastIndexOf(">", sliceAt);
+    const base = cut > maxChars * 0.88 ? cut + 1 : sliceAt;
+    out = `${out.slice(0, Math.max(0, base))}\n<!-- clickora: mirror truncado -->`;
+  }
+  return out;
 }

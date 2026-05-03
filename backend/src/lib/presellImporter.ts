@@ -139,14 +139,14 @@ function extractMeta(html: string, name: string) {
   ];
   for (const pattern of patterns) {
     const match = html.match(pattern);
-    if (match?.[1]) return cleanText(match[1]);
+    if (match?.[1]) return stripTags(match[1]);
   }
   return "";
 }
 
 function extractTagText(html: string, tag: string) {
   const match = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
-  return cleanText(match?.[1] || "");
+  return stripTags(match?.[1] || "");
 }
 
 /**
@@ -534,6 +534,7 @@ function scoreProductImageUrlForHero(url: string): number {
   };
   boost(/\b(bottle|flacon|jar|supplement|packshot|package|prod(uct)?[_-]?image|hero|featured|main[_-]?image|primary|sku|label|render|mockup|bundle|offer|vitamin|capsule)\b/i, 28);
   boost(/\b(nitric|probiotic|collagen|keto|ketogenic|ashwagandha|metabolic|gummies)\b/i, 18);
+  boost(/\b(prostate|bladder|urinary|ED\b|erectile|testo|testosterone|mens[_-]?health)\b/i, 16);
   boost(/\/products?\//, 12);
   boost(/\b(large|xlarge|full|retina|hi[_-]?res|original)\b/, 10);
   boost(/(?:[?&/_-])(?:w|width)=?(?:640|720|800|960|1024|1200|1280|1600|1920|2048)(?:[^0-9]|$)/, 14);
@@ -555,6 +556,9 @@ function scoreProductImageUrlForHero(url: string): number {
   penal(/(?:[?&/_-])(?:w|width|h|height)=?(?:16|20|24|32|40|48|56|64|80|96|100|120)(?:[^0-9]|$)/, 30);
   penal(/([_-](xs|sm|thumb|thumbnail)\b|\/thumbs?\/)/i, 22);
   penal(/chart\.googleapis\.com|googleusercontent\.com\/.*(photo|a-)/i, 40);
+  penal(/\b(cosmetics|parfum|perfume|makeup|skincare)\b/i, 14);
+  penal(/\b(site[_-]?)?logo(?:\/|\.|$)|\/logos?\/|[-_]logo\.|\/brand\//i, 42);
+  penal(/\b(wordmark|lettermark)\b/i, 30);
   return score;
 }
 
@@ -1063,7 +1067,7 @@ function isGarbageDescription(text: string): boolean {
 }
 
 function pickHeroTitle(headings: string[], brand: string, metaTitle: string): string {
-  const meta = cleanText(metaTitle);
+  const meta = stripTags(metaTitle);
   const good = headings.find(
     (h) =>
       h.length >= 12 &&
@@ -1086,7 +1090,7 @@ function pickHeroTitle(headings: string[], brand: string, metaTitle: string): st
 }
 
 function subtitleFromMetaTail(metaTitle: string, hero: string): string | null {
-  const meta = cleanText(metaTitle);
+  const meta = stripTags(metaTitle);
   if (!meta || isPlaceholderHeading(meta)) return null;
   const parts = meta.split(/\s*[-–|]\s*/).map((p) => p.trim()).filter(Boolean);
   if (parts.length < 2) return null;

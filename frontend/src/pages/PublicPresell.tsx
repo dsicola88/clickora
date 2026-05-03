@@ -63,6 +63,8 @@ import {
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { cn } from "@/lib/utils";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
+import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
+import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -367,7 +369,10 @@ function ImportedMirrorProductSpotlight({
   ctaText: string;
   language: string;
 }) {
-  const mainSrc = productImages[Math.min(storefrontMainIdx, productImages.length - 1)];
+  const { src: mainSrc, onError: heroImgOnError } = usePresellHeroImageWithFallback(
+    productImages,
+    storefrontMainIdx,
+  );
   const midCta = getPresellUiStrings(language).midCta;
 
   const imageBlock = (
@@ -386,6 +391,7 @@ function ImportedMirrorProductSpotlight({
         <img
           src={mainSrc}
           alt={primarySeoLabel}
+          onError={heroImgOnError}
           className={cn(
             "w-full rounded-2xl object-contain mx-auto",
             "max-h-[min(560px,70vh)] min-h-[12rem]",
@@ -706,6 +712,13 @@ export default function PublicPresell() {
   const affiliateLink = (content.affiliateLink as string) || "#";
   const settings = (page?.settings || {}) as Record<string, unknown>;
 
+  const productImages = rankPresellProductImages(
+    Array.isArray(content.productImages)
+      ? (content.productImages as string[]).filter((u) => typeof u === "string" && u.length > 0)
+      : [],
+  );
+  const heroImageFallback = usePresellHeroImageWithFallback(productImages, storefrontMainIdx);
+
   const showCookieModal =
     getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted && !cookieDismissed;
   const showCookieChip =
@@ -811,15 +824,10 @@ export default function PublicPresell() {
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
 
-  const title = (content.title as string) || page.title;
-  const subtitle = (content.subtitle as string) || "";
+  const title = plainTextFromMaybeHtml((content.title as string) || page.title);
+  const subtitle = plainTextFromMaybeHtml((content.subtitle as string) || "");
   const salesText = (content.salesText as string) || "";
   const ctaText = (content.ctaText as string) || "Quero Aproveitar Agora";
-  const productImages = rankPresellProductImages(
-    Array.isArray(content.productImages)
-      ? (content.productImages as string[]).filter((u) => typeof u === "string" && u.length > 0)
-      : [],
-  );
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
 
@@ -878,12 +886,13 @@ export default function PublicPresell() {
     mirrorEligible && !mirrorUseTemplateFallback && !cookieModalBlocking;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
-  const productNameLabel =
+  const productNameLabel = plainTextFromMaybeHtml(
     typeof content.productName === "string"
       ? content.productName.trim()
       : typeof (content as { product_name?: unknown }).product_name === "string"
         ? String((content as { product_name: string }).product_name).trim()
-        : "";
+        : "",
+  );
   const showStorefrontRating =
     !isDiscount &&
     typeof content.ratingStars === "number" &&
@@ -1052,7 +1061,8 @@ export default function PublicPresell() {
                   <div className="space-y-4 md:sticky md:top-6">
                     <div className="rounded-2xl border border-amber-500/25 bg-black/25 shadow-[0_0_48px_-12px_rgba(251,191,36,0.12)] p-4 sm:p-5">
                       <img
-                        src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                        src={heroImageFallback.src}
+                        onError={heroImageFallback.onError}
                         alt={primarySeoLabel}
                         className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl"
                         loading="eager"
@@ -1199,7 +1209,8 @@ export default function PublicPresell() {
                   <div className="space-y-4 md:sticky md:top-6">
                     <div className="rounded-2xl border border-white/55 bg-white/25 shadow-[0_12px_40px_-12px_rgba(91,33,182,0.25)] backdrop-blur-[2px] p-4 sm:p-5">
                       <img
-                        src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                        src={heroImageFallback.src}
+                        onError={heroImageFallback.onError}
                         alt={primarySeoLabel}
                         className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-white/40"
                         loading="eager"
@@ -1309,7 +1320,8 @@ export default function PublicPresell() {
                 <div className="space-y-4 md:sticky md:top-6">
                   <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-4 sm:p-5">
                     <img
-                      src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                      src={heroImageFallback.src}
+                      onError={heroImageFallback.onError}
                       alt={primarySeoLabel}
                       className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-slate-50/80 dark:bg-muted/20"
                       loading="eager"
@@ -1423,7 +1435,8 @@ export default function PublicPresell() {
             {heroImage && !hideHeroImageForVslFallback ? (
               <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-4 shadow-sm border border-border/40 mx-auto max-w-2xl">
                 <img
-                  src={heroImage}
+                  src={heroImageFallback.src}
+                  onError={heroImageFallback.onError}
                   alt={primarySeoLabel}
                   className="w-full max-h-[min(420px,55vh)] object-contain mx-auto rounded-lg"
                   loading="eager"
