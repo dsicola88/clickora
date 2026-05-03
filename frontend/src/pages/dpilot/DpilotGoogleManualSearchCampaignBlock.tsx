@@ -11,11 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleRsaDescriptionsFieldStack, GoogleRsaHeadlinesFieldStack } from "@/components/dpilot/GoogleRsaLineEditors";
 import {
   type GoogleManualPlanFormState,
   newAdGroupRow,
   parseGoogleManualKeywordLines,
-  rsaLines,
 } from "./googleManualSearchPlanForm";
 import { StudioSettingsRow } from "./dpilotGoogleStudioSettingsUi";
 
@@ -296,8 +296,6 @@ export function DpilotGoogleManualSearchCampaignBlock(props: {
                       </div>
 
                       {f.adGroups.map((ag, gi) => {
-                        const headlineCount = rsaLines(ag.headlinesText, 15).length;
-                        const descCount = rsaLines(ag.descriptionsText, 4).length;
                         const kwCount = parseGoogleManualKeywordLines(ag.keywordsText).length;
                         return (
                           <div key={ag.id} className="rounded-lg border border-border/70 bg-background/90 p-3 shadow-xs">
@@ -346,31 +344,25 @@ export function DpilotGoogleManualSearchCampaignBlock(props: {
                                   onChange={(e) => updateAg(ag.id, { keywordsText: e.target.value })}
                                 />
                               </div>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="space-y-1.5">
-                                  <Label htmlFor={`ag-h-${ag.id}`} className="text-[11px]">
-                                    Titulares RSA ({headlineCount}/15, máx. 30 caracteres na rede)
-                                  </Label>
-                                  <Textarea
-                                    id={`ag-h-${ag.id}`}
-                                    rows={7}
-                                    className="font-mono text-xs"
-                                    placeholder="Um titular por linha"
+                              <div className="grid gap-6 sm:grid-cols-2 sm:gap-8">
+                                <div className="max-h-[480px] overflow-y-auto pr-1 sm:max-h-none">
+                                  <GoogleRsaHeadlinesFieldStack
                                     value={ag.headlinesText}
-                                    onChange={(e) => updateAg(ag.id, { headlinesText: e.target.value })}
+                                    onChange={(next) =>
+                                      updateAg(ag.id, {
+                                        headlinesText: next,
+                                      })
+                                    }
                                   />
                                 </div>
-                                <div className="space-y-1.5">
-                                  <Label htmlFor={`ag-d-${ag.id}`} className="text-[11px]">
-                                    Descrições RSA ({descCount}/4, máx. 90 caracteres)
-                                  </Label>
-                                  <Textarea
-                                    id={`ag-d-${ag.id}`}
-                                    rows={7}
-                                    className="font-mono text-xs"
-                                    placeholder="Uma linha por descrição"
+                                <div className="max-h-[480px] overflow-y-auto pr-1 sm:max-h-none">
+                                  <GoogleRsaDescriptionsFieldStack
                                     value={ag.descriptionsText}
-                                    onChange={(e) => updateAg(ag.id, { descriptionsText: e.target.value })}
+                                    onChange={(next) =>
+                                      updateAg(ag.id, {
+                                        descriptionsText: next,
+                                      })
+                                    }
                                   />
                                 </div>
                               </div>

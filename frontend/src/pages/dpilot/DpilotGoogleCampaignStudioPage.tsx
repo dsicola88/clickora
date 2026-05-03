@@ -15,6 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
+import { GoogleRsaDescriptionsFieldStack, GoogleRsaHeadlinesFieldStack } from "@/components/dpilot/GoogleRsaLineEditors";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -623,31 +624,27 @@ export function DpilotGoogleCampaignStudioPage() {
                         </div>
                       </div>
                       <Separator />
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label>Títulos RSA (≤15, máx. 30 caracteres cada; um por linha)</Label>
-                          <Textarea
+                      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+                        <div className="max-h-[min(520px,70vh)] overflow-y-auto pb-2 pr-1 lg:max-h-none">
+                          <GoogleRsaHeadlinesFieldStack
                             value={draftRsaH[ag.id] ?? ""}
-                            onChange={(e) =>
+                            onChange={(next) =>
                               setDraftRsaH((prev) => ({
                                 ...prev,
-                                [ag.id]: e.target.value,
+                                [ag.id]: next,
                               }))
                             }
-                            rows={6}
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label>Descrições RSA (2–4, máx. 90 caracteres; uma por linha)</Label>
-                          <Textarea
+                        <div className="max-h-[min(520px,70vh)] overflow-y-auto pb-2 pr-1 lg:max-h-none">
+                          <GoogleRsaDescriptionsFieldStack
                             value={draftRsaD[ag.id] ?? ""}
-                            onChange={(e) =>
+                            onChange={(next) =>
                               setDraftRsaD((prev) => ({
                                 ...prev,
-                                [ag.id]: e.target.value,
+                                [ag.id]: next,
                               }))
                             }
-                            rows={5}
                           />
                         </div>
                       </div>
@@ -657,7 +654,11 @@ export function DpilotGoogleCampaignStudioPage() {
                     </div>
                   ))}
                   <div className="flex justify-end">
-                    <Button type="button" onClick={() => void saveDraftAll()}>
+                    <Button
+                      type="button"
+                      className="rounded-lg px-8 font-semibold shadow-md transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-lg"
+                      onClick={() => void saveDraftAll()}
+                    >
                       Gravar rascunho completo (todos os grupos)
                     </Button>
                   </div>
@@ -804,8 +805,8 @@ export function DpilotGoogleCampaignStudioPage() {
                               </Select>
                               <Button
                                 type="button"
-                                variant="secondary"
-                                className="w-full"
+                                variant="outline"
+                                className="w-full border-primary/35 bg-gradient-to-br from-primary/[0.07] to-primary/[0.02] font-medium text-foreground hover:border-primary/55 hover:bg-primary/12"
                                 disabled={parts.length === 0}
                                 onClick={() =>
                                   void enqueue({
@@ -1202,8 +1203,9 @@ function AdGroupCpcEditors({
                   />
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="outline"
                     size="sm"
+                    className="border-sky-500/40 bg-sky-500/8 font-semibold text-sky-950 hover:border-sky-500/65 hover:bg-sky-500/15 dark:border-sky-400/35 dark:bg-sky-500/15 dark:text-sky-100 dark:hover:bg-sky-500/25"
                     onClick={() => {
                       const n = Number((usd[ag.id] ?? "").replace(",", "."));
                       if (!Number.isFinite(n) || n <= 0) return;
@@ -1276,15 +1278,17 @@ function RsaLiveEditor({
   if (!rsa0) return null;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <div className="space-y-2">
-        <Label>Títulos (3–15 linhas)</Label>
-        <Textarea rows={8} value={headlinesText} onChange={(e) => setHeadlinesText(e.target.value)} />
+    <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+      <div className="max-h-[min(560px,calc(100vh-14rem))] overflow-y-auto pr-1 lg:max-h-[640px]">
+        <GoogleRsaHeadlinesFieldStack value={headlinesText} onChange={setHeadlinesText} />
       </div>
-      <div className="space-y-2 flex flex-col">
-        <Label>Descrições (2–4 linhas)</Label>
-        <Textarea rows={6} value={descriptionsText} onChange={(e) => setDescriptionsText(e.target.value)} />
-        <Button className="mt-auto self-end" variant="secondary" type="button" onClick={() => void submit()}>
+      <div className="flex max-h-[min(560px,calc(100vh-14rem))] flex-col gap-6 overflow-y-auto pr-1 lg:max-h-[640px]">
+        <GoogleRsaDescriptionsFieldStack value={descriptionsText} onChange={setDescriptionsText} />
+        <Button
+          className="mt-auto self-end rounded-full px-10 font-semibold shadow-md ring-2 ring-primary/25 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary/40"
+          type="button"
+          onClick={() => void submit()}
+        >
           Gravar textos na rede (fila / Autopilot)
         </Button>
       </div>
