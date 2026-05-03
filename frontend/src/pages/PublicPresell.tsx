@@ -16,13 +16,12 @@ import {
   CookieConsentModal,
   CookieSettingsChip,
   PresellGateFields,
+  type GatePayload,
 } from "@/components/presell/PresellTypeControls";
 import {
   buildOfferForwardParamKeys,
   mergeLandingQueryIntoAffiliateUrl,
 } from "@/lib/presellOfferQueryForward";
-  type GatePayload,
-} from "@/components/presell/PresellTypeControls";
 import {
   getInteractiveGateKind,
   getPresellGateKind,
