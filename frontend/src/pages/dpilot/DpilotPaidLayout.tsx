@@ -109,6 +109,21 @@ export function DpilotPaidLayout() {
                 <NavLink to={`${base}/google`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
                   Conta e ligações
                 </NavLink>
+                <NavLink
+                  to={`${base}/campanhas`}
+                  className={() =>
+                    cn(
+                      navSub,
+                      (location.pathname === `${base}/campanhas` ||
+                        (location.pathname.startsWith(`${base}/campanhas/`) &&
+                          !location.pathname.startsWith(`${base}/campanhas/nova`))) &&
+                        navSubActive,
+                    )
+                  }
+                >
+                  <Workflow className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+                  Campanhas (lista · Gestão)
+                </NavLink>
                 <NavLink to={`${base}/campanhas/nova`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
                   <Sparkles className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                   Nova campanha (assistente)
