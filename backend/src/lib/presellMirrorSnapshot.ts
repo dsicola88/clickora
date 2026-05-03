@@ -13,6 +13,56 @@ function hostnameNoWww(url: string): string {
   }
 }
 
+/** Hostnames típicos de checkout / plataformas de afiliados (Hoplink pode ser outro domínio que o carrinho). */
+const COMMERCE_HOST_MARKERS = [
+  "buygoods",
+  "clickbank.net",
+  "clickbank.com",
+  "digistore",
+  "hotmart",
+  "kiwify",
+  "cartpanda",
+  "paylix",
+  "jvzoo",
+  "warriorplus",
+  "stripe.com",
+  "paypal.com",
+  "whop.com",
+  "gumroad.com",
+  "lemonsqueezy.com",
+];
+
+function hostLooksLikeCommerceOrCheckout(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return COMMERCE_HOST_MARKERS.some((m) => h.includes(m));
+}
+
+function pathOrQueryLooksLikeCheckout(abs: URL): boolean {
+  const s = `${abs.pathname}${abs.search}`.toLowerCase();
+  return (
+    /(\/secure\/checkout|\/checkout\.html|\/checkout\/|\/checkout\?|\/cart\/|\/cart\?|\/order\/|\/buy\b|\/purchase|\/pay\b|aff_id=|affiliate[_-]?id=|vendor[_-]?id=|cbfid=|cbexit|cbtimer|tid=|item[_-]?number=)/i.test(
+      s,
+    ) || /[?&](aff_id|affiliate_id|hop|tid|vendor|cbfid|item|itemnumber)=/i.test(s)
+  );
+}
+
+/**
+ * Ligações que devem usar o hoplink rastreado da presell (marcador), não a URL crua da página clonada.
+ * Além do host da página / do Hoplink configurado, incluímos checkouts comuns (ex.: buygoods.com).
+ */
+export function mirrorUrlShouldUseTrackMarker(abs: URL, hosts: Set<string>): boolean {
+  if (abs.protocol !== "http:" && abs.protocol !== "https:") return false;
+  const path = abs.pathname.toLowerCase();
+  if (/\.(jpe?g|png|gif|webp|svg|ico|mp4|webm|pdf|zip|css|js|mjs|map|woff2?|ttf|otf|eot)(\?|$)/.test(path)) {
+    return false;
+  }
+  const h = abs.hostname.replace(/^www\./, "").toLowerCase();
+  if (hosts.size > 0 && hosts.has(h)) return true;
+  if (hostLooksLikeCommerceOrCheckout(abs.hostname)) return true;
+  if (pathOrQueryLooksLikeCheckout(abs)) return true;
+  return false;
+}
+
 function escapeBaseHref(href: string): string {
   return href.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
@@ -110,8 +160,7 @@ function rewriteFormActionsForMirror(root: HTMLElement, base: URL, hosts: Set<st
       return;
     }
     if (abs.protocol !== "http:" && abs.protocol !== "https:") return;
-    const h = abs.hostname.replace(/^www\./, "").toLowerCase();
-    if (!(hosts.size > 0 && hosts.has(h))) return;
+    if (!mirrorUrlShouldUseTrackMarker(abs, hosts)) return;
     el.setAttribute(attr, CLICKORA_MIRROR_TRACK_MARKER);
     if (attr === "action") {
       patchFormTarget(el);
@@ -122,6 +171,55 @@ function rewriteFormActionsForMirror(root: HTMLElement, base: URL, hosts: Set<st
 
   root.querySelectorAll("form[action]").forEach((f) => rewriteUrlAttr(f as HTMLElement, "action"));
   root.querySelectorAll("[formaction]").forEach((el) => rewriteUrlAttr(el as HTMLElement, "formaction"));
+}
+
+const DATA_NAV_ATTRS = ["data-href", "data-url", "data-link", "data-target-href", "data-checkout-url"] as const;
+
+/** URLs em data-* (comum em React/Vue) — o espelho não executa JS, por isso sintetizamos `<a href>`. */
+function rewriteDataAttrNavigatorsForMirror(root: HTMLElement, base: URL, hosts: Set<string>): void {
+  for (const attr of DATA_NAV_ATTRS) {
+    root.querySelectorAll(`[${attr}]`).forEach((node) => {
+      const el = node as HTMLElement;
+      const raw = el.getAttribute(attr)?.trim();
+      if (!raw) return;
+      let hrefForParse = raw;
+      if (hrefForParse.startsWith("//")) hrefForParse = `https:${hrefForParse}`;
+      if (!/^https?:\/\//i.test(hrefForParse)) return;
+      let abs: URL;
+      try {
+        abs = new URL(hrefForParse, base);
+      } catch {
+        return;
+      }
+      if (abs.protocol !== "http:" && abs.protocol !== "https:") return;
+      if (!mirrorUrlShouldUseTrackMarker(abs, hosts)) return;
+      el.removeAttribute(attr);
+      const hrefValue = CLICKORA_MIRROR_TRACK_MARKER;
+      const tag = el.tagName?.toLowerCase() ?? "";
+      if (tag === "a") {
+        mirrorApplyHrefToAnchor(el, hrefValue);
+        return;
+      }
+      if (tag === "button") {
+        mirrorReplaceWithNavAnchor(el, hrefValue, "children");
+        return;
+      }
+      if (tag === "input") {
+        const t = (el.getAttribute("type") || "text").toLowerCase();
+        if (t === "button" || t === "submit") {
+          mirrorReplaceWithNavAnchor(el, hrefValue, "inputValue");
+          return;
+        }
+        if (t === "image") {
+          mirrorReplaceWithNavAnchor(el, hrefValue, "inputImage");
+        }
+        return;
+      }
+      if (tag === "div" || tag === "span") {
+        mirrorReplaceWithNavAnchor(el, hrefValue, "children");
+      }
+    });
+  }
 }
 
 function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: Set<string>): void {
@@ -138,8 +236,7 @@ function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: 
       return;
     }
     if (abs.protocol !== "http:" && abs.protocol !== "https:") return;
-    const h = abs.hostname.replace(/^www\./, "").toLowerCase();
-    const hrefValue = hosts.size > 0 && hosts.has(h) ? CLICKORA_MIRROR_TRACK_MARKER : abs.href;
+    const hrefValue = mirrorUrlShouldUseTrackMarker(abs, hosts) ? CLICKORA_MIRROR_TRACK_MARKER : abs.href;
 
     const tag = el.tagName?.toLowerCase() ?? "";
 
@@ -241,10 +338,9 @@ export function finalizeMirrorSrcDocForImport(
     } catch {
       return;
     }
-    const h = abs.hostname.replace(/^www\./, "").toLowerCase();
     a.setAttribute("target", "_top");
     a.setAttribute("rel", "noopener noreferrer");
-    if (hosts.size > 0 && hosts.has(h)) {
+    if (mirrorUrlShouldUseTrackMarker(abs, hosts)) {
       a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);
     } else {
       a.setAttribute("href", abs.href);
@@ -252,6 +348,7 @@ export function finalizeMirrorSrcDocForImport(
   });
 
   rewriteFormActionsForMirror(root, base, hosts);
+  rewriteDataAttrNavigatorsForMirror(root, base, hosts);
   rewriteOnclickNavigatorsForMirror(root, base, hosts);
 
   let out = root.toString();
