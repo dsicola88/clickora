@@ -236,13 +236,18 @@ function buildInteractiveGateHtml(
   const minAge = num(settings.minAge, 18);
   const parts: string[] = [`<div class="pe-gate-box"><p>${escapeHtml(L.before)}</p>`];
 
-  if (kind === "age") {
+  const needAge = kind === "age" || kind === "age_sex" || kind === "age_country";
+  const needSex = kind === "sex" || kind === "age_sex" || kind === "sex_country";
+  const needCountry = kind === "country" || kind === "age_country" || kind === "sex_country";
+
+  if (needAge) {
     parts.push(
       `<label for="pe-gate-age">${escapeHtml(L.age)}</label>`,
       `<input type="number" id="pe-gate-age" inputmode="numeric" min="${minAge}" max="120" placeholder="18+" />`,
       `<p class="pe-hint">${escapeHtml(L.ageHint(minAge))}</p>`,
     );
-  } else if (kind === "sex") {
+  }
+  if (needSex) {
     parts.push(`<span class="label-like">${escapeHtml(L.sex)}</span>`);
     for (const [val, lab] of [
       ["m", L.m],
@@ -253,14 +258,17 @@ function buildInteractiveGateHtml(
         `<div class="pe-radio-row"><input type="radio" name="pe-sex" id="pe-sex-${val}" value="${val}" /> <label for="pe-sex-${val}">${escapeHtml(lab)}</label></div>`,
       );
     }
-  } else if (kind === "age_group_m" || kind === "age_group_f") {
-    parts.push(`<label for="pe-gate-group">${escapeHtml(L.group)}</label>`);
-    parts.push(`<select id="pe-gate-group"><option value="">—</option>${AGE_GROUPS.map((g) => `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join("")}</select>`);
-  } else if (kind === "country") {
+  }
+  if (needCountry) {
     parts.push(`<label for="pe-gate-country">${escapeHtml(L.country)}</label>`);
     parts.push(
       `<select id="pe-gate-country"><option value="">—</option>${COUNTRIES.map((c) => `<option value="${escapeAttr(c.code)}">${escapeHtml(c.name)}</option>`).join("")}</select>`,
     );
+  }
+
+  if (kind === "age_group_m" || kind === "age_group_f") {
+    parts.push(`<label for="pe-gate-group">${escapeHtml(L.group)}</label>`);
+    parts.push(`<select id="pe-gate-group"><option value="">—</option>${AGE_GROUPS.map((g) => `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join("")}</select>`);
   } else if (kind === "captcha") {
     parts.push(
       `<div class="pe-radio-row"><input type="checkbox" id="pe-gate-human" /> <label for="pe-gate-human">${escapeHtml(L.captcha)}</label></div>`,
@@ -397,6 +405,12 @@ function buildGateScript(kind: InteractivePresellGateKind | null, settings: Reco
         return `${setCtas}var i=document.getElementById("pe-gate-age");function u(){var v=parseInt(i&&i.value,10);var ok=Number.isFinite(v)&&v>=${minAge};peSetCtas(ok);}if(i){i.addEventListener("input",u);u();}`;
       case "sex":
         return `${setCtas}function u(){var c=document.querySelector('input[name="pe-sex"]:checked');var ok=c&&c.value;peSetCtas(!!ok);}document.querySelectorAll('input[name="pe-sex"]').forEach(function(r){r.addEventListener("change",u);});u();`;
+      case "age_sex":
+        return `${setCtas}var ia=document.getElementById("pe-gate-age");function u(){var v=parseInt(ia&&ia.value,10);var okAge=Number.isFinite(v)&&v>=${minAge};var c=document.querySelector('input[name="pe-sex"]:checked');var okSex=c&&c.value;peSetCtas(okAge&&!!okSex);}if(ia){ia.addEventListener("input",u);}document.querySelectorAll('input[name="pe-sex"]').forEach(function(r){r.addEventListener("change",u);});u();`;
+      case "age_country":
+        return `${setCtas}var ia=document.getElementById("pe-gate-age");var sc=document.getElementById("pe-gate-country");function u(){var v=parseInt(ia&&ia.value,10);var okAge=Number.isFinite(v)&&v>=${minAge};var okC=sc&&sc.value;peSetCtas(okAge&&!!okC);}if(ia){ia.addEventListener("input",u);}if(sc){sc.addEventListener("change",u);}u();`;
+      case "sex_country":
+        return `${setCtas}var sc=document.getElementById("pe-gate-country");function u(){var c=document.querySelector('input[name="pe-sex"]:checked');var okS=c&&c.value;var okC=sc&&sc.value;peSetCtas(!!okS&&!!okC);}document.querySelectorAll('input[name="pe-sex"]').forEach(function(r){r.addEventListener("change",u);});if(sc){sc.addEventListener("change",u);}u();`;
       case "age_group_m":
       case "age_group_f":
         return `${setCtas}var s=document.getElementById("pe-gate-group");function u(){var ok=s&&s.value;peSetCtas(!!ok);}if(s){s.addEventListener("change",u);u();}`;

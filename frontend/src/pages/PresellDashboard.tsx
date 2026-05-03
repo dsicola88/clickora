@@ -971,7 +971,7 @@ export default function PresellDashboard() {
                   </p>
                 </div>
               ) : null}
-              {formData.presellType === "idade" ? (
+              {["idade", "idade_sexo", "idade_pais"].includes(formData.presellType) ? (
                 <div className="space-y-2">
                   <Label htmlFor="minAge">Idade mínima para liberar o botão</Label>
                   <Input
@@ -989,7 +989,16 @@ export default function PresellDashboard() {
                   </p>
                 </div>
               ) : null}
-              {["sexo", "grupo_homem", "grupo_mulher", "pais", "captcha", "modelos"].includes(formData.presellType) ? (
+              {[
+                "sexo",
+                "grupo_homem",
+                "grupo_mulher",
+                "pais",
+                "captcha",
+                "modelos",
+                "idade_sexo",
+                "sexo_pais",
+              ].includes(formData.presellType) ? (
                 <p className="text-xs text-muted-foreground">
                   Na página pública aparece o formulário correspondente. O botão da oferta só ativa após preencher
                   corretamente. O clique usa o mesmo link de afiliado guardado na presell.

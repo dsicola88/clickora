@@ -208,6 +208,27 @@ export function PresellGateFields({
         if (model) params.co_model = model;
         ctaEnabled = !!model;
         break;
+      case "age_sex": {
+        const n = parseInt(age, 10);
+        const okAge = Number.isFinite(n) && n >= minAge;
+        if (okAge) params.co_age = String(n);
+        if (sex) params.co_sex = sex;
+        ctaEnabled = okAge && !!sex;
+        break;
+      }
+      case "age_country": {
+        const n = parseInt(age, 10);
+        const okAge = Number.isFinite(n) && n >= minAge;
+        if (okAge) params.co_age = String(n);
+        if (country) params.co_country = country;
+        ctaEnabled = okAge && !!country;
+        break;
+      }
+      case "sex_country":
+        if (sex) params.co_sex = sex;
+        if (country) params.co_country = country;
+        ctaEnabled = !!sex && !!country;
+        break;
       default:
         break;
     }
@@ -219,7 +240,7 @@ export function PresellGateFields({
     <div className="w-full max-w-lg mx-auto rounded-xl border border-border/60 bg-card/80 p-5 text-left shadow-sm space-y-4 mb-6">
       <p className="text-sm font-semibold text-foreground">{L.beforeContinue}</p>
 
-      {gateKind === "age" ? (
+      {gateKind === "age" || gateKind === "age_sex" || gateKind === "age_country" ? (
         <div className="space-y-2">
           <Label htmlFor="gate-age">{L.ageLabel}</Label>
           <Input
@@ -237,7 +258,7 @@ export function PresellGateFields({
         </div>
       ) : null}
 
-      {gateKind === "sex" ? (
+      {gateKind === "sex" || gateKind === "age_sex" || gateKind === "sex_country" ? (
         <div className="space-y-3">
           <Label>{L.sexLabel}</Label>
           <RadioGroup value={sex} onValueChange={setSex} className="flex flex-col gap-2">
@@ -281,7 +302,7 @@ export function PresellGateFields({
         </div>
       ) : null}
 
-      {gateKind === "country" ? (
+      {gateKind === "country" || gateKind === "age_country" || gateKind === "sex_country" ? (
         <div className="space-y-2">
           <Label>{L.countryLabel}</Label>
           <Select value={country} onValueChange={setCountry}>

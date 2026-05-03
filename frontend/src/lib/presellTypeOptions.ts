@@ -105,6 +105,23 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
           "O visitante indica a idade; podes definir idade mínima nas opções. CTA desativado até a resposta ser válida.",
       },
       {
+        id: "idade_sexo",
+        name: "Idade + sexo",
+        description:
+          "Idade (mínima configurável) e sexo antes de liberar o CTA — comum quando a rede ou a oferta exige os dois.",
+      },
+      {
+        id: "idade_pais",
+        name: "Idade + país",
+        description:
+          "Idade mínima e país antes do link da oferta; útil para envio, moeda ou mensagem geo-específica.",
+      },
+      {
+        id: "sexo_pais",
+        name: "Sexo + país",
+        description: "Sexo e país antes do CTA.",
+      },
+      {
         id: "grupo_homem",
         name: "Grupo etário — homem",
         description:

@@ -8,7 +8,7 @@
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
  * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |
  * | tsl, dtc, review | Layout padrão (hero claro) com texto e imagens importados; com espelho importado, o iframe substitui esse bloco mantendo overlays e gates. |
- * | sexo, idade, grupo_*, pais, captcha, modelos | Formulário antes do CTA; CTA só ativo com dados válidos; com espelho HTML, o formulário fica acima do iframe. |
+ * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação antes do CTA; com espelho HTML o formulário fica fixo no topo e os cliques no clone ficam bloqueados até validar. |
  * | builder     | Editor visual; se existir espelho importado (`importMirrorSrcDoc`), usa-se o espelho com as regras abaixo. |
  */
 export type PresellGateKind =
@@ -69,11 +69,25 @@ export function isBuilderPresellType(presellType: string): boolean {
   return presellType === "builder";
 }
 
-/** Tipos que exibem formulário antes do CTA (idade, sexo, país, etc.). */
-export type InteractivePresellGateKind = Exclude<PresellGateKind, "none" | "cookies">;
+/** Formulário simples ou combinado antes do CTA. */
+export type CoreInteractivePresellGateKind = Exclude<PresellGateKind, "none" | "cookies">;
+
+export type CompoundInteractivePresellGateKind = "age_sex" | "age_country" | "sex_country";
+
+export type InteractivePresellGateKind = CoreInteractivePresellGateKind | CompoundInteractivePresellGateKind;
 
 export function getInteractiveGateKind(presellType: string): InteractivePresellGateKind | null {
-  const g = getPresellGateKind(presellType);
-  if (g === "none" || g === "cookies") return null;
-  return g;
+  switch (presellType) {
+    case "idade_sexo":
+      return "age_sex";
+    case "idade_pais":
+      return "age_country";
+    case "sexo_pais":
+      return "sex_country";
+    default: {
+      const g = getPresellGateKind(presellType);
+      if (g === "none" || g === "cookies") return null;
+      return g as InteractivePresellGateKind;
+    }
+  }
 }

@@ -734,9 +734,10 @@ export default function PublicPresell() {
       {showImportedMirror && interactiveKind ? (
         <section
           className={cn(
-            "relative z-[30] w-full border-b border-border/60 bg-muted/40 px-3 py-6 sm:px-4 backdrop-blur-[2px]",
+            "sticky z-[35] w-full border-b border-border/60 bg-muted/95 px-3 py-5 sm:px-4 backdrop-blur-md shadow-[0_1px_0_rgba(0,0,0,0.05)]",
+            isDiscount ? "top-[5.25rem]" : "top-0",
             isVslLayout &&
-              "border-white/10 bg-slate-900/92 text-slate-100 shadow-[0_1px_0_rgba(255,255,255,0.06)] [&_label]:text-slate-100 [&_p]:text-slate-200",
+              "border-white/10 bg-slate-900/95 text-slate-100 shadow-[0_1px_0_rgba(255,255,255,0.06)] [&_label]:text-slate-100 [&_p]:text-slate-200",
           )}
         >
           <div className="max-w-3xl mx-auto text-center [&_.space-y-2]:text-left sm:[&_.space-y-2]:text-left">
@@ -755,6 +756,7 @@ export default function PublicPresell() {
           srcDoc={mirrorSrcDoc}
           title={primarySeoLabel}
           onMirrorProbablyEmpty={() => setMirrorUseTemplateFallback(true)}
+          interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
         />
       ) : null}
 

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   srcDoc: string;
   title?: string;
   /** Chamado se o `<body>` parecer vazio (texto mínimo e sem media/tabelas) — permite cair no layout React. */
   onMirrorProbablyEmpty?: () => void;
+  /** Quando true, bloqueia cliques na página clonada (ex.: gate idade/sexo ainda inválido). */
+  interactionLocked?: boolean;
 };
 
 /**
@@ -15,6 +18,7 @@ export function ImportedPageMirrorIframe({
   srcDoc,
   title = "Página do produto",
   onMirrorProbablyEmpty,
+  interactionLocked = false,
 }: Props) {
   const ref = useRef<HTMLIFrameElement>(null);
   const roRef = useRef<ResizeObserver | null>(null);
@@ -127,7 +131,10 @@ export function ImportedPageMirrorIframe({
         title={title}
         srcDoc={srcDoc}
         onLoad={onLoad}
-        className="w-full max-w-full border-0 block bg-white min-h-[min(72vh,520px)]"
+        className={cn(
+          "w-full max-w-full border-0 block bg-white min-h-[min(72vh,520px)]",
+          interactionLocked && "pointer-events-none select-none",
+        )}
         style={{ height, width: "100%", maxWidth: "100%" }}
         sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
