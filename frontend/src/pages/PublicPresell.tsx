@@ -53,13 +53,14 @@ import { applyPublicPresellHeadMetadata } from "@/lib/publicPresellSeo";
 import { getPresellSeoPrimaryTitle } from "@/lib/publicPresellDocumentTitle";
 import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
 import { PresellLanguageSelector } from "@/components/presell/PresellLanguageSelector";
+import { ImportedPageMirrorIframe } from "@/components/presell/ImportedPageMirrorIframe";
 import {
   darkStorefrontNavLabels,
   getPresellUiStrings,
   htmlLangForLocale,
   isRtlLocale,
 } from "@/lib/presellUiStrings";
-import { cn } from "@/lib/utils";
+import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -533,6 +534,14 @@ export default function PublicPresell() {
     return makeTrackClickUrl(apiBase, page.id, dest, search);
   }, [apiBase, page?.id, page?.type, affiliateLink, search, fieldGate.params, settings.offerQueryForwardAllowlist]);
 
+  const importMirrorSrcDocRaw =
+    typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc.trim() : "";
+
+  const mirrorSrcDoc = useMemo(() => {
+    if (!importMirrorSrcDocRaw || !href) return "";
+    return buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
+  }, [importMirrorSrcDocRaw, href]);
+
   const videoEmbedSrc = useMemo(() => {
     if (!page?.video_url) return "";
     return resolveVideoEmbedSrc(page.video_url);
@@ -639,6 +648,13 @@ export default function PublicPresell() {
     storefrontLayout && storefrontTheme !== "dark_commerce" && storefrontHeroTint;
   /** Corpo claro em largura total (como a landing original por baixo do hero). */
   const storefrontMirrorLightBody = useDarkMirrorStorefront || useTintedCommerceStorefront;
+  const useImportedPageMirror =
+    importMirrorSrcDocRaw.length > 800 &&
+    mirrorSrcDoc.length > 800 &&
+    !isVslLayout &&
+    !isGhostPage &&
+    page.type !== "builder";
+
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
     typeof content.productName === "string"
@@ -703,7 +719,11 @@ export default function PublicPresell() {
         />
       ) : null}
 
-      {storefrontLayout ? (
+      {useImportedPageMirror ? (
+        <ImportedPageMirrorIframe srcDoc={mirrorSrcDoc} title={primarySeoLabel} />
+      ) : null}
+
+      {!useImportedPageMirror && storefrontLayout ? (
         useDarkMirrorStorefront ? (
           <>
             <header className="sticky top-0 z-40 border-b border-amber-500/30 bg-[#060a12]/95 backdrop-blur-md">
@@ -1115,7 +1135,7 @@ export default function PublicPresell() {
             </div>
           </section>
         )
-      ) : (
+      ) : !useImportedPageMirror ? (
         <section
           className={
             isVslLayout
@@ -1243,9 +1263,9 @@ export default function PublicPresell() {
             )}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {galleryImages.length > 0 && !showVslFallback && !storefrontLayout ? (
+      {galleryImages.length > 0 && !showVslFallback && !storefrontLayout && !useImportedPageMirror ? (
         <section className="max-w-5xl mx-auto px-4 py-10">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
             {galleryImages.map((src, i) => (
@@ -1266,7 +1286,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {showSalesLetterSection ? (
+      {showSalesLetterSection && !useImportedPageMirror ? (
         <section
           id={storefrontMirrorLightBody ? "presell-story" : undefined}
           className={cn(
@@ -1383,7 +1403,7 @@ export default function PublicPresell() {
     <div
       className={cn(
         "min-h-screen pb-12",
-        storefrontMirrorLightBody ? "bg-white" : "bg-background",
+        useImportedPageMirror || storefrontMirrorLightBody ? "bg-white" : "bg-background",
       )}
     >
       <PresellMarketingOverlays

@@ -659,6 +659,9 @@ export default function PresellDashboard() {
           /** Espelho visual para landings escuras (detetado no import). */
           storefrontTheme: data.storefront_theme,
           storefrontHeroTint: data.storefront_hero_tint,
+          ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
+            ? { importMirrorSrcDoc: data.import_mirror_src_doc }
+            : {}),
           /** Extraído da página do produto — usado no layout tipo loja (estrelas). */
           ratingValue: data.rating_value,
           ratingStars: data.rating_stars ?? 5,

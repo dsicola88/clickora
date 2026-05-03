@@ -1,6 +1,7 @@
 /**
  * Renderiza a página com Chromium para landings que montam o hero em JavaScript
  * (shell HTML + bundle — o fetch simples não vê a primeira dobra real).
+ * Opcionalmente captura um espelho HTML (head + body) para iframe de alta fidelidade.
  */
 
 const DEFAULT_UA =
@@ -20,14 +21,19 @@ export function acceptLanguageForPresellImport(language: string | undefined): st
   return "en-US,en;q=0.9";
 }
 
+export type RenderedPageBundle = {
+  html: string;
+  mirrorParts: { baseHref: string; headSnip: string; bodyInner: string } | null;
+};
+
 /**
- * Devolve o HTML após execução de JS (primeira dobra visível no viewport típico desktop).
- * Falha em silêncio (null) se Playwright não estiver instalado, estiver desativado, ou o site bloquear.
+ * HTML após JS + recorte do head (CSS) e body para espelho no iframe da presell.
+ * `mirrorParts` é null se o conteúdo for ínfimo ou a captura falhar.
  */
-export async function fetchHtmlAfterJsRender(
+export async function fetchRenderedPageBundle(
   pageUrl: string,
   acceptLanguage: string,
-): Promise<string | null> {
+): Promise<RenderedPageBundle | null> {
   if (process.env.PRESELL_DISABLE_PLAYWRIGHT === "1") return null;
 
   let chromium: typeof import("playwright").chromium;
@@ -70,10 +76,53 @@ export async function fetchHtmlAfterJsRender(
     } catch {
       /* ignore */
     }
-    return await page.content();
+
+    const html = await page.content();
+
+    type MirrorEval = { baseHref: string; headSnip: string; bodyInner: string; ok: boolean };
+    const mirrorParts = (await page.evaluate(`(() => {
+      const MAX_HEAD = 180000;
+      const MAX_BODY = 550000;
+      const headEls = document.querySelectorAll(
+        'head link[rel="stylesheet"], head link[rel="preconnect"], head link[rel="dns-prefetch"], head style',
+      );
+      const parts = [];
+      headEls.forEach((el) => parts.push(el.outerHTML));
+      let headSnip = parts.join("\\n");
+      if (headSnip.length > MAX_HEAD) headSnip = headSnip.slice(0, MAX_HEAD);
+      const raw = document.body && document.body.cloneNode(true);
+      if (!raw || raw.nodeType !== 1) {
+        return { baseHref: "", headSnip: "", bodyInner: "", ok: false };
+      }
+      const b = raw;
+      b.querySelectorAll("script, iframe, noscript, object, embed").forEach((n) => n.remove());
+      let bodyInner = b.innerHTML;
+      if (bodyInner.length > MAX_BODY) bodyInner = bodyInner.slice(0, MAX_BODY);
+      const baseHref = document.baseURI || window.location.href.split("#")[0];
+      return { baseHref, headSnip, bodyInner, ok: bodyInner.length > 200 };
+    })()`)) as MirrorEval;
+
+    const mirror =
+      mirrorParts.ok && mirrorParts.baseHref && mirrorParts.bodyInner.length > 200
+        ? {
+            baseHref: mirrorParts.baseHref,
+            headSnip: mirrorParts.headSnip,
+            bodyInner: mirrorParts.bodyInner,
+          }
+        : null;
+
+    return { html, mirrorParts: mirror };
   } catch {
     return null;
   } finally {
     await browser?.close().catch(() => {});
   }
+}
+
+/**
+ * @deprecated Preferir `fetchRenderedPageBundle`; mantido para chamadas que só precisam do HTML.
+ */
+export async function fetchHtmlAfterJsRender(pageUrl: string, acceptLanguage: string): Promise<string | null> {
+  const bundle = await fetchRenderedPageBundle(pageUrl, acceptLanguage);
+  return bundle?.html ?? null;
 }

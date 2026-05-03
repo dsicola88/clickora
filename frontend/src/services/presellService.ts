@@ -40,6 +40,7 @@ export const presellService = {
       affiliate_link: string;
       video_url?: string;
       official_buy_cta: string;
+      import_mirror_src_doc?: string;
       discount_percent: number | null;
       discount_headline: string;
       social_proof: string;

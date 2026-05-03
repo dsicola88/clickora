@@ -7,7 +7,8 @@ import {
   referencePriceLineRich,
   socialProofFallback,
 } from "./presellLocalePack";
-import { acceptLanguageForPresellImport, fetchHtmlAfterJsRender } from "./presellFoldBrowser";
+import { acceptLanguageForPresellImport, fetchRenderedPageBundle } from "./presellFoldBrowser";
+import { buildMirrorSrcDocFromParts, finalizeMirrorSrcDocForImport } from "./presellMirrorSnapshot";
 
 type ImportPresellInput = {
   productUrl: string;
@@ -46,6 +47,11 @@ export type ImportPresellResult = {
   urgency_timer_seconds: number;
   /** Texto do botão principal em presell “desconto”. */
   official_buy_cta: string;
+  /**
+   * Documento HTML (iframe) espelhando a página importada — CSS do &lt;head&gt; + &lt;body&gt; sem scripts.
+   * Links do mesmo host que o hoplink são trocados por marcador substituível no cliente pelo `/track/r/`.
+   */
+  import_mirror_src_doc?: string;
 };
 
 const DEFAULT_UA =
@@ -1199,13 +1205,17 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     );
   }
 
-  /** Respostas curtas são comuns com bloqueio a bots ou shell mínimo; um browser real pode obter o HTML completo. */
+  /**
+   * Espelho de alta fidelidade (Playwright) — por defeito ativo (`PRESELL_IMPORT_MIRROR=0` desliga).
+   * Também cobre respostas curtas / SPA sem conteúdo no HTML estático.
+   */
+  const wantMirror = process.env.PRESELL_IMPORT_MIRROR !== "0";
   const needsBrowserRender =
     html.length < MIN_HTML_CHARS || staticHtmlLikelyMissingMainContent(html);
-  let renderedHtml: string | null = null;
-  if (needsBrowserRender) {
-    renderedHtml = await fetchHtmlAfterJsRender(finalUrl, acceptLang);
-  }
+
+  const bundle =
+    wantMirror || needsBrowserRender ? await fetchRenderedPageBundle(finalUrl, acceptLang) : null;
+  const renderedHtml = bundle?.html ?? null;
 
   if (html.length < MIN_HTML_CHARS) {
     if (
@@ -1230,6 +1240,18 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     !staticHtmlLikelyMissingMainContent(renderedHtml)
   ) {
     html = renderedHtml;
+  }
+
+  const affForMirror = (input.affiliateLink || finalUrl).trim();
+  let import_mirror_src_doc: string | undefined;
+  if (wantMirror && bundle?.mirrorParts) {
+    const raw = buildMirrorSrcDocFromParts(
+      bundle.mirrorParts.baseHref,
+      bundle.mirrorParts.headSnip,
+      bundle.mirrorParts.bodyInner,
+    );
+    const finalized = finalizeMirrorSrcDocForImport(raw, finalUrl, affForMirror);
+    if (finalized) import_mirror_src_doc = finalized;
   }
 
   const locale = localePack(language);
@@ -1307,5 +1329,6 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     official_buy_cta: officialBuyCta(language),
     ...discount,
     ...(video_url ? { video_url } : {}),
+    ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
   };
 }
