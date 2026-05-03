@@ -727,7 +727,7 @@ export default function PublicPresell() {
         useDarkMirrorStorefront ? (
           <>
             <header className="sticky top-0 z-40 border-b border-amber-500/30 bg-[#060a12]/95 backdrop-blur-md">
-              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 h-14 sm:h-[3.75rem] flex items-center justify-between gap-3">
+              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 h-14 sm:h-[3.75rem] flex items-center justify-between gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className="h-2 w-2 rounded-full bg-amber-400 shrink-0 shadow-[0_0_12px_rgba(251,191,36,0.45)]"
@@ -754,7 +754,7 @@ export default function PublicPresell() {
                 <a
                   href={href}
                   className={cn(
-                    "shrink-0 rounded border border-amber-400/90 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-amber-400 hover:bg-amber-400/10 transition-colors",
+                    "shrink-0 rounded border border-amber-400/90 px-2 sm:px-3 py-1.5 max-w-[min(11rem,42vw)] sm:max-w-[13rem] md:max-w-none truncate text-[10px] sm:text-xs font-bold uppercase tracking-wide text-amber-400 hover:bg-amber-400/10 transition-colors",
                     !ctaEnabled && "pointer-events-none opacity-50",
                   )}
                 >
@@ -826,7 +826,7 @@ export default function PublicPresell() {
                         {productNameLabel}
                       </p>
                     ) : null}
-                    <h1 className="text-2xl sm:text-3xl lg:text-[2.65rem] font-sans font-extrabold uppercase tracking-tight text-white leading-tight">
+                    <h1 className="text-2xl sm:text-3xl lg:text-[2.65rem] font-sans font-extrabold uppercase tracking-tight text-white leading-tight break-words">
                       {title}
                     </h1>
                     {showStorefrontRating ? (
@@ -880,7 +880,7 @@ export default function PublicPresell() {
         ) : useTintedCommerceStorefront ? (
           <>
             <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-900/95 backdrop-blur-md">
-              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 h-14 sm:h-[3.75rem] flex items-center justify-between gap-3">
+              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 h-14 sm:h-[3.75rem] flex items-center justify-between gap-2 sm:gap-3">
                 <span className="font-bold text-white tracking-wide uppercase truncate text-xs sm:text-sm md:text-base min-w-0">
                   {(productNameLabel || title).slice(0, 42)}
                 </span>
@@ -901,7 +901,7 @@ export default function PublicPresell() {
                 <a
                   href={href}
                   className={cn(
-                    "shrink-0 rounded-lg bg-teal-500 px-3 py-1.5 text-[10px] sm:text-xs font-bold text-white shadow-md hover:bg-teal-500 hover:brightness-110 transition-[filter]",
+                    "shrink-0 rounded-lg bg-teal-500 px-2 sm:px-3 py-1.5 max-w-[min(11rem,42vw)] sm:max-w-[13rem] md:max-w-none truncate text-[10px] sm:text-xs font-bold text-white shadow-md hover:bg-teal-500 hover:brightness-110 transition-[filter]",
                     !ctaEnabled && "pointer-events-none opacity-50",
                   )}
                 >
@@ -973,7 +973,7 @@ export default function PublicPresell() {
                         {productNameLabel}
                       </p>
                     ) : null}
-                    <h1 className="text-2xl sm:text-3xl lg:text-[2.45rem] font-sans font-bold tracking-tight text-white leading-[1.15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.18)]">
+                    <h1 className="text-2xl sm:text-3xl lg:text-[2.45rem] font-sans font-bold tracking-tight text-white leading-[1.15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.18)] break-words">
                       {title}
                     </h1>
                     {showStorefrontRating ? (
@@ -1083,7 +1083,7 @@ export default function PublicPresell() {
                       {productNameLabel}
                     </p>
                   ) : null}
-                  <h1 className="text-2xl sm:text-3xl lg:text-[2.2rem] font-serif font-bold tracking-tight text-foreground leading-tight">
+                  <h1 className="text-2xl sm:text-3xl lg:text-[2.2rem] font-serif font-bold tracking-tight text-foreground leading-tight break-words">
                     {title}
                   </h1>
                   {showStorefrontRating ? (
@@ -1168,7 +1168,7 @@ export default function PublicPresell() {
 
             <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto px-1">
               <h1
-                className={`text-2xl sm:text-4xl md:text-[2.65rem] font-extrabold leading-[1.12] tracking-tight ${
+                className={`text-2xl sm:text-4xl md:text-[2.65rem] font-extrabold leading-[1.12] tracking-tight break-words ${
                   isVslLayout ? "text-white drop-shadow-sm" : "text-foreground"
                 }`}
               >
@@ -1402,7 +1402,7 @@ export default function PublicPresell() {
   return (
     <div
       className={cn(
-        "min-h-screen pb-12",
+        "min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-12",
         useImportedPageMirror || storefrontMirrorLightBody ? "bg-white" : "bg-background",
       )}
     >

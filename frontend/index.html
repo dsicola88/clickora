@@ -21,8 +21,8 @@
             var st = document.createElement("style");
             st.setAttribute("data-presell-shell", "1");
             st.textContent =
-              "html,body{margin:0;min-height:100%;background-color:hsl(40 33% 98%);}" +
-              "#root{min-height:100%;}";
+              "html,body{margin:0;min-height:100%;max-width:100%;overflow-x:hidden;background-color:hsl(40 33% 98%);-webkit-text-size-adjust:100%;text-size-adjust:100%;}" +
+              "#root{min-height:100%;max-width:100vw;overflow-x:hidden;}";
             document.head.appendChild(st);
           }
         } catch (e) {}
