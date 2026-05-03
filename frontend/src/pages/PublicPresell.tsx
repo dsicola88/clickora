@@ -16,7 +16,11 @@ import {
   CookieConsentModal,
   CookieSettingsChip,
   PresellGateFields,
-  useCookieAcceptedState,
+} from "@/components/presell/PresellTypeControls";
+import {
+  buildOfferForwardParamKeys,
+  mergeLandingQueryIntoAffiliateUrl,
+} from "@/lib/presellOfferQueryForward";
   type GatePayload,
 } from "@/components/presell/PresellTypeControls";
 import {
@@ -49,7 +53,12 @@ import { applyPublicPresellHeadMetadata } from "@/lib/publicPresellSeo";
 import { getPresellSeoPrimaryTitle } from "@/lib/publicPresellDocumentTitle";
 import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
 import { PresellLanguageSelector } from "@/components/presell/PresellLanguageSelector";
-import { getPresellUiStrings, htmlLangForLocale, isRtlLocale } from "@/lib/presellUiStrings";
+import {
+  darkStorefrontNavLabels,
+  getPresellUiStrings,
+  htmlLangForLocale,
+  isRtlLocale,
+} from "@/lib/presellUiStrings";
 import { cn } from "@/lib/utils";
 
 function queryParam(search: URLSearchParams, key: string) {
@@ -74,7 +83,11 @@ const VOLUUM_STYLE_TRACKING_KEYS = [
   "var10",
 ] as const;
 
-/** O destino final é sempre o link guardado na presell (sem acrescentar parâmetros ao URL do afiliado). */
+/**
+ * `to` = hoplink completo (já com sub1–3 da landing e parâmetros do gate, se aplicável).
+ * Os UTMs/IDs na query do `/track/r/` são para o relatório dclickora; não duplicar no hoplink
+ * excepto quando fundidos explicitamente (subs em mergePathSubsIntoAffiliateUrl).
+ */
 function makeTrackClickUrl(
   apiBase: string,
   pageId: string,
@@ -234,20 +247,52 @@ function ContentBlock({ block }: { block: string }) {
   return <p className="text-base md:text-[1.05rem] leading-[1.75] text-foreground/90 whitespace-pre-line">{t}</p>;
 }
 
-function StorefrontRatingRow({ value, stars }: { value: string; stars: number }) {
+function StorefrontRatingRow({
+  value,
+  stars,
+  variant = "default",
+}: {
+  value: string;
+  stars: number;
+  variant?: "default" | "darkHero";
+}) {
   const n = Math.min(5, Math.max(0, Math.round(stars)));
+  const starCls =
+    variant === "darkHero" ? "text-amber-400" : "text-orange-500 dark:text-orange-400";
+  const labelCls = variant === "darkHero" ? "text-slate-300" : "text-foreground/85";
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={`Avaliação ${value}`}>
-      <span className="flex gap-0.5 text-orange-500 dark:text-orange-400" aria-hidden>
+      <span className={cn("flex gap-0.5", starCls)} aria-hidden>
         {Array.from({ length: 5 }, (_, i) => (
           <span key={i} className={cn("text-lg leading-none", i < n ? "opacity-100" : "opacity-20")}>
             ★
           </span>
         ))}
       </span>
-      <span className="text-sm font-medium text-foreground/85">{value}</span>
+      <span className={cn("text-sm font-medium", labelCls)}>{value}</span>
     </div>
   );
+}
+
+/** Última frase do subtítulo em destaque amarelo (como muitas landings de suplemento). */
+function StorefrontDarkSubtitle({ subtitle }: { subtitle: string }) {
+  const parts = subtitle
+    .split(/(?<=[.!?])\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2 && parts[parts.length - 1].length >= 10) {
+    const lead = parts.slice(0, -1).join(" ");
+    const hi = parts[parts.length - 1];
+    return (
+      <div className="space-y-3">
+        <p className="text-base md:text-lg text-slate-400 leading-relaxed">{lead}</p>
+        <p className="inline-block rounded-sm bg-amber-400 px-3 py-2 text-base md:text-lg font-semibold text-slate-950 shadow-sm">
+          {hi}
+        </p>
+      </div>
+    );
+  }
+  return <p className="text-base md:text-lg text-slate-400 leading-relaxed">{subtitle}</p>;
 }
 
 /**
@@ -420,6 +465,7 @@ export default function PublicPresell() {
 
   const content = (page?.content || {}) as Record<string, unknown>;
   const affiliateLink = (content.affiliateLink as string) || "#";
+  const settings = (page?.settings || {}) as Record<string, unknown>;
 
   const showCookieModal =
     getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted && !cookieDismissed;
@@ -447,8 +493,15 @@ export default function PublicPresell() {
 
   const href = useMemo(() => {
     if (!page?.id) return "";
-    return makeTrackClickUrl(apiBase, page.id, affiliateLink, search);
-  }, [apiBase, page?.id, affiliateLink, search]);
+    let dest = affiliateLink.trim();
+    const forwardKeys = buildOfferForwardParamKeys(settings as Record<string, unknown>);
+    dest = mergeLandingQueryIntoAffiliateUrl(dest, search, forwardKeys);
+    const ik = getInteractiveGateKind(page.type);
+    if (ik && Object.keys(fieldGate.params).length > 0) {
+      dest = mergeParamsIntoAffiliateUrl(dest, fieldGate.params);
+    }
+    return makeTrackClickUrl(apiBase, page.id, dest, search);
+  }, [apiBase, page?.id, page?.type, affiliateLink, search, fieldGate.params, settings.offerQueryForwardAllowlist]);
 
   const videoEmbedSrc = useMemo(() => {
     if (!page?.video_url) return "";
@@ -506,7 +559,6 @@ export default function PublicPresell() {
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
 
-  const settings = (page.settings || {}) as Record<string, unknown>;
   const title = (content.title as string) || page.title;
   const subtitle = (content.subtitle as string) || "";
   const salesText = (content.salesText as string) || "";
@@ -549,6 +601,10 @@ export default function PublicPresell() {
 
   const isGhostPage = isGhostPresellType(page.type);
   const storefrontLayout = !isVslLayout && !isGhostPage && productImages.length > 0;
+  const storefrontTheme =
+    content.storefrontTheme === "dark_commerce" ? "dark_commerce" : "default";
+  const useDarkMirrorStorefront = storefrontLayout && storefrontTheme === "dark_commerce";
+  const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
     typeof content.productName === "string"
       ? content.productName.trim()
@@ -613,115 +669,270 @@ export default function PublicPresell() {
       ) : null}
 
       {storefrontLayout ? (
-        <section className="relative overflow-hidden border-b border-border/40 bg-background">
-          <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
-            {interactiveKind ? (
-              <div className="mb-8 text-center max-w-3xl mx-auto">
-                <PresellGateFields
-                  gateKind={interactiveKind}
-                  language={uiLang}
-                  settings={settings}
-                  onPayload={handleFieldPayload}
-                />
-              </div>
-            ) : null}
-
-            <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
-              <div className="space-y-4 md:sticky md:top-6">
-                <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-4 sm:p-5">
-                  <img
-                    src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
-                    alt={primarySeoLabel}
-                    className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-slate-50/80 dark:bg-muted/20"
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority="high"
+        useDarkMirrorStorefront ? (
+          <>
+            <header className="sticky top-0 z-40 border-b border-amber-500/30 bg-[#060a12]/95 backdrop-blur-md">
+              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 h-14 sm:h-[3.75rem] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="h-2 w-2 rounded-full bg-amber-400 shrink-0 shadow-[0_0_12px_rgba(251,191,36,0.45)]"
+                    aria-hidden
                   />
+                  <span className="font-bold text-white tracking-wide uppercase truncate text-xs sm:text-sm md:text-base">
+                    {(productNameLabel || title).slice(0, 42)}
+                  </span>
                 </div>
-                {productImages.length > 1 ? (
-                  <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
-                    {productImages.map((src, i) => (
-                      <button
-                        key={`${i}-${src.slice(0, 48)}`}
-                        type="button"
-                        onClick={() => setStorefrontMainIdx(i)}
-                        className={cn(
-                          "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/80",
-                          i === storefrontMainIdx
-                            ? "border-orange-500 ring-2 ring-orange-500/30 shadow-sm"
-                            : "border-border/60 opacity-90 hover:opacity-100",
-                        )}
-                        aria-label={`Imagem ${i + 1}`}
-                      >
-                        <img
-                          src={src}
-                          alt=""
-                          className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
-                          loading="lazy"
+                <nav
+                  className="hidden md:flex items-center gap-7 text-sm text-slate-400 font-medium"
+                  aria-label="Secções"
+                >
+                  <a href="#presell-story" className="hover:text-white transition-colors">
+                    {darkNav.about}
+                  </a>
+                  <a href="#presell-story" className="hover:text-white transition-colors">
+                    {darkNav.ingredients}
+                  </a>
+                  <a href="#presell-story" className="hover:text-white transition-colors">
+                    {darkNav.faq}
+                  </a>
+                </nav>
+                <a
+                  href={href}
+                  className={cn(
+                    "shrink-0 rounded border border-amber-400/90 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-amber-400 hover:bg-amber-400/10 transition-colors",
+                    !ctaEnabled && "pointer-events-none opacity-50",
+                  )}
+                >
+                  {ctaText}
+                </a>
+              </div>
+            </header>
+            <section
+              className="relative overflow-hidden border-b border-amber-900/25"
+              style={{
+                backgroundColor: "#0a0e17",
+                backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.028) 2px, rgba(255,255,255,0.028) 4px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)`,
+              }}
+            >
+              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
+                {interactiveKind ? (
+                  <div className="mb-8 text-center max-w-3xl mx-auto text-slate-200 [&_label]:text-slate-200 [&_p]:text-slate-300">
+                    <PresellGateFields
+                      gateKind={interactiveKind}
+                      language={uiLang}
+                      settings={settings}
+                      onPayload={handleFieldPayload}
+                    />
+                  </div>
+                ) : null}
+
+                <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+                  <div className="space-y-4 md:sticky md:top-6">
+                    <div className="rounded-2xl border border-amber-500/25 bg-black/25 shadow-[0_0_48px_-12px_rgba(251,191,36,0.12)] p-4 sm:p-5">
+                      <img
+                        src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                        alt={primarySeoLabel}
+                        className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl"
+                        loading="eager"
+                        decoding="async"
+                        fetchPriority="high"
+                      />
+                    </div>
+                    {productImages.length > 1 ? (
+                      <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+                        {productImages.map((src, i) => (
+                          <button
+                            key={`${i}-${src.slice(0, 48)}`}
+                            type="button"
+                            onClick={() => setStorefrontMainIdx(i)}
+                            className={cn(
+                              "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/90",
+                              i === storefrontMainIdx
+                                ? "border-amber-400 ring-2 ring-amber-400/35 shadow-sm"
+                                : "border-white/15 opacity-90 hover:opacity-100",
+                            )}
+                            aria-label={`Imagem ${i + 1}`}
+                          >
+                            <img
+                              src={src}
+                              alt=""
+                              className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
+                    {productNameLabel ? (
+                      <p className="text-xs font-semibold uppercase tracking-wider text-amber-500/90">
+                        {productNameLabel}
+                      </p>
+                    ) : null}
+                    <h1 className="text-2xl sm:text-3xl lg:text-[2.65rem] font-sans font-extrabold uppercase tracking-tight text-white leading-tight">
+                      {title}
+                    </h1>
+                    {showStorefrontRating ? (
+                      <StorefrontRatingRow
+                        value={String(content.ratingValue)}
+                        stars={Number(content.ratingStars)}
+                        variant="darkHero"
+                      />
+                    ) : null}
+                    {subtitle ? <StorefrontDarkSubtitle subtitle={subtitle} /> : null}
+                    <div className="pt-1">
+                      <PresellCta href={href} disabled={!ctaEnabled} surface="dark" stretch>
+                        {ctaText}
+                      </PresellCta>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed border-t border-white/10 pt-4">
+                      {getPresellUiStrings(uiLang).midCta}
+                    </p>
+                  </div>
+                </div>
+
+                {showVideo ? (
+                  <div className="relative w-full max-w-4xl mx-auto aspect-video bg-black/60 rounded-xl overflow-hidden shadow-md border border-amber-900/40 mt-10">
+                    {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
+                      <>
+                        <iframe
+                          title="Vídeo"
+                          src={videoEmbedSrc}
+                          className="absolute inset-0 z-0 h-full w-full border-0"
+                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                          allowFullScreen
+                          referrerPolicy="strict-origin-when-cross-origin"
                         />
-                      </button>
-                    ))}
+                        <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
+                      </>
+                    ) : (
+                      <video
+                        title="Vídeo"
+                        src={videoEmbedSrc}
+                        className="absolute inset-0 h-full w-full object-contain bg-black"
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
+                    )}
                   </div>
                 ) : null}
               </div>
-
-              <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
-                {productNameLabel ? (
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {productNameLabel}
-                  </p>
-                ) : null}
-                <h1 className="text-2xl sm:text-3xl lg:text-[2.2rem] font-serif font-bold tracking-tight text-foreground leading-tight">
-                  {title}
-                </h1>
-                {showStorefrontRating ? (
-                  <StorefrontRatingRow
-                    value={String(content.ratingValue)}
-                    stars={Number(content.ratingStars)}
+            </section>
+          </>
+        ) : (
+          <section className="relative overflow-hidden border-b border-border/40 bg-background">
+            <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
+              {interactiveKind ? (
+                <div className="mb-8 text-center max-w-3xl mx-auto">
+                  <PresellGateFields
+                    gateKind={interactiveKind}
+                    language={uiLang}
+                    settings={settings}
+                    onPayload={handleFieldPayload}
                   />
-                ) : null}
-                {subtitle ? (
-                  <p className="text-base text-muted-foreground leading-relaxed">{subtitle}</p>
-                ) : null}
-                <div className="pt-1">
-                  <PresellCta href={href} disabled={!ctaEnabled} surface="commerce" stretch>
-                    {ctaText}
-                  </PresellCta>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/50 pt-4">
-                  {getPresellUiStrings(uiLang).midCta}
-                </p>
-              </div>
-            </div>
+              ) : null}
 
-            {showVideo ? (
-              <div className="relative w-full max-w-4xl mx-auto aspect-video bg-muted rounded-xl overflow-hidden shadow-md border border-border/50 mt-10">
-                {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
-                  <>
-                    <iframe
+              <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+                <div className="space-y-4 md:sticky md:top-6">
+                  <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-4 sm:p-5">
+                    <img
+                      src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                      alt={primarySeoLabel}
+                      className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-slate-50/80 dark:bg-muted/20"
+                      loading="eager"
+                      decoding="async"
+                      fetchPriority="high"
+                    />
+                  </div>
+                  {productImages.length > 1 ? (
+                    <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+                      {productImages.map((src, i) => (
+                        <button
+                          key={`${i}-${src.slice(0, 48)}`}
+                          type="button"
+                          onClick={() => setStorefrontMainIdx(i)}
+                          className={cn(
+                            "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/80",
+                            i === storefrontMainIdx
+                              ? "border-orange-500 ring-2 ring-orange-500/30 shadow-sm"
+                              : "border-border/60 opacity-90 hover:opacity-100",
+                          )}
+                          aria-label={`Imagem ${i + 1}`}
+                        >
+                          <img
+                            src={src}
+                            alt=""
+                            className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
+                            loading="lazy"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
+                  {productNameLabel ? (
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {productNameLabel}
+                    </p>
+                  ) : null}
+                  <h1 className="text-2xl sm:text-3xl lg:text-[2.2rem] font-serif font-bold tracking-tight text-foreground leading-tight">
+                    {title}
+                  </h1>
+                  {showStorefrontRating ? (
+                    <StorefrontRatingRow
+                      value={String(content.ratingValue)}
+                      stars={Number(content.ratingStars)}
+                    />
+                  ) : null}
+                  {subtitle ? (
+                    <p className="text-base text-muted-foreground leading-relaxed">{subtitle}</p>
+                  ) : null}
+                  <div className="pt-1">
+                    <PresellCta href={href} disabled={!ctaEnabled} surface="commerce" stretch>
+                      {ctaText}
+                    </PresellCta>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/50 pt-4">
+                    {getPresellUiStrings(uiLang).midCta}
+                  </p>
+                </div>
+              </div>
+
+              {showVideo ? (
+                <div className="relative w-full max-w-4xl mx-auto aspect-video bg-muted rounded-xl overflow-hidden shadow-md border border-border/50 mt-10">
+                  {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
+                    <>
+                      <iframe
+                        title="Vídeo"
+                        src={videoEmbedSrc}
+                        className="absolute inset-0 z-0 h-full w-full border-0"
+                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                      />
+                      <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
+                    </>
+                  ) : (
+                    <video
                       title="Vídeo"
                       src={videoEmbedSrc}
-                      className="absolute inset-0 z-0 h-full w-full border-0"
-                      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                      allowFullScreen
-                      referrerPolicy="strict-origin-when-cross-origin"
+                      className="absolute inset-0 h-full w-full object-contain bg-black"
+                      controls
+                      playsInline
+                      preload="metadata"
                     />
-                    <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
-                  </>
-                ) : (
-                  <video
-                    title="Vídeo"
-                    src={videoEmbedSrc}
-                    className="absolute inset-0 h-full w-full object-contain bg-black"
-                    controls
-                    playsInline
-                    preload="metadata"
-                  />
-                )}
-              </div>
-            ) : null}
-          </div>
-        </section>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        )
       ) : (
         <section
           className={
@@ -874,14 +1085,41 @@ export default function PublicPresell() {
       ) : null}
 
       {showSalesLetterSection ? (
-        <section className="max-w-3xl mx-auto px-4 py-8 md:py-12">
-          <div className="rounded-2xl border border-border/40 bg-card/30 px-4 py-8 md:px-10 md:py-10 shadow-sm">
+        <section
+          id={useDarkMirrorStorefront ? "presell-story" : undefined}
+          className={cn(
+            "mx-auto py-8 md:py-12",
+            useDarkMirrorStorefront
+              ? "max-w-none bg-white text-slate-900 border-t border-slate-200/90 scroll-mt-14"
+              : "max-w-3xl px-4",
+          )}
+        >
+          <div
+            className={cn(
+              "shadow-sm",
+              useDarkMirrorStorefront
+                ? "max-w-3xl mx-auto px-4 md:px-6 py-2 md:py-4 [&_h3]:text-slate-900 [&_h3]:border-slate-200/70 [&_p]:text-slate-800 [&_li]:text-slate-800"
+                : "rounded-2xl border border-border/40 bg-card/30 px-4 py-8 md:px-10 md:py-10",
+            )}
+          >
             <SalesBlocks
               blocks={textBlocks}
               midInsert={
-                <div className="my-6 sm:my-8 rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 via-card/80 to-muted/30 p-6 sm:p-8 shadow-inner">
+                <div
+                  className={cn(
+                    "my-6 sm:my-8 rounded-2xl border p-6 sm:p-8 shadow-inner",
+                    useDarkMirrorStorefront
+                      ? "border-slate-200/90 bg-slate-50/90"
+                      : "border-border/50 bg-gradient-to-b from-muted/50 via-card/80 to-muted/30",
+                  )}
+                >
                   <div className="flex flex-col items-center gap-4 sm:gap-5 max-w-lg mx-auto text-center">
-                    <p className="text-sm sm:text-base text-foreground/85 font-medium leading-relaxed px-1">
+                    <p
+                      className={cn(
+                        "text-sm sm:text-base font-medium leading-relaxed px-1",
+                        useDarkMirrorStorefront ? "text-slate-800" : "text-foreground/85",
+                      )}
+                    >
                       {getPresellUiStrings(uiLang).midCta}
                     </p>
                     <PresellCta
@@ -899,8 +1137,21 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      <section className="max-w-3xl mx-auto px-3 sm:px-4 pb-12 sm:pb-16 pt-6 sm:pt-8">
-        <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-[2px] px-4 py-8 sm:px-8 sm:py-10 text-center space-y-5 shadow-sm">
+      <section
+        id={useDarkMirrorStorefront && !showSalesLetterSection ? "presell-story" : undefined}
+        className={cn(
+          "max-w-3xl mx-auto px-3 sm:px-4 pb-12 sm:pb-16 pt-6 sm:pt-8",
+          useDarkMirrorStorefront && "bg-slate-50/80 scroll-mt-14",
+        )}
+      >
+        <div
+          className={cn(
+            "rounded-2xl border px-4 py-8 sm:px-8 sm:py-10 text-center space-y-5 shadow-sm",
+            useDarkMirrorStorefront
+              ? "border-slate-200/80 bg-white text-slate-900"
+              : "border-border/40 bg-card/40 backdrop-blur-[2px]",
+          )}
+        >
           <PresellCta
             href={href}
             disabled={!ctaEnabled}
@@ -908,12 +1159,22 @@ export default function PublicPresell() {
           >
             {ctaText}
           </PresellCta>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+          <p
+            className={cn(
+              "text-xs sm:text-sm max-w-md mx-auto leading-relaxed",
+              useDarkMirrorStorefront ? "text-slate-600" : "text-muted-foreground",
+            )}
+          >
             {getPresellUiStrings(uiLang).footerNote}
           </p>
           {page.footer_branding ? (
             <p
-              className="text-[11px] text-muted-foreground/75 pt-3 border-t border-border/30 max-w-md mx-auto"
+              className={cn(
+                "text-[11px] pt-3 border-t max-w-md mx-auto",
+                useDarkMirrorStorefront
+                  ? "text-slate-500 border-slate-200/80"
+                  : "text-muted-foreground/75 border-border/30",
+              )}
               dir={isRtlLocale(uiLang) ? "rtl" : "ltr"}
             >
               {getPresellUiStrings(uiLang).footerBrandingPrefix}
@@ -921,7 +1182,10 @@ export default function PublicPresell() {
                 href="https://www.dclickora.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-foreground/80 underline underline-offset-2 hover:text-primary"
+                className={cn(
+                  "font-medium underline underline-offset-2 hover:text-primary",
+                  useDarkMirrorStorefront ? "text-slate-800" : "text-foreground/80",
+                )}
               >
                 dclickora
               </a>
@@ -934,7 +1198,12 @@ export default function PublicPresell() {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-12">
+    <div
+      className={cn(
+        "min-h-screen pb-12",
+        useDarkMirrorStorefront ? "bg-white" : "bg-background",
+      )}
+    >
       <PresellMarketingOverlays
         pageId={page.id}
         settings={settings}

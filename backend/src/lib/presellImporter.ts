@@ -15,6 +15,8 @@ type ImportPresellInput = {
   affiliateLink?: string;
 };
 
+export type ImportStorefrontTheme = "dark_commerce" | "default";
+
 export type ImportPresellResult = {
   product_name: string;
   title: string;
@@ -25,6 +27,11 @@ export type ImportPresellResult = {
   source_url: string;
   affiliate_link: string;
   video_url?: string;
+  /**
+   * Heurística a partir do HTML da dobra: landings escuras (suplemento / funil) usam layout
+   * espelhado na presell pública para reduzir fricção com o anúncio.
+   */
+  storefront_theme: ImportStorefrontTheme;
   /** Campos para presell tipo desconto (extraídos da página quando possível). */
   discount_percent: number | null;
   discount_headline: string;
@@ -171,6 +178,112 @@ function findFirstFoldCutIndex(html: string): number {
 function htmlFirstFold(html: string): string {
   const cut = findFirstFoldCutIndex(html);
   return html.slice(0, Math.min(cut, html.length));
+}
+
+function relativeLuminance255(r: number, g: number, b: number): number {
+  const lin = (c: number) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  };
+  const R = lin(r);
+  const G = lin(g);
+  const B = lin(b);
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+function rgbFromHex6(hex: string): { r: number; g: number; b: number } | null {
+  const h = hex.trim().toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(h)) return null;
+  const n = parseInt(h.slice(1), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function expandHex3(hex3: string): string {
+  const s = hex3.slice(1);
+  if (s.length !== 3) return hex3;
+  return `#${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}`;
+}
+
+/** Deteta cor CSS simples (hex, rgb, keyword black). Ignora `url()` e a maior parte de gradients. */
+function chunkLooksLikeDarkBackground(raw: string): boolean {
+  const t = raw.trim().toLowerCase();
+  if (t === "black" || t === "#000" || t === "#000000") return true;
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(t)) {
+    const full = t.length === 4 ? expandHex3(t) : t;
+    const rgb = rgbFromHex6(full);
+    if (rgb && relativeLuminance255(rgb.r, rgb.g, rgb.b) < 0.2) return true;
+  }
+  const rgbM = t.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/);
+  if (rgbM) {
+    const r = +rgbM[1];
+    const g = +rgbM[2];
+    const b = +rgbM[3];
+    if ([r, g, b].every((n) => !Number.isNaN(n)) && relativeLuminance255(r, g, b) < 0.2) return true;
+  }
+  if (/\b(#0f172a|#020617|#111111|#1a1a1a|navy)\b/.test(t)) return true;
+  return false;
+}
+
+function gradientHasDarkStop(val: string): boolean {
+  let hits = 0;
+  for (const m of val.matchAll(/#([0-9a-f]{3}|[0-9a-f]{6})\b/gi)) {
+    const full = m[1].length === 3 ? expandHex3(`#${m[1]}`) : `#${m[1]}`;
+    const rgb = rgbFromHex6(full.toLowerCase());
+    if (rgb && relativeLuminance255(rgb.r, rgb.g, rgb.b) < 0.22) hits++;
+  }
+  const rgbStops = val.matchAll(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/gi);
+  for (const m of rgbStops) {
+    const r = +m[1];
+    const g = +m[2];
+    const b = +m[3];
+    if ([r, g, b].every((n) => !Number.isNaN(n)) && relativeLuminance255(r, g, b) < 0.22) hits++;
+  }
+  return hits >= 1;
+}
+
+/**
+ * Landings escuras (hero preto/azul, texto claro) → presell com header + hero escuros e corpo claro.
+ */
+export function detectImportStorefrontTheme(html: string, foldHtml: string): ImportStorefrontTheme {
+  const sample = foldHtml.slice(0, 48_000);
+  const lower = sample.toLowerCase();
+
+  if (/\bbg-(black|zinc-950|zinc-900|gray-950|gray-900|slate-950|slate-900|neutral-950|neutral-900)\b/.test(lower)) {
+    return "dark_commerce";
+  }
+  if (/\bfrom-(black|zinc-950|zinc-900|gray-950|gray-900|slate-950|slate-900)\b/.test(lower)) {
+    return "dark_commerce";
+  }
+  if (/bg-\[#0[0-4][0-9a-f]{4}\]/i.test(sample)) return "dark_commerce";
+  if (/bg-\[#1[0-2][0-9a-f]{4}\]/i.test(sample)) return "dark_commerce";
+
+  const themeColor = extractMeta(html, "theme-color");
+  if (themeColor) {
+    const normalized = themeColor.split(/\s+/)[0]?.trim() || themeColor;
+    if (chunkLooksLikeDarkBackground(normalized)) return "dark_commerce";
+  }
+
+  let darkBgHits = 0;
+  for (const m of sample.matchAll(/background(?:-color)?\s*:\s*([^;}{<]+)/gi)) {
+    let val = m[1].replace(/!important/gi, "").trim();
+    if (/^url\(/i.test(val)) continue;
+    if (/linear-gradient|radial-gradient/i.test(val)) {
+      if (gradientHasDarkStop(val)) darkBgHits++;
+      continue;
+    }
+    if (chunkLooksLikeDarkBackground(val)) darkBgHits++;
+  }
+
+  if (darkBgHits >= 2) return "dark_commerce";
+  if (darkBgHits === 1 && /\b(color\s*:\s*(#fff|#f8|#f9|white)|text-white)\b/i.test(sample)) {
+    return "dark_commerce";
+  }
+
+  if (/\btext-white\b/.test(lower) && /\b(bg-black|background\s*:\s*#\s*0|bg-slate-9|bg-zinc-9|bg-gray-9)\b/.test(lower)) {
+    return "dark_commerce";
+  }
+
+  return "default";
 }
 
 /** Reduz ruído de SVG (paths enormes) ao detetar se o HTML estático tem texto útil na dobra. */
@@ -1089,6 +1202,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     images,
     source_url: finalUrl,
     affiliate_link: input.affiliateLink || finalUrl,
+    storefront_theme: detectImportStorefrontTheme(html, foldHtml),
     official_buy_cta: officialBuyCta(language),
     ...discount,
     ...(video_url ? { video_url } : {}),

@@ -18,4 +18,9 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   customCss: "",
   /** Minutos para a barra de contagem regressiva (opcional presell). */
   countdownDurationMinutes: "15",
+  /**
+   * Parâmetros extra da URL da presell a copiar para o hoplink (vírgula ou espaço).
+   * sub1–sub3 são sempre considerados; aqui só se acrescentam nomes (ex.: clickid, var1, txid).
+   */
+  offerQueryForwardAllowlist: "",
 };

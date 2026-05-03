@@ -409,6 +409,7 @@ export default function PresellDashboard() {
       footerCode: String(settings.footerCode ?? ""),
       customCss: String(settings.customCss ?? ""),
       countdownDurationMinutes: String(settings.countdownDurationMinutes ?? "15"),
+      offerQueryForwardAllowlist: String(settings.offerQueryForwardAllowlist ?? ""),
     });
   };
 
@@ -655,6 +656,8 @@ export default function PresellDashboard() {
           productName: data.product_name,
           productImages: data.images,
           sourceUrl: data.source_url,
+          /** Espelho visual para landings escuras (detetado no import). */
+          storefrontTheme: data.storefront_theme,
           /** Extraído da página do produto — usado no layout tipo loja (estrelas). */
           ratingValue: data.rating_value,
           ratingStars: data.rating_stars ?? 5,

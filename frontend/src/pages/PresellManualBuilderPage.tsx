@@ -207,6 +207,7 @@ export default function PresellManualBuilderPage() {
         footerCode: String(s.footerCode ?? ""),
         customCss: String(s.customCss ?? ""),
         countdownDurationMinutes: String(s.countdownDurationMinutes ?? "15"),
+        offerQueryForwardAllowlist: String(s.offerQueryForwardAllowlist ?? ""),
       });
       setEditorReady(true);
     };

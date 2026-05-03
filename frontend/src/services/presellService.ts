@@ -46,6 +46,7 @@ export const presellService = {
       rating_value: string;
       rating_stars: number;
       urgency_timer_seconds: number;
+      storefront_theme: "dark_commerce" | "default";
     }>("/presells/import-from-url", payload);
   },
 

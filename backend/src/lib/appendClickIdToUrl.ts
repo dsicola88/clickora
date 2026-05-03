@@ -1,21 +1,24 @@
 /**
- * Acrescenta o ID do evento de clique ao URL de destino (oferta) para a rede o devolver no postback.
- * Inclui aliases comuns em trackers tipo Voluum (`cid`, `clickid`) além de `clickora_click_id`.
+ * Acrescenta o ID do evento de clique ao URL de destino (oferta) para o postback reconhecer o clique.
+ *
+ * - Sempre define `clickora_click_id` (namespace próprio).
+ * - Só define `cid` / `clickid` se ainda não existirem no destino: muitas redes usam estes nomes
+ *   para o token **delas**; sobrescrever quebraria comissão.
  */
 export function appendClickIdToAffiliateUrl(destUrl: string, clickId: string): string {
   try {
     const u = new URL(destUrl);
     u.searchParams.set("clickora_click_id", clickId);
-    u.searchParams.set("cid", clickId);
-    u.searchParams.set("clickid", clickId);
+    if (!u.searchParams.has("cid")) u.searchParams.set("cid", clickId);
+    if (!u.searchParams.has("clickid")) u.searchParams.set("clickid", clickId);
     return u.toString();
   } catch {
+    const hasCid = /(?:^|[?&])cid=/i.test(destUrl);
+    const hasClickid = /(?:^|[?&])clickid=/i.test(destUrl);
     const sep = destUrl.includes("?") ? "&" : "?";
-    const q = [
-      `clickora_click_id=${encodeURIComponent(clickId)}`,
-      `cid=${encodeURIComponent(clickId)}`,
-      `clickid=${encodeURIComponent(clickId)}`,
-    ].join("&");
-    return `${destUrl}${sep}${q}`;
+    const parts = [`clickora_click_id=${encodeURIComponent(clickId)}`];
+    if (!hasCid) parts.push(`cid=${encodeURIComponent(clickId)}`);
+    if (!hasClickid) parts.push(`clickid=${encodeURIComponent(clickId)}`);
+    return `${destUrl}${sep}${parts.join("&")}`;
   }
 }

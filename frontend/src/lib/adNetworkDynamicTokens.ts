@@ -45,6 +45,7 @@ export const AD_NETWORK_TOKEN_SECTIONS: AdNetworkTokenSection[] = [
       { token: "{AdGroupId}", label: "ID do grupo de anúncios", search: "adgroup id bing" },
       { token: "{AdGroup}", label: "Nome do grupo de anúncios", search: "adgroup name bing" },
       { token: "{AdID}", label: "ID do anúncio", search: "ad id bing" },
+      { token: "{AdId}", label: "ID do anúncio (alternativo)", search: "ad id bing AdId" },
       { token: "{Device}", label: "Dispositivo", search: "device bing" },
       { token: "{MatchType}", label: "Tipo de correspondência", search: "match bing" },
       { token: "{Network}", label: "Rede", search: "network bing" },

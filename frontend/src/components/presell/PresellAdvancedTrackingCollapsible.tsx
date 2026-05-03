@@ -150,6 +150,35 @@ export function PresellAdvancedTrackingCollapsible({
                 onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, socialProof: v }))}
               />
             </div>
+            <div className="space-y-2 max-w-2xl">
+              <Label htmlFor={isEditor ? "presell-offer-fwd-editor" : "presell-offer-fwd"}>
+                Propagar parâmetros da URL para o hoplink
+              </Label>
+              <p
+                className={cn(
+                  "text-[10px] leading-snug",
+                  isEditor ? "text-editor-fg-muted" : "text-muted-foreground",
+                )}
+              >
+                <span className="font-mono">sub1</span>, <span className="font-mono">sub2</span> e{" "}
+                <span className="font-mono">sub3</span> passam sempre para o link da oferta quando lá ainda não
+                existem. Acrescenta aqui mais nomes (vírgula ou espaço): só <span className="font-mono">a-z</span>,{" "}
+                <span className="font-mono">0-9</span>, <span className="font-mono">-</span> e{" "}
+                <span className="font-mono">_</span>, até 32 nomes. Nunca sobrepõe o que o hoplink já define.
+              </p>
+              <Input
+                id={isEditor ? "presell-offer-fwd-editor" : "presell-offer-fwd"}
+                placeholder="ex.: txn_id, aff_sub, ext_click_id"
+                value={String(configSettings.offerQueryForwardAllowlist ?? "")}
+                onChange={(e) =>
+                  setConfigSettings((p) => ({ ...p, offerQueryForwardAllowlist: e.target.value }))
+                }
+                className={cn(
+                  "font-mono text-sm",
+                  isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "",
+                )}
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               <div className="space-y-2 min-w-0">
                 <Label>Google Analytics / tag</Label>

@@ -19,7 +19,7 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
 import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 import { orderedAdNetworkTokenSections } from "@/lib/adNetworkDynamicTokens";
-import { AdNetworkTokensPickerPanel } from "@/components/tracking/AdNetworkTokensPickerPanel";
+import { UrlBuilderTokenModalBody } from "@/components/tracking/UrlBuilderTokenModalBody";
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
 import {
   Command,
@@ -208,6 +208,18 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
     { key: "sub2", value: "" },
     { key: "clickid", value: "{gclid}", highlight: true },
   ],
+  "BuyGoods": [
+    { key: "subid", value: "", keyReadonly: true },
+    {
+      key: "subid2",
+      value: "",
+      keyReadonly: true,
+      valuePlaceholder: "Insira {gclid} ou {msclkid} (use + para inserir)",
+    },
+    { key: "subid3", value: "", keyReadonly: true },
+    { key: "subid4", value: "", keyReadonly: true },
+    { key: "subid5", value: "", keyReadonly: true },
+  ],
   "Digistore24": [
     { key: "aff", value: "" },
     { key: "cam", value: "" },
@@ -223,7 +235,15 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
   "Personalizado": [],
 };
 
-type ParamRow = { key: string; value: string; highlight?: boolean };
+type ParamRow = {
+  key: string;
+  value: string;
+  highlight?: boolean;
+  /** Nome do parâmetro fixo (preset afiliado) — só valor editável. */
+  keyReadonly?: boolean;
+  /** Placeholder do valor (ex.: indicar gclid / msclkid). */
+  valuePlaceholder?: string;
+};
 
 /** Query string (sem `?`) — valores com `{macro}` não são encodeados (Google ValueTrack). */
 function buildTrackingQueryString(rows: ParamRow[]): string {
@@ -438,142 +458,157 @@ export default function UrlBuilder() {
       </div>
 
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
-        {/* Platform + Base URL */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="platform-combobox">Plataforma</Label>
-            <Popover open={platformOpen} onOpenChange={setPlatformOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  id="platform-combobox"
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={platformOpen}
-                  className="w-full justify-between font-normal h-11 px-3"
-                >
-                  <span className={cn("truncate", !platform && "text-muted-foreground")}>
-                    {platform || "Pesquisar ou escolher plataforma…"}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 w-[min(28rem,calc(100vw-2rem))]" align="start">
-                <Command>
-                  <CommandInput placeholder="Filtrar plataformas…" className="h-11" />
-                  <CommandList>
-                    <CommandEmpty>Nenhuma plataforma encontrada.</CommandEmpty>
-                    <CommandGroup>
-                      {URL_BUILDER_PLATFORMS.map((p) => (
-                        <CommandItem
-                          key={p}
-                          value={p}
-                          onSelect={() => {
-                            handlePlatformChange(p);
-                            setPlatformOpen(false);
-                          }}
-                        >
-                          {p}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <p className="text-[11px] text-muted-foreground">Escreve para filtrar a lista (autocompletar).</p>
-          </div>
-          <div className="space-y-2">
-            <Label>URL base (presell pública)</Label>
-            <Input
-              placeholder="https://dclickora.com/p/uuid-da-presell"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-            />
-            {platform === "Google Ads" && (
-              <p className="text-[11px] text-muted-foreground">
-                Usa o URL da página presell no teu site (rota <span className="font-mono">/p/…</span>). Os parâmetros abaixo incluem{" "}
-                <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
-                  gclid=&#123;gclid&#125;
-                </strong>
-                , ValueTrack em <span className="font-mono">utm_*</span> e <span className="font-mono">sub1–sub3</span> (
-                <span className="font-mono">matchtype</span>, <span className="font-mono">device</span>, <span className="font-mono">network</span>
-                ) para o Google preencher no clique.
-              </p>
-            )}
-          </div>
+        {/* Plataforma — linha completa (estilo painel) */}
+        <div className="space-y-2">
+          <Label htmlFor="platform-combobox">Plataforma</Label>
+          <Popover open={platformOpen} onOpenChange={setPlatformOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                id="platform-combobox"
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={platformOpen}
+                className="w-full max-w-xl justify-between font-normal h-11 px-3"
+              >
+                <span className={cn("truncate", !platform && "text-muted-foreground")}>
+                  {platform || "Escolher plataforma (ex.: BuyGoods, Google Ads)…"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0 w-[min(28rem,calc(100vw-2rem))]" align="start">
+              <Command>
+                <CommandInput placeholder="Filtrar plataformas…" className="h-11" />
+                <CommandList>
+                  <CommandEmpty>Nenhuma plataforma encontrada.</CommandEmpty>
+                  <CommandGroup>
+                    {URL_BUILDER_PLATFORMS.map((p) => (
+                      <CommandItem
+                        key={p}
+                        value={p}
+                        onSelect={() => {
+                          handlePlatformChange(p);
+                          setPlatformOpen(false);
+                        }}
+                      >
+                        {p}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <p className="text-[11px] text-muted-foreground">
+            Afiliados (subid, hop…) ou rede de anúncios (UTMs, ValueTrack). Escreve para filtrar.
+          </p>
         </div>
 
-        {/* Dynamic Params */}
+        <div className="space-y-2">
+          <Label>URL base (presell pública)</Label>
+          <Input
+            placeholder="https://dclickora.com/p/uuid-da-presell"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            className="font-mono text-sm max-w-4xl"
+          />
+          {platform === "Google Ads" && (
+            <p className="text-[11px] text-muted-foreground max-w-4xl">
+              Usa o URL da página presell (rota <span className="font-mono">/p/…</span>). Os parâmetros incluem{" "}
+              <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
+                gclid=&#123;gclid&#125;
+              </strong>{" "}
+              e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
+            </p>
+          )}
+        </div>
+
         {platform && (
-          <div className="space-y-3">
-            <Label>Parâmetros</Label>
-            {params.map((param, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex flex-col gap-1.5 rounded-lg p-2 -mx-2 transition-colors",
-                  param.highlight && "bg-primary/[0.08] border border-primary/25 border-l-4 border-l-primary shadow-sm",
-                )}
-              >
-                {param.highlight ? (
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-primary pl-0.5">
-                    ID de clique — recomendado
-                  </p>
-                ) : null}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="min-w-[100px] shrink-0">
-                  {param.highlight ? (
-                    <Badge
-                      variant="default"
-                      className="text-xs font-mono px-3 py-1.5 bg-primary text-primary-foreground font-bold underline underline-offset-2 decoration-primary-foreground/80"
-                    >
-                      {param.key || "param"}
-                    </Badge>
-                  ) : (
-                    <Input
-                      value={param.key}
-                      onChange={(e) => updateParam(i, "key", e.target.value)}
-                      className="font-mono text-xs"
-                      placeholder="chave"
-                    />
-                  )}
-                </div>
-                <Input
-                  value={param.value}
-                  onChange={(e) => updateParam(i, "value", e.target.value)}
+          <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Label className="text-sm font-semibold">Parâmetros</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Em cada linha: valor + <span className="font-mono">+</span> para tokens Google / Microsoft (+ outras redes).
+              </p>
+            </div>
+            <div className="space-y-2">
+              {params.map((param, i) => (
+                <div
+                  key={i}
                   className={cn(
-                    "font-mono text-xs flex-1 min-w-0",
-                    param.highlight && "border-primary/40 bg-background/80 font-medium",
+                    "rounded-lg border border-border/50 bg-background/90 px-3 py-2.5 transition-colors",
+                    param.highlight && "border-primary/35 bg-primary/[0.06] ring-1 ring-primary/15",
                   )}
-                  placeholder={
-                    param.highlight
-                      ? "Usa + para escolher ou escreve à mão"
-                      : param.key === "gbraid" || param.key === "wbraid"
-                        ? "Opcional (iOS / apps)"
-                        : "valor"
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 h-8 w-8 text-primary hover:text-primary/80"
-                  onClick={() => setTokenDialog({ open: true, rowIndex: i })}
-                  title="Escolher valor dinâmico"
                 >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeParam(i)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                  {param.highlight ? (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-2">
+                      ID de clique — recomendado
+                    </p>
+                  ) : null}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                    <div className="w-full sm:w-[8.5rem] shrink-0">
+                      {param.highlight ? (
+                        <Badge
+                          variant="default"
+                          className="w-full justify-center text-xs font-mono py-1.5 bg-primary text-primary-foreground font-bold underline underline-offset-2 decoration-primary-foreground/80"
+                        >
+                          {param.key || "param"}
+                        </Badge>
+                      ) : param.keyReadonly ? (
+                        <div className="flex h-10 items-center rounded-md border border-border/70 bg-muted/30 px-3 font-mono text-xs font-medium text-foreground">
+                          {param.key}
+                        </div>
+                      ) : (
+                        <Input
+                          value={param.key}
+                          onChange={(e) => updateParam(i, "key", e.target.value)}
+                          className="font-mono text-xs h-10"
+                          placeholder="chave"
+                        />
+                      )}
+                    </div>
+                    <Input
+                      value={param.value}
+                      onChange={(e) => updateParam(i, "value", e.target.value)}
+                      className={cn(
+                        "font-mono text-xs flex-1 min-w-0 h-10",
+                        param.highlight && "border-primary/40 font-medium",
+                      )}
+                      placeholder={
+                        param.valuePlaceholder
+                          ? param.valuePlaceholder
+                          : param.highlight
+                            ? "Insira o token (+) ou {gclid} / {msclkid}"
+                            : param.key === "gbraid" || param.key === "wbraid"
+                              ? "Opcional (iOS / apps)"
+                              : "Valor ou macro"
+                      }
+                    />
+                    <div className="flex items-center gap-1 shrink-0 justify-end sm:justify-start">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
+                        onClick={() => setTokenDialog({ open: true, rowIndex: i })}
+                        title="Selecionar token"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeParam(i)}
+                        title="Remover linha"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
             <Button variant="outline" size="sm" onClick={addParam} className="mt-1">
               <Plus className="h-3 w-3 mr-1" /> Adicionar parâmetro
             </Button>
@@ -645,24 +680,24 @@ export default function UrlBuilder() {
         </div>
       </div>
 
-      {/* Token Picker Dialog */}
       <Dialog open={tokenDialog.open} onOpenChange={(open) => setTokenDialog({ open, rowIndex: open ? tokenDialog.rowIndex : -1 })}>
         <DialogContent
-          className="max-h-[90vh] flex flex-col gap-0 p-0 sm:max-w-lg"
+          className="max-h-[90vh] flex flex-col gap-0 p-0 w-[min(100vw-1rem,52rem)] sm:max-w-[52rem]"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <DialogHeader className="px-6 pt-6 pb-3 shrink-0 text-left space-y-2">
-            <DialogTitle className="text-lg">Escolher valor dinâmico</DialogTitle>
-            <p className="text-sm text-muted-foreground font-normal leading-relaxed">
-              Marcadores agrupados por rede (Google, Meta, Bing, etc.) — usa só os da plataforma onde vais criar o anúncio. A rede substitui pelo
-              valor real no clique. Pesquisa pelo nome; o valor técnico aparece por baixo.
+          <DialogHeader className="px-5 pt-5 pb-2 shrink-0 text-left space-y-1 border-b border-border/60">
+            <DialogTitle className="text-base sm:text-lg">Selecione um token</DialogTitle>
+            <p className="text-xs sm:text-sm text-muted-foreground font-normal leading-relaxed pr-2">
+              Dois cliques nos marcadores Google ou Microsoft; a rede substitui no clique real. Meta, TikTok, etc. estão na
+              pesquisa abaixo.
             </p>
           </DialogHeader>
-          <div className="px-6 pb-6 flex-1 min-h-0 flex flex-col gap-3">
-            <AdNetworkTokensPickerPanel
-              sections={tokenSectionsOrdered}
-              onSelect={insertToken}
-              searchPlaceholder="Pesquisar (ex.: clique Google, nome da campanha, TikTok)…"
+          <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto">
+            <UrlBuilderTokenModalBody
+              key={tokenDialog.open ? `tok-${tokenDialog.rowIndex}` : "tok-closed"}
+              onSelectToken={insertToken}
+              allSectionsOrdered={tokenSectionsOrdered}
+              searchPlaceholder="Pesquisar (ex.: fbclid, campanha TikTok, Taboola)…"
             />
           </div>
         </DialogContent>
