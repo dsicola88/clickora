@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   type GoogleManualPlanFormState,
@@ -64,56 +64,64 @@ export function DpilotGoogleManualSearchCampaignBlock(props: {
   return (
     <Card className="border-muted-foreground/20 shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base tracking-tight">Modo de construção antes da publicação</CardTitle>
-        <CardDescription className="space-y-2 text-muted-foreground">
+        <CardTitle className="text-base tracking-tight">Como construir a campanha de Pesquisa</CardTitle>
+        <CardDescription className="text-muted-foreground">
           <span className="block leading-relaxed">
-            Este assistente gere unicamente campanhas de <strong className="text-foreground font-medium">Pesquisa</strong> —
-            hierarquia padrão: campanha, grupos de anúncios, palavras‑chave (correspondências exacta, expressão ou ampla) e
-            anúncio de pesquisa responsivo (RSA). Performance&nbsp;Max, Display, vídeo ou Shopping configuram‑se na consola da
-            Google.
-          </span>
-          <span className="block leading-relaxed text-[12px]">
-            O modo manual abre um painel <strong className="text-foreground font-medium">tipo definições de campanha</strong> —
-            igualmente simples aqui dentro. Depois da publicação, personalize na lista{" "}
-            <strong className="text-foreground font-medium">Campanhas → Gestão</strong>.
+            Só{" "}
+            <strong className="font-medium text-foreground">
+              Pesquisa
+            </strong>{" "}
+            neste fluxo — campanha, grupos, palavras‑chave e RSA. Para Performance&nbsp;Max, Display ou vídeo use a Google
+            Ads. Escolha o separador antes de seguir nos passos.
           </span>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <RadioGroup value={mode} onValueChange={(v) => onModeChange(v as GoogleSearchPlanConstructionMode)}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Label
-              className={`flex cursor-pointer rounded-lg border p-4 ${mode === "assistant" ? "border-primary/50 bg-muted/40" : "border-border hover:bg-muted/20"}`}
+        <Tabs
+          value={mode}
+          onValueChange={(v) => onModeChange(v as GoogleSearchPlanConstructionMode)}
+          className="w-full"
+        >
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 rounded-lg bg-muted/60 p-1.5 sm:grid-cols-2">
+            <TabsTrigger
+              value="assistant"
+              id="google-mode-ai"
+              className="min-h-[3.25rem] flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left whitespace-normal shadow-none data-[state=active]:ring-2 data-[state=active]:ring-primary/35"
             >
-              <RadioGroupItem value="assistant" id="google-mode-ai" className="mt-0.5" />
-              <div className="ml-3 space-y-1">
-                <span className="text-sm font-medium leading-snug tracking-tight peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Sugestão assistida pela IA
-                </span>
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Proposta de grupos, palavras‑chave e variações de RSA fundamentada no briefing — é sempre editável até
-                  criar.
-                </p>
-              </div>
-            </Label>
-            <Label
-              className={`flex cursor-pointer rounded-lg border p-4 ${mode === "manual" ? "border-primary/50 bg-muted/40" : "border-border hover:bg-muted/20"}`}
+              <span className="text-sm font-semibold leading-tight tracking-tight">Sugestão assistida pela IA</span>
+              <span className="text-[11px] font-normal leading-snug text-muted-foreground">
+                Briefing → proposta editável de grupos, keywords e RSA
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="manual"
+              id="google-mode-manual"
+              className="min-h-[3.25rem] flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left whitespace-normal shadow-none data-[state=active]:ring-2 data-[state=active]:ring-primary/35"
             >
-              <RadioGroupItem value="manual" id="google-mode-manual" className="mt-0.5" />
-              <div className="ml-3 space-y-1">
-                <span className="text-sm font-medium leading-snug tracking-tight">
-                  Planeamento manual (painel Gestor Pesquisa)
-                </span>
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Secções agrupadas como na Google Ads: campanha, redes, síntese de orçamento e licitação, grupos com
-                  palavras‑chave e RSA. Sem modelo de IA ao gerar o plano — só estruturas que definir aqui.
-                </p>
-              </div>
-            </Label>
-          </div>
-        </RadioGroup>
+              <span className="text-sm font-semibold leading-tight tracking-tight">
+                Planeamento manual (painel Gestor Pesquisa)
+              </span>
+              <span className="text-[11px] font-normal leading-snug text-muted-foreground">
+                Mesma lógica que definições Google Ads neste espaço — sem IA ao gerar
+              </span>
+            </TabsTrigger>
+          </TabsList>
 
-        {mode === "manual" ? (
+          <TabsContent value="assistant" className="mt-4 rounded-lg border border-dashed border-border/80 bg-muted/20 px-3 py-3 text-[13px] leading-relaxed text-muted-foreground focus-visible:outline-none">
+            <p>
+              Nos passos seguintes preenche oferta, orçamento e segmentação normalmente — o plano sugere estruturas a partir do
+              briefing. Tudo pode ser alterado até finalizar ou alternar para o separador Gestor Pesquisa.
+            </p>
+            <p className="mt-2 text-[12px]">
+              Depois de publicado, pode aprofundar em{" "}
+              <strong className="font-medium text-foreground">
+                Campanhas → Gestão
+              </strong>
+              .
+            </p>
+          </TabsContent>
+
+          <TabsContent value="manual" className="mt-4 outline-none focus-visible:outline-none">
           <div className="space-y-5">
             {/* Navegação compacta típica de menu lateral — apenas âncoras, sem complexidade */}
             <div className="-mx-1 flex flex-wrap gap-1 rounded-lg bg-muted/40 p-1 text-[11px] text-muted-foreground">
@@ -380,7 +388,8 @@ export function DpilotGoogleManualSearchCampaignBlock(props: {
               </section>
             </div>
           </div>
-        ) : null}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

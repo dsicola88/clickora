@@ -15,6 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Textarea } from "@/components/ui/textarea";
 import {
   campaignStatusLabel,
@@ -29,6 +30,7 @@ import type {
 } from "@/services/paidAdsService";
 import { paidAdsService } from "@/services/paidAdsService";
 import { cn } from "@/lib/utils";
+import { useViewportMinWidth, VIEWPORT_LG_MIN_PX } from "@/hooks/useViewportMinWidth";
 import { ExternalLink, ChevronDown, Loader2 } from "lucide-react";
 import { Gate } from "./DpilotPaidPages";
 import { UUID_RE, useDpilotPaid } from "./DpilotPaidContext";
@@ -98,6 +100,8 @@ function BadgeEntityStatus({ s }: { s: string }) {
 export function DpilotGoogleCampaignStudioPage() {
   const { projectId, campaignId } = useParams();
   const { overview, reload: reloadPaid } = useDpilotPaid();
+  const lgLayout = useViewportMinWidth(VIEWPORT_LG_MIN_PX);
+
   const ok =
     projectId &&
     campaignId &&
@@ -392,11 +396,40 @@ export function DpilotGoogleCampaignStudioPage() {
         ) : !campaign || !studio ? (
           <p className="text-sm text-muted-foreground">Campanha não encontrada.</p>
         ) : (
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-            <nav
-              className="shrink-0 space-y-5 border-b border-border pb-6 lg:w-52 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5"
-              aria-label="Secções do estúdio"
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-1">
+            {lgLayout ? (
+              <p className="border-b border-border/50 px-3 py-2 text-[10px] leading-snug text-muted-foreground">
+                Ponteiro sobre a barra entre índice e conteúdo para redimensionar. A proporção fica apenas neste
+                navegador.
+              </p>
+            ) : null}
+            <ResizablePanelGroup
+              direction={lgLayout ? "horizontal" : "vertical"}
+              autoSaveId={
+                projectId && campaignId
+                  ? `dpilot-google-studio-split-${projectId}-${campaignId}`
+                  : "dpilot-google-studio-split"
+              }
+              className={cn(
+                "rounded-b-lg bg-background",
+                lgLayout ? "min-h-[min(720px,calc(100vh-220px))]" : "min-h-0 gap-8 p-4 pt-5",
+              )}
             >
+              <ResizablePanel
+                defaultSize={lgLayout ? 22 : 28}
+                minSize={lgLayout ? 14 : 12}
+                maxSize={lgLayout ? 40 : 45}
+                className="min-w-0"
+              >
+                <nav
+                  className={cn(
+                    "shrink-0 space-y-5",
+                    lgLayout
+                      ? "h-full overflow-y-auto border-r border-border/60 pb-4 pr-3"
+                      : "border-b border-border pb-6",
+                  )}
+                  aria-label="Secções do estúdio"
+                >
               <div>
                 <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Campanha e conteúdo
@@ -430,9 +463,25 @@ export function DpilotGoogleCampaignStudioPage() {
                   </button>
                 </div>
               </div>
-            </nav>
+                </nav>
+              </ResizablePanel>
 
-            <div className="min-w-0 flex-1 space-y-6">
+              {lgLayout ? (
+                <ResizableHandle
+                  withHandle
+                  title="Redimensionar índice e conteúdo"
+                  className="w-3 shrink-0 bg-border/70 transition-colors hover:bg-primary/20 data-[resize-handle-active]:bg-primary/30"
+                />
+              ) : (
+                <div className="-mx-1 h-px shrink-0 bg-border/60" aria-hidden />
+              )}
+
+              <ResizablePanel
+                defaultSize={lgLayout ? 78 : 72}
+                minSize={lgLayout ? 52 : 40}
+                className="min-w-0"
+              >
+            <div className="min-w-0 flex-1 space-y-6 lg:overflow-y-auto lg:pr-1">
             {studioSection === "visao" && (
             <div className="space-y-6">
               <Card className="border-muted-foreground/15 shadow-sm">
@@ -1086,6 +1135,8 @@ export function DpilotGoogleCampaignStudioPage() {
             </div>
             )}
             </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </div>
         )}
       </div>

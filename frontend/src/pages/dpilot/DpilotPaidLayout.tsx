@@ -18,7 +18,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
+import { useViewportMinWidth, VIEWPORT_LG_MIN_PX } from "@/hooks/useViewportMinWidth";
 import { useDpilotPaid } from "./DpilotPaidContext";
 
 const navItem =
@@ -60,9 +62,11 @@ export function DpilotPaidLayout() {
   const om = manual.m ?? d.m;
   const ot = manual.t ?? d.t;
 
-  return (
-    <div className="flex flex-col gap-6 px-2 py-4 lg:flex-row lg:px-4">
-      <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[15.5rem]">
+  const persistId = String(projectId || pid || "anon");
+  const lgLayout = useViewportMinWidth(VIEWPORT_LG_MIN_PX);
+
+  const sidebarInner = (
+    <>
         <div className="mb-4 space-y-1">
           <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Studio de anúncios</p>
           <p className="px-1 text-[11px] leading-snug text-muted-foreground">
@@ -215,7 +219,39 @@ export function DpilotPaidLayout() {
             Equipa
           </NavLink>
         </nav>
-      </aside>
+    </>
+  );
+
+  return lgLayout ? (
+    <div className="mx-auto flex min-h-[min(880px,calc(100vh-140px))] w-full flex-1 flex-col px-4 py-4">
+      <div className="flex min-h-[min(720px,calc(100vh-180px))] flex-1 flex-col rounded-xl border border-border/70 bg-muted/20 p-1">
+        <p className="border-b border-border/50 px-3 py-2 text-[10px] leading-snug text-muted-foreground">
+          Ponteiro sobre a barra entre menu e página para redimensionar. Guardado só neste navegador por projecto.
+        </p>
+        <ResizablePanelGroup
+          direction="horizontal"
+          autoSaveId={`dpilot-paid-layout-${persistId}`}
+          className="min-h-0 flex-1 rounded-b-lg bg-background"
+        >
+          <ResizablePanel defaultSize={22} minSize={16} maxSize={42} className="min-w-0">
+            <aside className="h-full overflow-y-auto border-r border-border/60 p-3 pr-2">{sidebarInner}</aside>
+          </ResizablePanel>
+          <ResizableHandle
+            withHandle
+            title="Redimensionar menu e conteúdo"
+            className="w-3 shrink-0 bg-border/70 transition-colors hover:bg-primary/20 data-[resize-handle-active]:bg-primary/30"
+          />
+          <ResizablePanel defaultSize={78} minSize={48} className="min-w-0">
+            <main className="h-full min-h-0 overflow-y-auto overflow-x-hidden p-4 pl-3">
+              <Outlet />
+            </main>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col gap-6 px-2 py-4 lg:px-4">
+      <aside className="w-full shrink-0">{sidebarInner}</aside>
       <main className="min-w-0 flex-1">
         <Outlet />
       </main>

@@ -4,6 +4,7 @@ import { ImageIcon, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { DpilotAdsCampaignWizardShell } from "./DpilotAdsCampaignWizardShell";
+import { DpilotAdsWizardFormPreviewSplit } from "./DpilotAdsWizardFormPreviewSplit";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
 import { DpilotWizardFormSection } from "./DpilotWizardFormSection";
 import { Badge } from "@/components/ui/badge";
@@ -338,17 +339,21 @@ export function DpilotMetaWizardPage() {
         backLabel="Voltar ao Meta"
         readiness={<DpilotCampaignReadinessCard platform="meta" />}
       >
-        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-10 xl:gap-12">
-          <aside className="mx-auto w-full max-w-md shrink-0 lg:sticky lg:top-28 lg:mx-0 lg:w-[min(392px,32vw)] xl:w-[408px] lg:self-start">
-            <DpilotMetaFeedAdPreview
-              landingUrl={landingUrl}
-              offer={offer}
-              placements={placements}
-              assetPreview={assetPreview}
-              assetIsVideo={assetIsVideo}
-            />
-          </aside>
-          <form onSubmit={onSubmit} className="min-w-0 flex-1 space-y-6">
+        <DpilotAdsWizardFormPreviewSplit
+          autoSaveId={projectId ? `dpilot-meta-wizard-split-${projectId}` : "dpilot-meta-wizard-split"}
+          preview={
+            <aside className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none lg:sticky lg:top-2">
+              <DpilotMetaFeedAdPreview
+                landingUrl={landingUrl}
+                offer={offer}
+                placements={placements}
+                assetPreview={assetPreview}
+                assetIsVideo={assetIsVideo}
+              />
+            </aside>
+          }
+          form={
+            <form onSubmit={onSubmit} className="min-w-0 space-y-6">
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-offer"
             platform="meta"
@@ -685,12 +690,13 @@ export function DpilotMetaWizardPage() {
                 ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
                 )}
-                {submitting ? "A gerar plano…" : "Gerar plano com IA"}
+                {submitting ? "A gerar plano…" : "Gerar plano"}
               </Button>
             </div>
           </DpilotWizardFormSection>
           </form>
-        </div>
+          }
+        />
       </DpilotAdsCampaignWizardShell>
     </Gate>
   );

@@ -13,6 +13,7 @@ import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargeting
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotAdsCampaignWizardShell } from "./DpilotAdsCampaignWizardShell";
+import { DpilotAdsWizardFormPreviewSplit } from "./DpilotAdsWizardFormPreviewSplit";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
 import { DpilotWizardFormSection } from "./DpilotWizardFormSection";
 import { Gate } from "./DpilotPaidPages";
@@ -290,17 +291,21 @@ export function DpilotTiktokWizardPage() {
         backLabel="Voltar ao TikTok Ads"
         readiness={<DpilotCampaignReadinessCard platform="tiktok" />}
       >
-        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-10 xl:gap-12">
-          <aside className="mx-auto w-full max-w-[280px] shrink-0 lg:sticky lg:top-28 lg:mx-0 lg:w-[min(280px,30vw)] lg:self-start">
-            <DpilotTiktokInFeedPreview
-              landingUrl={landingUrl}
-              offer={offer}
-              objectiveId={objective}
-              mediaPreview={videoPreview}
-              mediaIsVideo={videoIsVideo}
-            />
-          </aside>
-          <form onSubmit={onSubmit} className="min-w-0 flex-1 space-y-6">
+        <DpilotAdsWizardFormPreviewSplit
+          autoSaveId={projectId ? `dpilot-tiktok-wizard-split-${projectId}` : "dpilot-tiktok-wizard-split"}
+          preview={
+            <aside className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none lg:sticky lg:top-2">
+              <DpilotTiktokInFeedPreview
+                landingUrl={landingUrl}
+                offer={offer}
+                objectiveId={objective}
+                mediaPreview={videoPreview}
+                mediaIsVideo={videoIsVideo}
+              />
+            </aside>
+          }
+          form={
+            <form id="dpilot-tiktok-wizard-form" onSubmit={onSubmit} className="min-w-0 space-y-6">
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-offer"
             platform="tiktok"
@@ -581,18 +586,19 @@ export function DpilotTiktokWizardPage() {
               <Button type="button" variant="outline" className="sm:mr-auto" asChild>
                 <Link to={`${base}/tiktok`}>Cancelar</Link>
               </Button>
-              <Button type="submit" size="lg" className="min-w-[220px] font-semibold" disabled={!canSubmit}>
+              <Button type="submit" form="dpilot-tiktok-wizard-form" size="lg" className="min-w-[220px] font-semibold" disabled={!canSubmit}>
                 {submitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
                 )}
-                {submitting ? "A gerar plano…" : "Gerar plano com IA"}
+                {submitting ? "A gerar plano…" : "Gerar plano"}
               </Button>
             </div>
           </DpilotWizardFormSection>
-        </form>
-        </div>
+            </form>
+          }
+        />
       </DpilotAdsCampaignWizardShell>
     </Gate>
   );

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TEMPLATES, TEMPLATE_CATEGORIES, type TemplateDefinition } from "../templates";
 import { useBuilder } from "../store";
 import { X, LayoutTemplate, Plus } from "lucide-react";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [category, setCategory] = useState<TemplateDefinition["category"] | "all">("all");
@@ -59,42 +60,53 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
           </button>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          <aside className="w-48 shrink-0 border-r border-editor-border p-3">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Categorias
-            </h3>
-            <nav className="space-y-1">
-              <CategoryButton
-                active={category === "all"}
-                onClick={() => setCategory("all")}
-                count={TEMPLATES.length}
-              >
-                Todos
-              </CategoryButton>
-              {TEMPLATE_CATEGORIES.map((c) => {
-                const count = TEMPLATES.filter((t) => t.category === c.id).length;
-                return (
-                  <CategoryButton
-                    key={c.id}
-                    active={category === c.id}
-                    onClick={() => setCategory(c.id)}
-                    count={count}
-                  >
-                    {c.label}
-                  </CategoryButton>
-                );
-              })}
-            </nav>
-          </aside>
-
-          <div className="editor-scrollbar flex-1 overflow-y-auto p-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((t) => (
-                <TemplateCard key={t.id} template={t} onPick={handlePick} />
-              ))}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2 pt-1">
+          <p className="pb-2 text-[10px] leading-snug text-editor-fg-muted md:hidden">
+            Em ecrãs largos pode arrastar a barra entre categorias e lista de templates.
+          </p>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 md:hidden">
+            <aside className="shrink-0 rounded-md border border-editor-border bg-editor-panel-2/40 p-3">
+              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-editor-fg-muted">
+                Categorias
+              </h3>
+              <TemplatesCategoryNav category={category} onCategory={setCategory} />
+            </aside>
+            <div className="editor-scrollbar min-h-0 flex-1 overflow-y-auto rounded-md border border-editor-border/80 p-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {items.map((t) => (
+                  <TemplateCard key={t.id} template={t} onPick={handlePick} />
+                ))}
+              </div>
             </div>
           </div>
+
+          <ResizablePanelGroup
+            direction="horizontal"
+            autoSaveId="clickora-pb-templates-modal-split"
+            className="hidden min-h-0 flex-1 rounded-md md:flex"
+          >
+            <ResizablePanel defaultSize={20} minSize={14} maxSize={38} className="min-h-0 min-w-0">
+              <aside className="flex h-full min-h-0 flex-col overflow-y-auto border border-editor-border bg-editor-panel-2/30 p-3 md:rounded-l-md md:border-r-0 md:rounded-r-none">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-editor-fg-muted">
+                  Categorias
+                </h3>
+                <TemplatesCategoryNav category={category} onCategory={setCategory} />
+              </aside>
+            </ResizablePanel>
+            <ResizableHandle
+              title="Redimensionar painéis"
+              className="w-px shrink-0 bg-editor-border/95 transition-colors hover:bg-editor-accent/60 data-[resize-handle-active]:bg-editor-accent data-[resize-handle-state=drag]:bg-editor-accent"
+            />
+            <ResizablePanel defaultSize={80} minSize={45} className="min-h-0 min-w-0">
+              <div className="editor-scrollbar h-full overflow-y-auto border border-editor-border md:rounded-br-md md:rounded-tr-md md:border-l-0 p-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((t) => (
+                    <TemplateCard key={t.id} template={t} onPick={handlePick} />
+                  ))}
+                </div>
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </div>
       </div>
 
@@ -139,6 +151,39 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
         </div>
       )}
     </div>
+  );
+}
+
+function TemplatesCategoryNav({
+  category,
+  onCategory,
+}: {
+  category: TemplateDefinition["category"] | "all";
+  onCategory: (next: TemplateDefinition["category"] | "all") => void;
+}) {
+  return (
+    <nav className="space-y-1">
+      <CategoryButton
+        active={category === "all"}
+        onClick={() => onCategory("all")}
+        count={TEMPLATES.length}
+      >
+        Todos
+      </CategoryButton>
+      {TEMPLATE_CATEGORIES.map((c) => {
+        const count = TEMPLATES.filter((t) => t.category === c.id).length;
+        return (
+          <CategoryButton
+            key={c.id}
+            active={category === c.id}
+            onClick={() => onCategory(c.id)}
+            count={count}
+          >
+            {c.label}
+          </CategoryButton>
+        );
+      })}
+    </nav>
   );
 }
 

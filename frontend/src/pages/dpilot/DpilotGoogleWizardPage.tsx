@@ -11,6 +11,7 @@ import { GoogleAdsCountriesSelect, GoogleAdsLanguagesSelect } from "@/components
 import { GOOGLE_ADS_COUNTRY_OPTIONS, GOOGLE_ADS_LANGUAGE_OPTIONS } from "@/lib/googleAdsTargeting";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotAdsCampaignWizardShell } from "./DpilotAdsCampaignWizardShell";
+import { DpilotAdsWizardFormPreviewSplit } from "./DpilotAdsWizardFormPreviewSplit";
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
 import { DpilotWizardFormSection } from "./DpilotWizardFormSection";
 import {
@@ -605,20 +606,24 @@ export function DpilotGoogleWizardPage() {
         backLabel="Voltar às campanhas"
         readiness={<DpilotCampaignReadinessCard platform="google" />}
       >
-        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-10 xl:gap-12">
-          <aside className="mx-auto w-full max-w-md shrink-0 lg:sticky lg:top-28 lg:mx-0 lg:w-[min(392px,32vw)] xl:w-[408px] lg:self-start">
-            <DpilotGoogleSearchAdPreview
-              landingUrl={landingUrl}
-              offer={offer}
-              seedKeyword={campaignSeedKeyword}
-              price={psPrice}
-              discount={psDiscount}
-              guarantee={psGuarantee}
-              shipping={psShipping}
-              bundles={psBundles}
-            />
-          </aside>
-          <form onSubmit={onSubmit} className="min-w-0 flex-1 space-y-6">
+        <DpilotAdsWizardFormPreviewSplit
+          autoSaveId={projectId ? `dpilot-google-wizard-split-${projectId}` : "dpilot-google-wizard-split"}
+          preview={
+            <aside className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none lg:sticky lg:top-2">
+              <DpilotGoogleSearchAdPreview
+                landingUrl={landingUrl}
+                offer={offer}
+                seedKeyword={campaignSeedKeyword}
+                price={psPrice}
+                discount={psDiscount}
+                guarantee={psGuarantee}
+                shipping={psShipping}
+                bundles={psBundles}
+              />
+            </aside>
+          }
+          form={
+            <form id="dpilot-google-wizard-form" onSubmit={onSubmit} className="min-w-0 space-y-6">
           <DpilotWizardFormSection
             id="dpilot-wiz-google-obj"
             platform="google"
@@ -1084,12 +1089,13 @@ export function DpilotGoogleWizardPage() {
             <div className="flex flex-col gap-3 border-t border-border/80 pt-5 sm:flex-row sm:items-center sm:justify-end">
               <Button type="submit" size="lg" disabled={submitting} className="min-w-[200px] font-semibold">
                 <Sparkles className="mr-2 h-4 w-4" />
-                {submitting ? "A gerar plano…" : "Gerar plano com IA"}
+                {submitting ? "A gerar plano…" : "Gerar plano"}
               </Button>
             </div>
           </DpilotWizardFormSection>
         </form>
-        </div>
+          }
+        />
       </DpilotAdsCampaignWizardShell>
     </Gate>
   );

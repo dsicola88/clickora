@@ -433,9 +433,30 @@ function TrackingNavWithAdvanced({
   );
 }
 
+export function AppSidebarDocked() {
+  return (
+    <Sidebar
+      collapsible="none"
+      className="h-full min-h-0 min-w-0 !w-full overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+    >
+      <AppSidebarInner collapsed={false} docked />
+    </Sidebar>
+  );
+}
+
 export function AppSidebar() {
-  const { state, toggleSidebar } = useSidebar();
+  const { state } = useSidebar();
   const collapsed = state === "collapsed";
+
+  return (
+    <Sidebar collapsible="icon">
+      <AppSidebarInner collapsed={collapsed} />
+    </Sidebar>
+  );
+}
+
+function AppSidebarInner({ collapsed, docked = false }: { collapsed: boolean; docked?: boolean }) {
+  const { toggleSidebar } = useSidebar();
   const location = useLocation();
   const path = location.pathname;
   const { user, isAdmin, isSuperAdmin, userPlan, signOut } = useAuth();
@@ -479,21 +500,21 @@ export function AppSidebar() {
   }, [trackingAdvancedRoute]);
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4 border-b border-sidebar-border/80">
-        <NavLink to="/inicio" className="flex items-center gap-2.5 group/logo">
-          <div className="gradient-primary rounded-md w-8 h-8 flex items-center justify-center flex-shrink-0 shadow-md shadow-black/20 ring-1 ring-white/10">
-            <Zap className="w-4 h-4 text-primary-foreground drop-shadow-sm" />
+    <>
+      <SidebarHeader className="border-b border-sidebar-border/80 p-4">
+        <NavLink to="/inicio" className="group/logo flex items-center gap-2.5">
+          <div className="gradient-primary flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md shadow-md shadow-black/20 ring-1 ring-white/10">
+            <Zap className="h-4 w-4 text-primary-foreground drop-shadow-sm" />
           </div>
           {!collapsed && (
-            <span className="text-lg font-extrabold text-sidebar-accent-foreground tracking-tight group-hover/logo:text-sidebar-primary-foreground transition-colors">
+            <span className="text-lg font-extrabold tracking-tight text-sidebar-accent-foreground transition-colors group-hover/logo:text-sidebar-primary-foreground">
               dclickora
             </span>
           )}
         </NavLink>
       </SidebarHeader>
 
-      <SidebarContent className="p-2 space-y-1">
+      <SidebarContent className="space-y-1 p-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -519,7 +540,9 @@ export function AppSidebar() {
 
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-3">Área de trabalho</SidebarGroupLabel>
+            <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
+              Área de trabalho
+            </SidebarGroupLabel>
           )}
           <SidebarGroupContent className="space-y-1">
             <Collapsible open={presellOpen} onOpenChange={setPresellOpen}>
@@ -531,7 +554,7 @@ export function AppSidebar() {
                       className="w-full justify-between gap-2"
                       isActive={inPresell}
                     >
-                      <span className="flex items-center gap-3 min-w-0">
+                      <span className="flex min-w-0 items-center gap-3">
                         <FileText className="h-4 w-4 flex-shrink-0" />
                         {!collapsed && <span className="truncate">Minha presell</span>}
                       </span>
@@ -568,7 +591,7 @@ export function AppSidebar() {
                       className="w-full justify-between gap-2"
                       isActive={inTracking}
                     >
-                      <span className="flex items-center gap-3 min-w-0">
+                      <span className="flex min-w-0 items-center gap-3">
                         <BarChart3 className="h-4 w-4 flex-shrink-0" />
                         {!collapsed && <span className="truncate">Meu Rastreamento</span>}
                       </span>
@@ -624,7 +647,9 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-3">Conta</SidebarGroupLabel>}
+          {!collapsed && (
+            <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">Conta</SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -636,17 +661,17 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={path === "/planos" || path === "/plans"}
-                  tooltip="Planos"
-                >
+                <SidebarMenuButton asChild isActive={path === "/planos" || path === "/plans"} tooltip="Planos">
                   <NavLink to="/planos" end className={sidebarItemClassName} activeClassName={sidebarItemActiveClassName}>
                     <CreditCard className="h-4 w-4 flex-shrink-0" />
                     {!collapsed && (
                       <span className="flex items-center gap-2">
                         Planos
-                        {userPlan && <span className="text-[10px] bg-sidebar-accent px-1.5 py-0.5 rounded-full">{userPlan.plan_name}</span>}
+                        {userPlan && (
+                          <span className="rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px]">
+                            {userPlan.plan_name}
+                          </span>
+                        )}
                       </span>
                     )}
                   </NavLink>
@@ -667,17 +692,17 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-2 border-t border-sidebar-border space-y-1">
+      <SidebarFooter className="space-y-1 border-t border-sidebar-border p-2">
         {!collapsed && user && (
           <div className="px-3 py-2">
-            <p className="text-xs text-sidebar-muted truncate">{user.email}</p>
+            <p className="truncate text-xs text-sidebar-muted">{user.email}</p>
           </div>
         )}
         {user ? (
           <button
             type="button"
             onClick={() => void signOut()}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-destructive hover:bg-sidebar-accent transition-colors w-full text-sm"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-destructive"
             aria-label="Sair da conta"
           >
             <LogOut className="h-4 w-4" />
@@ -688,21 +713,24 @@ export function AppSidebar() {
             to="/auth"
             aria-label="Entrar"
             title="Entrar"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-sidebar-primary-foreground hover:bg-sidebar-accent transition-colors w-full text-sm"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-primary-foreground"
           >
             <LogIn className="h-4 w-4 flex-shrink-0" />
             {!collapsed && <span>Entrar</span>}
           </NavLink>
         )}
-        <button
-          onClick={toggleSidebar}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:text-sidebar-accent-foreground hover:bg-sidebar-accent transition-colors w-full"
-          aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-        >
-          <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
-          {!collapsed && <span className="text-sm">Recolher</span>}
-        </button>
+        {!docked ? (
+          <button
+            type="button"
+            onClick={() => toggleSidebar()}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+          >
+            <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+            {!collapsed && <span className="text-sm">Recolher</span>}
+          </button>
+        ) : null}
       </SidebarFooter>
-    </Sidebar>
+    </>
   );
 }
