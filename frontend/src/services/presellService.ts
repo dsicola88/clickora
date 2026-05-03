@@ -47,6 +47,7 @@ export const presellService = {
       rating_stars: number;
       urgency_timer_seconds: number;
       storefront_theme: "dark_commerce" | "default";
+      storefront_hero_tint: boolean;
     }>("/presells/import-from-url", payload);
   },
 

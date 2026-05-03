@@ -32,6 +32,11 @@ export type ImportPresellResult = {
    * espelhado na presell pública para reduzir fricção com o anúncio.
    */
   storefront_theme: ImportStorefrontTheme;
+  /**
+   * Hero com fundo pastel/colorido (lavanda, etc.) e texto claro — espelhar header escuro + faixa colorida.
+   * Só aplicável com `storefront_theme === "default"`.
+   */
+  storefront_hero_tint: boolean;
   /** Campos para presell tipo desconto (extraídos da página quando possível). */
   discount_percent: number | null;
   discount_headline: string;
@@ -241,24 +246,98 @@ function gradientHasDarkStop(val: string): boolean {
   return hits >= 1;
 }
 
-/**
- * Landings escuras (hero preto/azul, texto claro) → presell com header + hero escuros e corpo claro.
- */
-export function detectImportStorefrontTheme(html: string, foldHtml: string): ImportStorefrontTheme {
-  const sample = foldHtml.slice(0, 48_000);
-  const lower = sample.toLowerCase();
+function rgbSaturation255(r: number, g: number, b: number): number {
+  const max = Math.max(r, g, b);
+  if (max === 0) return 0;
+  const min = Math.min(r, g, b);
+  return (max - min) / max;
+}
 
-  if (/\bbg-(black|zinc-950|zinc-900|gray-950|gray-900|slate-950|slate-900|neutral-950|neutral-900)\b/.test(lower)) {
-    return "dark_commerce";
+/** Fundo pastel/colorido claro (ex.: hero lavanda) — não é “dark commerce”. */
+function chunkLooksLikeTintedLightBackground(raw: string): boolean {
+  if (chunkLooksLikeDarkBackground(raw)) return false;
+  const t = raw.trim().toLowerCase();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(t)) {
+    const full = t.length === 4 ? expandHex3(t) : t;
+    const rgb = rgbFromHex6(full);
+    if (!rgb) return false;
+    const lum = relativeLuminance255(rgb.r, rgb.g, rgb.b);
+    const sat = rgbSaturation255(rgb.r, rgb.g, rgb.b);
+    return lum > 0.36 && sat > 0.06;
   }
-  if (/\bfrom-(black|zinc-950|zinc-900|gray-950|gray-900|slate-950|slate-900)\b/.test(lower)) {
-    return "dark_commerce";
+  const rgbM = t.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/);
+  if (rgbM) {
+    const r = +rgbM[1];
+    const g = +rgbM[2];
+    const b = +rgbM[3];
+    if (![r, g, b].every((n) => !Number.isNaN(n))) return false;
+    const chunk = `rgb(${r},${g},${b})`;
+    if (chunkLooksLikeDarkBackground(chunk)) return false;
+    const lum = relativeLuminance255(r, g, b);
+    const sat = rgbSaturation255(r, g, b);
+    return lum > 0.36 && sat > 0.06;
   }
-  if (/bg-\[#0[0-4][0-9a-f]{4}\]/i.test(sample)) return "dark_commerce";
-  if (/bg-\[#1[0-2][0-9a-f]{4}\]/i.test(sample)) return "dark_commerce";
+  if (/\b(lavender|thistle|plum|lightsteelblue|powderblue|lightcyan)\b/.test(t)) return true;
+  return false;
+}
+
+function gradientHasLightTintedStop(val: string): boolean {
+  for (const m of val.matchAll(/#([0-9a-f]{3}|[0-9a-f]{6})\b/gi)) {
+    const full = m[1].length === 3 ? expandHex3(`#${m[1]}`) : `#${m[1]}`;
+    const rgb = rgbFromHex6(full.toLowerCase());
+    if (!rgb) continue;
+    if (chunkLooksLikeDarkBackground(full)) continue;
+    if (relativeLuminance255(rgb.r, rgb.g, rgb.b) > 0.36 && rgbSaturation255(rgb.r, rgb.g, rgb.b) > 0.06) {
+      return true;
+    }
+  }
+  for (const m of val.matchAll(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/gi)) {
+    const r = +m[1];
+    const g = +m[2];
+    const b = +m[3];
+    if (![r, g, b].every((n) => !Number.isNaN(n))) continue;
+    if (chunkLooksLikeDarkBackground(`rgb(${r},${g},${b})`)) continue;
+    if (relativeLuminance255(r, g, b) > 0.36 && rgbSaturation255(r, g, b) > 0.06) return true;
+  }
+  return false;
+}
+
+function countTintedLightBackgroundHits(sample: string): number {
+  let hits = 0;
+  for (const m of sample.matchAll(/background(?:-color)?\s*:\s*([^;}{<]+)/gi)) {
+    let val = m[1].replace(/!important/gi, "").trim();
+    if (/^url\(/i.test(val)) continue;
+    if (/linear-gradient|radial-gradient/i.test(val)) {
+      if (gradientHasLightTintedStop(val)) hits++;
+      continue;
+    }
+    if (chunkLooksLikeTintedLightBackground(val)) hits++;
+  }
+  return hits;
+}
+
+function resolveImportStorefrontTheme(
+  html: string,
+  sample: string,
+  tintedLightHits: number,
+): ImportStorefrontTheme {
+  const lower = sample.toLowerCase();
+  /** Header preto + hero lavanda (ex.: Neotonics): não forçar dark só por existir `bg-black`. */
+  const skipAggressiveDarkClassHints = tintedLightHits >= 1;
+
+  if (!skipAggressiveDarkClassHints) {
+    if (/\bbg-(black|zinc-950|zinc-900|gray-950|gray-900|slate-950|slate-900|neutral-950|neutral-900)\b/.test(lower)) {
+      return "dark_commerce";
+    }
+    if (/\bfrom-(black|zinc-950|zinc-900|gray-950|gray-900|slate-950|slate-900)\b/.test(lower)) {
+      return "dark_commerce";
+    }
+    if (/bg-\[#0[0-4][0-9a-f]{4}\]/i.test(sample)) return "dark_commerce";
+    if (/bg-\[#1[0-2][0-9a-f]{4}\]/i.test(sample)) return "dark_commerce";
+  }
 
   const themeColor = extractMeta(html, "theme-color");
-  if (themeColor) {
+  if (themeColor && !skipAggressiveDarkClassHints) {
     const normalized = themeColor.split(/\s+/)[0]?.trim() || themeColor;
     if (chunkLooksLikeDarkBackground(normalized)) return "dark_commerce";
   }
@@ -274,16 +353,33 @@ export function detectImportStorefrontTheme(html: string, foldHtml: string): Imp
     if (chunkLooksLikeDarkBackground(val)) darkBgHits++;
   }
 
+  if (skipAggressiveDarkClassHints && darkBgHits <= tintedLightHits + 2) {
+    return "default";
+  }
+
   if (darkBgHits >= 2) return "dark_commerce";
   if (darkBgHits === 1 && /\b(color\s*:\s*(#fff|#f8|#f9|white)|text-white)\b/i.test(sample)) {
     return "dark_commerce";
   }
 
-  if (/\btext-white\b/.test(lower) && /\b(bg-black|background\s*:\s*#\s*0|bg-slate-9|bg-zinc-9|bg-gray-9)\b/.test(lower)) {
+  if (
+    !skipAggressiveDarkClassHints &&
+    /\btext-white\b/.test(lower) &&
+    /\b(bg-black|background\s*:\s*#\s*0|bg-slate-9|bg-zinc-9|bg-gray-9)\b/.test(lower)
+  ) {
     return "dark_commerce";
   }
 
   return "default";
+}
+
+/**
+ * Landings escuras (hero preto/azul, texto claro) → presell com header + hero escuros e corpo claro.
+ */
+export function detectImportStorefrontTheme(html: string, foldHtml: string): ImportStorefrontTheme {
+  const sample = foldHtml.slice(0, 48_000);
+  const tinted = countTintedLightBackgroundHits(sample);
+  return resolveImportStorefrontTheme(html, sample, tinted);
 }
 
 /** Reduz ruído de SVG (paths enormes) ao detetar se o HTML estático tem texto útil na dobra. */
@@ -1193,6 +1289,10 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   const discount = extractDiscountSignals(html, language);
 
+  const foldSampleForTheme = foldHtml.slice(0, 48_000);
+  const tintedLightBgHits = countTintedLightBackgroundHits(foldSampleForTheme);
+  const storefront_theme = resolveImportStorefrontTheme(html, foldSampleForTheme, tintedLightBgHits);
+
   return {
     product_name: productName,
     title: heroTitle,
@@ -1202,7 +1302,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     images,
     source_url: finalUrl,
     affiliate_link: input.affiliateLink || finalUrl,
-    storefront_theme: detectImportStorefrontTheme(html, foldHtml),
+    storefront_theme,
+    storefront_hero_tint: tintedLightBgHits >= 1 && storefront_theme === "default",
     official_buy_cta: officialBuyCta(language),
     ...discount,
     ...(video_url ? { video_url } : {}),

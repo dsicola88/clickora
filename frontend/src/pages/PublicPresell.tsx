@@ -254,12 +254,21 @@ function StorefrontRatingRow({
 }: {
   value: string;
   stars: number;
-  variant?: "default" | "darkHero";
+  variant?: "default" | "darkHero" | "tintHero";
 }) {
   const n = Math.min(5, Math.max(0, Math.round(stars)));
   const starCls =
-    variant === "darkHero" ? "text-amber-400" : "text-orange-500 dark:text-orange-400";
-  const labelCls = variant === "darkHero" ? "text-slate-300" : "text-foreground/85";
+    variant === "darkHero"
+      ? "text-amber-400"
+      : variant === "tintHero"
+        ? "text-white drop-shadow-sm"
+        : "text-orange-500 dark:text-orange-400";
+  const labelCls =
+    variant === "darkHero"
+      ? "text-slate-300"
+      : variant === "tintHero"
+        ? "text-white/90 drop-shadow-sm"
+        : "text-foreground/85";
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={`Avaliação ${value}`}>
       <span className={cn("flex gap-0.5", starCls)} aria-hidden>
@@ -293,6 +302,27 @@ function StorefrontDarkSubtitle({ subtitle }: { subtitle: string }) {
     );
   }
   return <p className="text-base md:text-lg text-slate-400 leading-relaxed">{subtitle}</p>;
+}
+
+/** Subtítulo em hero lavanda / violeta (texto claro + destaque em cor quente). */
+function StorefrontTintSubtitle({ subtitle }: { subtitle: string }) {
+  const parts = subtitle
+    .split(/(?<=[.!?])\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2 && parts[parts.length - 1].length >= 10) {
+    const lead = parts.slice(0, -1).join(" ");
+    const hi = parts[parts.length - 1];
+    return (
+      <div className="space-y-3">
+        <p className="text-base md:text-lg text-white/85 leading-relaxed drop-shadow-sm">{lead}</p>
+        <p className="inline-block rounded-md bg-orange-600/95 px-3 py-2 text-base md:text-lg font-semibold text-white shadow-md">
+          {hi}
+        </p>
+      </div>
+    );
+  }
+  return <p className="text-base md:text-lg text-white/85 leading-relaxed drop-shadow-sm">{subtitle}</p>;
 }
 
 /**
@@ -604,6 +634,11 @@ export default function PublicPresell() {
   const storefrontTheme =
     content.storefrontTheme === "dark_commerce" ? "dark_commerce" : "default";
   const useDarkMirrorStorefront = storefrontLayout && storefrontTheme === "dark_commerce";
+  const storefrontHeroTint = content.storefrontHeroTint === true;
+  const useTintedCommerceStorefront =
+    storefrontLayout && storefrontTheme !== "dark_commerce" && storefrontHeroTint;
+  /** Corpo claro em largura total (como a landing original por baixo do hero). */
+  const storefrontMirrorLightBody = useDarkMirrorStorefront || useTintedCommerceStorefront;
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
     typeof content.productName === "string"
@@ -795,6 +830,153 @@ export default function PublicPresell() {
 
                 {showVideo ? (
                   <div className="relative w-full max-w-4xl mx-auto aspect-video bg-black/60 rounded-xl overflow-hidden shadow-md border border-amber-900/40 mt-10">
+                    {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
+                      <>
+                        <iframe
+                          title="Vídeo"
+                          src={videoEmbedSrc}
+                          className="absolute inset-0 z-0 h-full w-full border-0"
+                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                          allowFullScreen
+                          referrerPolicy="strict-origin-when-cross-origin"
+                        />
+                        <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
+                      </>
+                    ) : (
+                      <video
+                        title="Vídeo"
+                        src={videoEmbedSrc}
+                        className="absolute inset-0 h-full w-full object-contain bg-black"
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </>
+        ) : useTintedCommerceStorefront ? (
+          <>
+            <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-900/95 backdrop-blur-md">
+              <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 h-14 sm:h-[3.75rem] flex items-center justify-between gap-3">
+                <span className="font-bold text-white tracking-wide uppercase truncate text-xs sm:text-sm md:text-base min-w-0">
+                  {(productNameLabel || title).slice(0, 42)}
+                </span>
+                <nav
+                  className="hidden md:flex items-center gap-6 lg:gap-7 text-sm text-white/80 font-medium shrink-0"
+                  aria-label="Secções"
+                >
+                  <a href="#presell-story" className="hover:text-white transition-colors whitespace-nowrap">
+                    {darkNav.about}
+                  </a>
+                  <a href="#presell-story" className="hover:text-white transition-colors whitespace-nowrap">
+                    {darkNav.ingredients}
+                  </a>
+                  <a href="#presell-story" className="hover:text-white transition-colors whitespace-nowrap">
+                    {darkNav.faq}
+                  </a>
+                </nav>
+                <a
+                  href={href}
+                  className={cn(
+                    "shrink-0 rounded-lg bg-teal-500 px-3 py-1.5 text-[10px] sm:text-xs font-bold text-white shadow-md hover:bg-teal-500 hover:brightness-110 transition-[filter]",
+                    !ctaEnabled && "pointer-events-none opacity-50",
+                  )}
+                >
+                  {ctaText}
+                </a>
+              </div>
+            </header>
+            <section
+              className="relative overflow-hidden border-b border-violet-400/25"
+              style={{
+                background: "linear-gradient(145deg, #c4b5fd 0%, #bfb0f5 22%, #ddd6fe 52%, #ede9fe 78%, #f5f3ff 100%)",
+              }}
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_80%_at_20%_20%,rgba(255,255,255,0.35),transparent_55%)]" />
+              <div className="relative w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
+                {interactiveKind ? (
+                  <div className="mb-8 text-center max-w-3xl mx-auto rounded-2xl border border-white/50 bg-white/85 shadow-lg px-4 py-5 text-slate-900 backdrop-blur-sm [&_label]:text-slate-800 [&_p]:text-slate-700">
+                    <PresellGateFields
+                      gateKind={interactiveKind}
+                      language={uiLang}
+                      settings={settings}
+                      onPayload={handleFieldPayload}
+                    />
+                  </div>
+                ) : null}
+
+                <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+                  <div className="space-y-4 md:sticky md:top-6">
+                    <div className="rounded-2xl border border-white/55 bg-white/25 shadow-[0_12px_40px_-12px_rgba(91,33,182,0.25)] backdrop-blur-[2px] p-4 sm:p-5">
+                      <img
+                        src={productImages[Math.min(storefrontMainIdx, productImages.length - 1)]}
+                        alt={primarySeoLabel}
+                        className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-white/40"
+                        loading="eager"
+                        decoding="async"
+                        fetchPriority="high"
+                      />
+                    </div>
+                    {productImages.length > 1 ? (
+                      <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+                        {productImages.map((src, i) => (
+                          <button
+                            key={`${i}-${src.slice(0, 48)}`}
+                            type="button"
+                            onClick={() => setStorefrontMainIdx(i)}
+                            className={cn(
+                              "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90",
+                              i === storefrontMainIdx
+                                ? "border-white ring-2 ring-white/50 shadow-md"
+                                : "border-white/40 opacity-95 hover:opacity-100",
+                            )}
+                            aria-label={`Imagem ${i + 1}`}
+                          >
+                            <img
+                              src={src}
+                              alt=""
+                              className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
+                    {productNameLabel ? (
+                      <p className="text-xs font-semibold uppercase tracking-wider text-white/90 drop-shadow-sm">
+                        {productNameLabel}
+                      </p>
+                    ) : null}
+                    <h1 className="text-2xl sm:text-3xl lg:text-[2.45rem] font-sans font-bold tracking-tight text-white leading-[1.15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.18)]">
+                      {title}
+                    </h1>
+                    {showStorefrontRating ? (
+                      <StorefrontRatingRow
+                        value={String(content.ratingValue)}
+                        stars={Number(content.ratingStars)}
+                        variant="tintHero"
+                      />
+                    ) : null}
+                    {subtitle ? <StorefrontTintSubtitle subtitle={subtitle} /> : null}
+                    <div className="pt-1">
+                      <PresellCta href={href} disabled={!ctaEnabled} surface="tintHero" stretch>
+                        {ctaText}
+                      </PresellCta>
+                    </div>
+                    <p className="text-xs text-violet-950/70 leading-relaxed border-t border-violet-400/35 pt-4">
+                      {getPresellUiStrings(uiLang).midCta}
+                    </p>
+                  </div>
+                </div>
+
+                {showVideo ? (
+                  <div className="relative w-full max-w-4xl mx-auto aspect-video rounded-xl overflow-hidden shadow-lg border border-violet-400/40 bg-black/30 backdrop-blur-sm mt-10">
                     {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
                       <>
                         <iframe
@@ -1086,10 +1268,10 @@ export default function PublicPresell() {
 
       {showSalesLetterSection ? (
         <section
-          id={useDarkMirrorStorefront ? "presell-story" : undefined}
+          id={storefrontMirrorLightBody ? "presell-story" : undefined}
           className={cn(
             "mx-auto py-8 md:py-12",
-            useDarkMirrorStorefront
+            storefrontMirrorLightBody
               ? "max-w-none bg-white text-slate-900 border-t border-slate-200/90 scroll-mt-14"
               : "max-w-3xl px-4",
           )}
@@ -1097,7 +1279,7 @@ export default function PublicPresell() {
           <div
             className={cn(
               "shadow-sm",
-              useDarkMirrorStorefront
+              storefrontMirrorLightBody
                 ? "max-w-3xl mx-auto px-4 md:px-6 py-2 md:py-4 [&_h3]:text-slate-900 [&_h3]:border-slate-200/70 [&_p]:text-slate-800 [&_li]:text-slate-800"
                 : "rounded-2xl border border-border/40 bg-card/30 px-4 py-8 md:px-10 md:py-10",
             )}
@@ -1108,7 +1290,7 @@ export default function PublicPresell() {
                 <div
                   className={cn(
                     "my-6 sm:my-8 rounded-2xl border p-6 sm:p-8 shadow-inner",
-                    useDarkMirrorStorefront
+                    storefrontMirrorLightBody
                       ? "border-slate-200/90 bg-slate-50/90"
                       : "border-border/50 bg-gradient-to-b from-muted/50 via-card/80 to-muted/30",
                   )}
@@ -1117,7 +1299,7 @@ export default function PublicPresell() {
                     <p
                       className={cn(
                         "text-sm sm:text-base font-medium leading-relaxed px-1",
-                        useDarkMirrorStorefront ? "text-slate-800" : "text-foreground/85",
+                        storefrontMirrorLightBody ? "text-slate-800" : "text-foreground/85",
                       )}
                     >
                       {getPresellUiStrings(uiLang).midCta}
@@ -1138,16 +1320,16 @@ export default function PublicPresell() {
       ) : null}
 
       <section
-        id={useDarkMirrorStorefront && !showSalesLetterSection ? "presell-story" : undefined}
+        id={storefrontMirrorLightBody && !showSalesLetterSection ? "presell-story" : undefined}
         className={cn(
           "max-w-3xl mx-auto px-3 sm:px-4 pb-12 sm:pb-16 pt-6 sm:pt-8",
-          useDarkMirrorStorefront && "bg-slate-50/80 scroll-mt-14",
+          storefrontMirrorLightBody && "bg-slate-50/80 scroll-mt-14",
         )}
       >
         <div
           className={cn(
             "rounded-2xl border px-4 py-8 sm:px-8 sm:py-10 text-center space-y-5 shadow-sm",
-            useDarkMirrorStorefront
+            storefrontMirrorLightBody
               ? "border-slate-200/80 bg-white text-slate-900"
               : "border-border/40 bg-card/40 backdrop-blur-[2px]",
           )}
@@ -1162,7 +1344,7 @@ export default function PublicPresell() {
           <p
             className={cn(
               "text-xs sm:text-sm max-w-md mx-auto leading-relaxed",
-              useDarkMirrorStorefront ? "text-slate-600" : "text-muted-foreground",
+              storefrontMirrorLightBody ? "text-slate-600" : "text-muted-foreground",
             )}
           >
             {getPresellUiStrings(uiLang).footerNote}
@@ -1171,7 +1353,7 @@ export default function PublicPresell() {
             <p
               className={cn(
                 "text-[11px] pt-3 border-t max-w-md mx-auto",
-                useDarkMirrorStorefront
+                storefrontMirrorLightBody
                   ? "text-slate-500 border-slate-200/80"
                   : "text-muted-foreground/75 border-border/30",
               )}
@@ -1184,7 +1366,7 @@ export default function PublicPresell() {
                 rel="noopener noreferrer"
                 className={cn(
                   "font-medium underline underline-offset-2 hover:text-primary",
-                  useDarkMirrorStorefront ? "text-slate-800" : "text-foreground/80",
+                  storefrontMirrorLightBody ? "text-slate-800" : "text-foreground/80",
                 )}
               >
                 dclickora
@@ -1201,7 +1383,7 @@ export default function PublicPresell() {
     <div
       className={cn(
         "min-h-screen pb-12",
-        useDarkMirrorStorefront ? "bg-white" : "bg-background",
+        storefrontMirrorLightBody ? "bg-white" : "bg-background",
       )}
     >
       <PresellMarketingOverlays

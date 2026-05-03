@@ -12,6 +12,10 @@ const surfaceLight =
 const surfaceDark =
   "bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-white shadow-[0_12px_44px_-10px_rgba(251,146,60,0.55),0_0_0_1px_rgba(255,255,255,0.2)_inset] ring-2 ring-white/30 hover:brightness-[1.06] hover:shadow-[0_16px_48px_-8px_rgba(249,115,22,0.55)] hover:-translate-y-0.5 focus-visible:ring-amber-300/80 focus-visible:ring-offset-slate-950";
 
+/** CTA sólido tipo landing com hero lavanda (teal como muitas ofertas de suplemento). */
+const surfaceTintHero =
+  "rounded-xl bg-teal-500 text-white shadow-[0_12px_40px_-10px_rgba(20,184,166,0.45),0_0_0_1px_rgba(255,255,255,0.2)_inset] ring-2 ring-teal-300/40 hover:bg-teal-500 hover:brightness-[1.06] hover:shadow-[0_16px_44px_-8px_rgba(13,148,136,0.5)] hover:-translate-y-0.5 focus-visible:ring-teal-200/90 focus-visible:ring-offset-violet-200/40";
+
 /** CTA sólido tipo página de produto (laranja). */
 const surfaceCommerce =
   "bg-orange-500 text-white shadow-[0_12px_40px_-10px_rgba(249,115,22,0.55),0_0_0_1px_rgba(255,255,255,0.18)_inset] ring-2 ring-orange-400/35 hover:bg-orange-500 hover:brightness-[1.05] hover:shadow-[0_16px_44px_-8px_rgba(234,88,12,0.5)] hover:-translate-y-0.5 focus-visible:ring-orange-300/90 focus-visible:ring-offset-background";
@@ -23,8 +27,8 @@ type Props = {
   href: string;
   disabled?: boolean;
   children: ReactNode;
-  /** `dark` = hero VSL (fundo escuro); `light` = resto da página */
-  surface?: "light" | "dark";
+  /** `dark` = hero VSL (fundo escuro); `commerce` / `tintHero` = hero tipo loja */
+  surface?: "light" | "dark" | "commerce" | "tintHero";
   /** Ocupa a largura do contentor (ex.: modal estreito) */
   stretch?: boolean;
   className?: string;
@@ -70,7 +74,13 @@ export function PresellCta({ href, disabled, children, surface = "light", stretc
         className={cn(
           baseLayout,
           stretch && "!max-w-none w-full",
-          surface === "dark" ? surfaceDark : surface === "commerce" ? surfaceCommerce : surfaceLight,
+          surface === "dark"
+            ? surfaceDark
+            : surface === "commerce"
+              ? surfaceCommerce
+              : surface === "tintHero"
+                ? surfaceTintHero
+                : surfaceLight,
         )}
       >
         <span className="flex-1 min-w-0">{children}</span>
