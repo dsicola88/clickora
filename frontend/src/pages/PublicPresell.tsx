@@ -62,6 +62,7 @@ import {
 } from "@/lib/presellUiStrings";
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { cn } from "@/lib/utils";
+import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -814,9 +815,11 @@ export default function PublicPresell() {
   const subtitle = (content.subtitle as string) || "";
   const salesText = (content.salesText as string) || "";
   const ctaText = (content.ctaText as string) || "Quero Aproveitar Agora";
-  const productImages = Array.isArray(content.productImages)
-    ? (content.productImages as string[]).filter((u) => typeof u === "string" && u.length > 0)
-    : [];
+  const productImages = rankPresellProductImages(
+    Array.isArray(content.productImages)
+      ? (content.productImages as string[]).filter((u) => typeof u === "string" && u.length > 0)
+      : [],
+  );
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
 

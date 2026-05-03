@@ -5,6 +5,7 @@ import {
   getPresellProductLabel,
   resolvePublicPresellDocumentTitle,
 } from "@/lib/publicPresellDocumentTitle";
+import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 
 const MAX_META_DESC = 165;
 
@@ -42,9 +43,11 @@ export function resolvePublicPresellOgImageUrl(page: Presell): string | undefine
     const og = String(doc?.seo?.ogImage ?? "").trim();
     if (og) return og;
   }
-  const images = Array.isArray(c.productImages) ? (c.productImages as unknown[]) : [];
-  const first = images.find((u): u is string => typeof u === "string" && u.trim().length > 0);
-  return first?.trim();
+  const raw = Array.isArray(c.productImages)
+    ? (c.productImages as unknown[]).filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+    : [];
+  const ranked = rankPresellProductImages(raw.map((s) => s.trim()));
+  return ranked[0]?.trim();
 }
 
 export function toAbsolutePageUrl(pathOrUrl: string): string {

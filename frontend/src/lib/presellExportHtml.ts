@@ -25,6 +25,7 @@ import {
   isRtlLocale,
   normalizePresellLocale,
 } from "@/lib/presellUiStrings";
+import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 
 function escapeHtml(s: string): string {
   return s
@@ -494,9 +495,11 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   const subtitle = (content.subtitle as string) || "";
   const salesText = (content.salesText as string) || "";
   const ctaText = (content.ctaText as string) || "Quero Aproveitar Agora";
-  const productImages = Array.isArray(content.productImages)
-    ? (content.productImages as string[]).filter((u) => typeof u === "string" && u.length > 0)
-    : [];
+  const productImages = rankPresellProductImages(
+    Array.isArray(content.productImages)
+      ? (content.productImages as string[]).filter((u) => typeof u === "string" && u.length > 0)
+      : [],
+  );
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
   const customCss = typeof settings.customCss === "string" ? settings.customCss.trim() : "";
