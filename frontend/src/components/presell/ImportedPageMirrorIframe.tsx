@@ -3,16 +3,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Props = {
   srcDoc: string;
   title?: string;
+  /** Chamado se o `<body>` parecer vazio (texto mínimo e sem media/tabelas) — permite cair no layout React. */
+  onMirrorProbablyEmpty?: () => void;
 };
 
 /**
  * Iframe com `srcDoc` da página importada (sem scripts).
  * Altura segue o conteúdo; reage a resize / visualViewport / ResizeObserver (rotação, fonts).
  */
-export function ImportedPageMirrorIframe({ srcDoc, title = "Página do produto" }: Props) {
+export function ImportedPageMirrorIframe({
+  srcDoc,
+  title = "Página do produto",
+  onMirrorProbablyEmpty,
+}: Props) {
   const ref = useRef<HTMLIFrameElement>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const debounceRef = useRef<number>(0);
+  const emptyCbRef = useRef(onMirrorProbablyEmpty);
+  emptyCbRef.current = onMirrorProbablyEmpty;
   const [height, setHeight] = useState(960);
 
   const measure = useCallback(() => {
@@ -52,6 +60,22 @@ export function ImportedPageMirrorIframe({ srcDoc, title = "Página do produto" 
     }, 90);
   }, [measure]);
 
+  const checkProbablyEmpty = useCallback(() => {
+    try {
+      const doc = ref.current?.contentDocument;
+      if (!doc?.body) return;
+      const text = doc.body.innerText?.replace(/\s+/g, " ").trim() ?? "";
+      const hasMedia = doc.body.querySelector(
+        "img, picture, video, svg, canvas, table, iframe, [role='img']",
+      );
+      if (text.length < 55 && !hasMedia) {
+        emptyCbRef.current?.();
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     measureDebounced();
     return () => window.clearTimeout(debounceRef.current);
@@ -79,7 +103,9 @@ export function ImportedPageMirrorIframe({ srcDoc, title = "Página do produto" 
       ro.observe(target);
       roRef.current = ro;
     }
-  }, [measureDebounced]);
+    window.setTimeout(checkProbablyEmpty, 320);
+    window.setTimeout(checkProbablyEmpty, 1400);
+  }, [measureDebounced, checkProbablyEmpty]);
 
   useEffect(() => {
     return () => {

@@ -517,7 +517,7 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: o gate é o modal (redireciona para a oferta); o CTA da página usa o mesmo link do afiliado.
+    // Cookies: o gate é o modal; após permitir/fechar o utilizador permanece na presell.
     if (gk === "cookies") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
@@ -542,6 +542,11 @@ export default function PublicPresell() {
     if (!importMirrorSrcDocRaw || !href) return "";
     return buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
   }, [importMirrorSrcDocRaw, href]);
+
+  const [mirrorUseTemplateFallback, setMirrorUseTemplateFallback] = useState(false);
+  useEffect(() => {
+    setMirrorUseTemplateFallback(false);
+  }, [page?.id, mirrorSrcDoc]);
 
   const videoEmbedSrc = useMemo(() => {
     if (!page?.video_url) return "";
@@ -649,12 +654,15 @@ export default function PublicPresell() {
     storefrontLayout && storefrontTheme !== "dark_commerce" && storefrontHeroTint;
   /** Corpo claro em largura total (como a landing original por baixo do hero). */
   const storefrontMirrorLightBody = useDarkMirrorStorefront || useTintedCommerceStorefront;
-  const useImportedPageMirror =
+  const mirrorEligible =
     importMirrorSrcDocRaw.length > 800 &&
     mirrorSrcDoc.length > 800 &&
     !isVslLayout &&
     !isGhostPage &&
     page.type !== "builder";
+
+  /** Espelho HTML importado; se o documento vier vazio (ex.: só JS na origem), volta ao layout React. */
+  const showImportedMirror = mirrorEligible && !mirrorUseTemplateFallback;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
@@ -706,7 +714,6 @@ export default function PublicPresell() {
           language={uiLang}
           policyUrl={cookiePolicyUrl}
           accepted={cookieAccepted}
-          redirectHref={href}
           onAccept={() => setCookieAccepted(true)}
           onDismiss={() => setCookieDismissed(true)}
         />
@@ -714,17 +721,19 @@ export default function PublicPresell() {
       {gateKind === "cookies" && showCookieChip ? (
         <CookieSettingsChip
           language={uiLang}
-          onClick={() => {
-            if (href) window.location.assign(href);
-          }}
+          onClick={() => setCookieDismissed(false)}
         />
       ) : null}
 
-      {useImportedPageMirror ? (
-        <ImportedPageMirrorIframe srcDoc={mirrorSrcDoc} title={primarySeoLabel} />
+      {showImportedMirror ? (
+        <ImportedPageMirrorIframe
+          srcDoc={mirrorSrcDoc}
+          title={primarySeoLabel}
+          onMirrorProbablyEmpty={() => setMirrorUseTemplateFallback(true)}
+        />
       ) : null}
 
-      {!useImportedPageMirror && storefrontLayout ? (
+      {!showImportedMirror && storefrontLayout ? (
         useDarkMirrorStorefront ? (
           <>
             <header className="sticky top-0 z-40 border-b border-amber-500/30 bg-[#060a12]/95 backdrop-blur-md">
@@ -1136,7 +1145,7 @@ export default function PublicPresell() {
             </div>
           </section>
         )
-      ) : !useImportedPageMirror ? (
+      ) : !showImportedMirror ? (
         <section
           className={
             isVslLayout
@@ -1266,7 +1275,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {galleryImages.length > 0 && !showVslFallback && !storefrontLayout && !useImportedPageMirror ? (
+      {galleryImages.length > 0 && !showVslFallback && !storefrontLayout && !showImportedMirror ? (
         <section className="max-w-5xl mx-auto px-4 py-10">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
             {galleryImages.map((src, i) => (
@@ -1287,7 +1296,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {showSalesLetterSection && !useImportedPageMirror ? (
+      {showSalesLetterSection && !showImportedMirror ? (
         <section
           id={storefrontMirrorLightBody ? "presell-story" : undefined}
           className={cn(
@@ -1404,7 +1413,7 @@ export default function PublicPresell() {
     <div
       className={cn(
         "min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-12",
-        useImportedPageMirror || storefrontMirrorLightBody ? "bg-white" : "bg-background",
+        showImportedMirror || storefrontMirrorLightBody ? "bg-white" : "bg-background",
       )}
     >
       <PresellMarketingOverlays

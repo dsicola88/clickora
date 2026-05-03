@@ -45,33 +45,24 @@ export function CookieConsentModal({
   language,
   policyUrl,
   accepted,
-  redirectHref,
   onAccept,
   onDismiss,
 }: {
   language: string;
   policyUrl: string;
   accepted: boolean;
-  /** URL de tracking para a oferta — Close, Allow e clique no fundo redirecionam para aqui. */
-  redirectHref: string;
   onAccept: () => void;
   onDismiss: () => void;
 }) {
   const L = getPresellUiStrings(language);
   if (accepted) return null;
 
-  const go = () => {
-    if (redirectHref) window.location.assign(redirectHref);
-  };
-
   const handleAllow = () => {
     onAccept();
-    go();
   };
 
   const handleClose = () => {
     onDismiss();
-    go();
   };
 
   return (
