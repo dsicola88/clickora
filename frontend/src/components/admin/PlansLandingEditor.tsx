@@ -491,6 +491,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const galleryPickIndexRef = useRef<number | null>(null);
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
+  const testimonialThumbFileInputRef = useRef<HTMLInputElement>(null);
+  const testimonialThumbPickIndexRef = useRef<number | null>(null);
+  const [testimonialThumbUploadBusy, setTestimonialThumbUploadBusy] = useState(false);
   const contentBlockImageFileInputRef = useRef<HTMLInputElement>(null);
   const contentBlockImagePickIndexRef = useRef<number | null>(null);
   const [contentBlockImageUploadBusy, setContentBlockImageUploadBusy] = useState(false);
@@ -1729,11 +1732,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       maxLength={2000}
                     />
                     {card.image_url.trim() ? (
-                      <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                      <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/50 bg-muted/25 p-2">
                         <img
                           src={card.image_url}
                           alt=""
-                          className="mx-auto max-h-24 w-full max-w-sm object-contain"
+                          className="mx-auto block h-auto max-h-32 w-full max-w-full object-contain md:max-h-40"
+                          loading="lazy"
+                          decoding="async"
                         />
                       </div>
                     ) : null}
@@ -1916,11 +1921,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       maxLength={2000}
                     />
                     {guaranteeSealUrl.trim() ? (
-                      <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                      <div className="flex min-w-0 max-w-full justify-center overflow-hidden rounded-md border border-border/50 bg-muted/25 p-2">
                         <img
                           src={guaranteeSealUrl}
                           alt=""
-                          className="mx-auto h-24 w-24 rounded-full object-cover md:h-28 md:w-28"
+                          className="mx-auto h-24 w-24 max-w-full rounded-full object-cover md:h-28 md:w-28"
+                          loading="lazy"
+                          decoding="async"
                         />
                       </div>
                     ) : null}
@@ -1981,11 +1988,39 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
-              <p className="text-xs text-muted-foreground">
-                Miniatura em retrato (9:16), URL do vídeo (YouTube/Vimeo ou .mp4) ao clicar. Até 8 cartões. Aparece após os números e
-                antes dos planos.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    ref={testimonialThumbFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    tabIndex={-1}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      const idx = testimonialThumbPickIndexRef.current;
+                      e.target.value = "";
+                      testimonialThumbPickIndexRef.current = null;
+                      if (file == null || idx === null) return;
+                      setTestimonialThumbUploadBusy(true);
+                      try {
+                        const { data, error } = await adminService.uploadPlansGalleryImage(file);
+                        if (error || !data?.image_url) {
+                          toast.error(error || "Não foi possível carregar a imagem.");
+                          return;
+                        }
+                        setTestimonialItems((prev) =>
+                          prev.map((r, i) => (i === idx ? { ...r, thumbnail_url: data.image_url } : r)),
+                        );
+                        toast.success("Miniatura carregada. Guarde a landing para persistir.");
+                      } finally {
+                        setTestimonialThumbUploadBusy(false);
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Miniatura em retrato (9:16), URL do vídeo (YouTube/Vimeo ou .mp4) ao clicar. Até 8 cartões. Aparece
+                    após os números e antes dos planos.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Título da secção</Label>
                   <Input
@@ -2054,7 +2089,27 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs">URL da miniatura (imagem)</Label>
+                          <div className="flex flex-wrap items-end justify-between gap-2">
+                            <Label className="text-xs">URL da miniatura (imagem)</Label>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs"
+                              disabled={testimonialThumbUploadBusy}
+                              onClick={() => {
+                                testimonialThumbPickIndexRef.current = idx;
+                                testimonialThumbFileInputRef.current?.click();
+                              }}
+                            >
+                              {testimonialThumbUploadBusy ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="h-3.5 w-3.5" />
+                              )}
+                              Carregar do PC
+                            </Button>
+                          </div>
                           <Input
                             placeholder="https://… (retrato recomendado)"
                             value={row.thumbnail_url}
@@ -2067,6 +2122,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             }
                             maxLength={2000}
                           />
+                          {row.thumbnail_url.trim() ? (
+                            <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/50 bg-muted/25 p-2">
+                              <p className="mb-1.5 text-[10px] text-muted-foreground">
+                                Pré-visualização (9:16 na página pública)
+                              </p>
+                              <div className="mx-auto aspect-[9/16] w-full max-w-[140px] overflow-hidden rounded-lg bg-muted">
+                                <img
+                                  src={row.thumbnail_url.trim()}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
                           <Label className="text-xs">URL do vídeo (ao clicar)</Label>
@@ -2441,11 +2512,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 maxLength={2000}
                               />
                               {row.image_url.trim() ? (
-                                <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                                <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/50 bg-muted/25 p-2">
                                   <img
                                     src={row.image_url}
                                     alt=""
-                                    className="max-h-28 w-full object-contain object-left"
+                                    className="mx-auto block h-auto max-h-32 w-full max-w-full object-contain md:max-h-40"
+                                    loading="lazy"
+                                    decoding="async"
                                   />
                                 </div>
                               ) : null}
@@ -3555,11 +3628,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             maxLength={2000}
                           />
                           {block.src.trim() ? (
-                            <div className="rounded-md border border-border/50 bg-muted/25 p-2">
+                            <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/50 bg-muted/25 p-2">
                               <img
                                 src={block.src}
                                 alt=""
-                                className="max-h-28 w-full object-contain object-left"
+                                className="mx-auto block h-auto max-h-32 w-full max-w-full object-contain md:max-h-40"
+                                loading="lazy"
+                                decoding="async"
                               />
                             </div>
                           ) : null}

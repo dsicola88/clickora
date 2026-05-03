@@ -300,7 +300,7 @@ export function LandingPageBodySections({
                   <div
                     key={plan.id}
                     className={cn(
-                      "relative flex min-h-[480px] flex-col rounded-2xl p-6 transition-all duration-300",
+                      "relative flex min-h-0 flex-col rounded-2xl p-6 transition-all duration-300 md:min-h-[480px]",
                       salesDark
                         ? "border-0 text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
                         : `border-2 bg-card transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`,

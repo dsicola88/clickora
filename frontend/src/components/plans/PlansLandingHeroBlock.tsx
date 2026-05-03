@@ -111,7 +111,7 @@ export function PlansLandingHeroBlock({
         <>
           {v.image_effect === "parallax" ? (
             <div
-              className="absolute inset-0 bg-cover bg-no-repeat md:bg-fixed"
+              className="absolute inset-0 bg-cover bg-no-repeat md:bg-fixed motion-reduce:md:bg-scroll"
               style={{
                 backgroundImage: `url(${heroImg})`,
                 backgroundPosition: posStyle.backgroundPosition,
@@ -123,8 +123,9 @@ export function PlansLandingHeroBlock({
               <img
                 src={heroImg}
                 alt=""
+                sizes="(max-width: 1280px) 100vw, 80rem"
                 className={cn(
-                  "absolute inset-0 h-full w-full object-cover will-change-transform",
+                  "absolute inset-0 h-full w-full max-w-none object-cover will-change-transform",
                   plansHeroImageEffectClass(v),
                 )}
                 style={{ objectPosition: posStyle.objectPosition }}
