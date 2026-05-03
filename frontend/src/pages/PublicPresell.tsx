@@ -15,6 +15,7 @@ import { ErrorState } from "@/components/ErrorState";
 import {
   CookieConsentModal,
   CookieSettingsChip,
+  mergeParamsIntoAffiliateUrl,
   PresellGateFields,
   useCookieAcceptedState,
   type GatePayload,
