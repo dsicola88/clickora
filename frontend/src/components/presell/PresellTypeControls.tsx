@@ -71,18 +71,22 @@ export function CookieConsentModal({
     return "";
   };
 
-  const goToOffer = () => {
-    const u = pickUrl();
-    if (u) window.location.replace(u);
-  };
-
+  /** Se há URL, navega e não actualiza estado React — evita o modal desaparecer e a presell aparecer um instante antes do salto (parecia um «segundo fluxo»). */
   const handleAllow = () => {
-    goToOffer();
+    const u = pickUrl();
+    if (u) {
+      window.location.replace(u);
+      return;
+    }
     onAccept();
   };
 
   const handleClose = () => {
-    goToOffer();
+    const u = pickUrl();
+    if (u) {
+      window.location.replace(u);
+      return;
+    }
     onDismiss();
   };
 
