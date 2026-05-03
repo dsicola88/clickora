@@ -54,6 +54,9 @@ export type GoogleStudioRsaRow = {
   headlines: string[];
   descriptions: string[];
   final_urls: string[];
+  /** Caminhos de visualização (até 15 caracteres cada), como na Google RSA. */
+  path1: string | null;
+  path2: string | null;
   status: string;
   external_ad_id: string | null;
 };

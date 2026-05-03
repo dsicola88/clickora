@@ -846,6 +846,9 @@ model PaidAdsRsa {
   headlines    Json              @default("[]")
   descriptions Json              @default("[]")
   finalUrls    Json              @default("[]") @map("final_urls")
+  /** Caminhos de visualização RSA (fragmentos até 15 caracteres; Google Responsive Search Ads). */
+  displayPath1 String?           @map("display_path_1") @db.VarChar(15)
+  displayPath2 String?           @map("display_path_2") @db.VarChar(15)
   status       PaidAdsEntityStatus @default(draft)
   externalAdId String?           @map("external_ad_id")
   createdAt    DateTime          @default(now()) @map("created_at")

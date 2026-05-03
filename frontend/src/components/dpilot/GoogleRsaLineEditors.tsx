@@ -18,6 +18,8 @@ type LineStackPropsBase = {
   value: string;
   onChange: (next: string) => void;
   className?: string;
+  /** `minimal`: sem título duplicado quando o bloco já está dentro de um cartão «Títulos · RSA» estilo Google. */
+  variant?: "default" | "minimal";
 };
 
 /** Até 15 títulos (30 caracteres); primeiros 3 com marcador obrigatório (RSA Pesquisa). */
@@ -25,6 +27,7 @@ export function GoogleRsaHeadlinesFieldStack({
   value,
   onChange,
   className,
+  variant = "default",
 }: LineStackPropsBase) {
   const maxSlots = 15;
   const maxChars = 30;
@@ -41,11 +44,19 @@ export function GoogleRsaHeadlinesFieldStack({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <p className="text-sm font-medium text-foreground">Títulos · RSA</p>
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        Até {maxSlots} títulos ({maxChars} caracteres cada). Neste fluxo são necessários pelo menos {requiredFirst} (
-        {filledCount}/{maxSlots} preenchidos).
-      </p>
+      {variant === "default" ? (
+        <>
+          <p className="text-sm font-medium text-foreground">Títulos · RSA</p>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Até {maxSlots} títulos ({maxChars} caracteres cada). Neste fluxo são necessários pelo menos {requiredFirst} (
+            {filledCount}/{maxSlots} preenchidos).
+          </p>
+        </>
+      ) : (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {filledCount}/{maxSlots} títulos · Até {maxChars} caracteres cada · {requiredFirst} obrigatórios.
+        </p>
+      )}
       <div className="space-y-3.5">
         {slots.map((line, idx) => (
           <div key={idx}>
@@ -80,6 +91,7 @@ export function GoogleRsaDescriptionsFieldStack({
   value,
   onChange,
   className,
+  variant = "default",
 }: LineStackPropsBase) {
   const maxSlots = 4;
   const maxChars = 90;
@@ -96,11 +108,19 @@ export function GoogleRsaDescriptionsFieldStack({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <p className="text-sm font-medium text-foreground">Descrições · RSA</p>
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        Até {maxSlots} descrições ({maxChars} caracteres cada). Pelo menos {requiredFirst} obrigatórias (
-        {filledCount}/{maxSlots} preenchidas).
-      </p>
+      {variant === "default" ? (
+        <>
+          <p className="text-sm font-medium text-foreground">Descrições · RSA</p>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Até {maxSlots} descrições ({maxChars} caracteres cada). Pelo menos {requiredFirst} obrigatórias (
+            {filledCount}/{maxSlots} preenchidas).
+          </p>
+        </>
+      ) : (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {filledCount}/{maxSlots} descrições · Até {maxChars} caracteres · {requiredFirst} obrigatórias.
+        </p>
+      )}
       <div className="space-y-3.5">
         {slots.map((line, idx) => (
           <div key={idx}>

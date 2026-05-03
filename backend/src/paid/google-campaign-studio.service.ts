@@ -43,6 +43,9 @@ export const googleStudioActionSchema = z.discriminatedUnion("action", [
     headlines: z.array(z.string()).min(3).max(15),
     descriptions: z.array(z.string()).min(2).max(4),
     final_urls: z.array(z.string().url()).max(3).optional(),
+    /** Caminhos de visualização (até 15 caracteres cada). Omitido = não alterar. "" = limpar localmente e na próxima mutação onde aplicável. */
+    path1: z.string().max(15).optional(),
+    path2: z.string().max(15).optional(),
   }),
   z.object({
     action: z.literal("update_ad_group_cpc_usd"),
@@ -74,6 +77,8 @@ export const googleCampaignDraftPatchSchema = z.object({
             headlines: z.array(z.string().max(120)).min(3).max(15),
             descriptions: z.array(z.string().max(300)).min(2).max(4),
             final_urls: z.array(z.string().url()).max(3).optional(),
+            path1: z.union([z.string().max(15), z.literal("")]).nullable().optional(),
+            path2: z.union([z.string().max(15), z.literal("")]).nullable().optional(),
           })
           .optional(),
       }),
@@ -123,6 +128,8 @@ export async function getGoogleCampaignStudioDetail(projectId: string, campaignI
         headlines: strArr(rsa.headlines),
         descriptions: strArr(rsa.descriptions),
         final_urls: strArr(rsa.finalUrls),
+        path1: rsa.displayPath1 ?? null,
+        path2: rsa.displayPath2 ?? null,
         status: rsa.status,
         external_ad_id: rsa.externalAdId,
       })),
@@ -323,6 +330,8 @@ export async function executeGoogleStudioAction(
         headlines: a.headlines,
         descriptions: a.descriptions,
         ...(a.final_urls?.length ? { final_urls: a.final_urls } : {}),
+        ...(a.path1 !== undefined ? { path1: a.path1 } : {}),
+        ...(a.path2 !== undefined ? { path2: a.path2 } : {}),
       });
     }
     case "update_ad_group_cpc_usd": {
@@ -416,6 +425,22 @@ export async function patchGoogleCampaignDraft(
                 headlines: agPatch.rsa.headlines,
                 descriptions: agPatch.rsa.descriptions,
                 ...(agPatch.rsa.final_urls?.length ? { finalUrls: agPatch.rsa.final_urls } : {}),
+                ...(agPatch.rsa.path1 !== undefined
+                  ? {
+                      displayPath1:
+                        agPatch.rsa.path1 == null || agPatch.rsa.path1.trim() === ""
+                          ? null
+                          : agPatch.rsa.path1.trim().slice(0, 15),
+                    }
+                  : {}),
+                ...(agPatch.rsa.path2 !== undefined
+                  ? {
+                      displayPath2:
+                        agPatch.rsa.path2 == null || agPatch.rsa.path2.trim() === ""
+                          ? null
+                          : agPatch.rsa.path2.trim().slice(0, 15),
+                    }
+                  : {}),
               },
             });
           }

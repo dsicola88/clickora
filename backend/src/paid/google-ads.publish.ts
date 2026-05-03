@@ -620,6 +620,17 @@ export async function publishGoogleSearchCampaignFromLocal(
         const url = ensureUrl((finalUrls[0] ?? "").trim());
         const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
         const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
+        const rp1 =
+          rsa.displayPath1 && String(rsa.displayPath1).trim()
+            ? String(rsa.displayPath1).trim().slice(0, 15).replace(/[\x00-\x1f\x7f]/g, "")
+            : "";
+        const rp2 =
+          rsa.displayPath2 && String(rsa.displayPath2).trim()
+            ? String(rsa.displayPath2).trim().slice(0, 15).replace(/[\x00-\x1f\x7f]/g, "")
+            : "";
+        const responsiveSearchAd: Record<string, unknown> = { headlines: hParts, descriptions: dParts };
+        if (rp1) responsiveSearchAd.path1 = rp1;
+        if (rp2) responsiveSearchAd.path2 = rp2;
 
         try {
           const { resourceNames: adR } = await mutate(
@@ -635,7 +646,7 @@ export async function publishGoogleSearchCampaignFromLocal(
                     status: "ENABLED",
                     ad: {
                       finalUrls: [url],
-                      responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+                      responsiveSearchAd,
                     },
                   },
                 },

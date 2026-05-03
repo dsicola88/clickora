@@ -7,7 +7,7 @@
  * - `pause_entity` (Google): { entity: campaign|ad_group|keyword|rsa, id: uuid local }
  * - `resume_entity` (Google): { entity: campaign|ad_group|keyword|rsa, id: uuid local }
  * - `remove_keyword` (Google): { keyword_id: uuid }
- * - `update_rsa_copy` (Google): { paid_ads_rsa_id, headlines: string[], descriptions: string[], final_urls?: string[] }
+ * - `update_rsa_copy` (Google): { paid_ads_rsa_id, headlines: string[], descriptions: string[], final_urls?: string[], path1?, path2? }
  * - `update_ad_group_cpc` (Google): { ad_group_id, cpc_bid_micros }
  * - `meta_update_budget` (Meta): { meta_adset_id, daily_budget_cents }
  * - `meta_publish_creative` (Meta): { creative_id }
@@ -144,11 +144,15 @@ export async function applyChangeRequestRemote(
           return { ok: false, error: "Payload: paid_ads_rsa_id, headlines[], descriptions[]." };
         }
         const finalUrls = getStrList(p, "final_urls") ?? undefined;
+        const path1 = typeof p.path1 === "string" ? p.path1 : undefined;
+        const path2 = typeof p.path2 === "string" ? p.path2 : undefined;
         return await applyGoogleUpdateRsaCopy(projectId, {
           paid_ads_rsa_id: rid,
           headlines,
           descriptions,
           ...(finalUrls ? { final_urls: finalUrls } : {}),
+          ...(path1 !== undefined ? { path1 } : {}),
+          ...(path2 !== undefined ? { path2 } : {}),
         });
       }
       case "update_ad_group_cpc": {

@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { GoogleRsaDescriptionsFieldStack, GoogleRsaHeadlinesFieldStack } from "@/components/dpilot/GoogleRsaLineEditors";
+import { GoogleAdsStudioRsaCreativeBlock } from "@/components/dpilot/GoogleAdsStudioRsaCreativeBlock";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -83,6 +83,24 @@ function countNonEmptyLines(s: string): number {
   return s.split("\n").map((l) => l.trim()).filter(Boolean).length;
 }
 
+/** Palavras‑chave (rascunho: textarea) deduplicadas para chips de inclusão nos títulos. */
+function keywordHintsFromDraftLines(text: string): { text: string }[] {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 48);
+  const seen = new Set<string>();
+  const out: { text: string }[] = [];
+  for (const line of lines) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ text: line });
+  }
+  return out;
+}
+
 function googleBiddingStrategyShort(campaign: CampaignRow): string {
   const lines = googleBiddingSummaryLinesFromPayload(campaign as unknown as Record<string, unknown>);
   const first = lines[0];
@@ -117,8 +135,13 @@ export function DpilotGoogleCampaignStudioPage() {
   const [draftKwMatch, setDraftKwMatch] = useState<Record<string, MatchSel>>({});
   const [draftRsaH, setDraftRsaH] = useState<Record<string, string>>({});
   const [draftRsaD, setDraftRsaD] = useState<Record<string, string>>({});
+  const [draftRsaFinalUrl, setDraftRsaFinalUrl] = useState<Record<string, string>>({});
+  const [draftRsaPath1, setDraftRsaPath1] = useState<Record<string, string>>({});
+  const [draftRsaPath2, setDraftRsaPath2] = useState<Record<string, string>>({});
 
   const [budgetUsd, setBudgetUsd] = useState("");
+  const [campaignIdentityName, setCampaignIdentityName] = useState("");
+  const [campaignObjectiveDraft, setCampaignObjectiveDraft] = useState("");
   /** Ao vivo por grupo — acrescentar palavras. */
   const [liveAddText, setLiveAddText] = useState<Record<string, string>>({});
   const [liveAddMatch, setLiveAddMatch] = useState<Record<string, MatchSel>>({});
@@ -147,6 +170,9 @@ export function DpilotGoogleCampaignStudioPage() {
     const nextM: Record<string, MatchSel> = {};
     const h: Record<string, string> = {};
     const d: Record<string, string> = {};
+    const fu: Record<string, string> = {};
+    const p1: Record<string, string> = {};
+    const p2: Record<string, string> = {};
     for (const ag of data.ad_groups) {
       nextKw[ag.id] = ag.keywords.map((k) => k.text).join("\n");
       nextM[ag.id] = "phrase";
@@ -154,15 +180,29 @@ export function DpilotGoogleCampaignStudioPage() {
       if (rsa0) {
         h[ag.id] = rsa0.headlines.join("\n");
         d[ag.id] = rsa0.descriptions.join("\n");
+        fu[ag.id] = rsa0.final_urls?.[0] ?? "";
+        p1[ag.id] = rsa0.path1 ?? "";
+        p2[ag.id] = rsa0.path2 ?? "";
       } else {
         h[ag.id] = "";
         d[ag.id] = "";
+        fu[ag.id] = "";
+        p1[ag.id] = "";
+        p2[ag.id] = "";
       }
     }
     setDraftKwText(nextKw);
     setDraftKwMatch(nextM);
     setDraftRsaH(h);
     setDraftRsaD(d);
+    setDraftRsaFinalUrl(fu);
+    setDraftRsaPath1(p1);
+    setDraftRsaPath2(p2);
+
+    setCampaignIdentityName(data.campaign.name ?? "");
+    setCampaignObjectiveDraft(
+      ((data.campaign as { objective_summary?: string | null }).objective_summary ?? "").trim(),
+    );
 
     const cur = data.campaign.daily_budget_micros;
     setBudgetUsd(
@@ -219,6 +259,28 @@ export function DpilotGoogleCampaignStudioPage() {
     await reloadPaid();
   }
 
+  async function saveCampaignDraftMeta() {
+    if (!ok || published || !studio) return;
+    const name = campaignIdentityName.trim();
+    const objective_summary = campaignObjectiveDraft.trim()
+      ? campaignObjectiveDraft.trim().slice(0, 4000)
+      : null;
+    if (!name) {
+      toast.error("Introduza o nome da campanha.");
+      return;
+    }
+    const { error } = await paidAdsService.patchGoogleCampaignDraft(projectId!, campaignId!, {
+      name,
+      objective_summary,
+    });
+    if (error) toast.error(error);
+    else {
+      toast.success("Dados da campanha atualizados no rascunho.");
+      await loadStudio();
+      await reloadPaid();
+    }
+  }
+
   async function saveBudget(publishedCampaign: boolean) {
     const n = Number(budgetUsd.replace(",", "."));
     if (!Number.isFinite(n) || n <= 0) {
@@ -246,7 +308,14 @@ export function DpilotGoogleCampaignStudioPage() {
     const ad_groups: {
       id: string;
       keywords: Array<{ text: string; match_type: MatchSel }>;
-      rsa: { id: string; headlines: string[]; descriptions: string[] };
+      rsa: {
+        id: string;
+        headlines: string[];
+        descriptions: string[];
+        final_urls: string[];
+        path1: string;
+        path2: string;
+      };
     }[] = [];
 
     for (const ag of studio.ad_groups) {
@@ -269,6 +338,13 @@ export function DpilotGoogleCampaignStudioPage() {
         .map((l) => l.trim())
         .filter(Boolean)
         .slice(0, 4);
+      const rawUrl = (draftRsaFinalUrl[ag.id] ?? "").trim();
+      const prevUrl = (rsa0.final_urls?.[0] ?? "").trim();
+      const urlResolved = rawUrl || prevUrl;
+      if (!/^https:\/\/.+/i.test(urlResolved)) {
+        toast.error(`Grupo «${ag.name}»: URL final obrigatória (https://…).`);
+        return;
+      }
       if (hLines.length < 3 || dLines.length < 2) {
         toast.error(`Grupo «${ag.name}»: RSA precisa de pelo menos 3 títulos e 2 descrições (linhas).`);
         return;
@@ -280,7 +356,14 @@ export function DpilotGoogleCampaignStudioPage() {
       ad_groups.push({
         id: ag.id,
         keywords: lines.map((text) => ({ text, match_type: mt })),
-        rsa: { id: rsa0.id, headlines: hLines, descriptions: dLines },
+        rsa: {
+          id: rsa0.id,
+          headlines: hLines,
+          descriptions: dLines,
+          final_urls: [urlResolved],
+          path1: (draftRsaPath1[ag.id] ?? "").trim().slice(0, 15),
+          path2: (draftRsaPath2[ag.id] ?? "").trim().slice(0, 15),
+        },
       });
     }
 
@@ -508,7 +591,54 @@ export function DpilotGoogleCampaignStudioPage() {
                     . Licitação: <strong className="font-medium text-foreground">{googleBiddingStrategyShort(campaign)}</strong>
                     .
                   </p>
-                  <StudioSettingsPanel>
+                  {!published ? (
+                    <Collapsible defaultOpen={false} className="group/camp-id overflow-hidden rounded-lg border border-neutral-300/90 bg-muted/15 dark:border-border">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium hover:bg-muted/30">
+                        <span>Nome e objectivo (rascunho · personalizável)</span>
+                        <ChevronDown
+                          className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/camp-id:rotate-180"
+                          aria-hidden
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-3 border-t border-neutral-200/90 px-4 py-4 dark:border-border">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="studio-camp-name">Nome da campanha</Label>
+                          <Input
+                            id="studio-camp-name"
+                            value={campaignIdentityName}
+                            onChange={(e) => setCampaignIdentityName(e.target.value)}
+                            maxLength={200}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="studio-camp-obj">Resumo do objectivo</Label>
+                          <Textarea
+                            id="studio-camp-obj"
+                            value={campaignObjectiveDraft}
+                            onChange={(e) => setCampaignObjectiveDraft(e.target.value)}
+                            rows={3}
+                            className="text-sm"
+                            maxLength={4000}
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <Button type="button" size="sm" variant="secondary" onClick={() => void saveCampaignDraftMeta()}>
+                            Guardar nome e objectivo
+                          </Button>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : null}
+                  <Collapsible defaultOpen className="group/camp-sum overflow-hidden rounded-lg border border-neutral-300/90 dark:border-border">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 bg-muted/10 px-4 py-3 text-left text-sm font-medium hover:bg-muted/25">
+                      <span>Definições (resumo)</span>
+                      <ChevronDown
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/camp-sum:rotate-180"
+                        aria-hidden
+                      />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                  <StudioSettingsPanel className="rounded-none border-0 border-t bg-background">
                     <StudioSettingsRow
                       label="Nome"
                       value={<span className="font-medium text-foreground">{campaign.name}</span>}
@@ -534,6 +664,8 @@ export function DpilotGoogleCampaignStudioPage() {
                       subdued
                     />
                   </StudioSettingsPanel>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </CardContent>
               </Card>
 
@@ -569,8 +701,25 @@ export function DpilotGoogleCampaignStudioPage() {
                           value={`${countNonEmptyLines(draftKwText[ag.id] ?? "")} linhas · ${matchTypeLabel(draftKwMatch[ag.id] ?? "phrase")}`}
                         />
                         <StudioSettingsRow
-                          label="RSA"
-                          value={`${countNonEmptyLines(draftRsaH[ag.id] ?? "")} títulos · ${countNonEmptyLines(draftRsaD[ag.id] ?? "")} descrições`}
+                          label="RSA · destino · caminho"
+                          value={
+                            <span className="block break-all">
+                              <span className="font-mono text-xs">
+                                {(draftRsaFinalUrl[ag.id] ?? "").trim() ||
+                                  ag.rsa[0]?.final_urls?.[0] ||
+                                  "— (URL final pendente)"}
+                              </span>
+                              <span className="mt-0.5 block text-muted-foreground text-xs">
+                                {countNonEmptyLines(draftRsaH[ag.id] ?? "")} títulos ·{" "}
+                                {countNonEmptyLines(draftRsaD[ag.id] ?? "")} descrições · caminho{" "}
+                                <span className="font-mono">
+                                  /
+                                  {(draftRsaPath1[ag.id] ?? "").trim() || "—"}/
+                                  {(draftRsaPath2[ag.id] ?? "").trim() || "—"}
+                                </span>
+                              </span>
+                            </span>
+                          }
                           subdued
                         />
                       </StudioSettingsPanel>
@@ -624,30 +773,45 @@ export function DpilotGoogleCampaignStudioPage() {
                         </div>
                       </div>
                       <Separator />
-                      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-                        <div className="max-h-[min(520px,70vh)] overflow-y-auto pb-2 pr-1 lg:max-h-none">
-                          <GoogleRsaHeadlinesFieldStack
-                            value={draftRsaH[ag.id] ?? ""}
-                            onChange={(next) =>
-                              setDraftRsaH((prev) => ({
-                                ...prev,
-                                [ag.id]: next,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="max-h-[min(520px,70vh)] overflow-y-auto pb-2 pr-1 lg:max-h-none">
-                          <GoogleRsaDescriptionsFieldStack
-                            value={draftRsaD[ag.id] ?? ""}
-                            onChange={(next) =>
-                              setDraftRsaD((prev) => ({
-                                ...prev,
-                                [ag.id]: next,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
+                      <GoogleAdsStudioRsaCreativeBlock
+                        finalUrlId={`g-rsa-draft-final-${ag.id}`}
+                        finalUrl={draftRsaFinalUrl[ag.id] ?? ""}
+                        onFinalUrlChange={(v) =>
+                          setDraftRsaFinalUrl((prev) => ({
+                            ...prev,
+                            [ag.id]: v,
+                          }))
+                        }
+                        path1={draftRsaPath1[ag.id] ?? ""}
+                        path2={draftRsaPath2[ag.id] ?? ""}
+                        onPath1={(v) =>
+                          setDraftRsaPath1((prev) => ({
+                            ...prev,
+                            [ag.id]: v,
+                          }))
+                        }
+                        onPath2={(v) =>
+                          setDraftRsaPath2((prev) => ({
+                            ...prev,
+                            [ag.id]: v,
+                          }))
+                        }
+                        headlines={draftRsaH[ag.id] ?? ""}
+                        onHeadlines={(next) =>
+                          setDraftRsaH((prev) => ({
+                            ...prev,
+                            [ag.id]: next,
+                          }))
+                        }
+                        descriptions={draftRsaD[ag.id] ?? ""}
+                        onDescriptions={(next) =>
+                          setDraftRsaD((prev) => ({
+                            ...prev,
+                            [ag.id]: next,
+                          }))
+                        }
+                        keywordHints={keywordHintsFromDraftLines(draftKwText[ag.id] ?? "")}
+                      />
                     </div>
                         </CollapsibleContent>
                       </Collapsible>
@@ -1243,11 +1407,17 @@ function RsaLiveEditor({
   const rsa0 = ag.rsa[0];
   const [headlinesText, setHeadlinesText] = useState("");
   const [descriptionsText, setDescriptionsText] = useState("");
+  const [finalUrl, setFinalUrl] = useState("");
+  const [path1, setPath1] = useState("");
+  const [path2, setPath2] = useState("");
 
   useEffect(() => {
     if (!rsa0) return;
     setHeadlinesText(rsa0.headlines.join("\n"));
     setDescriptionsText(rsa0.descriptions.join("\n"));
+    setFinalUrl(rsa0.final_urls?.[0] ?? "");
+    setPath1(rsa0.path1 ?? "");
+    setPath2(rsa0.path2 ?? "");
   }, [rsa0]);
 
   async function submit() {
@@ -1262,11 +1432,25 @@ function RsaLiveEditor({
       .map((l) => l.trim())
       .filter(Boolean)
       .slice(0, 4);
+    const rawUrl = finalUrl.trim();
+    const fallback = (rsa0.final_urls?.[0] ?? "").trim();
+    const urlResolved = rawUrl || fallback;
+    if (!/^https:\/\/.+/i.test(urlResolved)) {
+      toast.error("Indique uma URL final válida começando por https://");
+      return;
+    }
+    if (headlines.length < 3 || descriptions.length < 2) {
+      toast.error("RSA: mínimo 3 títulos e 2 descrições.");
+      return;
+    }
     const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "update_rsa",
       rsa_id: rsa0.id,
       headlines,
       descriptions,
+      final_urls: [urlResolved],
+      path1,
+      path2,
     });
     if (error) toast.error(error);
     else {
@@ -1277,15 +1461,31 @@ function RsaLiveEditor({
 
   if (!rsa0) return null;
 
+  const kwHintsLive = Array.from(new Map(ag.keywords.map((k) => [k.text.toLowerCase(), k])).values()).map((k) => ({
+    text: k.text,
+  }));
+
   return (
-    <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-      <div className="max-h-[min(560px,calc(100vh-14rem))] overflow-y-auto pr-1 lg:max-h-[640px]">
-        <GoogleRsaHeadlinesFieldStack value={headlinesText} onChange={setHeadlinesText} />
+    <div className="flex flex-col gap-6">
+      <div className="max-h-[min(780px,calc(100vh-10rem))] overflow-y-auto pr-1 lg:max-h-none">
+        <GoogleAdsStudioRsaCreativeBlock
+          finalUrlId={`g-rsa-live-final-${rsa0.id}`}
+          finalUrl={finalUrl}
+          onFinalUrlChange={setFinalUrl}
+          path1={path1}
+          path2={path2}
+          onPath1={setPath1}
+          onPath2={setPath2}
+          headlines={headlinesText}
+          onHeadlines={setHeadlinesText}
+          descriptions={descriptionsText}
+          onDescriptions={setDescriptionsText}
+          keywordHints={kwHintsLive}
+        />
       </div>
-      <div className="flex max-h-[min(560px,calc(100vh-14rem))] flex-col gap-6 overflow-y-auto pr-1 lg:max-h-[640px]">
-        <GoogleRsaDescriptionsFieldStack value={descriptionsText} onChange={setDescriptionsText} />
+      <div className="flex justify-end border-t border-border/60 pt-4">
         <Button
-          className="mt-auto self-end rounded-full px-10 font-semibold shadow-md ring-2 ring-primary/25 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary/40"
+          className="rounded-full px-10 font-semibold shadow-md ring-2 ring-primary/25 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary/40"
           type="button"
           onClick={() => void submit()}
         >

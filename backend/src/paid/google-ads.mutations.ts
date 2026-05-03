@@ -25,6 +25,19 @@ function parseJsonStringArray(v: unknown): string[] {
   return v.map((x) => String(x).trim()).filter(Boolean);
 }
 
+/** Fragmento de caminho de visualização RSA (máx. 15). Vazio → null. */
+function normGoogleDisplayPath(seg: string): string | null {
+  const t = String(seg ?? "")
+    .trim()
+    .slice(0, 15)
+    .replace(/[\x00-\x1f\x7f]/g, "");
+  return t === "" ? null : t;
+}
+
+function clipPathCol(v: string | null | undefined): string | undefined {
+  return normGoogleDisplayPath(v ?? "") ?? undefined;
+}
+
 export type CrResult = { ok: true } | { ok: false; error: string };
 
 async function ctxForProject(
@@ -190,6 +203,11 @@ export async function applyGooglePublishRsa(
   }
   const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
   const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
+  const rp1 = clipPathCol(rsa.displayPath1);
+  const rp2 = clipPathCol(rsa.displayPath2);
+  const responsiveSearchAd: Record<string, unknown> = { headlines: hParts, descriptions: dParts };
+  if (rp1) responsiveSearchAd.path1 = rp1;
+  if (rp2) responsiveSearchAd.path2 = rp2;
 
   const m = await runGoogleAdsMutate(
     access,
@@ -204,7 +222,7 @@ export async function applyGooglePublishRsa(
             status: "ENABLED",
             ad: {
               finalUrls: [url],
-              responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+              responsiveSearchAd,
             },
           },
         },
@@ -535,6 +553,9 @@ export async function applyGoogleUpdateRsaCopy(
     descriptions: string[];
     /** Se presente na API, atualiza primeiro URL no anúncio (recomendável manter igual à landing da campanha). */
     final_urls?: string[];
+    /** Caminhos de visualização — omitir chave no payload para preservar o valor na base. */
+    path1?: string;
+    path2?: string;
   },
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
@@ -560,12 +581,19 @@ export async function applyGoogleUpdateRsaCopy(
     finalUrls = parseJsonStringArray(rsa.finalUrls);
   }
 
+  const nextPath1 =
+    p.path1 !== undefined ? normGoogleDisplayPath(p.path1) : rsa.displayPath1 ?? null;
+  const nextPath2 =
+    p.path2 !== undefined ? normGoogleDisplayPath(p.path2) : rsa.displayPath2 ?? null;
+
   await prisma.paidAdsRsa.update({
     where: { id: rsa.id },
     data: {
       headlines: headlines.slice(0, 15),
       descriptions: descriptions.slice(0, 4),
       ...(finalUrls.length ? { finalUrls } : {}),
+      ...(p.path1 !== undefined ? { displayPath1: nextPath1 } : {}),
+      ...(p.path2 !== undefined ? { displayPath2: nextPath2 } : {}),
     },
   });
 
@@ -576,6 +604,22 @@ export async function applyGoogleUpdateRsaCopy(
   const hParts = headlines.slice(0, 15).map((t) => ({ text: t.slice(0, 30) }));
   const dParts = descriptions.slice(0, 4).map((t) => ({ text: t.slice(0, 90) }));
   const url0 = finalUrls[0]?.match(/^https?:\/\//i) ? finalUrls[0] : `https://${finalUrls[0] ?? "example.com"}`;
+  const rp1 = clipPathCol(nextPath1 ?? undefined);
+  const rp2 = clipPathCol(nextPath2 ?? undefined);
+
+  const responsiveSearchAd: Record<string, unknown> = {
+    headlines: hParts,
+    descriptions: dParts,
+  };
+  if (rp1) responsiveSearchAd.path1 = rp1;
+  if (rp2) responsiveSearchAd.path2 = rp2;
+
+  let updateMask =
+    "ad.final_urls,ad.responsive_search_ad.headlines,ad.responsive_search_ad.descriptions";
+  const maskParts: string[] = [];
+  if (rp1) maskParts.push("ad.responsive_search_ad.path1");
+  if (rp2) maskParts.push("ad.responsive_search_ad.path2");
+  if (maskParts.length) updateMask += `,${maskParts.join(",")}`;
 
   const updateBody: Record<string, unknown> = {
     operations: [
@@ -584,10 +628,10 @@ export async function applyGoogleUpdateRsaCopy(
           resourceName: `customers/${customerId}/adGroupAds/${rsa.adGroup.externalAdGroupId.replace(/\D/g, "")}~${rsa.externalAdId.replace(/\D/g, "")}`,
           ad: {
             finalUrls: [url0],
-            responsiveSearchAd: { headlines: hParts, descriptions: dParts },
+            responsiveSearchAd,
           },
         },
-        updateMask: "ad.final_urls,ad.responsive_search_ad.headlines,ad.responsive_search_ad.descriptions",
+        updateMask,
       },
     ],
   };
