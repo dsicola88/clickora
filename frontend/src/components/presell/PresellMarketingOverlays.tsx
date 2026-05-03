@@ -62,13 +62,24 @@ type Props = {
   /** URL de clique rastreado (Clickora). */
   trackHref: string;
   language: Lang;
+  /**
+   * Quando o modal de cookies está activo, não mostrar exit intent / countdown / prova social:
+   * esses overlays (z-500+) tapavam o consentimento (z-100) e criavam um «segundo fluxo».
+   */
+  suppressWhileCookieGate?: boolean;
 };
 
 /**
  * Popup de saída, contagem regressiva e notificações de «prova social»,
  * ligados aos toggles em `settings` desta presell apenas.
  */
-export function PresellMarketingOverlays({ pageId, settings, trackHref, language }: Props) {
+export function PresellMarketingOverlays({
+  pageId,
+  settings,
+  trackHref,
+  language,
+  suppressWhileCookieGate = false,
+}: Props) {
   const exitOn = Boolean(settings.exitPopup);
   const countdownOn = Boolean(settings.countdownTimer);
   const socialOn = Boolean(settings.socialProof);
@@ -87,7 +98,7 @@ export function PresellMarketingOverlays({ pageId, settings, trackHref, language
   const [exitOpen, setExitOpen] = useState(false);
 
   useEffect(() => {
-    if (!exitOn || !trackHref) return;
+    if (suppressWhileCookieGate || !exitOn || !trackHref) return;
     const k = `${storagePrefix}exit-shown`;
     if (sessionStorage.getItem(k)) return;
 
@@ -100,13 +111,13 @@ export function PresellMarketingOverlays({ pageId, settings, trackHref, language
 
     document.documentElement.addEventListener("mouseleave", onLeave);
     return () => document.documentElement.removeEventListener("mouseleave", onLeave);
-  }, [exitOn, trackHref, storagePrefix]);
+  }, [suppressWhileCookieGate, exitOn, trackHref, storagePrefix]);
 
   /* ---------- Countdown ---------- */
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!countdownOn) {
+    if (suppressWhileCookieGate || !countdownOn) {
       setSecondsLeft(null);
       return;
     }
@@ -124,7 +135,7 @@ export function PresellMarketingOverlays({ pageId, settings, trackHref, language
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [countdownOn, durationMin, storagePrefix]);
+  }, [suppressWhileCookieGate, countdownOn, durationMin, storagePrefix]);
 
   const countdownLabel = useMemo(() => {
     if (secondsLeft == null) return "";
@@ -137,7 +148,7 @@ export function PresellMarketingOverlays({ pageId, settings, trackHref, language
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!socialOn) return;
+    if (suppressWhileCookieGate || !socialOn) return;
     const showAndHide = () => {
       setToast(randomSocialLine(language));
       window.setTimeout(() => setToast(null), 6500);
@@ -148,11 +159,13 @@ export function PresellMarketingOverlays({ pageId, settings, trackHref, language
       window.clearTimeout(t1);
       window.clearInterval(interval);
     };
-  }, [socialOn, language]);
+  }, [suppressWhileCookieGate, socialOn, language]);
 
   const goOffer = useCallback(() => {
     if (trackHref) window.location.assign(trackHref);
   }, [trackHref]);
+
+  if (suppressWhileCookieGate) return null;
 
   if (!exitOn && !countdownOn && !socialOn) return null;
 

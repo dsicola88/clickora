@@ -291,12 +291,12 @@ function buildInteractiveGateHtml(
   return parts.join("");
 }
 
-function buildCookieModalHtml(language: string, policyUrl: string, href: string): string {
+function buildCookieModalHtml(language: string, policyUrl: string, href: string, fallbackHref: string): string {
   const L = cookieTexts(language);
   const policyLink = policyUrl.trim()
     ? `<a href="${escapeAttr(policyUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;">${escapeHtml(L.policy)}</a>`
     : "";
-  return `<div class="pe-cookie-overlay" id="pe-cookie-overlay">
+  return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <button type="button" class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-label="${escapeAttr(L.close)}"></button>
 <div class="pe-cookie-card">
 <h2>${escapeHtml(L.title)}</h2>
@@ -312,7 +312,9 @@ ${policyLink}
 <script>
 (function(){
 var go=${JSON.stringify(href)};
-function g(){if(go)location.href=go;}
+var fb=${JSON.stringify(fallbackHref)};
+function pick(){if(go&&go!=="#")return go;if(fb&&fb!=="#")return fb;return"";}
+function g(){var u=pick();if(u)location.replace(u);}
 var o=document.getElementById("pe-cookie-overlay");
 var b=document.getElementById("pe-cookie-backdrop");
 var c=document.getElementById("pe-cookie-close");
@@ -502,6 +504,11 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   );
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
+  const sourceUrlExport = typeof content.sourceUrl === "string" ? content.sourceUrl.trim() : "";
+  const cookieExportFallback =
+    affiliateLink.trim() && affiliateLink.trim() !== "#"
+      ? affiliateLink.trim()
+      : sourceUrlExport;
   const customCss = typeof settings.customCss === "string" ? settings.customCss.trim() : "";
   const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
   const conversionTrackingScript =
@@ -639,7 +646,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let core = "";
   if (gateKind === "cookies") {
-    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href);
+    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, cookieExportFallback);
   }
 
   core += heroSection + gallerySection + salesSection + footerSection;

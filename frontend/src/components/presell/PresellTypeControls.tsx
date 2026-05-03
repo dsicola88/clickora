@@ -40,19 +40,22 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Modal central: overlay + Allow (laranja, alinhado ao CTA da oferta) + Close. Qualquer ação de saída envia para `redirectHref` (link de afiliado com rastreamento Clickora), como no export HTML estático. */
+/** Modal central: overlay + Allow (laranja, alinhado ao CTA da oferta) + Close. Qualquer ação de saída envia para o link rastreado; fallback evita ficar preso na presell se o URL de tracking falhar. */
 export function CookieConsentModal({
   language,
   policyUrl,
   redirectHref,
+  fallbackHref,
   accepted,
   onAccept,
   onDismiss,
 }: {
   language: string;
   policyUrl: string;
-  /** URL final rastreada (oferta); usada em Allow, Close e clique no fundo. */
+  /** URL rastreada (oferta); preferida para Allow, Close e fundo. */
   redirectHref: string;
+  /** Ex.: hoplink cru ou sourceUrl quando `redirectHref` ainda não está disponível. */
+  fallbackHref?: string;
   accepted: boolean;
   onAccept: () => void;
   onDismiss: () => void;
@@ -60,24 +63,32 @@ export function CookieConsentModal({
   const L = getPresellUiStrings(language);
   if (accepted) return null;
 
+  const pickUrl = (): string => {
+    const a = redirectHref.trim();
+    const b = (fallbackHref || "").trim();
+    if (a && a !== "#") return a;
+    if (b && b !== "#") return b;
+    return "";
+  };
+
   const goToOffer = () => {
-    const u = redirectHref.trim();
-    if (u && u !== "#") window.location.assign(u);
+    const u = pickUrl();
+    if (u) window.location.replace(u);
   };
 
   const handleAllow = () => {
-    onAccept();
     goToOffer();
+    onAccept();
   };
 
   const handleClose = () => {
-    onDismiss();
     goToOffer();
+    onDismiss();
   };
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-[520] flex items-center justify-center p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cookie-policy-title"
@@ -142,7 +153,7 @@ export function CookieSettingsChip({
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-5 right-5 z-[90] rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg hover:bg-muted/80 transition-colors"
+      className="fixed bottom-5 right-5 z-[515] rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg hover:bg-muted/80 transition-colors"
     >
       {L.cookieReopen}
     </button>

@@ -930,6 +930,12 @@ export default function PublicPresell() {
     );
   }
 
+  const sourceUrlRaw = typeof content.sourceUrl === "string" ? content.sourceUrl.trim() : "";
+  const cookieConsentFallbackHref =
+    affiliateLink.trim() && affiliateLink.trim() !== "#"
+      ? affiliateLink.trim()
+      : sourceUrlRaw;
+
   const pageBody = (
     <>
       {gateKind === "cookies" && !cookieAccepted && !cookieDismissed ? (
@@ -937,6 +943,7 @@ export default function PublicPresell() {
           language={uiLang}
           policyUrl={cookiePolicyUrl}
           redirectHref={href}
+          fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
           onDismiss={() => setCookieDismissed(true)}
@@ -1691,6 +1698,7 @@ export default function PublicPresell() {
         settings={settings}
         trackHref={href}
         language={uiLang}
+        suppressWhileCookieGate={showCookieModal}
       />
       <PresellLanguageSelector override={override} onModeChange={setMode} />
       {/* Montagem de scripts “início do corpo” (pixels, scripts de terceiros, etc.) */}
