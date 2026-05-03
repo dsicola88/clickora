@@ -517,7 +517,7 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: o gate é o modal; após permitir/fechar o utilizador permanece na presell.
+    // Cookies: o modal redireciona para a oferta (Allow / Close / fundo); na página, outros CTAs seguem o mesmo href.
     if (gk === "cookies") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
@@ -661,13 +661,8 @@ export default function PublicPresell() {
     !isGhostPage &&
     page.type !== "builder";
 
-  /** Com o modal de cookies aberto, não usar só o iframe do espelho: o overlay escuro sobre iframe claro parecia “página vazia”. Mostra o layout React por baixo; após Allow/Close passa ao espelho se aplicável. */
-  const cookieModalBlocking =
-    gateKind === "cookies" && !cookieAccepted && !cookieDismissed;
-
   /** Espelho HTML importado; se o documento vier vazio (ex.: só JS na origem), volta ao layout React. */
-  const showImportedMirror =
-    mirrorEligible && !mirrorUseTemplateFallback && !cookieModalBlocking;
+  const showImportedMirror = mirrorEligible && !mirrorUseTemplateFallback;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
@@ -718,6 +713,7 @@ export default function PublicPresell() {
         <CookieConsentModal
           language={uiLang}
           policyUrl={cookiePolicyUrl}
+          redirectHref={href}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
           onDismiss={() => setCookieDismissed(true)}

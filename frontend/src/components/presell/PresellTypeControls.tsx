@@ -40,16 +40,19 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Modal central: overlay + Allow (laranja, alinhado ao CTA da oferta) + Close. */
+/** Modal central: overlay + Allow (laranja, alinhado ao CTA da oferta) + Close. Qualquer ação de saída envia para `redirectHref` (link de afiliado com rastreamento Clickora), como no export HTML estático. */
 export function CookieConsentModal({
   language,
   policyUrl,
+  redirectHref,
   accepted,
   onAccept,
   onDismiss,
 }: {
   language: string;
   policyUrl: string;
+  /** URL final rastreada (oferta); usada em Allow, Close e clique no fundo. */
+  redirectHref: string;
   accepted: boolean;
   onAccept: () => void;
   onDismiss: () => void;
@@ -57,12 +60,19 @@ export function CookieConsentModal({
   const L = getPresellUiStrings(language);
   if (accepted) return null;
 
+  const goToOffer = () => {
+    const u = redirectHref.trim();
+    if (u && u !== "#") window.location.assign(u);
+  };
+
   const handleAllow = () => {
     onAccept();
+    goToOffer();
   };
 
   const handleClose = () => {
     onDismiss();
+    goToOffer();
   };
 
   return (
@@ -78,7 +88,10 @@ export function CookieConsentModal({
         aria-label={L.cookieClose}
         onClick={handleClose}
       />
-      <div className="relative z-10 w-full max-w-[min(100%,28rem)] rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-2xl">
+      <div
+        className="relative z-10 w-full max-w-[min(100%,28rem)] rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 id="cookie-policy-title" className="text-xl font-bold text-foreground tracking-tight">
           {L.cookieTitle}
         </h2>
