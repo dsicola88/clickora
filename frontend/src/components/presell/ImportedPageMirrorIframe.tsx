@@ -68,7 +68,12 @@ export function ImportedPageMirrorIframe({
       const hasMedia = doc.body.querySelector(
         "img, picture, video, svg, canvas, table, iframe, [role='img']",
       );
-      if (text.length < 55 && !hasMedia) {
+      const scrollH = Math.max(
+        doc.body.scrollHeight,
+        doc.documentElement?.scrollHeight ?? 0,
+      );
+      const looksLikeBareShell = scrollH < 200 && !hasMedia;
+      if ((!hasMedia && text.length < 55) || looksLikeBareShell) {
         emptyCbRef.current?.();
       }
     } catch {
@@ -105,6 +110,7 @@ export function ImportedPageMirrorIframe({
     }
     window.setTimeout(checkProbablyEmpty, 320);
     window.setTimeout(checkProbablyEmpty, 1400);
+    window.setTimeout(checkProbablyEmpty, 2800);
   }, [measureDebounced, checkProbablyEmpty]);
 
   useEffect(() => {

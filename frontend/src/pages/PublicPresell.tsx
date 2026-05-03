@@ -661,8 +661,13 @@ export default function PublicPresell() {
     !isGhostPage &&
     page.type !== "builder";
 
+  /** Com o modal de cookies aberto, não usar só o iframe do espelho: o overlay escuro sobre iframe claro parecia “página vazia”. Mostra o layout React por baixo; após Allow/Close passa ao espelho se aplicável. */
+  const cookieModalBlocking =
+    gateKind === "cookies" && !cookieAccepted && !cookieDismissed;
+
   /** Espelho HTML importado; se o documento vier vazio (ex.: só JS na origem), volta ao layout React. */
-  const showImportedMirror = mirrorEligible && !mirrorUseTemplateFallback;
+  const showImportedMirror =
+    mirrorEligible && !mirrorUseTemplateFallback && !cookieModalBlocking;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel =
