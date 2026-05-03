@@ -61,6 +61,7 @@ import {
   isRtlLocale,
 } from "@/lib/presellUiStrings";
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
+import { cn } from "@/lib/utils";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
