@@ -108,75 +108,125 @@ function linesToNegKeywords(
   return out;
 }
 
-function parseSitelinkLines(
-  text: string,
-): Array<{ link_text: string; final_url: string }> {
-  const out: Array<{ link_text: string; final_url: string }> = [];
-  for (const line of text.split("\n")) {
-    const raw = line.trim();
-    if (!raw) continue;
-    const pipe = raw.indexOf("|");
-    if (pipe <= 0) continue;
-    const link_text = raw.slice(0, pipe).trim().slice(0, 25);
-    const final_url = raw.slice(pipe + 1).trim();
-    if (!link_text || !/^https:\/\//i.test(final_url)) continue;
-    out.push({ link_text, final_url });
-    if (out.length >= 20) break;
-  }
-  return out;
+/** Linha de formulário de sitelink (alinhada à UI Google Ads). */
+type StudioSitelinkFormRow = {
+  link_text: string;
+  description1: string;
+  description2: string;
+  final_url: string;
+};
+
+const EXT_CALLOUT_MAX = 25;
+const EXT_SITELINK_TEXT_MAX = 25;
+const EXT_SITELINK_DESC_MAX = 35;
+const EXT_SITELINK_MAX_ROWS = 6;
+const EXT_CALLOUT_INITIAL_SLOTS = 4;
+const EXT_SNIPPET_MIN_ROWS = 3;
+const EXT_SNIPPET_MAX_ROWS = 10;
+const EXT_SNIPPET_VAL_MAX = 25;
+
+function emptySitelinkRow(): StudioSitelinkFormRow {
+  return { link_text: "", description1: "", description2: "", final_url: "" };
 }
 
-function buildGoogleAssetExtensionsPayload(
-  extCalloutsText: string,
-  extSitelinksText: string,
-  extSnippetHeader: StudioSnippetHeader,
-  extSnippetValuesText: string,
-): Record<string, unknown> {
-  const callouts = extCalloutsText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((c) => c.slice(0, 25))
-    .slice(0, 10);
-  const sitelinks = parseSitelinkLines(extSitelinksText);
-  const valLines = extSnippetValuesText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((v) => v.slice(0, 25));
-  const obj: Record<string, unknown> = {};
-  if (callouts.length) obj.callouts = callouts;
-  if (sitelinks.length >= 2) obj.sitelinks = sitelinks;
-  if (valLines.length >= 3) {
-    obj.structured_snippet = { header: extSnippetHeader, values: valLines.slice(0, 10) };
-  }
-  return obj;
-}
-
-function extensionsDraftFromDto(ae: GoogleCampaignAssetExtensionsDto | null): {
-  extCalloutsText: string;
-  extSitelinksText: string;
+function extensionsFormStateFromDto(ae: GoogleCampaignAssetExtensionsDto | null): {
+  sitelinkRows: StudioSitelinkFormRow[];
+  calloutLines: string[];
   extSnippetHeader: StudioSnippetHeader;
-  extSnippetValuesText: string;
+  snippetValueLines: string[];
 } {
   if (!ae) {
     return {
-      extCalloutsText: "",
-      extSitelinksText: "",
+      sitelinkRows: [emptySitelinkRow(), emptySitelinkRow()],
+      calloutLines: Array.from({ length: EXT_CALLOUT_INITIAL_SLOTS }, () => ""),
       extSnippetHeader: "Services",
-      extSnippetValuesText: "",
+      snippetValueLines: Array.from({ length: EXT_SNIPPET_MIN_ROWS }, () => ""),
     };
   }
   const hdrRaw = ae.structured_snippet?.header?.trim() ?? "";
   const extSnippetHeader = STUDIO_SNIPPET_HEADERS.includes(hdrRaw as StudioSnippetHeader)
     ? (hdrRaw as StudioSnippetHeader)
     : "Services";
-  return {
-    extCalloutsText: ae.callouts.join("\n"),
-    extSitelinksText: ae.sitelinks.map((s) => `${s.link_text} | ${s.final_url}`).join("\n"),
-    extSnippetHeader,
-    extSnippetValuesText: (ae.structured_snippet?.values ?? []).join("\n"),
-  };
+
+  const sitelinkRows: StudioSitelinkFormRow[] = ae.sitelinks.slice(0, EXT_SITELINK_MAX_ROWS).map((s) => ({
+    link_text: s.link_text,
+    description1: s.description1 ?? "",
+    description2: s.description2 ?? "",
+    final_url: s.final_url,
+  }));
+  while (sitelinkRows.length < 2) sitelinkRows.push(emptySitelinkRow());
+
+  let calloutLines = [...ae.callouts];
+  if (calloutLines.length === 0) {
+    calloutLines = Array.from({ length: EXT_CALLOUT_INITIAL_SLOTS }, () => "");
+  } else {
+    while (calloutLines.length < EXT_CALLOUT_INITIAL_SLOTS) calloutLines.push("");
+  }
+
+  let snippetValueLines = [...(ae.structured_snippet?.values ?? [])];
+  while (snippetValueLines.length < EXT_SNIPPET_MIN_ROWS) snippetValueLines.push("");
+  snippetValueLines = snippetValueLines.slice(0, EXT_SNIPPET_MAX_ROWS);
+
+  return { sitelinkRows, calloutLines, extSnippetHeader, snippetValueLines };
+}
+
+function buildGoogleExtensionsApiPayload(
+  sitelinkRows: StudioSitelinkFormRow[],
+  calloutLines: string[],
+  extSnippetHeader: StudioSnippetHeader,
+  snippetValueLines: string[],
+): Record<string, unknown> {
+  const sitelinks = sitelinkRows
+    .map((r) => {
+      const link_text = r.link_text.trim().slice(0, EXT_SITELINK_TEXT_MAX);
+      const final_url = r.final_url.trim();
+      const d1 = r.description1.trim().slice(0, EXT_SITELINK_DESC_MAX);
+      const d2 = r.description2.trim().slice(0, EXT_SITELINK_DESC_MAX);
+      if (!link_text || !/^https:\/\//i.test(final_url)) return null;
+      const o: {
+        link_text: string;
+        final_url: string;
+        description1?: string;
+        description2?: string;
+      } = { link_text, final_url };
+      if (d1 && d2) {
+        o.description1 = d1;
+        o.description2 = d2;
+      }
+      return o;
+    })
+    .filter(Boolean) as Array<{
+      link_text: string;
+      final_url: string;
+      description1?: string;
+      description2?: string;
+    }>;
+
+  const callouts = calloutLines
+    .map((c) => c.trim().slice(0, EXT_CALLOUT_MAX))
+    .filter(Boolean)
+    .slice(0, 10);
+
+  const valLines = snippetValueLines
+    .map((v) => v.trim().slice(0, EXT_SNIPPET_VAL_MAX))
+    .filter(Boolean)
+    .slice(0, EXT_SNIPPET_MAX_ROWS);
+
+  const obj: Record<string, unknown> = {};
+  if (callouts.length) obj.callouts = callouts;
+  if (sitelinks.length >= 2) obj.sitelinks = sitelinks;
+  if (valLines.length >= EXT_SNIPPET_MIN_ROWS) {
+    obj.structured_snippet = { header: extSnippetHeader, values: valLines };
+  }
+  return obj;
+}
+
+function FieldCharCount({ cur, max }: { cur: number; max: number }) {
+  return (
+    <span className="text-[11px] tabular-nums text-muted-foreground">
+      {cur} / {max}
+    </span>
+  );
 }
 
 function geoLangSummaryLine(campaign: CampaignRow & { language_targets?: string[] }): string {
@@ -280,10 +330,17 @@ export function DpilotGoogleCampaignStudioPage() {
   const [draftCampaignNegMatch, setDraftCampaignNegMatch] = useState<MatchSel>("phrase");
   const [draftAgNegText, setDraftAgNegText] = useState<Record<string, string>>({});
   const [draftAgNegMatch, setDraftAgNegMatch] = useState<Record<string, MatchSel>>({});
-  const [extCalloutsText, setExtCalloutsText] = useState("");
-  const [extSitelinksText, setExtSitelinksText] = useState("");
+  const [extSitelinkRows, setExtSitelinkRows] = useState<StudioSitelinkFormRow[]>([
+    emptySitelinkRow(),
+    emptySitelinkRow(),
+  ]);
+  const [extCalloutLines, setExtCalloutLines] = useState<string[]>(() =>
+    Array.from({ length: EXT_CALLOUT_INITIAL_SLOTS }, () => ""),
+  );
   const [extSnippetHeader, setExtSnippetHeader] = useState<StudioSnippetHeader>("Services");
-  const [extSnippetValuesText, setExtSnippetValuesText] = useState("");
+  const [extSnippetValueLines, setExtSnippetValueLines] = useState<string[]>(() =>
+    Array.from({ length: EXT_SNIPPET_MIN_ROWS }, () => ""),
+  );
 
   /** Insights */
   const [insightKw, setInsightKw] = useState("");
@@ -381,11 +438,11 @@ export function DpilotGoogleCampaignStudioPage() {
     setDraftAgNegText(agNegT);
     setDraftAgNegMatch(agNegM);
 
-    const ext = extensionsDraftFromDto(data.asset_extensions ?? null);
-    setExtCalloutsText(ext.extCalloutsText);
-    setExtSitelinksText(ext.extSitelinksText);
-    setExtSnippetHeader(ext.extSnippetHeader);
-    setExtSnippetValuesText(ext.extSnippetValuesText);
+    const ef = extensionsFormStateFromDto(data.asset_extensions ?? null);
+    setExtSitelinkRows(ef.sitelinkRows);
+    setExtCalloutLines(ef.calloutLines);
+    setExtSnippetHeader(ef.extSnippetHeader);
+    setExtSnippetValueLines(ef.snippetValueLines);
 
     setPreviewAgId((prev) =>
       prev && data.ad_groups.some((g) => g.id === prev) ? prev : data.ad_groups[0]?.id ?? null,
@@ -419,11 +476,11 @@ export function DpilotGoogleCampaignStudioPage() {
   /** Negativas + extensões para PATCH do rascunho (reutilizado pelo gravar completo e pela secção dedicada). */
   function negativesExtensionsDraftPayload(forStudio: GoogleCampaignStudioDto) {
     return {
-      google_asset_extensions: buildGoogleAssetExtensionsPayload(
-        extCalloutsText,
-        extSitelinksText,
+      google_asset_extensions: buildGoogleExtensionsApiPayload(
+        extSitelinkRows,
+        extCalloutLines,
         extSnippetHeader,
-        extSnippetValuesText,
+        extSnippetValueLines,
       ),
       campaign_negative_keywords: linesToNegKeywords(draftCampaignNegText, draftCampaignNegMatch),
       ad_group_negative_keywords: forStudio.ad_groups.map((ag) => ({
@@ -1603,61 +1660,250 @@ export function DpilotGoogleCampaignStudioPage() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Extensões Search (sitelinks, destaques, snippet)</CardTitle>
                     <CardDescription>
-                      Sitelinks: uma linha por link, formato{" "}
-                      <span className="font-mono text-[11px]">texto | https://…</span> (mínimo 2 válidos para enviar).
-                      Destaques: uma linha cada (até 10). Snippet estruturado: cabeçalho Google e pelo menos 3 valores
-                      (uma linha por valor); se omitir valores, o servidor completa com sugestões seguras.
+                      Ao nível da campanha (como na Google). Sitelinks: pelo menos <strong>2</strong> válidos (texto +
+                      URL https) para enviar; até <strong>{EXT_SITELINK_MAX_ROWS}</strong>. Descrições do sitelink são
+                      opcionais — se preencher uma, preencha as duas (regra da API). Destaques: até{" "}
+                      <strong>{EXT_CALLOUT_MAX}</strong> caracteres cada. Snippet: cabeçalho fixo Google + pelo menos{" "}
+                      <strong>{EXT_SNIPPET_MIN_ROWS}</strong> valores para substituir o gerado automaticamente.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4 text-sm">
-                    <div className="space-y-1.5">
-                      <Label>Sitelinks</Label>
-                      <Textarea
-                        value={extSitelinksText}
-                        onChange={(e) => setExtSitelinksText(e.target.value)}
-                        rows={6}
-                        className="font-mono text-xs"
-                        placeholder={"Oferta | https://exemplo.com/oferta\nFAQ | https://exemplo.com/faq"}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Destaques (callouts)</Label>
-                      <Textarea
-                        value={extCalloutsText}
-                        onChange={(e) => setExtCalloutsText(e.target.value)}
-                        rows={5}
-                        className="font-mono text-xs"
-                        placeholder={"Envio rápido\nPagamento seguro"}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label>Cabeçalho do snippet estruturado</Label>
-                        <Select
-                          value={extSnippetHeader}
-                          onValueChange={(v) => setExtSnippetHeader(v as StudioSnippetHeader)}
+                  <CardContent className="space-y-8 text-sm">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Label className="text-base font-medium">Sitelinks</Label>
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 text-primary"
+                          disabled={extSitelinkRows.length >= EXT_SITELINK_MAX_ROWS}
+                          onClick={() => setExtSitelinkRows((rows) => [...rows, emptySitelinkRow()])}
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STUDIO_SNIPPET_HEADERS.map((h) => (
-                              <SelectItem key={h} value={h}>
-                                {h}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          Adicionar sitelink
+                        </Button>
                       </div>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label>Valores do snippet (≥3 linhas para substituir o gerado)</Label>
-                        <Textarea
-                          value={extSnippetValuesText}
-                          onChange={(e) => setExtSnippetValuesText(e.target.value)}
-                          rows={4}
-                          className="font-mono text-xs"
-                          placeholder={"Serviço A\nServiço B\nServiço C"}
-                        />
+                      <p className="text-[12px] text-muted-foreground">
+                        Para os sitelinks aparecerem na rede são necessários pelo menos 2 recursos; até{" "}
+                        {EXT_SITELINK_MAX_ROWS} para melhor desempenho.
+                      </p>
+                      <div className="space-y-4">
+                        {extSitelinkRows.map((row, idx) => (
+                          <div
+                            key={`sl-${idx}`}
+                            className="rounded-lg border border-border/70 bg-muted/10 p-4 space-y-3"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-muted-foreground">
+                                Sitelink {idx + 1}
+                              </span>
+                              {extSitelinkRows.length > 2 ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-destructive"
+                                  onClick={() =>
+                                    setExtSitelinkRows((rows) => rows.filter((_, j) => j !== idx))
+                                  }
+                                >
+                                  Remover
+                                </Button>
+                              ) : null}
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between gap-2">
+                                <Label className="font-normal">Texto do sitelink</Label>
+                                <FieldCharCount cur={row.link_text.length} max={EXT_SITELINK_TEXT_MAX} />
+                              </div>
+                              <Input
+                                value={row.link_text}
+                                maxLength={EXT_SITELINK_TEXT_MAX}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setExtSitelinkRows((rows) =>
+                                    rows.map((r, j) => (j === idx ? { ...r, link_text: v } : r)),
+                                  );
+                                }}
+                                placeholder="Ex.: Oferta"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between gap-2">
+                                  <Label className="font-normal">Linha de descrição 1 (opcional)</Label>
+                                  <FieldCharCount cur={row.description1.length} max={EXT_SITELINK_DESC_MAX} />
+                                </div>
+                                <Input
+                                  value={row.description1}
+                                  maxLength={EXT_SITELINK_DESC_MAX}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setExtSitelinkRows((rows) =>
+                                      rows.map((r, j) => (j === idx ? { ...r, description1: v } : r)),
+                                    );
+                                  }}
+                                  className="text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between gap-2">
+                                  <Label className="font-normal">Linha de descrição 2 (opcional)</Label>
+                                  <FieldCharCount cur={row.description2.length} max={EXT_SITELINK_DESC_MAX} />
+                                </div>
+                                <Input
+                                  value={row.description2}
+                                  maxLength={EXT_SITELINK_DESC_MAX}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setExtSitelinkRows((rows) =>
+                                      rows.map((r, j) => (j === idx ? { ...r, description2: v } : r)),
+                                    );
+                                  }}
+                                  className="text-sm"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="font-normal">URL final</Label>
+                              <Input
+                                value={row.final_url}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setExtSitelinkRows((rows) =>
+                                    rows.map((r, j) => (j === idx ? { ...r, final_url: v } : r)),
+                                  );
+                                }}
+                                placeholder="https://…"
+                                className="font-mono text-xs"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Frases de destaque (callouts)</Label>
+                      <div className="space-y-3">
+                        {extCalloutLines.map((line, idx) => (
+                          <div key={`co-${idx}`} className="space-y-1.5">
+                            <div className="flex justify-between gap-2">
+                              <Label className="sr-only sm:not-sr-only sm:font-normal">
+                                Texto da frase de destaque {idx + 1}
+                              </Label>
+                              <FieldCharCount cur={line.length} max={EXT_CALLOUT_MAX} />
+                            </div>
+                            <Input
+                              value={line}
+                              maxLength={EXT_CALLOUT_MAX}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setExtCalloutLines((lines) => lines.map((x, j) => (j === idx ? v : x)));
+                              }}
+                              placeholder={`Texto da frase de destaque ${idx + 1}`}
+                              className="text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 text-primary"
+                          disabled={extCalloutLines.length >= 10}
+                          onClick={() => setExtCalloutLines((lines) => [...lines, ""])}
+                        >
+                          Adicionar texto da frase de destaque
+                        </Button>
+                        {extCalloutLines.length > EXT_CALLOUT_INITIAL_SLOTS ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-2 text-muted-foreground"
+                            onClick={() =>
+                              setExtCalloutLines((lines) =>
+                                lines.length > EXT_CALLOUT_INITIAL_SLOTS ? lines.slice(0, -1) : lines,
+                              )
+                            }
+                          >
+                            Remover última linha
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Snippet estruturado</Label>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5 max-w-md">
+                          <Label className="font-normal">Cabeçalho</Label>
+                          <Select
+                            value={extSnippetHeader}
+                            onValueChange={(v) => setExtSnippetHeader(v as StudioSnippetHeader)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar tipo de cabeçalho" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STUDIO_SNIPPET_HEADERS.map((h) => (
+                                <SelectItem key={h} value={h}>
+                                  {h}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-3">
+                          {extSnippetValueLines.map((val, idx) => (
+                            <div key={`sn-${idx}`} className="space-y-1.5">
+                              <div className="flex justify-between gap-2">
+                                <Label className="font-normal">Valor {idx + 1}</Label>
+                                <FieldCharCount cur={val.length} max={EXT_SNIPPET_VAL_MAX} />
+                              </div>
+                              <Input
+                                value={val}
+                                maxLength={EXT_SNIPPET_VAL_MAX}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setExtSnippetValueLines((lines) =>
+                                    lines.map((x, j) => (j === idx ? v : x)),
+                                  );
+                                }}
+                                className="text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 text-primary"
+                          disabled={extSnippetValueLines.length >= EXT_SNIPPET_MAX_ROWS}
+                          onClick={() => setExtSnippetValueLines((lines) => [...lines, ""])}
+                        >
+                          Adicionar valor
+                        </Button>
+                        {extSnippetValueLines.length > EXT_SNIPPET_MIN_ROWS ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-2 text-muted-foreground"
+                            onClick={() =>
+                              setExtSnippetValueLines((lines) =>
+                                lines.length > EXT_SNIPPET_MIN_ROWS ? lines.slice(0, -1) : lines,
+                              )
+                            }
+                          >
+                            Remover último valor
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </CardContent>
