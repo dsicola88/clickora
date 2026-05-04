@@ -630,6 +630,9 @@ enum PaidAdsChangeRequestType {
   update_rsa_copy
   update_ad_group_cpc
   update_campaign_bidding
+  sync_campaign_negative_keywords
+  sync_ad_group_negative_keywords
+  replace_google_asset_extensions
   meta_create_campaign
   meta_update_budget
   meta_publish_creative
@@ -778,10 +781,39 @@ model PaidAdsCampaign {
   project              PaidAdsProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   adGroups             PaidAdsAdGroup[]
   metaAdsets           PaidAdsMetaAdset[]
-  optimizerDecisions   PaidAdsOptimizerDecision[]
+  optimizerDecisions          PaidAdsOptimizerDecision[]
+  campaignNegativeKeywords    PaidAdsCampaignNegativeKeyword[]
 
   @@index([projectId])
   @@map("paid_ads_campaigns")
+}
+
+model PaidAdsCampaignNegativeKeyword {
+  id                  String           @id @default(uuid())
+  campaignId          String           @map("campaign_id")
+  text                String           @db.VarChar(80)
+  matchType           PaidAdsMatchType @default(phrase) @map("match_type")
+  externalCriterionId String?          @map("external_criterion_id") @db.VarChar(64)
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  campaign PaidAdsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("paid_ads_campaign_negative_keywords")
+}
+
+model PaidAdsAdGroupNegativeKeyword {
+  id                  String           @id @default(uuid())
+  adGroupId           String           @map("ad_group_id")
+  text                String           @db.VarChar(80)
+  matchType           PaidAdsMatchType @default(phrase) @map("match_type")
+  externalCriterionId String?          @map("external_criterion_id") @db.VarChar(64)
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  adGroup PaidAdsAdGroup @relation(fields: [adGroupId], references: [id], onDelete: Cascade)
+
+  @@index([adGroupId])
+  @@map("paid_ads_ad_group_negative_keywords")
 }
 
 /** Decisões do «Cérebro» V0 — auditoria de pausa, escala orçamento e flags (sem UI obrigatória). */
@@ -818,9 +850,10 @@ model PaidAdsAdGroup {
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
 
-  campaign PaidAdsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  keywords PaidAdsKeyword[]
-  adsRsa   PaidAdsRsa[]
+  campaign          PaidAdsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  keywords          PaidAdsKeyword[]
+  adsRsa            PaidAdsRsa[]
+  negativeKeywords  PaidAdsAdGroupNegativeKeyword[]
 
   @@index([campaignId])
   @@map("paid_ads_ad_groups")

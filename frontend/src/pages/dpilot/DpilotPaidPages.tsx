@@ -493,8 +493,15 @@ function campaignsTable(
                   <TableCell className="text-right align-middle">
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {c.platform === "google_ads" && c.status !== "archived" ? (
-                        <Button variant="secondary" size="sm" className="h-8" asChild>
-                          <Link to={`/tracking/dpilot/p/${controls.projectId}/campanhas/${c.id}/google`}>Gestão</Link>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 gap-1 border-[#1a73e8]/45 bg-[#1a73e8]/10 text-[13px] font-medium text-[#174ea6] hover:bg-[#1a73e8]/16 dark:border-blue-400/40 dark:bg-blue-500/15 dark:text-blue-200 dark:hover:bg-blue-500/22"
+                          asChild
+                        >
+                          <Link to={`/tracking/dpilot/p/${controls.projectId}/campanhas/${c.id}/google`}>
+                            Gestão Google Ads
+                          </Link>
                         </Button>
                       ) : null}
                       <DpilotCampaignArchiveButton

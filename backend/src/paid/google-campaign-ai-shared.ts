@@ -4,6 +4,11 @@
  */
 import { buildDeterministicRsa, clipAtWord } from "./google-rsa-deterministic";
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
+import {
+  mergeCampaignNegativeKeywordPlan,
+  landingHostnameFromUrl,
+  type CampaignNegativeKeywordEntry,
+} from "./google-campaign-negative-keywords-defaults";
 
 /** Extensões que a IA pode preencher (parciais são completadas em `finalizeGoogleCampaignAssetExtensions`). */
 export type GoogleCampaignAiExtensionsPartial = Partial<GoogleCampaignAssetExtensionsStored>;
@@ -43,6 +48,10 @@ export interface GoogleCampaignAiPlan {
   }>;
   /** Opcional — sitelinks, callouts e um structured snippet ao nível da campanha. */
   extensions?: GoogleCampaignAiExtensionsPartial;
+  /**
+   * Negativos adicionais da IA; o servidor funde com pacotes dinâmicos (EN + PT/ES/geo/TLD) e filtra colisões com semente/oferta.
+   */
+  campaign_negative_keywords?: CampaignNegativeKeywordEntry[];
 }
 
 export type DeterministicPlanInput = {
@@ -87,6 +96,12 @@ OBJECTIVE HANDLING (critical):
 - The "Objective" field is INTERNAL briefing context for the campaign strategist. NEVER copy it verbatim into a headline or description. NEVER prefix any headline/description with internal labels such as "Goal:", "Objetivo:", "Objective:", "Ziel:", "Objectif:", "Briefing:", "Details:".
 - Use the Objective only to set tone and intent (e.g. lead-gen, e-commerce, sign-ups). The user-facing copy must read like a polished ad, not a brief.
 
+CAMPAIGN NEGATIVE KEYWORDS (critical):
+- Include JSON array **campaign_negative_keywords**: array of objects with string field **text** (max 80 chars) and **match_type** one of phrase | exact | broad.
+- Add **12 to 24 ADDITIONAL** negatives tuned to THIS Offer, Landing hostname/category, AND the geo/language hints in the user message (regional coupon wording, dominant marketplaces, forums/Q&A habits). Prefer **phrase** match.
+- Do **not** duplicate ultra-generic DR starters (free, pdf, scam, amazon, ebay, reddit, reviews, youtube, tiktok, wiki, promo codes...) — the platform merges locale-aware starter packs automatically.
+- Never negate the user's primary commercial seed/theme from the prompt nor distinctive branded tokens from the Offer text (the server also strips collisions).
+
 Also output **campaign extensions** alongside RSA and keywords:
 - **Sitelinks (2–6)**: texts max 25 characters; **final_urls** absolute https, same hostname as Landing URL preferentially (landing page with a URL hash fragment is OK — e.g. #faq, #buy). Optional description lines ≤35 characters (fields description1 and description2 optional).
 - **Callouts (4–10)**, each max 25 characters — trust, clarity, urgency only if truthful; match the user's languages where possible but respect character limits over translation quality.
@@ -118,7 +133,10 @@ Schema:
       "header": "Brands Services Types Models Destinations (pick one literal string)",
       "values": string[]
     } | null
-  }
+  },
+  "campaign_negative_keywords": [
+    { "text": string, "match_type": "exact" | "phrase" | "broad" }
+  ]
 }`;
 
 export async function fetchOpenAiGoogleCampaignPlan(userPrompt: string): Promise<{
@@ -226,7 +244,18 @@ export function sanitizeAiPlanCopy(
     return { ...ag, rsa: { headlines, descriptions } };
   });
 
-  return { ...plan, ad_groups: cleanedAdGroups };
+  const mergedNeg = mergeCampaignNegativeKeywordPlan(
+    {
+      languageTargets: ctx.languageTargets,
+      geoTargets: ctx.geoTargets,
+      landingHostname: landingHostnameFromUrl(ctx.landingUrl),
+      campaignSeedKeyword: ctx.campaignSeedKeyword ?? null,
+      offer: ctx.offer,
+    },
+    plan.campaign_negative_keywords,
+  );
+
+  return { ...plan, ad_groups: cleanedAdGroups, campaign_negative_keywords: mergedNeg };
 }
 
 /** Fallback sem IA — RSA alinhados com `buildDeterministicRsa`. */

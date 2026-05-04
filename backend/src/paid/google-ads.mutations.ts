@@ -18,6 +18,9 @@ import {
   storedGoogleBiddingFromPlanInput,
   type GoogleBiddingStrategy,
 } from "./google-campaign-bidding";
+import { publishGoogleCampaignAssetExtensions } from "./google-ads-asset-extensions-publish";
+import { removeGoogleCampaignExtensionAssetLinks } from "./google-ads-campaign-assets-sync";
+import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
 import { prisma } from "./paidPrisma";
 
 const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
@@ -792,6 +795,251 @@ export async function applyGoogleUpdateCampaignBidding(
         });
       }
     }
+  }
+
+  return { ok: true };
+}
+
+function dedupeNegativeKeywords(keywords: Array<{ text: string; match_type: MatchType }>): Array<{
+  text: string;
+  match_type: MatchType;
+}> {
+  const seen = new Set<string>();
+  const out: Array<{ text: string; match_type: MatchType }> = [];
+  for (const k of keywords) {
+    const t = k.text.trim().slice(0, 80);
+    if (!t) continue;
+    const key = `${k.match_type}:${t.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ text: t, match_type: k.match_type });
+  }
+  return out;
+}
+
+function criterionTailId(resourceName: string): string {
+  const i = resourceName.lastIndexOf("~");
+  return i >= 0 ? resourceName.slice(i + 1).replace(/\D/g, "") : resourceName.replace(/\D/g, "");
+}
+
+async function mutateThrow(
+  access: string,
+  customerId: string,
+  dev: string,
+  servicePath: string,
+  body: { operations: unknown[] },
+  loginCustomerId?: string,
+): Promise<{ resourceNames: string[] }> {
+  const m = await runGoogleAdsMutate(access, customerId, dev, servicePath, body, loginCustomerId ?? LOGIN);
+  if (m.error?.message) throw new Error(m.error.message);
+  const resourceNames = (m.results ?? []).map((r) => r.resourceName).filter((n): n is string => Boolean(n));
+  return { resourceNames };
+}
+
+/** Substitui sitelinks/callouts/snippet na conta; actualiza `bidding_config.google_asset_extensions`. */
+export async function applyGoogleReplaceAssetExtensions(
+  projectId: string,
+  p: { campaign_id: string; extensions: GoogleCampaignAssetExtensionsStored },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+
+  const camp = await prisma.paidAdsCampaign.findFirst({
+    where: { id: p.campaign_id, projectId, platform: "google_ads" },
+  });
+  if (!camp?.externalCampaignId) {
+    return { ok: false, error: "Campanha sem ID Google." };
+  }
+  const extCamp = camp.externalCampaignId.replace(/\D/g, "");
+  const prevBc =
+    camp.biddingConfig && typeof camp.biddingConfig === "object" && !Array.isArray(camp.biddingConfig)
+      ? ({ ...(camp.biddingConfig as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  prevBc.google_asset_extensions = p.extensions as unknown as Record<string, unknown>;
+  await prisma.paidAdsCampaign.update({
+    where: { id: camp.id },
+    data: { biddingConfig: prevBc as Prisma.InputJsonValue },
+  });
+
+  const rm = await removeGoogleCampaignExtensionAssetLinks({
+    accessToken: access,
+    customerId,
+    devToken: dev,
+    loginCustomerId: LOGIN,
+    campaignNumericId: extCamp,
+  });
+  if (!rm.ok) return { ok: false, error: rm.error };
+
+  const campaignRn = `customers/${customerId}/campaigns/${extCamp}`;
+  try {
+    await publishGoogleCampaignAssetExtensions({
+      mutate: (tok, dtok, cidRaw, svc, bod, login) =>
+        mutateThrow(tok, cidRaw.replace(/\D/g, ""), dtok, svc, bod as { operations: unknown[] }, login),
+      accessToken: access,
+      devToken: dev,
+      customerId,
+      loginCustomerId: LOGIN,
+      campaignResourceName: campaignRn,
+      extensions: p.extensions,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg || "Falha ao criar extensões na Google." };
+  }
+
+  return { ok: true };
+}
+
+export async function applyGoogleSyncCampaignNegativeKeywords(
+  projectId: string,
+  p: { campaign_id: string; keywords: Array<{ text: string; match_type: MatchType }> },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+  const cid = `customers/${customerId}`;
+
+  const camp = await prisma.paidAdsCampaign.findFirst({
+    where: { id: p.campaign_id, projectId, platform: "google_ads" },
+    include: { campaignNegativeKeywords: true },
+  });
+  if (!camp?.externalCampaignId) {
+    return { ok: false, error: "Campanha não publicada na Google." };
+  }
+  const extCamp = camp.externalCampaignId.replace(/\D/g, "");
+  const campaignRn = `${cid}/campaigns/${extCamp}`;
+  const desired = dedupeNegativeKeywords(p.keywords);
+
+  for (const row of camp.campaignNegativeKeywords) {
+    if (!row.externalCriterionId) continue;
+    const crit = row.externalCriterionId.replace(/\D/g, "");
+    const rn = `${cid}/campaignCriteria/${extCamp}~${crit}`;
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "campaignCriteria",
+      { operations: [{ remove: rn }] },
+      LOGIN,
+    );
+    if (m.error?.message) return { ok: false, error: m.error.message };
+  }
+
+  await prisma.paidAdsCampaignNegativeKeyword.deleteMany({ where: { campaignId: camp.id } });
+
+  for (const nk of desired) {
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "campaignCriteria",
+      {
+        operations: [
+          {
+            create: {
+              campaign: campaignRn,
+              negative: true,
+              keyword: {
+                text: nk.text,
+                matchType: matchTypeToGoogle(nk.match_type),
+              },
+            },
+          },
+        ],
+      },
+      LOGIN,
+    );
+    if (m.error?.message) return { ok: false, error: m.error.message };
+    const createdRn = m.results?.[0]?.resourceName;
+    const critId = createdRn ? criterionTailId(createdRn) : null;
+    await prisma.paidAdsCampaignNegativeKeyword.create({
+      data: {
+        campaignId: camp.id,
+        text: nk.text,
+        matchType: nk.match_type,
+        ...(critId ? { externalCriterionId: critId } : {}),
+      },
+    });
+  }
+
+  return { ok: true };
+}
+
+export async function applyGoogleSyncAdGroupNegativeKeywords(
+  projectId: string,
+  p: {
+    ad_group_id: string;
+    keywords: Array<{ text: string; match_type: MatchType }>;
+  },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev } = c0;
+  const cid = `customers/${customerId}`;
+
+  const ag = await prisma.paidAdsAdGroup.findFirst({
+    where: { id: p.ad_group_id, campaign: { projectId, platform: "google_ads" } },
+    include: { negativeKeywords: true, campaign: true },
+  });
+  if (!ag?.externalAdGroupId || !ag.campaign.externalCampaignId) {
+    return { ok: false, error: "Ad group não publicado na Google." };
+  }
+  const agNum = ag.externalAdGroupId.replace(/\D/g, "");
+  const agRn = `${cid}/adGroups/${agNum}`;
+  const desired = dedupeNegativeKeywords(p.keywords);
+
+  for (const row of ag.negativeKeywords) {
+    if (!row.externalCriterionId) continue;
+    const crit = row.externalCriterionId.replace(/\D/g, "");
+    const rn = `${cid}/adGroupCriteria/${agNum}~${crit}`;
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "adGroupCriteria",
+      { operations: [{ remove: rn }] },
+      LOGIN,
+    );
+    if (m.error?.message) return { ok: false, error: m.error.message };
+  }
+
+  await prisma.paidAdsAdGroupNegativeKeyword.deleteMany({ where: { adGroupId: ag.id } });
+
+  for (const nk of desired) {
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "adGroupCriteria",
+      {
+        operations: [
+          {
+            create: {
+              adGroup: agRn,
+              status: "ENABLED",
+              negative: true,
+              keyword: {
+                text: nk.text,
+                matchType: matchTypeToGoogle(nk.match_type),
+              },
+            },
+          },
+        ],
+      },
+      LOGIN,
+    );
+    if (m.error?.message) return { ok: false, error: m.error.message };
+    const createdRn = m.results?.[0]?.resourceName;
+    const critId = createdRn ? criterionTailId(createdRn) : null;
+    await prisma.paidAdsAdGroupNegativeKeyword.create({
+      data: {
+        adGroupId: ag.id,
+        text: nk.text,
+        matchType: nk.match_type,
+        ...(critId ? { externalCriterionId: critId } : {}),
+      },
+    });
   }
 
   return { ok: true };

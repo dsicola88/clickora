@@ -28,6 +28,7 @@ import {
 } from "@/lib/paidAdsUi";
 import type {
   CampaignRow,
+  GoogleCampaignAssetExtensionsDto,
   GoogleCampaignStudioDto,
   GoogleStudioAdGroupRow,
 } from "@/services/paidAdsService";
@@ -38,10 +39,21 @@ import { ExternalLink, ChevronDown, Loader2 } from "lucide-react";
 import { Gate } from "./DpilotPaidPages";
 import { UUID_RE, useDpilotPaid } from "./DpilotPaidContext";
 import { StudioSettingsPanel, StudioSettingsRow } from "./dpilotGoogleStudioSettingsUi";
+import { GoogleAdsRsaDraftPreview } from "./DpilotGoogleSearchAdPreview";
 
 type MatchSel = "exact" | "phrase" | "broad";
 
-type StudioSection = "visao" | "conteudos" | "leiloes" | "controlo" | "insights";
+type StudioSnippetHeader = "Brands" | "Services" | "Types" | "Models" | "Destinations";
+
+const STUDIO_SNIPPET_HEADERS: StudioSnippetHeader[] = [
+  "Brands",
+  "Services",
+  "Types",
+  "Models",
+  "Destinations",
+];
+
+type StudioSection = "visao" | "conteudos" | "negativas_extensoes" | "leiloes" | "controlo" | "insights";
 
 function isoRangeDefaultLast14(): { from: string; to: string } {
   const to = new Date();
@@ -74,6 +86,97 @@ function matchTypeLabel(m: MatchSel): string {
   if (m === "broad") return "Ampla";
   if (m === "exact") return "Exacta";
   return "Expressão";
+}
+
+function linesToNegKeywords(
+  text: string,
+  match: MatchSel,
+): Array<{ text: string; match_type: MatchSel }> {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((t) => t.slice(0, 80));
+  const seen = new Set<string>();
+  const out: Array<{ text: string; match_type: MatchSel }> = [];
+  for (const line of lines) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ text: line, match_type: match });
+  }
+  return out;
+}
+
+function parseSitelinkLines(
+  text: string,
+): Array<{ link_text: string; final_url: string }> {
+  const out: Array<{ link_text: string; final_url: string }> = [];
+  for (const line of text.split("\n")) {
+    const raw = line.trim();
+    if (!raw) continue;
+    const pipe = raw.indexOf("|");
+    if (pipe <= 0) continue;
+    const link_text = raw.slice(0, pipe).trim().slice(0, 25);
+    const final_url = raw.slice(pipe + 1).trim();
+    if (!link_text || !/^https:\/\//i.test(final_url)) continue;
+    out.push({ link_text, final_url });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+function buildGoogleAssetExtensionsPayload(
+  extCalloutsText: string,
+  extSitelinksText: string,
+  extSnippetHeader: StudioSnippetHeader,
+  extSnippetValuesText: string,
+): Record<string, unknown> {
+  const callouts = extCalloutsText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((c) => c.slice(0, 25))
+    .slice(0, 10);
+  const sitelinks = parseSitelinkLines(extSitelinksText);
+  const valLines = extSnippetValuesText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((v) => v.slice(0, 25));
+  const obj: Record<string, unknown> = {};
+  if (callouts.length) obj.callouts = callouts;
+  if (sitelinks.length >= 2) obj.sitelinks = sitelinks;
+  if (valLines.length >= 3) {
+    obj.structured_snippet = { header: extSnippetHeader, values: valLines.slice(0, 10) };
+  }
+  return obj;
+}
+
+function extensionsDraftFromDto(ae: GoogleCampaignAssetExtensionsDto | null): {
+  extCalloutsText: string;
+  extSitelinksText: string;
+  extSnippetHeader: StudioSnippetHeader;
+  extSnippetValuesText: string;
+} {
+  if (!ae) {
+    return {
+      extCalloutsText: "",
+      extSitelinksText: "",
+      extSnippetHeader: "Services",
+      extSnippetValuesText: "",
+    };
+  }
+  const hdrRaw = ae.structured_snippet?.header?.trim() ?? "";
+  const extSnippetHeader = STUDIO_SNIPPET_HEADERS.includes(hdrRaw as StudioSnippetHeader)
+    ? (hdrRaw as StudioSnippetHeader)
+    : "Services";
+  return {
+    extCalloutsText: ae.callouts.join("\n"),
+    extSitelinksText: ae.sitelinks.map((s) => `${s.link_text} | ${s.final_url}`).join("\n"),
+    extSnippetHeader,
+    extSnippetValuesText: (ae.structured_snippet?.values ?? []).join("\n"),
+  };
 }
 
 function geoLangSummaryLine(campaign: CampaignRow & { language_targets?: string[] }): string {
@@ -173,12 +276,24 @@ export function DpilotGoogleCampaignStudioPage() {
   const [liveAddText, setLiveAddText] = useState<Record<string, string>>({});
   const [liveAddMatch, setLiveAddMatch] = useState<Record<string, MatchSel>>({});
 
+  const [draftCampaignNegText, setDraftCampaignNegText] = useState("");
+  const [draftCampaignNegMatch, setDraftCampaignNegMatch] = useState<MatchSel>("phrase");
+  const [draftAgNegText, setDraftAgNegText] = useState<Record<string, string>>({});
+  const [draftAgNegMatch, setDraftAgNegMatch] = useState<Record<string, MatchSel>>({});
+  const [extCalloutsText, setExtCalloutsText] = useState("");
+  const [extSitelinksText, setExtSitelinksText] = useState("");
+  const [extSnippetHeader, setExtSnippetHeader] = useState<StudioSnippetHeader>("Services");
+  const [extSnippetValuesText, setExtSnippetValuesText] = useState("");
+
   /** Insights */
   const [insightKw, setInsightKw] = useState("");
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightResult, setInsightResult] = useState<Record<string, unknown> | null>(null);
 
   const [studioSection, setStudioSection] = useState<StudioSection>("visao");
+
+  /** Grupo cuja RSA alimenta o painel direito (estilo Google Ads). */
+  const [previewAgId, setPreviewAgId] = useState<string | null>(null);
 
   const isAutopilot = overview?.project?.paid_mode === "autopilot";
 
@@ -249,6 +364,32 @@ export function DpilotGoogleCampaignStudioPage() {
     }
     setLiveAddText(la);
     setLiveAddMatch(lm);
+
+    const cnJoin = (data.campaign_negative_keywords ?? []).map((k) => k.text).join("\n");
+    setDraftCampaignNegText(cnJoin);
+    const cn0 = (data.campaign_negative_keywords ?? [])[0]?.match_type as MatchSel | undefined;
+    setDraftCampaignNegMatch(cn0 === "exact" || cn0 === "phrase" || cn0 === "broad" ? cn0 : "phrase");
+
+    const agNegT: Record<string, string> = {};
+    const agNegM: Record<string, MatchSel> = {};
+    for (const ag of data.ad_groups) {
+      const negs = ag.negative_keywords ?? [];
+      agNegT[ag.id] = negs.map((k) => k.text).join("\n");
+      const m0 = negs[0]?.match_type as MatchSel | undefined;
+      agNegM[ag.id] = m0 === "exact" || m0 === "phrase" || m0 === "broad" ? m0 : "phrase";
+    }
+    setDraftAgNegText(agNegT);
+    setDraftAgNegMatch(agNegM);
+
+    const ext = extensionsDraftFromDto(data.asset_extensions ?? null);
+    setExtCalloutsText(ext.extCalloutsText);
+    setExtSitelinksText(ext.extSitelinksText);
+    setExtSnippetHeader(ext.extSnippetHeader);
+    setExtSnippetValuesText(ext.extSnippetValuesText);
+
+    setPreviewAgId((prev) =>
+      prev && data.ad_groups.some((g) => g.id === prev) ? prev : data.ad_groups[0]?.id ?? null,
+    );
   }, [ok, projectId, campaignId]);
 
   useEffect(() => {
@@ -275,6 +416,23 @@ export function DpilotGoogleCampaignStudioPage() {
         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
     );
 
+  /** Negativas + extensões para PATCH do rascunho (reutilizado pelo gravar completo e pela secção dedicada). */
+  function negativesExtensionsDraftPayload(forStudio: GoogleCampaignStudioDto) {
+    return {
+      google_asset_extensions: buildGoogleAssetExtensionsPayload(
+        extCalloutsText,
+        extSitelinksText,
+        extSnippetHeader,
+        extSnippetValuesText,
+      ),
+      campaign_negative_keywords: linesToNegKeywords(draftCampaignNegText, draftCampaignNegMatch),
+      ad_group_negative_keywords: forStudio.ad_groups.map((ag) => ({
+        ad_group_id: ag.id,
+        keywords: linesToNegKeywords(draftAgNegText[ag.id] ?? "", draftAgNegMatch[ag.id] ?? "phrase"),
+      })),
+    };
+  }
+
   async function enqueue(action: Record<string, unknown>) {
     if (!ok) return;
     const { data, error } = await paidAdsService.postGoogleStudioActions(projectId!, campaignId!, action);
@@ -289,6 +447,60 @@ export function DpilotGoogleCampaignStudioPage() {
     }
     await loadStudio();
     await reloadPaid();
+  }
+
+  const previewKeywordHint = useCallback(
+    (agId: string) => {
+      const fromDraft = (draftKwText[agId] ?? "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)[0];
+      if (fromDraft) return fromDraft;
+      const ag = studio?.ad_groups.find((g) => g.id === agId);
+      return ag?.keywords[0]?.text;
+    },
+    [draftKwText, studio?.ad_groups],
+  );
+
+  async function submitLiveRsa(ag: GoogleStudioAdGroupRow) {
+    const rsa0 = ag.rsa[0];
+    if (!rsa0 || !ok || !projectId || !campaignId) return;
+    const headlines = (draftRsaH[ag.id] ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 15);
+    const descriptions = (draftRsaD[ag.id] ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    const rawUrl = (draftRsaFinalUrl[ag.id] ?? "").trim();
+    const fallback = (rsa0.final_urls?.[0] ?? "").trim();
+    const urlResolved = rawUrl || fallback;
+    if (!/^https:\/\/.+/i.test(urlResolved)) {
+      toast.error("Indique uma URL final válida começando por https://");
+      return;
+    }
+    if (headlines.length < 3 || descriptions.length < 2) {
+      toast.error("RSA: mínimo 3 títulos e 2 descrições.");
+      return;
+    }
+    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+      action: "update_rsa",
+      rsa_id: rsa0.id,
+      headlines,
+      descriptions,
+      final_urls: [urlResolved],
+      path1: (draftRsaPath1[ag.id] ?? "").trim(),
+      path2: (draftRsaPath2[ag.id] ?? "").trim(),
+    });
+    if (error) toast.error(error);
+    else {
+      toast.success("Pedido RSA enviado.");
+      await loadStudio();
+      await reloadPaid();
+    }
   }
 
   async function saveCampaignDraftMeta() {
@@ -474,10 +686,82 @@ export function DpilotGoogleCampaignStudioPage() {
       });
     }
 
-    const { error, data } = await paidAdsService.patchGoogleCampaignDraft(projectId!, campaignId!, { ad_groups });
+    const { error, data } = await paidAdsService.patchGoogleCampaignDraft(projectId!, campaignId!, {
+      ad_groups,
+      ...negativesExtensionsDraftPayload(studio),
+    });
     if (error) toast.error(error);
     else {
-      toast.success("Rascunho gravado.");
+      toast.success("Rascunho gravado (keywords, RSA, negativas e extensões).");
+      if (data?.studio) setStudio(data.studio);
+      await reloadPaid();
+    }
+  }
+
+  async function saveNegativesExtensions() {
+    if (!ok || !studio || !projectId || !campaignId) return;
+
+    const nx = negativesExtensionsDraftPayload(studio);
+
+    if (published) {
+      const run = async (action: Record<string, unknown>) => {
+        const { data: out, error: err } = await paidAdsService.postGoogleStudioActions(
+          projectId,
+          campaignId,
+          action,
+        );
+        if (err) return { ok: false as const, error: err };
+        return { ok: true as const, status: out?.change_request?.status };
+      };
+
+      let lastStatus: string | undefined;
+      let r = await run({
+        action: "sync_campaign_negative_keywords",
+        keywords: nx.campaign_negative_keywords,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      lastStatus = r.status;
+
+      for (const blk of nx.ad_group_negative_keywords) {
+        r = await run({
+          action: "sync_ad_group_negative_keywords",
+          ad_group_id: blk.ad_group_id,
+          keywords: blk.keywords,
+        });
+        if (!r.ok) {
+          toast.error(r.error);
+          return;
+        }
+        lastStatus = r.status;
+      }
+
+      r = await run({
+        action: "replace_google_asset_extensions",
+        extensions: nx.google_asset_extensions,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      lastStatus = r.status;
+
+      if (lastStatus === "applied") {
+        toast.success(isAutopilot ? "Negativas e extensões aplicadas na Google." : "Pedidos aplicados.");
+      } else {
+        toast.success("Pedidos registados na fila de aprovações.");
+      }
+      await loadStudio();
+      await reloadPaid();
+      return;
+    }
+
+    const { error, data } = await paidAdsService.patchGoogleCampaignDraft(projectId, campaignId, nx);
+    if (error) toast.error(error);
+    else {
+      toast.success("Negativas e extensões gravadas no rascunho.");
       if (data?.studio) setStudio(data.studio);
       await reloadPaid();
     }
@@ -529,7 +813,9 @@ export function DpilotGoogleCampaignStudioPage() {
                 </div>
               </div>
               {!published ? (
-                <CardDescription>Edita este grupo em baixo; depois usa «Gravar rascunho» no fim da secção Keywords e RSA.</CardDescription>
+                <CardDescription>
+                  Edita em baixo; no fim da secção usa «Gravar rascunho completo» (inclui negativas e extensões definidas no menu).
+                </CardDescription>
               ) : (
                 <CardDescription>Alterações na rede passam pela fila (ou são aplicadas de imediato em modo automático).</CardDescription>
               )}
@@ -548,11 +834,20 @@ export function DpilotGoogleCampaignStudioPage() {
   return (
     <Gate>
       <PageHeader
-        title="Gestão Google Search"
+        title="Gestão da campanha"
         description={
-          campaign
-            ? `${campaign.name} · ${published ? "Publicada" : "Rascunho local"} · ${campaignStatusLabel(campaign.status)}`
-            : "A carregar…"
+          campaign ? (
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              <span className="inline-flex items-center rounded border border-[#1a73e8]/35 bg-[#1a73e8]/08 px-2 py-0.5 text-xs font-semibold text-[#174ea6] dark:border-blue-400/40 dark:bg-blue-500/15 dark:text-blue-300">
+                Google Ads · Pesquisa
+              </span>
+              <span>
+                {campaign.name} · {published ? "Publicada" : "Rascunho"} · {campaignStatusLabel(campaign.status)}
+              </span>
+            </span>
+          ) : (
+            "A carregar…"
+          )
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -569,13 +864,16 @@ export function DpilotGoogleCampaignStudioPage() {
       <div className="mt-6 space-y-4">
         {hint ? <p className="text-xs text-muted-foreground leading-snug max-w-prose">{hint}</p> : null}
 
-        <Alert variant="default" className="border-border bg-muted/30">
-          <AlertTitle className="text-sm">Âmbito do estúdio</AlertTitle>
+        <Alert variant="default" className="border-neutral-200 bg-neutral-50/80 dark:border-border dark:bg-muted/25">
+          <AlertTitle className="text-sm">Estúdio Google Ads (Pesquisa)</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            Esta vista cobre campanhas de <strong className="text-foreground font-medium">pesquisa</strong> criadas pelo
-            Clickora: grupos, palavras‑chave, textos RSA, orçamento e pausas. Ajustes finos como{" "}
-            <strong className="text-foreground font-medium">licitações por dispositivo</strong> continuam disponíveis na
-            interface completa da Google (ads.google.com) — não estamos a replicar 100&nbsp;% da consola aqui.
+            Layout alinhado ao fluxo da consola: navegação à esquerda, formulário ao centro e{" "}
+            <strong className="font-medium text-foreground">pré-visualização</strong> à direita. Licitações por dispositivo,
+            públicos avançados e relatórios completos continuam em{" "}
+            <a className="font-medium text-primary underline-offset-2 hover:underline" href="https://ads.google.com/" target="_blank" rel="noreferrer">
+              ads.google.com
+            </a>
+            .
           </AlertDescription>
         </Alert>
 
@@ -587,11 +885,11 @@ export function DpilotGoogleCampaignStudioPage() {
         ) : !campaign || !studio ? (
           <p className="text-sm text-muted-foreground">Campanha não encontrada.</p>
         ) : (
-          <div className="rounded-xl border border-border/70 bg-muted/20 p-1">
+          <div className="overflow-hidden rounded-xl border border-neutral-200 bg-[#f8f9fa] shadow-sm dark:border-border dark:bg-muted/10">
+            <div className="h-1 w-full bg-[#1a73e8]" aria-hidden />
             {lgLayout ? (
-              <p className="border-b border-border/50 px-3 py-2 text-[10px] leading-snug text-muted-foreground">
-                Ponteiro sobre a barra entre índice e conteúdo para redimensionar. A proporção fica apenas neste
-                navegador.
+              <p className="border-b border-neutral-200/90 bg-background/80 px-3 py-2 text-[10px] leading-snug text-muted-foreground dark:border-border">
+                Arraste as barras entre colunas para ajustar índice, formulário e pré-visualização (como na Google Ads).
               </p>
             ) : null}
             <ResizablePanelGroup
@@ -602,8 +900,8 @@ export function DpilotGoogleCampaignStudioPage() {
                   : "dpilot-google-studio-split"
               }
               className={cn(
-                "rounded-b-lg bg-background",
-                lgLayout ? "min-h-[min(720px,calc(100vh-220px))]" : "min-h-0 gap-8 p-4 pt-5",
+                "bg-background",
+                lgLayout ? "min-h-[min(720px,calc(100vh-220px))]" : "min-h-0 gap-6 p-3 pt-4",
               )}
             >
               <ResizablePanel
@@ -616,14 +914,14 @@ export function DpilotGoogleCampaignStudioPage() {
                   className={cn(
                     "shrink-0 space-y-5",
                     lgLayout
-                      ? "h-full overflow-y-auto border-r border-border/60 pb-4 pr-3"
-                      : "border-b border-border pb-6",
+                      ? "h-full overflow-y-auto border-r border-neutral-200 pb-4 pr-3 dark:border-border/70"
+                      : "border-b border-neutral-200 pb-6 dark:border-border",
                   )}
                   aria-label="Secções do estúdio"
                 >
               <div>
                 <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Campanha e conteúdo
+                  Campanha
                 </p>
                 <div className="space-y-0.5">
                   <button type="button" onClick={() => setStudioSection("visao")} className={studioNavItemClass("visao")}>
@@ -634,23 +932,30 @@ export function DpilotGoogleCampaignStudioPage() {
                     onClick={() => setStudioSection("conteudos")}
                     className={studioNavItemClass("conteudos")}
                   >
-                    Keywords e RSA
+                    Palavras-chave e anúncios
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudioSection("negativas_extensoes")}
+                    className={studioNavItemClass("negativas_extensoes")}
+                  >
+                    Negativas e extensões
                   </button>
                   <button type="button" onClick={() => setStudioSection("leiloes")} className={studioNavItemClass("leiloes")}>
-                    Orçamento e CPC
+                    Orçamento e licitação
                   </button>
                   <button type="button" onClick={() => setStudioSection("controlo")} className={studioNavItemClass("controlo")}>
-                    {published ? "Pausas ao vivo" : "Estado do rascunho"}
+                    {published ? "Estado e pausas" : "Estado do rascunho"}
                   </button>
                 </div>
               </div>
               <div>
                 <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Estatísticas e relatórios
+                  Ferramentas
                 </p>
                 <div className="space-y-0.5">
                   <button type="button" onClick={() => setStudioSection("insights")} className={studioNavItemClass("insights")}>
-                    Insights e atalhos
+                    Planeamento e relatórios
                   </button>
                 </div>
               </div>
@@ -668,11 +973,24 @@ export function DpilotGoogleCampaignStudioPage() {
               )}
 
               <ResizablePanel
-                defaultSize={lgLayout ? 78 : 72}
-                minSize={lgLayout ? 52 : 40}
-                className="min-w-0"
+                defaultSize={lgLayout ? 76 : 72}
+                minSize={lgLayout ? 48 : 40}
+                className="min-w-0 flex flex-col"
               >
-            <div className="min-w-0 flex-1 space-y-6 lg:overflow-y-auto lg:pr-1">
+                <ResizablePanelGroup
+                  direction={lgLayout ? "horizontal" : "vertical"}
+                  autoSaveId={
+                    projectId && campaignId
+                      ? `dpilot-google-studio-editor-preview-${projectId}-${campaignId}`
+                      : "dpilot-google-studio-editor-preview"
+                  }
+                  className={cn(
+                    "min-h-0 flex-1",
+                    lgLayout ? "min-h-[min(680px,calc(100vh-240px))]" : "min-h-0 gap-5",
+                  )}
+                >
+                  <ResizablePanel defaultSize={lgLayout ? 64 : 58} minSize={lgLayout ? 38 : 30} className="min-w-0">
+                    <div className="min-w-0 space-y-6 overflow-y-auto pr-0.5 lg:h-full lg:max-h-[min(760px,calc(100vh-200px))]">
             {studioSection === "visao" && (
             <div className="space-y-6">
               <Card className="border-muted-foreground/15 shadow-sm">
@@ -781,7 +1099,8 @@ export function DpilotGoogleCampaignStudioPage() {
                   <AlertTitle>Rascunho</AlertTitle>
                   <AlertDescription>
                     Não há ligação a um ID de campanha na Google até publicar pela fila («Aplicações» / Autopilot).
-                    Keywords e RSA podem alterar‑se livremente com «Gravar rascunho» na secção Keywords e RSA (menu ao lado).
+                    Keywords, RSA, negativas e extensões gravam‑se no rascunho com «Gravar rascunho completo» em Keywords e RSA,
+                    ou à parte na secção «Negativas e extensões».
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -830,7 +1149,13 @@ export function DpilotGoogleCampaignStudioPage() {
                           subdued
                         />
                       </StudioSettingsPanel>
-                      <Collapsible defaultOpen className="group/edit-kw">
+                      <Collapsible
+                        defaultOpen
+                        className="group/edit-kw"
+                        onOpenChange={(open) => {
+                          if (open) setPreviewAgId(ag.id);
+                        }}
+                      >
                         <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/25 px-3 py-2.5 text-left text-sm font-medium hover:bg-muted/40">
                           <span>Editar palavras‑chave e textos RSA</span>
                           <ChevronDown
@@ -930,7 +1255,7 @@ export function DpilotGoogleCampaignStudioPage() {
                       className="rounded-lg px-8 font-semibold shadow-md transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-lg"
                       onClick={() => void saveDraftAll()}
                     >
-                      Gravar rascunho completo (todos os grupos)
+                      Gravar rascunho completo (grupos + negativas + extensões)
                     </Button>
                   </div>
                 </>
@@ -947,6 +1272,12 @@ export function DpilotGoogleCampaignStudioPage() {
                       parts.length === 0
                         ? ""
                         : `Adicionar ${parts.length} palavra(s) à rede`;
+
+                    const kwHintsLive = Array.from(
+                      new Map(ag.keywords.map((k) => [k.text.toLowerCase(), k])).values(),
+                    ).map((k) => ({ text: k.text }));
+
+                    const rsa0 = ag.rsa[0];
 
                     return (
                       <div className="space-y-4">
@@ -965,7 +1296,13 @@ export function DpilotGoogleCampaignStudioPage() {
                             subdued
                           />
                         </StudioSettingsPanel>
-                        <Collapsible defaultOpen className="group/edit-live">
+                        <Collapsible
+                          defaultOpen
+                          className="group/edit-live"
+                          onOpenChange={(open) => {
+                            if (open) setPreviewAgId(ag.id);
+                          }}
+                        >
                           <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/25 px-3 py-2.5 text-left text-sm font-medium hover:bg-muted/40">
                             <span>Gerir palavras‑chave e anúncio na rede</span>
                             <ChevronDown
@@ -1103,18 +1440,53 @@ export function DpilotGoogleCampaignStudioPage() {
 
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-2">Anúncio RSA</p>
-                          {ag.rsa[0] ? (
-                            <>
-                              <RsaLiveEditor
-                                campaignId={campaignId!}
-                                projectId={projectId!}
-                                ag={ag}
-                                onDone={() => {
-                                  void loadStudio();
-                                  void reloadPaid();
-                                }}
+                          {rsa0 ? (
+                            <div className="flex flex-col gap-6">
+                              <GoogleAdsStudioRsaCreativeBlock
+                                finalUrlId={`g-rsa-live-final-${rsa0.id}`}
+                                finalUrl={draftRsaFinalUrl[ag.id] ?? ""}
+                                onFinalUrlChange={(v) =>
+                                  setDraftRsaFinalUrl((prev) => ({
+                                    ...prev,
+                                    [ag.id]: v,
+                                  }))
+                                }
+                                path1={draftRsaPath1[ag.id] ?? ""}
+                                path2={draftRsaPath2[ag.id] ?? ""}
+                                onPath1={(v) =>
+                                  setDraftRsaPath1((prev) => ({
+                                    ...prev,
+                                    [ag.id]: v,
+                                  }))
+                                }
+                                onPath2={(v) =>
+                                  setDraftRsaPath2((prev) => ({
+                                    ...prev,
+                                    [ag.id]: v,
+                                  }))
+                                }
+                                headlines={draftRsaH[ag.id] ?? ""}
+                                onHeadlines={(next) =>
+                                  setDraftRsaH((prev) => ({
+                                    ...prev,
+                                    [ag.id]: next,
+                                  }))
+                                }
+                                descriptions={draftRsaD[ag.id] ?? ""}
+                                onDescriptions={(next) =>
+                                  setDraftRsaD((prev) => ({
+                                    ...prev,
+                                    [ag.id]: next,
+                                  }))
+                                }
+                                keywordHints={kwHintsLive}
                               />
-                            </>
+                              <div className="flex justify-end border-t border-border/60 pt-4">
+                                <Button type="button" onClick={() => void submitLiveRsa(ag)}>
+                                  Gravar textos na rede (fila / Autopilot)
+                                </Button>
+                              </div>
+                            </div>
                           ) : (
                             <p className="text-sm text-muted-foreground">Sem RSA neste grupo.</p>
                           )}
@@ -1129,11 +1501,186 @@ export function DpilotGoogleCampaignStudioPage() {
             </div>
             )}
 
+            {studioSection === "negativas_extensoes" && (
+              <div className="space-y-6">
+                <Card className="border-muted-foreground/15 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Palavras-chave negativas</CardTitle>
+                    <CardDescription>
+                      {published
+                        ? "Substitui as negativas na conta Google (remove critérios antigos e cria esta lista). Em Copilot, segue a fila de aprovações."
+                        : "Grava no rascunho local (este botão ou «Gravar rascunho completo» em Palavras-chave e anúncios); serão enviadas na primeira publicação da campanha."}{" "}
+                      Use uma linha por termo; o tipo de correspondência aplica-se a todas as linhas deste bloco.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-8">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="space-y-1.5 flex-1 min-w-[160px]">
+                          <Label>Negativas ao nível da campanha</Label>
+                          <Textarea
+                            value={draftCampaignNegText}
+                            onChange={(e) => setDraftCampaignNegText(e.target.value)}
+                            rows={5}
+                            className="font-mono text-xs"
+                            placeholder={"grátis\nemprego"}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Correspondência</Label>
+                          <Select
+                            value={draftCampaignNegMatch}
+                            onValueChange={(v) => setDraftCampaignNegMatch(v as MatchSel)}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="broad">{matchTypeLabel("broad")}</SelectItem>
+                              <SelectItem value="phrase">{matchTypeLabel("phrase")}</SelectItem>
+                              <SelectItem value="exact">{matchTypeLabel("exact")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {studio?.ad_groups?.length ? (
+                      <div className="space-y-6">
+                        <Separator />
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Por grupo de anúncios
+                        </p>
+                        {studio.ad_groups.map((ag) => (
+                          <div key={`neg-${ag.id}`} className="space-y-2 rounded-lg border border-border/60 bg-muted/15 p-4">
+                            <p className="text-sm font-medium">{ag.name}</p>
+                            <div className="flex flex-wrap items-end gap-3">
+                              <div className="space-y-1.5 flex-1 min-w-[160px]">
+                                <Label>Negativas do grupo</Label>
+                                <Textarea
+                                  value={draftAgNegText[ag.id] ?? ""}
+                                  onChange={(e) =>
+                                    setDraftAgNegText((prev) => ({
+                                      ...prev,
+                                      [ag.id]: e.target.value,
+                                    }))
+                                  }
+                                  rows={4}
+                                  className="font-mono text-xs"
+                                  placeholder={"concorrente\nisenção"}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Correspondência</Label>
+                                <Select
+                                  value={draftAgNegMatch[ag.id] ?? "phrase"}
+                                  onValueChange={(v) =>
+                                    setDraftAgNegMatch((prev) => ({
+                                      ...prev,
+                                      [ag.id]: v as MatchSel,
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-[140px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="broad">{matchTypeLabel("broad")}</SelectItem>
+                                    <SelectItem value="phrase">{matchTypeLabel("phrase")}</SelectItem>
+                                    <SelectItem value="exact">{matchTypeLabel("exact")}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-muted-foreground/15 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Extensões Search (sitelinks, destaques, snippet)</CardTitle>
+                    <CardDescription>
+                      Sitelinks: uma linha por link, formato{" "}
+                      <span className="font-mono text-[11px]">texto | https://…</span> (mínimo 2 válidos para enviar).
+                      Destaques: uma linha cada (até 10). Snippet estruturado: cabeçalho Google e pelo menos 3 valores
+                      (uma linha por valor); se omitir valores, o servidor completa com sugestões seguras.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm">
+                    <div className="space-y-1.5">
+                      <Label>Sitelinks</Label>
+                      <Textarea
+                        value={extSitelinksText}
+                        onChange={(e) => setExtSitelinksText(e.target.value)}
+                        rows={6}
+                        className="font-mono text-xs"
+                        placeholder={"Oferta | https://exemplo.com/oferta\nFAQ | https://exemplo.com/faq"}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Destaques (callouts)</Label>
+                      <Textarea
+                        value={extCalloutsText}
+                        onChange={(e) => setExtCalloutsText(e.target.value)}
+                        rows={5}
+                        className="font-mono text-xs"
+                        placeholder={"Envio rápido\nPagamento seguro"}
+                      />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>Cabeçalho do snippet estruturado</Label>
+                        <Select
+                          value={extSnippetHeader}
+                          onValueChange={(v) => setExtSnippetHeader(v as StudioSnippetHeader)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STUDIO_SNIPPET_HEADERS.map((h) => (
+                              <SelectItem key={h} value={h}>
+                                {h}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Valores do snippet (≥3 linhas para substituir o gerado)</Label>
+                        <Textarea
+                          value={extSnippetValuesText}
+                          onChange={(e) => setExtSnippetValuesText(e.target.value)}
+                          rows={4}
+                          className="font-mono text-xs"
+                          placeholder={"Serviço A\nServiço B\nServiço C"}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    className="rounded-lg px-8 font-semibold shadow-md transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-lg"
+                    disabled={!studio}
+                    onClick={() => void saveNegativesExtensions()}
+                  >
+                    {published ? "Enviar negativas e extensões (fila / rede)" : "Gravar negativas e extensões no rascunho"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {studioSection === "leiloes" && (
             <div className="space-y-6">
               <Card className="border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Orçamento e lances</CardTitle>
+                  <CardTitle className="text-base">Orçamento e licitação</CardTitle>
                   <CardDescription>
                     URL final e textos RSA ficam em «Keywords e RSA». Aqui ajusta orçamento diário, estratégia de
                     licitação (CPC, CPA, ROAS, maximizar conversões) e consulta métricas da rede quando a campanha já
@@ -1593,7 +2140,75 @@ export function DpilotGoogleCampaignStudioPage() {
               </Card>
             </div>
             )}
-            </div>
+                    </div>
+                  </ResizablePanel>
+
+                  {lgLayout ? (
+                    <ResizableHandle
+                      withHandle
+                      title="Redimensionar formulário e pré-visualização"
+                      className="w-2.5 shrink-0 bg-neutral-200 transition-colors hover:bg-[#1a73e8]/25 data-[resize-handle-active]:bg-[#1a73e8]/35 dark:bg-border"
+                    />
+                  ) : (
+                    <div className="h-px shrink-0 bg-neutral-200 dark:bg-border" aria-hidden />
+                  )}
+
+                  <ResizablePanel
+                    defaultSize={lgLayout ? 36 : 42}
+                    minSize={lgLayout ? 24 : 20}
+                    maxSize={lgLayout ? 50 : 55}
+                    className="min-w-0"
+                  >
+                    <aside className="flex h-full min-h-[260px] flex-col gap-3 overflow-y-auto border-neutral-200 bg-[#fafafa] p-3 lg:sticky lg:top-0 lg:max-h-[min(760px,calc(100vh-200px))] lg:border-l lg:border-neutral-200 lg:pl-3 dark:border-border/60 dark:bg-muted/15">
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Pré-visualização · grupo
+                        </p>
+                        {studio.ad_groups.length > 1 ? (
+                          <Select
+                            value={previewAgId ?? studio.ad_groups[0]!.id}
+                            onValueChange={(v) => setPreviewAgId(v)}
+                          >
+                            <SelectTrigger className="h-9 w-full bg-background text-left text-xs">
+                              <SelectValue placeholder="Grupo de anúncios" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {studio.ad_groups.map((g) => (
+                                <SelectItem key={g.id} value={g.id}>
+                                  {g.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : studio.ad_groups[0] ? (
+                          <p className="truncate text-xs font-medium text-foreground">{studio.ad_groups[0].name}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Sem grupos.</p>
+                        )}
+                      </div>
+                      {previewAgId && studio.ad_groups.some((g) => g.id === previewAgId) ? (
+                        <GoogleAdsRsaDraftPreview
+                          className="shadow-sm"
+                          finalUrl={
+                            (draftRsaFinalUrl[previewAgId] ?? "").trim() ||
+                            studio.ad_groups.find((g) => g.id === previewAgId)?.rsa[0]?.final_urls?.[0] ||
+                            ""
+                          }
+                          path1={draftRsaPath1[previewAgId] ?? ""}
+                          path2={draftRsaPath2[previewAgId] ?? ""}
+                          headlinesText={draftRsaH[previewAgId] ?? ""}
+                          descriptionsText={draftRsaD[previewAgId] ?? ""}
+                          queryHint={previewKeywordHint(previewAgId)}
+                          showCharacterGrid={studioSection === "conteudos"}
+                        />
+                      ) : null}
+                      <p className="text-[10px] leading-snug text-muted-foreground">
+                        Combinação de exemplo (primeiros titulares e descrições). Na rede Google, o RSA roda variantes
+                        automaticamente.
+                      </p>
+                    </aside>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
               </ResizablePanel>
             </ResizablePanelGroup>
           </div>
@@ -1632,7 +2247,6 @@ function AdGroupCpcEditors({
           : "";
     }
     setUsd(o);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when server snapshots change
   }, [groups]);
 
   return (
@@ -1683,109 +2297,5 @@ function AdGroupCpcEditors({
         </StudioSettingsPanel>
       </CardContent>
     </Card>
-  );
-}
-
-/** Editor RSA já publicado: envio directo através da fila. */
-function RsaLiveEditor({
-  projectId,
-  campaignId,
-  ag,
-  onDone,
-}: {
-  projectId: string;
-  campaignId: string;
-  ag: GoogleStudioAdGroupRow;
-  onDone: () => void;
-}) {
-  const rsa0 = ag.rsa[0];
-  const [headlinesText, setHeadlinesText] = useState("");
-  const [descriptionsText, setDescriptionsText] = useState("");
-  const [finalUrl, setFinalUrl] = useState("");
-  const [path1, setPath1] = useState("");
-  const [path2, setPath2] = useState("");
-
-  useEffect(() => {
-    if (!rsa0) return;
-    setHeadlinesText(rsa0.headlines.join("\n"));
-    setDescriptionsText(rsa0.descriptions.join("\n"));
-    setFinalUrl(rsa0.final_urls?.[0] ?? "");
-    setPath1(rsa0.path1 ?? "");
-    setPath2(rsa0.path2 ?? "");
-  }, [rsa0]);
-
-  async function submit() {
-    if (!rsa0) return;
-    const headlines = headlinesText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .slice(0, 15);
-    const descriptions = descriptionsText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .slice(0, 4);
-    const rawUrl = finalUrl.trim();
-    const fallback = (rsa0.final_urls?.[0] ?? "").trim();
-    const urlResolved = rawUrl || fallback;
-    if (!/^https:\/\/.+/i.test(urlResolved)) {
-      toast.error("Indique uma URL final válida começando por https://");
-      return;
-    }
-    if (headlines.length < 3 || descriptions.length < 2) {
-      toast.error("RSA: mínimo 3 títulos e 2 descrições.");
-      return;
-    }
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
-      action: "update_rsa",
-      rsa_id: rsa0.id,
-      headlines,
-      descriptions,
-      final_urls: [urlResolved],
-      path1,
-      path2,
-    });
-    if (error) toast.error(error);
-    else {
-      toast.success("Pedido RSA enviado.");
-      onDone();
-    }
-  }
-
-  if (!rsa0) return null;
-
-  const kwHintsLive = Array.from(new Map(ag.keywords.map((k) => [k.text.toLowerCase(), k])).values()).map((k) => ({
-    text: k.text,
-  }));
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="max-h-[min(780px,calc(100vh-10rem))] overflow-y-auto pr-1 lg:max-h-none">
-        <GoogleAdsStudioRsaCreativeBlock
-          finalUrlId={`g-rsa-live-final-${rsa0.id}`}
-          finalUrl={finalUrl}
-          onFinalUrlChange={setFinalUrl}
-          path1={path1}
-          path2={path2}
-          onPath1={setPath1}
-          onPath2={setPath2}
-          headlines={headlinesText}
-          onHeadlines={setHeadlinesText}
-          descriptions={descriptionsText}
-          onDescriptions={setDescriptionsText}
-          keywordHints={kwHintsLive}
-        />
-      </div>
-      <div className="flex justify-end border-t border-border/60 pt-4">
-        <Button
-          className="rounded-full px-10 font-semibold shadow-md ring-2 ring-primary/25 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary/40"
-          type="button"
-          onClick={() => void submit()}
-        >
-          Gravar textos na rede (fila / Autopilot)
-        </Button>
-      </div>
-    </div>
   );
 }

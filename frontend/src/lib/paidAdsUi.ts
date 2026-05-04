@@ -13,6 +13,9 @@ export const CHANGE_REQUEST_TYPE_LABELS: Record<string, string> = {
   update_rsa_copy: "Google Ads — actualizar textos RSA",
   update_ad_group_cpc: "Google Ads — ajustar CPC do grupo",
   update_campaign_bidding: "Google Ads — alterar estratégia de licitação",
+  sync_campaign_negative_keywords: "Google Ads — sincronizar palavras-chave negativas da campanha",
+  sync_ad_group_negative_keywords: "Google Ads — sincronizar palavras-chave negativas do grupo",
+  replace_google_asset_extensions: "Google Ads — substituir extensões (sitelinks, destaques, snippet)",
   meta_create_campaign: "Meta — nova campanha",
   meta_update_budget: "Meta — alteração de orçamento",
   meta_publish_creative: "Meta — publicar criativo",
@@ -404,6 +407,34 @@ export function summarizeChangeRequestPayload(
         })
       : null;
   if (hint) lines.push(hint);
+
+  const crType = opts?.changeRequestType;
+  if (crType === "sync_campaign_negative_keywords") {
+    const kws = p.keywords;
+    if (Array.isArray(kws)) lines.push(`Negativas ao nível da campanha: ${kws.length} termo(s).`);
+  }
+  if (crType === "sync_ad_group_negative_keywords") {
+    const kws = p.keywords;
+    if (Array.isArray(kws)) lines.push(`Negativas do grupo de anúncios: ${kws.length} termo(s).`);
+  }
+  if (crType === "replace_google_asset_extensions") {
+    const ext = p.extensions;
+    if (ext && typeof ext === "object" && !Array.isArray(ext)) {
+      const sl = (ext as { sitelinks?: unknown }).sitelinks;
+      const co = (ext as { callouts?: unknown }).callouts;
+      const st = (ext as { structured_snippet?: unknown }).structured_snippet;
+      const nSl = Array.isArray(sl) ? sl.length : 0;
+      const nCo = Array.isArray(co) ? co.length : 0;
+      const hasSn =
+        st &&
+        typeof st === "object" &&
+        Array.isArray((st as { values?: unknown }).values) &&
+        (st as { values: unknown[] }).values.length > 0;
+      lines.push(
+        `Extensões: ${nSl} sitelink(s), ${nCo} destaque(s)${hasSn ? ", snippet estruturado" : ""}.`,
+      );
+    }
+  }
 
   return { lines: lines.slice(0, 20), guardrailMessages };
 }

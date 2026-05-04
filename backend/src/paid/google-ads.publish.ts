@@ -257,7 +257,8 @@ export async function publishGoogleSearchCampaignFromLocal(
   const campaign = await prisma.paidAdsCampaign.findFirst({
     where: { id: campaignId, projectId, platform: "google_ads" },
     include: {
-      adGroups: { include: { keywords: true, adsRsa: { orderBy: { createdAt: "asc" } } } },
+      campaignNegativeKeywords: true,
+      adGroups: { include: { keywords: true, negativeKeywords: true, adsRsa: { orderBy: { createdAt: "asc" } } } },
     },
   });
   if (!campaign) {
@@ -495,6 +496,46 @@ export async function publishGoogleSearchCampaignFromLocal(
       );
     }
 
+    currentStep = "palavras‑chave negativas (campanha)";
+    for (const nk of campaign.campaignNegativeKeywords) {
+      try {
+        const { resourceNames: nkR } = await mutate(
+          access,
+          dev,
+          customerId,
+          "campaignCriteria",
+          {
+            operations: [
+              {
+                create: {
+                  campaign: campaignRn,
+                  negative: true,
+                  keyword: {
+                    text: nk.text.slice(0, 80),
+                    matchType: matchTypeToGoogle(nk.matchType),
+                  },
+                },
+              },
+            ],
+          },
+          loginCustomerId,
+        );
+        const critRn = nkR[0];
+        if (critRn) {
+          await prisma.paidAdsCampaignNegativeKeyword.update({
+            where: { id: nk.id },
+            data: { externalCriterionId: lastId(critRn) },
+          });
+        }
+      } catch (ne) {
+        publishLog("warn", "campaign_negative.failed", {
+          campaignId,
+          negativeId: nk.id,
+          message: ne instanceof Error ? ne.message : String(ne),
+        });
+      }
+    }
+
     currentStep = "extensões (sitelinks/callouts)";
     const assetExt = readGoogleAssetExtensionsFromBidding(campaign.biddingConfig);
     if (assetExt) {
@@ -609,6 +650,48 @@ export async function publishGoogleSearchCampaignFromLocal(
             message: ke instanceof Error ? ke.message : String(ke),
           });
           continue;
+        }
+      }
+
+      currentStep = `palavras‑chave negativas em «${baseAgName}»`;
+      for (const nn of ag.negativeKeywords) {
+        try {
+          const { resourceNames: negWr } = await mutate(
+            access,
+            dev,
+            customerId,
+            "adGroupCriteria",
+            {
+              operations: [
+                {
+                  create: {
+                    adGroup: agRn,
+                    status: "ENABLED",
+                    negative: true,
+                    keyword: {
+                      text: nn.text.slice(0, 80),
+                      matchType: matchTypeToGoogle(nn.matchType),
+                    },
+                  },
+                },
+              ],
+            },
+            loginCustomerId,
+          );
+          const critRn = negWr[0];
+          if (critRn) {
+            await prisma.paidAdsAdGroupNegativeKeyword.update({
+              where: { id: nn.id },
+              data: { externalCriterionId: lastId(critRn) },
+            });
+          }
+        } catch (ne) {
+          publishLog("warn", "adgroup_negative.failed", {
+            campaignId,
+            adGroupId: ag.id,
+            negativeId: nn.id,
+            message: ne instanceof Error ? ne.message : String(ne),
+          });
         }
       }
 

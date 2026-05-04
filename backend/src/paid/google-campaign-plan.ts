@@ -15,6 +15,7 @@ import {
   sanitizeAiPlanCopy,
   type GoogleCampaignAiPlan,
 } from "./google-campaign-ai-shared";
+import { landingHostnameFromUrl } from "./google-campaign-negative-keywords-defaults";
 
 const googleManualKeywordSchema = z.object({
   text: z.string().trim().min(1).max(80),
@@ -287,6 +288,8 @@ export async function runGoogleCampaignPlan(
           ? `\nPrimary keyword (user-chosen Search theme — centre keywords and RSA on this intent; include exact+phrase+broad variants across ad groups): ${data.campaign_seed_keyword.trim()}`
           : "";
 
+      const negLocaleHint = `Negative-keyword locale context for YOUR extras only (starter negatives are merged server-side): landing_host=${landingHostnameFromUrl(data.landingUrl) ?? "n/a"}, primary_geo=${geoTargetsNorm[0] ?? "n/a"}, all_geos=${geoTargetsNorm.join(";")}, ad_languages=${languageTargetsNorm.join(";")}. Reflect regional coupon slang, dominant classifieds/marketplaces, and research forums — avoid repeating generic tokens already covered by the platform baseline.`;
+
       const userPrompt = `Landing URL: ${data.landingUrl}
 Offer: ${data.offer}
 Objective (INTERNAL briefing — do NOT copy verbatim into ad copy, do NOT use as a headline/description): ${data.objective}
@@ -294,9 +297,11 @@ Daily budget: $${data.dailyBudgetUsd}
 Geo (countries): ${geoTargetsNorm.join(", ")}
 Advertising languages (ISO codes; FIRST is primary): ${languageTargetsNorm.join(", ")}
 PRIMARY language for ALL RSA headlines and descriptions: ${primaryLang} — write every headline and every description in ${primaryLang} only, no mixing with other languages.
+${negLocaleHint}
 ${bidHint}${seedLine}
 RSA reminders: 12 headlines ≤30 chars each (vary the angle: CTA, benefit, proof, urgency, branded — never repeat the same stem), 4 descriptions ≤90 chars each (full persuasive sentences derived from the Offer, Landing and Product signals — never echoing the Objective).${productSignalsLines}
 Also include JSON key "extensions" with sitelinks (https URLs, preferably same hostname as Landing URL), short callouts, one structured snippet (English header Brands|Services|Types|Models|Destinations — required by Google Ads API).
+Follow system instructions for **campaign_negative_keywords** (extras beyond server-side starter lists — merged automatically).
 Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       if (process.env.OPENAI_API_KEY) {
         const out = await fetchOpenAiGoogleCampaignPlan(userPrompt);
@@ -339,6 +344,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     geoTargets: geoTargetsNorm,
     languageTargets: languageTargetsNorm,
     productSignals: data.product_signals,
+    campaignSeedKeyword: data.campaign_seed_keyword,
   });
 
   plan.ad_groups = (plan.ad_groups ?? []).map((ag) => ({
@@ -400,6 +406,17 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     },
     select: { id: true },
   });
+
+  const campaignNegPlan = plan.campaign_negative_keywords ?? [];
+  if (campaignNegPlan.length) {
+    await prisma.paidAdsCampaignNegativeKeyword.createMany({
+      data: campaignNegPlan.map((n) => ({
+        campaignId: campaign.id,
+        text: n.text.slice(0, 80),
+        matchType: n.match_type,
+      })),
+    });
+  }
 
   for (const ag of plan.ad_groups ?? []) {
     const agRow = await prisma.paidAdsAdGroup.create({
@@ -548,7 +565,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
       tokensOut,
       outputSummary: `${plan.ad_groups?.length ?? 0} grupos, ${
         plan.ad_groups?.reduce((n, a) => n + (a.keywords?.length ?? 0), 0) ?? 0
-      } palavras-chave · ${
+      } palavras‑chave · ${campaignNegPlan.length} negativos de campanha · ${
         didAutoApply
           ? "publicado no Google"
           : shouldTryAutoApply

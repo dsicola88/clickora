@@ -11,6 +11,8 @@ import {
   mergeGoogleBiddingConfigPreservingExtras,
   storedGoogleBiddingFromPlanInput,
 } from "./google-campaign-bidding";
+import { finalizeGoogleCampaignAssetExtensions } from "./google-campaign-asset-extensions";
+import { readGoogleAssetExtensionsFromBidding } from "./google-ads-asset-extensions-publish";
 import { prisma } from "./paidPrisma";
 
 const matchEnum = z.enum(["exact", "phrase", "broad"]);
@@ -70,6 +72,40 @@ export const googleStudioActionSchema = z.discriminatedUnion("action", [
     google_target_roas: z.number().positive().max(100).nullable().optional(),
     google_max_cpc_usd: z.number().positive().max(1000).nullable().optional(),
   }),
+  z.object({
+    action: z.literal("sync_campaign_negative_keywords"),
+    keywords: z.array(z.object({ text: z.string().min(1).max(80), match_type: matchEnum })),
+  }),
+  z.object({
+    action: z.literal("sync_ad_group_negative_keywords"),
+    ad_group_id: z.string().uuid(),
+    keywords: z.array(z.object({ text: z.string().min(1).max(80), match_type: matchEnum })),
+  }),
+  z.object({
+    action: z.literal("replace_google_asset_extensions"),
+    extensions: z.object({
+      sitelinks: z
+        .array(
+          z.object({
+            link_text: z.string().min(1).max(25),
+            final_url: z.string().url(),
+            description1: z.string().max(35).optional(),
+            description2: z.string().max(35).optional(),
+          }),
+        )
+        .optional(),
+      callouts: z.array(z.string()).optional(),
+      structured_snippet: z
+        .union([
+          z.object({
+            header: z.enum(["Brands", "Services", "Types", "Models", "Destinations"]),
+            values: z.array(z.string()).min(3).max(10),
+          }),
+          z.null(),
+        ])
+        .optional(),
+    }),
+  }),
 ]);
 
 export const googleCampaignDraftPatchSchema = z
@@ -107,6 +143,41 @@ export const googleCampaignDraftPatchSchema = z
     google_target_cpa_usd: z.number().positive().max(10000).nullable().optional(),
     google_target_roas: z.number().positive().max(100).nullable().optional(),
     google_max_cpc_usd: z.number().positive().max(1000).nullable().optional(),
+    campaign_negative_keywords: z
+      .array(z.object({ text: z.string().min(1).max(80), match_type: matchEnum }))
+      .optional(),
+    ad_group_negative_keywords: z
+      .array(
+        z.object({
+          ad_group_id: z.string().uuid(),
+          keywords: z.array(z.object({ text: z.string().min(1).max(80), match_type: matchEnum })),
+        }),
+      )
+      .optional(),
+    google_asset_extensions: z
+      .object({
+        sitelinks: z
+          .array(
+            z.object({
+              link_text: z.string().min(1).max(25),
+              final_url: z.string().url(),
+              description1: z.string().max(35).optional(),
+              description2: z.string().max(35).optional(),
+            }),
+          )
+          .optional(),
+        callouts: z.array(z.string()).optional(),
+        structured_snippet: z
+          .union([
+            z.object({
+              header: z.enum(["Brands", "Services", "Types", "Models", "Destinations"]),
+              values: z.array(z.string()).min(3).max(10),
+            }),
+            z.null(),
+          ])
+          .optional(),
+      })
+      .optional(),
   })
   .superRefine((val, ctx) => {
     if (val.google_bidding_strategy === "target_cpa") {
@@ -136,15 +207,39 @@ function strArr(j: unknown): string[] {
   return j.map((x) => String(x).trim()).filter(Boolean);
 }
 
+function studioLandingSeedFromCampaign(camp: {
+  name: string;
+  languageTargets: unknown;
+  adGroups: Array<{ adsRsa: Array<{ finalUrls: unknown }> }>;
+}) {
+  let landingUrl = "https://example.com";
+  outer: for (const ag of camp.adGroups) {
+    for (const rsa of ag.adsRsa) {
+      const urls = strArr(rsa.finalUrls);
+      const u = urls[0]?.trim();
+      if (u && /^https:\/\//i.test(u)) {
+        landingUrl = u;
+        break outer;
+      }
+    }
+  }
+  const lt = camp.languageTargets;
+  const primaryLanguageIso =
+    Array.isArray(lt) && lt.length ? String(lt[0]).trim().slice(0, 8) || "pt" : "pt";
+  return { landingUrl, offer: camp.name, primaryLanguageIso };
+}
+
 /** Árvore de campanha Google (local); `published` quando há `external_campaign_id`. */
 export async function getGoogleCampaignStudioDetail(projectId: string, campaignId: string) {
   const camp = await prisma.paidAdsCampaign.findFirst({
     where: { id: campaignId, projectId, platform: "google_ads" },
     include: {
+      campaignNegativeKeywords: { orderBy: { createdAt: "asc" } },
       adGroups: {
         orderBy: { createdAt: "asc" },
         include: {
           keywords: { orderBy: { createdAt: "asc" } },
+          negativeKeywords: { orderBy: { createdAt: "asc" } },
           adsRsa: { orderBy: { createdAt: "asc" } },
         },
       },
@@ -155,6 +250,13 @@ export async function getGoogleCampaignStudioDetail(projectId: string, campaignI
   return {
     campaign: mappers.mapPaidCampaign(camp),
     published: Boolean(camp.externalCampaignId),
+    asset_extensions: readGoogleAssetExtensionsFromBidding(camp.biddingConfig),
+    campaign_negative_keywords: camp.campaignNegativeKeywords.map((n) => ({
+      id: n.id,
+      text: n.text,
+      match_type: n.matchType,
+      external_criterion_id: n.externalCriterionId,
+    })),
     ad_groups: camp.adGroups.map((ag) => ({
       id: ag.id,
       name: ag.name,
@@ -167,6 +269,12 @@ export async function getGoogleCampaignStudioDetail(projectId: string, campaignI
         match_type: k.matchType,
         status: k.status,
         external_criterion_id: k.externalCriterionId,
+      })),
+      negative_keywords: ag.negativeKeywords.map((n) => ({
+        id: n.id,
+        text: n.text,
+        match_type: n.matchType,
+        external_criterion_id: n.externalCriterionId,
       })),
       rsa: ag.adsRsa.map((rsa) => ({
         id: rsa.id,
@@ -270,7 +378,7 @@ export async function executeGoogleStudioAction(
 
   const camp = await prisma.paidAdsCampaign.findFirst({
     where: { id: campaignId, projectId, platform: "google_ads" },
-    include: { adGroups: { include: { keywords: true, adsRsa: true } } },
+    include: { adGroups: { include: { keywords: true, adsRsa: true, negativeKeywords: true } } },
   });
   if (!camp) {
     return { ok: false, error: "Campanha não encontrada." };
@@ -404,6 +512,42 @@ export async function executeGoogleStudioAction(
         google_max_cpc_usd: a.google_max_cpc_usd ?? null,
       });
     }
+    case "sync_campaign_negative_keywords": {
+      return submit("sync_campaign_negative_keywords", {
+        campaign_id: campaignId,
+        keywords: a.keywords.map((k) => ({
+          text: k.text.slice(0, 80),
+          match_type: k.match_type,
+        })),
+      });
+    }
+    case "sync_ad_group_negative_keywords": {
+      if (!agSet.has(a.ad_group_id)) return { ok: false, error: "Ad group inválido." };
+      return submit("sync_ad_group_negative_keywords", {
+        ad_group_id: a.ad_group_id,
+        keywords: a.keywords.map((k) => ({
+          text: k.text.slice(0, 80),
+          match_type: k.match_type,
+        })),
+      });
+    }
+    case "replace_google_asset_extensions": {
+      const seed = studioLandingSeedFromCampaign({
+        name: cLive.name,
+        languageTargets: cLive.languageTargets,
+        adGroups: cLive.adGroups.map((g) => ({
+          adsRsa: g.adsRsa.map((r) => ({ finalUrls: r.finalUrls })),
+        })),
+      });
+      const finalized = finalizeGoogleCampaignAssetExtensions(
+        a.extensions as Record<string, unknown>,
+        seed,
+      );
+      return submit("replace_google_asset_extensions", {
+        campaign_id: campaignId,
+        extensions: finalized as unknown as Record<string, unknown>,
+      });
+    }
     default:
       return { ok: false, error: "Acção não suportada." };
   }
@@ -423,8 +567,9 @@ export async function patchGoogleCampaignDraft(
     where: { id: campaignId, projectId, platform: "google_ads" },
     include: {
       adGroups: {
-        include: { keywords: true, adsRsa: true },
+        include: { keywords: true, adsRsa: true, negativeKeywords: true },
       },
+      campaignNegativeKeywords: true,
     },
   });
   if (!camp) {
@@ -519,6 +664,75 @@ export async function patchGoogleCampaignDraft(
                           : agPatch.rsa.path2.trim().slice(0, 15),
                     }
                   : {}),
+              },
+            });
+          }
+        }
+      }
+      if (d.google_asset_extensions != null) {
+        const freshCamp = await tx.paidAdsCampaign.findUnique({
+          where: { id: camp.id },
+          select: {
+            name: true,
+            languageTargets: true,
+            biddingConfig: true,
+            adGroups: {
+              select: {
+                adsRsa: { select: { finalUrls: true } },
+              },
+            },
+          },
+        });
+        if (!freshCamp) {
+          throw new Error("Campanha não encontrada durante a transação.");
+        }
+        const bc =
+          freshCamp.biddingConfig &&
+          typeof freshCamp.biddingConfig === "object" &&
+          !Array.isArray(freshCamp.biddingConfig)
+            ? ({ ...(freshCamp.biddingConfig as Record<string, unknown>) } as Record<string, unknown>)
+            : {};
+        const seed = studioLandingSeedFromCampaign({
+          name: freshCamp.name,
+          languageTargets: freshCamp.languageTargets,
+          adGroups: freshCamp.adGroups.map((g) => ({
+            adsRsa: g.adsRsa.map((r) => ({ finalUrls: r.finalUrls })),
+          })),
+        });
+        const finalized = finalizeGoogleCampaignAssetExtensions(
+          d.google_asset_extensions as Record<string, unknown>,
+          seed,
+        );
+        bc.google_asset_extensions = finalized as unknown as Record<string, unknown>;
+        await tx.paidAdsCampaign.update({
+          where: { id: camp.id },
+          data: { biddingConfig: bc as Prisma.InputJsonValue },
+        });
+      }
+      if (d.campaign_negative_keywords != null) {
+        await tx.paidAdsCampaignNegativeKeyword.deleteMany({ where: { campaignId: camp.id } });
+        for (const nk of d.campaign_negative_keywords) {
+          await tx.paidAdsCampaignNegativeKeyword.create({
+            data: {
+              campaignId: camp.id,
+              text: nk.text.trim().slice(0, 80),
+              matchType: nk.match_type,
+            },
+          });
+        }
+      }
+      if (d.ad_group_negative_keywords != null) {
+        for (const blk of d.ad_group_negative_keywords) {
+          if (!agIds.has(blk.ad_group_id)) {
+            throw new Error("Grupo de anúncios não pertence a esta campanha.");
+          }
+          await tx.paidAdsAdGroupNegativeKeyword.deleteMany({ where: { adGroupId: blk.ad_group_id } });
+          for (const nk of blk.keywords) {
+            await tx.paidAdsAdGroupNegativeKeyword.create({
+              data: {
+                adGroupId: blk.ad_group_id,
+                text: nk.text.trim().slice(0, 80),
+                matchType: nk.match_type,
               },
             });
           }

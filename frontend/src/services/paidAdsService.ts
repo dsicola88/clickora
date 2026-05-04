@@ -49,6 +49,24 @@ export type GoogleStudioKeywordRow = {
   external_criterion_id?: string | null;
 };
 
+export type GoogleStudioNegativeKeywordRow = {
+  id: string;
+  text: string;
+  match_type: string;
+  external_criterion_id?: string | null;
+};
+
+export type GoogleCampaignAssetExtensionsDto = {
+  sitelinks: Array<{
+    link_text: string;
+    final_url: string;
+    description1?: string;
+    description2?: string;
+  }>;
+  callouts: string[];
+  structured_snippet: { header: string; values: string[] } | null;
+};
+
 export type GoogleStudioRsaRow = {
   id: string;
   headlines: string[];
@@ -68,12 +86,15 @@ export type GoogleStudioAdGroupRow = {
   external_ad_group_id: string | null;
   cpc_bid_micros: number | null;
   keywords: GoogleStudioKeywordRow[];
+  negative_keywords: GoogleStudioNegativeKeywordRow[];
   rsa: GoogleStudioRsaRow[];
 };
 
 export type GoogleCampaignStudioDto = {
   campaign: CampaignRow & { objective_summary?: string | null; language_targets?: string[] };
   published: boolean;
+  asset_extensions: GoogleCampaignAssetExtensionsDto | null;
+  campaign_negative_keywords: GoogleStudioNegativeKeywordRow[];
   ad_groups: GoogleStudioAdGroupRow[];
 };
 

@@ -943,6 +943,29 @@ export function DpilotGoogleWizardPage() {
               </div>
             )}
 
+            <div className="rounded-lg border border-border/80 bg-muted/20 px-4 py-3">
+              <p className="text-xs font-medium text-foreground">Palavras‑chave negativas ao nível da campanha</p>
+              <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[11px] leading-relaxed text-muted-foreground">
+                <li>
+                  Pacotes dinâmicos por{' '}
+                  <span className="text-foreground">idiomas</span> e{' '}
+                  <span className="text-foreground">países</span>: núcleo internacional em inglês, mais camadas PT
+                  ou ES quando o targeting o justifica (inclui mercados regionais típicos).
+                </li>
+                <li>
+                  Dicas extra por <span className="text-foreground">TLD da landing</span> (classificados locais) e termos
+                  adicionais gerados pela IA alinhados à sua oferta — sempre fundidos e deduplicados no servidor.
+                </li>
+                <li>
+                  Termos que coincidem com a sua <span className="text-foreground">palavra‑semente</span> ou nome da oferta
+                  são filtrados para evitar bloqueios acidentais sobre a marca.
+                </li>
+                <li>
+                  Revise e edite no <span className="text-foreground">estúdio da campanha</span> antes de publicar.
+                </li>
+              </ul>
+            </div>
+
             <div className="space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] p-4">
               <p className="text-xs font-medium text-foreground">Pausa automática (opcional)</p>
               <div className="grid gap-3 sm:grid-cols-2">

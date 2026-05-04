@@ -8,7 +8,9 @@
  * - `resume_entity` (Google): { entity: campaign|ad_group|keyword|rsa, id: uuid local }
  * - `remove_keyword` (Google): { keyword_id: uuid }
  * - `update_rsa_copy` (Google): { paid_ads_rsa_id, headlines: string[], descriptions: string[], final_urls?: string[], path1?, path2? }
- * - `update_campaign_bidding` (Google): { campaign_id, google_bidding_strategy, google_target_cpa_usd?, google_target_roas?, google_max_cpc_usd? }
+ * - `replace_google_asset_extensions` (Google): { campaign_id, extensions: GoogleCampaignAssetExtensionsStored }
+ * - `sync_campaign_negative_keywords` (Google): { campaign_id, keywords: [{ text, match_type }] }
+ * - `sync_ad_group_negative_keywords` (Google): { campaign_id, ad_group_id, keywords: [{ text, match_type }] }
  * - `meta_update_budget` (Meta): { meta_adset_id, daily_budget_cents }
  * - `meta_publish_creative` (Meta): { creative_id }
  * - `meta_pause_entity` (Meta): { level: campaign|adset|ad, id: uuid local }
@@ -23,6 +25,9 @@ import {
   applyGooglePublishRsa,
   applyGoogleRemoveKeyword,
   applyGoogleResumeEntity,
+  applyGoogleReplaceAssetExtensions,
+  applyGoogleSyncAdGroupNegativeKeywords,
+  applyGoogleSyncCampaignNegativeKeywords,
   applyGoogleUpdateAdGroupCpc,
   applyGoogleUpdateBudget,
   applyGoogleUpdateCampaignBidding,
@@ -180,6 +185,47 @@ export async function applyChangeRequestRemote(
           return { ok: false, error: "Payload: ad_group_id, cpc_bid_micros." };
         }
         return await applyGoogleUpdateAdGroupCpc(projectId, { ad_group_id: ag, cpc_bid_micros: mic });
+      }
+      case "sync_campaign_negative_keywords": {
+        const cid = getStr(p, "campaign_id");
+        const kws = p.keywords;
+        if (!cid || !Array.isArray(kws)) {
+          return { ok: false, error: "Payload: campaign_id e keywords[]." };
+        }
+        const keywords = kws.map((k) => {
+          const o = k as Record<string, unknown>;
+          return {
+            text: String(o.text ?? ""),
+            match_type: o.match_type as "exact" | "phrase" | "broad",
+          };
+        });
+        return await applyGoogleSyncCampaignNegativeKeywords(projectId, { campaign_id: cid, keywords });
+      }
+      case "sync_ad_group_negative_keywords": {
+        const ag = getStr(p, "ad_group_id");
+        const kws = p.keywords;
+        if (!ag || !Array.isArray(kws)) {
+          return { ok: false, error: "Payload: ad_group_id e keywords[]." };
+        }
+        const keywords = kws.map((k) => {
+          const o = k as Record<string, unknown>;
+          return {
+            text: String(o.text ?? ""),
+            match_type: o.match_type as "exact" | "phrase" | "broad",
+          };
+        });
+        return await applyGoogleSyncAdGroupNegativeKeywords(projectId, { ad_group_id: ag, keywords });
+      }
+      case "replace_google_asset_extensions": {
+        const cid = getStr(p, "campaign_id");
+        const ext = p.extensions;
+        if (!cid || !ext || typeof ext !== "object" || Array.isArray(ext)) {
+          return { ok: false, error: "Payload: campaign_id e extensions." };
+        }
+        return await applyGoogleReplaceAssetExtensions(projectId, {
+          campaign_id: cid,
+          extensions: ext as import("./google-campaign-asset-extensions").GoogleCampaignAssetExtensionsStored,
+        });
       }
       case "meta_create_campaign": {
         const id = getStr(p, "campaign_id");

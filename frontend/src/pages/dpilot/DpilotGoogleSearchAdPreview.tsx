@@ -25,6 +25,24 @@ export function rsaNextChunk(source: string, max: number): { chunk: string; rest
   return { chunk, rest };
 }
 
+/** Caminho verde ao estilo Google Ads: domínio + caminhos opcionais do anúncio (path1/path2). */
+export function googleAdsRsaDisplayGreenLine(finalUrl: string, path1?: string, path2?: string): string {
+  const trimmed = finalUrl.trim();
+  const base = trimmed || "https://example.com";
+  try {
+    const u = new URL(/^https?:\/\//i.test(base) ? base : `https://${base}`);
+    const host = u.hostname.replace(/^www\./i, "");
+    const p1 = (path1 ?? "").trim().replace(/^\/+|\/+$/g, "");
+    const p2 = (path2 ?? "").trim().replace(/^\/+|\/+$/g, "");
+    const tail = [p1, p2].filter(Boolean).join("/");
+    const pathPart = tail ? `/${tail}` : "";
+    const full = `${host}${pathPart}`;
+    return full.length > 56 ? `${full.slice(0, 55)}…` : full;
+  } catch {
+    return "seudominio.com";
+  }
+}
+
 function displayUrlHostnamePath(landingUrl: string): string {
   const trimmed = landingUrl.trim();
   if (!trimmed) return "seudominio.com";
@@ -166,23 +184,204 @@ function LenBadge({ len, max, truncated }: { len: number; max: number; truncated
   );
 }
 
+export type GoogleAdsRsaDraftPreviewProps = {
+  finalUrl: string;
+  path1?: string;
+  path2?: string;
+  headlinesText: string;
+  descriptionsText: string;
+  /** Palavra ou frase mostrada como «consulta exemplo» (primeira keyword). */
+  queryHint?: string;
+  /** Mostrar grelha de limites por linha (como no assistente de criação). */
+  showCharacterGrid?: boolean;
+  className?: string;
+};
+
+function headlineLineStats(headlinesText: string): LineStat[] {
+  const raw = headlinesText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 15);
+  if (raw.length === 0) {
+    return [
+      { text: "— Titular —", len: 0, max: HEADLINE_MAX, truncated: false },
+      { text: "— Titular —", len: 0, max: HEADLINE_MAX, truncated: false },
+      { text: "— Titular —", len: 0, max: HEADLINE_MAX, truncated: false },
+    ];
+  }
+  return raw.map((line) => ({
+    text: line.slice(0, HEADLINE_MAX),
+    len: Math.min(line.length, HEADLINE_MAX),
+    max: HEADLINE_MAX,
+    truncated: line.length > HEADLINE_MAX,
+  }));
+}
+
+function parseDescriptionLines(text: string): LineStat[] {
+  const raw = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  const out: LineStat[] = [];
+  for (let i = 0; i < 2; i++) {
+    const line = raw[i] ?? "";
+    const slice = line.slice(0, DESCRIPTION_MAX);
+    const placeholder =
+      i === 0
+        ? "Adicione descrições com benefícios e chamadas à acção."
+        : "Segunda linha: prova social, promoção ou diferenciação.";
+    const display = slice || placeholder;
+    const srcLen = line ? Math.min(line.length, DESCRIPTION_MAX) : Math.min(placeholder.length, DESCRIPTION_MAX);
+    out.push({
+      text: display,
+      len: srcLen,
+      max: DESCRIPTION_MAX,
+      truncated: Boolean(line.length > DESCRIPTION_MAX),
+    });
+  }
+  return out;
+}
+
 /**
- * Painel direito tipo Pesquisa Google: combinação de titulares e descrições com limites RSA.
+ * Pré-visualização alinhada ao painel direito da Google Ads (combinação exemplo RSA + resultado de pesquisa).
+ * Usa texto em edição (uma linha = um ativo).
  */
-export function DpilotGoogleSearchAdPreview(props: GoogleSearchAdPreviewProps) {
-  const { headlines, descriptions, headlineJoin, descriptionPreview, displaySite, queryHint } = useMemo(
-    () => buildAssetLines(props),
-    [
-      props.landingUrl,
-      props.offer,
-      props.seedKeyword,
-      props.price,
-      props.discount,
-      props.guarantee,
-      props.shipping,
-      props.bundles,
-    ],
+export function GoogleAdsRsaDraftPreview(props: GoogleAdsRsaDraftPreviewProps) {
+  const headlinesFull = useMemo(() => {
+    return props.headlinesText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 15)
+      .map((h) => h.slice(0, HEADLINE_MAX));
+  }, [props.headlinesText]);
+
+  const descriptionsFull = useMemo(() => {
+    return props.descriptionsText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .map((d) => d.slice(0, DESCRIPTION_MAX));
+  }, [props.descriptionsText]);
+
+  const headlineJoin = useMemo(() => {
+    const trio = headlinesFull.slice(0, 3);
+    if (trio.length === 0) return "Titulares do anúncio responsivo";
+    return trio.join(" · ");
+  }, [headlinesFull]);
+
+  const descriptionPreview = useMemo(() => {
+    if (descriptionsFull.length === 0) {
+      return "O texto da descrição aparece aqui quando adicionar linhas ao formulário.";
+    }
+    return descriptionsFull.slice(0, 2).join(" ");
+  }, [descriptionsFull]);
+
+  const displaySite = useMemo(
+    () => googleAdsRsaDisplayGreenLine(props.finalUrl, props.path1, props.path2),
+    [props.finalUrl, props.path1, props.path2],
   );
+
+  const queryHint = props.queryHint?.trim() || "consulta exemplo";
+
+  const headlineStats = useMemo(() => headlineLineStats(props.headlinesText), [props.headlinesText]);
+  const descriptionStats = useMemo(() => parseDescriptionLines(props.descriptionsText), [props.descriptionsText]);
+
+  const sponsoredDomain = displaySite.split("/")[0] || displaySite;
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-border dark:bg-card",
+        "ring-1 ring-black/[0.06] dark:ring-white/[0.06]",
+        props.className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-2 border-b border-neutral-200 bg-neutral-50/90 px-3 py-2.5 dark:border-border dark:bg-muted/30">
+        <div className="flex min-w-0 items-center gap-2">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+            style={{ background: "#1a73e8" }}
+            aria-hidden
+          >
+            G
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Google Ads</p>
+            <p className="truncate text-[12px] font-medium text-foreground">Pré-visualização</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 p-3">
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-border dark:bg-muted/25">
+          <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-neutral-200/90 pb-2 dark:border-border/80">
+            <Smartphone className="h-3 w-3 text-muted-foreground" aria-hidden />
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Pesquisa · telemóvel</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Pesquisas relacionadas com <span className="font-semibold text-foreground/90">{queryHint}</span>
+          </p>
+          <div className="mt-2.5 space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Anúncio · {sponsoredDomain}</p>
+            <p
+              className="text-[13px] leading-snug text-emerald-800 dark:text-emerald-400/95"
+              style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
+            >
+              {displaySite}
+            </p>
+            <h3
+              className="text-[17px] font-normal leading-snug text-[#1a0dab] dark:text-blue-400"
+              style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
+            >
+              {headlineJoin}
+            </h3>
+            <p
+              className="text-[13px] leading-relaxed text-[#4d5156] dark:text-foreground/85"
+              style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
+            >
+              {descriptionPreview}
+            </p>
+          </div>
+        </div>
+
+        {props.showCharacterGrid !== false ? (
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Contagem de caracteres
+            </p>
+            <ul className="max-h-[min(240px,40vh)] space-y-1 overflow-y-auto rounded-md border border-neutral-200 bg-white p-2 text-[11px] dark:border-border dark:bg-card">
+              {headlineStats.map((h, i) => (
+                <li
+                  key={`h-${i}`}
+                  className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-1 last:border-0 dark:border-border/50"
+                >
+                  <span className="min-w-0 flex-1 break-words font-mono leading-snug text-foreground/85">{h.text}</span>
+                  <LenBadge len={h.len} max={h.max} truncated={h.truncated} />
+                </li>
+              ))}
+              {descriptionStats.map((d, i) => (
+                <li
+                  key={`d-${i}`}
+                  className="flex items-start justify-between gap-2 border-t border-neutral-100 pt-1 dark:border-border/50"
+                >
+                  <span className="min-w-0 flex-1 break-words font-mono leading-snug text-muted-foreground">{d.text}</span>
+                  <LenBadge len={d.len} max={d.max} truncated={d.truncated} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function DpilotGoogleSearchAdPreview(props: GoogleSearchAdPreviewProps) {
+  const { headlines, descriptions, headlineJoin, descriptionPreview, displaySite, queryHint } = buildAssetLines(props);
 
   return (
     <div
