@@ -359,6 +359,108 @@ export const integrationsController = {
     return res.json({ ok: true, sent_to: to });
   },
 
+  /**
+   * Simula um postback da rede (BuyGoods/SmartAdv/…) com o último clique da conta.
+   * Não substitui um teste real na rede, mas confirma que o webhook + atribuição funcionam.
+   */
+  async testAffiliatePostback(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const sub = await subscriptionPlanForWebhookGate(userId);
+    if (!planAllowsAffiliateWebhook(sub?.plan)) {
+      return res.status(403).json({
+        error: "Webhook de afiliados não está activo no seu plano.",
+        code: "AFFILIATE_WEBHOOK_PLAN",
+      });
+    }
+
+    const platformRaw =
+      typeof req.body?.platform === "string" && req.body.platform.trim()
+        ? req.body.platform.trim()
+        : "BuyGoods";
+    const platform = platformRaw.slice(0, 64);
+
+    const lastClick = await systemPrisma.trackingEvent.findFirst({
+      where: { userId, eventType: "click" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, campaign: true, presellPageId: true, createdAt: true },
+    });
+    if (!lastClick) {
+      return res.status(400).json({
+        ok: false,
+        code: "NO_CLICK",
+        error:
+          "Ainda não há cliques nesta conta. Abra o URL da campanha (ou a presell) no browser, clique no botão da oferta e volte a testar.",
+        next_step: "Abrir link da campanha → clicar CTA → Testar ligação",
+      });
+    }
+
+    const token = createPostbackToken(userId);
+    const base = publicApiBaseFromRequest(req).replace(/\/+$/, "");
+    const orderId = `clickora-test-${Date.now()}`;
+    const u = new URL(`${base}/integrations/affiliate-webhook`);
+    u.searchParams.set("token", token);
+    u.searchParams.set("platform", platform);
+    u.searchParams.set("status", "approved");
+    u.searchParams.set("orderid", orderId);
+    u.searchParams.set("amount", "1.00");
+    u.searchParams.set("cy", "USD");
+    // Cobrir aliases BuyGoods / SmartAdv / Digistore com o mesmo UUID do clique.
+    u.searchParams.set("subid", lastClick.id);
+    u.searchParams.set("subid1", lastClick.id);
+    u.searchParams.set("sub3", lastClick.id);
+    u.searchParams.set("cid", lastClick.id);
+    u.searchParams.set("clickora_click_id", lastClick.id);
+
+    let webhookBody: Record<string, unknown> = {};
+    let httpStatus = 0;
+    try {
+      const r = await fetch(u.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(25_000),
+      });
+      httpStatus = r.status;
+      webhookBody = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Falha de rede ao chamar o webhook";
+      return res.status(503).json({
+        ok: false,
+        code: "WEBHOOK_UNREACHABLE",
+        error: `Não foi possível chamar o webhook: ${msg}`,
+        click_id: lastClick.id,
+      });
+    }
+
+    const conversion = typeof webhookBody.conversion === "string" ? webhookBody.conversion : null;
+    const attribution = typeof webhookBody.attribution === "string" ? webhookBody.attribution : null;
+    const ok =
+      httpStatus === 200 &&
+      (conversion === "created" || conversion === "created_unattributed" || conversion === "duplicate");
+
+    return res.status(ok ? 200 : 502).json({
+      ok,
+      platform,
+      http_status: httpStatus,
+      conversion,
+      attribution,
+      unattributed_reason: webhookBody.unattributed_reason ?? null,
+      conversion_id: webhookBody.conversion_id ?? null,
+      click_id: lastClick.id,
+      click_campaign: lastClick.campaign,
+      click_at: lastClick.createdAt.toISOString(),
+      order_id: orderId,
+      message:
+        conversion === "created"
+          ? "Ligação OK: venda de teste atribuída ao último clique. Veja Resultados → Conversões."
+          : conversion === "created_unattributed"
+            ? "Webhook OK, mas a venda ficou sem atribuição (ID de clique não bateu). Confirme o hoplink e o postback na rede."
+            : conversion === "duplicate"
+              ? "Já existia conversão com este order id de teste — webhook respondeu bem."
+              : "O webhook não criou conversão. Veja o detalhe abaixo ou Configurações → Logs.",
+      webhook: webhookBody,
+    });
+  },
+
   /** Estado da integração Google Ads (offline conversions). */
   async getGoogleAdsSettings(req: Request, res: Response) {
     const userId = billingUserId(req);

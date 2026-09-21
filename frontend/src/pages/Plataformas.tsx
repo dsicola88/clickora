@@ -136,6 +136,23 @@ export default function Plataformas() {
     setTimeout(() => setCopiedExample(false), 2000);
   }, [examplePostbackUrl]);
 
+  const testPostback = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await integrationsService.testAffiliatePostback(selected);
+      if (error) throw new Error(error);
+      if (!data) throw new Error("Resposta vazia");
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data.ok) {
+        toast.success(data.message || "Ligação OK");
+      } else {
+        toast.error(data.error || data.message || "Teste falhou");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (authLoading) return <LoadingState message="A carregar sessão…" />;
 
   if (hookPlanDenied) {
@@ -317,12 +334,71 @@ export default function Plataformas() {
               <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-background/80 border border-border/50 px-3 py-2">
                 <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}
               </p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background h-auto min-h-[3rem] py-2" />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:flex-wrap">
+                <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background h-auto min-h-[3rem] py-2 flex-1 min-w-[12rem]" />
                 <Button type="button" className="gap-2 shrink-0 sm:self-start" onClick={handleCopyExample}>
                   {copiedExample ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   Copiar com macros
                 </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-2 shrink-0 sm:self-start"
+                  disabled={intLocked || testPostback.isPending}
+                  onClick={() => testPostback.mutate()}
+                >
+                  {testPostback.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                  Testar ligação
+                </Button>
+              </div>
+              {testPostback.data ? (
+                <div
+                  className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${
+                    testPostback.data.ok
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-foreground"
+                      : "border-amber-500/30 bg-amber-500/10 text-foreground"
+                  }`}
+                >
+                  <p className="font-medium">
+                    {testPostback.data.ok ? "Resultado do teste" : "Atenção"}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    {testPostback.data.message || testPostback.data.error}
+                  </p>
+                  {testPostback.data.next_step ? (
+                    <p className="mt-1 text-muted-foreground">Próximo: {testPostback.data.next_step}</p>
+                  ) : null}
+                  {testPostback.data.conversion ? (
+                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                      conversion={testPostback.data.conversion}
+                      {testPostback.data.attribution ? ` · attribution=${testPostback.data.attribution}` : ""}
+                      {testPostback.data.click_id ? ` · click=${testPostback.data.click_id.slice(0, 8)}…` : ""}
+                    </p>
+                  ) : null}
+                  {testPostback.data.ok ? (
+                    <Button variant="link" className="h-auto px-0 mt-1 text-xs" asChild>
+                      <Link to="/resultados/conversoes">Ver Conversões</Link>
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="rounded-lg border border-border/40 bg-background/60 px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
+                <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide">Como validar de ponta a ponta</p>
+                <ol className="list-decimal pl-4 space-y-1 leading-relaxed">
+                  <li>
+                    Cole o URL com macros na {selected} e guarde.
+                  </li>
+                  <li>
+                    Abra o <strong className="text-foreground/90">link da campanha</strong> (o do anúncio) no browser e clique no CTA da oferta — gera um clique real.
+                  </li>
+                  <li>
+                    Clique <strong className="text-foreground/90">Testar ligação</strong> — a Clickora simula a venda da {selected} com esse clique.
+                  </li>
+                  <li>
+                    Confirme em <Link to="/resultados/conversoes" className="text-primary underline-offset-2 hover:underline">Conversões</Link>{" "}
+                    (deve aparecer atribuída). Opcional: venda real de teste na rede.
+                  </li>
+                </ol>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Rede: <span className="font-medium text-foreground/90">{selected}</span> → parâmetro{" "}

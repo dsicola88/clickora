@@ -22,6 +22,11 @@ authed.patch("/meta-capi", requireWorkspaceIntegrationsWrite, integrationsContro
 authed.get("/tiktok-events", integrationsController.getTiktokEventsSettings);
 authed.patch("/tiktok-events", requireWorkspaceIntegrationsWrite, integrationsController.patchTiktokEventsSettings);
 authed.post("/test-sale-email", requireWorkspaceIntegrationsWrite, integrationsController.testSaleNotificationEmail);
+authed.post(
+  "/test-affiliate-postback",
+  requireWorkspaceIntegrationsWrite,
+  integrationsController.testAffiliatePostback,
+);
 authed.patch("/notification-email", requireWorkspaceIntegrationsWrite, integrationsController.patchNotificationEmail);
 authed.get("/telegram", integrationsController.getTelegramSettings);
 authed.patch("/telegram", requireWorkspaceIntegrationsWrite, integrationsController.patchTelegramSettings);

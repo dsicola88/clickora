@@ -35,6 +35,28 @@ export const integrationsService = {
     );
   },
 
+  /** Simula postback da rede com o último clique (confirma webhook + atribuição). */
+  async testAffiliatePostback(platform: string) {
+    return apiClient.post<{
+      ok: boolean;
+      code?: string;
+      error?: string;
+      next_step?: string;
+      platform?: string;
+      conversion?: string | null;
+      attribution?: string | null;
+      message?: string;
+      click_id?: string;
+      conversion_id?: string | null;
+      order_id?: string;
+    }>(
+      "/integrations/test-affiliate-postback",
+      { platform },
+      undefined,
+      signalWithTimeout(55_000),
+    );
+  },
+
   async getGoogleAdsSettings() {
     return apiClient.get<{
       google_ads_enabled: boolean;
