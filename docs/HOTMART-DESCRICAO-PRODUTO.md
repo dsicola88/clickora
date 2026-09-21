@@ -78,4 +78,28 @@ O resultado depende do uso correto da ferramenta e do teu tráfego e oferta. Sof
 
 ---
 
+## Checklist — página de vendas gerada pela Hotmart
+
+A estrutura (hero → 3 cards → benefício → e-mail Hotmart → CTA) está **boa**. Ajusta só isto no editor Hotmart:
+
+1. **Substituir o placeholder `500x500`**  
+   Usa a imagem do repositório: `frontend/public/landing/hotmart-benefit-500.png`  
+   (também em produção após deploy: `https://www.dclickora.com/landing/hotmart-benefit-500.png`).
+
+2. **Copy a suavizar (sem mentir)**  
+   - Em vez de «Junte-se a outros afiliados que já estão escalando…» →  
+     «Junta-te a afiliados que usam presells e tracking no mesmo painel.»  
+   - «Presells em Segundos» → «Presells rápidas de publicar» (segundos depende do import).
+
+3. **Preços**  
+   Mostra ou liga aos planos Hotmart: **Pro Mensal US$ 24** · **Pro Anual US$ 196** (alinhados com a app).
+
+4. **E-mail** — mantém a caixa amarela (mesmo e-mail Hotmart = conta dclickora). Essencial para o webhook.
+
+5. **Marca** — usa **dclickora** (minúsculas) de forma consistente no texto; DCLICKORA só no logo se quiseres.
+
+6. **Garantia** — se na Hotmart o trial é **3 dias**, não digas **7 dias** na página (ou sobe o trial para 7).
+
+---
+
 *Documento gerado para apoio à listagem na Hotmart — revê valores, garantias e suporte antes de publicar.*
