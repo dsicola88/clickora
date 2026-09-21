@@ -81,18 +81,37 @@ export function campaignUtmSlug(name: string): string {
     .slice(0, 64) || "campanha";
 }
 
+/**
+ * URL para colar no anúncio: UTMs + macros da rede.
+ * - `utm_campaign` = nome da campanha (slug)
+ * - Google/Bing: `utm_term={keyword}` (a rede substitui no clique)
+ * - Google: `gclid={gclid}`; Meta/TikTok: fbclid/ttclid
+ */
 export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: string, trafficSource: string): string {
   try {
     const u = new URL(basePresellUrl);
     const slug = campaignUtmSlug(campaignName);
+    const src = trafficSource.toLowerCase();
     if (!u.searchParams.has("utm_source")) {
-      u.searchParams.set("utm_source", trafficSource.toLowerCase().replace(/\s+/g, "_") || "ads");
+      u.searchParams.set("utm_source", src.replace(/\s+/g, "_") || "ads");
     }
     if (!u.searchParams.has("utm_medium")) u.searchParams.set("utm_medium", "cpc");
-    if (!u.searchParams.has("utm_campaign")) u.searchParams.set("utm_campaign", slug);
-    const src = trafficSource.toLowerCase();
-    if (src.includes("google") && !u.searchParams.has("gclid")) {
+    // Sempre o nome da campanha (slug) — identifica campanha nos Relatórios.
+    u.searchParams.set("utm_campaign", slug);
+
+    const isGoogle = src.includes("google");
+    const isBing = src.includes("bing") || src.includes("microsoft");
+    if ((isGoogle || isBing) && !u.searchParams.has("utm_term")) {
+      u.searchParams.set("utm_term", "{keyword}");
+    }
+    if (isGoogle && !u.searchParams.has("utm_content")) {
+      u.searchParams.set("utm_content", "{creative}");
+    }
+    if (isGoogle && !u.searchParams.has("gclid")) {
       u.searchParams.set("gclid", "{gclid}");
+    }
+    if (isBing && !u.searchParams.has("msclkid")) {
+      u.searchParams.set("msclkid", "{msclkid}");
     }
     if ((src.includes("meta") || src.includes("facebook")) && !u.searchParams.has("fbclid")) {
       u.searchParams.set("fbclid", "{fbclid}");

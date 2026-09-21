@@ -543,6 +543,12 @@ export default function CreatePresellWizardPage() {
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">URL para o anúncio:</p>
               <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Inclui o <strong className="text-foreground/80">nome da campanha</strong> (
+                <span className="font-mono">utm_campaign</span>
+                ) e, no Google Ads, <span className="font-mono">utm_term={"{keyword}"}</span> — a Google
+                substitui pela palavra-chave no clique. Copie este URL como URL final do anúncio.
+              </p>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
