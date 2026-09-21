@@ -18,7 +18,7 @@ function planTypeLabel(t: UserPlan["plan_type"]): string {
     case "quarterly":
       return "Trimestral";
     case "annual":
-      return "Anual (Premium)";
+      return "Pro Anual";
     default:
       return t;
   }

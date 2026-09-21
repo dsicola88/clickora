@@ -28,7 +28,7 @@ export const DEFAULT_PLAN_DISPLAY_LABELS: Record<string, string> = {
   label_plan_col: "Plano",
   label_pages_col: "Páginas presell",
   label_clicks_col: "Cliques/mês",
-  /** Cartão Premium (anual): poupança vs. 12× preço mensal — placeholders {{equiv}} {{save}} {{pct}} {{monthly_name}} {{compare_yearly}} */
+  /** Cartão Pro Anual: poupança vs. 12× preço mensal — placeholders {{equiv}} {{save}} {{pct}} {{monthly_name}} {{compare_yearly}} */
   annual_pitch_equiv:
     "≈ {{equiv}}/mês em média ao pagar o ano de uma vez — faturação anual única.",
   annual_pitch_savings:
@@ -135,15 +135,15 @@ export const PLAN_LABEL_FORM_FIELDS: { key: string; title: string }[] = [
   { key: "label_clicks_col", title: "Coluna «Cliques/mês»" },
   {
     key: "annual_pitch_equiv",
-    title: "Premium: linha da média mensal ({{equiv}})",
+    title: "Pro Anual: linha da média mensal ({{equiv}})",
   },
   {
     key: "annual_pitch_savings",
-    title: "Premium: poupança vs. 12× mensal ({{save}} {{pct}} {{monthly_name}})",
+    title: "Pro Anual: poupança vs. 12× mensal ({{save}} {{pct}} {{monthly_name}})",
   },
   {
     key: "annual_pitch_reference",
-    title: "Premium: referência 12× mensal ({{compare_yearly}} {{monthly_name}})",
+    title: "Pro Anual: referência 12× mensal ({{compare_yearly}} {{monthly_name}})",
   },
-  { key: "badge_best_value", title: "Selo «Melhor valor» (Premium anual)" },
+  { key: "badge_best_value", title: "Selo «Melhor valor» (Pro Anual)" },
 ];

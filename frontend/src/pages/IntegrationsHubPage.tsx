@@ -105,7 +105,7 @@ export default function IntegrationsHubPage() {
           <p className="text-sm text-muted-foreground px-1">
             Gestão de campanhas paid:{" "}
             <Badge variant="secondary" className="text-[10px] mx-1">
-              Premium
+              Pro Anual
             </Badge>
             <Link to="/planos" className="text-primary underline-offset-2 hover:underline">
               Ver planos

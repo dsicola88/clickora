@@ -70,7 +70,7 @@ async function ensurePlans() {
     update: { affiliateWebhookEnabled: true },
     create: {
       id: "plan_annual",
-      name: "Premium",
+      name: "Pro Anual",
       type: "annual",
       priceCents: 19600,
       maxPresellPages: null,

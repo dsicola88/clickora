@@ -161,7 +161,7 @@ async function main() {
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
       update: {
-        name: "Pro",
+        name: "Pro Mensal",
         priceCents: 2400,
         maxCustomDomains: 0,
         affiliateWebhookEnabled: false,
@@ -170,7 +170,7 @@ async function main() {
       },
       create: {
         id: "plan_monthly",
-        name: "Pro",
+        name: "Pro Mensal",
         type: "monthly",
         priceCents: 2400,
         maxPresellPages: 25,
@@ -185,7 +185,7 @@ async function main() {
     prisma.plan.upsert({
       where: { id: "plan_annual" },
       update: {
-        name: "Premium",
+        name: "Pro Anual",
         priceCents: 19600,
         maxCustomDomains: 2,
         affiliateWebhookEnabled: true,
@@ -194,7 +194,7 @@ async function main() {
       },
       create: {
         id: "plan_annual",
-        name: "Premium",
+        name: "Pro Anual",
         type: "annual",
         priceCents: 19600,
         maxPresellPages: null,
@@ -225,7 +225,7 @@ async function main() {
         id: "default",
         heroTitle: "Escolha seu plano",
         heroSubtitle:
-          "Limites de presells e cliques estão em cada cartão. Starter para testar, Pro e Premium com quotas maiores e mais domínios no plano anual — conforme configurado.",
+          "Limites de presells e cliques estão em cada cartão. Starter para testar; Pro Mensal e Pro Anual com quotas maiores e mais domínios no anual — alinhados com a Hotmart.",
       },
     });
   } catch (e) {

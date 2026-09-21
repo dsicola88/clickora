@@ -107,7 +107,7 @@ function PlanGate({ children }: { children: React.ReactNode }) {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Plano</CardTitle>
-            <CardDescription>Upgrade para Premium para desbloquear.</CardDescription>
+            <CardDescription>Upgrade para Pro Anual para desbloquear.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>

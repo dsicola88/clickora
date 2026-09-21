@@ -294,7 +294,7 @@ export function LandingPageBodySections({
                 const showBestValue = plan.type === "annual" && annualSavingsPitch;
                 const accent = planVisualAccent(plan.type);
                 const tagline = PLAN_TAGLINES[plan.type] ?? "";
-                const monthlyName = monthlyPlanForPitch?.name?.trim() || "Pro";
+                const monthlyName = monthlyPlanForPitch?.name?.trim() || "Pro Mensal";
 
                 return (
                   <div
