@@ -25,10 +25,42 @@ O Stripe **restringe** contas de comerciante por país. Muitos criadores em **An
 | `HOTMART_WEBHOOK_TOKEN` | Mesmo segredo que configurares no webhook Hotmart (header `x-hotmart-hottok`). |
 | `HOTMART_PLAN_MAP` | JSON: códigos de **produto/oferta** Hotmart → `free_trial` \| `monthly` \| `annual` (tipos dos planos na tua BD). |
 | `HOTMART_DEFAULT_PLAN_TYPE` | Plano usado se o mapa não tiver o código (ex. `monthly`). |
-| `HOTMART_PRODUCT_URL` ou `PUBLIC_CHECKOUT_URL` | URL da **página de vendas** Hotmart — usada no botão “Subscrever” na app quando o plano é pago (checkout externo). |
-| `HOTMART_PLAN_CHECKOUT_URLS` | (Opcional) JSON `{"plan_monthly":"https://...","plan_annual":"https://..."}` se tiveres **uma página por plano**. |
+| `HOTMART_PRODUCT_URL` ou `PUBLIC_CHECKOUT_URL` | (Opcional) URL da página de vendas — **não uses isto sozinho** se tiveres mensal e anual: os dois botões iriam para o mesmo sítio. |
+| `HOTMART_PLAN_CHECKOUT_URLS` | **Recomendado.** JSON com o link de **checkout** (pagamento) de cada plano. |
 
-Fluxo profissional: **1 produto Hotmart por oferta** (mensal / anual) ou **uma página** com várias ofertas e um único `HOTMART_PRODUCT_URL`.
+### Preços canónicos (app + Hotmart)
+
+| Plano na app | ID BD | Preço | Tipo |
+|--------------|-------|-------|------|
+| Starter | `plan_free` | Grátis | `free_trial` |
+| Pro Mensal | `plan_monthly` | **US$ 24** | `monthly` |
+| Pro Anual | `plan_annual` | **US$ 196**/ano | `annual` |
+
+Na Hotmart: mensal **US$ 24**, anual **US$ 196**, nomes **Pro Mensal** / **Pro Anual** (não «Premium»).
+
+### Checklist Railway — dois checkouts
+
+1. Na Hotmart, abre cada oferta → copia o **link de checkout / pagamento** (não a página de vendas).
+2. Em Railway → Variables, cria ou edita:
+
+```bash
+HOTMART_PLAN_CHECKOUT_URLS={"plan_monthly":"https://pay.hotmart.com/XXXXX-MENSAL","plan_annual":"https://pay.hotmart.com/YYYYY-ANUAL"}
+```
+
+(Substitui pelos teus URLs reais; JSON numa só linha, sem vírgula a mais.)
+
+3. Confirma também:
+
+```bash
+HOTMART_WEBHOOK_TOKEN=...seu-token...
+HOTMART_PLAN_MAP={"CODIGO_OFERTA_MENSAL":"monthly","CODIGO_OFERTA_ANUAL":"annual"}
+HOTMART_DEFAULT_PLAN_TYPE=monthly
+```
+
+4. **Redeploy** da API.
+5. Em `https://www.dclickora.com/planos`: botão Pro Mensal → checkout US$ 24; Pro Anual → checkout US$ 196.
+
+Fluxo profissional: **um URL de pagamento por plano** via `HOTMART_PLAN_CHECKOUT_URLS`.
 
 ---
 

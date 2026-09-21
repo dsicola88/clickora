@@ -63,20 +63,20 @@ const PLAN_FEATURES_STARTER = [
   "Até 3 presell pages · 1.000 cliques/mês (trial)",
   "As linhas abaixo aplicam-se dentro destas quotas",
   ...PLATFORM_FEATURE_LINES,
-  "Tipos de presell disponíveis no editor (com limites do plano) · Métricas no painel · Branding Clickora pode aparecer no rodapé",
+  "Tipos de presell disponíveis no editor (com limites do plano) · Métricas no painel · Branding dclickora pode aparecer no rodapé",
 ];
 
 const PLAN_FEATURES_PRO = [
   "Até 25 presell pages · 50.000 cliques/mês",
   "Mesmas ferramentas abaixo durante a subscrição mensal (sujeito a quotas)",
   ...PLATFORM_FEATURE_LINES,
-  "Todos os tipos de presell expostos no editor (VSL, TSL, DTC, gates, etc.) · Eventos e relatórios no painel · Sem branding Clickora no rodapé",
+  "Todos os tipos de presell expostos no editor (VSL, TSL, DTC, gates, etc.) · Eventos e relatórios no painel · Sem branding dclickora no rodapé",
 ];
 
 const PLAN_FEATURES_PREMIUM = [
   "Presells e cliques ilimitados na conta durante o período do plano anual (uso razoável)",
   ...PLATFORM_FEATURE_LINES,
-  "Até 2 domínios personalizados · Sem branding Clickora no rodapé",
+  "Até 2 domínios personalizados · Sem branding dclickora no rodapé",
   "Webhooks e endpoints no servidor para tracking, presell e integrações",
   "Anúncios (Google, Meta, TikTok) — automação com revisão humana",
 ];

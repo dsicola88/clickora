@@ -91,8 +91,9 @@ A estrutura (hero → 3 cards → benefício → e-mail Hotmart → CTA) está *
      «Junta-te a afiliados que usam presells e tracking no mesmo painel.»  
    - «Presells em Segundos» → «Presells rápidas de publicar» (segundos depende do import).
 
-3. **Preços**  
-   Mostra ou liga aos planos Hotmart: **Pro Mensal US$ 24** · **Pro Anual US$ 196** (alinhados com a app).
+3. **Preços (canónicos)**  
+   **Pro Mensal US$ 24** · **Pro Anual US$ 196**. Alinha na Hotmart (se estiver a US$ 20, sobe para 24).  
+   Na Railway usa `HOTMART_PLAN_CHECKOUT_URLS` com **dois** links de checkout — ver [PAGAMENTOS-ANGOLA.md](PAGAMENTOS-ANGOLA.md).
 
 4. **E-mail** — mantém a caixa amarela (mesmo e-mail Hotmart = conta dclickora). Essencial para o webhook.
 
