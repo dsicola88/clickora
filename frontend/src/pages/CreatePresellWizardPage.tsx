@@ -123,11 +123,11 @@ export default function CreatePresellWizardPage() {
 
       let content: Record<string, unknown>;
       let video_url: string | null = null;
-      let pageTitle = titleSeed;
+      // Nome na lista de Presells = nome da campanha (não o título importado do produto).
+      const pageTitle = titleSeed.slice(0, 200);
 
       if (!imported.error && imported.data) {
         const data = imported.data;
-        pageTitle = (data.title || data.product_name || titleSeed).slice(0, 200);
         const isDiscount = isDiscountPresellType(type);
         content = {
           title: data.title,
@@ -325,8 +325,15 @@ export default function CreatePresellWizardPage() {
       {step === 2 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
           <div className="space-y-2">
-            <Label>Nome da campanha</Label>
-            <Input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
+            <Label>Nome da campanha (e da página na lista)</Label>
+            <Input
+              value={campaignName}
+              onChange={(e) => setCampaignName(e.target.value)}
+              placeholder="Ex.: Google US — Nitric Boost"
+            />
+            <p className="text-xs text-muted-foreground">
+              Este nome aparece em Presells como «Nome da página» e na campanha.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Fonte de tráfego</Label>

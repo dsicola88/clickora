@@ -125,7 +125,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
           </div>
           {!collapsed && (
             <span className="text-lg font-extrabold tracking-tight text-sidebar-accent-foreground">
-              Clickora
+              dclickora
             </span>
           )}
         </NavLink>
