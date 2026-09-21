@@ -128,6 +128,12 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
 
   if (!conv || conv.status !== "approved") return;
   if (conv.metaCapiSync === "sent") return;
+  if (!conv.click) {
+    await markMetaCapiSkip(conv.id, "skipped_no_fbclid", {
+      reason: "Conversão sem clique associado (não atribuída) — sem fbclid para CAPI.",
+    });
+    return;
+  }
 
   const user = conv.user;
   if (!isMetaCapiReadyForUser(user)) {

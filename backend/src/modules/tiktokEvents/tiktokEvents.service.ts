@@ -136,6 +136,12 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
 
   if (!conv || conv.status !== "approved") return;
   if (conv.tiktokEventsSync === "sent") return;
+  if (!conv.click) {
+    await markTikTokSkip(conv.id, "skipped_no_ttclid", {
+      reason: "Conversão sem clique associado (não atribuída) — sem ttclid para Events API.",
+    });
+    return;
+  }
 
   const user = conv.user;
   if (!isTikTokEventsReadyForUser(user)) {

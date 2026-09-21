@@ -129,6 +129,8 @@ export interface AnalyticsSummary {
   ctr: number;
   conversions: number;
   revenue: number;
+  /** Conversões / cliques (0–100), quando a API o devolve. */
+  conversion_rate?: number;
 }
 
 export interface TrackingEvent {

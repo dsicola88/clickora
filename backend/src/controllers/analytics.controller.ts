@@ -24,6 +24,8 @@ type AnalyticsSummaryItem = {
   ctr: number;
   conversions: number;
   revenue: number;
+  /** Conversões / cliques (0–100). */
+  conversion_rate: number;
 };
 
 /**
@@ -114,7 +116,7 @@ function mapConversionForApi(
   }>,
 ) {
   const meta = (c.metadata || {}) as Record<string, unknown>;
-  const clickMeta = (c.click.metadata || {}) as Record<string, unknown>;
+  const clickMeta = (c.click?.metadata || {}) as Record<string, unknown>;
   const gclid = typeof clickMeta.gclid === "string" ? clickMeta.gclid : null;
   const wbraid = typeof clickMeta.wbraid === "string" ? clickMeta.wbraid : null;
   const gbraid = typeof clickMeta.gbraid === "string" ? clickMeta.gbraid : null;
@@ -126,25 +128,33 @@ function mapConversionForApi(
   const utm_content_raw =
     (typeof clickMeta.utm_content === "string" && clickMeta.utm_content.trim() && clickMeta.utm_content.trim()) || "";
 
-  const clickSource =
-    (c.click.source && String(c.click.source).trim()) ||
-    (typeof clickMeta.utm_source === "string" && clickMeta.utm_source.trim() ? clickMeta.utm_source.trim() : "") ||
-    null;
-  const clickMedium =
-    (c.click.medium && String(c.click.medium).trim()) ||
-    (typeof clickMeta.medium === "string" && clickMeta.medium.trim() ? clickMeta.medium.trim() : "") ||
-    null;
-  const clickCampaign =
-    (c.click.campaign && String(c.click.campaign).trim()) ||
-    (typeof clickMeta.campaign === "string" && clickMeta.campaign.trim() ? clickMeta.campaign.trim() : "") ||
-    null;
+  const clickSource = c.click
+    ? (c.click.source && String(c.click.source).trim()) ||
+      (typeof clickMeta.utm_source === "string" && clickMeta.utm_source.trim() ? clickMeta.utm_source.trim() : "") ||
+      null
+    : null;
+  const clickMedium = c.click
+    ? (c.click.medium && String(c.click.medium).trim()) ||
+      (typeof clickMeta.medium === "string" && clickMeta.medium.trim() ? clickMeta.medium.trim() : "") ||
+      null
+    : null;
+  const clickCampaign = c.click
+    ? (c.click.campaign && String(c.click.campaign).trim()) ||
+      (typeof clickMeta.campaign === "string" && clickMeta.campaign.trim() ? clickMeta.campaign.trim() : "") ||
+      null
+    : null;
 
   const postbackCampaign = typeof c.campaign === "string" && c.campaign.trim() ? c.campaign.trim() : null;
 
   const keyword = utm_term_raw || postbackCampaign || "—";
 
   const originParts = [clickSource, clickMedium, clickCampaign].filter(Boolean);
-  const origin = originParts.length ? originParts.join(" / ") : "—";
+  const origin =
+    c.attribution === "unattributed"
+      ? "não atribuída"
+      : originParts.length
+        ? originParts.join(" / ")
+        : "—";
 
   const amount = c.amount != null ? Number(c.amount) : null;
   return {
@@ -152,6 +162,8 @@ function mapConversionForApi(
     created_at: c.createdAt.toISOString(),
     click_id: c.clickId,
     presell_id: c.presellId,
+    attribution: c.attribution,
+    external_order_id: c.externalOrderId,
     keyword,
     utm_source: clickSource,
     utm_medium: clickMedium,
@@ -211,31 +223,34 @@ export const analyticsController = {
       _sum: { amount: true },
     });
 
-    // Group by presell
+    // Group by presell (+ bucket explícito para vendas sem atribuição)
+    const empty = (pid: string): AnalyticsSummaryItem => ({
+      presell_id: pid,
+      clicks: 0,
+      impressions: 0,
+      ctr: 0,
+      conversions: 0,
+      revenue: 0,
+      conversion_rate: 0,
+    });
     const summaryMap: Record<string, AnalyticsSummaryItem> = {};
     for (const e of events) {
       const pid = e.presellPageId || "unknown";
-      if (!summaryMap[pid]) {
-        summaryMap[pid] = { presell_id: pid, clicks: 0, impressions: 0, ctr: 0, conversions: 0, revenue: 0 };
-      }
+      if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
       if (e.eventType === "click") summaryMap[pid].clicks = e._count;
       if (e.eventType === "impression") summaryMap[pid].impressions = e._count;
     }
     for (const e of conversionEvents) {
       const pid = e.presellPageId || "unknown";
-      if (!summaryMap[pid]) {
-        summaryMap[pid] = { presell_id: pid, clicks: 0, impressions: 0, ctr: 0, conversions: 0, revenue: 0 };
-      }
+      if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
       summaryMap[pid].conversions += 1;
       const metadata = (e.metadata || {}) as Record<string, unknown>;
       const value = Number(metadata.value);
       if (Number.isFinite(value)) summaryMap[pid].revenue += value;
     }
     for (const c of conversionRows) {
-      const pid = c.presellId;
-      if (!summaryMap[pid]) {
-        summaryMap[pid] = { presell_id: pid, clicks: 0, impressions: 0, ctr: 0, conversions: 0, revenue: 0 };
-      }
+      const pid = c.presellId || "unattributed";
+      if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
       summaryMap[pid].conversions += c._count;
       const amt = c._sum.amount;
       if (amt != null) summaryMap[pid].revenue += Number(amt);
@@ -244,7 +259,32 @@ export const analyticsController = {
     const result = Object.values(summaryMap).map((s) => ({
       ...s,
       ctr: s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0,
+      conversion_rate: s.clicks > 0 ? (s.conversions / s.clicks) * 100 : 0,
     }));
+
+    const byCampaignMap: Record<string, { campaign: string; conversions: number; revenue: number }> = {};
+    const convByCampaign = await prisma.conversion.groupBy({
+      by: ["campaign"],
+      where: convWhere,
+      _count: true,
+      _sum: { amount: true },
+    });
+    for (const row of convByCampaign) {
+      const campaign = row.campaign?.trim() || "(sem campanha)";
+      byCampaignMap[campaign] = {
+        campaign,
+        conversions: row._count,
+        revenue: row._sum.amount != null ? Number(row._sum.amount) : 0,
+      };
+    }
+
+    // Compat: clientes antigos esperam array. Com ?detail=1 devolve objecto com by_campaign.
+    if (req.query.detail === "1" || req.query.detail === "true") {
+      return res.json({
+        by_presell: result,
+        by_campaign: Object.values(byCampaignMap),
+      });
+    }
 
     res.json(result);
   },
@@ -749,6 +789,7 @@ export const analyticsController = {
     const conversions = trackingConversions + linkedConvCount;
 
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const conversion_rate = clicks > 0 ? (conversions / clicks) * 100 : 0;
 
     const chartMap: Record<string, { clicks: number; impressions: number }> = {};
     for (const row of chartRows) {
@@ -843,6 +884,7 @@ export const analyticsController = {
       total_impressions: impressions,
       total_conversions: conversions,
       ctr: Math.round(ctr * 100) / 100,
+      conversion_rate: Math.round(conversion_rate * 100) / 100,
       revenue: Math.round(revenue * 100) / 100,
       /** Vendas aprovadas ligadas a postbacks (tabela conversions). */
       approved_sales_count: linkedConvCount,
@@ -1023,7 +1065,7 @@ export const analyticsController = {
         });
       }
       for (const c of sales) {
-        const meta = (c.click.metadata || {}) as Record<string, unknown>;
+        const meta = (c.click?.metadata || {}) as Record<string, unknown>;
         const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
         if (!gclid) continue;
         const value = c.amount != null ? Number(c.amount) : 0;
@@ -1077,7 +1119,7 @@ export const analyticsController = {
           },
         });
         for (const c of sales) {
-          const meta = (c.click.metadata || {}) as Record<string, unknown>;
+          const meta = (c.click?.metadata || {}) as Record<string, unknown>;
           const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
           if (!gclid) continue;
           const value = c.amount != null ? Number(c.amount) : 0;

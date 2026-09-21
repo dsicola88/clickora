@@ -116,18 +116,76 @@ export function extractClickIdFromPayload(flat: Record<string, string>): string 
   return null;
 }
 
-/** Redes usam vários valores; só criamos conversão com estes (venda aprovada). */
+/** Redes usam vários valores; só criamos conversão com estes (venda/pagamento aprovado). */
 export function isApprovedSaleStatus(status: string | undefined): boolean {
   if (!status) return false;
-  const raw = String(status).trim();
-  const t = raw.toLowerCase();
+  const t = String(status).trim().toLowerCase().replace(/\s+/g, "_");
   if (["1", "yes", "y", "true"].includes(t)) return true;
-  return ["approved", "completed", "paid", "sale", "success", "complete"].includes(t);
+  return [
+    "approved",
+    "aprovado",
+    "aprovada",
+    "completed",
+    "complete",
+    "paid",
+    "paying", // Digistore24 rebilling activo
+    "sale",
+    "success",
+    "delivered",
+    "on_payment",
+    "purchase_approved",
+    "purchase.approved",
+    "approved_purchase",
+  ].includes(t);
+}
+
+/**
+ * Campo de estado vindo do postback (query/body). Inclui aliases Digistore/Hotmart.
+ * Preferimos billing_status Digistore quando existir (mais fiável que um `status` genérico).
+ */
+export function extractSaleStatusFromPayload(flat: Record<string, string>): string | undefined {
+  const keys = [
+    "billing_status",
+    "order_billing_status",
+    "status",
+    "payment_status",
+    "order_status",
+    "STATE",
+    "state",
+    "event",
+    "event_name",
+  ];
+  for (const k of keys) {
+    const v = flat[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
+/** Digistore/IPN: refunds e chargebacks não devem criar conversão mesmo com billing_status=completed. */
+export function isNegativeSaleEvent(flat: Record<string, string>): boolean {
+  const raw = flat.transaction_type || flat.event || flat.event_name || "";
+  const t = String(raw).trim().toLowerCase().replace(/\s+/g, "_");
+  if (!t) return false;
+  return [
+    "refund",
+    "chargeback",
+    "payment_missed",
+    "payment_denial",
+    "rebill_cancelled",
+    "cancel",
+    "cancelled",
+    "canceled",
+    "charge_back",
+  ].includes(t);
 }
 
 export function pickAmountDecimal(flat: Record<string, string>): Prisma.Decimal | null {
   const keys = [
     "amount",
+    "amount_affiliate", // Digistore24
+    "amount_brutto",
+    "amount_net",
     "COMMISSION_AMOUNT",
     "commission_amount",
     "price",

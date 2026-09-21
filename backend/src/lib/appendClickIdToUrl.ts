@@ -2,8 +2,9 @@
  * Acrescenta o ID do evento de clique ao URL de destino (oferta) para o postback reconhecer o clique.
  *
  * - Sempre define `clickora_click_id` (namespace próprio).
- * - Só define `cid` / `clickid` se ainda não existirem no destino: muitas redes usam estes nomes
+ * - Só define `cid` / `clickid` / `sid1` se ainda não existirem no destino: muitas redes usam estes nomes
  *   para o token **delas**; sobrescrever quebraria comissão.
+ * - Digistore24 ecoa `{cid}` e `{sid1}`…`{sid5}` no S2S; `sid1` é backup se `cid` já vier preenchido.
  */
 export function appendClickIdToAffiliateUrl(destUrl: string, clickId: string): string {
   try {
@@ -11,14 +12,17 @@ export function appendClickIdToAffiliateUrl(destUrl: string, clickId: string): s
     u.searchParams.set("clickora_click_id", clickId);
     if (!u.searchParams.has("cid")) u.searchParams.set("cid", clickId);
     if (!u.searchParams.has("clickid")) u.searchParams.set("clickid", clickId);
+    if (!u.searchParams.has("sid1")) u.searchParams.set("sid1", clickId);
     return u.toString();
   } catch {
     const hasCid = /(?:^|[?&])cid=/i.test(destUrl);
     const hasClickid = /(?:^|[?&])clickid=/i.test(destUrl);
+    const hasSid1 = /(?:^|[?&])sid1=/i.test(destUrl);
     const sep = destUrl.includes("?") ? "&" : "?";
     const parts = [`clickora_click_id=${encodeURIComponent(clickId)}`];
     if (!hasCid) parts.push(`cid=${encodeURIComponent(clickId)}`);
     if (!hasClickid) parts.push(`clickid=${encodeURIComponent(clickId)}`);
+    if (!hasSid1) parts.push(`sid1=${encodeURIComponent(clickId)}`);
     return `${destUrl}${sep}${parts.join("&")}`;
   }
 }

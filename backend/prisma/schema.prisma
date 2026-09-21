@@ -453,16 +453,22 @@ model TrafficRotatorArm {
   @@map("traffic_rotator_arms")
 }
 
-/** Conversão ligada a um clique (ex.: postback de afiliado com clickora_click_id). */
+/** Conversão de venda (postback). Pode ser atribuída a um clique ou não atribuída (sem UUID válido). */
 model Conversion {
   id        String   @id @default(uuid())
-  clickId   String   @unique @map("click_id")
+  /** Nulo = conversão sem atribuição a clique Clickora (venda registada, sem GCLID/presell). */
+  clickId   String?  @unique @map("click_id")
   userId    String   @map("user_id")
-  presellId String   @map("presell_id")
+  /** Nulo quando não há clique/presell resolvidos. */
+  presellId String?  @map("presell_id")
   campaign  String?
   amount    Decimal? @db.Decimal(14, 4)
   currency  String?  @default("USD")
   status    String   @default("approved")
+  /** attributed | unattributed */
+  attribution String @default("attributed")
+  /** ID de encomenda da rede — idempotência de reenvios (atribuídas e não atribuídas). */
+  externalOrderId String? @map("external_order_id")
   metadata  Json?
   /** sent | failed | skipped_no_gclid | skipped_disabled | skipped_no_config | skipped_pending */
   googleAdsSync       String?   @map("google_ads_sync")
@@ -478,14 +484,16 @@ model Conversion {
   tiktokEventsSyncDetail Json?     @map("tiktok_events_sync_detail")
   createdAt DateTime @default(now()) @map("created_at")
 
-  click TrackingEvent @relation(fields: [clickId], references: [id], onDelete: Cascade)
-  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  presell PresellPage   @relation(fields: [presellId], references: [id], onDelete: Cascade)
+  click   TrackingEvent? @relation(fields: [clickId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell PresellPage?   @relation(fields: [presellId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, externalOrderId])
   @@index([userId])
   @@index([presellId])
   @@index([createdAt])
   @@index([userId, createdAt])
+  @@index([attribution])
   @@map("conversions")
 }
 

@@ -7,10 +7,13 @@ import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
 import {
   extractClickIdFromPayload,
+  extractSaleStatusFromPayload,
   flattenAffiliatePayload,
   isApprovedSaleStatus,
+  isNegativeSaleEvent,
   pickAmountDecimal,
   pickCurrency,
+  pickOrderIdFromPayload,
 } from "../lib/affiliatePostbackParsers";
 import {
   getGoogleAdsApiClientConfigFromEnv,
@@ -82,8 +85,9 @@ export const integrationsController = {
   },
 
   /**
-   * Postback HTTP das redes. Com status de venda aprovada + clickora_click_id (UUID do clique),
-   * cria registo em `conversions` e incrementa conversões da presell (1 clique = 1 conversão).
+   * Postback HTTP das redes. Com status de venda aprovada:
+   * - click UUID válido → conversão atribuída (1 clique = 1 conversão);
+   * - sem UUID / clique inexistente → conversão **não atribuída** (venda registada, sem inventar GCLID/presell).
    */
   async affiliateWebhook(req: Request, res: Response) {
     const tokenRaw = req.query.token?.toString();
@@ -111,12 +115,15 @@ export const integrationsController = {
       "postback";
 
     const clickId = extractClickIdFromPayload(flat);
-    const statusRaw =
-      flat.status || flat.payment_status || flat.order_status || flat.STATE || flat.state;
-    const approved = isApprovedSaleStatus(statusRaw);
+    const statusRaw = extractSaleStatusFromPayload(flat);
+    const approved = isApprovedSaleStatus(statusRaw) && !isNegativeSaleEvent(flat);
+    const externalOrderId = pickOrderIdFromPayload(flat);
+    const amount = pickAmountDecimal(flat);
+    const currency = pickCurrency(flat);
 
     type ConversionResult =
       | "created"
+      | "created_unattributed"
       | "duplicate"
       | "skipped_not_approved"
       | "skipped_no_click_id"
@@ -125,51 +132,67 @@ export const integrationsController = {
     let conversionResult: ConversionResult = "skipped_no_click_id";
     let presellPageId: string | null = null;
     let createdConversionId: string | null = null;
+    let attribution: "attributed" | "unattributed" | null = null;
+    let unattributedReason: string | null = null;
 
-    if (!approved) {
-      conversionResult = "skipped_not_approved";
-    } else if (!clickId) {
-      conversionResult = "skipped_no_click_id";
-    } else {
-      const click = await systemPrisma.trackingEvent.findFirst({
-        where: { id: clickId, userId: user.id, eventType: "click" },
-      });
-      if (!click?.presellPageId) {
-        conversionResult = "invalid_click";
-      } else {
-        presellPageId = click.presellPageId;
-        const amount = pickAmountDecimal(flat);
-        const currency = pickCurrency(flat);
-        const metadata = { ...flat, platform, postback_status: statusRaw } as Prisma.InputJsonValue;
+    const baseMeta = {
+      ...flat,
+      platform,
+      postback_status: statusRaw,
+    };
 
-        try {
-          const [createdConv] = await systemPrisma.$transaction([
-            systemPrisma.conversion.create({
-              data: {
-                clickId,
-                userId: user.id,
-                presellId: click.presellPageId,
-                campaign: click.campaign,
-                amount: amount ?? undefined,
-                currency,
-                status: "approved",
-                metadata,
-              },
-            }),
+    async function createConversion(data: {
+      clickId?: string | null;
+      presellId?: string | null;
+      campaign?: string | null;
+      attribution: "attributed" | "unattributed";
+      reason?: string;
+    }): Promise<"created" | "created_unattributed" | "duplicate"> {
+      const metadata = {
+        ...baseMeta,
+        attribution: data.attribution,
+        ...(data.reason ? { unattributed_reason: data.reason } : {}),
+      } as Prisma.InputJsonValue;
+
+      try {
+        const ops: Prisma.PrismaPromise<unknown>[] = [
+          systemPrisma.conversion.create({
+            data: {
+              clickId: data.clickId ?? null,
+              userId: user!.id,
+              presellId: data.presellId ?? null,
+              campaign: data.campaign ?? undefined,
+              amount: amount ?? undefined,
+              currency,
+              status: "approved",
+              attribution: data.attribution,
+              externalOrderId: externalOrderId ?? undefined,
+              metadata,
+            },
+          }),
+        ];
+        if (data.presellId && data.attribution === "attributed") {
+          ops.push(
             systemPrisma.presellPage.update({
-              where: { id: click.presellPageId },
+              where: { id: data.presellId },
               data: { conversions: { increment: 1 } },
             }),
-          ]);
-          createdConversionId = createdConv.id;
-          conversionResult = "created";
-          notifyTelegramSale(user.id, {
+          );
+        }
+        const [createdConv] = (await systemPrisma.$transaction(ops)) as [
+          { id: string },
+          ...unknown[],
+        ];
+        createdConversionId = createdConv.id;
+        attribution = data.attribution;
+        if (data.attribution === "attributed") {
+          notifyTelegramSale(user!.id, {
             platform,
             amount: amount != null ? amount.toString() : undefined,
             currency: currency ?? undefined,
             conversionId: createdConv.id,
           });
-          notifyWebPushConversion(user.id, {
+          notifyWebPushConversion(user!.id, {
             platform,
             amount: amount != null ? amount.toString() : undefined,
             currency: currency ?? undefined,
@@ -183,20 +206,59 @@ export const integrationsController = {
           void syncConversionToTikTokEvents(createdConv.id).catch((err) =>
             console.error("[syncConversionToTikTokEvents]", err),
           );
-        } catch (e) {
-          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-            conversionResult = "duplicate";
-          } else {
-            throw e;
-          }
+          return "created";
         }
+        return "created_unattributed";
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+          return "duplicate";
+        }
+        throw e;
       }
+    }
+
+    if (!approved) {
+      conversionResult = "skipped_not_approved";
+    } else if (clickId) {
+      const click = await systemPrisma.trackingEvent.findFirst({
+        where: { id: clickId, userId: user.id, eventType: "click" },
+      });
+      if (!click?.presellPageId) {
+        unattributedReason = click ? "click_without_presell" : "click_id_not_found";
+        conversionResult = await createConversion({
+          attribution: "unattributed",
+          reason: unattributedReason,
+        });
+        if (conversionResult === "created_unattributed") {
+          // Mantém etiqueta de auditoria: chegou UUID mas não bateu no clique.
+          // O resultado HTTP continua created_unattributed; postbackLog.message distingue.
+        }
+      } else {
+        presellPageId = click.presellPageId;
+        conversionResult = await createConversion({
+          clickId,
+          presellId: click.presellPageId,
+          campaign: click.campaign,
+          attribution: "attributed",
+        });
+      }
+    } else {
+      unattributedReason = "missing_click_id";
+      conversionResult = await createConversion({
+        attribution: "unattributed",
+        reason: unattributedReason,
+      });
     }
 
     const payloadLog = {
       platform,
       conversion: conversionResult,
+      attribution: attribution,
+      unattributed_reason: unattributedReason,
       click_id: clickId,
+      external_order_id: externalOrderId,
+      amount: amount != null ? amount.toString() : null,
+      currency,
       status_raw: statusRaw,
       flat,
       received_at: new Date().toISOString(),
@@ -207,26 +269,36 @@ export const integrationsController = {
     const text =
       `A rede de afiliados enviou um pedido de postback para a sua integração dclickora.\n\n` +
       `Resultado: ${conversionResult}\n` +
+      `Atribuição: ${attribution ?? "n/a"}\n` +
+      (unattributedReason ? `Motivo não atribuída: ${unattributedReason}\n` : "") +
       `Plataforma (metadata): ${platform}\n` +
       `Quando a conversão for criada e as integrações de anúncios estiverem activas, o servidor processará o envio a Google, Meta e/ou TikTok, conforme configurado — ver Relatórios → Conversões (estado de sync).\n\n` +
       `Detalhe (JSON):\n${JSON.stringify(payloadLog, null, 2)}`;
     const mail = await sendTransactionalEmail({ to, subject, text });
+
+    const logStatus =
+      conversionResult === "created" ||
+      conversionResult === "created_unattributed" ||
+      conversionResult === "duplicate"
+        ? "success"
+        : conversionResult === "skipped_not_approved"
+          ? "rejected"
+          : "info";
 
     await systemPrisma.postbackLog.create({
       data: {
         userId: user.id,
         presellPageId,
         platform: "affiliate_webhook",
-        status: conversionResult === "created" || conversionResult === "duplicate" ? "success" : "info",
-        message: conversionResult,
+        status: logStatus,
+        message: unattributedReason
+          ? `${conversionResult}:${unattributedReason}`
+          : conversionResult,
         payload: payloadLog as Prisma.InputJsonValue,
       },
     });
 
-    if (
-      approved &&
-      (conversionResult === "invalid_click" || conversionResult === "skipped_no_click_id")
-    ) {
+    if (approved && conversionResult === "created_unattributed") {
       notifyTelegramPostbackWarning(user.id, {
         platform,
         result: conversionResult,
@@ -237,10 +309,12 @@ export const integrationsController = {
     return res.status(200).json({
       ok: true,
       conversion: conversionResult,
-      ...(createdConversionId && { conversion_id: createdConversionId }),
+      attribution: attribution,
+      ...(unattributedReason ? { unattributed_reason: unattributedReason } : {}),
+      ...(createdConversionId ? { conversion_id: createdConversionId } : {}),
       google_ads_sync_queued: conversionResult === "created",
       email_sent: mail.sent,
-      ...(!mail.sent && { email_note: (mail as { reason: string }).reason }),
+      ...(!mail.sent ? { email_note: mail.reason } : {}),
     });
   },
 

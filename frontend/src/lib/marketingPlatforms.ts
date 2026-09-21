@@ -122,11 +122,15 @@ export const DEFAULT_AFFILIATE_POSTBACK_PRESET: AffiliatePostbackPreset = {
 export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbackPreset>> = {
   Digistore24: {
     hint:
-      "Digistore24: cam/aff são comuns na rede; o UUID do clique deve ir em clickora_click_id ou subid1 (mesmo valor que no link de oferta).",
+      "Digistore24 (S2S): no hoplink a Clickora envia cid=UUID. No postback usa {cid} (não {SUBID}). billing_status completed/paying = venda contada.",
     params: {
-      ...DEFAULT_POSTBACK_PARAMS,
-      cam: "{CAMPAIGNKEY}",
-      aff: "{AFFILIATE}",
+      cid: "{cid}",
+      sid1: "{sid1}",
+      clickora_click_id: "{cid}",
+      amount: "{amount_affiliate}",
+      billing_status: "{billing_status}",
+      orderid: "{order_id}",
+      cy: "{currency}",
     },
   },
   MaxWeb: {

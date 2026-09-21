@@ -442,6 +442,12 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
 
   if (!conv || conv.status !== "approved") return;
   if (conv.googleAdsSync === "sent") return;
+  if (!conv.click) {
+    await markGoogleAdsSkip(conv.id, "skipped_no_gclid", {
+      reason: "Conversão sem clique associado (não atribuída) — sem gclid/gbraid/wbraid para upload.",
+    });
+    return;
+  }
 
   const user = conv.user;
   if (!user.googleAdsEnabled) {

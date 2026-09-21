@@ -5,16 +5,17 @@ import { appendClickIdToAffiliateUrl } from "./appendClickIdToUrl";
 describe("appendClickIdToAffiliateUrl", () => {
   const uuid = "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee";
 
-  it("acrescenta clickora_click_id e cid/clickid quando ausentes", () => {
+  it("acrescenta clickora_click_id e cid/clickid/sid1 quando ausentes", () => {
     const out = appendClickIdToAffiliateUrl("https://offer.test/buy?a=1", uuid);
     const u = new URL(out);
     assert.equal(u.searchParams.get("a"), "1");
     assert.equal(u.searchParams.get("clickora_click_id"), uuid);
     assert.equal(u.searchParams.get("cid"), uuid);
     assert.equal(u.searchParams.get("clickid"), uuid);
+    assert.equal(u.searchParams.get("sid1"), uuid);
   });
 
-  it("não substitui cid nem clickid já definidos pela rede", () => {
+  it("não substitui cid nem clickid já definidos pela rede; sid1 fica como backup", () => {
     const out = appendClickIdToAffiliateUrl(
       "https://offer.test/go?cid=NETTOKEN&clickid=OTHER",
       uuid,
@@ -23,5 +24,6 @@ describe("appendClickIdToAffiliateUrl", () => {
     assert.equal(u.searchParams.get("cid"), "NETTOKEN");
     assert.equal(u.searchParams.get("clickid"), "OTHER");
     assert.equal(u.searchParams.get("clickora_click_id"), uuid);
+    assert.equal(u.searchParams.get("sid1"), uuid);
   });
 });
