@@ -21,15 +21,11 @@ import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
-
-const MODELS = [
-  { id: "review", label: "Review", type: "review" },
-  { id: "advertorial", label: "Advertorial", type: "dtc" },
-  { id: "comparison", label: "Comparison", type: "review" },
-  { id: "listicle", label: "Listicle", type: "cookies" },
-  { id: "vsl", label: "VSL", type: "vsl" },
-] as const;
+import { resolveVideoEmbedSrc, buildYoutubeEmbedUrlForPresell } from "@/lib/youtubeEmbed";
+import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
+import { getPresellTypeOption } from "@/lib/presellTypeOptions";
+import { PRESELL_CREATION_LANGUAGES, type PresellLocaleKey } from "@/lib/presellUiStrings";
+import { isDiscountPresellType, isVideoPresellType } from "@/lib/presellTypeMeta";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -55,8 +51,8 @@ function slugFromTitle(title: string) {
 }
 
 /**
- * Fluxo principal: Oferta → Campanha → Presell → Tracking → Publicar.
- * Importa conteúdo da oferta (como o formulário rápido) para o CTA e a página abrirem correctos.
+ * Fluxo: Oferta → Campanha → Tipo/idioma → Tracking → Publicar.
+ * Tipos iguais ao formulário completo (cookies, desconto, VSL, etc.).
  */
 export default function CreatePresellWizardPage() {
   const navigate = useNavigate();
@@ -66,8 +62,11 @@ export default function CreatePresellWizardPage() {
   const [campaignName, setCampaignName] = useState("");
   const [trafficSource, setTrafficSource] = useState("Google Ads");
   const [country, setCountry] = useState("US");
-  const [language, setLanguage] = useState("en");
-  const [modelId, setModelId] = useState<string>("review");
+  const [language, setLanguage] = useState<PresellLocaleKey>("pt-BR");
+  const [presellType, setPresellType] = useState("cookies");
+  const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
+  const [minAge, setMinAge] = useState("18");
+  const [manualYoutubeUrl, setManualYoutubeUrl] = useState("");
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [presellId, setPresellId] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
@@ -76,6 +75,7 @@ export default function CreatePresellWizardPage() {
   const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish">("idle");
 
   const platform = useMemo(() => detectPlatform(offerUrl), [offerUrl]);
+  const typeDetail = getPresellTypeOption(presellType);
 
   const { data: customDomains = [] } = useQuery({
     queryKey: ["custom-domain"],
@@ -109,8 +109,7 @@ export default function CreatePresellWizardPage() {
 
   const createPresell = useMutation({
     mutationFn: async () => {
-      const model = MODELS.find((m) => m.id === modelId) ?? MODELS[0];
-      const type = model.type;
+      const type = presellType;
       const titleSeed = campaignName.trim() || "Nova presell";
       const slug = `${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-4)}`;
       const offer = offerUrl.trim();
@@ -129,11 +128,12 @@ export default function CreatePresellWizardPage() {
       if (!imported.error && imported.data) {
         const data = imported.data;
         pageTitle = (data.title || data.product_name || titleSeed).slice(0, 200);
+        const isDiscount = isDiscountPresellType(type);
         content = {
           title: data.title,
           subtitle: data.subtitle,
           salesText: data.sales_text,
-          ctaText: data.cta_text,
+          ctaText: isDiscount ? data.official_buy_cta : data.cta_text,
           affiliateLink: data.affiliate_link || offer,
           productName: data.product_name,
           productImages: data.images,
@@ -145,12 +145,24 @@ export default function CreatePresellWizardPage() {
             : {}),
           ratingValue: data.rating_value,
           ratingStars: data.rating_stars ?? 5,
+          ...(isDiscount
+            ? {
+                discountHeadline: data.discount_headline,
+                socialProofLine: data.social_proof,
+                urgencyTimerSeconds: data.urgency_timer_seconds ?? 649,
+              }
+            : {}),
         };
-        if (type === "vsl" && data.video_url) {
-          video_url = resolveVideoEmbedSrc(data.video_url) || null;
+        if (isVideoPresellType(type)) {
+          if (data.video_url) {
+            video_url = resolveVideoEmbedSrc(data.video_url) || null;
+          } else if (manualYoutubeUrl.trim()) {
+            const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
+            if (!embed) throw new Error("URL do YouTube inválido.");
+            video_url = embed;
+          }
         }
       } else {
-        /** Import falhou (timeout, bloqueio, etc.) — ainda assim o CTA deve ir à oferta. */
         toast.message("Não foi possível espelhar a página da oferta; o link do anúncio fica funcional.");
         content = {
           title: titleSeed,
@@ -162,7 +174,16 @@ export default function CreatePresellWizardPage() {
           productImages: [],
           sourceUrl: offer,
         };
+        if (isVideoPresellType(type) && manualYoutubeUrl.trim()) {
+          const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
+          if (embed) video_url = embed;
+        }
       }
+
+      const settings: Record<string, unknown> = {
+        cookiePolicyUrl: cookiePolicyUrl.trim() || undefined,
+        minAge: minAge.trim() || "18",
+      };
 
       setGenPhase("publish");
       const { data, error } = await presellService.create({
@@ -177,7 +198,7 @@ export default function CreatePresellWizardPage() {
           affiliateNetwork: platform ?? undefined,
         },
         content,
-        settings: {},
+        settings,
       } as never);
       if (error || !data) throw new Error(error || "Falha ao criar presell");
       return data;
@@ -204,7 +225,6 @@ export default function CreatePresellWizardPage() {
     },
   });
 
-  /** URL limpa para pré-visualizar (sem macros {gclid} do anúncio). */
   const previewUrl = publicUrl;
   const tracked =
     publicUrl && campaignName
@@ -222,7 +242,7 @@ export default function CreatePresellWizardPage() {
   const steps = [
     { n: 1 as const, label: "Oferta" },
     { n: 2 as const, label: "Campanha" },
-    { n: 3 as const, label: "Presell" },
+    { n: 3 as const, label: "Tipo e idioma" },
     { n: 4 as const, label: "Tracking" },
     { n: 5 as const, label: "Publicar" },
   ];
@@ -240,7 +260,7 @@ export default function CreatePresellWizardPage() {
     <div className={cn(APP_PAGE_SHELL, "max-w-2xl")}>
       <PageHeader
         title="Criar presell"
-        description="Cinco passos. O tracking fica configurado automaticamente."
+        description="Escolha tipo (cookies, desconto, VSL…), idioma e publique. O tracking fica automático."
         actions={
           <Button variant="outline" onClick={() => navigate("/presells")}>
             Cancelar
@@ -270,7 +290,7 @@ export default function CreatePresellWizardPage() {
       {step === 1 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
           <div className="space-y-2">
-            <Label htmlFor="offer">Cole o link da oferta</Label>
+            <Label htmlFor="offer">Cole o link da oferta (hoplink)</Label>
             <Input
               id="offer"
               placeholder="https://…"
@@ -323,15 +343,9 @@ export default function CreatePresellWizardPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>País</Label>
-              <Input value={country} onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Idioma</Label>
-              <Input value={language} onChange={(e) => setLanguage(e.target.value.slice(0, 8))} />
-            </div>
+          <div className="space-y-2 max-w-[8rem]">
+            <Label>País (anúncio)</Label>
+            <Input value={country} onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setStep(1)}>
@@ -348,31 +362,94 @@ export default function CreatePresellWizardPage() {
       )}
 
       {step === 3 && (
-        <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
-          <p className="text-sm text-muted-foreground">
-            Escolha um modelo. A oferta é lida automaticamente para a página e o botão de compra.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {MODELS.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setModelId(m.id)}
-                className={cn(
-                  "rounded-lg border px-3 py-4 text-sm font-medium text-left transition-colors",
-                  modelId === m.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border/60 hover:border-primary/40",
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
+        <div className="space-y-5 rounded-xl border border-border/60 bg-card p-5">
+          <div className="space-y-2">
+            <Label>Idioma da página</Label>
+            <Select value={language} onValueChange={(v) => setLanguage(v as PresellLocaleKey)}>
+              <SelectTrigger className="max-w-md">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESELL_CREATION_LANGUAGES.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Textos da UI pública (cookies, botões, etc.).</p>
           </div>
+
+          <div className="space-y-2">
+            <Label>Tipo de presell</Label>
+            <PresellTypeCombobox value={presellType} onValueChange={setPresellType} />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Pesquisa por «cookie», «desconto», «VSL», «idade»… Cada tipo muda o que o visitante vê.
+            </p>
+            {typeDetail ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                <p className="font-medium text-foreground/90">{typeDetail.name}</p>
+                <p className="mt-1">{typeDetail.description}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">
+            <p className="text-sm font-medium text-foreground">Opções do tipo</p>
+            {presellType === "cookies" ? (
+              <div className="space-y-2">
+                <Label htmlFor="cookiePolicy">URL política de cookies (opcional)</Label>
+                <Input
+                  id="cookiePolicy"
+                  type="url"
+                  placeholder="https://…"
+                  value={cookiePolicyUrl}
+                  onChange={(e) => setCookiePolicyUrl(e.target.value)}
+                />
+              </div>
+            ) : null}
+            {["idade", "idade_sexo", "idade_pais"].includes(presellType) ? (
+              <div className="space-y-2 max-w-[8rem]">
+                <Label htmlFor="minAge">Idade mínima</Label>
+                <Input
+                  id="minAge"
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                />
+              </div>
+            ) : null}
+            {isVideoPresellType(presellType) ? (
+              <div className="space-y-2">
+                <Label htmlFor="yt">YouTube (se o import não trouxer vídeo)</Label>
+                <Input
+                  id="yt"
+                  placeholder="https://youtube.com/watch?v=…"
+                  value={manualYoutubeUrl}
+                  onChange={(e) => setManualYoutubeUrl(e.target.value)}
+                />
+              </div>
+            ) : null}
+            {isDiscountPresellType(presellType) ? (
+              <p className="text-xs text-muted-foreground">
+                Desconto e urgência vêm do import da página do produto (percentagem, contagem, prova social).
+              </p>
+            ) : null}
+            {presellType === "fantasma" ? (
+              <p className="text-xs text-muted-foreground">
+                Redirect no primeiro gesto. Confirme se a rede e a compliance o permitem.
+              </p>
+            ) : null}
+            {!["cookies", "idade", "idade_sexo", "idade_pais", "fantasma"].includes(presellType) &&
+            !isVideoPresellType(presellType) &&
+            !isDiscountPresellType(presellType) ? (
+              <p className="text-xs text-muted-foreground">Sem opções extra para este tipo — o import preenche o conteúdo.</p>
+            ) : null}
+          </div>
+
           {createPresell.isPending ? (
             <p className="text-xs text-muted-foreground">
               {genPhase === "import"
-                ? "A extrair título, imagens e link da oferta (pode demorar alguns segundos)…"
+                ? "A extrair título, imagens e link da oferta…"
                 : "A publicar a presell…"}
             </p>
           ) : null}
@@ -384,6 +461,10 @@ export default function CreatePresellWizardPage() {
               {genLabel}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Prefere o formulário completo? Em Presells use{" "}
+            <strong className="text-foreground/90">Formulário rápido</strong>.
+          </p>
         </div>
       )}
 
@@ -410,7 +491,7 @@ export default function CreatePresellWizardPage() {
             <p className="font-medium text-foreground mb-1">Para vendas aparecerem no painel</p>
             <p>
               Em <strong className="text-foreground/90">Integrações → Vendas da rede</strong>, escolha BuyGoods ou SmartAdv,
-              copie o URL com macros e cole no postback da plataforma. Sem este passo, os cliques registam-se mas as vendas da rede não entram.
+              copie o URL com macros e cole no postback da plataforma.
             </p>
           </div>
           <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
@@ -420,7 +501,6 @@ export default function CreatePresellWizardPage() {
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="text-sm text-muted-foreground space-y-2 pt-2">
-              <p>Postback, domínio e diagnóstico ficam em Integrações e Configurações.</p>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/integracoes">Abrir Integrações</Link>
               </Button>
@@ -442,18 +522,19 @@ export default function CreatePresellWizardPage() {
           <p className="font-semibold text-lg">A sua presell está pronta</p>
           <ul className="text-sm space-y-1.5">
             <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-600" /> Presell publicada
+              <Check className="h-4 w-4 text-emerald-600" /> Tipo: {typeDetail?.name ?? presellType}
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-emerald-600" /> Idioma: {language}
             </li>
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-emerald-600" /> Tracking activo
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-600" /> Conversões preparadas
+              {presellId ? ` · ${presellId.slice(0, 8)}…` : ""}
             </li>
           </ul>
           {tracked ? (
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">URL para o anúncio (com UTMs / click ID):</p>
+              <p className="text-xs text-muted-foreground">URL para o anúncio:</p>
               <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
             </div>
           ) : null}
@@ -479,11 +560,6 @@ export default function CreatePresellWizardPage() {
               </Button>
             )}
           </div>
-          {presellId ? (
-            <Button variant="link" className="px-0" asChild>
-              <Link to="/presells">Editar conteúdo da página</Link>
-            </Button>
-          ) : null}
         </div>
       )}
     </div>
