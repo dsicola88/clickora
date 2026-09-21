@@ -149,82 +149,86 @@ export default function SetupAssistantPage() {
   const steps: SetupStep[] = useMemo(() => {
     const s: SetupStep[] = [
       {
-        id: "presell",
-        title: "1. Presell publicada",
+        id: "domain",
+        title: "1. Domínio (opcional mas recomendado)",
         description:
-          "Crie uma página intermédia (importando o link do produto ou no editor), depois passe a «Publicada». Use no anúncio o endereço público /p/… — os cliques já são contados nesta página.",
+          "Liga o teu domínio em Domínio (DNS). Sem domínio próprio, as páginas usam o endereço da conta — os cliques funcionam na mesma.",
+        status: "pending",
+        actions: [{ to: "/tracking/settings", label: "Configurar domínio" }],
+        hint: "Podes avançar e voltar depois. SSL fica a cargo da Clickora após o DNS.",
+      },
+      {
+        id: "presell",
+        title: "2. Presell publicada",
+        description:
+          "Cria a página (visual do produto + hoplink da rede) e publica. O anúncio deve abrir só o link /p/… — nunca a página do produto em cru.",
         status: hasPublished ? "done" : "pending",
-        actions: [
-          { to: "/presell/dashboard", label: "Abrir presells" },
-          { to: "/presell/templates/editor", label: "Modelos" },
-        ],
+        actions: [{ to: "/presell/dashboard", label: "Minhas Presells" }],
         hint: hasPublished
           ? `${published.length} página(s) publicada(s).`
-          : "Nenhuma presell publicada nesta conta.",
+          : "Ainda sem presell publicada.",
       },
       {
         id: "urls",
-        title: "2. Link do anúncio (parâmetros opcionais)",
+        title: "3. Link do anúncio",
         description:
-          "No Construtor de URL, copie o link completo ou o sufixo para colar no Google/Meta. O anúncio deve abrir a mesma página /p/… — os textos técnicos aparecem já prontos lá.",
+          "Em Gerar link, copia o URL da presell (com UTMs se quiseres). Cola esse link no Google/Meta/TikTok.",
         status: hasPublished ? "done" : "warn",
-        actions: [
-          { to: "/tracking/url-builder", label: "Construtor de URL" },
-          { to: "/tracking/links", label: "Links de tracking" },
-        ],
-        hint: !hasPublished ? "Publique primeiro uma presell para copiar o URL base." : undefined,
+        actions: [{ to: "/tracking/url-builder", label: "Gerar link" }],
+        hint: !hasPublished ? "Publica uma presell primeiro." : undefined,
       },
       {
         id: "clicks",
-        title: "3. Fazer um teste rápido",
+        title: "4. Tracking — teste de clique",
         description:
-          "Numa janela anónima ou noutro telemóvel, abra a sua presell, clique no botão da oferta e volte aqui: em Resumo ou Relatórios deve aparecer pelo menos um clique (ajuste as datas se não vir nada).",
+          "Abre a presell pública, clica no botão da oferta (não no URL do formulário). Em Relatórios deve aparecer o clique.",
         status: clicks > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
-          { to: "/tracking/dashboard", label: "Resumo e guia" },
-          { to: "/tracking/relatorios/cliques", label: "Relatório de cliques" },
+          { to: "/tracking/relatorios/cliques", label: "Ver cliques" },
+          { to: "/tracking/dashboard", label: "Resumo" },
         ],
         hint:
           clicks > 0
-            ? `${clicks} clique(s) no período do resumo (~últimos 14 dias).`
-            : "Ainda sem cliques neste período — faça um teste como acima ou alargue as datas no Resumo.",
+            ? `${clicks} clique(s) no período do resumo.`
+            : "Sem cliques neste período — faz um teste na página /p/…",
       },
       {
         id: "postback",
-        title: "4. Avisos de venda na rede de afiliados",
+        title: "5. Postback (vendas)",
         description:
-          "Em Plataformas aparece um endereço para colar na Hotmart ou rede semelhante — assim cada venda aprovada entra aqui e liga ao clique. Sem este passo, só vê cliques, não vendas.",
+          "Em Postback copia o URL e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
         status: approvedSales > 0 || conversions > 0 ? "done" : hasPublished ? "warn" : "pending",
-        actions: [
-          { to: "/tracking/plataformas", label: "Plataformas" },
-          { to: "/tracking/tools/postbacks", label: "Modelos de postback" },
-        ],
+        actions: [{ to: "/tracking/plataformas", label: "Configurar postback" }],
         hint: webhook?.hook_url
           ? approvedSales > 0 || conversions > 0
-            ? "Há conversões registadas no período."
-            : "Endereço pronto — confirme na rede que está guardado."
-          : "Abra Plataformas para ver o endereço (ou confirmar permissões da conta).",
+            ? "Há conversões no período."
+            : "URL pronto — confirma na rede que está activo."
+          : "Abre Postback para obter o URL (ou verifica o plano).",
+      },
+      {
+        id: "reports",
+        title: "6. Conversões e relatórios",
+        description: "Cliques, vendas e receita aparecem em Conversões e relatórios (dados reais da conta).",
+        status: conversions > 0 || approvedSales > 0 || clicks > 0 ? "done" : "pending",
+        actions: [{ to: "/tracking/relatorios", label: "Abrir relatórios" }],
       },
       {
         id: "google",
-        title: "5. Google Ads — contar vendas (opcional)",
+        title: "7. Google Ads (opcional)",
         description:
-          "Se investe em Google: no «Resumo e guia», ligue a sua conta Google Ads, confirme o número da conta e a conversão. Assim uma venda aprovada pode aparecer também no Google (quando há identificadores de clique). Importar ficheiros é outro caminho — aqui é o envio automático.",
+          "Se anuncias no Google: no Resumo liga a conta para enviar vendas aprovadas (quando há gclid).",
         status: gaCanUpload ? "done" : gaHasOAuth && gaCustomer && gaEnv ? "warn" : "pending",
-        actions: [{ to: "/tracking/dashboard", label: "Definições Google Ads" }],
+        actions: [{ to: "/tracking/dashboard", label: "Resumo / Google Ads" }],
         hint: !gaEnv
-          ? "Neste ambiente a ligação automática com Google ainda não está activa — o administrador tem de concluir a configuração no servidor."
+          ? "API Google ainda não configurada neste ambiente (admin do servidor)."
           : gaCanUpload
-            ? "Tudo certo: conta ligada e envio pronto."
-            : gaHasOAuth && gaCustomer
-              ? "Falta um último passo no painel (activar envio ou confirmar o número da conversão)."
-              : "Ligue a sua conta Google Ads e indique o número da conta (só dígitos).",
+            ? "Envio à Google pronto."
+            : "Liga a conta e confirma o ID da conversão.",
       },
       {
         id: "capi",
-        title: "6. Meta e TikTok (opcional)",
-        description:
-          "Se anuncia no Facebook/Instagram ou TikTok, pode enviar também a compra para lá (no mesmo sítio que o Google). Só vale se o visitante entrou com o link que traz os identificadores da rede — configure no «Resumo e guia».",
+        title: "8. Meta e TikTok (opcional)",
+        description: "Envio de compras às redes sociais — só se anunciares lá. Configura no Resumo.",
         status: !metaTikTokDataReady
           ? "pending"
           : metaTikTokOptionalOk && !metaTikTokWarn
@@ -232,27 +236,13 @@ export default function SetupAssistantPage() {
             : metaTikTokWarn
               ? "warn"
               : "pending",
-        actions: [
-          { to: "/tracking/dashboard", label: "Resumo e guia" },
-          { to: "/tracking/relatorios", label: "Relatórios (sync)" },
-        ],
+        actions: [{ to: "/tracking/dashboard", label: "Resumo" }],
         hint: !metaTikTokDataReady
-          ? "A obter o estado de Meta e TikTok… Se persistir, actualize a página ou confirme a sua sessão."
+          ? "A obter estado…"
           : [
-              `Meta: ${!metaEnabled ? "sem ligação (pode ignorar)." : metaReady ? "pronta." : "ligada — falta preencher Pixel e token no guia."}`,
-              `TikTok: ${!ttEnabled ? "sem ligação (pode ignorar)." : ttReady ? "pronta." : "ligada — falta preencher Pixel e token no guia."}`,
+              `Meta: ${!metaEnabled ? "ignorável." : metaReady ? "pronta." : "falta Pixel/token."}`,
+              `TikTok: ${!ttEnabled ? "ignorável." : ttReady ? "pronta." : "falta Pixel/token."}`,
             ].join(" "),
-      },
-      {
-        id: "learn",
-        title: "7. Ajuda e dúvidas",
-        description:
-          "No separador «Aprender» há guias por tema e respostas quando algo não bate certo (cliques, vendas, redes).",
-        status: "pending",
-        actions: [
-          { to: "/ajuda", label: "Aprender" },
-          { to: "/ajuda#problemas", label: "Resolução de problemas" },
-        ],
       },
     ];
     return s;
@@ -278,7 +268,7 @@ export default function SetupAssistantPage() {
     metaTikTokDataReady,
   ]);
 
-  const coreSteps = steps.filter((x) => x.id !== "learn");
+  const coreSteps = steps.filter((x) => x.id !== "google" && x.id !== "capi" && x.id !== "domain");
   const doneCount = coreSteps.filter((x) => x.status === "done").length;
   const warnCount = coreSteps.filter((x) => x.status === "warn").length;
   const showMetaTiktokBadges = metaCapi != null && tiktokEvents != null;
@@ -286,8 +276,8 @@ export default function SetupAssistantPage() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Assistente de configuração"
-        description="Passo a passo simples. Os números de cliques e vendas seguem o mesmo período do Resumo (cerca de 14 dias)."
+        title="Começar aqui"
+        description="Domínio → Presell → Link → Teste → Postback → Relatórios. Números = período do Resumo (~14 dias)."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -305,12 +295,12 @@ export default function SetupAssistantPage() {
               }}
             >
               <RefreshCw className={`h-4 w-4 ${refreshingChecks ? "animate-spin" : ""}`} />
-              Atualizar estado
+              Atualizar
             </Button>
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <Link to="/ajuda">
                 <LayoutList className="h-4 w-4" />
-                Aprender
+                Ajuda
               </Link>
             </Button>
           </div>
@@ -323,17 +313,49 @@ export default function SetupAssistantPage() {
         <>
           {dashboardError ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90">
-              Não foi possível carregar o resumo de métricas. Os passos baseados em cliques e vendas podem não reflectar dados recentes — abra{" "}
+              Não foi possível carregar métricas. Abra o{" "}
               <Link to="/tracking/dashboard" className="font-medium underline underline-offset-2">
-                Resumo e guia
+                Resumo
               </Link>{" "}
-              ou tente actualizar esta página.
+              ou actualize.
             </p>
           ) : null}
+
+          <div className="grid gap-2 sm:grid-cols-3 rounded-xl border border-border/70 bg-card px-3 py-3 text-sm">
+            <div className="flex items-center gap-2 px-2 py-1">
+              {hasPublished ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              ) : (
+                <CircleDashed className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <span>{hasPublished ? "Presell publicada" : "Falta publicar presell"}</span>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-1">
+              {clicks > 0 ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              ) : (
+                <CircleDashed className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <span>{clicks > 0 ? `Cliques recebidos (${clicks})` : "Ainda sem cliques"}</span>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-1">
+              {conversions > 0 || approvedSales > 0 ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              ) : (
+                <CircleDashed className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <span>
+                {conversions > 0 || approvedSales > 0
+                  ? `Conversões (${conversions || approvedSales})`
+                  : "Ainda sem conversões"}
+              </span>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
             <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
             <span className="text-muted-foreground">
-              Passos da checklist:{" "}
+              Essencial:{" "}
               <strong className="text-foreground">
                 {doneCount}/{coreSteps.length}
               </strong>{" "}
@@ -350,17 +372,17 @@ export default function SetupAssistantPage() {
             </span>
             {gaMetricsReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Relatórios Google Ads ligados
+                Google Ads ligado
               </Badge>
             ) : null}
             {showMetaTiktokBadges && pipeline?.meta_capi_integration ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Meta — definições completas
+                Meta OK
               </Badge>
             ) : null}
             {showMetaTiktokBadges && pipeline?.tiktok_events_integration ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                TikTok — definições completas
+                TikTok OK
               </Badge>
             ) : null}
           </div>

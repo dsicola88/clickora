@@ -123,7 +123,7 @@ export default function PresellDashboard() {
       raw === "rastreamento-script"
         ? `?${PRESELL_DASH_ANALYTICS_TAB_PARAM}=rastreamento`
         : `?${PRESELL_DASH_ANALYTICS_TAB_PARAM}=pais`;
-    navigate({ pathname: "/presell/dashboard", search, hash: "" }, { replace: true });
+    navigate({ pathname: "/presells", search, hash: "" }, { replace: true });
   }, [location.hash, navigate]);
 
   const onAnalyticsTabChange = (v: PresellDashAnalyticsTab) => {
@@ -201,32 +201,10 @@ export default function PresellDashboard() {
       setShowCreator(false);
       resetForm();
       if (created?.id) {
-        const publicUrl = getPublicPresellFullUrl(customDomains, created.custom_domain_id ?? null, {
-          id: created.id,
-        });
-        const content = (created.content || {}) as Record<string, unknown>;
-        const offerRaw = String(content.affiliateLink ?? "").trim();
-        const params = new URLSearchParams();
-        params.set("base", publicUrl);
-        params.set("from", "presell");
-        let offerOk = false;
-        if (offerRaw) {
-          try {
-            const u = new URL(offerRaw);
-            if (u.protocol === "http:" || u.protocol === "https:") {
-              params.set("offer", offerRaw);
-              offerOk = true;
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-        navigate(`/tracking/url-builder?${params.toString()}`);
+        navigate("/campanhas");
         toast.success(
-          offerOk
-            ? "Presell criada. Abriu o Construtor de URL com o link público — escolha a rede, adicione UTMs e IDs de clique. O botão da presell já usa o teu link de afiliado."
-            : "Presell criada. Abriu o Construtor de URL com o link público — escolha a rede e complete o tracking.",
-          { duration: 11000 },
+          "Presell criada. Continue em Campanhas ou use «Nova presell» para o assistente completo com link do anúncio.",
+          { duration: 8000 },
         );
       } else {
         toast.success("Página criada! Texto e imagens foram gerados automaticamente.");
@@ -267,7 +245,7 @@ export default function PresellDashboard() {
     language: "pt-BR",
     /** URL da página de vendas que o servidor importa (clone do conteúdo). */
     productLink: "",
-    /** Hoplink / destino do botão; vazio = reutiliza o URL final obtido na importação (só seguro se esse URL já for rastreado). */
+    /** Hoplink da rede — destino do botão (obrigatório para atribuição no marketplace). */
     affiliateLink: "",
     /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
     customDomainId: "",
@@ -314,8 +292,8 @@ export default function PresellDashboard() {
   };
 
   const effectiveAffiliateLink = useMemo(
-    () => formData.affiliateLink.trim() || formData.productLink.trim(),
-    [formData.affiliateLink, formData.productLink],
+    () => formData.affiliateLink.trim(),
+    [formData.affiliateLink],
   );
 
   const goCreatorNext = () => {
@@ -556,7 +534,16 @@ export default function PresellDashboard() {
 
     const slug = sanitizeSlug(formData.pageSlug || formData.pageName);
     const importUrl = formData.productLink.trim();
-    const ctaAffiliate = formData.affiliateLink.trim() || importUrl;
+    const ctaAffiliate = formData.affiliateLink.trim();
+    if (!ctaAffiliate) {
+      toast.error("Indique o hoplink da rede (destino do botão). Sem ele o marketplace não atribui o clique.");
+      setCreatorStep(1);
+      setFormErrors((prev) => ({
+        ...prev,
+        affiliateLink: "Cole o hoplink da rede (obrigatório).",
+      }));
+      return;
+    }
 
     if (editingId && editingPage) {
       setIsSavingPage(true);
@@ -614,7 +601,7 @@ export default function PresellDashboard() {
       const { data, error } = await presellService.importFromUrl({
         product_url: importUrl,
         language: formData.language,
-        affiliate_link: formData.affiliateLink.trim() || undefined,
+        affiliate_link: formData.affiliateLink.trim(),
       });
 
       if (error || !data) {
@@ -760,18 +747,22 @@ export default function PresellDashboard() {
               </>
             ) : (
               <>
-                <p className="font-medium text-card-foreground mb-2">Ao criar</p>
-                <p className="mb-3 text-xs sm:text-sm text-muted-foreground">
-                  Página pública em <span className="font-mono text-[11px]">…/p/&lt;id&gt;</span> —{" "}
-                  {hasVerifiedCustomDomain ? "domínio verificado ou dclickora." : "domínio dclickora."}{" "}
-                  O anúncio usa esse link com <span className="font-mono text-[11px]">/p/</span> (copiado ao concluir).
-                </p>
-                <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground">
-                  <li>Importamos texto e imagens do URL da oferta.</li>
-                  <li>Montamos página estruturada (não é cópia 1:1 do site original).</li>
-                  <li>VSL/TSL conforme o tipo; vídeo detetado quando o HTML expõe URL.</li>
-                  <li>Editor manual para desenho por blocos — outro fluxo, mesmo limite de presells.</li>
-                </ul>
+                <p className="font-medium text-card-foreground mb-2">Como funciona (sem WordPress)</p>
+                <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground">
+                  <li>
+                    Ligar o <span className="font-medium text-foreground/90">teu domínio</span> (DNS) — a Clickora
+                    publica a página e o SSL.
+                  </li>
+                  <li>
+                    Criar a <span className="font-medium text-foreground/90">presell</span> com o visual do produto + o{" "}
+                    <span className="font-medium text-foreground/90">hoplink</span> da rede.
+                  </li>
+                  <li>
+                    No anúncio usa só o link público{" "}
+                    <span className="font-mono text-[11px]">…/p/&lt;id&gt;</span> — o botão conta o clique e envia à
+                    oferta.
+                  </li>
+                </ol>
               </>
             )}
           </div>
@@ -779,13 +770,13 @@ export default function PresellDashboard() {
 
         {!isEditing ? (
           <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 mb-4">
-            <p className="text-xs font-medium text-foreground/90 mb-3">Assistente em 3 passos</p>
+            <p className="text-xs font-medium text-foreground/90 mb-3">3 passos</p>
             <ol className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-8 text-sm">
               {(
                 [
-                  { n: 1 as const, label: "Projeto e URLs" },
-                  { n: 2 as const, label: "Tipo e regras" },
-                  { n: 3 as const, label: "Endereço e extras" },
+                  { n: 1 as const, label: "Nome + URLs" },
+                  { n: 2 as const, label: "Tipo" },
+                  { n: 3 as const, label: "Publicar" },
                 ] as const
               ).map(({ n, label }) => (
                 <li key={n} className="flex items-center gap-2 min-w-0">
@@ -812,9 +803,6 @@ export default function PresellDashboard() {
                 </li>
               ))}
             </ol>
-            <p className="text-[11px] text-muted-foreground mt-3">
-              Estilo ferramentas dedicadas: projeto, hoplink recomendado, modelo (cookies, VSL…) e slug.
-            </p>
           </div>
         ) : null}
 
@@ -824,10 +812,10 @@ export default function PresellDashboard() {
               {isEditing
                 ? "Dados da presell"
                 : creatorStep === 1
-                  ? "Passo 1 — Projeto e URLs"
+                  ? "Passo 1 — Nome e links"
                   : creatorStep === 2
-                    ? "Passo 2 — Tipo e regras"
-                    : "Passo 3 — Endereço público e rastreamento"}
+                    ? "Passo 2 — Tipo de página"
+                    : "Passo 3 — Endereço e criar"}
             </h2>
           </div>
           <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -856,59 +844,44 @@ export default function PresellDashboard() {
                     className={formErrors.pageName ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.pageName} />
-                  <p className="text-xs text-muted-foreground">Identifica a presell na tua lista (como no SpeedyPresell).</p>
+                  <p className="text-xs text-muted-foreground">Só para te organizares na lista — não é o link do anúncio.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="productLink">URL da página a importar</Label>
+                  <Label htmlFor="productLink">1) Página do produto (só visual)</Label>
                   <Input
                     id="productLink"
                     type="url"
-                    placeholder="https://… (página de vendas pública — lemos o HTML e geramos a presell)"
+                    placeholder="https://… página pública do produto"
                     value={formData.productLink}
                     onChange={(e) => updateField("productLink", e.target.value)}
                     className={formErrors.productLink ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.productLink} />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Para melhor resultado use o URL da página pública oficial do produto (começa com{" "}
-                    <span className="font-mono text-[11px]">https://</span>) — lemos esse HTML para montar texto e imagens.
-                  </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Se sair pouco texto ou ficar incompleto, experimente outro endereço da mesma oferta ou crie páginas no{" "}
-                    <Link
-                      to="/presell/templates/editor"
-                      className="text-primary underline underline-offset-2 hover:no-underline"
-                    >
-                      criador guiado ou modelos
-                    </Link>
-                    , ou monte ao teu modo no{" "}
-                    <Link to="/presell/builder" className="text-primary underline underline-offset-2 hover:no-underline">
-                      editor manual
-                    </Link>
-                    . Evite localhost e o painel Clickora aqui — use apenas a página pública onde o produto se vende.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Para inglês gerado nos textos do passo seguinte, escolha English no idioma abaixo.
+                    Usamos este URL para copiar textos e imagens.{" "}
+                    <span className="font-medium text-foreground/90">Não conta cliques</span> no marketplace.
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="affiliateLinkOpt">Hoplink / checkout — destino do botão</Label>
+                <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/[0.04] p-3 sm:p-4">
+                  <Label htmlFor="affiliateLinkOpt" className="text-foreground">
+                    2) Hoplink da rede — destino do botão{" "}
+                    <span className="text-destructive font-normal">(obrigatório)</span>
+                  </Label>
                   <Input
                     id="affiliateLinkOpt"
                     type="url"
-                    placeholder="https://… (link da rede com o teu ID, subid, macros — o que deve receber o clique)"
+                    placeholder="https://… link de afiliado da Digistore / ClickBank / etc."
                     value={formData.affiliateLink}
                     onChange={(e) => updateField("affiliateLink", e.target.value)}
                     className={formErrors.affiliateLink ? "border-destructive focus-visible:ring-destructive" : ""}
+                    required
                   />
                   <FieldError message={formErrors.affiliateLink} />
-                  <p className="text-xs text-muted-foreground">
-                    Hoplink com tracking da rede — destino do botão e conversão a contar.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Só omita se o URL de importação já for o teu link rastreado.
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Este é o link que a rede te dá (com o teu ID). O botão da presell envia o visitante para aqui — é o
+                    que faz o marketplace registar o teu clique e a venda.
                   </p>
                 </div>
 
@@ -1218,13 +1191,11 @@ export default function PresellDashboard() {
     return (
       <EmptyState
         title="Nenhuma presell criada"
-            description={
-              isAdmin
-                ? "Assistente por URL (passos) ou editor por blocos — ambos em /p/…"
-                : "Crie a primeira página (automática ou manual)."
-            }
-        actionLabel={canWritePresells ? "Criar presell (3 passos)" : undefined}
-        onAction={
+        description="Crie a página em poucos passos. O tracking fica activo automaticamente."
+        actionLabel={canWritePresells ? "Criar presell" : undefined}
+        onAction={canWritePresells ? () => navigate("/presells/nova") : undefined}
+        secondaryActionLabel={canWritePresells ? "Formulário rápido" : undefined}
+        secondaryOnAction={
           canWritePresells
             ? () => {
                 resetForm({ presetCustomDomain: true });
@@ -1232,8 +1203,6 @@ export default function PresellDashboard() {
               }
             : undefined
         }
-        secondaryActionLabel={canWritePresells ? "Editor manual (por blocos)" : undefined}
-        secondaryOnAction={canWritePresells ? () => navigate("/presell/builder") : undefined}
         icon={<FileText className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -1247,7 +1216,7 @@ export default function PresellDashboard() {
           description="Impressões, cliques e conversões das presells com o script Clickora no head."
           actions={
             <Button variant="outline" asChild className="gap-1">
-              <Link to="/presell/dashboard">
+              <Link to="/presells">
                 <ChevronLeft className="h-4 w-4" />
                 Voltar às presells
               </Link>
@@ -1305,22 +1274,23 @@ export default function PresellDashboard() {
   return (
     <div className={cn(APP_PAGE_SHELL, "space-y-6")}>
       <PageHeader
-        title="Lista de páginas Presell"
-        description={isAdmin ? "Duplicar, publicar e organizar num só sítio." : undefined}
+        title="Presells"
+        description="Páginas publicadas e rascunhos."
         actions={
           canWritePresells ? (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button onClick={() => navigate("/presells/nova")} className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
+                <Plus className="h-4 w-4" /> Nova presell
+              </Button>
               <Button
+                variant="outline"
                 onClick={() => {
                   resetForm({ presetCustomDomain: true });
                   setShowCreator(true);
                 }}
-                className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
+                className="gap-2"
               >
-                <Plus className="h-4 w-4" /> Nova presell rápida
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
-                <LayoutGrid className="h-4 w-4" /> Editor manual
+                Formulário rápido
               </Button>
             </div>
           ) : null
@@ -1352,8 +1322,9 @@ export default function PresellDashboard() {
       <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/20 px-3 py-2 leading-relaxed">
         <span className="font-medium text-card-foreground">Anúncios e partilha:</span> o link que copias é sempre{" "}
         <code className="text-[11px] bg-background px-1 rounded">https://teu-dominio/p/&lt;id&gt;</code> (com domínio
-        verificado, o dclickora ou o que estiver na conta). O «endereço» (slug) no formulário é só nome interno. O link do
-        produto (afiliado) não substitui este URL — fica no botão da presell.{" "}
+        verificado, ou o da conta). O «endereço» (slug) é só nome interno. O{" "}
+        <span className="font-medium text-card-foreground">hoplink</span> fica no botão — não uses a página do produto
+        no anúncio.{" "}
         <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
         <span className="font-medium text-card-foreground">Copiar HTML</span> (fragmento para colar num widget HTML);{" "}
         <Download className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}

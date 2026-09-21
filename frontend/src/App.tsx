@@ -41,48 +41,84 @@ import SetupAssistantPage from "./pages/SetupAssistantPage";
 import { DpilotPaidApp } from "./pages/dpilot/DpilotPaidApp";
 import LegalPrivacyPage from "./pages/LegalPrivacyPage";
 import LegalTermsPage from "./pages/LegalTermsPage";
+import ResultsOverviewPage from "./pages/ResultsOverviewPage";
+import CampaignsPage from "./pages/CampaignsPage";
+import CampaignDetailPage from "./pages/CampaignDetailPage";
+import CreatePresellWizardPage from "./pages/CreatePresellWizardPage";
+import IntegrationsHubPage from "./pages/IntegrationsHubPage";
+import SettingsHubPage from "./pages/SettingsHubPage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
-/** Evita pedido extra e troca de favicon antes da presell pública carregar. */
 function BrandingFaviconGate() {
   const { pathname } = useLocation();
   if (pathname.startsWith("/p/")) return null;
   return <BrandingFavicon />;
 }
 
+/** Rotas novas + redirects das URLs antigas (bookmarks). */
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
   { path: "/ajuda", element: <InAppUserGuidePage /> },
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminEntryRedirect /> },
   { path: "/admin/:tab", element: <AdminPanel /> },
-  { path: "/presell/dashboard", element: <PresellDashboard /> },
+
+  // Trabalho
+  { path: "/presells", element: <PresellDashboard /> },
+  { path: "/presells/nova", element: <CreatePresellWizardPage /> },
+  { path: "/campanhas", element: <CampaignsPage /> },
+  { path: "/campanhas/:id", element: <CampaignDetailPage /> },
+
+  // Resultados
+  { path: "/resultados", element: <ResultsOverviewPage /> },
+  { path: "/resultados/conversoes", element: <Navigate to="/tracking/relatorios/conversoes" replace /> },
+  { path: "/resultados/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
+
+  // Configuração
+  { path: "/integracoes", element: <IntegrationsHubPage /> },
+  { path: "/configuracoes", element: <SettingsHubPage /> },
+
+  // Redirects — Presell legado
+  { path: "/presell/dashboard", element: <Navigate to="/presells" replace /> },
   { path: "/presell/paginas-criadas", element: <PresellManualPagesPage /> },
   { path: "/presell/templates", element: <Navigate to="/presell/templates/editor" replace /> },
   { path: "/presell/templates/:tab", element: <PresellCreator /> },
-  { path: "/tracking/dashboard", element: <TrackingDashboard /> },
-  { path: "/tracking/setup-assistant", element: <SetupAssistantPage /> },
-  { path: "/tracking/plataformas", element: <Plataformas /> },
+
+  // Redirects — Tracking legado (páginas ainda existem para avançado / deep links)
+  { path: "/tracking/dashboard", element: <Navigate to="/resultados" replace /> },
+  { path: "/tracking/setup-assistant", element: <Navigate to="/presells/nova" replace /> },
+  { path: "/tracking/plataformas", element: <Navigate to="/integracoes" replace /> },
+  { path: "/tracking/integrations", element: <Navigate to="/integracoes" replace /> },
+  { path: "/tracking/settings", element: <Navigate to="/configuracoes" replace /> },
+  { path: "/tracking/vendas", element: <Navigate to="/resultados/conversoes" replace /> },
+  { path: "/tracking/analytics", element: <Navigate to="/resultados" replace /> },
+  { path: "/tracking/analytics/*", element: <Navigate to="/resultados" replace /> },
+  { path: "/tracking/links", element: <Navigate to="/campanhas" replace /> },
+
+  // Avançado (acessível, fora da sidebar)
   { path: "/tracking/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
   { path: "/tracking/relatorios/:tab", element: <Relatorios /> },
-  { path: "/tracking/analytics", element: <Navigate to="/tracking/analytics/presells" replace /> },
-  { path: "/tracking/analytics/*", element: <Analytics /> },
-  { path: "/tracking/links", element: <Links /> },
   { path: "/tracking/rotadores", element: <Rotadores /> },
   { path: "/tracking/tools/*", element: <TrackingTools /> },
   { path: "/tracking/blacklist", element: <Blacklist /> },
   { path: "/tracking/url-builder", element: <UrlBuilder /> },
-  { path: "/tracking/integrations", element: <Integrations /> },
-  { path: "/tracking/settings", element: <Settings /> },
   { path: "/tracking/logs", element: <Logs /> },
+  { path: "/tracking/setup-assistant-legacy", element: <SetupAssistantPage /> },
+  { path: "/tracking/plataformas-legacy", element: <Plataformas /> },
+  { path: "/tracking/integrations-legacy", element: <Integrations /> },
+  { path: "/tracking/settings-legacy", element: <Settings /> },
+  { path: "/tracking/dashboard-legacy", element: <TrackingDashboard /> },
+  { path: "/tracking/vendas-legacy", element: <Vendas /> },
+  { path: "/tracking/analytics-legacy/*", element: <Analytics /> },
+  { path: "/tracking/links-legacy", element: <Links /> },
 ] as const;
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      staleTime: 1000 * 60 * 2, // 2 min
+      staleTime: 1000 * 60 * 2,
       refetchOnWindowFocus: false,
     },
   },
@@ -98,7 +134,6 @@ const App = () => (
           <BrandingFaviconGate />
           <AuthProvider>
             <Routes>
-              {/* Public routes */}
               <Route path="/auth" element={<Auth />} />
               <Route path="/privacidade" element={<LegalPrivacyPage />} />
               <Route path="/termos" element={<LegalTermsPage />} />
@@ -120,15 +155,12 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* Landing de planos (acessível com ou sem login; a raiz redireciona logados para /inicio) */}
               <Route path="/plans" element={<Plans />} />
               <Route path="/planos" element={<Plans />} />
               <Route path="/presell-para-afiliados" element={<IntentConversionPage />} />
               <Route path="/rastreamento-afiliados" element={<IntentConversionPage />} />
               <Route path="/guia-vendas-afiliados" element={<AffiliateGuidePage />} />
               <Route path="/" element={<LandingRoot />} />
-              <Route path="/tracking/vendas" element={<AppLayout><Vendas /></AppLayout>} />
-              {/* Protected routes */}
               <Route
                 path="/*"
                 element={

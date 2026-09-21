@@ -77,13 +77,16 @@ async function mergeCsvBlobs(chunks: Blob[]): Promise<Blob> {
 }
 
 export const analyticsService = {
-  async getSummary(params?: { from?: string; to?: string; presell_id?: string }) {
+  async getSummary(params?: { from?: string; to?: string; presell_id?: string; detail?: boolean }) {
     const query = new URLSearchParams();
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     if (params?.presell_id) query.set("presell_id", params.presell_id);
+    if (params?.detail) query.set("detail", "1");
     const qs = query.toString();
-    return apiClient.get<AnalyticsSummary[]>(`/analytics${qs ? `?${qs}` : ""}`);
+    return apiClient.get<AnalyticsSummary[] | { by_presell: AnalyticsSummary[]; by_campaign: Array<{ campaign: string; conversions: number; revenue: number }> }>(
+      `/analytics${qs ? `?${qs}` : ""}`,
+    );
   },
 
   async getTrackingClick(eventId: string) {
@@ -323,6 +326,7 @@ export const analyticsService = {
       total_impressions: number;
       total_conversions: number;
       ctr: number;
+      conversion_rate?: number;
       revenue: number;
       /** Vendas aprovadas (postbacks / tabela conversions). */
       approved_sales_count?: number;

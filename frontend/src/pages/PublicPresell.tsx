@@ -926,7 +926,15 @@ export default function PublicPresell() {
           aria-hidden
           data-presell-inject="body-start"
         />
-        <PublicBuilderPresellView doc={builderDoc} />
+        <PublicBuilderPresellView
+          doc={builderDoc}
+          trackOfferHref={href || undefined}
+          offerUrl={
+            affiliateLink.trim() && affiliateLink.trim() !== "#"
+              ? affiliateLink.trim()
+              : undefined
+          }
+        />
       </div>
     );
   }

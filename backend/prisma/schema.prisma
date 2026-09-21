@@ -148,6 +148,7 @@ model User {
   postbackLogs   PostbackLog[]
   subscription   Subscription?
   conversions    Conversion[]
+  affiliateCampaigns AffiliateCampaign[]
   webPushSubscriptions WebPushSubscription[]
   customDomains        CustomDomain[]
   whitelistedIps WhitelistedIp[]
@@ -338,6 +339,7 @@ model PresellPage {
   trackingEvents TrackingEvent[]
   postbackLogs PostbackLog[]
   linkedConversions Conversion[]
+  affiliateCampaigns AffiliateCampaign[]
   /** Presells usadas como contexto de relatório/conversão em rotadores de tráfego. */
   trafficRotatorsAsContext TrafficRotator[] @relation("RotatorContextPresell")
 
@@ -347,6 +349,32 @@ model PresellPage {
   @@index([userId, status])
   @@index([customDomainId])
   @@map("presell_pages")
+}
+
+/**
+ * Campanha de afiliado (UX): agrupa oferta + fonte de tráfego + presell.
+ * Não altera tracking — o campo `name` alimenta utm_campaign nos links gerados no cliente.
+ */
+model AffiliateCampaign {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  name          String
+  trafficSource String   @map("traffic_source") @db.VarChar(64)
+  country       String?  @db.VarChar(8)
+  language      String?  @db.VarChar(16)
+  offerUrl      String?  @map("offer_url") @db.Text
+  platform      String?  @db.VarChar(64)
+  presellId     String?  @map("presell_id")
+  status        String   @default("draft") @db.VarChar(32)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell PresellPage? @relation(fields: [presellId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([presellId])
+  @@map("affiliate_campaigns")
 }
 
 model PostbackLog {

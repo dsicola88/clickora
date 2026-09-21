@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Link2, Copy, ExternalLink, Plus, Check, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,10 +119,13 @@ export default function Links() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Links"
-        description="Redirect com UTMs (sub1–3) ou caminho …/track/r/… ; A/B e geo em Rotadores."
+        title="Links guardados"
+        description="Lista opcional. No dia a dia usa «Gerar link» — é o caminho principal para o anúncio."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="default" className="gap-2" asChild>
+              <Link to="/tracking/url-builder">Gerar link (recomendado)</Link>
+            </Button>
             <Button
               type="button"
               variant="outline"

@@ -140,8 +140,8 @@ export default function Plataformas() {
     return (
       <div className={APP_PAGE_SHELL}>
         <PageHeader
-          title="Plataformas"
-          description="Postback HTTP da rede para vendas aprovadas no dclickora."
+          title="Postback"
+          description="URL para a rede notificar vendas aprovadas no dclickora."
         />
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
           <p className="flex items-center gap-2 font-medium">
@@ -175,8 +175,8 @@ export default function Plataformas() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Plataformas"
-        description="Escolha plataforma, copie o postback, teste — conversões e alertas ligados."
+        title="Postback"
+        description="Escolhe a rede, copia o URL, cola na plataforma, testa — vendas ligadas ao clique."
       />
 
       {intLocked ? (

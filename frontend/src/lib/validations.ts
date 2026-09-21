@@ -36,45 +36,44 @@ function isBlockedProductUrl(url: string): boolean {
   }
 }
 
+function isHttpUrl(s: string): boolean {
+  try {
+    const u = new URL(s.trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const presellCreatorStep1Fields = z.object({
   pageName: z.string().min(1, "Nome do projeto é obrigatório"),
   productLink: z
     .string()
-    .min(1, "Cole o URL da página de vendas a importar")
+    .min(1, "Cole o URL da página do produto (só para copiar o visual)")
     .url("Link inválido. Use um URL completo (https://...)"),
   language: z.string().min(1, "Selecione o idioma"),
-  affiliateLink: z.string().optional(),
+  affiliateLink: z
+    .string()
+    .min(1, "Cole o hoplink da rede (destino do botão — obrigatório)")
+    .url("Hoplink inválido. Use um URL completo (https://...)"),
 });
 
-/** Passo 1 do assistente (fluxo próximo de ferramentas como SpeedyPresell): projeto + URLs. */
+/** Passo 1: nome + página a importar + hoplink da rede (obrigatório). */
 export const presellCreatorStep1Schema = presellCreatorStep1Fields
   .refine((d) => !isBlockedProductUrl(d.productLink), {
-    message: "Use o link público da página (ex.: theneotonics.com), não localhost.",
+    message: "Use o link público da página do produto, não localhost.",
     path: ["productLink"],
   })
-  .refine(
-    (d) => {
-      const a = (d.affiliateLink ?? "").trim();
-      if (!a) return true;
-      try {
-        const u = new URL(a);
-        return u.protocol === "http:" || u.protocol === "https:";
-      } catch {
-        return false;
-      }
-    },
-    { message: "Link de afiliado inválido.", path: ["affiliateLink"] },
-  )
-  .refine(
-    (d) => {
-      const a = (d.affiliateLink ?? "").trim();
-      if (!a) return true;
-      return !isBlockedProductUrl(a);
-    },
-    { message: "Use um link de afiliado público (não localhost).", path: ["affiliateLink"] },
-  );
+  .refine((d) => isHttpUrl(d.affiliateLink), {
+    message: "Hoplink inválido.",
+    path: ["affiliateLink"],
+  })
+  .refine((d) => !isBlockedProductUrl(d.affiliateLink), {
+    message: "Use o hoplink público da rede (não localhost).",
+    path: ["affiliateLink"],
+  });
 
-/** Criador automático: importação por URL, link de afiliado opcional, idioma, tipo, nome e endereço. */
+/** Criador automático: importação por URL, hoplink obrigatório, idioma, tipo, nome e endereço. */
 export const presellAutoCreatorSchema = presellCreatorStep1Fields
   .extend({
     pageSlug: z.string().optional(),
@@ -82,30 +81,17 @@ export const presellAutoCreatorSchema = presellCreatorStep1Fields
     presellType: z.string().min(1, "Selecione o tipo da presell"),
   })
   .refine((d) => !isBlockedProductUrl(d.productLink), {
-    message: "Use o link público da página (ex.: theneotonics.com), não localhost.",
+    message: "Use o link público da página do produto, não localhost.",
     path: ["productLink"],
   })
-  .refine(
-    (d) => {
-      const a = (d.affiliateLink ?? "").trim();
-      if (!a) return true;
-      try {
-        const u = new URL(a);
-        return u.protocol === "http:" || u.protocol === "https:";
-      } catch {
-        return false;
-      }
-    },
-    { message: "Link de afiliado inválido.", path: ["affiliateLink"] },
-  )
-  .refine(
-    (d) => {
-      const a = (d.affiliateLink ?? "").trim();
-      if (!a) return true;
-      return !isBlockedProductUrl(a);
-    },
-    { message: "Use um link de afiliado público (não localhost).", path: ["affiliateLink"] },
-  );
+  .refine((d) => isHttpUrl(d.affiliateLink), {
+    message: "Hoplink inválido.",
+    path: ["affiliateLink"],
+  })
+  .refine((d) => !isBlockedProductUrl(d.affiliateLink), {
+    message: "Use o hoplink público da rede (não localhost).",
+    path: ["affiliateLink"],
+  });
 
 
 export type LoginForm = z.infer<typeof loginSchema>;

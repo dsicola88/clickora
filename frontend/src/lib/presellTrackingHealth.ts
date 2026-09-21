@@ -47,7 +47,7 @@ export function computePresellTrackingHealth(input: {
       id: "offer",
       label: "Link da oferta (afiliado)",
       status: "warn",
-      detail: "Obrigatório para rastrear cliques até à rede de afiliados.",
+      detail: "Falta o hoplink da rede. Sem ele o marketplace não te atribui o clique.",
     });
   } else if (!isValidOfferUrl(offer)) {
     items.push({
@@ -61,7 +61,7 @@ export function computePresellTrackingHealth(input: {
       id: "offer",
       label: "Link da oferta (afiliado)",
       status: "ok",
-      detail: "URL válido para redirecionamento rastreado.",
+      detail: "O botão da presell envia o visitante para este hoplink (rastreado).",
     });
   }
 

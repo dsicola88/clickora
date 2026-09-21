@@ -31,9 +31,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               "flex flex-1 flex-col overflow-hidden rounded-none border border-border/60 bg-muted/15 p-1 md:min-h-[calc(100svh-16px)] md:rounded-xl",
             )}
           >
-            <p className="border-b border-border/50 px-3 py-2 text-[10px] leading-snug text-muted-foreground md:rounded-t-[calc(0.75rem-2px)]">
-              Ponteiro sobre a barra entre o menu principal e esta área para ajustar a largura — guardado neste navegador.
-            </p>
+            <p className="sr-only">Menu redimensionável</p>
             <ResizablePanelGroup
               direction="horizontal"
               autoSaveId="clickora-app-shell-sidebar"

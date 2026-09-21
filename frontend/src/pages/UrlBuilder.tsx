@@ -401,8 +401,8 @@ export default function UrlBuilder() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         centered
-        title="Construtor de URL"
-        description="URL da presell com UTMs; alinha com Integrações → Plataformas e webhooks."
+        title="Gerar link"
+        description="URL da presell com UTMs para colar no anúncio. O botão da página usa o hoplink (já com tracking)."
         actions={
           <Button
             type="button"

@@ -11,6 +11,7 @@ import { plansRouter } from "./routes/plans.routes";
 import { adminRouter } from "./routes/admin.routes";
 import { trackRouter } from "./routes/track.routes";
 import { webhookRouter } from "./routes/webhook.routes";
+import { campaignsRouter } from "./routes/campaigns.routes";
 import { publicRouter } from "./routes/public.routes";
 import { integrationsRouter } from "./routes/integrations.routes";
 import { customDomainRouter } from "./routes/customDomain.routes";
@@ -212,6 +213,7 @@ app.get("/api", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/presells", presellRouter);
+app.use("/api/campaigns", campaignsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/plans", plansRouter);
 app.use("/api/admin", adminRouter);

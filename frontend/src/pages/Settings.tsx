@@ -41,8 +41,8 @@ export default function Settings() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         centered
-        title="Configurações"
-        description="Preferências e plano; perfil em Conta → Perfil."
+        title="Domínio e preferências"
+        description="Liga o teu domínio às páginas /p/…. Tema e plano nesta página; perfil em Conta."
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
