@@ -5,9 +5,12 @@ import type { PresellPage } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
 import {
+  builderMediaObjectKey,
   getPresellBuilderMediaDir,
   isSafeBuilderMediaFilename,
+  persistPresellBuilderMedia,
 } from "../lib/presellBuilderMediaUpload";
+import { isR2Configured, r2PublicUrl } from "../lib/r2Storage";
 import {
   assertPresellAllowedOnRequestHost,
   isMainOrPreviewHostname,
@@ -254,7 +257,7 @@ export const presellController = {
 
   async uploadBuilderMedia(req: Request, res: Response) {
     const file = req.file;
-    if (!file) {
+    if (!file?.buffer?.length) {
       return res.status(400).json({ error: "Envie um ficheiro no campo image." });
     }
     const userId = billingUserId(req);
@@ -264,11 +267,21 @@ export const presellController = {
     if (!host) {
       return res.status(500).json({ error: "Host desconhecido." });
     }
-    const url = `${proto}://${host}/api/public/presell-builder/${encodeURIComponent(userId)}/${encodeURIComponent(file.filename)}`;
-    return res.json({ url });
+    try {
+      const saved = await persistPresellBuilderMedia({
+        userId,
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+        apiOrigin: `${proto}://${host}`,
+      });
+      return res.json({ url: saved.url, storage: saved.storage });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha no upload";
+      return res.status(500).json({ error: msg });
+    }
   },
 
-  /** Servir imagens do editor de presells (URL pública para `<img src>`). */
+  /** Servir imagens do editor de presells (URL pública para `<img src>`). Legacy local + redirect R2. */
   async getBuilderMediaFile(req: Request, res: Response) {
     const userId = typeof req.params.userId === "string" ? req.params.userId.trim() : "";
     const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
@@ -280,15 +293,18 @@ export const presellController = {
     if (!resolvedFile.startsWith(resolvedBase + path.sep)) {
       return res.status(404).end();
     }
-    if (!fs.existsSync(resolvedFile)) {
-      return res.status(404).end();
+    if (fs.existsSync(resolvedFile)) {
+      const ext = path.extname(filename).slice(1).toLowerCase();
+      const mime =
+        ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Cache-Control", "public, max-age=604800");
+      return res.sendFile(resolvedFile);
     }
-    const ext = path.extname(filename).slice(1).toLowerCase();
-    const mime =
-      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-    res.setHeader("Content-Type", mime);
-    res.setHeader("Cache-Control", "public, max-age=604800");
-    return res.sendFile(resolvedFile);
+    if (isR2Configured()) {
+      return res.redirect(302, r2PublicUrl(builderMediaObjectKey(userId, filename)));
+    }
+    return res.status(404).end();
   },
 
   async getAll(req: Request, res: Response) {

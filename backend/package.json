@@ -26,11 +26,12 @@
     "test:custom-domain": "tsx scripts/test-custom-domain-flow.ts",
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts",
-    "test:unit": "node --import tsx --test src/lib/routingRules/evaluate.test.ts src/lib/appendClickIdToUrl.test.ts src/lib/presellMirrorSnapshot.test.ts src/lib/affiliatePostbackParsers.test.ts src/lib/campaignPerf.test.ts",
+    "test:unit": "node --import tsx --test src/lib/routingRules/evaluate.test.ts src/lib/appendClickIdToUrl.test.ts src/lib/presellMirrorSnapshot.test.ts src/lib/affiliatePostbackParsers.test.ts src/lib/campaignPerf.test.ts src/lib/presellBuilderMediaUpload.test.ts",
     "test:paid": "node --import tsx --test src/paid/tiktok-campaign-plan.objectives.test.ts src/paid/guardrails-eval.test.ts src/paid/google-campaign-bidding.test.ts src/paid/google-rsa-deterministic.test.ts src/paid/meta-tiktok-bidding.test.ts src/paid/optimizer/rules.engine.test.ts src/paid/optimizer/idempotency.unit.test.ts src/paid/optimizer/optimizer.service.test.ts",
     "paid:optimizer:once": "tsx scripts/run-paid-optimizer-once.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1137.0",
     "@prisma/client": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

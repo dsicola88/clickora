@@ -84,14 +84,18 @@ export const presellService = {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
       });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; url?: string };
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        url?: string;
+        storage?: "r2" | "local";
+      };
       if (!res.ok) {
-        return { data: null as { url: string } | null, error: body.error || `Erro ${res.status}` };
+        return { data: null as { url: string; storage?: "r2" | "local" } | null, error: body.error || `Erro ${res.status}` };
       }
       if (!body.url) {
         return { data: null, error: "Resposta inválida do servidor." };
       }
-      return { data: { url: body.url }, error: null };
+      return { data: { url: body.url, storage: body.storage }, error: null };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro de rede";
       return { data: null, error: msg };

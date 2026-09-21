@@ -224,8 +224,9 @@ async function main() {
   }
 
   const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
+  const planAnnual = plans.find((p) => p.id === "plan_annual")!;
 
-  /** Mesma password para as contas de seed. Todas com plano Pro (mensal) — admin, cliente normal e super_admin. */
+  /** Mesma password para as contas de seed legadas. */
   const seedPassword = "Dpa211088@";
 
   await upsertUserWithRoleAndPlan({
@@ -252,10 +253,20 @@ async function main() {
     planId: planMonthly.id,
   });
 
+  /** Gerenciador da app (superadmin) — email/password pedidos para operação. */
+  await upsertUserWithRoleAndPlan({
+    email: "dclickora2026@gmail.com",
+    passwordPlain: "Datoda@",
+    fullName: "dclickora Gerenciador",
+    role: "super_admin",
+    planId: planAnnual.id,
+  });
+
   console.log(`✅ Plans: ${plans.map((p) => p.name).join(", ")}`);
   console.log("✅ super_admin (Pro): danielclickora@gmail.com");
   console.log("✅ user / cliente normal (Pro): danielclickora1@gmail.com");
   console.log("✅ admin (Pro): danielclickora2@gmail.com");
+  console.log("✅ super_admin gerenciador (Pro Anual): dclickora2026@gmail.com");
   console.log("🌱 Seed complete!");
 }
 

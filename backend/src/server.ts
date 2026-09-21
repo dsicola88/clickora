@@ -24,10 +24,12 @@ import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/cu
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 import { initWebPushFromEnv } from "./lib/webPush";
 import { logPaidEnvStatus } from "./paid/paidEnvCheck";
+import { logR2EnvStatus } from "./lib/r2Storage";
 import { optimizerEnabled } from "./paid/optimizer/config";
 import { registerPaidOptimizerScheduler } from "./paid/optimizer/scheduler";
 
 initWebPushFromEnv();
+logR2EnvStatus();
 
 const app = express();
 /** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */

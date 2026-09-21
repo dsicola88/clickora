@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import multer from "multer";
 import { presellController } from "../controllers/presell.controller";
 import { authenticate } from "../middleware/authenticate";
 import { tenantIsolation } from "../middleware/tenantIsolation";
@@ -12,6 +13,9 @@ presellRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
 function handleBuilderMediaUpload(req: Request, res: Response, next: NextFunction) {
   presellBuilderMediaUpload.single("image")(req, res, (err: unknown) => {
     if (err) {
+      if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "Imagem demasiado grande (máx. 3 MB)." });
+      }
       const msg = err instanceof Error ? err.message : "Erro no upload";
       return res.status(400).json({ error: msg });
     }
