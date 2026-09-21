@@ -18,157 +18,164 @@ type GuideStep = {
   links: GuideLink[];
 };
 
+/** Percurso operacional completo — sem WordPress, domínio próprio, postback e GCLID. */
 const TRACKING_STEPS: GuideStep[] = [
   {
     id: "step-1",
-    title: "A sua página conta visitas",
+    title: "1. Domínio próprio (sem WordPress)",
     body: (
       <>
         <p>
-          Quando usa o link público que acaba em <span className="font-mono text-[11px]">/p/…</span>, já contam impressões e
-          cliques — não precisa de colar nada manualmente neste caso.
+          Em <strong className="text-foreground">Configurações</strong>, adicione o seu domínio e aponte o DNS (CNAME/A)
+          conforme as instruções. Quando estiver <strong className="text-foreground">verificado</strong>, a presell
+          pública fica em <span className="font-mono text-[11px]">https://seu-dominio/p/…</span> — sem WordPress.
         </p>
         <details className="mt-2 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none font-medium text-foreground/90 outline-none hover:underline">
             Detalhes técnicos (opcional)
           </summary>
           <p className="mt-2 leading-relaxed">
-            Só em páginas HTML alojadas à parte é que faz sentido o script no elemento{" "}
-            <strong className="text-foreground">&lt;head&gt;</strong>; as instruções estão em{" "}
-            <strong className="text-foreground">Resumo e guia</strong>.
+            O SSL e o proxy são do mesmo deploy da Clickora. Sem domínio verificado, pode usar o domínio dclickora.com
+            temporariamente; para anúncios profissionais use o seu.
           </p>
         </details>
       </>
     ),
     links: [
-      { to: "/presell/dashboard", label: "Presells" },
-      { to: "/tracking/dashboard", label: "Resumo e guia" },
+      { to: "/configuracoes", label: "Configurações / domínio" },
+      { to: "/presells", label: "Presells" },
     ],
   },
   {
     id: "step-2",
-    title: "O anúncio aponta para a presell",
+    title: "2. Criar e publicar a presell",
     body: (
       <>
         <p>
-          Use o endereço completo gerado nos separadores{" "}
-          <strong className="text-foreground">Links</strong> ou{" "}
-          <strong className="text-foreground">Construtor</strong> como destino na rede — assim a própria rede acrescenta
-          os marcadores para saber qual anúncio trouxe o visitante.
+          Em <strong className="text-foreground">Presells → Nova</strong>, cole o hoplink da rede (BuyGoods, SmartAdv,
+          Digistore…). A Clickora importa a página, publica e gera o link{" "}
+          <span className="font-mono text-[11px]">/p/…</span>. Alternativas: formulário rápido ou editor manual.
+        </p>
+        <details className="mt-2 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none font-medium text-foreground/90 outline-none hover:underline">
+            Detalhes técnicos (opcional)
+          </summary>
+          <p className="mt-2 leading-relaxed">
+            O CTA da página passa por <span className="font-mono text-[11px]">/track/r/…</span>, que grava o clique e
+            redirecciona para a oferta com o ID do clique nos parâmetros da rede.
+          </p>
+        </details>
+      </>
+    ),
+    links: [
+      { to: "/presells/nova", label: "Nova presell" },
+      { to: "/presells", label: "Lista de presells" },
+      { to: "/presell/builder", label: "Editor manual" },
+    ],
+  },
+  {
+    id: "step-3",
+    title: "3. Campanha e link do anúncio (UTMs + GCLID)",
+    body: (
+      <>
+        <p>
+          Em <strong className="text-foreground">Campanhas</strong>, copie o URL do anúncio. Já inclui UTMs. No Google
+          Ads, o <span className="font-mono text-[11px]">{"{gclid}"}</span> é preenchido pela rede quando alguém clica —
+          fica guardado no clique da Clickora.
         </p>
         <details className="mt-2 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none font-medium text-foreground/90 outline-none hover:underline">
             Nomes técnicos (Google, Meta, TikTok)
           </summary>
           <p className="mt-2 leading-relaxed">
-            Exemplos de marcadores nos URLs:{" "}
             <span className="font-mono text-[11px]">gclid</span> (Google),{" "}
-            <span className="font-mono text-[11px]">fbclid</span> /{" "}
-            <span className="font-mono text-[11px]">fbc</span> (Meta),{" "}
-            <span className="font-mono text-[11px]">ttclid</span> (TikTok), conforme a rede.
+            <span className="font-mono text-[11px]">fbclid</span> (Meta),{" "}
+            <span className="font-mono text-[11px]">ttclid</span> (TikTok). Sem estes IDs no URL do anúncio, a venda pode
+            aparecer na Clickora mas não sincroniza na conta de anúncios.
           </p>
         </details>
       </>
     ),
     links: [
-      { to: "/tracking/links", label: "Links de tracking" },
-      { to: "/tracking/url-builder", label: "Construtor de URL" },
+      { to: "/campanhas", label: "Campanhas" },
+      { to: "/tracking/url-builder", label: "Construtor de URL (avançado)" },
     ],
-  },
-  {
-    id: "step-2-macros",
-    title: "Parâmetros que a própria rede preenche",
-    body: (
-      <>
-        <p>
-          Ao montar o link, pode usar «atalhos» oferecidos pelas redes (palavra-chave, número da campanha, etc.).
-          Escolha estes placeholders em <strong className="text-foreground">Links</strong> ou{" "}
-          <strong className="text-foreground">Construtor</strong> — a rede substitui automaticamente quando alguém clica.
-        </p>
-        <details className="mt-2 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none font-medium text-foreground/90 outline-none hover:underline">
-            Exemplos (macros / UTMs)
-          </summary>
-          <p className="mt-2 leading-relaxed">
-            Como <span className="font-mono text-[11px]">{`{keyword}`}</span>, ou campos tipo{" "}
-            <span className="font-mono text-[11px]">utm_term</span>,{" "}
-            <span className="font-mono text-[11px]">sub1</span> conforme cada rede lista na documentação.
-          </p>
-        </details>
-      </>
-    ),
-    links: [
-      { to: "/tracking/links", label: "Links — macros das redes" },
-      { to: "/tracking/url-builder", label: "Construtor — macros" },
-    ],
-  },
-  {
-    id: "step-3",
-    title: "Vendas que vêm das redes de afiliação",
-    body: (
-      <>
-        <p>
-          Em <strong className="text-foreground">Plataformas</strong> aparece um endereço para colar nas definições da
-          rede (tipo Hotmart). Assim cada venda aparece ligada ao clique quando a rede aceita enviar o aviso para a
-          Clickora.
-        </p>
-        <details className="mt-2 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none font-medium text-foreground/90 outline-none hover:underline">
-            Termo técnico
-          </summary>
-          <p className="mt-2 leading-relaxed">Em muitas redes isto chama-se postback ou webhook — é o mesmo endereço que copiou.</p>
-        </details>
-      </>
-    ),
-    links: [{ to: "/tracking/plataformas", label: "Plataformas" }],
   },
   {
     id: "step-4",
-    title: "Avisos (Telegram, e-mail…)",
+    title: "4. Postback na rede de afiliados",
     body: (
       <>
         <p>
-          Configure avisos de venda em <strong className="text-foreground">Integrações</strong> quando o seu plano incluir
-          (Telegram, notificações no browser, outros canais onde estiver disponível).
+          Em <strong className="text-foreground">Integrações → Vendas da rede</strong>, escolha a plataforma (BuyGoods,
+          SmartAdv, Digistore24, Hotmart…). Clique <strong className="text-foreground">Copiar com macros</strong> e cole
+          esse URL no postback / IPN da rede. Sem este passo, os cliques registam-se mas as vendas não entram.
         </p>
+        <details className="mt-2 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none font-medium text-foreground/90 outline-none hover:underline">
+            BuyGoods · SmartAdv · Digistore (o que a Clickora envia)
+          </summary>
+          <ul className="mt-2 list-disc pl-4 space-y-1 leading-relaxed">
+            <li>
+              <strong className="text-foreground">BuyGoods:</strong> hoplink recebe{" "}
+              <span className="font-mono text-[11px]">subid</span>=UUID; no postback use{" "}
+              <span className="font-mono text-[11px]">{"{SUBID}"}</span>.
+            </li>
+            <li>
+              <strong className="text-foreground">SmartAdv:</strong> UUID em{" "}
+              <span className="font-mono text-[11px]">sub3</span>; no postback{" "}
+              <span className="font-mono text-[11px]">cid={"{sub3}"}</span>.
+            </li>
+            <li>
+              <strong className="text-foreground">Digistore24:</strong>{" "}
+              <span className="font-mono text-[11px]">cid</span> /{" "}
+              <span className="font-mono text-[11px]">sid1</span> e macros oficiais no S2S.
+            </li>
+          </ul>
+        </details>
       </>
     ),
-    links: [{ to: "/tracking/integrations", label: "Integrações" }],
+    links: [
+      { to: "/integracoes", label: "Integrações" },
+      { to: "/tracking/plataformas-legacy", label: "Postback por rede" },
+    ],
   },
   {
     id: "step-5",
-    title: "Anunciar no Google, Meta ou TikTok com conversões",
+    title: "5. Do clique à venda (nada se perde)",
     body: (
       <>
         <p>
-          Para contar também o resultado dentro do Google Ads, Meta ou TikTok, siga os passos no{" "}
-          <strong className="text-foreground">Resumo e guia</strong>. A Microsoft está entre as ferramentas de modelos —
-          consulte as listas lá se usar Bing.
+          Visitante abre o link da campanha → vê a presell → clica no CTA → Clickora grava o clique (com GCLID se
+          houver) e envia o ID à oferta → a rede, na venda, chama o postback → a conversão aparece em{" "}
+          <strong className="text-foreground">Resultados → Conversões</strong>, ligada ao clique.
+        </p>
+        <p className="mt-2 text-xs">
+          Se o postback chegar sem ID de clique, a venda <strong className="text-foreground">ainda é registada</strong>{" "}
+          (não atribuída) — o registo não se perde; falta só a ligação ao anúncio.
         </p>
       </>
     ),
     links: [
-      { to: "/tracking/dashboard", label: "Resumo e guia" },
-      { to: "/tracking/tools", label: "Ferramentas" },
+      { to: "/resultados", label: "Resultados" },
+      { to: "/resultados/conversoes", label: "Conversões" },
+      { to: "/tracking/relatorios/sem-gclid", label: "Vendas sem GCLID" },
     ],
   },
   {
     id: "step-6",
-    title: "Ver números e exportar",
+    title: "6. (Opcional) Google Ads / Meta / TikTok",
     body: (
       <>
         <p>
-          Veja tendências nos separadores{" "}
-          <strong className="text-foreground">Analytics</strong> ou <strong className="text-foreground">Vendas</strong>, ou
-          tabelas com filtro de datas nos <strong className="text-foreground">Relatórios</strong>. À medida que as redes
-          enviam os avisos, os totais ficam atualizados.
+          Em Integrações → Anúncios, ligue a conta para enviar vendas aprovadas de volta (offline / CAPI / Events).
+          Exige GCLID / fbclid / ttclid no clique original.
         </p>
       </>
     ),
     links: [
-      { to: "/tracking/analytics", label: "Analytics" },
-      { to: "/tracking/vendas", label: "Vendas" },
-      { to: "/tracking/relatorios", label: "Relatórios" },
+      { to: "/integracoes", label: "Integrações" },
+      { to: "/tracking/integrations-legacy", label: "Contas de anúncios" },
     ],
   },
 ];
@@ -176,34 +183,43 @@ const TRACKING_STEPS: GuideStep[] = [
 const HOME_STEPS: GuideStep[] = [
   {
     id: "home-1",
-    title: "Começar em 30 segundos",
+    title: "Começar em 4 passos",
     body: (
       <>
-        Crie uma <strong className="text-foreground">presell</strong> — o link público acaba em{" "}
-        <span className="font-mono text-[11px]">/p/…</span> para usar nos anúncios. Precisa de ajuda ao longo do caminho? Abra o{" "}
-        <strong className="text-foreground">Assistente</strong> na barra lateral.
+        <ol className="list-decimal pl-4 space-y-1.5">
+          <li>
+            Domínio em <strong className="text-foreground">Configurações</strong> (ou use dclickora entretanto).
+          </li>
+          <li>
+            <strong className="text-foreground">Nova presell</strong> com o hoplink da rede.
+          </li>
+          <li>
+            <strong className="text-foreground">Integrações</strong> → postback BuyGoods / SmartAdv / Digistore.
+          </li>
+          <li>
+            Copie o link em <strong className="text-foreground">Campanhas</strong> para o anúncio.
+          </li>
+        </ol>
       </>
     ),
     links: [
-      { to: "/presell/dashboard", label: "Presells" },
-      { to: "/tracking/setup-assistant", label: "Assistente" },
-      { to: "/tracking/dashboard", label: "Rastreamento" },
+      { to: "/presells/nova", label: "Nova presell" },
+      { to: "/integracoes", label: "Integrações" },
+      { to: "/ajuda", label: "Aprender (guia completo)" },
     ],
   },
   {
     id: "home-2",
-    title: "Quando precisar de mais",
+    title: "Quando algo falha",
     body: (
       <>
-        Ajuste links e etiquetas das redes em{" "}
-        <strong className="text-foreground">Links</strong> ou <strong className="text-foreground">Construtor</strong>. Todo o texto explicativo está em{" "}
-        <strong className="text-foreground">Aprender</strong>.
+        Sem postback → sem vendas no painel. Sem GCLID no URL do anúncio → venda na Clickora mas sem upload Google.
+        Abra <strong className="text-foreground">Aprender</strong> → percursos guiados para o detalhe.
       </>
     ),
     links: [
       { to: "/ajuda", label: "Aprender" },
-      { to: "/tracking/links", label: "Links" },
-      { to: "/guia-vendas-afiliados", label: "Guia longo (site)" },
+      { to: "/resultados/conversoes", label: "Conversões" },
     ],
   },
 ];
@@ -264,12 +280,12 @@ export function DashboardUserGuide({ variant = "tracking", className, allowDismi
             </div>
             <div className="min-w-0 space-y-1">
               <h2 className="text-base font-semibold leading-tight text-foreground">
-                {variant === "home" ? "Bem-vindo — por onde começo?" : "Guia rápido — do clique à venda"}
+                {variant === "home" ? "Bem-vindo — por onde começo?" : "Guia operacional — do domínio à venda"}
               </h2>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {variant === "home"
-                  ? "Use os cartões abaixo; o menu traz o resto."
-                  : "Ordem sugerida pelos passos abaixo — abra «Detalhes técnicos» só se precisar dos nomes exatos ou do jargão da rede."}
+                  ? "Quatro passos para estar a correr. Detalhe completo em Aprender."
+                  : "Presell sem WordPress, rastreamento, postback (BuyGoods / SmartAdv), GCLID e conversões — na ordem correcta."}
               </p>
             </div>
           </div>
@@ -307,7 +323,6 @@ export function DashboardUserGuide({ variant = "tracking", className, allowDismi
             </AccordionItem>
           ))}
         </Accordion>
-
       </CardContent>
     </Card>
   );

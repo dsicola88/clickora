@@ -89,10 +89,10 @@ export default function InAppUserGuidePage() {
         title="Aprender"
         description={
           <>
-            Mesmos temas agrupados, pesquisa por palavra e botões rápidos. Texto corrido maior no «Guia» público —
-            aqui fazemos por pedaços curtos e, nos percursos guiados em baixo, pode abrir{" "}
-            <span className="text-foreground/90">«Detalhes técnicos»</span> só quando precisar de termos tipo GCLID ou
-            postbacks.
+            Guia operacional completo: domínio sem WordPress → presell → campanha (GCLID) → postback BuyGoods/SmartAdv →
+            conversões. Use a pesquisa ou os{" "}
+            <span className="text-foreground/90">percursos guiados</span> em baixo — «Detalhes técnicos» só quando
+            precisar dos nomes exactos (subid, sub3, cid).
           </>
         }
       />
@@ -104,7 +104,7 @@ export default function InAppUserGuidePage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Procurar (presell, vendas, Google, Hotmart…)…"
+            placeholder="Procurar (presell, BuyGoods, SmartAdv, GCLID, postback…)…"
             className="pl-9 h-11 bg-background"
             aria-label="Pesquisar no centro de ajuda"
           />
