@@ -30,10 +30,10 @@ export function LandingGuaranteeSection({ extras, className }: Props) {
     <section id="garantia" className={cn("scroll-mt-24 space-y-6", className)}>
       <div className="flex flex-col gap-8 md:flex-row md:items-center md:gap-10 lg:gap-14">
         {hasSeal ? (
-          <div className="mx-auto w-full max-w-[12rem] shrink-0 md:mx-0 md:max-w-none">
+          <div className="mx-auto w-full max-w-[12rem] shrink-0 md:mx-0 md:max-w-[12rem]">
             <div
               className={cn(
-                "relative h-40 w-40 overflow-hidden rounded-full border-4 shadow-lg md:h-48 md:w-48",
+                "relative mx-auto h-40 w-40 overflow-hidden rounded-full border-4 shadow-lg md:h-48 md:w-48",
                 salesDark ? "border-amber-400/50 ring-2 ring-amber-300/25" : "border-amber-500/40 ring-1 ring-border",
               )}
             >
