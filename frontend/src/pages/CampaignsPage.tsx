@@ -22,9 +22,11 @@ export default function CampaignsPage() {
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["campaigns", "with_stats"],
     queryFn: async () => {
-      const { data, error } = await campaignsService.list({ with_stats: true });
-      if (error) throw new Error(error);
-      return data ?? [];
+      const withStats = await campaignsService.list({ with_stats: true });
+      if (!withStats.error && withStats.data) return withStats.data;
+      const basic = await campaignsService.list();
+      if (basic.error) throw new Error(basic.error || withStats.error || "Erro ao carregar");
+      return basic.data ?? [];
     },
   });
 

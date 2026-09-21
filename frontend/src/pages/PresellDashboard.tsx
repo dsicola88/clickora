@@ -1292,6 +1292,9 @@ export default function PresellDashboard() {
               >
                 Formulário rápido
               </Button>
+              <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
+                Editor manual
+              </Button>
             </div>
           ) : null
         }
