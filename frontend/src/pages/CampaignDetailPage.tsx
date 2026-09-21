@@ -1,10 +1,12 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, Copy, ExternalLink, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +15,11 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { buildTrackedPresellUrl, campaignsService } from "@/services/campaignsService";
 import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
-import { ChevronDown } from "lucide-react";
+
+function money(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
+}
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +27,7 @@ export default function CampaignDetailPage() {
   const qc = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [advOpen, setAdvOpen] = useState(false);
+  const [spendDraft, setSpendDraft] = useState<string | null>(null);
 
   const { data: campaign, isLoading, isError, refetch } = useQuery({
     queryKey: ["campaigns", id],
@@ -52,14 +59,30 @@ export default function CampaignDetailPage() {
     },
   });
 
+  const saveSpend = useMutation({
+    mutationFn: async (amount: number | null) => {
+      const { error } = await campaignsService.update(id!, {
+        spend_amount: amount,
+        spend_currency: "EUR",
+      });
+      if (error) throw new Error(error);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+      setSpendDraft(null);
+      toast.success("Gasto actualizado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <LoadingState message="A carregar campanha…" />;
   if (isError || !campaign) {
     return <ErrorState message="Campanha não encontrada." onRetry={() => refetch()} />;
   }
 
   const publicBase = campaign.presell_id
-      ? getPublicPresellFullUrl(customDomains, null, { id: campaign.presell_id })
-      : null;
+    ? getPublicPresellFullUrl(customDomains, null, { id: campaign.presell_id })
+    : null;
   const trackedUrl =
     publicBase && campaign.name
       ? buildTrackedPresellUrl(publicBase, campaign.name, campaign.traffic_source)
@@ -75,6 +98,14 @@ export default function CampaignDetailPage() {
     toast.success("Link copiado");
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const spendValue =
+    spendDraft !== null
+      ? spendDraft
+      : campaign.spend_amount != null
+        ? String(campaign.spend_amount)
+        : "";
+  const stats = campaign.stats;
 
   return (
     <div className={APP_PAGE_SHELL}>
@@ -127,6 +158,43 @@ export default function CampaignDetailPage() {
                 Associe uma presell publicada para gerar o link rastreável automaticamente.
               </p>
             )}
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
+            <Label htmlFor="spend">Gasto de ads (período que está a analisar)</Label>
+            <p className="text-xs text-muted-foreground">
+              Meta/TikTok/Google sem API: indique aqui o gasto do mesmo período dos Resultados para ver lucro, ROAS e CPA.
+            </p>
+            <div className="flex flex-wrap gap-2 items-end">
+              <Input
+                id="spend"
+                type="number"
+                min={0}
+                step="0.01"
+                className="max-w-[160px]"
+                value={spendValue}
+                onChange={(e) => setSpendDraft(e.target.value)}
+                placeholder="0.00"
+              />
+              <Button
+                disabled={saveSpend.isPending}
+                onClick={() => {
+                  const raw = spendValue.trim();
+                  if (!raw) {
+                    saveSpend.mutate(null);
+                    return;
+                  }
+                  const n = Number(raw.replace(",", "."));
+                  if (!Number.isFinite(n) || n < 0) {
+                    toast.error("Gasto inválido");
+                    return;
+                  }
+                  saveSpend.mutate(n);
+                }}
+              >
+                Guardar gasto
+              </Button>
+            </div>
           </div>
         </TabsContent>
 
@@ -187,15 +255,33 @@ export default function CampaignDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="resultados" className="mt-4">
-          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Veja cliques, conversões e receita desta conta em Resultados.
-            </p>
-            <Button asChild>
-              <Link to="/resultados">Abrir Resultados</Link>
-            </Button>
+        <TabsContent value="resultados" className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Cliques", value: String(stats?.clicks ?? 0) },
+              { label: "Conversões", value: String(stats?.conversions ?? 0) },
+              { label: "Receita", value: money(stats?.revenue) },
+              { label: "CVR", value: `${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%` },
+              { label: "Gasto", value: money(campaign.spend_amount) },
+              { label: "Lucro", value: money(stats?.profit) },
+              {
+                label: "ROAS",
+                value: stats?.roas != null ? `${stats.roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—",
+              },
+              { label: "EPC", value: money(stats?.epc) },
+            ].map((k) => (
+              <div key={k.label} className="rounded-xl border border-border/60 bg-card px-4 py-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{k.label}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums">{k.value}</p>
+              </div>
+            ))}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Métricas dos últimos 14 dias, atribuídas pelo nome / utm_campaign desta campanha.
+          </p>
+          <Button asChild variant="outline">
+            <Link to="/resultados">Ver conta completa</Link>
+          </Button>
         </TabsContent>
       </Tabs>
     </div>

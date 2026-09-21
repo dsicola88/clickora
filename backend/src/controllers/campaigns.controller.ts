@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
+import { loadCampaignPerf, type CampaignPerf } from "../lib/campaignPerf";
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
@@ -13,11 +14,14 @@ const createSchema = z.object({
   platform: z.string().max(64).optional().nullable(),
   presell_id: z.string().uuid().optional().nullable(),
   status: z.enum(["draft", "active", "paused"]).optional(),
+  /** Gasto de ads no período que o media buyer está a analisar (manual). */
+  spend_amount: z.union([z.number().nonnegative(), z.null()]).optional(),
+  spend_currency: z.string().max(8).optional().nullable(),
 });
 
 const updateSchema = createSchema.partial();
 
-function mapCampaign(c: {
+type CampaignRow = {
   id: string;
   userId: string;
   name: string;
@@ -28,10 +32,21 @@ function mapCampaign(c: {
   platform: string | null;
   presellId: string | null;
   status: string;
+  spendAmount: Prisma.Decimal | null;
+  spendCurrency: string | null;
   createdAt: Date;
   updatedAt: Date;
   presell?: { id: string; title: string; status: string; slug: string } | null;
-}) {
+};
+
+function spendNumber(v: Prisma.Decimal | null | undefined): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function mapCampaign(c: CampaignRow, stats?: CampaignPerf | null) {
+  const spend = spendNumber(c.spendAmount);
   return {
     id: c.id,
     name: c.name,
@@ -42,17 +57,52 @@ function mapCampaign(c: {
     platform: c.platform,
     presell_id: c.presellId,
     status: c.status,
+    spend_amount: spend,
+    spend_currency: c.spendCurrency || "EUR",
     created_at: c.createdAt.toISOString(),
     updated_at: c.updatedAt.toISOString(),
     presell: c.presell
       ? { id: c.presell.id, title: c.presell.title, status: c.presell.status, slug: c.presell.slug }
       : null,
+    ...(stats
+      ? {
+          stats: {
+            ...stats,
+            /** Gasto manual não é faturado por dia — trate como o gasto do período que está a analisar. */
+            spend_note: "manual_period_estimate" as const,
+          },
+        }
+      : {}),
   };
+}
+
+function parseRange(req: Request): { from?: Date; to?: Date } {
+  const fromQ = req.query.from?.toString();
+  const toQ = req.query.to?.toString();
+  if (!fromQ || !toQ) {
+    const to = new Date();
+    to.setHours(23, 59, 59, 999);
+    const from = new Date(to);
+    from.setDate(from.getDate() - 14);
+    from.setHours(0, 0, 0, 0);
+    return { from, to };
+  }
+  const from = new Date(fromQ);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(toQ);
+  to.setHours(23, 59, 59, 999);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
+    return { from: undefined, to: undefined };
+  }
+  return { from, to };
 }
 
 export const campaignsController = {
   async list(req: Request, res: Response) {
     const userId = billingUserId(req);
+    const withStats = req.query.with_stats === "1" || req.query.with_stats === "true";
+    const range = parseRange(req);
+
     const rows = await prisma.affiliateCampaign.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
@@ -60,11 +110,30 @@ export const campaignsController = {
         presell: { select: { id: true, title: true, status: true, slug: true } },
       },
     });
-    res.json(rows.map(mapCampaign));
+
+    if (!withStats) {
+      return res.json(rows.map((r) => mapCampaign(r as CampaignRow)));
+    }
+
+    const mapped = await Promise.all(
+      rows.map(async (r) => {
+        const spend = spendNumber(r.spendAmount);
+        const stats = await loadCampaignPerf({
+          userId,
+          campaignName: r.name,
+          spend,
+          from: range.from,
+          to: range.to,
+        });
+        return mapCampaign(r as CampaignRow, stats);
+      }),
+    );
+    res.json(mapped);
   },
 
   async getById(req: Request, res: Response) {
     const userId = billingUserId(req);
+    const range = parseRange(req);
     const row = await prisma.affiliateCampaign.findFirst({
       where: { id: req.params.id, userId },
       include: {
@@ -72,7 +141,16 @@ export const campaignsController = {
       },
     });
     if (!row) return res.status(404).json({ error: "Campanha não encontrada" });
-    res.json(mapCampaign(row));
+
+    const spend = spendNumber(row.spendAmount);
+    const stats = await loadCampaignPerf({
+      userId,
+      campaignName: row.name,
+      spend,
+      from: range.from,
+      to: range.to,
+    });
+    res.json(mapCampaign(row as CampaignRow, stats));
   },
 
   async create(req: Request, res: Response) {
@@ -99,12 +177,14 @@ export const campaignsController = {
         platform: d.platform?.trim() || null,
         presellId: d.presell_id || null,
         status: d.status || "draft",
+        spendAmount: d.spend_amount === undefined ? undefined : d.spend_amount,
+        spendCurrency: d.spend_currency?.trim()?.toUpperCase() || "EUR",
       },
       include: {
         presell: { select: { id: true, title: true, status: true, slug: true } },
       },
     });
-    res.status(201).json(mapCampaign(created));
+    res.status(201).json(mapCampaign(created as CampaignRow));
   },
 
   async update(req: Request, res: Response) {
@@ -137,6 +217,12 @@ export const campaignsController = {
         : { disconnect: true };
     }
     if (d.status !== undefined) data.status = d.status;
+    if (d.spend_amount !== undefined) {
+      data.spendAmount = d.spend_amount === null ? null : d.spend_amount;
+    }
+    if (d.spend_currency !== undefined) {
+      data.spendCurrency = d.spend_currency?.trim()?.toUpperCase() || null;
+    }
 
     const updated = await prisma.affiliateCampaign.update({
       where: { id: existing.id },
@@ -145,7 +231,17 @@ export const campaignsController = {
         presell: { select: { id: true, title: true, status: true, slug: true } },
       },
     });
-    res.json(mapCampaign(updated));
+
+    const range = parseRange(req);
+    const spend = spendNumber(updated.spendAmount);
+    const stats = await loadCampaignPerf({
+      userId,
+      campaignName: updated.name,
+      spend,
+      from: range.from,
+      to: range.to,
+    });
+    res.json(mapCampaign(updated as CampaignRow, stats));
   },
 
   async remove(req: Request, res: Response) {

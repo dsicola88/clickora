@@ -16,6 +16,7 @@ import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } fr
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
 import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents.service";
 import { billingUserId } from "../lib/requestContext";
+import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -879,6 +880,64 @@ export const analyticsController = {
       console.warn("[analytics.getDashboard] sync_health indisponível (colunas ou BD)", e);
     }
 
+    /** Media buyer: lucro = receita − gasto. Preferir custo Google do período; senão soma de gastos manuais. */
+    let manualSpendTotal = 0;
+    try {
+      const spendAgg = await systemPrisma.$queryRaw<Array<{ total: unknown }>>(Prisma.sql`
+        SELECT COALESCE(SUM(spend_amount), 0) AS total
+        FROM affiliate_campaigns
+        WHERE user_id = ${userId}
+          AND spend_amount IS NOT NULL
+      `);
+      manualSpendTotal = Number(spendAgg[0]?.total ?? 0);
+    } catch (e) {
+      console.warn("[analytics.getDashboard] spend_amount indisponível (migração?)", e);
+    }
+
+    const googleSpend =
+      google_ads_metrics != null && Number.isFinite(google_ads_metrics.cost_micros)
+        ? google_ads_metrics.cost_micros / 1_000_000
+        : null;
+
+    let spend: number | null = null;
+    let spend_source: "google_ads" | "manual" | "none" = "none";
+    let spend_currency: string | null = null;
+    if (googleSpend != null && googleSpend > 0) {
+      spend = Math.round(googleSpend * 100) / 100;
+      spend_source = "google_ads";
+      spend_currency = google_ads_metrics?.currency_code ?? "EUR";
+    } else if (manualSpendTotal > 0) {
+      spend = Math.round(manualSpendTotal * 100) / 100;
+      spend_source = "manual";
+      spend_currency = "EUR";
+    }
+
+    const mb = computePerf({
+      clicks,
+      conversions,
+      revenue,
+      spend,
+    });
+    const media_buyer = {
+      spend,
+      spend_source,
+      spend_currency,
+      revenue: mb.revenue,
+      profit: mb.profit,
+      roas: mb.roas,
+      cpa: mb.cpa,
+      epc: mb.epc,
+      conversion_rate: mb.conversion_rate,
+      alerts: buildMediaBuyerAlerts({
+        clicks,
+        conversions,
+        revenue,
+        spend,
+        spendSource: spend_source,
+        googleError: google_ads_metrics_error,
+      }),
+    };
+
     res.json({
       total_clicks: clicks,
       total_impressions: impressions,
@@ -916,6 +975,7 @@ export const analyticsController = {
       google_ads_metrics_error,
       clicks_by_country,
       sync_health,
+      media_buyer,
     });
     } catch (e) {
       console.error("[analytics.getDashboard]", e);

@@ -366,6 +366,9 @@ model AffiliateCampaign {
   platform      String?  @db.VarChar(64)
   presellId     String?  @map("presell_id")
   status        String   @default("draft") @db.VarChar(32)
+  /** Gasto de ads reportado pelo utilizador (para ROI quando a rede não envia custo). */
+  spendAmount   Decimal? @map("spend_amount") @db.Decimal(14, 4)
+  spendCurrency String?  @map("spend_currency") @db.VarChar(8)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

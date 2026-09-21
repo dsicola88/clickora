@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, AlertTriangle, Info } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { analyticsService } from "@/services/analyticsService";
+import { campaignsService } from "@/services/campaignsService";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 
 function todayYmd() {
@@ -17,7 +18,18 @@ function daysAgoYmd(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Resultados → Visão geral: 4 KPIs + atalhos. Sem painéis técnicos. */
+function money(n: number | null | undefined, currency = "EUR") {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("pt-PT", { style: "currency", currency, maximumFractionDigits: 2 });
+}
+
+function spendSourceLabel(src: string | undefined) {
+  if (src === "google_ads") return "Google Ads (período)";
+  if (src === "manual") return "Gasto manual nas campanhas";
+  return "Sem gasto";
+}
+
+/** Resultados → Visão geral: ROI + alertas de media buyer + breakdown. */
 export default function ResultsOverviewPage() {
   const from = daysAgoYmd(14);
   const to = todayYmd();
@@ -30,40 +42,53 @@ export default function ResultsOverviewPage() {
     },
   });
 
-  const { data: detail } = useQuery({
-    queryKey: ["analytics-summary-detail", from, to],
+  const { data: campaigns = [] } = useQuery({
+    queryKey: ["campaigns", "stats", from, to],
     queryFn: async () => {
-      const { data, error } = await analyticsService.getSummary({ from, to, detail: true });
-      if (error) return null;
-      if (Array.isArray(data)) {
-        return { by_presell: data, by_campaign: [] };
-      }
-      return data as {
-        by_presell?: Array<{
-          presell_id: string;
-          clicks: number;
-          conversions: number;
-          revenue: number;
-          conversion_rate?: number;
-        }>;
-        by_campaign?: Array<{ campaign: string; conversions: number; revenue: number }>;
-      };
+      const { data, error } = await campaignsService.list({ with_stats: true, from, to });
+      if (error) return [];
+      return data ?? [];
     },
   });
 
   if (isLoading) return <LoadingState message="A carregar resultados…" />;
   if (isError || !data) return <ErrorState message="Não foi possível carregar resultados." onRetry={() => refetch()} />;
 
+  const mb = data.media_buyer;
+  const currency = mb?.spend_currency || data.google_ads_metrics?.currency_code || "EUR";
   const clicks = data.total_clicks ?? 0;
   const conversions = data.total_conversions ?? 0;
-  const revenue = data.revenue ?? 0;
-  const rate = data.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);
+  const revenue = mb?.revenue ?? data.revenue ?? 0;
+  const rate = mb?.conversion_rate ?? data.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);
+
+  const kpis = [
+    { label: "Receita", value: money(revenue, currency) },
+    { label: "Gasto", value: money(mb?.spend ?? null, currency), hint: spendSourceLabel(mb?.spend_source) },
+    {
+      label: "Lucro",
+      value: money(mb?.profit ?? null, currency),
+      tone: mb?.profit != null ? (mb.profit >= 0 ? "positive" : "negative") : undefined,
+    },
+    { label: "ROAS", value: mb?.roas != null ? `${mb.roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—" },
+    { label: "CPA", value: money(mb?.cpa ?? null, currency) },
+    { label: "EPC", value: money(mb?.epc ?? null, currency) },
+    { label: "Cliques", value: clicks.toLocaleString("pt-PT") },
+    {
+      label: "CVR",
+      value: `${rate.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`,
+    },
+  ];
+
+  const alerts = mb?.alerts ?? [];
+  const ranked = [...campaigns]
+    .filter((c) => c.stats && (c.stats.clicks > 0 || c.stats.conversions > 0 || (c.spend_amount ?? 0) > 0))
+    .sort((a, b) => (b.stats?.profit ?? b.stats?.revenue ?? 0) - (a.stats?.profit ?? a.stats?.revenue ?? 0));
 
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Resultados"
-        description="Últimos 14 dias. Detalhe em Conversões e Relatórios."
+        description="Últimos 14 dias · lucro = receita − gasto. Actualize o gasto nas campanhas se não ligar Google Ads."
         actions={
           <Button variant="outline" asChild>
             <Link to="/resultados/relatorios">
@@ -73,74 +98,116 @@ export default function ResultsOverviewPage() {
         }
       />
 
+      {alerts.length > 0 ? (
+        <div className="space-y-2">
+          {alerts.map((a) => {
+            const critical = a.severity === "critical";
+            const warn = a.severity === "warning";
+            return (
+              <div
+                key={a.code}
+                className={`flex gap-3 rounded-xl border px-4 py-3 ${
+                  critical
+                    ? "border-destructive/40 bg-destructive/5"
+                    : warn
+                      ? "border-amber-500/40 bg-amber-500/5"
+                      : "border-border/60 bg-muted/30"
+                }`}
+              >
+                {critical || warn ? (
+                  <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${critical ? "text-destructive" : "text-amber-600"}`} />
+                ) : (
+                  <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{a.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{a.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: "Cliques", value: clicks.toLocaleString("pt-PT") },
-          { label: "Conversões", value: conversions.toLocaleString("pt-PT") },
-          {
-            label: "Receita",
-            value: revenue.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }),
-          },
-          {
-            label: "Taxa de conversão",
-            value: `${rate.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`,
-          },
-        ].map((s) => (
+        {kpis.map((s) => (
           <div key={s.label} className="rounded-xl border border-border/60 bg-card px-4 py-5">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums sm:text-3xl">{s.value}</p>
+            <p
+              className={`mt-1 text-2xl font-semibold tabular-nums sm:text-3xl ${
+                s.tone === "positive" ? "text-emerald-600 dark:text-emerald-400" : ""
+              } ${s.tone === "negative" ? "text-destructive" : ""}`}
+            >
+              {s.value}
+            </p>
+            {"hint" in s && s.hint ? <p className="mt-1 text-[10px] text-muted-foreground">{s.hint}</p> : null}
           </div>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/60 bg-card p-5">
-          <h2 className="text-sm font-semibold text-foreground">Por campanha</h2>
-          <p className="mt-1 text-xs text-muted-foreground mb-4">Nome UTM / campanha do clique</p>
-          {(detail?.by_campaign?.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">Ainda sem conversões com campanha neste período.</p>
-          ) : (
-            <ul className="space-y-2">
-              {detail!.by_campaign!.slice(0, 8).map((r) => (
-                <li key={r.campaign} className="flex justify-between gap-3 text-sm border-b border-border/40 py-2 last:border-0">
-                  <span className="truncate font-medium">{r.campaign}</span>
-                  <span className="tabular-nums text-muted-foreground shrink-0">
-                    {r.conversions} ·{" "}
-                    {r.revenue.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section className="rounded-xl border border-border/60 bg-card p-5">
-          <h2 className="text-sm font-semibold text-foreground">Por presell</h2>
-          <p className="mt-1 text-xs text-muted-foreground mb-4">Cliques e conversões por página</p>
-          {(detail?.by_presell?.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem dados de páginas neste período.</p>
-          ) : (
-            <ul className="space-y-2">
-              {detail!
-                .by_presell!.filter((r) => r.presell_id !== "unattributed" && r.presell_id !== "unknown")
-                .slice(0, 8)
-                .map((r) => (
-                  <li
-                    key={r.presell_id}
-                    className="flex justify-between gap-3 text-sm border-b border-border/40 py-2 last:border-0"
-                  >
-                    <span className="truncate font-mono text-xs">{r.presell_id.slice(0, 8)}…</span>
-                    <span className="tabular-nums text-muted-foreground shrink-0">
-                      {r.clicks} cliques · {r.conversions} conv.
-                    </span>
-                  </li>
-                ))}
-            </ul>
-          )}
-          <Button variant="link" className="px-0 mt-2 h-auto" asChild>
-            <Link to="/presells">Abrir Presells</Link>
+      <section className="rounded-xl border border-border/60 bg-card p-5">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Campanhas</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Ordenadas por lucro (ou receita se sem gasto)</p>
+          </div>
+          <Button variant="link" className="px-0 h-auto" asChild>
+            <Link to="/campanhas">Gerir</Link>
           </Button>
-        </section>
-      </div>
+        </div>
+        {ranked.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Ainda sem dados por campanha. Crie uma campanha e use o link com utm_campaign no anúncio.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="pb-2 font-medium">Campanha</th>
+                  <th className="pb-2 font-medium text-right">Cliques</th>
+                  <th className="pb-2 font-medium text-right">Conv.</th>
+                  <th className="pb-2 font-medium text-right">Receita</th>
+                  <th className="pb-2 font-medium text-right">Gasto</th>
+                  <th className="pb-2 font-medium text-right">Lucro</th>
+                  <th className="pb-2 font-medium text-right">ROAS</th>
+                  <th className="pb-2 font-medium text-right">EPC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.slice(0, 12).map((c) => {
+                  const s = c.stats!;
+                  return (
+                    <tr key={c.id} className="border-t border-border/40">
+                      <td className="py-2.5 pr-3">
+                        <Link to={`/campanhas/${c.id}`} className="font-medium text-primary hover:underline">
+                          {c.name}
+                        </Link>
+                        <p className="text-[10px] text-muted-foreground">{c.traffic_source}</p>
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums">{s.clicks}</td>
+                      <td className="py-2.5 text-right tabular-nums">{s.conversions}</td>
+                      <td className="py-2.5 text-right tabular-nums">{money(s.revenue, currency)}</td>
+                      <td className="py-2.5 text-right tabular-nums">{money(c.spend_amount, currency)}</td>
+                      <td
+                        className={`py-2.5 text-right tabular-nums font-medium ${
+                          s.profit != null && s.profit < 0 ? "text-destructive" : ""
+                        }`}
+                      >
+                        {money(s.profit, currency)}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums">
+                        {s.roas != null ? `${s.roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—"}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums">{money(s.epc, currency)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

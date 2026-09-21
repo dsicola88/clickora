@@ -368,6 +368,24 @@ export const analyticsService = {
       } | null;
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
+      /** KPIs de media buyer: lucro = receita − gasto. */
+      media_buyer?: {
+        spend: number | null;
+        spend_source: "google_ads" | "manual" | "none";
+        spend_currency: string | null;
+        revenue: number;
+        profit: number | null;
+        roas: number | null;
+        cpa: number | null;
+        epc: number | null;
+        conversion_rate: number;
+        alerts: Array<{
+          code: string;
+          severity: "critical" | "warning" | "info";
+          title: string;
+          detail: string;
+        }>;
+      };
     }>(`/analytics/dashboard${qs ? `?${qs}` : ""}`);
   },
 
