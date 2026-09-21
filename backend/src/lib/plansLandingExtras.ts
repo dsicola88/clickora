@@ -414,7 +414,27 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
       { label: "Privacidade", href: "/privacidade" },
     ],
   },
-  content_blocks: null,
+  content_blocks: [
+    {
+      type: "rich_text" as const,
+      content:
+        "## Saia do amador e opere com dados reais\n\n- Publique cookies, VSL, desconto e gates sem WordPress\n- URL do anúncio com campanha, palavra-chave e GCLID\n- Vendas no painel quando a rede envia o postback (BuyGoods, SmartAdv…)\n- Domínio próprio no Pro Anual; pagamento via Hotmart com o mesmo e-mail\n\n*Resultados dependem da oferta e do tráfego — a dclickora organiza o fluxo.*",
+      layout: "contained" as const,
+      font_family: "sans" as const,
+      font_size: "base" as const,
+      font_weight: "normal" as const,
+      text_align: "left" as const,
+    },
+    {
+      type: "image" as const,
+      title: null,
+      subtitle: null,
+      src: "/landing/hotmart-benefit-500.png",
+      alt: "Painel dclickora — tracking e presells",
+      caption: "Painel: cliques, campanhas e conversões",
+      layout: "contained" as const,
+    },
+  ],
   testimonials: {
     enabled: true,
     title: "O que o fluxo resolve no dia a dia",
@@ -460,7 +480,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
       "A dclickora não processa o cartão na app: o pagamento corre na Hotmart. Após aprovação, o webhook activa o plano na sua conta (mesmo e-mail). Reembolsos e garantias comerciais seguem as regras da Hotmart e do produto vendido lá — não prometemos ROI nem resultados de campanha.",
     footer: "Dúvidas sobre o acesso após o pagamento? Confirme o e-mail da compra e o estado do webhook em Integrações / suporte.",
   },
-  section_order: ["features", "testimonials", "stats", "planos", "guarantee", "faq"],
+  section_order: ["features", "content_blocks", "testimonials", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
   theme: null,
   text_styles: null,

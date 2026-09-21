@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { resolveVideoEmbedUrl } from "@/lib/resolveVideoEmbed";
 import type { LandingContentBlock } from "@/lib/plansLandingExtras";
 import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
+import { LandingReveal } from "@/components/plans/LandingReveal";
 import type { ResolvedLandingPageTheme } from "@/lib/landingPageTheme";
 import {
   richTextAlignClass,
@@ -120,7 +121,7 @@ function MediaTile({
             <img
               src={block.src}
               alt={block.alt?.trim() || ""}
-              className="h-full w-full object-contain object-center"
+              className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover/media:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover/media:scale-100"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               loading="lazy"
               decoding="async"
@@ -178,20 +179,76 @@ export function LandingContentBlocks({ blocks, salesDark, salesTheme = null, cla
 
   const segments = buildSegments(list);
 
+  /** rich_text + imagem seguinte → dobra 2 colunas (evita bloco vazio tipo MagTrack). */
+  type RenderUnit =
+    | { kind: "split"; text: Extract<LandingContentBlock, { type: "rich_text" }>; image: MediaBlock }
+    | { kind: "segment"; seg: Segment };
+
+  const units: RenderUnit[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const cur = segments[i];
+    const next = segments[i + 1];
+    if (
+      cur?.kind === "rich_text" &&
+      next?.kind === "media_row" &&
+      next.blocks.length === 1 &&
+      next.blocks[0]?.type === "image"
+    ) {
+      units.push({ kind: "split", text: cur.block, image: next.blocks[0] });
+      i += 1;
+      continue;
+    }
+    if (cur) units.push({ kind: "segment", seg: cur });
+  }
+
   return (
     <div className={cn("space-y-12", className)}>
-      {segments.map((seg, si) => (
-        <Fragment key={si}>
-          {seg.kind === "media_row" ? (
+      {units.map((unit, ui) => (
+        <LandingReveal key={ui}>
+          {unit.kind === "split" ? (
+            <div
+              className={cn(
+                "grid items-center gap-8 rounded-2xl border p-5 md:grid-cols-2 md:gap-10 md:p-8",
+                salesDark ? "border-white/10 bg-white/[0.03]" : "border-border/60 bg-card",
+              )}
+            >
+              <div className="min-w-0 space-y-3">
+                <LandingMarkdown
+                  content={unit.text.content}
+                  surface={salesDark && !unit.text.text_color?.trim() ? "dark_page" : "inherit"}
+                  salesTheme={salesTheme}
+                  sizeClassName={richTextFontSizeClass(unit.text.font_size)}
+                  className={cn(
+                    richTextFontFamilyClass(unit.text.font_family),
+                    richTextFontWeightClass(unit.text.font_weight),
+                    richTextAlignClass(unit.text.text_align),
+                    "[&_p]:max-w-none [&_li]:text-inherit",
+                  )}
+                  colorOverrides={
+                    unit.text.text_color?.trim()
+                      ? {
+                          body: unit.text.text_color.trim(),
+                          heading: unit.text.text_color.trim(),
+                          link: salesTheme?.link ?? unit.text.text_color.trim(),
+                          border: salesTheme?.nav_border,
+                        }
+                      : null
+                  }
+                />
+              </div>
+              <div className="group/media min-w-0 overflow-hidden rounded-xl">
+                <MediaTile block={unit.image} salesDark={salesDark} />
+              </div>
+            </div>
+          ) : unit.seg.kind === "media_row" ? (
             <div
               className={cn(
                 "grid w-full gap-3 sm:gap-4",
-                /* auto-fit + 1fr: cada célula estica e partilha a linha; mín. ~160px por coluna */
                 "[grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))]",
               )}
             >
-              {seg.blocks.map((block, bi) => (
-                <article key={`${si}-${bi}`} className="scroll-mt-24 min-w-0 w-full max-w-full">
+              {unit.seg.blocks.map((block, bi) => (
+                <article key={`${ui}-${bi}`} className="scroll-mt-24 min-w-0 w-full max-w-full">
                   <MediaTile block={block} salesDark={salesDark} />
                 </article>
               ))}
@@ -201,32 +258,32 @@ export function LandingContentBlocks({ blocks, salesDark, salesTheme = null, cla
               <div
                 className={cn(
                   "w-full",
-                  seg.block.layout === "wide" ? "max-w-none" : "mx-auto max-w-4xl",
-                  richTextBlockWrapperClass(seg.block.background_color),
+                  unit.seg.block.layout === "wide" ? "max-w-none" : "mx-auto max-w-4xl",
+                  richTextBlockWrapperClass(unit.seg.block.background_color),
                 )}
                 style={
-                  seg.block.background_color?.trim()
-                    ? { backgroundColor: seg.block.background_color.trim() }
+                  unit.seg.block.background_color?.trim()
+                    ? { backgroundColor: unit.seg.block.background_color.trim() }
                     : undefined
                 }
               >
                 <LandingMarkdown
-                  content={seg.block.content}
-                  surface={salesDark && !seg.block.text_color?.trim() ? "dark_page" : "inherit"}
+                  content={unit.seg.block.content}
+                  surface={salesDark && !unit.seg.block.text_color?.trim() ? "dark_page" : "inherit"}
                   salesTheme={salesTheme}
-                  sizeClassName={richTextFontSizeClass(seg.block.font_size)}
+                  sizeClassName={richTextFontSizeClass(unit.seg.block.font_size)}
                   className={cn(
-                    richTextFontFamilyClass(seg.block.font_family),
-                    richTextFontWeightClass(seg.block.font_weight),
-                    richTextAlignClass(seg.block.text_align),
+                    richTextFontFamilyClass(unit.seg.block.font_family),
+                    richTextFontWeightClass(unit.seg.block.font_weight),
+                    richTextAlignClass(unit.seg.block.text_align),
                     "[&_p]:max-w-none [&_li]:text-inherit",
                   )}
                   colorOverrides={
-                    seg.block.text_color?.trim()
+                    unit.seg.block.text_color?.trim()
                       ? {
-                          body: seg.block.text_color.trim(),
-                          heading: seg.block.text_color.trim(),
-                          link: salesTheme?.link ?? seg.block.text_color.trim(),
+                          body: unit.seg.block.text_color.trim(),
+                          heading: unit.seg.block.text_color.trim(),
+                          link: salesTheme?.link ?? unit.seg.block.text_color.trim(),
                           border: salesTheme?.nav_border,
                         }
                       : null
@@ -235,7 +292,7 @@ export function LandingContentBlocks({ blocks, salesDark, salesTheme = null, cla
               </div>
             </article>
           )}
-        </Fragment>
+        </LandingReveal>
       ))}
     </div>
   );

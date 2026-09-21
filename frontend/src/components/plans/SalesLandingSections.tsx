@@ -15,6 +15,7 @@ import {
 } from "@/lib/plansLandingTextStyles";
 import { Check } from "lucide-react";
 import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
+import { LandingReveal } from "@/components/plans/LandingReveal";
 
 type Props = {
   extras: LandingExtrasPublic;
@@ -71,13 +72,14 @@ export function SalesLandingFeatures({ extras, className }: Props) {
         {cards.map((card, i) => {
           const img = card.image_url?.trim();
           return (
-            <div key={i} className="flex min-w-0 flex-col text-left">
+            <LandingReveal key={i} delayMs={i * 80}>
+              <div className="flex min-w-0 flex-col text-left transition-transform duration-300 hover:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none">
               {img ? (
                 <div className="mb-4 aspect-video w-full overflow-hidden rounded-lg bg-stone-200/80 ring-1 ring-stone-300/60">
                   <img
                     src={img}
                     alt=""
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-105 motion-reduce:transition-none"
                     loading="lazy"
                     decoding="async"
                     sizes="(max-width:768px) 100vw, 33vw"
@@ -114,6 +116,7 @@ export function SalesLandingFeatures({ extras, className }: Props) {
                 </div>
               ) : null}
             </div>
+            </LandingReveal>
           );
         })}
       </div>

@@ -174,16 +174,19 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
         title: "Presells prontas a publicar",
         body:
           "Cookies, desconto com urgência, VSL, TSL, DTC, gates de idade/país e editor manual. Importe a página da oferta, escolha o tipo e publique no seu domínio ou no da dclickora.",
+        image_url: "/landing/hotmart-benefit-500.png",
       },
       {
         title: "Tracking que o media buyer usa",
         body:
           "URL do anúncio com campanha, palavra-chave e GCLID. Impressões e cliques no servidor; país e dispositivo pelo pedido real. Vendas entram via postback da rede (BuyGoods, SmartAdv, Digistore…).",
+        image_url: "/landing/hero-default.png",
       },
       {
         title: "Domínio e planos alinhados",
         body:
           "Nos planos com domínio personalizado, verifique o DNS e publique na sua URL. Pagamento dos planos pagos via Hotmart quando o link está configurado; o webhook activa a assinatura automaticamente.",
+        image_url: "/landing/hotmart-benefit-500.png",
       },
     ],
   },
@@ -234,7 +237,27 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       { label: "Privacidade", href: "/privacidade" },
     ],
   },
-  content_blocks: null,
+  content_blocks: [
+    {
+      type: "rich_text",
+      content:
+        "## Saia do amador e opere com dados reais\n\n- Publique cookies, VSL, desconto e gates sem WordPress\n- URL do anúncio com campanha, palavra-chave e GCLID\n- Vendas no painel quando a rede envia o postback (BuyGoods, SmartAdv…)\n- Domínio próprio no Pro Anual; pagamento via Hotmart com o mesmo e-mail\n\n*Resultados dependem da oferta e do tráfego — a dclickora organiza o fluxo.*",
+      layout: "contained",
+      font_family: "sans",
+      font_size: "base",
+      font_weight: "normal",
+      text_align: "left",
+    },
+    {
+      type: "image",
+      title: null,
+      subtitle: null,
+      src: "/landing/hotmart-benefit-500.png",
+      alt: "Painel dclickora — tracking e presells",
+      caption: "Painel: cliques, campanhas e conversões",
+      layout: "contained",
+    },
+  ],
   testimonials: {
     enabled: true,
     title: "O que o fluxo resolve no dia a dia",
@@ -281,7 +304,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
     footer:
       "Dúvidas sobre o acesso após o pagamento? Confirme o e-mail da compra e o estado do webhook em Integrações / suporte.",
   },
-  section_order: ["features", "testimonials", "stats", "planos", "guarantee", "faq"],
+  section_order: ["features", "content_blocks", "testimonials", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
   theme: null,
   text_styles: null,
@@ -314,7 +337,11 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
             const body = typeof c.body === "string" ? c.body : "";
             const imgRaw = typeof c.image_url === "string" ? c.image_url.trim() : "";
             const image_url =
-              imgRaw && (imgRaw.startsWith("/") || /^https?:\/\//i.test(imgRaw)) ? imgRaw : null;
+              imgRaw && (imgRaw.startsWith("/") || /^https?:\/\//i.test(imgRaw))
+                ? /500x500|placeholder|via\.placeholder|placehold\.co/i.test(imgRaw)
+                  ? "/landing/hotmart-benefit-500.png"
+                  : imgRaw
+                : undefined;
             return { title, body, image_url: image_url ?? undefined };
           })
           .filter((c) => c && (c.title.trim() || c.body.trim() || c.image_url))
@@ -478,8 +505,11 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
           layout,
         });
       } else {
-        const src = typeof item.src === "string" ? item.src.trim() : "";
-        if (!src) continue;
+        let src = typeof item.src === "string" ? item.src.trim() : "";
+        // Placeholder MagTrack / vazio → imagem default da landing
+        if (!src || /500x500|placeholder|via\.placeholder|placehold\.co/i.test(src)) {
+          src = "/landing/hotmart-benefit-500.png";
+        }
         const alt = typeof item.alt === "string" ? item.alt : undefined;
         const caption = typeof item.caption === "string" ? item.caption : null;
         parsed.push({
@@ -718,6 +748,9 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
   const textStylesParsed = coerceLandingTextStyles(raw.text_styles);
   const text_styles = Object.keys(textStylesParsed).length ? textStylesParsed : null;
 
+  if (!content_blocks?.length) {
+    content_blocks = DEFAULT_LANDING_EXTRAS.content_blocks;
+  }
   if (!guarantee) {
     guarantee = DEFAULT_LANDING_EXTRAS.guarantee;
   }
@@ -732,6 +765,12 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
   }
 
   let order = section_order ?? DEFAULT_LANDING_EXTRAS.section_order;
+  if (order && content_blocks?.length && !order.includes("content_blocks")) {
+    const next = [...order];
+    const featIdx = next.indexOf("features");
+    next.splice(featIdx >= 0 ? featIdx + 1 : 0, 0, "content_blocks");
+    order = next;
+  }
   if (order && testimonials?.items?.length && !order.includes("testimonials")) {
     const next = [...order];
     const planosIdx = next.indexOf("planos");
