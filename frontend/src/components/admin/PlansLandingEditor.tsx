@@ -458,6 +458,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     {
       thumbnail_url: string;
       video_url: string;
+      quote: string;
       name: string;
       role: string;
       social_handle: string;
@@ -662,6 +663,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         ? te.items.map((it) => ({
             thumbnail_url: it.thumbnail_url,
             video_url: it.video_url,
+            quote: it.quote ?? "",
             name: it.name ?? "",
             role: it.role ?? "",
             social_handle: it.social_handle ?? "",
@@ -806,11 +808,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       .map((t) => ({
         thumbnail_url: t.thumbnail_url.trim(),
         video_url: t.video_url.trim(),
+        quote: t.quote.trim() || null,
         name: t.name.trim() || null,
         role: t.role.trim() || null,
         social_handle: t.social_handle.trim() || null,
       }))
-      .filter((t) => t.thumbnail_url && t.video_url);
+      .filter((t) => Boolean(t.quote) || (Boolean(t.thumbnail_url) && Boolean(t.video_url)));
 
     const testimonials =
       testimonialFiltered.length > 0
@@ -2053,6 +2056,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       {
                         thumbnail_url: "",
                         video_url: "",
+                        quote: "",
                         name: "",
                         role: "",
                         social_handle: "",
@@ -2065,7 +2069,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 </Button>
               </div>
               {testimonialItems.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Sem testemunhos. Adicione cartões com miniatura e vídeo.</p>
+                <p className="text-xs text-muted-foreground">
+                  Sem testemunhos. Adicione citação em texto e/ou miniatura+vídeo (sem inventar resultados financeiros).
+                </p>
               ) : (
                 <div className="space-y-3">
                   {testimonialItems.map((row, idx) => (
@@ -2088,9 +2094,23 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         </Button>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label className="text-xs">Citação (texto — sem prometer ganhos)</Label>
+                          <Textarea
+                            placeholder="O que o fluxo resolve no dia a dia…"
+                            value={row.quote}
+                            onChange={(e) =>
+                              setTestimonialItems((prev) =>
+                                prev.map((r, i) => (i === idx ? { ...r, quote: e.target.value } : r)),
+                              )
+                            }
+                            rows={3}
+                            maxLength={800}
+                          />
+                        </div>
                         <div className="space-y-1.5 sm:col-span-2">
                           <div className="flex flex-wrap items-end justify-between gap-2">
-                            <Label className="text-xs">URL da miniatura (imagem)</Label>
+                            <Label className="text-xs">URL da miniatura (opcional se houver citação)</Label>
                             <Button
                               type="button"
                               variant="secondary"

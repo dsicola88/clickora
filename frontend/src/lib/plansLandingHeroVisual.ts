@@ -25,17 +25,20 @@ export interface PlansHeroVisual {
 }
 
 export const DEFAULT_PLANS_HERO_VISUAL: PlansHeroVisual = {
-  image_effect: "none",
+  image_effect: "ken-burns",
   overlay_style: "gradient-dark",
   overlay_intensity: "medium",
   content_entrance: "fade-up",
   image_object_position: "center",
-  min_height_mobile_px: 220,
-  min_height_desktop_px: 280,
+  min_height_mobile_px: 420,
+  min_height_desktop_px: 560,
   cta_enabled: true,
   cta_label: "Ver planos",
   cta_href: "#planos",
 };
+
+/** Imagem da 1ª dobra quando o admin ainda não enviou hero próprio. */
+export const DEFAULT_LANDING_HERO_IMAGE = "/landing/hero-default.png";
 
 function clampInt(n: unknown, fallback: number, min: number, max: number): number {
   if (typeof n !== "number" || !Number.isFinite(n)) return fallback;

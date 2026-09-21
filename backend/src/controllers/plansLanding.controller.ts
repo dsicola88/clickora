@@ -161,13 +161,13 @@ function mapRow(row: Row) {
 }
 
 const DEFAULT_JSON = {
-  badge_text: "Performance & conversão" as string | null,
-  hero_title: "A plataforma completa para presells e rastreamento",
+  badge_text: "Presells · Tracking · Hotmart" as string | null,
+  hero_title: "Publique presells e meça cada clique — sem mentir nos números",
   hero_subtitle:
-    "Crie páginas que convertem, meça cada clique e escalone com dados — num painel único pensado para afiliados e media buyers.",
+    "Crie páginas que convertem, copie o URL do anúncio com campanha, palavra-chave e GCLID, e veja conversões quando a rede envia o postback. Planos pagos via Hotmart quando o checkout está configurado.",
   has_hero_image: false,
   intro_text:
-    "Junte modelos de presell prontos a usar, tracking fiável e integrações de checkout. Personalize textos, imagens e secções desta página no painel administrativo quando quiser refinar a conversão.",
+    "A dclickora junta editor de presell, tracking real e activação de plano por webhook Hotmart. Nos cartões abaixo estão os limites; o desempenho das campanhas depende da sua oferta e do tráfego.",
   footer_text: null as string | null,
   hero_font: "sans",
   hero_text_align: "center",

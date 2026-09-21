@@ -35,6 +35,7 @@ import {
 import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
 import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
+import { DEFAULT_LANDING_HERO_IMAGE, coercePlansHeroVisual } from "@/lib/plansLandingHeroVisual";
 
 export default function Plans() {
   const navigate = useNavigate();
@@ -103,17 +104,40 @@ export default function Plans() {
   if (isError) return <ErrorState message="Erro ao carregar planos." onRetry={() => refetch()} />;
   if (plans.length === 0) return <ErrorState message="Nenhum plano disponivel no momento." onRetry={() => refetch()} />;
 
-  const heroTitle = landing?.hero_title ?? "Escolha seu plano";
+  const OLD_HERO_TITLES = new Set([
+    "Escolha seu plano",
+    "A plataforma completa para presells e rastreamento",
+  ]);
+  const defaultHeroTitle = "Publique presells e meça cada clique — sem mentir nos números";
+  const defaultHeroSubtitle =
+    "Crie páginas que convertem, copie o URL do anúncio com campanha, palavra-chave e GCLID, e veja conversões quando a rede envia o postback. Planos pagos via Hotmart quando o checkout está configurado.";
+  const rawTitle = landing?.hero_title?.trim() ?? "";
+  const heroTitle = !rawTitle || OLD_HERO_TITLES.has(rawTitle) ? defaultHeroTitle : rawTitle;
+  const rawSubtitle = landing?.hero_subtitle?.trim() ?? "";
   const heroSubtitle =
-    landing?.hero_subtitle ??
-    "Limites por plano nos cartões; resultados dependem da oferta e tráfego.";
+    !rawSubtitle ||
+    rawSubtitle.startsWith("Crie páginas que convertem, meça cada clique") ||
+    rawSubtitle.startsWith("Limites por plano nos cartões")
+      ? defaultHeroSubtitle
+      : rawSubtitle;
   const badgeText = landing?.badge_text?.trim() ?? "";
   const introText = landing?.intro_text?.trim() ?? "";
   const footerText = landing?.footer_text?.trim() ?? "";
   const heroImg =
     landing?.has_hero_image && landing.updated_at
       ? plansLandingService.heroImageHref(landing.updated_at)
-      : null;
+      : DEFAULT_LANDING_HERO_IMAGE;
+  const heroVisualRaw = (() => {
+    const v = coercePlansHeroVisual(landing?.hero_visual);
+    if (landing?.has_hero_image) return landing?.hero_visual;
+    // 1ª dobra com imagem padrão: altura generosa + movimento suave.
+    return {
+      ...v,
+      min_height_mobile_px: Math.max(v.min_height_mobile_px, 420),
+      min_height_desktop_px: Math.max(v.min_height_desktop_px, 560),
+      image_effect: v.image_effect === "none" ? "ken-burns" : v.image_effect,
+    };
+  })();
 
   const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
   const extras = coerceLandingExtras(landing?.landing_extras);
@@ -326,7 +350,7 @@ export default function Plans() {
 
       <PlansLandingHeroBlock
         heroImg={heroImg}
-        heroVisualRaw={landing?.hero_visual}
+        heroVisualRaw={heroVisualRaw}
         tone={salesDark ? "dark" : "default"}
         salesTheme={salesDark ? salesThemed : null}
       >

@@ -152,13 +152,42 @@ export const landingExtrasContentBlockSchema = z.discriminatedUnion("type", [
   landingExtrasRichTextBlockSchema,
 ]);
 
-export const landingExtrasTestimonialItemSchema = z.object({
-  thumbnail_url: urlish,
-  video_url: urlish,
-  name: z.string().max(120).nullable().optional(),
-  role: z.string().max(200).nullable().optional(),
-  social_handle: z.string().max(80).nullable().optional(),
-});
+/** URL opcional: vazio permitido (testemunhos só com citação). */
+const optionalUrlOrEmpty = z
+  .string()
+  .max(2000)
+  .refine((s) => {
+    const t = s.trim();
+    if (!t) return true;
+    if (t.startsWith("/")) return true;
+    try {
+      const u = new URL(t);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "URL inválida");
+
+export const landingExtrasTestimonialItemSchema = z
+  .object({
+    thumbnail_url: optionalUrlOrEmpty.optional().default(""),
+    video_url: optionalUrlOrEmpty.optional().default(""),
+    /** Citação em texto (sem inventar resultados financeiros). */
+    quote: z.string().max(800).nullable().optional(),
+    name: z.string().max(120).nullable().optional(),
+    role: z.string().max(200).nullable().optional(),
+    social_handle: z.string().max(80).nullable().optional(),
+  })
+  .superRefine((val, ctx) => {
+    const hasQuote = Boolean(val.quote?.trim());
+    const hasVideo = Boolean(val.thumbnail_url?.trim() && val.video_url?.trim());
+    if (!hasQuote && !hasVideo) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Indique uma citação ou miniatura+vídeo",
+      });
+    }
+  });
 
 export const landingExtrasGalleryItemSchema = z.object({
   image_url: urlish,
@@ -313,39 +342,39 @@ export type LandingExtras = z.infer<typeof landingExtrasSchema>;
 export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
   appearance: "sales_dark",
   plans_section_label: "PLANOS",
-  plans_section_title: "Escolha como quer escalar",
+  plans_section_title: "Escolha o plano certo para o seu volume",
   plans_section_subtitle:
-    "Os limites de presells e cliques estão nos cartões. Pode começar no plano grátis e fazer upgrade quando precisar. Planos pagos abrem num checkout externo (por exemplo Hotmart) apenas se o administrador tiver configurado o link.",
+    "Os limites de presells e cliques estão em cada cartão. Comece grátis e faça upgrade quando precisar. Planos pagos abrem o checkout Hotmart (ou o link que o administrador configurar) — use o mesmo e-mail na compra e na conta dclickora para o webhook activar o acesso.",
   features: {
-    title: "Presells, métricas e domínio no mesmo sítio",
+    title: "Do link da oferta ao relatório — no mesmo painel",
     subtitle:
-      "Crie páginas presell no editor, acompanhe eventos no painel e use domínio próprio nos planos em que isso está incluído — sem prometer resultados que dependem da sua oferta e tráfego.",
+      "Publique presells, meça cliques com GCLID/UTMs e veja conversões quando a rede envia o postback. Resultados de venda dependem da sua oferta, criativos e tráfego — a dclickora organiza o fluxo e os dados.",
     cards: [
       {
-        title: "Formatos de presell reais no editor",
+        title: "Presells prontas a publicar",
         body:
-          "Tipos como VSL, TSL, DTC, VSL+TSL, gates (cookies, desconto, idade, país, captcha, entre outros) e presell manual no editor visual (secções e widgets). Vídeo em incorporação (ex.: YouTube) onde o layout o permitir.",
+          "Cookies, desconto com urgência, VSL, TSL, DTC, gates de idade/país e editor manual. Importe a página da oferta, escolha o tipo e publique no seu domínio ou no da dclickora.",
       },
       {
-        title: "Tracking e proteção configuráveis",
+        title: "Tracking que o media buyer usa",
         body:
-          "Scripts e eventos no servidor (cliques, impressões, conversões), ligação a GCLID e conversões quando configurar integrações, e regras anti-abuso e listas IP que pode ativar na conta.",
+          "URL do anúncio com campanha, palavra-chave e GCLID. Impressões e cliques no servidor; país e dispositivo pelo pedido real. Vendas entram via postback da rede (BuyGoods, SmartAdv, Digistore…).",
       },
       {
-        title: "Domínio e branding conforme o plano",
+        title: "Domínio e planos alinhados",
         body:
-          "Nos planos com domínio personalizado, verifique o hostname e publique na sua URL. Nos planos pagos indicados, o rodapé pode ficar sem a marca Clickora; no grátis o branding pode ser visível.",
+          "Nos planos com domínio personalizado, verifique o DNS e publique na sua URL. Pagamento dos planos pagos via Hotmart quando o link está configurado; o webhook activa a assinatura automaticamente.",
       },
     ],
   },
   stats: {
-    title: "Feito para medir e iterar",
+    title: "O que fica medido na conta",
     subtitle:
-      "Use os números do painel para ver o que a conta está a registar; disponibilidade do serviço depende da infraestrutura em produção.",
+      "Números reais da sua conta — não são médias inventadas. A disponibilidade depende da infraestrutura em produção.",
     items: [
-      { value: "1", label: "Conta: presells e métricas no mesmo painel" },
-      { value: "Eventos", label: "Cliques, impressões e conversões nas quotas do plano" },
-      { value: "Checkout", label: "Pagamento via link externo se o admin o configurar" },
+      { value: "Presells", label: "Tipos e idiomas no editor, com quotas do plano" },
+      { value: "Cliques", label: "Eventos com UTMs, GCLID e dispositivo" },
+      { value: "Hotmart", label: "Checkout externo + activação por webhook" },
       { value: "Domínio", label: "Hostname próprio nos planos que o incluem" },
     ],
   },
@@ -355,37 +384,83 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
       {
         q: "O plano grátis inclui o quê?",
         a:
-          "Pode criar presells e usar o tracking até aos limites do plano (número de presells e de cliques por mês) indicados no cartão. Funcionalidades extra dependem da configuração da sua instalação.",
+          "Pode criar presells e usar o tracking até aos limites do cartão (número de páginas e cliques/mês). Ferramentas de tracking e tipos de presell seguem o que está no plano; o branding dclickora pode aparecer no rodapé no grátis.",
       },
       {
-        q: "Como pago um plano pago?",
+        q: "Como funciona o pagamento Hotmart?",
         a:
-          "Escolha o plano e use o botão de compra. Se existir um link de checkout configurado, será redirecionado. Se não acontecer nada ou aparecer um aviso, o link ainda não foi definido — contacte o suporte ou administrador da plataforma.",
+          "Nos planos pagos, o botão Compra abre o checkout Hotmart (se HOTMART_PRODUCT_URL ou HOTMART_PLAN_CHECKOUT_URLS estiver configurado no servidor). Após pagamento aprovado, o webhook Hotmart activa a assinatura — use o mesmo e-mail na Hotmart e na dclickora. Se o link não estiver configurado, verá um aviso em vez do redirect.",
       },
       {
         q: "Posso usar o meu domínio nas presells?",
         a:
-          "Sim, nos planos que incluem domínio personalizado: adicione o domínio no painel, siga a verificação DNS indicada e publique. O número de domínios permitido depende do plano.",
+          "Sim, nos planos que incluem domínio personalizado: adicione o domínio em Configurações, siga a verificação DNS e publique. O número de domínios permitido depende do plano.",
       },
       {
-        q: "Onde obtenho suporte?",
+        q: "A dclickora garante vendas ou ROI?",
         a:
-          "Use os contactos ou canais que a sua instalação da plataforma disponibilizar. Podem ser adicionados a esta secção no editor da landing.",
+          "Não. A plataforma fornece páginas, tracking e relatórios. Conversões e lucro dependem da oferta, da rede de afiliados, dos anúncios e do tráfego. Não inventamos cliques nem testemunhos de ganhos.",
       },
     ],
   },
   legal_footer: {
-    lines: ["dclickora — presells, rastreamento e ferramentas para afiliados."],
+    lines: [
+      "dclickora — presells, rastreamento e ferramentas para afiliados.",
+      "Pagamentos de planos via Hotmart quando o checkout está configurado. Resultados comerciais não são garantidos.",
+    ],
     links: [
       { label: "Criar conta", href: "/auth" },
       { label: "Entrar", href: "/auth" },
+      { label: "Privacidade", href: "/privacidade" },
     ],
   },
   content_blocks: null,
-  testimonials: null,
+  testimonials: {
+    enabled: true,
+    title: "O que o fluxo resolve no dia a dia",
+    subtitle:
+      "Citações sobre o uso da ferramenta — não são promessas de rendimento. Cada conta vê os seus próprios números.",
+    items: [
+      {
+        thumbnail_url: "",
+        video_url: "",
+        quote:
+          "Preciso de cookies, VSL ou desconto no ar no mesmo dia — sem montar WordPress — e copiar o URL do anúncio com GCLID e palavra-chave.",
+        name: "Fluxo típico",
+        role: "Afiliado de tráfego pago",
+        social_handle: null,
+      },
+      {
+        thumbnail_url: "",
+        video_url: "",
+        quote:
+          "Quero ver no painel qual campanha e keyword geraram o clique, e fechar a venda quando a rede manda o postback — não inventar métricas.",
+        name: "Fluxo típico",
+        role: "Media buyer",
+        social_handle: null,
+      },
+      {
+        thumbnail_url: "",
+        video_url: "",
+        quote:
+          "Pagamento do plano na Hotmart com o mesmo e-mail da conta; depois do webhook, o acesso sobe de plano sem pedir suporte manual.",
+        name: "Fluxo típico",
+        role: "Assinante de plano pago",
+        social_handle: null,
+      },
+    ],
+  },
   gallery: null,
-  guarantee: null,
-  section_order: ["features", "stats", "planos", "guarantee", "faq"],
+  guarantee: {
+    enabled: true,
+    seal_image_url: null,
+    title: "Pagamento seguro na Hotmart",
+    lead: "Os planos pagos usam o checkout externo da Hotmart quando o administrador configura o link.",
+    body:
+      "A dclickora não processa o cartão na app: o pagamento corre na Hotmart. Após aprovação, o webhook activa o plano na sua conta (mesmo e-mail). Reembolsos e garantias comerciais seguem as regras da Hotmart e do produto vendido lá — não prometemos ROI nem resultados de campanha.",
+    footer: "Dúvidas sobre o acesso após o pagamento? Confirme o e-mail da compra e o estado do webhook em Integrações / suporte.",
+  },
+  section_order: ["features", "testimonials", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
   theme: null,
   text_styles: null,

@@ -20,10 +20,10 @@ export const heroVisualPatchSchema = z.object({
 export type HeroVisualPatch = z.infer<typeof heroVisualPatchSchema>;
 
 export const DEFAULT_HERO_VISUAL = {
-  image_effect: "none" as const,
+  image_effect: "ken-burns" as const,
   image_object_position: "center" as const,
-  min_height_mobile_px: 220 as const,
-  min_height_desktop_px: 280 as const,
+  min_height_mobile_px: 420 as const,
+  min_height_desktop_px: 560 as const,
   overlay_style: "gradient-dark" as const,
   overlay_intensity: "medium" as const,
   content_entrance: "fade-up" as const,

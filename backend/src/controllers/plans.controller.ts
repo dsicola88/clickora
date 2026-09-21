@@ -125,7 +125,7 @@ export const plansController = {
           checkout_url,
           checkout_mode: "external",
           message:
-            "Será redirecionado para a página de compra. Após o pagamento aprovado, o acesso é ativado automaticamente (webhook Hotmart). Use o mesmo e-mail na compra e na conta Clickora.",
+            "Será redirecionado para a página de compra. Após o pagamento aprovado, o acesso é ativado automaticamente (webhook Hotmart). Use o mesmo e-mail na compra e na conta dclickora.",
         });
       }
       return res.json({
