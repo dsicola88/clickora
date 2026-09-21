@@ -12,10 +12,12 @@ import {
   ExternalLink,
   Loader2,
   ListOrdered,
+  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
@@ -290,49 +292,6 @@ export default function Plataformas() {
               </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label className="font-semibold text-muted-foreground">URL base (só o token — não cole isto na BuyGoods)</Label>
-              <p className="text-xs text-muted-foreground">
-                É a raiz do webhook. Serve para diagnóstico ou se a rede pedir só o endpoint.{" "}
-                <strong className="text-foreground/90">Para a BuyGoods use o bloco laranja em baixo</strong> (já traz as macros).
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10 opacity-90" />
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title="Copiar URL base">
-                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2 shrink-0"
-                    onClick={() => testMutation.mutate()}
-                    disabled={intLocked || testMutation.isPending || !info.smtp_configured}
-                  >
-                    {testMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Link2 className="h-4 w-4" />
-                    )}
-                    Testar e-mail
-                  </Button>
-                </div>
-              </div>
-              {!info.smtp_configured && (
-                <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                  {isAdmin ? (
-                    <>
-                      O servidor ainda não tem SMTP configurado (<span className="font-mono">SMTP_HOST</span>,{" "}
-                      <span className="font-mono">SMTP_FROM</span>, etc.). O botão de teste fica desativado até isso existir no{" "}
-                      <span className="font-mono">.env</span> da API.
-                    </>
-                  ) : (
-                    <>O envio de e-mail de teste ainda não está disponível neste ambiente. Contacte o suporte se precisar de ajuda.</>
-                  )}
-                </p>
-              )}
-            </div>
-
             <div className="space-y-2 rounded-xl border-2 border-primary/40 bg-primary/[0.06] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Label className="font-semibold text-foreground text-base">
@@ -370,6 +329,61 @@ export default function Plataformas() {
                 <span className="font-mono">platform=…</span> nos alertas.
               </p>
             </div>
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="px-0 h-auto text-muted-foreground gap-1">
+                  Para que serve a outra URL? (avançado)
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-3">
+                <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-4">
+                  <Label className="font-semibold text-muted-foreground">URL base (só o token)</Label>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    É a mesma base do URL de cima, <strong className="text-foreground/90">sem</strong> as macros{" "}
+                    <span className="font-mono">{"{SUBID}"}</span>, <span className="font-mono">{"{ORDERID}"}</span>, etc.
+                    Só precisa dela se a rede pedir o endpoint à parte e as macros noutro formulário — ou para suporte.
+                    Na BuyGoods normalmente <strong className="text-foreground/90">não usa</strong> esta; usa «Copiar com macros».
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                    <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10 opacity-90" />
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title="Copiar URL base">
+                        {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2 shrink-0"
+                        onClick={() => testMutation.mutate()}
+                        disabled={intLocked || testMutation.isPending || !info.smtp_configured}
+                      >
+                        {testMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Link2 className="h-4 w-4" />
+                        )}
+                        Testar e-mail
+                      </Button>
+                    </div>
+                  </div>
+                  {!info.smtp_configured && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                      {isAdmin ? (
+                        <>
+                          O servidor ainda não tem SMTP configurado (<span className="font-mono">SMTP_HOST</span>,{" "}
+                          <span className="font-mono">SMTP_FROM</span>, etc.). O botão de teste fica desativado até isso existir no{" "}
+                          <span className="font-mono">.env</span> da API.
+                        </>
+                      ) : (
+                        <>O envio de e-mail de teste ainda não está disponível neste ambiente. Contacte o suporte se precisar de ajuda.</>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
               <div className="flex items-start gap-2">
