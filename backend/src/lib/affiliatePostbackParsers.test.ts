@@ -60,6 +60,17 @@ test("sem click id UUID → atribuição impossível (venda perder-se-ia no Clic
   assert.equal(extractClickIdFromPayload(flat), null);
 });
 
+test("BuyGoods: subid UUID liga o clique", () => {
+  const uuid = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
+  assert.equal(extractClickIdFromPayload({ subid: uuid, status: "approved" }), uuid);
+});
+
+test("SmartAdv: sub3 ou cid com UUID do clique", () => {
+  const uuid = "cccccccc-dddd-4eee-8fff-000000000001";
+  assert.equal(extractClickIdFromPayload({ sub3: uuid }), uuid);
+  assert.equal(extractClickIdFromPayload({ cid: uuid }), uuid);
+});
+
 test("Hotmart-style aprovado PT", () => {
   assert.equal(isApprovedSaleStatus("aprovado"), true);
 });

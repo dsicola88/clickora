@@ -133,6 +133,32 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
       cy: "{currency}",
     },
   },
+  BuyGoods: {
+    hint:
+      "BuyGoods: a Clickora envia subid=UUID no hoplink. Em Setup → Affiliates → Postback Pixels, cole o URL com macros. {SUBID} deve voltar — assim a venda liga ao clique e ao GCLID.",
+    params: {
+      subid: "{SUBID}",
+      clickora_click_id: "{SUBID}",
+      subid1: "{SUBID}",
+      orderid: "{ORDERID}",
+      amount: "{COMMISSION_AMOUNT}",
+      product: "{PRODUCT_CODENAME}",
+      status: "approved",
+      cy: "USD",
+    },
+  },
+  SmartAdv: {
+    hint:
+      "SmartAdv: a Clickora envia o UUID em sub3 (recomendado pela rede). No postback use cid={sub3} (ou clickora_click_id={sub3}). Global postback cobre todas as ofertas.",
+    params: {
+      cid: "{sub3}",
+      clickora_click_id: "{sub3}",
+      sub3: "{sub3}",
+      orderid: "{transaction_id}",
+      amount: "{payout}",
+      status: "approved",
+    },
+  },
   MaxWeb: {
     hint:
       "MaxWeb: muitos anunciantes usam s1–s3; o UUID do clique pode ir em s1 ou subid1 (o backend lê sub1 com UUID).",
@@ -156,11 +182,6 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
   Hotmart: {
     hint:
       "Hotmart pode notificar por POST JSON; o mesmo conjunto de campos é aceite em query string e em form (flatten no servidor).",
-    params: DEFAULT_POSTBACK_PARAMS,
-  },
-  BuyGoods: {
-    hint:
-      "BuyGoods / IPN semelhante: orderid, status e comissão; {SUBID} = UUID do clique no URL da oferta.",
     params: DEFAULT_POSTBACK_PARAMS,
   },
   WarriorPlus: {

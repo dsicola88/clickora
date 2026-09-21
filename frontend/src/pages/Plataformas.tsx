@@ -185,31 +185,35 @@ export default function Plataformas() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.07] via-card to-violet-500/[0.05] p-5 sm:p-6 shadow-sm mb-6">
+      <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.07] via-card to-card p-5 sm:p-6 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-4">
           <ListOrdered className="h-5 w-5 text-primary shrink-0" />
-          <h2 className="text-base font-semibold text-foreground">Como configurar (fluxo do afiliado)</h2>
+          <h2 className="text-base font-semibold text-foreground">Como configurar (passos profissionais)</h2>
         </div>
         <ol className="list-decimal list-outside space-y-2.5 pl-5 text-sm text-muted-foreground leading-relaxed marker:font-semibold marker:text-foreground">
           <li>
-            Escolhe a <strong className="text-foreground/90">rede</strong> na coluna à esquerda (ex.: BuyGoods).
+            Escolha a <strong className="text-foreground/90">rede</strong> à esquerda (BuyGoods, SmartAdv, Digistore24…).
           </li>
           <li>
-            Indica o <strong className="text-foreground/90">e-mail</strong> para alertas e clica <strong className="text-foreground/90">Guardar e-mail</strong>.
+            Clique <strong className="text-foreground/90">Copiar com macros</strong> e cole esse URL no postback / IPN da rede.
           </li>
           <li>
-            Clica <strong className="text-foreground/90">Copiar com macros</strong> e cola o URL no painel da rede (Postback / IPN / Webhook).
+            Na <strong className="text-foreground/90">presell</strong>, use o hoplink oficial da rede — a Clickora acrescenta sozinha o ID do clique
+            (BuyGoods → <span className="font-mono text-[11px]">subid</span>, SmartAdv →{" "}
+            <span className="font-mono text-[11px]">sub3</span>, Digistore → <span className="font-mono text-[11px]">cid</span>).
           </li>
           <li>
-            Na rede, guarda o postback; confirma na doc da rede que o <strong className="text-foreground/90">SUBID</strong> (ou equivalente) volta no URL — liga a venda ao clique no dclickora.
+            No anúncio, use o <strong className="text-foreground/90">link da campanha Clickora</strong> (com UTMs). O{" "}
+            <span className="font-mono text-[11px]">gclid</span> fica no clique.
           </li>
           <li>
-            Opcional: <strong className="text-foreground/90">Testar e-mail</strong> (requer SMTP no servidor).
-          </li>
-          <li>
-            Com <strong className="text-foreground/90">venda aprovada</strong>, a rede chama o dclickora; repete para outra rede mudando a seleção à esquerda.
+            Com venda aprovada, a rede chama este webhook → a conversão aparece em{" "}
+            <strong className="text-foreground/90">Resultados → Conversões</strong>, ligada ao clique (e ao GCLID, se houver).
           </li>
         </ol>
+        <p className="mt-4 text-xs text-muted-foreground border-t border-border/50 pt-3">
+          Se o postback chegar sem ID de clique, a venda <strong className="text-foreground/90">ainda é registada</strong> como não atribuída — não se perde o registo; só falta a ligação ao anúncio.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">

@@ -36,6 +36,8 @@ function detectPlatform(url: string): string | null {
   if (u.includes("digistore")) return "Digistore24";
   if (u.includes("hotmart")) return "Hotmart";
   if (u.includes("clickbank")) return "ClickBank";
+  if (u.includes("buygoods") || u.includes("buy-goods")) return "BuyGoods";
+  if (u.includes("smartadv")) return "SmartAdv";
   if (u.includes("maxweb")) return "MaxWeb";
   return null;
 }
@@ -391,19 +393,26 @@ export default function CreatePresellWizardPage() {
           <ul className="space-y-2 text-sm">
             {[
               ["Estado", "Activo"],
-              ["Parâmetros do anúncio", "Prontos"],
-              ["Click ID", "Automático no clique"],
-              ["Vendas da rede", "Configure em Integrações se ainda não o fez"],
+              ["Parâmetros do anúncio", "Prontos (UTMs + click ID)"],
+              ["Click ID na oferta", "Automático (subid / sub3 / cid)"],
+              ["Vendas da rede", "Configure o postback em Integrações"],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-3 border-b border-border/40 py-2">
                 <span className="text-muted-foreground">{k}</span>
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="inline-flex items-center gap-1.5 font-medium text-right">
+                  <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                   {v}
                 </span>
               </li>
             ))}
           </ul>
+          <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-3 text-xs text-muted-foreground leading-relaxed">
+            <p className="font-medium text-foreground mb-1">Para vendas aparecerem no painel</p>
+            <p>
+              Em <strong className="text-foreground/90">Integrações → Vendas da rede</strong>, escolha BuyGoods ou SmartAdv,
+              copie o URL com macros e cole no postback da plataforma. Sem este passo, os cliques registam-se mas as vendas da rede não entram.
+            </p>
+          </div>
           <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="px-0">
@@ -417,9 +426,14 @@ export default function CreatePresellWizardPage() {
               </Button>
             </CollapsibleContent>
           </Collapsible>
-          <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
-            Continuar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/integracoes">Configurar postback agora</Link>
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
+              Continuar
+            </Button>
+          </div>
         </div>
       )}
 

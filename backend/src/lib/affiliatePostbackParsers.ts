@@ -108,7 +108,22 @@ export function extractClickIdFromPayload(flat: Record<string, string>): string 
     const id = normalizeUuid(flat[k]);
     if (id) return id;
   }
-  const subKeys = ["subid1", "SUBID1", "subid", "SUBID", "sub1", "SUB1", "sid1", "SID1"];
+  const subKeys = [
+    "subid1",
+    "SUBID1",
+    "subid",
+    "SUBID",
+    "sub1",
+    "SUB1",
+    "sub3",
+    "SUB3",
+    "sid1",
+    "SID1",
+    "s1",
+    "S1",
+    "s2",
+    "S2",
+  ];
   for (const k of subKeys) {
     const id = normalizeUuid(flat[k]);
     if (id) return id;
@@ -188,8 +203,10 @@ export function pickAmountDecimal(flat: Record<string, string>): Prisma.Decimal 
     "amount_net",
     "COMMISSION_AMOUNT",
     "commission_amount",
-    "price",
+    "commission",
+    "aff_commission",
     "payout",
+    "price",
     "value",
     "total",
     "revenue",

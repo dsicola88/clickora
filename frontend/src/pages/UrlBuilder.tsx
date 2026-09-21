@@ -215,11 +215,21 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
       key: "subid2",
       value: "",
       keyReadonly: true,
-      valuePlaceholder: "Insira {gclid} ou {msclkid} (use + para inserir)",
+      valuePlaceholder: "Opcional: {gclid} ou {msclkid}",
     },
     { key: "subid3", value: "", keyReadonly: true },
     { key: "subid4", value: "", keyReadonly: true },
     { key: "subid5", value: "", keyReadonly: true },
+  ],
+  "SmartAdv": [
+    {
+      key: "sub3",
+      value: "",
+      keyReadonly: true,
+      valuePlaceholder: "A Clickora preenche o UUID no clique; deixe vazio no hoplink base",
+    },
+    { key: "sub1", value: "", keyReadonly: true },
+    { key: "sub2", value: "", keyReadonly: true },
   ],
   "Digistore24": [
     { key: "aff", value: "" },
