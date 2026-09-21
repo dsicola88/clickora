@@ -291,29 +291,20 @@ export default function Plataformas() {
             </div>
 
             <div className="space-y-2">
-              <Label className="font-semibold">URL do webhook (Postback)</Label>
-              {isAdmin ? (
-                <p className="text-xs text-muted-foreground">
-                  Em produção deve ser <strong className="text-foreground/90">https://</strong>. Já inclui{" "}
-                  <span className="font-mono">?token=…</span> (segredo). Parâmetros extra usam{" "}
-                  <span className="font-mono">&amp;</span>. Na API, defina <span className="font-mono">API_PUBLIC_URL=https://www.dclickora.com/api</span>{" "}
-                  (ou o domínio público da API) para o URL gerado ser sempre correto.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Em produção use <strong className="text-foreground/90">https</strong>. O URL inclui um token secreto — não o partilhe. Parâmetros extra
-                  usam <span className="font-mono">&amp;</span>.
-                </p>
-              )}
+              <Label className="font-semibold text-muted-foreground">URL base (só o token — não cole isto na BuyGoods)</Label>
+              <p className="text-xs text-muted-foreground">
+                É a raiz do webhook. Serve para diagnóstico ou se a rede pedir só o endpoint.{" "}
+                <strong className="text-foreground/90">Para a BuyGoods use o bloco laranja em baixo</strong> (já traz as macros).
+              </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10" />
+                <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10 opacity-90" />
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title="Copiar URL">
+                  <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title="Copiar URL base">
                     {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                   <Button
                     type="button"
-                    variant="default"
+                    variant="outline"
                     className="gap-2 shrink-0"
                     onClick={() => testMutation.mutate()}
                     disabled={intLocked || testMutation.isPending || !info.smtp_configured}
@@ -342,41 +333,41 @@ export default function Plataformas() {
               )}
             </div>
 
-            <div className="space-y-2 rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
-              <Label className="font-semibold text-foreground">URL para colar na plataforma (com macros de sincronização)</Label>
-              {isAdmin ? (
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Em muitas redes o postback é <strong className="text-foreground/90">uma só linha de URL</strong>: o domínio e o caminho são do teu
-                  servidor dclickora; depois vêm parâmetros com <strong>placeholders</strong> que a rede troca por valores reais na venda (o mesmo
-                  conceito que URLs do tipo{" "}
-                  <span className="font-mono text-[10px] break-all opacity-80">
-                    …/aios-success/?buygoods-notify=1&amp;orderid=&#123;ORDERID&#125;…
-                  </span>
-                  ). <strong>Não uses o domínio de outro site</strong> — substitui pelo URL abaixo (começa pela tua API). Os nomes{" "}
-                  <span className="font-mono">&#123;ORDERID&#125;</span>, <span className="font-mono">&#123;SUBID&#125;</span>, etc. devem coincidir
-                  com a <strong>documentação oficial da rede</strong> (BuyGoods, Digistore24, ClickBank…); este bloco é um modelo que podes editar
-                  antes de guardar na rede. O parâmetro <span className="font-mono">clickora_click_id</span> deve repetir o mesmo UUID que o link de
-                  oferta envia no URL (ou num subid que a rede devolva no postback) — assim a venda fica ligada ao clique no presell.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Copie o URL abaixo para a rede de afiliados. Os nomes entre chaves (macros) devem coincidir com a documentação da rede. O parâmetro{" "}
-                  <span className="font-mono text-[11px]">clickora_click_id</span> liga a venda ao clique na presell.
-                </p>
-              )}
-              <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-muted/40 border border-border/50 px-3 py-2">
+            <div className="space-y-2 rounded-xl border-2 border-primary/40 bg-primary/[0.06] p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Label className="font-semibold text-foreground text-base">
+                  → Cole este URL na {selected}
+                </Label>
+                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  Usar este
+                </span>
+              </div>
+              <p className="text-sm text-foreground/90 leading-relaxed">
+                Clique <strong>Copiar com macros</strong> e cole em{" "}
+                {selected === "BuyGoods" ? (
+                  <>
+                    BuyGoods → <strong>Setup → Affiliates → Postback Pixels → Add</strong>
+                  </>
+                ) : selected === "SmartAdv" ? (
+                  <>SmartAdv → Postbacks (Global ou por oferta)</>
+                ) : (
+                  <>o painel de Postback / IPN da {selected}</>
+                )}
+                . As macros entre chaves são preenchidas pela rede na venda.
+              </p>
+              <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-background/80 border border-border/50 px-3 py-2">
                 <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background/80 h-auto min-h-[3rem] py-2" />
-                <Button type="button" variant="secondary" className="gap-2 shrink-0 sm:self-start" onClick={handleCopyExample}>
-                  {copiedExample ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background h-auto min-h-[3rem] py-2" />
+                <Button type="button" className="gap-2 shrink-0 sm:self-start" onClick={handleCopyExample}>
+                  {copiedExample ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   Copiar com macros
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Rede selecionada na lista: <span className="font-medium text-foreground/90">{selected}</span> → enviada como{" "}
-                <span className="font-mono">platform=…</span> no e-mail de alerta.
+                Rede: <span className="font-medium text-foreground/90">{selected}</span> → parâmetro{" "}
+                <span className="font-mono">platform=…</span> nos alertas.
               </p>
             </div>
 
