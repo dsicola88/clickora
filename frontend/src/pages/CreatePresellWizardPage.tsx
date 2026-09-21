@@ -21,9 +21,10 @@ import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 
 const MODELS = [
-  { id: "review", label: "Review" },
+  { id: "review", label: "Review", type: "review" },
   { id: "advertorial", label: "Advertorial", type: "dtc" },
   { id: "comparison", label: "Comparison", type: "review" },
   { id: "listicle", label: "Listicle", type: "cookies" },
@@ -53,7 +54,7 @@ function slugFromTitle(title: string) {
 
 /**
  * Fluxo principal: Oferta → Campanha → Presell → Tracking → Publicar.
- * Reutiliza APIs existentes; não altera tracking.
+ * Importa conteúdo da oferta (como o formulário rápido) para o CTA e a página abrirem correctos.
  */
 export default function CreatePresellWizardPage() {
   const navigate = useNavigate();
@@ -70,6 +71,7 @@ export default function CreatePresellWizardPage() {
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [advOpen, setAdvOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish">("idle");
 
   const platform = useMemo(() => detectPlatform(offerUrl), [offerUrl]);
 
@@ -106,25 +108,80 @@ export default function CreatePresellWizardPage() {
   const createPresell = useMutation({
     mutationFn: async () => {
       const model = MODELS.find((m) => m.id === modelId) ?? MODELS[0];
-      const type = "type" in model && model.type ? model.type : model.id === "review" ? "review" : "cookies";
-      const title = campaignName.trim() || "Nova presell";
-      const slug = `${slugFromTitle(title)}-${Date.now().toString(36).slice(-4)}`;
+      const type = model.type;
+      const titleSeed = campaignName.trim() || "Nova presell";
+      const slug = `${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-4)}`;
+      const offer = offerUrl.trim();
+
+      setGenPhase("import");
+      const imported = await presellService.importFromUrl({
+        product_url: offer,
+        language,
+        affiliate_link: offer,
+      });
+
+      let content: Record<string, unknown>;
+      let video_url: string | null = null;
+      let pageTitle = titleSeed;
+
+      if (!imported.error && imported.data) {
+        const data = imported.data;
+        pageTitle = (data.title || data.product_name || titleSeed).slice(0, 200);
+        content = {
+          title: data.title,
+          subtitle: data.subtitle,
+          salesText: data.sales_text,
+          ctaText: data.cta_text,
+          affiliateLink: data.affiliate_link || offer,
+          productName: data.product_name,
+          productImages: data.images,
+          sourceUrl: data.source_url || offer,
+          storefrontTheme: data.storefront_theme,
+          storefrontHeroTint: data.storefront_hero_tint,
+          ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
+            ? { importMirrorSrcDoc: data.import_mirror_src_doc }
+            : {}),
+          ratingValue: data.rating_value,
+          ratingStars: data.rating_stars ?? 5,
+        };
+        if (type === "vsl" && data.video_url) {
+          video_url = resolveVideoEmbedSrc(data.video_url) || null;
+        }
+      } else {
+        /** Import falhou (timeout, bloqueio, etc.) — ainda assim o CTA deve ir à oferta. */
+        toast.message("Não foi possível espelhar a página da oferta; o link do anúncio fica funcional.");
+        content = {
+          title: titleSeed,
+          subtitle: "",
+          salesText: "Clique no botão abaixo para ver a oferta.",
+          ctaText: "Ver oferta",
+          affiliateLink: offer,
+          productName: titleSeed,
+          productImages: [],
+          sourceUrl: offer,
+        };
+      }
+
+      setGenPhase("publish");
       const { data, error } = await presellService.create({
-        title,
+        title: pageTitle,
         slug,
         type,
+        language,
         status: "published",
+        video_url,
         tracking: {
-          offerUrl: offerUrl.trim(),
+          offerUrl: offer,
           affiliateNetwork: platform ?? undefined,
         },
-        content: {},
+        content,
         settings: {},
       } as never);
       if (error || !data) throw new Error(error || "Falha ao criar presell");
       return data;
     },
     onSuccess: async (page) => {
+      setGenPhase("idle");
       setPresellId(page.id);
       const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id ?? null, page);
       setPublicUrl(url);
@@ -139,9 +196,14 @@ export default function CreatePresellWizardPage() {
       setStep(4);
       toast.success("Presell criada e publicada");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setGenPhase("idle");
+      toast.error(e.message);
+    },
   });
 
+  /** URL limpa para pré-visualizar (sem macros {gclid} do anúncio). */
+  const previewUrl = publicUrl;
   const tracked =
     publicUrl && campaignName
       ? buildTrackedPresellUrl(publicUrl, campaignName, trafficSource)
@@ -151,7 +213,7 @@ export default function CreatePresellWizardPage() {
     if (!tracked) return;
     await navigator.clipboard.writeText(tracked);
     setCopied(true);
-    toast.success("URL copiada");
+    toast.success("URL do anúncio copiada");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -162,6 +224,15 @@ export default function CreatePresellWizardPage() {
     { n: 4 as const, label: "Tracking" },
     { n: 5 as const, label: "Publicar" },
   ];
+
+  const genLabel =
+    genPhase === "import"
+      ? "A ler a oferta…"
+      : genPhase === "publish"
+        ? "A publicar…"
+        : createPresell.isPending
+          ? "A gerar…"
+          : "Gerar e publicar";
 
   return (
     <div className={cn(APP_PAGE_SHELL, "max-w-2xl")}>
@@ -276,7 +347,9 @@ export default function CreatePresellWizardPage() {
 
       {step === 3 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
-          <p className="text-sm text-muted-foreground">Escolha um modelo. Pode editar depois.</p>
+          <p className="text-sm text-muted-foreground">
+            Escolha um modelo. A oferta é lida automaticamente para a página e o botão de compra.
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {MODELS.map((m) => (
               <button
@@ -294,12 +367,19 @@ export default function CreatePresellWizardPage() {
               </button>
             ))}
           </div>
+          {createPresell.isPending ? (
+            <p className="text-xs text-muted-foreground">
+              {genPhase === "import"
+                ? "A extrair título, imagens e link da oferta (pode demorar alguns segundos)…"
+                : "A publicar a presell…"}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setStep(2)}>
+            <Button variant="outline" onClick={() => setStep(2)} disabled={createPresell.isPending}>
               Voltar
             </Button>
             <Button disabled={createPresell.isPending} onClick={() => createPresell.mutate()}>
-              {createPresell.isPending ? "A gerar…" : "Gerar e publicar"}
+              {genLabel}
             </Button>
           </div>
         </div>
@@ -358,16 +438,19 @@ export default function CreatePresellWizardPage() {
             </li>
           </ul>
           {tracked ? (
-            <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">URL para o anúncio (com UTMs / click ID):</p>
+              <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
+            </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button className="gap-2" onClick={() => void copy()} disabled={!tracked}>
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              Copiar URL
+              Copiar URL do anúncio
             </Button>
-            {tracked ? (
+            {previewUrl ? (
               <Button variant="outline" asChild>
-                <a href={tracked} target="_blank" rel="noreferrer">
+                <a href={previewUrl} target="_blank" rel="noreferrer">
                   Abrir página
                 </a>
               </Button>

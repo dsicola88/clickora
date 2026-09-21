@@ -710,7 +710,13 @@ export default function PublicPresell() {
   }, [page?.id, settingsInjectKey]);
 
   const content = (page?.content || {}) as Record<string, unknown>;
-  const affiliateLink = (content.affiliateLink as string) || "#";
+  const tracking = (page?.tracking || {}) as Record<string, unknown>;
+  /** Hoplink: content.affiliateLink; fallback tracking.offerUrl (wizard antigo). */
+  const affiliateLinkRaw =
+    (typeof content.affiliateLink === "string" && content.affiliateLink.trim()) ||
+    (typeof tracking.offerUrl === "string" && tracking.offerUrl.trim()) ||
+    "";
+  const affiliateLink = affiliateLinkRaw || "#";
   const settings = (page?.settings || {}) as Record<string, unknown>;
 
   const productImages = rankPresellProductImages(
@@ -747,6 +753,7 @@ export default function PublicPresell() {
   const href = useMemo(() => {
     if (!page?.id) return "";
     let dest = affiliateLink.trim();
+    if (!dest || dest === "#" || !/^https?:\/\//i.test(dest)) return "";
     const forwardKeys = buildOfferForwardParamKeys(settings as Record<string, unknown>);
     dest = mergeLandingQueryIntoAffiliateUrl(dest, search, forwardKeys);
     const ik = getInteractiveGateKind(page.type);
@@ -804,7 +811,16 @@ export default function PublicPresell() {
   }, [page?.id, page?.type, href]);
 
   if (isLoading) {
-    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="A carregar página" />;
+    return (
+      <div
+        className="min-h-screen bg-background flex flex-col items-center justify-center gap-3"
+        aria-busy="true"
+        aria-label="A carregar página"
+      >
+        <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 border-t-foreground animate-spin" />
+        <p className="text-sm text-muted-foreground">A abrir a página…</p>
+      </div>
+    );
   }
   if (isError || !page) {
     const raw =
