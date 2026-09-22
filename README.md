@@ -41,7 +41,8 @@ Checklist de deploy: **[docs/DEPLOYMENT.md — §6](docs/DEPLOYMENT.md)**.
 ## Deploy (produção)
 
 Configuração Vercel + Railway, variáveis `VITE_PUBLIC_API_URL`, CORS e checklist: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.  
-Passo a passo frontend ↔ backend e login/CORS: **[docs/ENV-SETUP.md](docs/ENV-SETUP.md)**.
+Passo a passo frontend ↔ backend e login/CORS: **[docs/ENV-SETUP.md](docs/ENV-SETUP.md)**.  
+Imagens (presells, favicon, landing) na Cloudflare — guia simples: **[docs/IMAGENS-E-ARMAZENAMENTO.md](docs/IMAGENS-E-ARMAZENAMENTO.md)**.
 
 ## Requisitos
 

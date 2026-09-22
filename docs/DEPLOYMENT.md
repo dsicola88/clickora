@@ -26,6 +26,22 @@ Arquitetura: **frontend estático** na Vercel (`dclickora.com`), **API Node** na
 
 Sem `FRONTEND_URL` correto, o login e os pedidos com `Authorization` falham no browser por CORS quando a API é direta.
 
+## 2.1 Imagens (Cloudflare R2) — obrigatório em produção
+
+Sem isto, as imagens podem **desaparecer** em cada redeploy.
+
+Guia passo a passo em linguagem simples: **[IMAGENS-E-ARMAZENAMENTO.md](IMAGENS-E-ARMAZENAMENTO.md)**.
+
+| Variável | Exemplo |
+|----------|---------|
+| `R2_ACCOUNT_ID` | Account ID Cloudflare |
+| `R2_ACCESS_KEY_ID` | Access Key do token R2 |
+| `R2_SECRET_ACCESS_KEY` | Secret do token R2 |
+| `R2_BUCKET` | Nome exacto do bucket (ex. `dclickora`) |
+| `R2_PUBLIC_URL` | `https://pub-….r2.dev` (sem `/` no fim) |
+
+Depois de gravar: **Redeploy** da API.
+
 ## 3. Base de dados
 
 Na Railway, no arranque: `prisma migrate deploy` (já incluído em `start:prod` no `package.json` do backend).

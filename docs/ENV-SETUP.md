@@ -97,4 +97,11 @@ O código do servidor também inclui origens mínimas `www` + apex `dclickora.co
 | Railway | `FRONTEND_URL` | Quem pode chamar a API (CORS) |
 | Railway | `API_PUBLIC_URL` | Links absolutos gerados no servidor |
 
-Mais detalhe: [DEPLOYMENT.md](./DEPLOYMENT.md).
+## G. Imagens (presells, favicon, landing)
+
+Na Railway, além do CORS, em produção precisas das variáveis **`R2_*`** para as imagens não se perderem.
+
+Guia simples (Cloudflare + Railway + como o utilizador carrega imagens na app):  
+**[IMAGENS-E-ARMAZENAMENTO.md](./IMAGENS-E-ARMAZENAMENTO.md)**
+
+Mais detalhe de deploy: [DEPLOYMENT.md](./DEPLOYMENT.md).
