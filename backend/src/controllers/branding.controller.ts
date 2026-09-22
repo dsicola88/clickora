@@ -2,7 +2,13 @@ import { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import { prismaAdmin, systemPrisma } from "../lib/prisma";
-import { getBrandingUploadDir, removeExistingFavicons } from "../lib/brandingUpload";
+import {
+  brandingFaviconPublicUrl,
+  getBrandingUploadDir,
+  persistFavicon,
+  removeExistingFavicons,
+} from "../lib/brandingUpload";
+import { isR2Configured } from "../lib/r2Storage";
 
 export const brandingController = {
   async getMeta(_req: Request, res: Response) {
@@ -21,6 +27,9 @@ export const brandingController = {
     if (!row?.faviconExt) {
       return res.status(404).end();
     }
+    if (isR2Configured()) {
+      return res.redirect(302, brandingFaviconPublicUrl(row.faviconExt));
+    }
     const filePath = path.join(getBrandingUploadDir(), `favicon.${row.faviconExt}`);
     if (!fs.existsSync(filePath)) {
       return res.status(404).end();
@@ -32,24 +41,28 @@ export const brandingController = {
 
   async uploadFavicon(req: Request, res: Response) {
     const file = req.file;
-    if (!file) {
+    if (!file?.buffer?.length) {
       return res.status(400).json({ error: "Envie um ficheiro no campo favicon." });
     }
 
-    const ext = path.extname(file.filename).replace(/^\./, "") || null;
-    const mime = file.mimetype;
+    try {
+      const saved = await persistFavicon({ buffer: file.buffer, mimetype: file.mimetype });
+      const row = await prismaAdmin.siteBranding.upsert({
+        where: { id: "default" },
+        create: { id: "default", faviconExt: saved.ext, faviconMime: saved.mime },
+        update: { faviconExt: saved.ext, faviconMime: saved.mime },
+      });
 
-    const row = await prismaAdmin.siteBranding.upsert({
-      where: { id: "default" },
-      create: { id: "default", faviconExt: ext, faviconMime: mime },
-      update: { faviconExt: ext, faviconMime: mime },
-    });
-
-    return res.json({
-      message: "Favicon atualizado",
-      has_favicon: true,
-      updated_at: row.updatedAt.toISOString(),
-    });
+      return res.json({
+        message: "Favicon atualizado",
+        has_favicon: true,
+        storage: saved.storage,
+        updated_at: row.updatedAt.toISOString(),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha no upload";
+      return res.status(500).json({ error: msg });
+    }
   },
 
   async clearFavicon(_req: Request, res: Response) {

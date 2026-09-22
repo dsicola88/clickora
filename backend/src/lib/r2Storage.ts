@@ -20,8 +20,9 @@ function trimEnv(key: string): string {
 export function getR2Config(): R2Config | null {
   if (cachedConfig !== undefined) return cachedConfig;
   const accountId = trimEnv("R2_ACCOUNT_ID");
-  const accessKeyId = trimEnv("R2_ACCESS_KEY_ID");
-  const secretAccessKey = trimEnv("R2_SECRET_ACCESS_KEY");
+  /** Aliases curtos aceites (painéis tipo Railway). */
+  const accessKeyId = trimEnv("R2_ACCESS_KEY_ID") || trimEnv("R2_ACCESS_KEY");
+  const secretAccessKey = trimEnv("R2_SECRET_ACCESS_KEY") || trimEnv("R2_SECRET");
   const bucket = trimEnv("R2_BUCKET");
   const publicBaseUrl = trimEnv("R2_PUBLIC_URL").replace(/\/+$/, "");
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
@@ -36,14 +37,16 @@ export function isR2Configured(): boolean {
   return getR2Config() !== null;
 }
 
-/** Log de arranque (qualquer ambiente) — deixa claro se uploads de presell vão para R2 ou disco. */
+/** Log de arranque — deixa claro se media vai para R2 ou disco. */
 export function logR2EnvStatus(): void {
   if (isR2Configured()) {
     const cfg = getR2Config()!;
-    console.info(`[r2] Uploads de presell → bucket «${cfg.bucket}» · público ${cfg.publicBaseUrl}`);
+    console.info(
+      `[r2] Media (presell, branding, landing, avatars) → bucket «${cfg.bucket}» · público ${cfg.publicBaseUrl}`,
+    );
   } else {
     console.warn(
-      "[r2] R2 incompleto ou ausente — imagens do editor de presell ficam em disco local (uploads/). Em produção define R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL.",
+      "[r2] R2 incompleto ou ausente — media fica em disco local (uploads/). Em produção define R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL.",
     );
   }
 }

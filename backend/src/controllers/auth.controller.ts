@@ -6,7 +6,7 @@ import { signToken } from "../lib/jwt";
 import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { z } from "zod";
-import { AVATAR_LOCAL_MARKER, removeUserAvatarFiles } from "../lib/avatarUpload";
+import { AVATAR_LOCAL_MARKER, persistUserAvatar, removeUserAvatarFiles } from "../lib/avatarUpload";
 import type { PlanType, WorkspaceRole } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
@@ -501,16 +501,26 @@ export const authController = {
 
   async uploadAvatar(req: Request, res: Response) {
     const file = req.file;
-    if (!file) {
+    if (!file?.buffer?.length) {
       return res.status(400).json({ error: "Envie um ficheiro no campo avatar." });
     }
     const userId = req.user!.userId;
-    const user = await systemPrisma.user.update({
-      where: { id: userId },
-      data: { avatarUrl: AVATAR_LOCAL_MARKER },
-      include: { roles: true, subscription: { include: { plan: true } } },
-    });
-    return res.json({ ok: true, user: await serializeUserWithSession(user, req) });
+    try {
+      const saved = await persistUserAvatar({
+        userId,
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+      });
+      const user = await systemPrisma.user.update({
+        where: { id: userId },
+        data: { avatarUrl: saved.avatarUrl },
+        include: { roles: true, subscription: { include: { plan: true } } },
+      });
+      return res.json({ ok: true, storage: saved.storage, user: await serializeUserWithSession(user, req) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha no upload";
+      return res.status(500).json({ error: msg });
+    }
   },
 
   async deleteAvatar(req: Request, res: Response) {

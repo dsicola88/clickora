@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import type { Request } from "express";
+import { isR2Configured, putR2Object } from "./r2Storage";
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -41,29 +42,39 @@ export function findUserAvatarFile(userId: string): string | null {
   return null;
 }
 
+export function avatarObjectKey(userId: string, ext: string): string {
+  return `avatars/${userId}.${ext}`;
+}
+
+/**
+ * Guarda avatar: R2 (URL pública) ou disco local (`__local__` + ficheiro).
+ */
+export async function persistUserAvatar(args: {
+  userId: string;
+  buffer: Buffer;
+  mimetype: string;
+}): Promise<{ avatarUrl: string; storage: "r2" | "local" }> {
+  const ext = MIME_TO_EXT[args.mimetype];
+  if (!ext) throw new Error("Use JPG, PNG ou WebP (máx. 2 MB).");
+  if (isR2Configured()) {
+    const { url } = await putR2Object({
+      key: avatarObjectKey(args.userId, ext),
+      body: args.buffer,
+      contentType: args.mimetype,
+      cacheControl: "public, max-age=3600",
+    });
+    return { avatarUrl: url, storage: "r2" };
+  }
+  ensureAvatarDir();
+  removeUserAvatarFiles(args.userId);
+  fs.writeFileSync(path.join(getAvatarUploadDir(), `${args.userId}.${ext}`), args.buffer);
+  return { avatarUrl: AVATAR_LOCAL_MARKER, storage: "local" };
+}
+
 export const avatarUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req: Request, _file, cb) => {
-      ensureAvatarDir();
-      cb(null, getAvatarUploadDir());
-    },
-    filename: (req: Request, file, cb) => {
-      const userId = req.user?.userId;
-      if (!userId) {
-        (cb as (err: Error) => void)(new Error("Não autenticado"));
-        return;
-      }
-      removeUserAvatarFiles(userId);
-      const ext = MIME_TO_EXT[file.mimetype];
-      if (!ext) {
-        (cb as (err: Error) => void)(new Error("Use JPG, PNG ou WebP (máx. 2 MB)."));
-        return;
-      }
-      cb(null, `${userId}.${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (_req: Request, file, cb) => {
     if (MIME_TO_EXT[file.mimetype]) {
       cb(null, true);
     } else {

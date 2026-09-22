@@ -7,9 +7,14 @@ import { prismaAdmin, systemPrisma } from "../lib/prisma";
 import {
   getPlansLandingUploadDir,
   isSafePlansGalleryFilename,
+  persistPlansGalleryImage,
+  persistPlansHero,
+  plansGalleryObjectKey,
+  plansHeroPublicUrl,
   removeExistingPlansHero,
 } from "../lib/plansLandingUpload";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
+import { isR2Configured, r2PublicUrl } from "../lib/r2Storage";
 import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
 import {
   DEFAULT_HERO_VISUAL,
@@ -198,6 +203,9 @@ export const plansLandingController = {
   async getHeroImage(_req: Request, res: Response) {
     const row = await findPlansLandingDefaultSystem();
     if (!row?.heroImageExt) return res.status(404).end();
+    if (isR2Configured()) {
+      return res.redirect(302, plansHeroPublicUrl(row.heroImageExt));
+    }
     const filePath = path.join(getPlansLandingUploadDir(), `plans-hero.${row.heroImageExt}`);
     if (!fs.existsSync(filePath)) return res.status(404).end();
     res.setHeader("Content-Type", row.heroImageMime || "image/jpeg");
@@ -210,6 +218,9 @@ export const plansLandingController = {
     const name = typeof raw === "string" ? decodeURIComponent(raw.trim()) : "";
     if (!name || !isSafePlansGalleryFilename(name)) {
       return res.status(404).end();
+    }
+    if (isR2Configured()) {
+      return res.redirect(302, r2PublicUrl(plansGalleryObjectKey(name)));
     }
     const filePath = path.join(getPlansLandingUploadDir(), name);
     if (!fs.existsSync(filePath)) return res.status(404).end();
@@ -306,46 +317,59 @@ export const plansLandingController = {
 
   async uploadHero(req: Request, res: Response) {
     const file = req.file;
-    if (!file) {
+    if (!file?.buffer?.length) {
       return res.status(400).json({ error: "Envie um ficheiro no campo hero_image." });
     }
 
-    const ext = path.extname(file.filename).replace(/^\./, "") || null;
-    const mime = file.mimetype;
+    try {
+      const saved = await persistPlansHero({ buffer: file.buffer, mimetype: file.mimetype });
+      const row = await prismaAdmin.plansLandingConfig.upsert({
+        where: { id: "default" },
+        create: {
+          id: "default",
+          heroTitle: "Escolha seu plano",
+          heroImageExt: saved.ext,
+          heroImageMime: saved.mime,
+        },
+        update: {
+          heroImageExt: saved.ext,
+          heroImageMime: saved.mime,
+        },
+      });
 
-    const row = await prismaAdmin.plansLandingConfig.upsert({
-      where: { id: "default" },
-      create: {
-        id: "default",
-        heroTitle: "Escolha seu plano",
-        heroImageExt: ext,
-        heroImageMime: mime,
-      },
-      update: {
-        heroImageExt: ext,
-        heroImageMime: mime,
-      },
-    });
-
-    return res.json({
-      message: "Imagem do hero atualizada",
-      has_hero_image: true,
-      updated_at: row.updatedAt.toISOString(),
-    });
+      return res.json({
+        message: "Imagem do hero atualizada",
+        has_hero_image: true,
+        storage: saved.storage,
+        updated_at: row.updatedAt.toISOString(),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha no upload";
+      return res.status(500).json({ error: msg });
+    }
   },
 
   /** Upload de imagem para galeria / carrossel: devolve `image_url` público para guardar em `landing_extras.gallery.items`. */
   async uploadGalleryImage(req: Request, res: Response) {
     const file = req.file;
-    if (!file?.filename) {
+    if (!file?.buffer?.length) {
       return res.status(400).json({ error: "Envie um ficheiro no campo gallery_image." });
     }
-    const base = publicApiBaseFromRequest(req);
-    const image_url = `${base}/public/plans-landing/gallery-image/${encodeURIComponent(file.filename)}`;
-    return res.status(201).json({
-      image_url,
-      filename: file.filename,
-    });
+    try {
+      const saved = await persistPlansGalleryImage({
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+        apiPublicBase: publicApiBaseFromRequest(req),
+      });
+      return res.status(201).json({
+        image_url: saved.imageUrl,
+        filename: saved.filename,
+        storage: saved.storage,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha no upload";
+      return res.status(500).json({ error: msg });
+    }
   },
 
   async clearHero(_req: Request, res: Response) {

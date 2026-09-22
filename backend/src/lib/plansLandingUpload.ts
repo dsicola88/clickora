@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import multer from "multer";
+import { isR2Configured, putR2Object, r2PublicUrl } from "./r2Storage";
 
 const HERO_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -27,22 +28,64 @@ export function removeExistingPlansHero(): void {
   }
 }
 
+export function plansHeroObjectKey(ext: string): string {
+  return `branding/plans-hero.${ext}`;
+}
+
+export function plansGalleryObjectKey(filename: string): string {
+  return `branding/${filename}`;
+}
+
+export function plansHeroPublicUrl(ext: string): string {
+  return r2PublicUrl(plansHeroObjectKey(ext));
+}
+
+export async function persistPlansHero(args: {
+  buffer: Buffer;
+  mimetype: string;
+}): Promise<{ ext: string; mime: string; storage: "r2" | "local" }> {
+  const ext = HERO_MIME[args.mimetype];
+  if (!ext) throw new Error("Use JPG, PNG ou WebP (máx. 2 MB).");
+  if (isR2Configured()) {
+    await putR2Object({
+      key: plansHeroObjectKey(ext),
+      body: args.buffer,
+      contentType: args.mimetype,
+      cacheControl: "public, max-age=3600",
+    });
+    return { ext, mime: args.mimetype, storage: "r2" };
+  }
+  ensurePlansLandingDir();
+  removeExistingPlansHero();
+  fs.writeFileSync(path.join(getPlansLandingUploadDir(), `plans-hero.${ext}`), args.buffer);
+  return { ext, mime: args.mimetype, storage: "local" };
+}
+
+export async function persistPlansGalleryImage(args: {
+  buffer: Buffer;
+  mimetype: string;
+  apiPublicBase: string;
+}): Promise<{ filename: string; imageUrl: string; storage: "r2" | "local" }> {
+  const ext = HERO_MIME[args.mimetype];
+  if (!ext) throw new Error("Use JPG, PNG ou WebP (máx. 2 MB).");
+  const filename = `plans-gallery-${randomUUID()}.${ext}`;
+  if (isR2Configured()) {
+    const { url } = await putR2Object({
+      key: plansGalleryObjectKey(filename),
+      body: args.buffer,
+      contentType: args.mimetype,
+      cacheControl: "public, max-age=86400",
+    });
+    return { filename, imageUrl: url, storage: "r2" };
+  }
+  ensurePlansLandingDir();
+  fs.writeFileSync(path.join(getPlansLandingUploadDir(), filename), args.buffer);
+  const imageUrl = `${args.apiPublicBase}/public/plans-landing/gallery-image/${encodeURIComponent(filename)}`;
+  return { filename, imageUrl, storage: "local" };
+}
+
 export const plansHeroUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      ensurePlansLandingDir();
-      removeExistingPlansHero();
-      cb(null, getPlansLandingUploadDir());
-    },
-    filename: (_req, file, cb) => {
-      const ext = HERO_MIME[file.mimetype];
-      if (!ext) {
-        (cb as (err: Error) => void)(new Error("Tipo de ficheiro não suportado"));
-        return;
-      }
-      cb(null, `plans-hero.${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (HERO_MIME[file.mimetype]) {
@@ -55,20 +98,7 @@ export const plansHeroUpload = multer({
 
 /** Imagens da galeria / carrossel da landing de planos — um ficheiro por upload, nome único. */
 export const plansGalleryUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      ensurePlansLandingDir();
-      cb(null, getPlansLandingUploadDir());
-    },
-    filename: (_req, file, cb) => {
-      const ext = HERO_MIME[file.mimetype];
-      if (!ext) {
-        (cb as (err: Error) => void)(new Error("Tipo de ficheiro não suportado"));
-        return;
-      }
-      cb(null, `plans-gallery-${randomUUID()}.${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (HERO_MIME[file.mimetype]) {
