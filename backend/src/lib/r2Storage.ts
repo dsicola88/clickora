@@ -37,13 +37,31 @@ export function isR2Configured(): boolean {
   return getR2Config() !== null;
 }
 
-/** Log de arranque — deixa claro se media vai para R2 ou disco. */
+/** Log de arranque — deixa claro se media vai para R2 ou disco. Em produção R2 é obrigatório. */
 export function logR2EnvStatus(): void {
   if (isR2Configured()) {
     const cfg = getR2Config()!;
     console.info(
       `[r2] Media (presell, branding, landing, avatars) → bucket «${cfg.bucket}» · público ${cfg.publicBaseUrl}`,
     );
+    return;
+  }
+  const isProd =
+    process.env.NODE_ENV === "production" ||
+    Boolean(process.env.RAILWAY_ENVIRONMENT) ||
+    Boolean(process.env.RENDER) ||
+    process.env.FORCE_R2_REQUIRED === "1";
+  if (isProd) {
+    if (process.env.ALLOW_DISK_MEDIA === "1") {
+      console.error(
+        "[r2] R2 incompleto mas ALLOW_DISK_MEDIA=1 — a arrancar com disco local (não recomendado).",
+      );
+    } else {
+      console.error(
+        "[r2] FATAL: R2 incompleto em produção. Define R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL. Media em disco local perde-se no redeploy. (escape: ALLOW_DISK_MEDIA=1)",
+      );
+      process.exit(1);
+    }
   } else {
     console.warn(
       "[r2] R2 incompleto ou ausente — media fica em disco local (uploads/). Em produção define R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL.",

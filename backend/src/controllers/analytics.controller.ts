@@ -9,7 +9,7 @@ import {
   isGoogleAdsClickUploadReadyForUser,
   isGoogleAdsMetricsReadyForUser,
 } from "../modules/googleAds/googleAds.service";
-import { fetchGoogleAdsInsightsBundle } from "../modules/googleAds/googleAdsInsights.service";
+import { fetchGoogleAdsInsightsBundle, fetchGoogleAdsKeywordInsights } from "../modules/googleAds/googleAdsInsights.service";
 import { countryIsoFromIp } from "../lib/countryFromIp";
 import { hasPaidNetworkClickId } from "../lib/networkClickId";
 import { sendCsvDownload } from "../lib/csvExport";
@@ -890,17 +890,57 @@ export const analyticsController = {
         clicks: clicksKw,
         sales: salesKw,
         revenue: Math.round(revKw * 100) / 100,
+        cost: null as number | null,
+        profit: null as number | null,
+        roas: null as number | null,
         epc: clicksKw > 0 ? Math.round((revKw / clicksKw) * 10000) / 10000 : null,
         cvr: clicksKw > 0 ? Math.round((salesKw / clicksKw) * 10000) / 100 : null,
       };
     });
 
-    /** Quota de cliques do plano (mês civil UTC) — barra real nos Relatórios. */
+    /** Junta custo Google Ads por texto de keyword (utm_term ≈ keyword.text) → P&L real. */
+    if (pipelineUser && isGoogleAdsMetricsReadyForUser(pipelineUser)) {
+      try {
+        const kwG = await fetchGoogleAdsKeywordInsights({
+          user: pipelineUser,
+          from: rangeStart,
+          to: rangeEnd,
+        });
+        if (kwG.ok && kwG.rows.length) {
+          const costByKw = new Map<string, number>();
+          for (const r of kwG.rows) {
+            const key = (r.keyword || "").trim().toLowerCase();
+            if (!key || key === "—") continue;
+            const euros = (Number(r.cost_micros) || 0) / 1_000_000;
+            costByKw.set(key, (costByKw.get(key) || 0) + euros);
+          }
+          for (const row of keyword_performance) {
+            if (row.keyword === "(sem keyword)") continue;
+            const cost = costByKw.get(row.keyword.trim().toLowerCase());
+            if (cost == null) continue;
+            row.cost = Math.round(cost * 100) / 100;
+            row.profit = Math.round((row.revenue - cost) * 100) / 100;
+            row.roas = cost > 0 ? Math.round((row.revenue / cost) * 100) / 100 : null;
+          }
+          keyword_performance.sort((a, b) => {
+            const pa = a.profit ?? a.revenue;
+            const pb = b.profit ?? b.revenue;
+            return pb - pa;
+          });
+        }
+      } catch (e) {
+        console.warn("[analytics.getDashboard] keyword cost join falhou", e);
+      }
+    }
+
+    /** Quota de cliques do plano (mês civil UTC) — barra real nos Relatórios. Soft-cap: track nunca bloqueia. */
     let click_quota: {
       used: number;
       max: number | null;
       percent: number | null;
-    } = { used: 0, max: null, percent: null };
+      over_limit: boolean;
+      soft_cap: boolean;
+    } = { used: 0, max: null, percent: null, over_limit: false, soft_cap: true };
     try {
       const startOfMonth = new Date();
       startOfMonth.setUTCDate(1);
@@ -921,10 +961,13 @@ export const analyticsController = {
       ]);
       const used = Number(usedRow[0]?.cnt ?? 0);
       const max = sub?.plan?.maxClicksPerMonth ?? null;
+      const over = max != null && max > 0 && used >= max;
       click_quota = {
         used,
         max,
         percent: max != null && max > 0 ? Math.min(100, Math.round((used / max) * 1000) / 10) : null,
+        over_limit: over,
+        soft_cap: true,
       };
     } catch (e) {
       console.warn("[analytics.getDashboard] click_quota indisponível", e);

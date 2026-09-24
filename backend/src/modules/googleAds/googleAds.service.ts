@@ -1,4 +1,4 @@
-import { GoogleAdsApi, ResourceNames, services } from "google-ads-api";
+import { GoogleAdsApi, ResourceNames, enums, services } from "google-ads-api";
 import type { User } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../../lib/prisma";
@@ -589,6 +589,169 @@ async function markGoogleAdsSkip(
       googleAdsSync: code,
       googleAdsSyncedAt: new Date(),
       googleAdsSyncDetail: detail as Prisma.InputJsonValue,
+    },
+  });
+}
+
+export type UploadConversionRetractionParams = {
+  customerId: string;
+  conversionActionId: string;
+  loginCustomerId?: string | null;
+  orderId: string;
+  adjustmentDateTime: Date;
+  /** Fallback se a API exigir gclid + data da conversão original. */
+  gclid?: string | null;
+  originalConversionDateTime?: Date | null;
+};
+
+/**
+ * RETRACTION no Google Ads (refund/chargeback) — remove a conversão offline correspondente ao order_id.
+ */
+export async function uploadConversionRetractionToGoogleAds(
+  creds: GoogleAdsApiCredentials,
+  params: UploadConversionRetractionParams,
+): Promise<UploadClickConversionResult> {
+  const customerId = onlyDigits(params.customerId);
+  const actionId = params.conversionActionId.replace(/\D/g, "");
+  const login = onlyDigits(params.loginCustomerId ?? undefined);
+  const orderId = params.orderId.trim().slice(0, 200);
+
+  if (!customerId || !DIGITS_ONLY.test(customerId)) {
+    return { ok: false, error: "google_ads_customer_id inválido" };
+  }
+  if (!actionId) {
+    return { ok: false, error: "google_ads_conversion_action_id inválido" };
+  }
+  if (!orderId) {
+    return { ok: false, error: "order_id em falta para retraction" };
+  }
+
+  const client = new GoogleAdsApi({
+    client_id: creds.clientId,
+    client_secret: creds.clientSecret,
+    developer_token: creds.developerToken,
+  });
+
+  const customer = client.Customer({
+    customer_id: customerId,
+    refresh_token: creds.refreshToken,
+    ...(login ? { login_customer_id: login } : {}),
+  });
+
+  const conversion_action = ResourceNames.conversionAction(customerId, actionId);
+  const adjustment: Record<string, unknown> = {
+    adjustment_type: enums.ConversionAdjustmentType.RETRACTION,
+    conversion_action,
+    adjustment_date_time: formatGoogleAdsConversionDateTime(params.adjustmentDateTime),
+    order_id: orderId,
+  };
+  if (params.gclid?.trim() && params.originalConversionDateTime) {
+    adjustment.gclid_date_time_pair = {
+      gclid: params.gclid.trim(),
+      conversion_date_time: formatGoogleAdsConversionDateTime(params.originalConversionDateTime),
+    };
+  }
+
+  const request = new services.UploadConversionAdjustmentsRequest({
+    customer_id: customerId,
+    partial_failure: true,
+    conversion_adjustments: [adjustment],
+  });
+
+  try {
+    const response = await customer.conversionAdjustmentUploads.uploadConversionAdjustments(request);
+    const serial = safeSerializeGoogleAdsResponse(response);
+    const partial = response.partial_failure_error as { message?: string; details?: unknown[] } | null | undefined;
+    if (partial && (partial.message || (partial.details && partial.details.length))) {
+      const msg = partial.message || JSON.stringify(partial.details?.[0] ?? partial);
+      return { ok: false, error: msg.slice(0, 2000), raw: serial };
+    }
+    return { ok: true, raw: serial };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, raw: e };
+  }
+}
+
+/**
+ * Após marcar Conversion como refunded: envia RETRACTION ao Google Ads se a venda tinha sido enviada.
+ */
+export async function retractConversionFromGoogleAds(conversionId: string): Promise<void> {
+  const conv = await systemPrisma.conversion.findUnique({
+    where: { id: conversionId },
+    include: { click: true, user: true },
+  });
+  if (!conv || conv.status !== "refunded") return;
+
+  const detail = (conv.googleAdsSyncDetail || {}) as Record<string, unknown>;
+  if (detail.retraction === "sent" || conv.googleAdsSync === "retracted") return;
+
+  const user = conv.user;
+  if (!user.googleAdsEnabled) return;
+
+  const customerId = onlyDigits(user.googleAdsCustomerId);
+  const actionId = user.googleAdsConversionActionId?.trim();
+  if (!customerId || !actionId) return;
+
+  const creds = buildGoogleAdsCredentialsForUser(user);
+  if (!creds) return;
+
+  /** Só retracta se a conversão chegou a ser enviada (ou tenta sempre com order_id — Google ignora se não existir). */
+  if (conv.googleAdsSync !== "sent" && conv.googleAdsSync !== "failed") {
+    await systemPrisma.conversion.update({
+      where: { id: conv.id },
+      data: {
+        googleAdsSyncDetail: {
+          ...detail,
+          retraction: "skipped_never_uploaded",
+        } as Prisma.InputJsonValue,
+      },
+    });
+    return;
+  }
+
+  const flat = stringFieldsFromJson(conv.metadata);
+  const orderId = pickOrderIdFromPayload(flat) || conv.externalOrderId || conv.id;
+  const meta = (conv.click?.metadata || {}) as Record<string, unknown>;
+  const gclid = typeof meta.gclid === "string" ? meta.gclid : null;
+  const loginCustomerId = onlyDigits(user.googleAdsLoginCustomerId);
+
+  const result = await uploadConversionRetractionToGoogleAds(creds, {
+    customerId,
+    conversionActionId: actionId,
+    loginCustomerId,
+    orderId,
+    adjustmentDateTime: new Date(),
+    gclid,
+    originalConversionDateTime: conv.createdAt,
+  });
+
+  await systemPrisma.conversion.update({
+    where: { id: conv.id },
+    data: {
+      googleAdsSync: result.ok ? "retracted" : conv.googleAdsSync,
+      googleAdsSyncedAt: new Date(),
+      googleAdsSyncDetail: {
+        ...detail,
+        retraction: result.ok ? "sent" : "failed",
+        retraction_error: result.ok ? undefined : result.error,
+        retraction_raw: result.raw,
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  await systemPrisma.postbackLog.create({
+    data: {
+      userId: user.id,
+      presellPageId: conv.presellId,
+      platform: "google_ads_conversion_retraction",
+      status: result.ok ? "success" : "error",
+      message: result.ok ? "Google Ads RETRACTION OK" : (result.error || "fail").slice(0, 500),
+      payload: {
+        conversion_id: conv.id,
+        order_id: orderId,
+        ok: result.ok,
+      } as Prisma.InputJsonValue,
     },
   });
 }

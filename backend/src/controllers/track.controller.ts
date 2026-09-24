@@ -1309,8 +1309,14 @@ async function validateOwnerCanTrack(userId: string): Promise<{ ok: true } | { o
         createdAt: { gte: startOfMonth },
       },
     });
+    /**
+     * Soft-cap: nunca devolver 429 no track — ads a pagar não podem falhar no redirect.
+     * O painel (click_quota) mostra overage; upgrade/alerta comercial trata o excesso.
+     */
     if (clicksThisMonth >= owner.subscription.plan.maxClicksPerMonth) {
-      return { ok: false, status: 429, message: "Limite mensal de cliques do plano atingido." };
+      console.warn(
+        `[track] soft-cap cliques excedido user=${userId} used=${clicksThisMonth} max=${owner.subscription.plan.maxClicksPerMonth}`,
+      );
     }
   }
 

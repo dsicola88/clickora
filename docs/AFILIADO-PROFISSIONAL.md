@@ -1,40 +1,42 @@
-# Afiliado profissional — o que a dclickora é (e não é)
+# Afiliado profissional — o que a dclickora cobre
 
 ## Resposta honesta
 
-Para um media buyer que **já** usa Voluum/RedTrack/Binom a €200–400/mês: a dclickora **não substitui** esse tracker.
+Para um afiliado que opera **Google Ads + BuyGoods / Digistore / SmartAdv** (presell → hoplink → postback → offline Google): **sim — a app cobre o funil completo** se configurar tracking + OAuth Google + postback com `order_id`.
 
-Para um afiliado profissional de **Google Ads + BuyGoods/Digistore** (presell → hoplink → postback → offline Google): **sim, pode assinar com confiança** se:
+Não é um clone de Voluum (sem Automizer/Binom rules). É um hub de atribuição + P&L + presell pensado para esse fluxo.
 
-1. Usa o URL com tracking da app no anúncio  
-2. Configura o postback com `{SUBID}` / UUID  
-3. Liga Google Ads (OAuth) ou importa CSV GCLID  
-4. Tem domínio próprio (Pro Mensal inclui 1; Anual até 2)
+## Checklist (compra com confiança)
 
-## O que um pro ganha aqui
+1. URL com tracking da app no anúncio (`utm_term={keyword}`, GCLID automático)
+2. Postback com UUID (`{SUBID}` / `{cid}` / `{sub3}`) **e** `orderid`
+3. Google Ads OAuth ligado (custo + upload de conversões + retraction em refund)
+4. Domínio próprio (Pro Mensal: 1 · Pro Anual: até 2)
+5. R2 configurado em produção (imagens não somem no redeploy)
+
+## Capacidades
 
 | Necessidade | Estado |
 |-------------|--------|
-| Presell rápida + domínio | Sim |
-| Clique → UUID no hoplink (BuyGoods subid) | Sim |
-| Postback → venda atribuída + rebill | Sim (várias vendas por clique se order_id distinto) |
-| Envio Google Ads (API + CSV) | Sim |
+| Presell + domínio | Sim |
+| Clique → UUID no hoplink | Sim |
+| Postback → venda + **rebill** (vários order_id / clique) | Sim |
+| **Refund** reverte receita + Google RETRACTION | Sim |
+| Upload conversões Google Ads | Sim |
 | Meta CAPI / TikTok Events | Sim |
-| Vendas / receita honestas (sem inventar) | Sim |
-| Lucro por **keyword** (utm_term × postback) | Sim |
+| Receita honesta (só postbacks aprovados) | Sim |
+| ROAS conta (gasto Google do período) | Sim |
+| **Keyword P&L** (utm_term × receita × custo Google) | Sim |
 | Lucro por campanha | Sim |
+| Soft-cap de cliques (ads **nunca** 429) | Sim |
 | Rotador A/B / geo | Sim |
 
 ## O que ainda não é Voluum
 
-- Regras avançadas Binom, cost auto-import por clique, heatmaps  
-- Keyword P&L com **gasto Google por keyword** cruzado (hoje: receita afiliado por keyword; gasto Google é ao nível da conta)  
-- Multi-conta agência completa  
+- Regras Automizer / pause automático de keywords
+- Cost sync persistido por dia em tabela (hoje: live GAQL no dashboard)
+- 50+ templates de rede pré-mapeados (temos BuyGoods, Digistore, SmartAdv + genérico)
 
-## Checklist BuyGoods (5 minutos)
+## Deploy
 
-1. Presell publicada → copiar URL do anúncio (com `utm_term={keyword}` e `gclid={gclid}`)  
-2. Plataformas → BuyGoods → Copiar com macros  
-3. BuyGoods → Postback Pixel → colar URL  
-4. Teste: 1 clique na presell → 1 postback de teste → Relatórios → Conversões «atribuída»  
-5. Google Ads → Resumo → Ligar conta (ou CSV offline)
+Após pull: correr migration `20260924230000_conversion_multi_per_click` e garantir `R2_*` no Railway.

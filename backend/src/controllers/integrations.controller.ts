@@ -18,6 +18,7 @@ import {
 import {
   getGoogleAdsApiClientConfigFromEnv,
   isGoogleAdsClickUploadReadyForUser,
+  retractConversionFromGoogleAds,
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
 import { isMetaCapiReadyForUser, syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
@@ -125,6 +126,9 @@ export const integrationsController = {
       | "created"
       | "created_unattributed"
       | "duplicate"
+      | "refunded"
+      | "already_refunded"
+      | "refund_not_found"
       | "skipped_not_approved"
       | "skipped_no_click_id"
       | "invalid_click";
@@ -140,6 +144,59 @@ export const integrationsController = {
       platform,
       postback_status: statusRaw,
     };
+
+    /** Refund/chargeback: reverte receita da encomenda existente (não cria venda fantasma). */
+    async function applyRefund(): Promise<"refunded" | "already_refunded" | "refund_not_found"> {
+      if (!externalOrderId) return "refund_not_found";
+      const existing = await systemPrisma.conversion.findUnique({
+        where: {
+          userId_externalOrderId: { userId: user!.id, externalOrderId },
+        },
+      });
+      if (!existing) return "refund_not_found";
+      if (existing.status === "refunded") {
+        createdConversionId = existing.id;
+        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+        presellPageId = existing.presellId;
+        return "already_refunded";
+      }
+      if (existing.status !== "approved") {
+        return "refund_not_found";
+      }
+
+      const ops: Prisma.PrismaPromise<unknown>[] = [
+        systemPrisma.conversion.update({
+          where: { id: existing.id },
+          data: {
+            status: "refunded",
+            metadata: {
+              ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
+                ? (existing.metadata as Record<string, unknown>)
+                : {}),
+              ...baseMeta,
+              refunded_at: new Date().toISOString(),
+              refund_amount: amount != null ? amount.toString() : null,
+            } as Prisma.InputJsonValue,
+          },
+        }),
+      ];
+      if (existing.presellId && existing.attribution === "attributed") {
+        ops.push(
+          systemPrisma.presellPage.update({
+            where: { id: existing.presellId },
+            data: { conversions: { decrement: 1 } },
+          }),
+        );
+      }
+      await systemPrisma.$transaction(ops);
+      createdConversionId = existing.id;
+      attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+      presellPageId = existing.presellId;
+      void retractConversionFromGoogleAds(existing.id).catch((err) =>
+        console.error("[retractConversionFromGoogleAds]", err),
+      );
+      return "refunded";
+    }
 
     async function createConversion(data: {
       clickId?: string | null;
@@ -217,7 +274,9 @@ export const integrationsController = {
       }
     }
 
-    if (!approved) {
+    if (isNegativeSaleEvent(flat)) {
+      conversionResult = await applyRefund();
+    } else if (!approved) {
       conversionResult = "skipped_not_approved";
     } else if (clickId) {
       const click = await systemPrisma.trackingEvent.findFirst({
@@ -229,10 +288,6 @@ export const integrationsController = {
           attribution: "unattributed",
           reason: unattributedReason,
         });
-        if (conversionResult === "created_unattributed") {
-          // Mantém etiqueta de auditoria: chegou UUID mas não bateu no clique.
-          // O resultado HTTP continua created_unattributed; postbackLog.message distingue.
-        }
       } else {
         presellPageId = click.presellPageId;
         conversionResult = await createConversion({
@@ -284,9 +339,11 @@ export const integrationsController = {
     const logStatus =
       conversionResult === "created" ||
       conversionResult === "created_unattributed" ||
-      conversionResult === "duplicate"
+      conversionResult === "duplicate" ||
+      conversionResult === "refunded" ||
+      conversionResult === "already_refunded"
         ? "success"
-        : conversionResult === "skipped_not_approved"
+        : conversionResult === "skipped_not_approved" || conversionResult === "refund_not_found"
           ? "rejected"
           : "info";
 
@@ -318,6 +375,7 @@ export const integrationsController = {
       ...(unattributedReason ? { unattributed_reason: unattributedReason } : {}),
       ...(createdConversionId ? { conversion_id: createdConversionId } : {}),
       google_ads_sync_queued: conversionResult === "created",
+      google_ads_retraction_queued: conversionResult === "refunded",
       email_sent: mail.sent,
       ...(!mail.sent ? { email_note: mail.reason } : {}),
     });

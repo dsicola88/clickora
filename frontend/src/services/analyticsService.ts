@@ -371,17 +371,26 @@ export const analyticsService = {
       } | null;
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
-      /** Lucro por palavra-chave (utm_term do clique × vendas postback). */
+      /** Lucro por palavra-chave (utm_term × postback + custo Google Ads quando ligado). */
       keyword_performance?: Array<{
         keyword: string;
         clicks: number;
         sales: number;
         revenue: number;
+        cost?: number | null;
+        profit?: number | null;
+        roas?: number | null;
         epc: number | null;
         cvr: number | null;
       }>;
-      /** Quota de cliques do plano no mês civil. */
-      click_quota?: { used: number; max: number | null; percent: number | null };
+      /** Quota de cliques do plano no mês civil (soft-cap: track nunca bloqueia). */
+      click_quota?: {
+        used: number;
+        max: number | null;
+        percent: number | null;
+        over_limit?: boolean;
+        soft_cap?: boolean;
+      };
       /** KPIs de media buyer: lucro = receita − gasto. */
       media_buyer?: {
         spend: number | null;

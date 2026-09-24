@@ -241,7 +241,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
     {
       type: "rich_text",
       content:
-        "## Saia do amador e opere com dados reais\n\n- Publique cookies, VSL, desconto e gates sem WordPress\n- URL do anúncio com campanha, palavra-chave e GCLID\n- Vendas no painel quando a rede envia o postback (BuyGoods, SmartAdv…)\n- Domínio próprio no Pro Anual; pagamento via Hotmart com o mesmo e-mail\n\n*Resultados dependem da oferta e do tráfego — a dclickora organiza o fluxo.*",
+        "## Saia do amador e opere com dados reais\n\n- Publique cookies, VSL, desconto e gates sem WordPress\n- URL do anúncio com campanha, palavra-chave e GCLID\n- Vendas no painel quando a rede envia o postback (BuyGoods, SmartAdv…)\n- Domínio próprio no Pro Mensal (1) e Pro Anual (até 2); pagamento via Hotmart com o mesmo e-mail\n\n*Resultados dependem da oferta e do tráfego — a dclickora organiza o fluxo.*",
       layout: "contained",
       font_family: "sans",
       font_size: "base",

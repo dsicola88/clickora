@@ -122,20 +122,21 @@ export const DEFAULT_AFFILIATE_POSTBACK_PRESET: AffiliatePostbackPreset = {
 export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbackPreset>> = {
   Digistore24: {
     hint:
-      "Digistore24 (S2S): no hoplink a Clickora envia cid=UUID. No postback usa {cid} (não {SUBID}). billing_status completed/paying = venda contada.",
+      "Digistore24 (S2S): no hoplink a Clickora envia cid=UUID. No postback usa {cid} (não {SUBID}). Inclui transaction_type — refunds revertem a venda no painel e no Google Ads.",
     params: {
       cid: "{cid}",
       sid1: "{sid1}",
       clickora_click_id: "{cid}",
       amount: "{amount_affiliate}",
       billing_status: "{billing_status}",
+      transaction_type: "{transaction_type}",
       orderid: "{order_id}",
       cy: "{currency}",
     },
   },
   BuyGoods: {
     hint:
-      "BuyGoods: a Clickora envia subid=UUID no hoplink. Em Setup → Affiliates → Postback Pixels, cole o URL com macros. {SUBID} deve voltar — assim a venda liga ao clique e ao GCLID.",
+      "BuyGoods: a Clickora envia subid=UUID no hoplink. Em Setup → Affiliates → Postback Pixels, cole o URL com macros. {SUBID} deve voltar — assim a venda liga ao clique e ao GCLID. Para refunds, envie um segundo postback com status/event=refund e o mesmo ORDERID.",
     params: {
       subid: "{SUBID}",
       clickora_click_id: "{SUBID}",
@@ -144,12 +145,13 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
       amount: "{COMMISSION_AMOUNT}",
       product: "{PRODUCT_CODENAME}",
       status: "approved",
+      transaction_type: "{EVENT}",
       cy: "USD",
     },
   },
   SmartAdv: {
     hint:
-      "SmartAdv: a Clickora envia o UUID em sub3 (recomendado pela rede). No postback use cid={sub3} (ou clickora_click_id={sub3}). Global postback cobre todas as ofertas.",
+      "SmartAdv: a Clickora envia o UUID em sub3 (recomendado pela rede). No postback use cid={sub3}. Global postback cobre todas as ofertas; refunds com o mesmo transaction_id revertem receita.",
     params: {
       cid: "{sub3}",
       clickora_click_id: "{sub3}",
@@ -157,6 +159,7 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
       orderid: "{transaction_id}",
       amount: "{payout}",
       status: "approved",
+      transaction_type: "{status}",
     },
   },
   MaxWeb: {

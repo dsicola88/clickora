@@ -192,6 +192,10 @@ export function isNegativeSaleEvent(flat: Record<string, string>): boolean {
     "cancelled",
     "canceled",
     "charge_back",
+    "reversed",
+    "reversal",
+    "refunded",
+    "partial_refund",
   ].includes(t);
 }
 

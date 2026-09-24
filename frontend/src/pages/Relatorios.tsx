@@ -626,6 +626,7 @@ export default function Relatorios() {
     if (!q) return null;
     const maxLabel = q.max == null ? "ilimitado" : q.max.toLocaleString("pt-PT");
     const pct = q.percent;
+    const over = Boolean(q.over_limit);
     return (
       <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -641,13 +642,18 @@ export default function Relatorios() {
         {pct != null ? (
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary"}`}
+              className={`h-full rounded-full ${over || pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary"}`}
               style={{ width: `${Math.min(100, pct)}%` }}
             />
           </div>
         ) : (
           <p className="mt-1 text-xs text-muted-foreground">Sem teto no plano actual.</p>
         )}
+        {over ? (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            Soft-cap: o tracking continua a aceitar cliques (os anúncios não param). Faça upgrade do plano para manter a margem.
+          </p>
+        ) : null}
       </div>
     );
   };
