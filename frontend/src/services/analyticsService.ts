@@ -330,6 +330,9 @@ export const analyticsService = {
       revenue: number;
       /** Vendas aprovadas (postbacks / tabela conversions). */
       approved_sales_count?: number;
+      /** Eventos conversion/sale no pixel/script (não somados às vendas). */
+      tracking_conversion_events?: number;
+      tracking_conversion_revenue?: number;
       /** Plataformas distintas em metadata com pelo menos uma venda. */
       affiliate_platforms_count?: number;
       chart_data: Array<{ date: string; clicks: number; impressions: number }>;
@@ -373,6 +376,8 @@ export const analyticsService = {
         spend: number | null;
         spend_source: "google_ads" | "manual" | "none";
         spend_currency: string | null;
+        /** Soma lifetime nas campanhas quando não há gasto Google do período. */
+        manual_spend_lifetime?: number | null;
         revenue: number;
         profit: number | null;
         roas: number | null;

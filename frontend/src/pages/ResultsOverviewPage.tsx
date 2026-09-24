@@ -24,9 +24,9 @@ function money(n: number | null | undefined, currency = "EUR") {
 }
 
 function spendSourceLabel(src: string | undefined) {
-  if (src === "google_ads") return "Google Ads (período)";
-  if (src === "manual") return "Gasto manual nas campanhas";
-  return "Sem gasto";
+  if (src === "google_ads") return "Google Ads (mesmo período)";
+  if (src === "manual") return "Gasto manual acumulado — não usado no ROAS deste intervalo";
+  return "Sem gasto do período";
 }
 
 /** Resultados → Visão geral: ROI + alertas de media buyer + breakdown. */
@@ -57,25 +57,27 @@ export default function ResultsOverviewPage() {
   const mb = data.media_buyer;
   const currency = mb?.spend_currency || data.google_ads_metrics?.currency_code || "EUR";
   const clicks = data.total_clicks ?? 0;
-  const conversions = data.total_conversions ?? 0;
+  const conversions = data.approved_sales_count ?? data.total_conversions ?? 0;
   const revenue = mb?.revenue ?? data.revenue ?? 0;
   const rate = mb?.conversion_rate ?? data.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);
 
   const kpis = [
-    { label: "Receita", value: money(revenue, currency) },
+    { label: "Receita", value: money(revenue, currency), hint: "Vendas aprovadas (postback)" },
     { label: "Gasto", value: money(mb?.spend ?? null, currency), hint: spendSourceLabel(mb?.spend_source) },
     {
       label: "Lucro",
       value: money(mb?.profit ?? null, currency),
       tone: mb?.profit != null ? (mb.profit >= 0 ? "positive" : "negative") : undefined,
+      hint: mb?.spend == null ? "Requer gasto Google do período" : undefined,
     },
     { label: "ROAS", value: mb?.roas != null ? `${mb.roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—" },
     { label: "CPA", value: money(mb?.cpa ?? null, currency) },
     { label: "EPC", value: money(mb?.epc ?? null, currency) },
-    { label: "Cliques", value: clicks.toLocaleString("pt-PT") },
+    { label: "Cliques", value: clicks.toLocaleString("pt-PT"), hint: "Visitas com clique (sem bots)" },
     {
       label: "CVR",
       value: `${rate.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`,
+      hint: "Vendas ÷ cliques",
     },
   ];
 
@@ -88,7 +90,7 @@ export default function ResultsOverviewPage() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Resultados"
-        description="Últimos 14 dias · lucro = receita − gasto. Actualize o gasto nas campanhas se não ligar Google Ads."
+        description="Últimos 14 dias · vendas = postbacks aprovados · cliques sem bots · lucro/ROAS só com gasto Google do mesmo período."
         actions={
           <Button variant="outline" asChild>
             <Link to="/resultados/relatorios">

@@ -51,9 +51,11 @@ export default function Home() {
 
   const isNew = pages.length === 0;
   const clicks = dash?.total_clicks ?? 0;
-  const conversions = dash?.total_conversions ?? 0;
+  const conversions = dash?.approved_sales_count ?? dash?.total_conversions ?? 0;
   const revenue = dash?.revenue ?? 0;
   const rate = dash?.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);
+  const currency =
+    dash?.media_buyer?.spend_currency || dash?.google_ads_metrics?.currency_code || "EUR";
 
   if (isNew) {
     return (
@@ -96,20 +98,29 @@ export default function Home() {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Cliques", value: clicks.toLocaleString("pt-PT") },
-            { label: "Conversões", value: conversions.toLocaleString("pt-PT") },
+            { label: "Cliques", value: clicks.toLocaleString("pt-PT"), hint: "Humanos (sem bots)" },
+            { label: "Vendas", value: conversions.toLocaleString("pt-PT"), hint: "Postback aprovado" },
             {
               label: "Receita",
-              value: revenue.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }),
+              value: revenue.toLocaleString("pt-PT", {
+                style: "currency",
+                currency,
+                maximumFractionDigits: 0,
+              }),
+              hint: "Só vendas aprovadas",
             },
             {
               label: "Taxa",
               value: `${rate.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`,
+              hint: "Vendas ÷ cliques",
             },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-border/60 bg-card px-4 py-4">
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{s.value}</p>
+              {"hint" in s && s.hint ? (
+                <p className="mt-1 text-[10px] text-muted-foreground leading-snug">{s.hint}</p>
+              ) : null}
             </div>
           ))}
         </div>

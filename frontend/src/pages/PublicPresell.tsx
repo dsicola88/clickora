@@ -657,7 +657,9 @@ export default function PublicPresell() {
     if (!page?.id) return;
     const pixel = new Image();
     pixel.src = buildImpressionPixelUrl(apiBase, page.id, search);
-  }, [page?.id, apiBase, search]);
+    // Uma visita = uma impressão; mudanças de query na mesma página não recontam.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só page.id
+  }, [page?.id, apiBase]);
 
   const bodyCodeMountRef = useRef<HTMLDivElement>(null);
   const settingsInjectKey = useMemo(() => {

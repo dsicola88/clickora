@@ -66,6 +66,7 @@ export async function loadCampaignPerf(args: {
     FROM tracking_events
     WHERE user_id = ${args.userId}
       AND event_type::text = 'click'
+      AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
       ${fromSql}
       ${toSql}
       AND (
@@ -128,7 +129,7 @@ export function buildMediaBuyerAlerts(args: {
       severity: "info",
       title: "ROI incompleto",
       detail:
-        "Ligue o Google Ads ou indique o gasto nas campanhas para ver lucro, ROAS e CPA.",
+        "Ligue o Google Ads (gasto do mesmo período) para ver lucro, ROAS e CPA. Gasto manual acumulado nas campanhas não entra neste cálculo.",
     });
   }
 

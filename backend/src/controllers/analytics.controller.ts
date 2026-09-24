@@ -201,13 +201,6 @@ export const analyticsController = {
       where,
       _count: true,
     });
-    const conversionEvents = await prisma.trackingEvent.findMany({
-      where: {
-        ...where,
-        eventType: { in: ["conversion", "sale"] },
-      },
-      select: { presellPageId: true, metadata: true },
-    });
 
     const convWhere: Prisma.ConversionWhereInput = { userId, status: "approved" };
     if (presell_id && typeof presell_id === "string") convWhere.presellId = presell_id;
@@ -240,14 +233,7 @@ export const analyticsController = {
       if (e.eventType === "click") summaryMap[pid].clicks = e._count;
       if (e.eventType === "impression") summaryMap[pid].impressions = e._count;
     }
-    for (const e of conversionEvents) {
-      const pid = e.presellPageId || "unknown";
-      if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
-      summaryMap[pid].conversions += 1;
-      const metadata = (e.metadata || {}) as Record<string, unknown>;
-      const value = Number(metadata.value);
-      if (Number.isFinite(value)) summaryMap[pid].revenue += value;
-    }
+    /** Só vendas aprovadas (postback) — não somar eventos tracking conversion/sale (evita 2×). */
     for (const c of conversionRows) {
       const pid = c.presellId || "unattributed";
       if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
@@ -669,13 +655,23 @@ export const analyticsController = {
         }>
       >(Prisma.sql`
         SELECT
-          COUNT(*) FILTER (WHERE event_type::text = 'click') AS clicks,
-          COUNT(*) FILTER (WHERE event_type::text = 'impression') AS impressions,
-          COUNT(*) FILTER (WHERE event_type::text IN ('conversion', 'sale')) AS tracking_conversions,
+          COUNT(*) FILTER (
+            WHERE event_type::text = 'click'
+              AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+          ) AS clicks,
+          COUNT(*) FILTER (
+            WHERE event_type::text = 'impression'
+              AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+          ) AS impressions,
+          COUNT(*) FILTER (
+            WHERE event_type::text IN ('conversion', 'sale')
+              AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+          ) AS tracking_conversions,
           COALESCE(
             SUM(
               CASE
                 WHEN event_type::text IN ('conversion', 'sale')
+                  AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
                   AND (metadata->>'value') IS NOT NULL
                   AND TRIM(metadata->>'value') ~ '^-?[0-9]+(\\.[0-9]*)?$'
                 THEN (metadata->>'value')::double precision
@@ -718,6 +714,7 @@ export const analyticsController = {
           AND created_at >= ${rangeStart}
           AND created_at <= ${rangeEnd}
           AND event_type::text IN ('click', 'impression')
+          AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
         GROUP BY 1, 2
         ORDER BY 1 ASC
       `),
@@ -729,6 +726,7 @@ export const analyticsController = {
           AND created_at >= ${rangeStart}
           AND created_at <= ${rangeEnd}
           AND event_type::text = 'click'
+          AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
         GROUP BY country
         ORDER BY ct DESC
         LIMIT 25
@@ -782,11 +780,12 @@ export const analyticsController = {
     const revenueTracking = Number(a?.revenue_tracking ?? 0);
 
     const l = linkedRow[0];
+    /** Fonte canónica de vendas/receita: postbacks aprovados (tabela conversions) — sem somar eventos tracking (evita 2×). */
     const linkedConvCount = Number(l?.cnt ?? 0);
     const revenueLinked = l?.revenue_sum != null ? Number(l.revenue_sum) : 0;
-    const revenue = revenueTracking + revenueLinked;
+    const revenue = revenueLinked;
     const affiliatePlatformsCount = Number(platformDistRow[0]?.cnt ?? 0);
-    const conversions = trackingConversions + linkedConvCount;
+    const conversions = linkedConvCount;
 
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
     const conversion_rate = clicks > 0 ? (conversions / clicks) * 100 : 0;
@@ -901,14 +900,17 @@ export const analyticsController = {
     let spend: number | null = null;
     let spend_source: "google_ads" | "manual" | "none" = "none";
     let spend_currency: string | null = null;
+    /** Gasto manual na campanha é lifetime — não misturar com receita do período (mentiria ROAS/CPA). */
+    let manual_spend_lifetime: number | null = null;
     if (googleSpend != null && googleSpend > 0) {
       spend = Math.round(googleSpend * 100) / 100;
       spend_source = "google_ads";
       spend_currency = google_ads_metrics?.currency_code ?? "EUR";
     } else if (manualSpendTotal > 0) {
-      spend = Math.round(manualSpendTotal * 100) / 100;
+      manual_spend_lifetime = Math.round(manualSpendTotal * 100) / 100;
       spend_source = "manual";
       spend_currency = "EUR";
+      // Não atribuir a `spend` do período — lucro/ROAS/CPA ficam null até haver gasto alinhado ao intervalo.
     }
 
     const mb = computePerf({
@@ -917,35 +919,49 @@ export const analyticsController = {
       revenue,
       spend,
     });
+    const mediaBuyerAlerts = buildMediaBuyerAlerts({
+      clicks,
+      conversions,
+      revenue,
+      spend,
+      spendSource: spend_source,
+      googleError: google_ads_metrics_error,
+    });
+    if (spend_source === "manual" && manual_spend_lifetime != null) {
+      mediaBuyerAlerts.unshift({
+        code: "manual_spend_lifetime",
+        severity: "warning",
+        title: "Gasto manual fora do período",
+        detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "EUR"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período só usam gasto Google Ads do mesmo intervalo — actualize o gasto por campanha alinhado às datas ou ligue o Google Ads.`,
+      });
+    }
     const media_buyer = {
       spend,
       spend_source,
       spend_currency,
+      manual_spend_lifetime,
       revenue: mb.revenue,
       profit: mb.profit,
       roas: mb.roas,
       cpa: mb.cpa,
       epc: mb.epc,
       conversion_rate: mb.conversion_rate,
-      alerts: buildMediaBuyerAlerts({
-        clicks,
-        conversions,
-        revenue,
-        spend,
-        spendSource: spend_source,
-        googleError: google_ads_metrics_error,
-      }),
+      alerts: mediaBuyerAlerts,
     };
 
     res.json({
       total_clicks: clicks,
       total_impressions: impressions,
+      /** Alias histórico: igual a vendas aprovadas (postback). */
       total_conversions: conversions,
       ctr: Math.round(ctr * 100) / 100,
       conversion_rate: Math.round(conversion_rate * 100) / 100,
       revenue: Math.round(revenue * 100) / 100,
-      /** Vendas aprovadas ligadas a postbacks (tabela conversions). */
+      /** Vendas aprovadas (postbacks / tabela conversions) — fonte de verdade. */
       approved_sales_count: linkedConvCount,
+      /** Eventos conversion/sale no script (não somados às vendas — só telemetria). */
+      tracking_conversion_events: trackingConversions,
+      tracking_conversion_revenue: Math.round(revenueTracking * 100) / 100,
       /** Plataformas de afiliado distintas (metadata.platform) com pelo menos uma venda no período. */
       affiliate_platforms_count: affiliatePlatformsCount,
       chart_data,
