@@ -130,7 +130,16 @@ export default function CampaignDetailPage() {
         <TabsContent value="resumo" className="space-y-4 mt-4">
           <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Estado: <span className="font-medium text-foreground">{campaign.status}</span>
+              Estado:{" "}
+              <span className="font-medium text-foreground">
+                {campaign.status === "active"
+                  ? "Activa"
+                  : campaign.status === "draft"
+                    ? "Rascunho"
+                    : campaign.status === "paused"
+                      ? "Pausada"
+                      : campaign.status}
+              </span>
             </p>
             {campaign.offer_url ? (
               <p className="text-sm break-all">
@@ -202,10 +211,32 @@ export default function CampaignDetailPage() {
           {campaign.presell ? (
             <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
               <p className="font-medium">{campaign.presell.title}</p>
-              <p className="text-sm text-muted-foreground">Estado: {campaign.presell.status}</p>
-              <Button asChild>
-                <Link to="/presells">Gerir em Presells</Link>
-              </Button>
+              <p className="text-sm text-muted-foreground">
+                Estado:{" "}
+                {campaign.presell.status === "published"
+                  ? "Publicada"
+                  : campaign.presell.status === "draft"
+                    ? "Rascunho"
+                    : campaign.presell.status === "paused"
+                      ? "Pausada"
+                      : campaign.presell.status}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild>
+                  <Link to="/presells">Gerir em Presells</Link>
+                </Button>
+                {campaign.presell.status === "published" ? (
+                  <Button variant="outline" asChild>
+                    <a
+                      href={`/p/${campaign.presell.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir página pública
+                    </a>
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-border p-6 text-center space-y-3">
@@ -231,6 +262,16 @@ export default function CampaignDetailPage() {
                 </li>
               ))}
             </ul>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/integracoes/postback">Configurar postback</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/tracking/url-builder">
+                  Construtor de URL <ExternalLink className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+            </div>
             <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1 px-0">
@@ -240,15 +281,10 @@ export default function CampaignDetailPage() {
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 space-y-2 text-sm">
                 <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
-                  <Link to="/integracoes">Postback e redes</Link>
+                  <Link to="/integracoes">Hub de integrações</Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild className="w-full sm:w-auto ml-0 sm:ml-2">
                   <Link to="/configuracoes?avancado=1">Diagnóstico e protecções</Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto ml-0 sm:ml-2">
-                  <Link to={`/tracking/url-builder`}>
-                    Opções manuais de URL <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
                 </Button>
               </CollapsibleContent>
             </Collapsible>

@@ -21,6 +21,7 @@ import {
   voluumStyleMetadataFromExpressQuery,
   voluumStyleQuerySchema,
 } from "../lib/voluumStyleTrackingParams";
+import { normalizeUtmDimension, isUnreplacedAdMacro } from "../lib/adUrlMacros";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -111,11 +112,17 @@ function firstQueryString(q: Request["query"], key: string): string | undefined 
 /** Descarta macros não substituídas (`{gclid}`, `{{campaign.name}}`, …). */
 function realClickIdQuery(q: Request["query"], key: string): string | undefined {
   const v = firstQueryString(q, key);
-  if (!v) return undefined;
-  if (/^\{[\w.]+\}$/.test(v) || /^\{\{[\w.]+\}\}$/.test(v) || /^%7B[\w.]+%7D$/i.test(v)) {
-    return undefined;
-  }
+  if (!v || isUnreplacedAdMacro(v)) return undefined;
   return v;
+}
+
+/** utm_term / utm_content: ignora `{keyword}` literal (teste manual ou URL mal gerada). */
+function realUtmDimensionQuery(q: Request["query"], key: string): string | undefined {
+  return normalizeUtmDimension(firstQueryString(q, key)) ?? undefined;
+}
+
+function realUtmDimensionBody(raw: string | undefined | null): string | undefined {
+  return normalizeUtmDimension(raw) ?? undefined;
 }
 
 function compactTrackingMeta(obj: Record<string, unknown>): Record<string, unknown> {
@@ -134,8 +141,8 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   const utm_source = firstQueryString(query, "utm_source");
   const utm_medium = firstQueryString(query, "utm_medium");
   const utm_campaign = firstQueryString(query, "utm_campaign");
-  const utm_term = firstQueryString(query, "utm_term");
-  const utm_content = firstQueryString(query, "utm_content");
+  const utm_term = realUtmDimensionQuery(query, "utm_term");
+  const utm_content = realUtmDimensionQuery(query, "utm_content");
   const gclid = realClickIdQuery(query, "gclid");
   const gbraid = realClickIdQuery(query, "gbraid");
   const wbraid = realClickIdQuery(query, "wbraid");
@@ -195,14 +202,16 @@ export const trackController = {
       fbclid,
       fbp,
       ttclid,
-      utm_term,
-      utm_content,
+      utm_term: utmTermRaw,
+      utm_content: utmContentRaw,
       msclkid,
       utm_source,
       sub1: qSub1,
       sub2: qSub2,
       sub3: qSub3,
     } = parsed.data;
+    const utm_term = realUtmDimensionBody(utmTermRaw);
+    const utm_content = realUtmDimensionBody(utmContentRaw);
 
     const pathTail = expressWildcardPathSuffix(req);
     if (pathTail != null && pathTail.trim() !== "" && !parsePublicPathSubTail(pathTail)) {
@@ -239,9 +248,25 @@ export const trackController = {
       channel: "redirect",
       recordedEventType: "click",
     });
-    if (!guard.ok) {
-      return res.status(guard.status).json({ error: guard.error });
+    /**
+     * Soft-pass no redirect: nunca devolver JSON ao visitante do anúncio.
+     * Blacklist → oferta sem atribuição. Rate/bot/proxy → clique com flag (KPIs filtram bots).
+     */
+    if (!guard.ok && guard.reason === "blacklist") {
+      console.warn("[track.redirect] soft-pass blacklist → oferta sem click id", { presellId, ip });
+      return res.redirect(302, to);
     }
+    const guardSoftMeta =
+      !guard.ok
+        ? ({
+            guard_soft_pass: true,
+            guard_reason: guard.reason,
+            ...(guard.reason === "bot_blocked" || guard.reason === "empty_user_agent"
+              ? { is_bot: true, bot_label: guard.reason }
+              : {}),
+            ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}),
+          } as Record<string, unknown>)
+        : {};
 
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
@@ -280,6 +305,7 @@ export const trackController = {
             ...pathMetaJson,
             ...voluumMeta,
             ...botMeta,
+            ...guardSoftMeta,
           } as Prisma.InputJsonValue,
         },
       });
@@ -322,8 +348,8 @@ export const trackController = {
       fbclid,
       fbp,
       ttclid,
-      utm_term,
-      utm_content,
+      utm_term: rotUtmTermRaw,
+      utm_content: rotUtmContentRaw,
       msclkid,
       utm_source,
       sub1: rSub1,
@@ -331,6 +357,8 @@ export const trackController = {
       sub3: rSub3,
       access_code,
     } = q;
+    const utm_term = realUtmDimensionBody(rotUtmTermRaw);
+    const utm_content = realUtmDimensionBody(rotUtmContentRaw);
 
     const rPathTail = expressWildcardPathSuffix(req);
     if (rPathTail != null && rPathTail.trim() !== "" && !parsePublicPathSubTail(rPathTail)) {
@@ -380,9 +408,23 @@ export const trackController = {
       channel: "rotator_redirect",
       recordedEventType: "click",
     });
-    if (!guard.ok) {
-      return res.status(guard.status).json({ error: guard.error });
+    if (!guard.ok && guard.reason === "blacklist") {
+      const countryEarly = countryIsoFromIp(ip) ?? null;
+      const pickEarly = await pickRotatorDestination(rotatorId, { country: countryEarly, device: "desktop" });
+      if (pickEarly.ok) return res.redirect(302, pickEarly.destinationUrl);
+      return res.redirect(302, "https://www.google.com");
     }
+    const rotGuardSoft =
+      !guard.ok
+        ? ({
+            guard_soft_pass: true,
+            guard_reason: guard.reason,
+            ...(guard.reason === "bot_blocked" || guard.reason === "empty_user_agent"
+              ? { is_bot: true, bot_label: guard.reason }
+              : {}),
+            ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}),
+          } as Record<string, unknown>)
+        : {};
 
     const country = countryIsoFromIp(ip) ?? null;
     const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
@@ -416,7 +458,7 @@ export const trackController = {
         medium,
         campaign,
         referrer,
-        country,
+        country: country ?? undefined,
         ipAddress: ip,
         userAgent,
         device,
@@ -437,14 +479,13 @@ export const trackController = {
           redirect_to: finalUrl,
           rotator_id: rotatorId,
           rotator_arm_id: armIdForMeta,
-          rotator_used_backup: pick.usedBackup,
-          rotator_via_policy_redirect: Boolean(pick.viaPolicyRedirect),
           ...(sub1 ? { sub1 } : {}),
           ...(sub2 ? { sub2 } : {}),
           ...(sub3 ? { sub3 } : {}),
           ...rotPathMetaJson,
           ...rotVoluumMeta,
           ...rotBotMeta,
+          ...rotGuardSoft,
         } as Prisma.InputJsonValue,
       },
     });
@@ -529,11 +570,13 @@ export const trackController = {
       fbclid,
       fbp,
       ttclid,
-      utm_term,
-      utm_content,
+      utm_term: bodyUtmTermRaw,
+      utm_content: bodyUtmContentRaw,
       msclkid,
       utm_source,
     } = parsed.data;
+    const utm_term = realUtmDimensionBody(bodyUtmTermRaw);
+    const utm_content = realUtmDimensionBody(bodyUtmContentRaw);
 
     // Get page owner
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });

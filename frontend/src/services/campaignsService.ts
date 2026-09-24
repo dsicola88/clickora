@@ -85,40 +85,52 @@ export function campaignUtmSlug(name: string): string {
  * URL para colar no anúncio: UTMs + macros da rede.
  * - `utm_campaign` = nome da campanha (slug)
  * - Google/Bing: `utm_term={keyword}` (a rede substitui no clique)
- * - Google: `gclid={gclid}`; Meta/TikTok: fbclid/ttclid
+ * - Google: `utm_content={creative}`, `gclid={gclid}` — macros NÃO podem ir encodeadas (%7B…%7D)
  */
 export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: string, trafficSource: string): string {
   try {
     const u = new URL(basePresellUrl);
     const slug = campaignUtmSlug(campaignName);
     const src = trafficSource.toLowerCase();
-    if (!u.searchParams.has("utm_source")) {
-      u.searchParams.set("utm_source", src.replace(/\s+/g, "_") || "ads");
-    }
-    if (!u.searchParams.has("utm_medium")) u.searchParams.set("utm_medium", "cpc");
-    // Sempre o nome da campanha (slug) — identifica campanha nos Relatórios.
-    u.searchParams.set("utm_campaign", slug);
-
     const isGoogle = src.includes("google");
     const isBing = src.includes("bing") || src.includes("microsoft");
+
+    const overrides: Record<string, string> = {};
+    if (!u.searchParams.has("utm_source")) {
+      overrides.utm_source = src.replace(/\s+/g, "_") || "ads";
+    }
+    if (!u.searchParams.has("utm_medium")) overrides.utm_medium = "cpc";
+    // Sempre o nome da campanha (slug) — identifica campanha nos Relatórios.
+    overrides.utm_campaign = slug;
     if ((isGoogle || isBing) && !u.searchParams.has("utm_term")) {
-      u.searchParams.set("utm_term", "{keyword}");
+      overrides.utm_term = "{keyword}";
     }
     if (isGoogle && !u.searchParams.has("utm_content")) {
-      u.searchParams.set("utm_content", "{creative}");
+      overrides.utm_content = "{creative}";
     }
     if (isGoogle && !u.searchParams.has("gclid")) {
-      u.searchParams.set("gclid", "{gclid}");
+      overrides.gclid = "{gclid}";
     }
     if (isBing && !u.searchParams.has("msclkid")) {
-      u.searchParams.set("msclkid", "{msclkid}");
+      overrides.msclkid = "{msclkid}";
     }
     if ((src.includes("meta") || src.includes("facebook")) && !u.searchParams.has("fbclid")) {
-      u.searchParams.set("fbclid", "{fbclid}");
+      overrides.fbclid = "{fbclid}";
     }
     if (src.includes("tiktok") && !u.searchParams.has("ttclid")) {
-      u.searchParams.set("ttclid", "{ttclid}");
+      overrides.ttclid = "{ttclid}";
     }
+
+    const encVal = (v: string) => (v.includes("{") ? v : encodeURIComponent(v));
+    const parts: string[] = [];
+    u.searchParams.forEach((v, k) => {
+      if (Object.prototype.hasOwnProperty.call(overrides, k)) return;
+      parts.push(`${encodeURIComponent(k)}=${encVal(v)}`);
+    });
+    for (const [k, v] of Object.entries(overrides)) {
+      parts.push(`${encodeURIComponent(k)}=${encVal(v)}`);
+    }
+    u.search = parts.length ? `?${parts.join("&")}` : "";
     return u.toString();
   } catch {
     return basePresellUrl;

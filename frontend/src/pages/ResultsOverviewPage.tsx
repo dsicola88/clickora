@@ -153,8 +153,9 @@ export default function ResultsOverviewPage() {
             <h2 className="text-sm font-semibold text-foreground">Palavras-chave (P&amp;L)</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Receita de postbacks por <code className="text-[10px] bg-muted px-1 rounded">utm_term</code> +
-              custo Google Ads (mesmo texto de keyword). Use{" "}
-              <code className="text-[10px] bg-muted px-1 rounded">utm_term=&#123;keyword&#125;</code> no URL do anúncio.
+              custo Google Ads (mesmo texto de keyword). No URL do anúncio use{" "}
+              <code className="text-[10px] bg-muted px-1 rounded">utm_term=&#123;keyword&#125;</code> — a Google
+              só substitui no clique real do anúncio (não em testes manuais do link).
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -214,7 +215,9 @@ export default function ResultsOverviewPage() {
             <h2 className="text-sm font-semibold text-foreground">Grupos de anúncios (P&amp;L)</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Receita por <code className="text-[10px] bg-muted px-1 rounded">utm_content</code> + custo Google
-              (ad group). Use o nome do grupo no URL do anúncio.
+              (ad group). No anúncio: macro{" "}
+              <code className="text-[10px] bg-muted px-1 rounded">utm_content=&#123;creative&#125;</code> ou o
+              nome do grupo em texto — macros literais não aparecem como linha.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -266,16 +269,33 @@ export default function ResultsOverviewPage() {
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Campanhas</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Ordenadas por lucro (ou receita se sem gasto)</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ordenadas por lucro (ou receita se sem gasto). Só entram cliques cujo{" "}
+              <code className="text-[10px] bg-muted px-1 rounded">utm_campaign</code> coincide com o nome/slug da
+              campanha — o total de cliques no topo pode ser maior.
+            </p>
           </div>
           <Button variant="link" className="px-0 h-auto" asChild>
             <Link to="/campanhas">Gerir</Link>
           </Button>
         </div>
         {ranked.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Ainda sem dados por campanha. Crie uma campanha e use o link com utm_campaign no anúncio.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Ainda sem dados por campanha. Crie uma campanha e use o link com utm_campaign no anúncio.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" asChild>
+                <Link to="/campanhas">Criar campanha</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/presells/nova">Nova presell</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/tracking/url-builder">Construtor de URL</Link>
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

@@ -79,7 +79,7 @@ export default function IntegrationsHubPage() {
           <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0 mt-1" />
         </Link>
         <Link
-          to="/tracking/plataformas-legacy"
+          to="/integracoes/postback"
           className="group flex items-start gap-4 rounded-xl border border-border/60 bg-card p-5 transition-colors hover:border-primary/40"
         >
           <div className="rounded-lg bg-primary/10 p-2.5">

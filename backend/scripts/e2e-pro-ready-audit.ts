@@ -19,6 +19,9 @@ import {
   tryExtractUrlFromInlineHandler,
 } from "../src/lib/presellMirrorSnapshot";
 import { assessClickQuality, detectBot } from "../src/lib/detectBot";
+import { isUnreplacedAdMacro, normalizeUtmDimension } from "../src/lib/adUrlMacros";
+import { appendClickIdToAffiliateUrl } from "../src/lib/appendClickIdToUrl";
+import { hasPaidNetworkClickId } from "../src/lib/networkClickId";
 
 type Row = { id: string; ok: boolean; detail: string };
 const rows: Row[] = [];
@@ -132,6 +135,24 @@ async function main() {
     } catch (e) {
       check("google_retraction_restatement", false, e instanceof Error ? e.message : String(e));
     }
+  }
+
+  /** 7. ValueTrack macros + click ID + paid/organic */
+  {
+    check("macro_literal", isUnreplacedAdMacro("{keyword}") && normalizeUtmDimension("{keyword}") === null, "{keyword} → null");
+    check("macro_encoded", isUnreplacedAdMacro("%7Bcreative%7D"), "%7Bcreative%7D detectado");
+    check("macro_real_kw", normalizeUtmDimension("neotonics") === "neotonics", "keyword real preservada");
+    const withCid = appendClickIdToAffiliateUrl("https://buygoods.com/x?cid=OTHER", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    check(
+      "click_id_keeps_foreign_cid",
+      withCid.includes("clickora_click_id=") && withCid.includes("cid=OTHER"),
+      "não sobrescreve cid da rede",
+    );
+    check(
+      "paid_vs_organic",
+      hasPaidNetworkClickId({ gclid: "EAIa..." }) && !hasPaidNetworkClickId({ gclid: null }),
+      "gclid = pago",
+    );
   }
 
   const failed = rows.filter((r) => !r.ok);

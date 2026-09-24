@@ -34,6 +34,16 @@ import { FieldError } from "@/components/FieldError";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
@@ -99,6 +109,7 @@ export default function PresellDashboard() {
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSavingPage, setIsSavingPage] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   /** Assistente em 3 passos (criação; edição reutiliza o mesmo layout). */
   const [creatorStep, setCreatorStep] = useState(1);
 
@@ -674,7 +685,7 @@ export default function PresellDashboard() {
     }
   };
 
-  const handleDelete = (id: string) => deleteMutation.mutate(id);
+  const handleDelete = (id: string) => setDeleteConfirmId(id);
 
   const toggleStatus = (page: Presell) => {
     const newStatus = page.status === "published" ? "paused" : "published";
@@ -1186,7 +1197,7 @@ export default function PresellDashboard() {
     );
   }
 
-  if (isLoading) return <LoadingState message="Carregando suas presells..." />;
+  if (isLoading) return <LoadingState message="A carregar as suas presells…" />;
   if (isError) return <ErrorState message="Erro ao carregar presells." onRetry={() => refetch()} />;
 
   if (pages.length === 0 && !isMetricsView) {
@@ -1346,7 +1357,7 @@ export default function PresellDashboard() {
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nome da página</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Tipo da Presell</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Link público</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">
                   <Settings className="h-4 w-4 inline" />
                 </th>
@@ -1385,13 +1396,13 @@ export default function PresellDashboard() {
                         onClick={() => toggleStatus(page)}
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
                       >
-                        {page.status === "published" ? "Habilitado" : "Desabilitado"}
+                        {page.status === "published" ? "Publicada" : page.status === "draft" ? "Rascunho" : "Pausada"}
                       </button>
                     ) : (
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
                       >
-                        {page.status === "published" ? "Habilitado" : "Desabilitado"}
+                        {page.status === "published" ? "Publicada" : page.status === "draft" ? "Rascunho" : "Pausada"}
                       </span>
                     )}
                   </td>
@@ -1454,7 +1465,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => handleDelete(page.id)}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                          title="Excluir"
+                          title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -1474,6 +1485,29 @@ export default function PresellDashboard() {
           </table>
         </div>
       </div>
+
+      <AlertDialog open={deleteConfirmId != null} onOpenChange={(o) => !o && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar esta presell?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O link público deixa de funcionar. Esta acção não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmId) deleteMutation.mutate(deleteConfirmId);
+                setDeleteConfirmId(null);
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

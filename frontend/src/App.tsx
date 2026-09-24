@@ -78,6 +78,7 @@ const appRoutes = [
 
   // Configuração
   { path: "/integracoes", element: <IntegrationsHubPage /> },
+  { path: "/integracoes/postback", element: <Plataformas /> },
   { path: "/integracoes/automizer", element: <AffiliateAutomizerPage /> },
   { path: "/configuracoes", element: <SettingsHubPage /> },
 
@@ -90,7 +91,8 @@ const appRoutes = [
   // Redirects — Tracking legado (páginas ainda existem para avançado / deep links)
   { path: "/tracking/dashboard", element: <Navigate to="/resultados" replace /> },
   { path: "/tracking/setup-assistant", element: <Navigate to="/presells/nova" replace /> },
-  { path: "/tracking/plataformas", element: <Navigate to="/integracoes" replace /> },
+  { path: "/tracking/plataformas-legacy", element: <Navigate to="/integracoes/postback" replace /> },
+  { path: "/tracking/plataformas", element: <Navigate to="/integracoes/postback" replace /> },
   { path: "/tracking/integrations", element: <Navigate to="/integracoes" replace /> },
   { path: "/tracking/settings", element: <Navigate to="/configuracoes" replace /> },
   { path: "/tracking/vendas", element: <Navigate to="/resultados/conversoes" replace /> },
@@ -107,7 +109,6 @@ const appRoutes = [
   { path: "/tracking/url-builder", element: <UrlBuilder /> },
   { path: "/tracking/logs", element: <Logs /> },
   { path: "/tracking/setup-assistant-legacy", element: <SetupAssistantPage /> },
-  { path: "/tracking/plataformas-legacy", element: <Plataformas /> },
   { path: "/tracking/integrations-legacy", element: <Integrations /> },
   { path: "/tracking/settings-legacy", element: <Settings /> },
   { path: "/tracking/dashboard-legacy", element: <TrackingDashboard /> },

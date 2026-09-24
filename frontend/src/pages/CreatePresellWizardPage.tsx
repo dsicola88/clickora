@@ -20,7 +20,6 @@ import { campaignsService, buildTrackedPresellUrl } from "@/services/campaignsSe
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { resolveVideoEmbedSrc, buildYoutubeEmbedUrlForPresell } from "@/lib/youtubeEmbed";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeOption } from "@/lib/presellTypeOptions";
@@ -72,9 +71,9 @@ export default function CreatePresellWizardPage() {
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [presellId, setPresellId] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
-  const [advOpen, setAdvOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish">("idle");
+  const [mirrorFidelityOk, setMirrorFidelityOk] = useState(true);
 
   const platform = useMemo(() => detectPlatform(offerUrl), [offerUrl]);
   const typeDetail = getPresellTypeOption(presellType);
@@ -126,12 +125,15 @@ export default function CreatePresellWizardPage() {
 
       let content: Record<string, unknown>;
       let video_url: string | null = null;
+      let mirrorOk = false;
       // Nome na lista de Presells = nome da campanha (não o título importado do produto).
       const pageTitle = titleSeed.slice(0, 200);
 
       if (!imported.error && imported.data) {
         const data = imported.data;
         const isDiscount = isDiscountPresellType(type);
+        mirrorOk =
+          typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
         content = {
           title: data.title,
           subtitle: data.subtitle,
@@ -145,9 +147,7 @@ export default function CreatePresellWizardPage() {
           storefrontHeroTint: data.storefront_hero_tint,
           /** Espelho = página clonada fiel; sem hero React extra por cima. */
           mirrorShowSpotlight: false,
-          ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
-            ? { importMirrorSrcDoc: data.import_mirror_src_doc }
-            : {}),
+          ...(mirrorOk ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
           ratingValue: data.rating_value,
           ratingStars: data.rating_stars ?? 5,
           ...(isDiscount
@@ -168,7 +168,6 @@ export default function CreatePresellWizardPage() {
           }
         }
       } else {
-        toast.message("Não foi possível espelhar a página da oferta; o link do anúncio fica funcional.");
         content = {
           title: titleSeed,
           subtitle: "",
@@ -191,12 +190,14 @@ export default function CreatePresellWizardPage() {
       };
 
       setGenPhase("publish");
+      /** Sem espelho fiel → rascunho (não gastar ads numa página placeholder). */
+      const publishStatus = mirrorOk ? "published" : "draft";
       const { data, error } = await presellService.create({
         title: pageTitle,
         slug,
         type,
         language,
-        status: "published",
+        status: publishStatus,
         video_url,
         tracking: {
           offerUrl: offer,
@@ -206,23 +207,28 @@ export default function CreatePresellWizardPage() {
         settings,
       } as never);
       if (error || !data) throw new Error(error || "Falha ao criar presell");
-      return data;
+      return { page: data, mirrorOk };
     },
-    onSuccess: async (page) => {
+    onSuccess: async ({ page, mirrorOk }) => {
       setGenPhase("idle");
       setPresellId(page.id);
+      setMirrorFidelityOk(mirrorOk);
       const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id ?? null, page);
       setPublicUrl(url);
       if (campaignId) {
         await campaignsService.update(campaignId, {
           presell_id: page.id,
-          status: "active",
+          status: mirrorOk ? "active" : "draft",
         });
       }
       void qc.invalidateQueries({ queryKey: ["presells"] });
       void qc.invalidateQueries({ queryKey: ["campaigns"] });
       setStep(4);
-      toast.success("Presell criada e publicada");
+      if (mirrorOk) {
+        toast.success("Presell criada e publicada (espelho 1:1)");
+      } else {
+        toast.warning("Presell em rascunho — o espelho da página de vendas falhou. Edite antes de anunciar.");
+      }
     },
     onError: (e: Error) => {
       setGenPhase("idle");
@@ -496,17 +502,30 @@ export default function CreatePresellWizardPage() {
       {step === 4 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
           <p className="font-semibold">Tracking</p>
+          {!mirrorFidelityOk ? (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-3 text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
+              O espelho 1:1 da página de vendas falhou — a presell ficou em <strong>rascunho</strong>. Publique só
+              depois de editar o conteúdo em Presells.
+            </div>
+          ) : null}
           <ul className="space-y-2 text-sm">
             {[
-              ["Estado", "Activo"],
-              ["Parâmetros do anúncio", "Prontos (UTMs + click ID)"],
-              ["Click ID na oferta", "Automático (subid / sub3 / cid)"],
-              ["Vendas da rede", "Configure o postback em Integrações"],
+              ["Cliques no anúncio", "Automáticos (UTMs + click ID no redirect)"],
+              ["Click ID na oferta", "Inserido em subid / sub3 / cid"],
+              [
+                "Postback (vendas)",
+                "Pendente — configure BuyGoods / SmartAdv / Digistore",
+              ],
+              ["Espelho da página", mirrorFidelityOk ? "Fiel à página de vendas" : "Falhou — editar antes de anunciar"],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-3 border-b border-border/40 py-2">
                 <span className="text-muted-foreground">{k}</span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-right">
-                  <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span className="inline-flex items-center gap-1.5 font-medium text-right max-w-[60%]">
+                  {k === "Postback (vendas)" || (k === "Espelho da página" && !mirrorFidelityOk) ? (
+                    <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
+                  ) : (
+                    <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  )}
                   {v}
                 </span>
               </li>
@@ -515,26 +534,19 @@ export default function CreatePresellWizardPage() {
           <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-3 text-xs text-muted-foreground leading-relaxed">
             <p className="font-medium text-foreground mb-1">Para vendas aparecerem no painel</p>
             <p>
-              Em <strong className="text-foreground/90">Integrações → Vendas da rede</strong>, escolha BuyGoods ou SmartAdv,
-              copie o URL com macros e cole no postback da plataforma.
+              Em <strong className="text-foreground/90">Integrações → Vendas da rede (Postback)</strong>, escolha a
+              plataforma, copie o URL com macros e cole no postback da rede.
             </p>
           </div>
-          <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="px-0">
-                Configurações avançadas
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="text-sm text-muted-foreground space-y-2 pt-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/integracoes">Abrir Integrações</Link>
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
-              <Link to="/integracoes">Configurar postback agora</Link>
+              <Link to="/integracoes/postback">Configurar postback agora</Link>
             </Button>
+            {!mirrorFidelityOk && presellId ? (
+              <Button variant="outline" asChild>
+                <Link to="/presells">Editar presell</Link>
+              </Button>
+            ) : null}
             <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
               Continuar
             </Button>
@@ -544,7 +556,9 @@ export default function CreatePresellWizardPage() {
 
       {step === 5 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
-          <p className="font-semibold text-lg">A sua presell está pronta</p>
+          <p className="font-semibold text-lg">
+            {mirrorFidelityOk ? "A sua presell está pronta" : "Quase pronta — falta publicar com conteúdo fiel"}
+          </p>
           <ul className="text-sm space-y-1.5">
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-emerald-600" /> Tipo: {typeDetail?.name ?? presellType}
@@ -553,28 +567,37 @@ export default function CreatePresellWizardPage() {
               <Check className="h-4 w-4 text-emerald-600" /> Idioma: {language}
             </li>
             <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-600" /> Tracking activo
+              {mirrorFidelityOk ? (
+                <Check className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-amber-500 mx-1" aria-hidden />
+              )}
+              Tracking no clique activo
               {presellId ? ` · ${presellId.slice(0, 8)}…` : ""}
+              {!mirrorFidelityOk ? " · rascunho" : ""}
             </li>
           </ul>
           {tracked ? (
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">URL para o anúncio:</p>
+              <p className="text-xs text-muted-foreground">URL para o anúncio (Google Ads → URL final):</p>
               <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Inclui o <strong className="text-foreground/80">nome da campanha</strong> (
-                <span className="font-mono">utm_campaign</span>
-                ) e, no Google Ads, <span className="font-mono">utm_term={"{keyword}"}</span> — a Google
-                substitui pela palavra-chave no clique. Copie este URL como URL final do anúncio.
+                Inclui <span className="font-mono">utm_campaign</span> (nome da campanha) e, no Google,{" "}
+                <span className="font-mono">utm_term={"{keyword}"}</span> — a Google só substitui no clique real do
+                anúncio. Preferir sufixo de URL? Use o{" "}
+                <Link to="/tracking/url-builder" className="text-primary underline-offset-2 hover:underline">
+                  construtor de URL
+                </Link>
+                .
               </p>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button className="gap-2" onClick={() => void copy()} disabled={!tracked}>
+            <Button className="gap-2" onClick={() => void copy()} disabled={!tracked || !mirrorFidelityOk}>
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               Copiar URL do anúncio
             </Button>
-            {previewUrl ? (
+            {previewUrl && mirrorFidelityOk ? (
               <Button variant="outline" asChild>
                 <a href={previewUrl} target="_blank" rel="noreferrer">
                   Abrir página

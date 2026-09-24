@@ -23,6 +23,7 @@ import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
 import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents.service";
 import { billingUserId } from "../lib/requestContext";
 import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
+import { normalizeUtmDimension } from "../lib/adUrlMacros";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -72,10 +73,9 @@ function mapTrackingEventForApi(e: {
   const paid = hasPaidNetworkClickId({ gclid, msclkid, fbclid, ttclid });
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
   const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
-  const utm_content =
-    typeof metadata.utm_content === "string" && metadata.utm_content.trim()
-      ? metadata.utm_content.trim()
-      : null;
+  const utm_content = normalizeUtmDimension(
+    typeof metadata.utm_content === "string" ? metadata.utm_content : null,
+  );
   const utm_campaign =
     (e.campaign && String(e.campaign).trim()) ||
     (typeof metadata.campaign === "string" && metadata.campaign.trim() ? metadata.campaign.trim() : null);
@@ -93,7 +93,7 @@ function mapTrackingEventForApi(e: {
     created_at: e.createdAt.toISOString(),
     metadata: e.metadata ?? {},
     utm_source: typeof metadata.utm_source === "string" ? metadata.utm_source : (e.source ?? null),
-    utm_term: typeof metadata.utm_term === "string" ? metadata.utm_term : null,
+    utm_term: normalizeUtmDimension(typeof metadata.utm_term === "string" ? metadata.utm_term : null),
     utm_content,
     utm_campaign: utm_campaign || null,
     gclid,
@@ -134,10 +134,12 @@ function mapConversionForApi(
   );
   const platform = typeof meta.platform === "string" ? meta.platform : "—";
 
-  const utm_term_raw =
-    (typeof clickMeta.utm_term === "string" && clickMeta.utm_term.trim() && clickMeta.utm_term.trim()) || "";
-  const utm_content_raw =
-    (typeof clickMeta.utm_content === "string" && clickMeta.utm_content.trim() && clickMeta.utm_content.trim()) || "";
+  const utm_term_raw = normalizeUtmDimension(
+    typeof clickMeta.utm_term === "string" ? clickMeta.utm_term : null,
+  ) || "";
+  const utm_content_raw = normalizeUtmDimension(
+    typeof clickMeta.utm_content === "string" ? clickMeta.utm_content : null,
+  ) || "";
 
   const clickSource = c.click
     ? (c.click.source && String(c.click.source).trim()) ||
@@ -752,7 +754,15 @@ export const analyticsController = {
       >(Prisma.sql`
         SELECT
           COALESCE(
-            NULLIF(TRIM(te.metadata->>'utm_term'), ''),
+            NULLIF(
+              CASE
+                WHEN TRIM(COALESCE(te.metadata->>'utm_term', '')) ~ '^\{[a-zA-Z0-9_.]+\}$' THEN NULL
+                WHEN TRIM(COALESCE(te.metadata->>'utm_term', '')) ~ '^\{\{[a-zA-Z0-9_.]+\}\}$' THEN NULL
+                WHEN TRIM(COALESCE(te.metadata->>'utm_term', '')) ~* '^%7B[a-zA-Z0-9_.]+%7D$' THEN NULL
+                ELSE TRIM(te.metadata->>'utm_term')
+              END,
+              ''
+            ),
             '(sem keyword)'
           ) AS keyword,
           COUNT(*)::bigint AS clicks,
@@ -964,7 +974,18 @@ export const analyticsController = {
         Array<{ ad_group: string; clicks: bigint; sales: bigint; revenue: unknown }>
       >(Prisma.sql`
         SELECT
-          COALESCE(NULLIF(TRIM(te.metadata->>'utm_content'), ''), '(sem ad group)') AS ad_group,
+          COALESCE(
+            NULLIF(
+              CASE
+                WHEN TRIM(COALESCE(te.metadata->>'utm_content', '')) ~ '^\{[a-zA-Z0-9_.]+\}$' THEN NULL
+                WHEN TRIM(COALESCE(te.metadata->>'utm_content', '')) ~ '^\{\{[a-zA-Z0-9_.]+\}\}$' THEN NULL
+                WHEN TRIM(COALESCE(te.metadata->>'utm_content', '')) ~* '^%7B[a-zA-Z0-9_.]+%7D$' THEN NULL
+                ELSE TRIM(te.metadata->>'utm_content')
+              END,
+              ''
+            ),
+            '(sem ad group)'
+          ) AS ad_group,
           COUNT(*)::bigint AS clicks,
           COUNT(c.id)::bigint AS sales,
           COALESCE(SUM(c.amount), 0) AS revenue
@@ -1152,6 +1173,34 @@ export const analyticsController = {
         title: "Gasto manual fora do período",
         detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "EUR"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período só usam gasto Google Ads do mesmo intervalo — actualize o gasto por campanha alinhado às datas ou ligue o Google Ads.`,
       });
+    }
+    try {
+      const [macroRow] = await systemPrisma.$queryRaw<Array<{ ct: bigint }>>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS ct
+        FROM tracking_events
+        WHERE user_id = ${userId}
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND event_type::text = 'click'
+          AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+          AND (
+            TRIM(COALESCE(metadata->>'utm_term', '')) ~ '^\{[a-zA-Z0-9_.]+\}$'
+            OR TRIM(COALESCE(metadata->>'utm_content', '')) ~ '^\{[a-zA-Z0-9_.]+\}$'
+            OR TRIM(COALESCE(metadata->>'utm_term', '')) ~* '^%7B[a-zA-Z0-9_.]+%7D$'
+            OR TRIM(COALESCE(metadata->>'utm_content', '')) ~* '^%7B[a-zA-Z0-9_.]+%7D$'
+          )
+      `);
+      const macroClicks = Number(macroRow?.ct ?? 0);
+      if (macroClicks > 0) {
+        mediaBuyerAlerts.unshift({
+          code: "unreplaced_ad_macros",
+          severity: "warning",
+          title: "Macros Google não substituídas",
+          detail: `${macroClicks} clique(s) chegaram com {keyword}/{creative} literal. As macros só expandem quando o visitante clica no anúncio no Google Ads — testes manuais do link e URLs com %7Bkeyword%7D não contam como keyword real. Nos relatórios esses cliques passam a «(sem keyword)».`,
+        });
+      }
+    } catch (e) {
+      console.warn("[analytics.getDashboard] macro alert", e);
     }
     const media_buyer = {
       spend,

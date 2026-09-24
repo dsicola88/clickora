@@ -829,15 +829,18 @@ export default function PublicPresell() {
       loadError instanceof Error ? loadError.message : "Página indisponível.";
     let msg = raw;
     if (/Failed to fetch|NetworkError|load failed/i.test(raw)) {
-      msg = `${raw} No seu domínio, os pedidos devem ir para o mesmo site (ex.: /api/…). Recarregue ou verifique o DNS.`;
+      msg = "Não foi possível carregar a página. Verifique a ligação e tente de novo.";
     } else if (
       raw.trim() === "Página não encontrada" ||
       /^Página não encontrada\.?$/i.test(raw.trim())
     ) {
-      msg =
-        "Página não encontrada. Confirme no painel: a presell está «Publicada»; o UUID no URL é o copiado da lista (mesma conta); a subscrição está ativa.";
+      msg = "Esta página não está disponível.";
     }
-    return <ErrorState message={msg} onRetry={() => refetch()} />;
+    const isNotFound =
+      raw.trim() === "Página não encontrada" ||
+      /^Página não encontrada\.?$/i.test(raw.trim()) ||
+      msg === "Esta página não está disponível.";
+    return <ErrorState message={msg} onRetry={isNotFound ? undefined : () => refetch()} />;
   }
 
   const gateKind = getPresellGateKind(page.type);
