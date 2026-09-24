@@ -331,9 +331,8 @@ function StorefrontTintSubtitle({ subtitle }: { subtitle: string }) {
   return <p className="text-base md:text-lg text-white/85 leading-relaxed drop-shadow-sm">{subtitle}</p>;
 }
 
-/**
- * Hero com imagem extraída da oferta acima do iframe do espelho importado.
- * O espelho nem sempre mostra o pack a bom contraste; esta faixa garante destaque do produto.
+ * Hero opcional acima do espelho — desligado por defeito (fidelidade à página clonada).
+ * Activar só com content.mirrorShowSpotlight === true.
  */
 function ImportedMirrorProductSpotlight({
   productImages,
@@ -1070,7 +1069,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {showImportedMirror && productImages.length > 0 ? (
+      {showImportedMirror && productImages.length > 0 && content.mirrorShowSpotlight === true ? (
         <ImportedMirrorProductSpotlight
           productImages={productImages}
           storefrontMainIdx={storefrontMainIdx}

@@ -3,7 +3,7 @@ import { type HTMLElement, parse } from "node-html-parser";
 /** Substituído no cliente pelo href real de tracking (evita dados sensíveis no HTML guardado). */
 export const CLICKORA_MIRROR_TRACK_MARKER = "https://clickora.invalid/__TRACK_OFFER__";
 
-const MAX_MIRROR_CHARS = 720_000;
+const MAX_MIRROR_CHARS = 1_400_000;
 
 function hostnameNoWww(url: string): string {
   try {
@@ -269,8 +269,8 @@ function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: 
   });
 }
 
-/** Injetado antes do CSS original — base para mobile / overflow / media fluidos. */
-export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}body{margin:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-wrap:anywhere;word-wrap:break-word;}*,*::before,*::after{box-sizing:border-box;}img,picture,video,canvas,svg{max-width:100%;height:auto;}iframe{max-width:100%;}table{max-width:100%;}</style>`;
+/** Base mínima — não reescreve tipografia/layout do original (só evita overflow e media a rebentar). */
+export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html{-webkit-text-size-adjust:100%;}body{margin:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}img,video{max-width:100%;height:auto;}iframe{max-width:100%;}</style>`;
 
 export function buildMirrorSrcDocFromParts(baseHref: string, headSnip: string, bodyInner: string): string {
   const b = escapeBaseHref(baseHref.split("#")[0] || baseHref);
@@ -363,7 +363,7 @@ export function finalizeMirrorSrcDocForImport(
     out = truncateMirrorHtmlToLimit(out, MAX_MIRROR_CHARS);
   }
 
-  return out.length > 500 ? out : null;
+  return out.length > 200 ? out : null;
 }
 
 /**

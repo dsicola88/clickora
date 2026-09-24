@@ -6,7 +6,7 @@ export function escapeHtmlAttrHref(href: string): string {
 }
 
 /** Deve coincidir com o backend (`presellMirrorSnapshot.ts`). */
-export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}body{margin:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-wrap:anywhere;word-wrap:break-word;}*,*::before,*::after{box-sizing:border-box;}img,picture,video,canvas,svg{max-width:100%;height:auto;}iframe{max-width:100%;}table{max-width:100%;}</style>`;
+export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html{-webkit-text-size-adjust:100%;}body{margin:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}img,video{max-width:100%;height:auto;}iframe{max-width:100%;}</style>`;
 
 /** Presells antigas sem este bloco — injeta no cliente. */
 export function ensureMirrorResponsiveBaseHtml(html: string): string {

@@ -59,6 +59,8 @@ export default function CreatePresellWizardPage() {
   const qc = useQueryClient();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [offerUrl, setOfferUrl] = useState("");
+  /** Página de vendas a clonar (visual). Se vazio, usa o hoplink. */
+  const [productPageUrl, setProductPageUrl] = useState("");
   const [campaignName, setCampaignName] = useState("");
   const [trafficSource, setTrafficSource] = useState("Google Ads");
   const [country, setCountry] = useState("US");
@@ -113,10 +115,11 @@ export default function CreatePresellWizardPage() {
       const titleSeed = campaignName.trim() || "Nova presell";
       const slug = `${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-4)}`;
       const offer = offerUrl.trim();
+      const productPage = productPageUrl.trim() || offer;
 
       setGenPhase("import");
       const imported = await presellService.importFromUrl({
-        product_url: offer,
+        product_url: productPage,
         language,
         affiliate_link: offer,
       });
@@ -137,9 +140,11 @@ export default function CreatePresellWizardPage() {
           affiliateLink: data.affiliate_link || offer,
           productName: data.product_name,
           productImages: data.images,
-          sourceUrl: data.source_url || offer,
+          sourceUrl: data.source_url || productPage,
           storefrontTheme: data.storefront_theme,
           storefrontHeroTint: data.storefront_hero_tint,
+          /** Espelho = página clonada fiel; sem hero React extra por cima. */
+          mirrorShowSpotlight: false,
           ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
             ? { importMirrorSrcDoc: data.import_mirror_src_doc }
             : {}),
@@ -290,10 +295,10 @@ export default function CreatePresellWizardPage() {
       {step === 1 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
           <div className="space-y-2">
-            <Label htmlFor="offer">Cole o link da oferta (hoplink)</Label>
+            <Label htmlFor="offer">Hoplink da rede (destino da venda)</Label>
             <Input
               id="offer"
-              placeholder="https://…"
+              placeholder="https://… (BuyGoods / Digistore / SmartAdv…)"
               value={offerUrl}
               onChange={(e) => setOfferUrl(e.target.value)}
               autoFocus
@@ -301,6 +306,19 @@ export default function CreatePresellWizardPage() {
             {platform ? (
               <p className="text-xs text-muted-foreground">Rede detectada: {platform}</p>
             ) : null}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="product-page">Página do produto a clonar (visual)</Label>
+            <Input
+              id="product-page"
+              placeholder="https://… sales page (opcional — se vazio usa o hoplink)"
+              value={productPageUrl}
+              onChange={(e) => setProductPageUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              A dclickora espelha esta página (Playwright). O hoplink acima continua a ser o destino
+              rastreado dos CTAs. Use a sales page pública — não a página de checkout.
+            </p>
           </div>
           <Button
             className="w-full sm:w-auto"

@@ -648,6 +648,7 @@ export default function PresellDashboard() {
           /** Espelho visual para landings escuras (detetado no import). */
           storefrontTheme: data.storefront_theme,
           storefrontHeroTint: data.storefront_hero_tint,
+          mirrorShowSpotlight: false,
           ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
             ? { importMirrorSrcDoc: data.import_mirror_src_doc }
             : {}),
@@ -848,19 +849,20 @@ export default function PresellDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="productLink">1) Página do produto (só visual)</Label>
+                  <Label htmlFor="productLink">1) Página do produto a clonar</Label>
                   <Input
                     id="productLink"
                     type="url"
-                    placeholder="https://… página pública do produto"
+                    placeholder="https://… sales page pública do produto"
                     value={formData.productLink}
                     onChange={(e) => updateField("productLink", e.target.value)}
                     className={formErrors.productLink ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.productLink} />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Usamos este URL para copiar textos e imagens.{" "}
-                    <span className="font-medium text-foreground/90">Não conta cliques</span> no marketplace.
+                    Espelhamos esta página (layout, CSS, imagens) na presell. Use a{" "}
+                    <span className="font-medium text-foreground/90">sales page pública</span>, não o checkout.
+                    O hoplink abaixo é o destino rastreado dos CTAs.
                   </p>
                 </div>
 
