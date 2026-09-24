@@ -108,6 +108,16 @@ function firstQueryString(q: Request["query"], key: string): string | undefined 
   return undefined;
 }
 
+/** Descarta macros não substituídas (`{gclid}`, `{{campaign.name}}`, …). */
+function realClickIdQuery(q: Request["query"], key: string): string | undefined {
+  const v = firstQueryString(q, key);
+  if (!v) return undefined;
+  if (/^\{[\w.]+\}$/.test(v) || /^\{\{[\w.]+\}\}$/.test(v) || /^%7B[\w.]+%7D$/i.test(v)) {
+    return undefined;
+  }
+  return v;
+}
+
 function compactTrackingMeta(obj: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -126,12 +136,12 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   const utm_campaign = firstQueryString(query, "utm_campaign");
   const utm_term = firstQueryString(query, "utm_term");
   const utm_content = firstQueryString(query, "utm_content");
-  const gclid = firstQueryString(query, "gclid");
-  const gbraid = firstQueryString(query, "gbraid");
-  const wbraid = firstQueryString(query, "wbraid");
-  const fbclid = firstQueryString(query, "fbclid");
-  const ttclid = firstQueryString(query, "ttclid");
-  const msclkid = firstQueryString(query, "msclkid");
+  const gclid = realClickIdQuery(query, "gclid");
+  const gbraid = realClickIdQuery(query, "gbraid");
+  const wbraid = realClickIdQuery(query, "wbraid");
+  const fbclid = realClickIdQuery(query, "fbclid");
+  const ttclid = realClickIdQuery(query, "ttclid");
+  const msclkid = realClickIdQuery(query, "msclkid");
   const sub1 = firstQueryString(query, "sub1");
   const sub2 = firstQueryString(query, "sub2");
   const sub3 = firstQueryString(query, "sub3");

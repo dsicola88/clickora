@@ -614,6 +614,9 @@ export default function PublicPresell() {
       throw new Error(error || "Página não encontrada");
     },
     enabled: !!id,
+    /** Railway a acordar: 502/timeout no 1.º pedido — repetir antes de mostrar erro. */
+    retry: 3,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
   });
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import {
 } from "../modules/googleAds/googleAds.service";
 import { fetchGoogleAdsInsightsBundle } from "../modules/googleAds/googleAdsInsights.service";
 import { countryIsoFromIp } from "../lib/countryFromIp";
+import { hasPaidNetworkClickId } from "../lib/networkClickId";
 import { sendCsvDownload } from "../lib/csvExport";
 import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
@@ -63,9 +64,7 @@ function mapTrackingEventForApi(e: {
   const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
   const fbclid = typeof metadata.fbclid === "string" ? metadata.fbclid : null;
   const ttclid = typeof metadata.ttclid === "string" ? metadata.ttclid : null;
-  const paid = Boolean(
-    gclid?.trim() || msclkid?.trim() || fbclid?.trim() || ttclid?.trim(),
-  );
+  const paid = hasPaidNetworkClickId({ gclid, msclkid, fbclid, ttclid });
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
   const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
   const utm_content =

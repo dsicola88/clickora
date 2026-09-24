@@ -22,6 +22,7 @@ import {
   normalizeIsoCountryCode,
 } from "@/lib/countryDisplay";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
+import { hasPaidNetworkClickId } from "@/lib/networkClickId";
 
 function CountryCell({ code }: { code: string }) {
   const iso = normalizeIsoCountryCode(code === "—" ? "" : code);
@@ -87,7 +88,7 @@ function paidLabel(e: TrackingEvent) {
   const m = typeof meta.msclkid === "string" ? meta.msclkid : "";
   const f = typeof meta.fbclid === "string" ? meta.fbclid : "";
   const t = typeof meta.ttclid === "string" ? meta.ttclid : "";
-  return g.trim() || m.trim() || f.trim() || t.trim() ? "Pago" : "Orgânico";
+  return hasPaidNetworkClickId({ gclid: g, msclkid: m, fbclid: f, ttclid: t }) ? "Pago" : "Orgânico";
 }
 
 function platformMatches(rowPlatform: string, selected: string) {

@@ -63,23 +63,34 @@ function buildPublicPresellFetchUrl(param: string): string {
 
 async function fetchPublicPresellJson(param: string): Promise<Presell | null> {
   const url = buildPublicPresellFetchUrl(param);
-  try {
-    const res = await fetch(url, {
-      credentials: "omit",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as Presell;
-    try {
-      applyEarlyPresellShareImageHints(data);
-    } catch {
-      /* ignore */
+  const delaysMs = [0, 800, 2000];
+  for (let i = 0; i < delaysMs.length; i++) {
+    if (delaysMs[i] > 0) {
+      await new Promise((r) => setTimeout(r, delaysMs[i]));
     }
-    return data;
-  } catch {
-    return null;
+    try {
+      const res = await fetch(url, {
+        credentials: "omit",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) {
+        if (res.status >= 500 && i < delaysMs.length - 1) continue;
+        return null;
+      }
+      const data = (await res.json()) as Presell;
+      try {
+        applyEarlyPresellShareImageHints(data);
+      } catch {
+        /* ignore */
+      }
+      return data;
+    } catch {
+      if (i < delaysMs.length - 1) continue;
+      return null;
+    }
   }
+  return null;
 }
 
 /** Dispara GET público o mais cedo possível (carregamento completo da página em /p/…). */
