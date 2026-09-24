@@ -73,10 +73,10 @@ async function main() {
     );
     check(
       "mirror_soft_responsive",
-      MIRROR_RESPONSIVE_STYLE_IN_HEAD.includes("img,video{max-width:100%") &&
+      /data-clickora="responsive-base"/.test(MIRROR_RESPONSIVE_STYLE_IN_HEAD) &&
         !MIRROR_RESPONSIVE_STYLE_IN_HEAD.includes("overflow-wrap:anywhere") &&
         !MIRROR_RESPONSIVE_STYLE_IN_HEAD.includes("box-sizing:border-box"),
-      "CSS responsive mínimo (não destrói layout)",
+      "CSS inject mínimo (fidelidade 1:1)",
     );
     check("mirror_capacity", fin!.length < 1_400_000, `tamanho ${fin!.length} chars (limite 1.4M)`);
   }

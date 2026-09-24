@@ -269,8 +269,8 @@ function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: 
   });
 }
 
-/** Base mínima — não reescreve tipografia/layout do original (só evita overflow e media a rebentar). */
-export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html{-webkit-text-size-adjust:100%;}body{margin:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}img,video{max-width:100%;height:auto;}iframe{max-width:100%;}</style>`;
+/** Base mínima — não altera tipografia/layout do original (fidelidade 1:1). */
+export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html,body{margin:0;}</style>`;
 
 export function buildMirrorSrcDocFromParts(baseHref: string, headSnip: string, bodyInner: string): string {
   const b = escapeBaseHref(baseHref.split("#")[0] || baseHref);

@@ -331,9 +331,7 @@ function StorefrontTintSubtitle({ subtitle }: { subtitle: string }) {
   return <p className="text-base md:text-lg text-white/85 leading-relaxed drop-shadow-sm">{subtitle}</p>;
 }
 
- * Hero opcional acima do espelho — desligado por defeito (fidelidade à página clonada).
- * Activar só com content.mirrorShowSpotlight === true.
- */
+/** Hero opcional acima do espelho — desligado por defeito (fidelidade 1:1 à página clonada). Activar só com content.mirrorShowSpotlight === true. */
 function ImportedMirrorProductSpotlight({
   productImages,
   storefrontMainIdx,
@@ -1005,91 +1003,10 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {showImportedMirror && isVslLayout && showVideo ? (
-        <section className="relative overflow-hidden border-b border-border/30 bg-gradient-to-b from-slate-950 via-slate-900/95 to-slate-900 text-foreground">
-          <div className="w-full max-w-[min(100%,72rem)] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-8 pb-8 md:pb-10 text-center space-y-5 sm:space-y-6">
-            {productImages.length === 0 ? (
-              <>
-                <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto px-1">
-                  <h1 className="text-2xl sm:text-4xl md:text-[2.65rem] font-extrabold leading-[1.12] tracking-tight break-words text-white drop-shadow-sm">
-                    {title}
-                  </h1>
-                  {subtitle ? (
-                    <p className="text-base sm:text-lg md:text-xl font-medium leading-snug text-slate-200/95">{subtitle}</p>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-            <div className="relative w-full max-w-[min(100%,min(1200px,96vw))] mx-auto aspect-video min-h-[200px] bg-black/40 rounded-lg sm:rounded-xl overflow-hidden shadow-xl border border-white/10 ring-1 ring-white/5">
-              {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
-                <>
-                  <iframe
-                    title="Vídeo"
-                    src={videoEmbedSrc}
-                    className="absolute inset-0 z-0 w-full h-full border-0"
-                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                    allowFullScreen
-                    referrerPolicy="strict-origin-when-cross-origin"
-                  />
-                  <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
-                </>
-              ) : (
-                <video
-                  title="Vídeo"
-                  src={videoEmbedSrc}
-                  className="absolute inset-0 w-full h-full object-contain bg-black"
-                  controls
-                  playsInline
-                  preload="metadata"
-                />
-              )}
-            </div>
-            <PresellCta href={href} disabled={!ctaEnabled} surface="dark">
-              {ctaText}
-            </PresellCta>
-          </div>
-        </section>
-      ) : showImportedMirror && isVslLayout && showVslFallback && productImages.length === 0 ? (
-        <section className="relative overflow-hidden border-b border-border/30 bg-gradient-to-b from-slate-950 via-slate-900/95 to-slate-900 text-foreground">
-          <div className="w-full max-w-[min(100%,72rem)] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-8 pb-8 md:pb-10 text-center space-y-5 sm:space-y-6">
-            <div className="w-full max-w-[min(100%,min(1200px,96vw))] mx-auto">
-              <VslProductVideoFallback
-                images={productImages}
-                title={title}
-                subtitle={subtitle}
-                language={uiLang}
-                excerpt={vslExcerpt}
-                variant="vslHero"
-              />
-            </div>
-            <PresellCta href={href} disabled={!ctaEnabled} surface="dark">
-              {ctaText}
-            </PresellCta>
-          </div>
-        </section>
-      ) : null}
-
-      {showImportedMirror && productImages.length > 0 && content.mirrorShowSpotlight === true ? (
-        <ImportedMirrorProductSpotlight
-          productImages={productImages}
-          storefrontMainIdx={storefrontMainIdx}
-          setStorefrontMainIdx={setStorefrontMainIdx}
-          primarySeoLabel={primarySeoLabel}
-          productNameLabel={productNameLabel}
-          title={title}
-          subtitle={subtitle}
-          showStorefrontRating={showStorefrontRating}
-          ratingValue={String(content.ratingValue ?? "")}
-          ratingStars={typeof content.ratingStars === "number" ? content.ratingStars : 5}
-          useDarkTheme={useDarkMirrorStorefront}
-          useTintedTheme={useTintedCommerceStorefront}
-          href={href}
-          ctaEnabled={ctaEnabled}
-          ctaText={ctaText}
-          language={uiLang}
-        />
-      ) : null}
-
+      {/**
+       * Espelho 1:1 — a landing clonada é a UI completa.
+       * Gates (idade/sexo/…) ficam sticky acima; VSL/hero React NÃO se injectam por cima.
+       */}
       {showImportedMirror ? (
         <ImportedPageMirrorIframe
           srcDoc={mirrorSrcDoc}
@@ -1098,6 +1015,7 @@ export default function PublicPresell() {
           interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
         />
       ) : null}
+
 
       {!showImportedMirror && storefrontLayout ? (
         useDarkMirrorStorefront ? (
