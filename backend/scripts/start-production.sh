@@ -39,6 +39,13 @@ if [ -n "${DATABASE_URL_MIGRATE:-}" ]; then
   echo "INFO: DATABASE_URL_MIGRATE definido — só as migrações usam esta URL; a API continua com DATABASE_URL."
 fi
 
+# Colunas críticas ANTES do migrate — desbloqueia seed se P3009 / migrate parcial.
+echo "=== ensure-pro-columns (IF NOT EXISTS) ==="
+set +e
+export DATABASE_URL="$MIGRATE_URL"
+npx tsx scripts/ensure-pro-columns.ts
+set -e
+
 migrate_ok=0
 attempt=1
 max_attempts=15
@@ -56,15 +63,14 @@ done
 export DATABASE_URL="$APP_DATABASE_URL"
 
 if [ "$migrate_ok" != 1 ]; then
-  echo "ERROR: prisma migrate deploy falhou após $max_attempts tentativas."
-  echo "Railway / Postgres:"
-  echo "  (1) No serviço da API: Variables → liga o Postgres com «Reference» (variável DATABASE_URL do plugin), não copies URLs à mão se possível."
-  echo "  (2) Se vês P1001 com postgres.railway.internal: rede privada ou arranque do Postgres — espera e redeploy; ou define DATABASE_URL_MIGRATE com a URL pública (proxy *.rlwy.net) + ?sslmode=require só para migrações."
-  echo "  (3) URLs públicas: acrescenta ?sslmode=require ao fim se a Railway o exigir."
-  echo "  (4) P3009: migração falhada — ver backend/README (fix-railway-p3009:auto-blacklist)."
-  exit 1
+  echo "WARN: prisma migrate deploy falhou após $max_attempts tentativas — a continuar com ensure-pro-columns (API pode arrancar)."
+  echo "Railway / Postgres: ver P3009 / DATABASE_URL_MIGRATE em backend/README."
+  set +e
+  npx tsx scripts/ensure-pro-columns.ts
+  set -e
+else
+  echo "=== prisma migrate deploy OK ==="
 fi
-echo "=== prisma migrate deploy OK ==="
 
 # Seed no arranque é opt-in: correr em todo o deploy bloqueava/hang e causava 502 na Railway.
 # Primeiro deploy ou quando precisares de dados iniciais: RUN_SEED_ON_START=true (uma vez) ou `railway run npx prisma db seed`.
@@ -78,8 +84,10 @@ else
 fi
 
 if [ "$run_seed" = "true" ]; then
-  echo "=== prisma db seed (RUN_SEED_ON_START, max 180s; falha não bloqueia o servidor) ==="
+  echo "=== ensure-pro-columns before seed ==="
   set +e
+  npx tsx scripts/ensure-pro-columns.ts
+  echo "=== prisma db seed (RUN_SEED_ON_START, max 180s; falha não bloqueia o servidor) ==="
   if command -v timeout >/dev/null 2>&1; then
     timeout 180 npx prisma db seed
     SEED_EXIT=$?

@@ -32,6 +32,15 @@ const USERS_INTEGRATION_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_pixel_id" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_access_token" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_events_test_event_code" TEXT`,
+  /** Pro media buyer (migração 20260924233000) — seed/API não rebentam se migrate ainda não passou. */
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_proxy_clicks" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_enabled" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_dry_run" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_min_spend_usd" DECIMAL(14,4) NOT NULL DEFAULT 15`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_min_clicks" INTEGER NOT NULL DEFAULT 20`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_lookback_days" INTEGER NOT NULL DEFAULT 3`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_ads_account_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_advertiser_id" TEXT`,
 ] as const;
 
 async function ensureUsersIntegrationColumns() {
