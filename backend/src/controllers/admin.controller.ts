@@ -59,7 +59,13 @@ export const adminController = {
       include: {
         roles: true,
         subscription: { include: { plan: true } },
-        _count: { select: { presellPages: true, trackingEvents: true, conversions: true } },
+        _count: {
+          select: {
+            presellPages: true,
+            trackingEvents: true,
+            conversions: { where: { status: "approved" } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -168,7 +174,7 @@ export const adminController = {
         prismaAdmin.subscription.count({ where: { status: "active" } }),
         prismaAdmin.presellPage.count(),
         prismaAdmin.trackingEvent.count(),
-        prismaAdmin.conversion.count(),
+        prismaAdmin.conversion.count({ where: { status: "approved" } }),
         prismaAdmin.$queryRaw<Array<{ day: Date; c: bigint }>>(
           Prisma.sql`
             SELECT (created_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::bigint AS c
@@ -182,6 +188,7 @@ export const adminController = {
             SELECT (created_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::bigint AS c
             FROM conversions
             WHERE created_at >= ${since}
+              AND status = 'approved'
             GROUP BY 1
           `,
         ),

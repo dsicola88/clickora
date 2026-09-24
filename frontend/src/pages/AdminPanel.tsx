@@ -432,7 +432,7 @@ export default function AdminPanel() {
                   { icon: BarChart3, label: "Eventos", value: overview.total_events, sub: "tracking" },
                   {
                     icon: MousePointerClick,
-                    label: "Conversões (tracking)",
+                    label: "Vendas aprovadas",
                     value: overview.total_conversions,
                     sub: "registadas nas presells",
                   },
@@ -569,7 +569,7 @@ export default function AdminPanel() {
 
                 <Card className="border-border/80">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Conversões de tracking (30 dias)</CardTitle>
+                    <CardTitle className="text-base">Vendas aprovadas (30 dias)</CardTitle>
                     <CardDescription>Eventos de conversão nas presells, por dia</CardDescription>
                   </CardHeader>
                   <CardContent className="h-64 pt-0">
@@ -695,8 +695,8 @@ export default function AdminPanel() {
                   <TableHead className="whitespace-nowrap">Fim / expiração</TableHead>
                   <TableHead className="text-right">Presells</TableHead>
                   <TableHead className="text-right">Eventos</TableHead>
-                  <TableHead className="text-right" title="Conversões de tracking (presells)">
-                    Conv.
+                  <TableHead className="text-right" title="Vendas aprovadas (postback)">
+                    Vendas
                   </TableHead>
                   <TableHead className="whitespace-nowrap">Alterar plano</TableHead>
                   <TableHead className="w-12 text-center">Datas</TableHead>

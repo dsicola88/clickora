@@ -44,7 +44,7 @@ export function PresellRastreamentoScriptCard({
 
   const imps = dashboard?.total_impressions ?? 0;
   const clicks = dashboard?.total_clicks ?? 0;
-  const convs = dashboard?.total_conversions ?? 0;
+  const convs = dashboard?.approved_sales_count ?? dashboard?.total_conversions ?? 0;
   const ctr = dashboard?.ctr ?? 0;
 
   const chartData =
@@ -79,9 +79,9 @@ export function PresellRastreamentoScriptCard({
             Rastreamento (script)
           </h2>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Impressões, cliques e conversões onde o <strong className="font-medium text-foreground/90">script Clickora</strong>{" "}
-            corre nas tuas páginas. Não substitui o relatório da conta Google Ads — só páginas com o script contam. Detalhe
-            por página:{" "}
+            Visitas e cliques nas tuas presells (sem bots).{" "}
+            <strong className="font-medium text-foreground/90">Vendas</strong> = postbacks aprovados da rede — não o
+            relatório do Google Ads. Detalhe por página:{" "}
             <Link to="/tracking/analytics" className="text-primary font-medium underline underline-offset-2">
               Analytics
             </Link>
@@ -112,20 +112,24 @@ export function PresellRastreamentoScriptCard({
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className={statGridClass}>
-              <p className={statGridLabel}>Impressões</p>
+              <p className={statGridLabel}>Visitas</p>
               <p className={statGridValue}>{imps.toLocaleString()}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Aberturas da presell</p>
             </div>
             <div className={statGridClass}>
               <p className={statGridLabel}>Cliques</p>
               <p className={statGridValue}>{clicks.toLocaleString()}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Sem bots</p>
             </div>
             <div className={statGridClass}>
-              <p className={statGridLabel}>Conversões</p>
+              <p className={statGridLabel}>Vendas</p>
               <p className={statGridValue}>{convs.toLocaleString()}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Postback aprovado</p>
             </div>
             <div className={statGridClass}>
               <p className={statGridLabel}>CTR</p>
               <p className={statGridValue}>{ctr.toFixed(1)}%</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Cliques ÷ visitas</p>
             </div>
           </div>
 

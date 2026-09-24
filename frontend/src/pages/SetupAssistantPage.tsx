@@ -128,8 +128,7 @@ export default function SetupAssistantPage() {
   );
   const hasPublished = published.length > 0;
   const clicks = dashboard?.total_clicks ?? 0;
-  const conversions = dashboard?.total_conversions ?? 0;
-  const approvedSales = dashboard?.approved_sales_count ?? 0;
+  const approvedSales = dashboard?.approved_sales_count ?? dashboard?.total_conversions ?? 0;
   const pipeline = dashboard?.tracking_pipeline;
   const gaEnv = pipeline?.google_ads_api_env_configured ?? googleAds?.api_env_configured ?? false;
   const gaMetricsReady = pipeline?.google_ads_metrics_available ?? false;
@@ -197,11 +196,11 @@ export default function SetupAssistantPage() {
         title: "5. Postback (vendas)",
         description:
           "Em Postback copia o URL e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
-        status: approvedSales > 0 || conversions > 0 ? "done" : hasPublished ? "warn" : "pending",
+        status: approvedSales > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [{ to: "/tracking/plataformas", label: "Configurar postback" }],
         hint: webhook?.hook_url
-          ? approvedSales > 0 || conversions > 0
-            ? "Há conversões no período."
+          ? approvedSales > 0
+            ? "Há vendas aprovadas no período."
             : "URL pronto — confirma na rede que está activo."
           : "Abre Postback para obter o URL (ou verifica o plano).",
       },
@@ -209,7 +208,7 @@ export default function SetupAssistantPage() {
         id: "reports",
         title: "6. Conversões e relatórios",
         description: "Cliques, vendas e receita aparecem em Conversões e relatórios (dados reais da conta).",
-        status: conversions > 0 || approvedSales > 0 || clicks > 0 ? "done" : "pending",
+        status: approvedSales > 0 || clicks > 0 ? "done" : "pending",
         actions: [{ to: "/tracking/relatorios", label: "Abrir relatórios" }],
       },
       {

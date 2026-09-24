@@ -120,7 +120,13 @@ function mapConversionForApi(
   const gclid = typeof clickMeta.gclid === "string" ? clickMeta.gclid : null;
   const wbraid = typeof clickMeta.wbraid === "string" ? clickMeta.wbraid : null;
   const gbraid = typeof clickMeta.gbraid === "string" ? clickMeta.gbraid : null;
-  const hasClickId = Boolean(gclid?.trim() || gbraid?.trim() || wbraid?.trim());
+  const msclkid = typeof clickMeta.msclkid === "string" ? clickMeta.msclkid : null;
+  const hasClickId = Boolean(
+    (gclid && gclid.trim() && !/^\{/.test(gclid.trim())) ||
+      (gbraid && gbraid.trim() && !/^\{/.test(gbraid.trim())) ||
+      (wbraid && wbraid.trim() && !/^\{/.test(wbraid.trim())) ||
+      (msclkid && msclkid.trim() && !/^\{/.test(msclkid.trim())),
+  );
   const platform = typeof meta.platform === "string" ? meta.platform : "—";
 
   const utm_term_raw =
@@ -146,7 +152,8 @@ function mapConversionForApi(
 
   const postbackCampaign = typeof c.campaign === "string" && c.campaign.trim() ? c.campaign.trim() : null;
 
-  const keyword = utm_term_raw || postbackCampaign || "—";
+  /** Keyword = só utm_term do clique; nunca misturar com campanha do postback. */
+  const keyword = utm_term_raw || "—";
 
   const originParts = [clickSource, clickMedium, clickCampaign].filter(Boolean);
   const origin =
@@ -188,7 +195,11 @@ export const analyticsController = {
     const { from, to, presell_id } = req.query;
     const userId = billingUserId(req);
 
-    const where: Prisma.TrackingEventWhereInput = { userId };
+    const where: Prisma.TrackingEventWhereInput = {
+      userId,
+      /** Alinhado ao dashboard: bots não entram em cliques/impressões. */
+      NOT: { metadata: { path: ["is_bot"], equals: true } },
+    };
     if (presell_id && typeof presell_id === "string") where.presellPageId = presell_id;
     if (from || to) {
       where.createdAt = {};

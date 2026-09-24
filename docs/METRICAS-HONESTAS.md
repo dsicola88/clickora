@@ -10,7 +10,8 @@ Nada é inventado. Os números vêm de eventos reais ou de postbacks da rede.
 | **Impressões / visitas** | Pixel da presell (1× por abertura da página) | Impressões do Google Ads |
 | **Vendas / receita** | Postbacks **aprovados** (BuyGoods, etc.) | Eventos `conversion` do script (só telemetria) |
 | **País** | GeoIP do IP do visitante | Não inventa país; VPN = país da VPN |
-| **Pago vs Orgânico** | Só com ID real (`gclid`, `fbclid`…) | Macros `{gclid}` na URL |
+| **Pago vs Orgânico** | Só com ID real (`gclid`, `fbclid`, `msclkid`…) | Macros `{gclid}` na URL |
+| **Keyword** | Só `utm_term` do clique | Nome da campanha do postback |
 | **ROAS / CPA / lucro** | Receita do período ÷ **gasto Google Ads do mesmo período** | Gasto manual acumulado nas campanhas |
 
 ## Porque BuyGoods e dclickora podem diferir
