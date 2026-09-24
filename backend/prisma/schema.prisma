@@ -416,7 +416,7 @@ model TrackingEvent {
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   presellPage PresellPage? @relation(fields: [presellPageId], references: [id], onDelete: SetNull)
-  conversion  Conversion?
+  conversions Conversion[]
 
   @@index([userId])
   @@index([presellPageId])
@@ -487,8 +487,8 @@ model TrafficRotatorArm {
 /** Conversão de venda (postback). Pode ser atribuída a um clique ou não atribuída (sem UUID válido). */
 model Conversion {
   id        String   @id @default(uuid())
-  /** Nulo = conversão sem atribuição a clique Clickora (venda registada, sem GCLID/presell). */
-  clickId   String?  @unique @map("click_id")
+  /** Nulo = conversão sem atribuição a clique Clickora (venda registada, sem GCLID/presell). Várias vendas por clique (rebill) são permitidas. */
+  clickId   String?  @map("click_id")
   userId    String   @map("user_id")
   /** Nulo quando não há clique/presell resolvidos. */
   presellId String?  @map("presell_id")
@@ -525,6 +525,7 @@ model Conversion {
   @@index([createdAt])
   @@index([userId, createdAt])
   @@index([attribution])
+  @@index([clickId])
   @@map("conversions")
 }
 

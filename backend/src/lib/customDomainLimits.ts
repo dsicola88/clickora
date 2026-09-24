@@ -2,9 +2,10 @@ import type { PlanType } from "@prisma/client";
 import prisma from "./prisma";
 import { resolveDefaultPlanForSignup } from "./defaultPlan";
 
-/** Quando a coluna ainda não existe ou é nula — anual = 2, resto = 0. */
+/** Quando a coluna ainda não existe ou é nula — mensal = 1, anual = 2, resto = 0. */
 export function fallbackMaxCustomDomainsFromPlanType(type: PlanType): number {
   if (type === "annual") return 2;
+  if (type === "monthly") return 1;
   return 0;
 }
 

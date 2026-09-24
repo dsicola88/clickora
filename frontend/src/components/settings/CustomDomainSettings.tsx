@@ -195,7 +195,7 @@ export function CustomDomainSettings() {
           role="status"
         >
           {quota.max_custom_domains === 0
-            ? "O seu plano não inclui domínios personalizados. O plano Pro Anual permite até 2 domínios; no Pro Mensal use exportação HTML para WordPress (bloco HTML personalizado) no domínio dclickora."
+            ? "O seu plano não inclui domínios personalizados. O Pro Mensal permite 1 domínio; o Pro Anual até 2. No Starter use exportação HTML ou o domínio dclickora."
             : `Limite atingido (${quota.used}/${quota.max_custom_domains}). Remova um domínio abaixo para libertar um lugar.`}
         </div>
       ) : null}

@@ -655,7 +655,7 @@ export const analyticsController = {
     }
 
     try {
-    const [aggRow, linkedRow, platformDistRow, chartRows, geoRows] = await Promise.all([
+    const [aggRow, linkedRow, platformDistRow, chartRows, geoRows, keywordPerfRows] = await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
         Array<{
@@ -741,6 +741,31 @@ export const analyticsController = {
         GROUP BY country
         ORDER BY ct DESC
         LIMIT 25
+      `),
+      systemPrisma.$queryRaw<
+        Array<{ keyword: string; clicks: bigint; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(TRIM(te.metadata->>'utm_term'), ''),
+            '(sem keyword)'
+          ) AS keyword,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+        GROUP BY 1
+        ORDER BY revenue DESC, sales DESC, clicks DESC
+        LIMIT 40
       `),
     ]);
 
@@ -855,6 +880,55 @@ export const analyticsController = {
       const country_code = u.length === 2 && /^[A-Z]{2}$/.test(u) ? u : null;
       return { country_code, clicks: Number(row.ct) };
     });
+
+    const keyword_performance = keywordPerfRows.map((row) => {
+      const clicksKw = Number(row.clicks);
+      const salesKw = Number(row.sales);
+      const revKw = Number(row.revenue ?? 0);
+      return {
+        keyword: row.keyword,
+        clicks: clicksKw,
+        sales: salesKw,
+        revenue: Math.round(revKw * 100) / 100,
+        epc: clicksKw > 0 ? Math.round((revKw / clicksKw) * 10000) / 10000 : null,
+        cvr: clicksKw > 0 ? Math.round((salesKw / clicksKw) * 10000) / 100 : null,
+      };
+    });
+
+    /** Quota de cliques do plano (mês civil UTC) — barra real nos Relatórios. */
+    let click_quota: {
+      used: number;
+      max: number | null;
+      percent: number | null;
+    } = { used: 0, max: null, percent: null };
+    try {
+      const startOfMonth = new Date();
+      startOfMonth.setUTCDate(1);
+      startOfMonth.setUTCHours(0, 0, 0, 0);
+      const [usedRow, sub] = await Promise.all([
+        systemPrisma.$queryRaw<Array<{ cnt: bigint }>>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS cnt
+          FROM tracking_events
+          WHERE user_id = ${userId}
+            AND event_type::text = 'click'
+            AND created_at >= ${startOfMonth}
+            AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+        `),
+        systemPrisma.subscription.findUnique({
+          where: { userId },
+          include: { plan: { select: { maxClicksPerMonth: true } } },
+        }),
+      ]);
+      const used = Number(usedRow[0]?.cnt ?? 0);
+      const max = sub?.plan?.maxClicksPerMonth ?? null;
+      click_quota = {
+        used,
+        max,
+        percent: max != null && max > 0 ? Math.min(100, Math.round((used / max) * 1000) / 10) : null,
+      };
+    } catch (e) {
+      console.warn("[analytics.getDashboard] click_quota indisponível", e);
+    }
 
     /** Observabilidade: conversões com envio Google/Meta falhado nos últimos 7 dias (UTC). */
     const syncHealthStart = new Date();
@@ -1000,6 +1074,8 @@ export const analyticsController = {
       google_ads_metrics,
       google_ads_metrics_error,
       clicks_by_country,
+      keyword_performance,
+      click_quota,
       sync_health,
       media_buyer,
     });

@@ -147,6 +147,46 @@ export default function ResultsOverviewPage() {
         ))}
       </div>
 
+      {(data.keyword_performance?.length ?? 0) > 0 ? (
+        <section className="rounded-xl border border-border/60 bg-card p-5">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Palavras-chave (utm_term)</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Receita real de postbacks por keyword do clique — use{" "}
+              <code className="text-[10px] bg-muted px-1 rounded">utm_term=&#123;keyword&#125;</code> no URL do anúncio.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="pb-2 font-medium">Keyword</th>
+                  <th className="pb-2 font-medium text-right">Cliques</th>
+                  <th className="pb-2 font-medium text-right">Vendas</th>
+                  <th className="pb-2 font-medium text-right">Receita</th>
+                  <th className="pb-2 font-medium text-right">EPC</th>
+                  <th className="pb-2 font-medium text-right">CVR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.keyword_performance!.slice(0, 15).map((row) => (
+                  <tr key={row.keyword} className="border-t border-border/40">
+                    <td className="py-2.5 pr-3 font-mono text-xs">{row.keyword}</td>
+                    <td className="py-2.5 text-right tabular-nums">{row.clicks.toLocaleString("pt-PT")}</td>
+                    <td className="py-2.5 text-right tabular-nums">{row.sales.toLocaleString("pt-PT")}</td>
+                    <td className="py-2.5 text-right tabular-nums">{money(row.revenue, currency)}</td>
+                    <td className="py-2.5 text-right tabular-nums">{money(row.epc, currency)}</td>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {row.cvr != null ? `${row.cvr.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-xl border border-border/60 bg-card p-5">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>

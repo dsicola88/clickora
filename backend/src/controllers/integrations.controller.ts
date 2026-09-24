@@ -86,7 +86,7 @@ export const integrationsController = {
 
   /**
    * Postback HTTP das redes. Com status de venda aprovada:
-   * - click UUID válido → conversão atribuída (1 clique = 1 conversão);
+   * - click UUID válido → conversão atribuída (várias vendas/rebills por clique se order_id distinto);
    * - sem UUID / clique inexistente → conversão **não atribuída** (venda registada, sem inventar GCLID/presell).
    */
   async affiliateWebhook(req: Request, res: Response) {
@@ -265,16 +265,21 @@ export const integrationsController = {
     };
 
     const to = (user.saleNotifyEmail?.trim() || user.email).trim();
-    const subject = `[dclickora] Notificação de postback — ${platform} — ${conversionResult}`;
-    const text =
-      `A rede de afiliados enviou um pedido de postback para a sua integração dclickora.\n\n` +
-      `Resultado: ${conversionResult}\n` +
-      `Atribuição: ${attribution ?? "n/a"}\n` +
-      (unattributedReason ? `Motivo não atribuída: ${unattributedReason}\n` : "") +
-      `Plataforma (metadata): ${platform}\n` +
-      `Quando a conversão for criada e as integrações de anúncios estiverem activas, o servidor processará o envio a Google, Meta e/ou TikTok, conforme configurado — ver Relatórios → Conversões (estado de sync).\n\n` +
-      `Detalhe (JSON):\n${JSON.stringify(payloadLog, null, 2)}`;
-    const mail = await sendTransactionalEmail({ to, subject, text });
+    /** E-mail só em venda atribuída nova — não spam em cada ping/teste/não aprovado. */
+    const shouldEmail =
+      conversionResult === "created" && Boolean(to) && Boolean(createdConversionId);
+    let mail: { sent: boolean; reason?: string } = { sent: false, reason: "skipped_not_attributed_sale" };
+    if (shouldEmail) {
+      const subject = `[dclickora] Venda atribuída — ${platform}`;
+      const text =
+        `Venda registada e ligada a um clique na dclickora.\n\n` +
+        `Plataforma: ${platform}\n` +
+        `Valor: ${amount != null ? `${amount} ${currency ?? ""}` : "—"}\n` +
+        `Encomenda: ${externalOrderId ?? "—"}\n` +
+        `Click ID: ${clickId ?? "—"}\n\n` +
+        `Ver Relatórios → Conversões (estado Google/Meta/TikTok).`;
+      mail = await sendTransactionalEmail({ to, subject, text });
+    }
 
     const logStatus =
       conversionResult === "created" ||

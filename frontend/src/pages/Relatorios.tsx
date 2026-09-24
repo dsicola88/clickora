@@ -602,11 +602,55 @@ export default function Relatorios() {
     return { ok: false, text: sync };
   };
 
-  const UsageLimitBar = () => (
-    <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 p-4 text-sm text-muted-foreground">
-      <span className="font-medium text-foreground/90">Quota / IP:</span> espaço reservado — ainda sem percentagem ao vivo (não é falha de rede).
-    </div>
-  );
+  const quotaQuery = useQuery({
+    queryKey: ["relatorios", "click-quota", applied.from, applied.to],
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getDashboard({
+        from: applied.from,
+        to: applied.to,
+      });
+      if (error) throw new Error(error);
+      return data?.click_quota ?? null;
+    },
+  });
+
+  const UsageLimitBar = () => {
+    const q = quotaQuery.data;
+    if (quotaQuery.isLoading) {
+      return (
+        <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm text-muted-foreground">
+          A carregar quota de cliques…
+        </div>
+      );
+    }
+    if (!q) return null;
+    const maxLabel = q.max == null ? "ilimitado" : q.max.toLocaleString("pt-PT");
+    const pct = q.percent;
+    return (
+      <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="font-medium text-foreground/90">
+            Cliques este mês:{" "}
+            <span className="tabular-nums">{q.used.toLocaleString("pt-PT")}</span>
+            <span className="text-muted-foreground font-normal"> / {maxLabel}</span>
+          </p>
+          {pct != null ? (
+            <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
+          ) : null}
+        </div>
+        {pct != null ? (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary"}`}
+              style={{ width: `${Math.min(100, pct)}%` }}
+            />
+          </div>
+        ) : (
+          <p className="mt-1 text-xs text-muted-foreground">Sem teto no plano actual.</p>
+        )}
+      </div>
+    );
+  };
 
   const TimezoneAlert = () => (
     <div className="bg-warning/5 border border-warning/20 rounded-xl p-4 flex items-start gap-3">
