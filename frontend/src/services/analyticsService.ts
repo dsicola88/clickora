@@ -371,7 +371,6 @@ export const analyticsService = {
       } | null;
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
-      /** Lucro por palavra-chave (utm_term × postback + custo Google Ads quando ligado). */
       keyword_performance?: Array<{
         keyword: string;
         clicks: number;
@@ -382,6 +381,15 @@ export const analyticsService = {
         roas?: number | null;
         epc: number | null;
         cvr: number | null;
+      }>;
+      ad_group_performance?: Array<{
+        ad_group: string;
+        clicks: number;
+        sales: number;
+        revenue: number;
+        cost: number | null;
+        profit: number | null;
+        roas: number | null;
       }>;
       /** Quota de cliques do plano no mês civil (soft-cap: track nunca bloqueia). */
       click_quota?: {
@@ -394,8 +402,9 @@ export const analyticsService = {
       /** KPIs de media buyer: lucro = receita − gasto. */
       media_buyer?: {
         spend: number | null;
-        spend_source: "google_ads" | "manual" | "none";
+        spend_source: "persisted" | "google_ads" | "manual" | "none";
         spend_currency: string | null;
+        spend_by_platform?: Record<string, number> | null;
         /** Soma lifetime nas campanhas quando não há gasto Google do período. */
         manual_spend_lifetime?: number | null;
         revenue: number;

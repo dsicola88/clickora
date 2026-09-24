@@ -130,6 +130,20 @@ model User {
   blockEmptyUserAgent Boolean @default(false) @map("block_empty_user_agent")
   /** Opt-in: bloqueia cliques/impressões identificados como bot (UA). */
   blockBotClicks      Boolean @default(false) @map("block_bot_clicks")
+  /** Opt-in: bloqueia cliques com sinais fortes de VPN/proxy/datacenter. */
+  blockProxyClicks    Boolean @default(false) @map("block_proxy_clicks")
+  /**
+   * Automizer afiliado: pausa keywords Google com gasto e sem receita de postback.
+   */
+  keywordAutomizerEnabled       Boolean @default(false) @map("keyword_automizer_enabled")
+  keywordAutomizerDryRun        Boolean @default(true)  @map("keyword_automizer_dry_run")
+  keywordAutomizerMinSpendUsd   Decimal @default(15) @map("keyword_automizer_min_spend_usd") @db.Decimal(14, 4)
+  keywordAutomizerMinClicks     Int     @default(20) @map("keyword_automizer_min_clicks")
+  keywordAutomizerLookbackDays  Int     @default(3)  @map("keyword_automizer_lookback_days")
+  /** Conta Meta Ads (act_…) para sync de custo diário no P&L afiliado. */
+  metaAdsAccountId    String? @map("meta_ads_account_id")
+  /** Advertiser TikTok para sync de custo (opcional). */
+  tiktokAdvertiserId  String? @map("tiktok_advertiser_id")
   /**
    * 0 = desligado. N > 0: máximo de eventos `click` rastreados por IPv4 neste IP na janela;
    * ao exceder, o pedido seguinte recebe 403 e o IP é acrescentado à blacklist.
@@ -153,6 +167,8 @@ model User {
   customDomains        CustomDomain[]
   whitelistedIps WhitelistedIp[]
   trafficRotators      TrafficRotator[]
+  adPlatformCostDaily  AdPlatformCostDaily[]
+  affiliateAutomizerLogs AffiliateAutomizerLog[]
   ownedWorkspace       Workspace?           @relation("WorkspaceOwner")
   workspaceMemberships WorkspaceMember[]
 
@@ -526,7 +542,54 @@ model Conversion {
   @@index([userId, createdAt])
   @@index([attribution])
   @@index([clickId])
+  @@index([userId, status])
   @@map("conversions")
+}
+
+/**
+ * Custo diário por plataforma (Google/Meta/TikTok) — P&L histórico sem depender só de GAQL live.
+ * level: account | campaign | ad_group | keyword
+ */
+model AdPlatformCostDaily {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  /** google_ads | meta_ads | tiktok_ads */
+  platform     String   @db.VarChar(32)
+  date         DateTime @db.Date
+  level        String   @db.VarChar(32)
+  /** Chave estável (ex. keyword text lower, campaign name, account). */
+  entityKey    String   @map("entity_key") @db.VarChar(512)
+  label        String?  @db.VarChar(512)
+  costMicros   BigInt   @default(0) @map("cost_micros")
+  clicks       Int      @default(0)
+  impressions  Int      @default(0)
+  currency     String?  @default("USD") @db.VarChar(8)
+  syncedAt     DateTime @default(now()) @map("synced_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, date, level, entityKey])
+  @@index([userId, platform, date])
+  @@index([userId, level, date])
+  @@map("ad_platform_cost_daily")
+}
+
+/** Auditoria do Automizer de keywords (dry-run ou pause real). */
+model AffiliateAutomizerLog {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  action      String   @db.VarChar(64)
+  keyword     String   @db.VarChar(512)
+  reason      String?  @db.Text
+  dryRun      Boolean  @default(true) @map("dry_run")
+  ok          Boolean  @default(true)
+  detail      Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("affiliate_automizer_logs")
 }
 
 model BlacklistedIp {

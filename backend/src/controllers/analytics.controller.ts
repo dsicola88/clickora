@@ -10,6 +10,11 @@ import {
   isGoogleAdsMetricsReadyForUser,
 } from "../modules/googleAds/googleAds.service";
 import { fetchGoogleAdsInsightsBundle, fetchGoogleAdsKeywordInsights } from "../modules/googleAds/googleAdsInsights.service";
+import {
+  sumPersistedAdGroupCosts,
+  sumPersistedKeywordCosts,
+  sumPersistedSpend,
+} from "../modules/affiliateOps/costSync.service";
 import { countryIsoFromIp } from "../lib/countryFromIp";
 import { hasPaidNetworkClickId } from "../lib/networkClickId";
 import { sendCsvDownload } from "../lib/csvExport";
@@ -898,9 +903,24 @@ export const analyticsController = {
       };
     });
 
-    /** Junta custo Google Ads por texto de keyword (utm_term ≈ keyword.text) → P&L real. */
-    if (pipelineUser && isGoogleAdsMetricsReadyForUser(pipelineUser)) {
-      try {
+    /** Junta custo: preferir tabela diária persistida; fallback GAQL live. */
+    try {
+      const persistedKw = await sumPersistedKeywordCosts({
+        userId,
+        from: rangeStart,
+        to: rangeEnd,
+      });
+      if (persistedKw.size > 0) {
+        for (const row of keyword_performance) {
+          if (row.keyword === "(sem keyword)") continue;
+          const cost = persistedKw.get(row.keyword.trim().toLowerCase());
+          if (cost == null) continue;
+          row.cost = Math.round(cost * 100) / 100;
+          row.profit = Math.round((row.revenue - cost) * 100) / 100;
+          row.roas = cost > 0 ? Math.round((row.revenue / cost) * 100) / 100 : null;
+        }
+        keyword_performance.sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue));
+      } else if (pipelineUser && isGoogleAdsMetricsReadyForUser(pipelineUser)) {
         const kwG = await fetchGoogleAdsKeywordInsights({
           user: pipelineUser,
           from: rangeStart,
@@ -922,15 +942,72 @@ export const analyticsController = {
             row.profit = Math.round((row.revenue - cost) * 100) / 100;
             row.roas = cost > 0 ? Math.round((row.revenue / cost) * 100) / 100 : null;
           }
-          keyword_performance.sort((a, b) => {
-            const pa = a.profit ?? a.revenue;
-            const pb = b.profit ?? b.revenue;
-            return pb - pa;
-          });
+          keyword_performance.sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue));
         }
-      } catch (e) {
-        console.warn("[analytics.getDashboard] keyword cost join falhou", e);
       }
+    } catch (e) {
+      console.warn("[analytics.getDashboard] keyword cost join falhou", e);
+    }
+
+    /** P&L por ad group (utm_content ≈ nome do grupo / custo Google ad_group). */
+    let ad_group_performance: Array<{
+      ad_group: string;
+      clicks: number;
+      sales: number;
+      revenue: number;
+      cost: number | null;
+      profit: number | null;
+      roas: number | null;
+    }> = [];
+    try {
+      const agRows = await systemPrisma.$queryRaw<
+        Array<{ ad_group: string; clicks: bigint; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(TRIM(te.metadata->>'utm_content'), ''), '(sem ad group)') AS ad_group,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+        GROUP BY 1
+        ORDER BY revenue DESC
+        LIMIT 40
+      `);
+      const costAg = await sumPersistedAdGroupCosts({
+        userId,
+        from: rangeStart,
+        to: rangeEnd,
+      });
+      ad_group_performance = agRows.map((row) => {
+        const clicksAg = Number(row.clicks);
+        const salesAg = Number(row.sales);
+        const revAg = Number(row.revenue ?? 0);
+        const cost =
+          row.ad_group === "(sem ad group)"
+            ? null
+            : costAg.get(row.ad_group.trim().toLowerCase()) ?? null;
+        const costR = cost != null ? Math.round(cost * 100) / 100 : null;
+        return {
+          ad_group: row.ad_group,
+          clicks: clicksAg,
+          sales: salesAg,
+          revenue: Math.round(revAg * 100) / 100,
+          cost: costR,
+          profit: costR != null ? Math.round((revAg - costR) * 100) / 100 : null,
+          roas: costR != null && costR > 0 ? Math.round((revAg / costR) * 100) / 100 : null,
+        };
+      });
+    } catch (e) {
+      console.warn("[analytics.getDashboard] ad_group_performance", e);
     }
 
     /** Quota de cliques do plano (mês civil UTC) — barra real nos Relatórios. Soft-cap: track nunca bloqueia. */
@@ -1020,25 +1097,38 @@ export const analyticsController = {
       console.warn("[analytics.getDashboard] spend_amount indisponível (migração?)", e);
     }
 
-    const googleSpend =
+    const googleSpendLive =
       google_ads_metrics != null && Number.isFinite(google_ads_metrics.cost_micros)
         ? google_ads_metrics.cost_micros / 1_000_000
         : null;
 
+    let persisted = { total: 0, by_platform: {} as Record<string, number> };
+    try {
+      persisted = await sumPersistedSpend({ userId, from: rangeStart, to: rangeEnd });
+    } catch (e) {
+      console.warn("[analytics.getDashboard] persisted spend", e);
+    }
+
     let spend: number | null = null;
-    let spend_source: "google_ads" | "manual" | "none" = "none";
+    let spend_source: "persisted" | "google_ads" | "manual" | "none" = "none";
     let spend_currency: string | null = null;
+    let spend_by_platform: Record<string, number> | null = null;
     /** Gasto manual na campanha é lifetime — não misturar com receita do período (mentiria ROAS/CPA). */
     let manual_spend_lifetime: number | null = null;
-    if (googleSpend != null && googleSpend > 0) {
-      spend = Math.round(googleSpend * 100) / 100;
+    if (persisted.total > 0) {
+      spend = persisted.total;
+      spend_source = "persisted";
+      spend_by_platform = persisted.by_platform;
+      spend_currency = google_ads_metrics?.currency_code ?? "USD";
+    } else if (googleSpendLive != null && googleSpendLive > 0) {
+      spend = Math.round(googleSpendLive * 100) / 100;
       spend_source = "google_ads";
       spend_currency = google_ads_metrics?.currency_code ?? "EUR";
+      spend_by_platform = { google_ads: spend };
     } else if (manualSpendTotal > 0) {
       manual_spend_lifetime = Math.round(manualSpendTotal * 100) / 100;
       spend_source = "manual";
       spend_currency = "EUR";
-      // Não atribuir a `spend` do período — lucro/ROAS/CPA ficam null até haver gasto alinhado ao intervalo.
     }
 
     const mb = computePerf({
@@ -1067,6 +1157,7 @@ export const analyticsController = {
       spend,
       spend_source,
       spend_currency,
+      spend_by_platform,
       manual_spend_lifetime,
       revenue: mb.revenue,
       profit: mb.profit,
@@ -1118,6 +1209,7 @@ export const analyticsController = {
       google_ads_metrics_error,
       clicks_by_country,
       keyword_performance,
+      ad_group_performance,
       click_quota,
       sync_health,
       media_buyer,

@@ -5,6 +5,7 @@ import {
   extractSaleStatusFromPayload,
   isApprovedSaleStatus,
   isNegativeSaleEvent,
+  isPendingSaleStatus,
   mergeJsonBodyIntoFlatRecord,
   pickAmountDecimal,
 } from "./affiliatePostbackParsers";
@@ -83,4 +84,10 @@ test("Digistore refund NÃO conta mesmo com billing_status completed", () => {
   };
   assert.equal(isApprovedSaleStatus(extractSaleStatusFromPayload(flat)), true);
   assert.equal(isNegativeSaleEvent(flat), true);
+});
+
+test("pending/hold é estado intermédio", () => {
+  assert.equal(isPendingSaleStatus("pending"), true);
+  assert.equal(isPendingSaleStatus("on_hold"), true);
+  assert.equal(isPendingSaleStatus("approved"), false);
 });

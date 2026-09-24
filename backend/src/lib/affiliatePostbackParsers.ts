@@ -199,6 +199,26 @@ export function isNegativeSaleEvent(flat: Record<string, string>): boolean {
   ].includes(t);
 }
 
+/**
+ * Hold / pending / payment_pending — regista a encomenda sem contar receita até aprovação.
+ */
+export function isPendingSaleStatus(statusRaw: string | undefined): boolean {
+  if (!statusRaw) return false;
+  const s = statusRaw.trim().toLowerCase().replace(/\s+/g, "_");
+  return [
+    "pending",
+    "hold",
+    "on_hold",
+    "waiting",
+    "waiting_for_payment",
+    "payment_pending",
+    "open",
+    "initialized",
+    "processing",
+    "in_progress",
+  ].includes(s);
+}
+
 export function pickAmountDecimal(flat: Record<string, string>): Prisma.Decimal | null {
   const keys = [
     "amount",

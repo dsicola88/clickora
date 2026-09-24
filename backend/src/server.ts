@@ -27,6 +27,8 @@ import { logPaidEnvStatus } from "./paid/paidEnvCheck";
 import { logR2EnvStatus } from "./lib/r2Storage";
 import { optimizerEnabled } from "./paid/optimizer/config";
 import { registerPaidOptimizerScheduler } from "./paid/optimizer/scheduler";
+import { registerAffiliateOpsScheduler } from "./modules/affiliateOps/scheduler";
+import { registerKeepAlivePing } from "./modules/affiliateOps/keepAlive";
 
 initWebPushFromEnv();
 logR2EnvStatus();
@@ -250,6 +252,8 @@ setInterval(() => {
 if (optimizerEnabled()) {
   registerPaidOptimizerScheduler();
 }
+registerAffiliateOpsScheduler();
+registerKeepAlivePing();
 
 // Escutar **antes** do repair: se ALTER falhar ou a BD estiver lenta, o processo ainda responde
 // (health + rotas com fallback P2022). Esperar repair antes de listen causava process.exit(1) → 502 no Railway/Vercel.

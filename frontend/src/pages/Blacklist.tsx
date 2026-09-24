@@ -100,6 +100,7 @@ export default function Blacklist() {
     mutationFn: async (body: {
       block_empty_user_agent?: boolean;
       block_bot_clicks?: boolean;
+      block_proxy_clicks?: boolean;
       auto_blacklist_click_threshold?: number;
       auto_blacklist_click_window_hours?: number;
     }) => {
@@ -224,6 +225,20 @@ export default function Blacklist() {
             checked={guards?.block_bot_clicks ?? false}
             disabled={intLocked || patchGuardsMutation.isPending}
             onCheckedChange={(v) => patchGuardsMutation.mutate({ block_bot_clicks: v })}
+          />
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border border-border/60 p-4">
+          <div className="space-y-1">
+            <Label htmlFor="guard-proxy">Bloquear proxy / VPN suspeito</Label>
+            <p className="text-xs text-muted-foreground">
+              Usa score de fraude (CF threat, multi-hop, Tor). Pode bloquear VPNs legítimas — teste primeiro.
+            </p>
+          </div>
+          <Switch
+            id="guard-proxy"
+            checked={guards?.block_proxy_clicks ?? false}
+            disabled={intLocked || patchGuardsMutation.isPending}
+            onCheckedChange={(v) => patchGuardsMutation.mutate({ block_proxy_clicks: v })}
           />
         </div>
 

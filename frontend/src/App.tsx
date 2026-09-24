@@ -47,6 +47,7 @@ import CampaignDetailPage from "./pages/CampaignDetailPage";
 import CreatePresellWizardPage from "./pages/CreatePresellWizardPage";
 import IntegrationsHubPage from "./pages/IntegrationsHubPage";
 import SettingsHubPage from "./pages/SettingsHubPage";
+import AffiliateAutomizerPage from "./pages/AffiliateAutomizerPage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -77,6 +78,7 @@ const appRoutes = [
 
   // Configuração
   { path: "/integracoes", element: <IntegrationsHubPage /> },
+  { path: "/integracoes/automizer", element: <AffiliateAutomizerPage /> },
   { path: "/configuracoes", element: <SettingsHubPage /> },
 
   // Redirects — Presell legado

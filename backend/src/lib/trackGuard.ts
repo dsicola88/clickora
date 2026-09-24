@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { normalizeIpForMatch } from "./normalizeIp";
-import { detectBot } from "./detectBot";
+import { detectBot, assessClickQuality } from "./detectBot";
 import { consumeTrackRateLimit } from "./trackRateLimit";
 
 /** Mantém compat com relatórios que filtram `platform: blacklist_block`. */
@@ -52,6 +52,7 @@ export async function enforceTrackingRules(args: {
   channel: TrackingGuardChannel;
   /** Só para `click`: aplica limite configurável na conta (auto-blacklist por IP). */
   recordedEventType?: "click" | "other";
+  headers?: Record<string, string | string[] | undefined>;
 }): Promise<
   | { ok: true; ipKey: string }
   | {
@@ -65,6 +66,7 @@ export async function enforceTrackingRules(args: {
         | "whitelist"
         | "empty_user_agent"
         | "bot_blocked"
+        | "proxy_blocked"
         | "auto_blacklist_clicks";
     }
 > {
@@ -110,6 +112,7 @@ export async function enforceTrackingRules(args: {
     select: {
       blockEmptyUserAgent: true,
       blockBotClicks: true,
+      blockProxyClicks: true,
       autoBlacklistClickThreshold: true,
       autoBlacklistClickWindowHours: true,
       _count: { select: { whitelistedIps: true } },
@@ -176,6 +179,30 @@ export async function enforceTrackingRules(args: {
         status: 403,
         error: "Pedido identificado como bot",
         reason: "bot_blocked",
+      };
+    }
+  }
+
+  if (owner.blockProxyClicks) {
+    const q = assessClickQuality({
+      userAgent,
+      headers: args.headers,
+      ip,
+    });
+    if (q.is_proxy_suspect && q.fraud_score >= 50) {
+      void logGuardBlock({
+        ownerUserId,
+        presellPageId,
+        channel,
+        reason: "proxy_blocked",
+        detail: `Proxy/VPN suspeito (score ${q.fraud_score}): ${q.fraud_flags.join(",")}`,
+        ip: ipKey,
+      });
+      return {
+        ok: false,
+        status: 403,
+        error: "Pedido identificado como proxy/VPN",
+        reason: "proxy_blocked",
       };
     }
   }

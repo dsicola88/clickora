@@ -10,7 +10,7 @@ import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
-import { detectBot } from "../lib/detectBot";
+import { assessClickQuality, detectBot } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
@@ -235,6 +235,7 @@ export const trackController = {
       presellPageId: page.id,
       ip,
       userAgent,
+      headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "redirect",
       recordedEventType: "click",
     });
@@ -242,7 +243,7 @@ export const trackController = {
       return res.status(guard.status).json({ error: guard.error });
     }
 
-    const { device, botMeta } = deviceAndBotMeta(userAgent);
+    const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -375,6 +376,7 @@ export const trackController = {
       presellPageId: rot.contextPresellId,
       ip,
       userAgent,
+      headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "rotator_redirect",
       recordedEventType: "click",
     });
@@ -383,7 +385,7 @@ export const trackController = {
     }
 
     const country = countryIsoFromIp(ip) ?? null;
-    const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent);
+    const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
     const pick = await pickRotatorDestination(rotatorId, { country, device });
     if (!pick.ok) {
       if (pick.reason === "policy_block") {
@@ -473,6 +475,7 @@ export const trackController = {
       presellPageId: page.id,
       ip,
       userAgent,
+      headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "pixel",
       recordedEventType: "other",
     });
@@ -480,7 +483,7 @@ export const trackController = {
       return sendTrackingPixelGif(res);
     }
 
-    const { device, botMeta } = deviceAndBotMeta(userAgent);
+    const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
     const metadataMerged = { ...attr.metadata, ...botMeta };
     const metadata =
       Object.keys(metadataMerged).length > 0 ? (metadataMerged as Prisma.InputJsonValue) : undefined;
@@ -549,6 +552,7 @@ export const trackController = {
       presellPageId: presell_id,
       ip,
       userAgent,
+      headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "api_click",
       recordedEventType: "click",
     });
@@ -556,7 +560,7 @@ export const trackController = {
       return res.status(guard.status).json({ error: guard.error });
     }
 
-    const { device, botMeta } = deviceAndBotMeta(userAgent);
+    const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -624,6 +628,7 @@ export const trackController = {
       presellPageId: presell_id,
       ip,
       userAgent,
+      headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "impression_api",
       recordedEventType: "other",
     });
@@ -631,7 +636,7 @@ export const trackController = {
       return res.status(guard.status).json({ error: guard.error });
     }
 
-    const { device, botMeta } = deviceAndBotMeta(userAgent);
+    const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
@@ -696,7 +701,7 @@ export const trackController = {
       if (existing) return res.json({ tracked: true, duplicate: true });
     }
 
-    const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa);
+    const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa, { headers: req.headers as Record<string, string | string[] | undefined>, ip: extractClientIp(req) });
     await systemPrisma.trackingEvent.create({
       data: {
         userId: page.userId,
@@ -1260,13 +1265,31 @@ function detectDevice(ua: string): string {
   return "desktop";
 }
 
-/** Dispositivo para relatórios + metadados `is_bot` / `bot_label` quando aplicável. */
-function deviceAndBotMeta(userAgent: string): { device: string; botMeta: Record<string, unknown> } {
-  const b = detectBot(userAgent);
-  if (b.isBot) {
-    return { device: "bot", botMeta: { is_bot: true, bot_label: b.label } };
+/** Dispositivo + qualidade (bot / fraud_score) no metadata do clique. */
+function deviceAndBotMeta(
+  userAgent: string,
+  opts?: { headers?: Record<string, string | string[] | undefined>; ip?: string },
+): { device: string; botMeta: Record<string, unknown> } {
+  const q = assessClickQuality({
+    userAgent,
+    headers: opts?.headers,
+    ip: opts?.ip,
+  });
+  const botMeta: Record<string, unknown> = {
+    fraud_score: q.fraud_score,
+    fraud_flags: q.fraud_flags,
+  };
+  if (q.is_bot) {
+    botMeta.is_bot = true;
+    botMeta.bot_label = q.bot_label;
   }
-  return { device: detectDevice(userAgent), botMeta: {} };
+  if (q.is_proxy_suspect) {
+    botMeta.is_proxy_suspect = true;
+  }
+  if (q.is_bot) {
+    return { device: "bot", botMeta };
+  }
+  return { device: detectDevice(userAgent), botMeta };
 }
 
 function extractClientIp(req: Request): string {

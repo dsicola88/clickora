@@ -43,5 +43,11 @@ authed.post("/whitelist", requireWorkspaceIntegrationsWrite, integrationsControl
 authed.delete("/whitelist/:id", requireWorkspaceIntegrationsWrite, integrationsController.removeWhitelist);
 authed.get("/tracking-guards", integrationsController.getTrackingGuards);
 authed.patch("/tracking-guards", requireWorkspaceIntegrationsWrite, integrationsController.patchTrackingGuards);
+authed.get("/affiliate-automizer", integrationsController.getAffiliateAutomizer);
+authed.patch(
+  "/affiliate-automizer",
+  requireWorkspaceIntegrationsWrite,
+  integrationsController.patchAffiliateAutomizer,
+);
 
 integrationsRouter.use(authed);

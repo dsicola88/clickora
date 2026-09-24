@@ -578,6 +578,163 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
   }
 }
 
+export type UploadConversionRestatementParams = {
+  customerId: string;
+  conversionActionId: string;
+  loginCustomerId?: string | null;
+  orderId: string;
+  adjustmentDateTime: Date;
+  restatedValue: number;
+  currencyCode: string;
+  gclid?: string | null;
+  originalConversionDateTime?: Date | null;
+};
+
+/**
+ * RESTATEMENT — corrige o valor de uma conversão já enviada (ex.: comissão parcial / ajuste de rede).
+ */
+export async function uploadConversionRestatementToGoogleAds(
+  creds: GoogleAdsApiCredentials,
+  params: UploadConversionRestatementParams,
+): Promise<UploadClickConversionResult> {
+  const customerId = onlyDigits(params.customerId);
+  const actionId = params.conversionActionId.replace(/\D/g, "");
+  const login = onlyDigits(params.loginCustomerId ?? undefined);
+  const orderId = params.orderId.trim().slice(0, 200);
+
+  if (!customerId || !DIGITS_ONLY.test(customerId)) {
+    return { ok: false, error: "google_ads_customer_id inválido" };
+  }
+  if (!actionId) {
+    return { ok: false, error: "google_ads_conversion_action_id inválido" };
+  }
+  if (!orderId) {
+    return { ok: false, error: "order_id em falta para restatement" };
+  }
+
+  const client = new GoogleAdsApi({
+    client_id: creds.clientId,
+    client_secret: creds.clientSecret,
+    developer_token: creds.developerToken,
+  });
+
+  const customer = client.Customer({
+    customer_id: customerId,
+    refresh_token: creds.refreshToken,
+    ...(login ? { login_customer_id: login } : {}),
+  });
+
+  const conversion_action = ResourceNames.conversionAction(customerId, actionId);
+  const adjustment: Record<string, unknown> = {
+    adjustment_type: enums.ConversionAdjustmentType.RESTATEMENT,
+    conversion_action,
+    adjustment_date_time: formatGoogleAdsConversionDateTime(params.adjustmentDateTime),
+    order_id: orderId,
+    restatement_value: {
+      adjusted_value: params.restatedValue,
+      currency_code: params.currencyCode.toUpperCase().slice(0, 3),
+    },
+  };
+  if (params.gclid?.trim() && params.originalConversionDateTime) {
+    adjustment.gclid_date_time_pair = {
+      gclid: params.gclid.trim(),
+      conversion_date_time: formatGoogleAdsConversionDateTime(params.originalConversionDateTime),
+    };
+  }
+
+  const request = new services.UploadConversionAdjustmentsRequest({
+    customer_id: customerId,
+    partial_failure: true,
+    conversion_adjustments: [adjustment],
+  });
+
+  try {
+    const response = await customer.conversionAdjustmentUploads.uploadConversionAdjustments(request);
+    const serial = safeSerializeGoogleAdsResponse(response);
+    const partial = response.partial_failure_error as { message?: string; details?: unknown[] } | null | undefined;
+    if (partial && (partial.message || (partial.details && partial.details.length))) {
+      const msg = partial.message || JSON.stringify(partial.details?.[0] ?? partial);
+      return { ok: false, error: msg.slice(0, 2000), raw: serial };
+    }
+    return { ok: true, raw: serial };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, raw: e };
+  }
+}
+
+/**
+ * Após alterar o valor de uma Conversion já enviada ao Google: RESTATEMENT.
+ */
+export async function restateConversionToGoogleAds(conversionId: string): Promise<void> {
+  const conv = await systemPrisma.conversion.findUnique({
+    where: { id: conversionId },
+    include: { click: true, user: true },
+  });
+  if (!conv || conv.status !== "approved") return;
+  if (conv.googleAdsSync !== "sent" && conv.googleAdsSync !== "restated") return;
+
+  const user = conv.user;
+  if (!user.googleAdsEnabled) return;
+  const customerId = onlyDigits(user.googleAdsCustomerId);
+  const actionId = user.googleAdsConversionActionId?.trim();
+  if (!customerId || !actionId) return;
+  const creds = buildGoogleAdsCredentialsForUser(user);
+  if (!creds) return;
+
+  const flat = stringFieldsFromJson(conv.metadata);
+  const orderId = pickOrderIdFromPayload(flat) || conv.externalOrderId || conv.id;
+  const meta = (conv.click?.metadata || {}) as Record<string, unknown>;
+  const gclid = typeof meta.gclid === "string" ? meta.gclid : null;
+  const amount = conv.amount != null ? Number(conv.amount) : 0;
+  const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
+  const loginCustomerId = onlyDigits(user.googleAdsLoginCustomerId);
+  const detail = (conv.googleAdsSyncDetail || {}) as Record<string, unknown>;
+
+  const result = await uploadConversionRestatementToGoogleAds(creds, {
+    customerId,
+    conversionActionId: actionId,
+    loginCustomerId,
+    orderId,
+    adjustmentDateTime: new Date(),
+    restatedValue: amount,
+    currencyCode: currency,
+    gclid,
+    originalConversionDateTime: conv.createdAt,
+  });
+
+  await systemPrisma.conversion.update({
+    where: { id: conv.id },
+    data: {
+      googleAdsSync: result.ok ? "restated" : conv.googleAdsSync,
+      googleAdsSyncedAt: new Date(),
+      googleAdsSyncDetail: {
+        ...detail,
+        restatement: result.ok ? "sent" : "failed",
+        restatement_error: result.ok ? undefined : result.error,
+        restatement_raw: result.raw,
+        restated_value: amount,
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  await systemPrisma.postbackLog.create({
+    data: {
+      userId: user.id,
+      presellPageId: conv.presellId,
+      platform: "google_ads_conversion_restatement",
+      status: result.ok ? "success" : "error",
+      message: result.ok ? "Google Ads RESTATEMENT OK" : (result.error || "fail").slice(0, 500),
+      payload: {
+        conversion_id: conv.id,
+        order_id: orderId,
+        value: amount,
+        ok: result.ok,
+      } as Prisma.InputJsonValue,
+    },
+  });
+}
+
 async function markGoogleAdsSkip(
   conversionId: string,
   code: string,

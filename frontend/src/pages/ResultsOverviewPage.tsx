@@ -208,6 +208,60 @@ export default function ResultsOverviewPage() {
         </section>
       ) : null}
 
+      {(data.ad_group_performance?.length ?? 0) > 0 ? (
+        <section className="rounded-xl border border-border/60 bg-card p-5">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Grupos de anúncios (P&amp;L)</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Receita por <code className="text-[10px] bg-muted px-1 rounded">utm_content</code> + custo Google
+              (ad group). Use o nome do grupo no URL do anúncio.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="pb-2 font-medium">Ad group</th>
+                  <th className="pb-2 font-medium text-right">Cliques</th>
+                  <th className="pb-2 font-medium text-right">Vendas</th>
+                  <th className="pb-2 font-medium text-right">Receita</th>
+                  <th className="pb-2 font-medium text-right">Custo</th>
+                  <th className="pb-2 font-medium text-right">Lucro</th>
+                  <th className="pb-2 font-medium text-right">ROAS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.ad_group_performance!.slice(0, 12).map((row) => (
+                  <tr key={row.ad_group} className="border-t border-border/40">
+                    <td className="py-2.5 pr-3 font-mono text-xs">{row.ad_group}</td>
+                    <td className="py-2.5 text-right tabular-nums">{row.clicks.toLocaleString("pt-PT")}</td>
+                    <td className="py-2.5 text-right tabular-nums">{row.sales.toLocaleString("pt-PT")}</td>
+                    <td className="py-2.5 text-right tabular-nums">{money(row.revenue, currency)}</td>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {row.cost != null ? money(row.cost, currency) : "—"}
+                    </td>
+                    <td
+                      className={`py-2.5 text-right tabular-nums ${
+                        row.profit != null && row.profit < 0
+                          ? "text-destructive"
+                          : row.profit != null && row.profit > 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : ""
+                      }`}
+                    >
+                      {row.profit != null ? money(row.profit, currency) : "—"}
+                    </td>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {row.roas != null ? `${row.roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-xl border border-border/60 bg-card p-5">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>

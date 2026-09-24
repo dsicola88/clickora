@@ -59,6 +59,26 @@ export default function IntegrationsHubPage() {
 
       <div className="grid gap-4 max-w-2xl">
         <Link
+          to="/integracoes/automizer"
+          className="group flex items-start gap-4 rounded-xl border border-border/60 bg-card p-5 transition hover:border-primary/40"
+        >
+          <div className="rounded-lg bg-primary/10 p-2.5">
+            <Megaphone className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground flex items-center gap-2">
+              Automizer &amp; custos
+              <Badge variant="secondary" className="text-[10px]">
+                Pro
+              </Badge>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+              Sync diário Google/Meta/TikTok · pausa keywords sem receita · dry-run primeiro.
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0 mt-1" />
+        </Link>
+        <Link
           to="/tracking/plataformas-legacy"
           className="group flex items-start gap-4 rounded-xl border border-border/60 bg-card p-5 transition-colors hover:border-primary/40"
         >

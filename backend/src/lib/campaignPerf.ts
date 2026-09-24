@@ -108,7 +108,7 @@ export function buildMediaBuyerAlerts(args: {
   conversions: number;
   revenue: number;
   spend: number | null;
-  spendSource: "google_ads" | "manual" | "none";
+  spendSource: "persisted" | "google_ads" | "manual" | "none";
   googleError?: string | null;
 }): MediaBuyerAlert[] {
   const alerts: MediaBuyerAlert[] = [];

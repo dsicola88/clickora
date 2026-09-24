@@ -11,6 +11,7 @@ import {
   flattenAffiliatePayload,
   isApprovedSaleStatus,
   isNegativeSaleEvent,
+  isPendingSaleStatus,
   pickAmountDecimal,
   pickCurrency,
   pickOrderIdFromPayload,
@@ -18,6 +19,7 @@ import {
 import {
   getGoogleAdsApiClientConfigFromEnv,
   isGoogleAdsClickUploadReadyForUser,
+  restateConversionToGoogleAds,
   retractConversionFromGoogleAds,
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
@@ -126,6 +128,10 @@ export const integrationsController = {
       | "created"
       | "created_unattributed"
       | "duplicate"
+      | "pending"
+      | "pending_updated"
+      | "approved_from_pending"
+      | "restated"
       | "refunded"
       | "already_refunded"
       | "refund_not_found"
@@ -145,6 +151,33 @@ export const integrationsController = {
       postback_status: statusRaw,
     };
 
+    async function resolveClickAttribution(): Promise<{
+      clickId?: string | null;
+      presellId?: string | null;
+      campaign?: string | null;
+      attribution: "attributed" | "unattributed";
+      reason?: string;
+    }> {
+      if (!clickId) {
+        return { attribution: "unattributed", reason: "missing_click_id" };
+      }
+      const click = await systemPrisma.trackingEvent.findFirst({
+        where: { id: clickId, userId: user!.id, eventType: "click" },
+      });
+      if (!click?.presellPageId) {
+        return {
+          attribution: "unattributed",
+          reason: click ? "click_without_presell" : "click_id_not_found",
+        };
+      }
+      return {
+        clickId,
+        presellId: click.presellPageId,
+        campaign: click.campaign,
+        attribution: "attributed",
+      };
+    }
+
     /** Refund/chargeback: reverte receita da encomenda existente (não cria venda fantasma). */
     async function applyRefund(): Promise<"refunded" | "already_refunded" | "refund_not_found"> {
       if (!externalOrderId) return "refund_not_found";
@@ -159,6 +192,26 @@ export const integrationsController = {
         attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
         presellPageId = existing.presellId;
         return "already_refunded";
+      }
+      /** Pending cancelado sem ter contado receita — só marca refunded. */
+      if (existing.status === "pending") {
+        await systemPrisma.conversion.update({
+          where: { id: existing.id },
+          data: {
+            status: "refunded",
+            metadata: {
+              ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
+                ? (existing.metadata as Record<string, unknown>)
+                : {}),
+              ...baseMeta,
+              refunded_at: new Date().toISOString(),
+            } as Prisma.InputJsonValue,
+          },
+        });
+        createdConversionId = existing.id;
+        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+        presellPageId = existing.presellId;
+        return "refunded";
       }
       if (existing.status !== "approved") {
         return "refund_not_found";
@@ -198,13 +251,16 @@ export const integrationsController = {
       return "refunded";
     }
 
-    async function createConversion(data: {
-      clickId?: string | null;
-      presellId?: string | null;
-      campaign?: string | null;
-      attribution: "attributed" | "unattributed";
-      reason?: string;
-    }): Promise<"created" | "created_unattributed" | "duplicate"> {
+    async function createConversion(
+      data: {
+        clickId?: string | null;
+        presellId?: string | null;
+        campaign?: string | null;
+        attribution: "attributed" | "unattributed";
+        reason?: string;
+      },
+      status: "approved" | "pending" = "approved",
+    ): Promise<"created" | "created_unattributed" | "pending" | "duplicate"> {
       const metadata = {
         ...baseMeta,
         attribution: data.attribution,
@@ -221,14 +277,14 @@ export const integrationsController = {
               campaign: data.campaign ?? undefined,
               amount: amount ?? undefined,
               currency,
-              status: "approved",
+              status,
               attribution: data.attribution,
               externalOrderId: externalOrderId ?? undefined,
               metadata,
             },
           }),
         ];
-        if (data.presellId && data.attribution === "attributed") {
+        if (status === "approved" && data.presellId && data.attribution === "attributed") {
           ops.push(
             systemPrisma.presellPage.update({
               where: { id: data.presellId },
@@ -242,6 +298,8 @@ export const integrationsController = {
         ];
         createdConversionId = createdConv.id;
         attribution = data.attribution;
+        if (data.presellId) presellPageId = data.presellId;
+        if (status === "pending") return "pending";
         if (data.attribution === "attributed") {
           notifyTelegramSale(user!.id, {
             platform,
@@ -274,35 +332,140 @@ export const integrationsController = {
       }
     }
 
+    /** Pending → approved, ou ajuste de valor (RESTATEMENT). */
+    async function upgradeOrRestateExisting(): Promise<ConversionResult | null> {
+      if (!externalOrderId) return null;
+      const existing = await systemPrisma.conversion.findUnique({
+        where: {
+          userId_externalOrderId: { userId: user!.id, externalOrderId },
+        },
+      });
+      if (!existing) return null;
+
+      if (existing.status === "pending" && approved) {
+        const ops: Prisma.PrismaPromise<unknown>[] = [
+          systemPrisma.conversion.update({
+            where: { id: existing.id },
+            data: {
+              status: "approved",
+              amount: amount ?? existing.amount,
+              currency: currency ?? existing.currency,
+              metadata: {
+                ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
+                  ? (existing.metadata as Record<string, unknown>)
+                  : {}),
+                ...baseMeta,
+                approved_from_pending_at: new Date().toISOString(),
+              } as Prisma.InputJsonValue,
+            },
+          }),
+        ];
+        if (existing.presellId && existing.attribution === "attributed") {
+          ops.push(
+            systemPrisma.presellPage.update({
+              where: { id: existing.presellId },
+              data: { conversions: { increment: 1 } },
+            }),
+          );
+        }
+        await systemPrisma.$transaction(ops);
+        createdConversionId = existing.id;
+        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+        presellPageId = existing.presellId;
+        if (existing.attribution === "attributed") {
+          notifyTelegramSale(user!.id, {
+            platform,
+            amount: amount != null ? amount.toString() : undefined,
+            currency: currency ?? undefined,
+            conversionId: existing.id,
+          });
+          void syncConversionToGoogleAds(existing.id).catch((err) =>
+            console.error("[syncConversionToGoogleAds]", err),
+          );
+          void syncConversionToMetaCapi(existing.id).catch((err) =>
+            console.error("[syncConversionToMetaCapi]", err),
+          );
+          void syncConversionToTikTokEvents(existing.id).catch((err) =>
+            console.error("[syncConversionToTikTokEvents]", err),
+          );
+        }
+        return "approved_from_pending";
+      }
+
+      if (existing.status === "approved" && approved && amount != null) {
+        const prev = existing.amount != null ? Number(existing.amount) : null;
+        if (prev != null && Math.abs(prev - Number(amount)) >= 0.01) {
+          await systemPrisma.conversion.update({
+            where: { id: existing.id },
+            data: {
+              amount,
+              currency: currency ?? existing.currency,
+              metadata: {
+                ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
+                  ? (existing.metadata as Record<string, unknown>)
+                  : {}),
+                ...baseMeta,
+                restated_at: new Date().toISOString(),
+                previous_amount: prev,
+              } as Prisma.InputJsonValue,
+            },
+          });
+          createdConversionId = existing.id;
+          attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+          presellPageId = existing.presellId;
+          void restateConversionToGoogleAds(existing.id).catch((err) =>
+            console.error("[restateConversionToGoogleAds]", err),
+          );
+          return "restated";
+        }
+      }
+
+      if (existing.status === "pending" && !approved && isPendingSaleStatus(statusRaw)) {
+        await systemPrisma.conversion.update({
+          where: { id: existing.id },
+          data: {
+            amount: amount ?? existing.amount,
+            currency: currency ?? existing.currency,
+            metadata: {
+              ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
+                ? (existing.metadata as Record<string, unknown>)
+                : {}),
+              ...baseMeta,
+            } as Prisma.InputJsonValue,
+          },
+        });
+        createdConversionId = existing.id;
+        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+        presellPageId = existing.presellId;
+        return "pending_updated";
+      }
+
+      if (existing.status === "approved" || existing.status === "pending") {
+        createdConversionId = existing.id;
+        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
+        presellPageId = existing.presellId;
+        return "duplicate";
+      }
+      return null;
+    }
+
     if (isNegativeSaleEvent(flat)) {
       conversionResult = await applyRefund();
-    } else if (!approved) {
-      conversionResult = "skipped_not_approved";
-    } else if (clickId) {
-      const click = await systemPrisma.trackingEvent.findFirst({
-        where: { id: clickId, userId: user.id, eventType: "click" },
-      });
-      if (!click?.presellPageId) {
-        unattributedReason = click ? "click_without_presell" : "click_id_not_found";
-        conversionResult = await createConversion({
-          attribution: "unattributed",
-          reason: unattributedReason,
-        });
-      } else {
-        presellPageId = click.presellPageId;
-        conversionResult = await createConversion({
-          clickId,
-          presellId: click.presellPageId,
-          campaign: click.campaign,
-          attribution: "attributed",
-        });
-      }
     } else {
-      unattributedReason = "missing_click_id";
-      conversionResult = await createConversion({
-        attribution: "unattributed",
-        reason: unattributedReason,
-      });
+      const upgraded = await upgradeOrRestateExisting();
+      if (upgraded) {
+        conversionResult = upgraded;
+      } else if (approved) {
+        const attr = await resolveClickAttribution();
+        if (attr.reason) unattributedReason = attr.reason;
+        conversionResult = await createConversion(attr, "approved");
+      } else if (isPendingSaleStatus(statusRaw)) {
+        const attr = await resolveClickAttribution();
+        if (attr.reason) unattributedReason = attr.reason;
+        conversionResult = await createConversion(attr, "pending");
+      } else {
+        conversionResult = "skipped_not_approved";
+      }
     }
 
     const payloadLog = {
@@ -320,9 +483,11 @@ export const integrationsController = {
     };
 
     const to = (user.saleNotifyEmail?.trim() || user.email).trim();
-    /** E-mail só em venda atribuída nova — não spam em cada ping/teste/não aprovado. */
+    /** E-mail só em venda atribuída nova (ou pending→aprovada). */
     const shouldEmail =
-      conversionResult === "created" && Boolean(to) && Boolean(createdConversionId);
+      (conversionResult === "created" || conversionResult === "approved_from_pending") &&
+      Boolean(to) &&
+      Boolean(createdConversionId);
     let mail: { sent: boolean; reason?: string } = { sent: false, reason: "skipped_not_attributed_sale" };
     if (shouldEmail) {
       const subject = `[dclickora] Venda atribuída — ${platform}`;
@@ -340,6 +505,10 @@ export const integrationsController = {
       conversionResult === "created" ||
       conversionResult === "created_unattributed" ||
       conversionResult === "duplicate" ||
+      conversionResult === "pending" ||
+      conversionResult === "pending_updated" ||
+      conversionResult === "approved_from_pending" ||
+      conversionResult === "restated" ||
       conversionResult === "refunded" ||
       conversionResult === "already_refunded"
         ? "success"
@@ -360,7 +529,10 @@ export const integrationsController = {
       },
     });
 
-    if (approved && conversionResult === "created_unattributed") {
+    if (
+      (approved || conversionResult === "approved_from_pending") &&
+      conversionResult === "created_unattributed"
+    ) {
       notifyTelegramPostbackWarning(user.id, {
         platform,
         result: conversionResult,
@@ -374,8 +546,10 @@ export const integrationsController = {
       attribution: attribution,
       ...(unattributedReason ? { unattributed_reason: unattributedReason } : {}),
       ...(createdConversionId ? { conversion_id: createdConversionId } : {}),
-      google_ads_sync_queued: conversionResult === "created",
+      google_ads_sync_queued:
+        conversionResult === "created" || conversionResult === "approved_from_pending",
       google_ads_retraction_queued: conversionResult === "refunded",
+      google_ads_restatement_queued: conversionResult === "restated",
       email_sent: mail.sent,
       ...(!mail.sent ? { email_note: mail.reason } : {}),
     });
@@ -1164,6 +1338,7 @@ export const integrationsController = {
       select: {
         blockEmptyUserAgent: true,
         blockBotClicks: true,
+        blockProxyClicks: true,
         autoBlacklistClickThreshold: true,
         autoBlacklistClickWindowHours: true,
       },
@@ -1172,6 +1347,7 @@ export const integrationsController = {
     res.json({
       block_empty_user_agent: u.blockEmptyUserAgent,
       block_bot_clicks: u.blockBotClicks,
+      block_proxy_clicks: u.blockProxyClicks,
       auto_blacklist_click_threshold: u.autoBlacklistClickThreshold,
       auto_blacklist_click_window_hours: u.autoBlacklistClickWindowHours,
     });
@@ -1181,6 +1357,7 @@ export const integrationsController = {
     const schema = z.object({
       block_empty_user_agent: z.boolean().optional(),
       block_bot_clicks: z.boolean().optional(),
+      block_proxy_clicks: z.boolean().optional(),
       auto_blacklist_click_threshold: z.number().int().min(0).max(5000).optional(),
       auto_blacklist_click_window_hours: z.number().int().min(1).max(168).optional(),
     });
@@ -1192,6 +1369,7 @@ export const integrationsController = {
     if (
       d.block_empty_user_agent === undefined &&
       d.block_bot_clicks === undefined &&
+      d.block_proxy_clicks === undefined &&
       d.auto_blacklist_click_threshold === undefined &&
       d.auto_blacklist_click_window_hours === undefined
     ) {
@@ -1203,6 +1381,7 @@ export const integrationsController = {
       data: {
         ...(d.block_empty_user_agent !== undefined ? { blockEmptyUserAgent: d.block_empty_user_agent } : {}),
         ...(d.block_bot_clicks !== undefined ? { blockBotClicks: d.block_bot_clicks } : {}),
+        ...(d.block_proxy_clicks !== undefined ? { blockProxyClicks: d.block_proxy_clicks } : {}),
         ...(d.auto_blacklist_click_threshold !== undefined
           ? { autoBlacklistClickThreshold: d.auto_blacklist_click_threshold }
           : {}),
@@ -1216,6 +1395,7 @@ export const integrationsController = {
       select: {
         blockEmptyUserAgent: true,
         blockBotClicks: true,
+        blockProxyClicks: true,
         autoBlacklistClickThreshold: true,
         autoBlacklistClickWindowHours: true,
       },
@@ -1223,9 +1403,99 @@ export const integrationsController = {
     res.json({
       block_empty_user_agent: u.blockEmptyUserAgent,
       block_bot_clicks: u.blockBotClicks,
+      block_proxy_clicks: u.blockProxyClicks,
       auto_blacklist_click_threshold: u.autoBlacklistClickThreshold,
       auto_blacklist_click_window_hours: u.autoBlacklistClickWindowHours,
     });
+  },
+
+  async getAffiliateAutomizer(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        keywordAutomizerEnabled: true,
+        keywordAutomizerDryRun: true,
+        keywordAutomizerMinSpendUsd: true,
+        keywordAutomizerMinClicks: true,
+        keywordAutomizerLookbackDays: true,
+        metaAdsAccountId: true,
+        tiktokAdvertiserId: true,
+      },
+    });
+    if (!u) return res.status(404).json({ error: "Utilizador não encontrado" });
+    const logs = await prisma.affiliateAutomizerLog.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    });
+    return res.json({
+      enabled: u.keywordAutomizerEnabled,
+      dry_run: u.keywordAutomizerDryRun,
+      min_spend_usd: Number(u.keywordAutomizerMinSpendUsd),
+      min_clicks: u.keywordAutomizerMinClicks,
+      lookback_days: u.keywordAutomizerLookbackDays,
+      meta_ads_account_id: u.metaAdsAccountId,
+      tiktok_advertiser_id: u.tiktokAdvertiserId,
+      recent_logs: logs.map((l) => ({
+        id: l.id,
+        action: l.action,
+        keyword: l.keyword,
+        reason: l.reason,
+        dry_run: l.dryRun,
+        ok: l.ok,
+        created_at: l.createdAt.toISOString(),
+      })),
+    });
+  },
+
+  async patchAffiliateAutomizer(req: Request, res: Response) {
+    const schema = z.object({
+      enabled: z.boolean().optional(),
+      dry_run: z.boolean().optional(),
+      min_spend_usd: z.number().min(1).max(10000).optional(),
+      min_clicks: z.number().int().min(1).max(100000).optional(),
+      lookback_days: z.number().int().min(1).max(30).optional(),
+      meta_ads_account_id: z.string().max(64).nullable().optional(),
+      tiktok_advertiser_id: z.string().max(64).nullable().optional(),
+      sync_costs_now: z.boolean().optional(),
+      run_automizer_now: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const d = parsed.data;
+    const userId = billingUserId(req);
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(d.enabled !== undefined ? { keywordAutomizerEnabled: d.enabled } : {}),
+        ...(d.dry_run !== undefined ? { keywordAutomizerDryRun: d.dry_run } : {}),
+        ...(d.min_spend_usd !== undefined ? { keywordAutomizerMinSpendUsd: d.min_spend_usd } : {}),
+        ...(d.min_clicks !== undefined ? { keywordAutomizerMinClicks: d.min_clicks } : {}),
+        ...(d.lookback_days !== undefined ? { keywordAutomizerLookbackDays: d.lookback_days } : {}),
+        ...(d.meta_ads_account_id !== undefined
+          ? { metaAdsAccountId: d.meta_ads_account_id?.replace(/^act_/, "").trim() || null }
+          : {}),
+        ...(d.tiktok_advertiser_id !== undefined
+          ? { tiktokAdvertiserId: d.tiktok_advertiser_id?.replace(/\D/g, "") || null }
+          : {}),
+      },
+    });
+
+    if (d.sync_costs_now) {
+      const { syncAdCostsForUser } = await import("../modules/affiliateOps/costSync.service");
+      void syncAdCostsForUser(userId, 14).catch((e) => console.error("[syncAdCostsForUser]", e));
+    }
+    if (d.run_automizer_now) {
+      const { runKeywordAutomizerForUser } = await import(
+        "../modules/affiliateOps/keywordAutomizer.service"
+      );
+      void runKeywordAutomizerForUser(userId).catch((e) => console.error("[runKeywordAutomizer]", e));
+    }
+
+    return integrationsController.getAffiliateAutomizer(req, res);
   },
 
   async listWhitelist(req: Request, res: Response) {

@@ -176,6 +176,7 @@ export const integrationsService = {
     return apiClient.get<{
       block_empty_user_agent: boolean;
       block_bot_clicks: boolean;
+      block_proxy_clicks: boolean;
       auto_blacklist_click_threshold: number;
       auto_blacklist_click_window_hours: number;
     }>("/integrations/tracking-guards");
@@ -184,15 +185,55 @@ export const integrationsService = {
   async patchTrackingGuards(body: {
     block_empty_user_agent?: boolean;
     block_bot_clicks?: boolean;
+    block_proxy_clicks?: boolean;
     auto_blacklist_click_threshold?: number;
     auto_blacklist_click_window_hours?: number;
   }) {
     return apiClient.patch<{
       block_empty_user_agent: boolean;
       block_bot_clicks: boolean;
+      block_proxy_clicks: boolean;
       auto_blacklist_click_threshold: number;
       auto_blacklist_click_window_hours: number;
     }>("/integrations/tracking-guards", body);
+  },
+
+  async getAffiliateAutomizer() {
+    return apiClient.get<{
+      enabled: boolean;
+      dry_run: boolean;
+      min_spend_usd: number;
+      min_clicks: number;
+      lookback_days: number;
+      meta_ads_account_id: string | null;
+      tiktok_advertiser_id: string | null;
+      recent_logs: Array<{
+        id: string;
+        action: string;
+        keyword: string;
+        reason: string | null;
+        dry_run: boolean;
+        ok: boolean;
+        created_at: string;
+      }>;
+    }>("/integrations/affiliate-automizer");
+  },
+
+  async patchAffiliateAutomizer(body: {
+    enabled?: boolean;
+    dry_run?: boolean;
+    min_spend_usd?: number;
+    min_clicks?: number;
+    lookback_days?: number;
+    meta_ads_account_id?: string | null;
+    tiktok_advertiser_id?: string | null;
+    sync_costs_now?: boolean;
+    run_automizer_now?: boolean;
+  }) {
+    return apiClient.patch<Awaited<ReturnType<typeof integrationsService.getAffiliateAutomizer>>["data"]>(
+      "/integrations/affiliate-automizer",
+      body,
+    );
   },
 
   async listWhitelist() {

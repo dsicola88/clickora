@@ -1,42 +1,43 @@
-# Afiliado profissional — o que a dclickora cobre
+# Afiliado profissional — nível operacional
 
 ## Resposta honesta
 
-Para um afiliado que opera **Google Ads + BuyGoods / Digistore / SmartAdv** (presell → hoplink → postback → offline Google): **sim — a app cobre o funil completo** se configurar tracking + OAuth Google + postback com `order_id`.
+Para **Google Ads + BuyGoods / Digistore / SmartAdv**, a dclickora cobre o funil de um media buyer sério: atribuição, P&L histórico, refunds, pending→aprovado, Automizer de keywords e anti-fraude básico.
 
-Não é um clone de Voluum (sem Automizer/Binom rules). É um hub de atribuição + P&L + presell pensado para esse fluxo.
+Não é Voluum enterprise (sem Automizer multi-tráfego global). É o stack certo para quem escala Search + redes de postback.
 
-## Checklist (compra com confiança)
+## Checklist
 
-1. URL com tracking da app no anúncio (`utm_term={keyword}`, GCLID automático)
-2. Postback com UUID (`{SUBID}` / `{cid}` / `{sub3}`) **e** `orderid`
-3. Google Ads OAuth ligado (custo + upload de conversões + retraction em refund)
-4. Domínio próprio (Pro Mensal: 1 · Pro Anual: até 2)
-5. R2 configurado em produção (imagens não somem no redeploy)
+1. URL tracking no anúncio (`utm_term={keyword}`, `utm_content={adgroupid}` ou nome do grupo)
+2. Postback com UUID + `orderid` + `transaction_type` (refunds)
+3. Google Ads OAuth
+4. Integrações → **Automizer & custos** (dry-run → depois real)
+5. Railway **always-on** + `PUBLIC_API_URL` / `KEEP_ALIVE_URL` para self-ping
+6. Migration `20260924233000_pro_cost_automizer_fraud` + R2 em produção
 
 ## Capacidades
 
 | Necessidade | Estado |
 |-------------|--------|
-| Presell + domínio | Sim |
-| Clique → UUID no hoplink | Sim |
-| Postback → venda + **rebill** (vários order_id / clique) | Sim |
-| **Refund** reverte receita + Google RETRACTION | Sim |
-| Upload conversões Google Ads | Sim |
-| Meta CAPI / TikTok Events | Sim |
-| Receita honesta (só postbacks aprovados) | Sim |
-| ROAS conta (gasto Google do período) | Sim |
-| **Keyword P&L** (utm_term × receita × custo Google) | Sim |
-| Lucro por campanha | Sim |
-| Soft-cap de cliques (ads **nunca** 429) | Sim |
-| Rotador A/B / geo | Sim |
+| Custo diário persistido (Google/Meta/TikTok) | Sim |
+| Keyword P&L + Ad group P&L | Sim |
+| Automizer pause keyword (dry-run / real) | Sim |
+| Soft-cap cliques (nunca 429) | Sim |
+| Refund → RETRACTION Google | Sim |
+| Ajuste valor → RESTATEMENT | Sim |
+| Pending → aprovado | Sim |
+| Anti-bot + proxy/VPN score | Sim |
+| Keep-alive / cold-start mitigation | Sim |
+| ROAS multi-plataforma (gasto sync) | Sim |
 
-## O que ainda não é Voluum
+## Env recomendado (Railway)
 
-- Regras Automizer / pause automático de keywords
-- Cost sync persistido por dia em tabela (hoje: live GAQL no dashboard)
-- 50+ templates de rede pré-mapeados (temos BuyGoods, Digistore, SmartAdv + genérico)
+```
+PUBLIC_API_URL=https://sua-api.up.railway.app
+KEEP_ALIVE_URL=https://sua-api.up.railway.app
+AFFILIATE_COST_SYNC_CRON=15 * * * *
+AFFILIATE_AUTOMIZER_CRON=*/20 * * * *
+R2_* = completo
+```
 
-## Deploy
-
-Após pull: correr migration `20260924230000_conversion_multi_per_click` e garantir `R2_*` no Railway.
+No painel Railway: desactivar sleep / usar instância sempre ligada.
