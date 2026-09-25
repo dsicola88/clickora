@@ -46,7 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
-import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { getApiBaseUrl, getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
@@ -146,7 +146,7 @@ export default function PresellDashboard() {
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    const base = getApiBaseUrl().replace(/\/$/, "");
+    const base = getTrackApiBaseUrl().replace(/\/$/, "");
     return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
   }, [user?.id]);
 
