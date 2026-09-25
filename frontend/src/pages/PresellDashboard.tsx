@@ -737,7 +737,7 @@ export default function PresellDashboard() {
           description={
             isAdmin
               ? isEditing
-                ? "Nome, slug, tipo e links; reimportar só duplicando ou criando página nova."
+                ? "Nome, slug, tipo e links; espelho HTML editável com «Re-importar da URL»."
                 : "Importa conteúdo do URL da oferta; em 3 passos: URLs, tipo e slug /p/…"
               : undefined
           }
