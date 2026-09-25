@@ -191,16 +191,17 @@ export default function CampaignDetailPage() {
           label="CVR"
           value={`${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`}
         />
-        <ProKpiCell label="Gasto manual" value={money(campaign.spend_amount)} hint="Lifetime / ficha" />
+        <ProKpiCell label="Gasto manual" value={money(campaign.spend_amount)} hint="Lifetime / ficha — fora do ROAS de conta" />
         <ProKpiCell
-          label="Lucro"
+          label="Lucro (período)"
           value={money(profit)}
-          tone={profit != null && profit < 0 ? "negative" : profit != null && profit > 0 ? "positive" : undefined}
+          tone={profit != null && profit < 0 ? "negative" : profit != null && profit > 0 ? "positive" : "muted"}
+          hint="Requer custo sync por campanha"
         />
         <ProKpiCell
           label="ROAS"
           value={roas != null ? `${roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—"}
-          hint="Com gasto manual"
+          hint="Só com sync; manual não entra"
         />
         <ProKpiCell label="EPC" value={money(stats?.epc)} />
       </ProKpiGrid>

@@ -207,11 +207,11 @@ export const campaignsController = {
     try {
       const mapped = await Promise.all(
         rows.map(async (r) => {
-          const spend = spendNumber(r.spendAmount);
+          /** Gasto manual na ficha = lifetime — não misturar com receita do período (ROAS da conta). */
           const stats = await loadCampaignPerf({
             userId,
             campaignName: r.name,
-            spend,
+            spend: null,
             from: range.from,
             to: range.to,
           });
@@ -238,11 +238,11 @@ export const campaignsController = {
     if (!row) return res.status(404).json({ error: "Campanha não encontrada" });
 
     try {
-      const spend = spendNumber(row.spendAmount);
+      /** Período: sem gasto manual lifetime no ROAS/lucro (painel mostra spend à parte). */
       const stats = await loadCampaignPerf({
         userId,
         campaignName: row.name,
-        spend,
+        spend: null,
         from: range.from,
         to: range.to,
       });

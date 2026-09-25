@@ -83,7 +83,7 @@ export default function CampaignsPage() {
         }
       />
 
-      <ProPanel title={`${data.length} campanha(s)`}>
+      <ProPanel title={`${data.length} campanha(s)`} description="Receita do período por slug · lucro/ROAS de conta no P&L (sync). Manual* = lifetime na ficha.">
         <ProTable>
           <thead>
             <tr>
@@ -93,8 +93,8 @@ export default function CampaignsPage() {
               <ProTh align="right">Clk</ProTh>
               <ProTh align="right">Conv</ProTh>
               <ProTh align="right">Receita</ProTh>
-              <ProTh align="right">Manual</ProTh>
-              <ProTh align="right">Lucro</ProTh>
+              <ProTh align="right">Manual*</ProTh>
+              <ProTh align="right">Lucro†</ProTh>
               <ProTh align="right"> </ProTh>
             </tr>
           </thead>

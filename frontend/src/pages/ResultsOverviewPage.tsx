@@ -194,8 +194,10 @@ export default function ResultsOverviewPage() {
       .filter((c) => c.stats && (c.stats.clicks > 0 || c.stats.conversions > 0 || (c.spend_amount ?? 0) > 0))
       .map((c) => {
         const s = c.stats!;
-        const cost = c.spend_amount ?? null;
-        const profit = s.profit ?? (cost != null ? s.revenue - cost : null);
+        /**
+         * Spend truth: gasto manual na ficha é lifetime — NÃO entra em custo/lucro/ROAS da grelha
+         * (igual ao ROAS de conta). Só receita/cliques/EPC/CVR do período.
+         */
         return {
           id: c.id,
           label: c.name,
@@ -204,15 +206,15 @@ export default function ResultsOverviewPage() {
           clicks: s.clicks,
           sales: s.conversions,
           revenue: s.revenue,
-          cost,
-          profit,
-          roas: s.roas ?? (cost != null && cost > 0 ? Math.round((s.revenue / cost) * 100) / 100 : null),
-          roi: roiOf(profit, cost),
+          cost: null,
+          profit: null,
+          roas: null,
+          roi: null,
           epc: s.epc,
           cvr: s.conversion_rate,
         };
       })
-      .sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue));
+      .sort((a, b) => b.revenue - a.revenue);
 
     return {
       campaigns: campaignRows,
@@ -256,7 +258,7 @@ export default function ResultsOverviewPage() {
   });
 
   const dimHint: Record<DimId, string> = {
-    campaigns: "Atribuição por utm_campaign (slug). Custo = gasto manual na ficha (pode ser lifetime).",
+    campaigns: "Atribuição por utm_campaign (slug). Custo/ROAS só no topo da conta (sync) — gasto manual da ficha não entra aqui.",
     keywords: "utm_term={keyword} · custo Google sincronizado do período quando disponível.",
     adgroups: "utm_content={adgroupid} · custo por ad group sincronizado.",
     countries: "País do clique (GeoIP / header). Sem custo por país — só receita/EPC/CVR.",

@@ -71,6 +71,8 @@ const redirectSchema = z
     campaign: z.string().optional(),
     referrer: z.string().optional(),
     utm_source: z.string().optional(),
+    utm_medium: z.string().optional(),
+    utm_campaign: z.string().optional(),
     gclid: z.string().optional(),
     gbraid: z.string().optional(),
     wbraid: z.string().optional(),
@@ -193,8 +195,8 @@ export const trackController = {
     const {
       to,
       source,
-      medium,
-      campaign,
+      medium: mediumRaw,
+      campaign: campaignRaw,
       referrer,
       gclid,
       gbraid,
@@ -206,12 +208,19 @@ export const trackController = {
       utm_content: utmContentRaw,
       msclkid,
       utm_source,
+      utm_medium: utmMediumRaw,
+      utm_campaign: utmCampaignRaw,
       sub1: qSub1,
       sub2: qSub2,
       sub3: qSub3,
     } = parsed.data;
     const utm_term = realUtmDimensionBody(utmTermRaw);
     const utm_content = realUtmDimensionBody(utmContentRaw);
+    /** Preferir utm_* (URL Builder / ads) — igual ao pixel; descartar macros literais. */
+    const medium =
+      realUtmDimensionBody(utmMediumRaw) || realUtmDimensionBody(mediumRaw) || mediumRaw || undefined;
+    const campaign =
+      realUtmDimensionBody(utmCampaignRaw) || realUtmDimensionBody(campaignRaw) || campaignRaw || undefined;
 
     const pathTail = expressWildcardPathSuffix(req);
     if (pathTail != null && pathTail.trim() !== "" && !parsePublicPathSubTail(pathTail)) {
@@ -358,8 +367,8 @@ export const trackController = {
     const q = parsed.data;
     const {
       source,
-      medium,
-      campaign,
+      medium: mediumRaw,
+      campaign: campaignRaw,
       referrer,
       gclid,
       gbraid,
@@ -371,6 +380,8 @@ export const trackController = {
       utm_content: rotUtmContentRaw,
       msclkid,
       utm_source,
+      utm_medium: utmMediumRaw,
+      utm_campaign: utmCampaignRaw,
       sub1: rSub1,
       sub2: rSub2,
       sub3: rSub3,
@@ -378,6 +389,10 @@ export const trackController = {
     } = q;
     const utm_term = realUtmDimensionBody(rotUtmTermRaw);
     const utm_content = realUtmDimensionBody(rotUtmContentRaw);
+    const medium =
+      realUtmDimensionBody(utmMediumRaw) || realUtmDimensionBody(mediumRaw) || mediumRaw || undefined;
+    const campaign =
+      realUtmDimensionBody(utmCampaignRaw) || realUtmDimensionBody(campaignRaw) || campaignRaw || undefined;
 
     const rPathTail = expressWildcardPathSuffix(req);
     if (rPathTail != null && rPathTail.trim() !== "" && !parsePublicPathSubTail(rPathTail)) {

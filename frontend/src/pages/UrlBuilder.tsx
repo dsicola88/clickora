@@ -97,7 +97,7 @@ function highlightGeneratedUrlPreview(url: string): ReactNode {
 }
 
 // Default param rows per platform
-const defaultParams: Record<string, { key: string; value: string; highlight?: boolean }[]> = {
+const defaultParams: Record<string, { key: string; value: string; highlight?: boolean; valuePlaceholder?: string }[]> = {
   "AdCombo": [
     { key: "subacc", value: "" },
     { key: "subacc2", value: "" },
@@ -108,7 +108,11 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
   "Google Ads": [
     { key: "utm_source", value: "google" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "{campaignid}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora (ex.: neotonics-us) — igual ao link da ficha",
+    },
     { key: "utm_content", value: "{adgroupid}" },
     { key: "utm_term", value: "{keyword}" },
     { key: "sub1", value: "{matchtype}" },
@@ -135,8 +139,9 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
   "Bing Ads": [
     { key: "utm_source", value: "bing" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "{CampaignId}" },
-    { key: "utm_content", value: "{AdId}" },
+    /** Slug Clickora — alinhado ao P&L; não {CampaignId}. */
+    { key: "utm_campaign", value: "", valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)" },
+    { key: "utm_content", value: "{AdGroupId}" },
     { key: "utm_term", value: "{keyword}" },
     { key: "msclkid", value: "{msclkid}", highlight: true },
   ],
