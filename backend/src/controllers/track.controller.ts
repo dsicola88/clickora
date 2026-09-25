@@ -26,6 +26,7 @@ import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 import { extractClientIp } from "../lib/clientIp";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
+import { rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -91,6 +92,11 @@ const redirectSchema = z
     sub1: z.string().max(512).optional(),
     sub2: z.string().max(512).optional(),
     sub3: z.string().max(512).optional(),
+    /**
+     * Clique do rotador A/B (clickora_click_id na URL da lander).
+     * Propaga rotator_id / rotator_arm_id para o clique da oferta.
+     */
+    parent_click_id: z.string().uuid().optional(),
   })
   .merge(voluumStyleQuerySchema);
 
@@ -274,6 +280,7 @@ export const trackController = {
       sub1: qSub1,
       sub2: qSub2,
       sub3: qSub3,
+      parent_click_id: parentClickIdRaw,
     } = parsed.data;
     const utm_term = realUtmDimensionBody(utmTermRaw);
     const utm_content = realUtmDimensionBody(utmContentRaw);
@@ -356,6 +363,29 @@ export const trackController = {
       return res.redirect(302, to);
     }
 
+    let rotatorParentMeta: Record<string, unknown> = {};
+    if (parentClickIdRaw) {
+      const parentEv = await systemPrisma.trackingEvent.findFirst({
+        where: { id: parentClickIdRaw, eventType: "click" },
+        select: { id: true, userId: true, metadata: true },
+      });
+      if (parentEv) {
+        const linked = rotatorMetaFromParentClick({
+          parentId: parentEv.id,
+          parentUserId: parentEv.userId,
+          ownerUserId: page.userId,
+          parentMetadata: parentEv.metadata,
+        });
+        if (linked) {
+          rotatorParentMeta = {
+            parent_rotator_click_id: linked.parent_rotator_click_id,
+            rotator_id: linked.rotator_id,
+            ...(linked.rotator_arm_id ? { rotator_arm_id: linked.rotator_arm_id } : {}),
+          };
+        }
+      }
+    }
+
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
         data: {
@@ -393,6 +423,7 @@ export const trackController = {
             ...voluumMeta,
             ...botMeta,
             ...guardSoftMeta,
+            ...rotatorParentMeta,
           } as Prisma.InputJsonValue,
         },
       });

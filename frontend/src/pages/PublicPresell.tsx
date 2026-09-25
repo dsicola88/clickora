@@ -133,6 +133,12 @@ function makeTrackClickUrl(
   if (sub1) clickUrl.searchParams.set("sub1", sub1);
   if (sub2) clickUrl.searchParams.set("sub2", sub2);
   if (sub3) clickUrl.searchParams.set("sub3", sub3);
+  /** Clique do rotador A/B (gravado na URL da lander) → atribuição por braço no abStats. */
+  const parentClick =
+    queryParam(search, "clickora_click_id") || queryParam(search, "parent_click_id");
+  if (parentClick && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parentClick)) {
+    clickUrl.searchParams.set("parent_click_id", parentClick);
+  }
   for (const k of VOLUUM_STYLE_TRACKING_KEYS) {
     const v = queryParam(search, k);
     if (v) clickUrl.searchParams.set(k, v);

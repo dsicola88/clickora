@@ -37,11 +37,23 @@ export async function getRotatorAbStats(args: { userId: string; rotatorId: strin
       COUNT(DISTINCT c.id)::bigint AS conversions,
       COALESCE(SUM(c.amount), 0) AS revenue
     FROM tracking_events te
-    LEFT JOIN conversions c ON c.click_id = te.id AND c.user_id = te.user_id
+    LEFT JOIN conversions c
+      ON c.user_id = te.user_id
+     AND (
+       c.click_id = te.id
+       OR c.click_id IN (
+         SELECT child.id
+         FROM tracking_events child
+         WHERE child.user_id = te.user_id
+           AND child.event_type = 'click'
+           AND child.metadata->>'parent_rotator_click_id' = te.id::text
+       )
+     )
     WHERE te.user_id = ${args.userId}::uuid
       AND te.event_type = 'click'
       AND te.metadata->>'rotator_id' = ${args.rotatorId}
       AND (te.metadata->>'rotator_arm_id') IS NOT NULL
+      AND te.metadata->>'parent_rotator_click_id' IS NULL
       AND te.created_at >= ${since}
     GROUP BY 1
   `,

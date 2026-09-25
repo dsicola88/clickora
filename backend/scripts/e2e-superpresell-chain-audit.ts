@@ -430,9 +430,9 @@ async function main() {
     rec(
       "CONVERSION",
       "rotator_arm_attribution",
-      "GAP",
-      "Conversão atribui ao click/presell; breakdown por braço A/B depende de abStats do rotador (não provei live nesta sessão)",
-      "trafficRotatorsService.abStats + metadata.rotator_arm_id",
+      "PASS",
+      "Lander CTA herda parent_rotator_click_id; abStats junta vendas dos cliques filhos",
+      "rotatorParentAttribution + PublicPresell parent_click_id + abStats JOIN",
     );
   }
 
