@@ -291,9 +291,10 @@ async function main() {
     const badConv = await prisma.conversion.findFirst({ where: { clickId: cid4 } });
     record(
       "4",
-      "refund/chargeback rejeitados",
-      pbRefund.body.conversion === "skipped_not_approved" &&
-        pbCb.body.conversion === "skipped_not_approved" &&
+      "refund/chargeback sem venda prévia → não cria conversão (honesto)",
+      (pbRefund.body.conversion === "refund_not_found" ||
+        pbRefund.body.conversion === "skipped_not_approved") &&
+        (pbCb.body.conversion === "refund_not_found" || pbCb.body.conversion === "skipped_not_approved") &&
         !badConv,
       `refund=${pbRefund.body.conversion} cb=${pbCb.body.conversion} conv=${Boolean(badConv)}`,
     );
@@ -458,6 +459,80 @@ async function main() {
         gclid12 === GCLID &&
         conv12?.campaign === "e2e-real-buy",
       `result=${pb12.body.conversion} amount=${conv12?.amount} gclid=${gclid12} camp=${conv12?.campaign}`,
+    );
+
+    // --- 13) Honestidade: utm_campaign slug + macros descartadas + msclkid ---
+    const loc13 = await trackRedirect(presellId, offer1, {
+      campaign: "",
+      utm_campaign: "neotonics-us",
+      utm_term: "{keyword}",
+      utm_content: "{adgroupid}",
+      utm_medium: "cpc",
+    });
+    const cid13 = loc13.searchParams.get("cid")!;
+    const click13 = await prisma.trackingEvent.findFirst({ where: { id: cid13 } });
+    const m13 = (click13?.metadata || {}) as Record<string, unknown>;
+    const termOk = m13.utm_term == null || m13.utm_term === undefined || m13.utm_term === "";
+    const contentOk = m13.utm_content == null || m13.utm_content === undefined || m13.utm_content === "";
+    record(
+      "13",
+      "utm_campaign slug + macros literais descartadas",
+      click13?.campaign === "neotonics-us" &&
+        (m13.utm_campaign === "neotonics-us" || click13?.campaign === "neotonics-us") &&
+        termOk &&
+        contentOk,
+      `camp=${click13?.campaign} utm_campaign=${m13.utm_campaign} term=${String(m13.utm_term)} content=${String(m13.utm_content)}`,
+    );
+
+    const MSCLKID = `msclkid_e2e_${createHash("sha1").update(EMAIL).digest("hex").slice(0, 12)}`;
+    const uBing = new URL(`${BASE}/track/r/${presellId}`);
+    uBing.searchParams.set("to", offer1);
+    uBing.searchParams.set("msclkid", MSCLKID);
+    uBing.searchParams.set("utm_campaign", "bing-camp-slug");
+    uBing.searchParams.set("utm_source", "bing");
+    const rBing = await fetch(uBing.toString(), { redirect: "manual" });
+    const locBing = rBing.status === 302 ? new URL(rBing.headers.get("location")!) : null;
+    const cidBing = locBing?.searchParams.get("cid");
+    const clickBing = cidBing
+      ? await prisma.trackingEvent.findFirst({ where: { id: cidBing } })
+      : null;
+    const mBing = (clickBing?.metadata || {}) as Record<string, unknown>;
+    record(
+      "13b",
+      "Bing msclkid capturado no clique (sem inventar custo)",
+      rBing.status === 302 && Boolean(cidBing) && mBing.msclkid === MSCLKID && clickBing?.campaign === "bing-camp-slug",
+      `status=${rBing.status} msclkid=${String(mBing.msclkid)} camp=${clickBing?.campaign}`,
+    );
+
+    // --- 14) Spend truth no dashboard: sem sync → spend null / não inventa ROAS ---
+    const dashHonesty = await fetch(`${BASE}/analytics/dashboard`, {
+      headers: { Authorization: `Bearer ${auth}` },
+    });
+    const dh = (await dashHonesty.json()) as {
+      media_buyer?: {
+        spend: number | null;
+        spend_source?: string;
+        profit: number | null;
+        roas: number | null;
+        profit_uses_period_spend?: boolean;
+        revenue?: number;
+      };
+      revenue?: number;
+      approved_sales_count?: number;
+    };
+    const mb = dh.media_buyer;
+    const spendHonest =
+      mb != null &&
+      (mb.spend_source === "none" || mb.spend_source === "manual"
+        ? mb.spend == null && mb.roas == null && mb.profit_uses_period_spend === false
+        : mb.spend_source === "persisted" || mb.spend_source === "google_ads"
+          ? mb.profit_uses_period_spend === true
+          : false);
+    record(
+      "14",
+      "Dashboard spend truth (sem sync → sem ROAS inventado)",
+      dashHonesty.ok && spendHonest && Number(dh.approved_sales_count ?? 0) >= 1 && Number(dh.revenue ?? 0) > 0,
+      `source=${mb?.spend_source} spend=${mb?.spend} roas=${mb?.roas} profit_period=${mb?.profit_uses_period_spend} rev=${dh.revenue}`,
     );
 
     // cleanup user data (keep plans)
