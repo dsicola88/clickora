@@ -17,6 +17,7 @@ authed.get("/affiliate-webhook-info", integrationsController.getAffiliateWebhook
 authed.get("/google-ads", integrationsController.getGoogleAdsSettings);
 authed.patch("/google-ads", requireWorkspaceIntegrationsWrite, integrationsController.patchGoogleAdsSettings);
 authed.post("/google-ads/oauth/begin", requireWorkspaceIntegrationsWrite, integrationsController.beginGoogleAdsOAuth);
+authed.post("/google-ads/bootstrap", requireWorkspaceIntegrationsWrite, integrationsController.bootstrapGoogleAds);
 authed.get("/meta-capi", integrationsController.getMetaCapiSettings);
 authed.patch("/meta-capi", requireWorkspaceIntegrationsWrite, integrationsController.patchMetaCapiSettings);
 authed.get("/tiktok-events", integrationsController.getTiktokEventsSettings);

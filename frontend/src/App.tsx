@@ -45,6 +45,7 @@ import CampaignsPage from "./pages/CampaignsPage";
 import CampaignDetailPage from "./pages/CampaignDetailPage";
 import CreatePresellWizardPage from "./pages/CreatePresellWizardPage";
 import IntegrationsHubPage from "./pages/IntegrationsHubPage";
+import GoogleAdsConnectPage from "./pages/GoogleAdsConnectPage";
 import SettingsHubPage from "./pages/SettingsHubPage";
 import AffiliateAutomizerPage from "./pages/AffiliateAutomizerPage";
 
@@ -79,6 +80,7 @@ const appRoutes = [
   // Configuração
   { path: "/integracoes", element: <IntegrationsHubPage /> },
   { path: "/integracoes/postback", element: <Plataformas /> },
+  { path: "/integracoes/google-ads", element: <GoogleAdsConnectPage /> },
   { path: "/integracoes/automizer", element: <AffiliateAutomizerPage /> },
   { path: "/configuracoes", element: <SettingsHubPage /> },
 

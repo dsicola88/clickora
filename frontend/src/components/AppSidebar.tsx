@@ -61,6 +61,7 @@ const resultsNav: NavItem[] = [
 
 const configNav: NavItem[] = [
   { title: "Integrações", url: "/integracoes", icon: Plug },
+  { title: "Google Ads", url: "/integracoes/google-ads", icon: Megaphone },
   { title: "Automizer", url: "/integracoes/automizer", icon: Zap },
   { title: "Configurações", url: "/configuracoes", icon: Settings2 },
 ];

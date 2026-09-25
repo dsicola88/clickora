@@ -73,6 +73,21 @@ export const integrationsService = {
     return apiClient.post<{ authorize_url: string }>("/integrations/google-ads/oauth/begin");
   },
 
+  async bootstrapGoogleAds() {
+    return apiClient.post<{
+      ok: boolean;
+      customer_id: string | null;
+      login_customer_id: string | null;
+      conversion_action_id: string | null;
+      conversion_action_created: boolean;
+      enabled: boolean;
+      can_upload: boolean;
+      accounts_found: number;
+      detail: string;
+      error?: string;
+    }>("/integrations/google-ads/bootstrap");
+  },
+
   async patchGoogleAdsSettings(body: {
     google_ads_enabled?: boolean;
     google_ads_customer_id?: string;

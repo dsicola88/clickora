@@ -17,12 +17,14 @@ import {
   pickOrderIdFromPayload,
 } from "../lib/affiliatePostbackParsers";
 import {
+  bootstrapGoogleAdsAfterOAuth,
   getGoogleAdsApiClientConfigFromEnv,
   isGoogleAdsClickUploadReadyForUser,
   restateConversionToGoogleAds,
   retractConversionFromGoogleAds,
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
+import { syncAdCostsForUser } from "../modules/affiliateOps/costSync.service";
 import { isMetaCapiReadyForUser, syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
 import { isTikTokEventsReadyForUser, syncConversionToTikTokEvents } from "../modules/tiktokEvents/tiktokEvents.service";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
@@ -836,10 +838,11 @@ export const integrationsController = {
    */
   async googleAdsOAuthCallback(req: Request, res: Response) {
     const frontend = getPrimaryFrontendOrigin();
-    const dashboard = `${frontend}/tracking/dashboard`;
+    const setupUrl = `${frontend}/integracoes/google-ads`;
     const redirectFail = (reason: string) =>
-      res.redirect(`${dashboard}?google_ads_oauth=error&reason=${encodeURIComponent(reason)}`);
-    const redirectOk = () => res.redirect(`${dashboard}?google_ads_oauth=success`);
+      res.redirect(`${setupUrl}?google_ads_oauth=error&reason=${encodeURIComponent(reason)}`);
+    const redirectOk = (extra = "") =>
+      res.redirect(`${setupUrl}?google_ads_oauth=success${extra}`);
 
     const oauthErr = req.query.error?.toString();
     if (oauthErr) return redirectFail(oauthErr);
@@ -861,7 +864,45 @@ export const integrationsController = {
       data: { googleAdsRefreshToken: encryptSecretField(result.refresh_token) },
     });
 
-    return redirectOk();
+    /** Auto: conta + ação GCLID + upload ON; sync custos em background. */
+    let bootDetail = "";
+    try {
+      const boot = await bootstrapGoogleAdsAfterOAuth(decoded.userId);
+      bootDetail = boot.ok
+        ? `&boot=ok&customer=${encodeURIComponent(boot.customer_id || "")}`
+        : `&boot=partial&boot_detail=${encodeURIComponent(boot.detail.slice(0, 180))}`;
+      if (boot.ok) {
+        void syncAdCostsForUser(decoded.userId, 14).catch((e) =>
+          console.warn("[googleAdsOAuthCallback] cost sync", e),
+        );
+      }
+    } catch (e) {
+      console.warn("[googleAdsOAuthCallback] bootstrap", e);
+      bootDetail = `&boot=error`;
+    }
+
+    return redirectOk(bootDetail);
+  },
+
+  /** Re-executa bootstrap (escolher conta / criar ação) sem novo OAuth. */
+  async bootstrapGoogleAds(req: Request, res: Response) {
+    if (!getGoogleAdsApiClientConfigFromEnv()) {
+      return res.status(503).json({ error: "Google Ads API não configurada no servidor." });
+    }
+    const userId = billingUserId(req);
+    try {
+      const boot = await bootstrapGoogleAdsAfterOAuth(userId);
+      if (boot.ok) {
+        void syncAdCostsForUser(userId, 14).catch((e) => console.warn("[bootstrapGoogleAds] cost sync", e));
+      }
+      return res.status(boot.ok ? 200 : 422).json(boot);
+    } catch (e) {
+      console.error("[bootstrapGoogleAds]", e);
+      return res.status(500).json({
+        ok: false,
+        error: e instanceof Error ? e.message : "Falha no bootstrap Google Ads",
+      });
+    }
   },
 
   /** Meta Conversions API (Pixel server-side). */

@@ -131,8 +131,8 @@ export async function buildAccountHealth(args: {
       title: "Google Ads (custo do período)",
       detail: googleOk
         ? "OAuth + customer ID prontos para ROAS"
-        : "Ligue o Google Ads para lucro/ROAS com gasto do mesmo intervalo.",
-      href: "/integracoes",
+        : "Ligue o Google Ads em Integrações → Google Ads (1 clique).",
+      href: "/integracoes/google-ads",
     },
     {
       id: "cost_sync",
@@ -140,7 +140,7 @@ export async function buildAccountHealth(args: {
       title: "Sync de custos",
       detail: costOk
         ? `Último sync ${last_cost_sync_at ? new Date(last_cost_sync_at).toLocaleString("pt-PT") : ""}`
-        : "Ainda sem custo diário — em Automizer use «Sincronizar custos».",
+        : "Ainda sem custo diário — ligue Google Ads ou use «Sync custos» no Automizer.",
       href: "/integracoes/automizer",
     },
     {

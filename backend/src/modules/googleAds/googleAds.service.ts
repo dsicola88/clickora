@@ -912,3 +912,270 @@ export async function retractConversionFromGoogleAds(conversionId: string): Prom
     },
   });
 }
+
+const CLICKORA_OFFLINE_ACTION_NAME = "Clickora Offline (GCLID)";
+
+export type GoogleAdsBootstrapResult = {
+  ok: boolean;
+  customer_id: string | null;
+  login_customer_id: string | null;
+  conversion_action_id: string | null;
+  conversion_action_created: boolean;
+  enabled: boolean;
+  can_upload: boolean;
+  accounts_found: number;
+  detail: string;
+};
+
+/**
+ * Após OAuth: escolhe conta Ads, garante ação UPLOAD_CLICKS, activa importação automática.
+ * Minimiza passos manuais no Google Ads UI.
+ */
+export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<GoogleAdsBootstrapResult> {
+  const empty = (detail: string): GoogleAdsBootstrapResult => ({
+    ok: false,
+    customer_id: null,
+    login_customer_id: null,
+    conversion_action_id: null,
+    conversion_action_created: false,
+    enabled: false,
+    can_upload: false,
+    accounts_found: 0,
+    detail,
+  });
+
+  const user = await systemPrisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      googleAdsEnabled: true,
+      googleAdsCustomerId: true,
+      googleAdsConversionActionId: true,
+      googleAdsLoginCustomerId: true,
+      googleAdsRefreshToken: true,
+    },
+  });
+  if (!user) return empty("user_not_found");
+
+  const creds = buildGoogleAdsCredentialsForUser(user);
+  if (!creds) return empty("oauth_or_server_config_missing");
+
+  const client = new GoogleAdsApi({
+    client_id: creds.clientId,
+    client_secret: creds.clientSecret,
+    developer_token: creds.developerToken,
+  });
+
+  let resourceNames: string[] = [];
+  try {
+    const listed = await client.listAccessibleCustomers(creds.refreshToken);
+    if (Array.isArray(listed)) {
+      resourceNames = listed as string[];
+    } else if (listed && typeof listed === "object") {
+      const rn = (listed as { resource_names?: unknown }).resource_names;
+      if (Array.isArray(rn)) resourceNames = rn.map(String);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return empty(`list_accounts_failed: ${humanizeGoogleAdsApiError(msg)}`);
+  }
+
+  const accessibleIds = resourceNames
+    .map((r) => {
+      const m = /customers\/(\d+)/.exec(r);
+      return m?.[1] ?? null;
+    })
+    .filter((x): x is string => Boolean(x));
+
+  if (accessibleIds.length === 0) {
+    return empty("Nenhuma conta Google Ads acessível com este login.");
+  }
+
+  type AccInfo = { id: string; name: string; manager: boolean };
+  const accounts: AccInfo[] = [];
+  for (const id of accessibleIds.slice(0, 25)) {
+    try {
+      const c = client.Customer({
+        customer_id: id,
+        refresh_token: creds.refreshToken,
+        ...(creds.loginCustomerId ? { login_customer_id: creds.loginCustomerId } : {}),
+      });
+      const rows = await c.query(`
+        SELECT customer.id, customer.descriptive_name, customer.manager
+        FROM customer
+        LIMIT 1
+      `);
+      const row = Array.isArray(rows) ? rows[0] : null;
+      const cust = row?.customer as { id?: unknown; descriptive_name?: string; manager?: boolean } | undefined;
+      accounts.push({
+        id,
+        name: cust?.descriptive_name?.trim() || id,
+        manager: cust?.manager === true,
+      });
+    } catch {
+      accounts.push({ id, name: id, manager: false });
+    }
+  }
+
+  let loginCustomerId: string | null = onlyDigits(user.googleAdsLoginCustomerId);
+  let customerId: string | null = onlyDigits(user.googleAdsCustomerId);
+
+  if (!customerId) {
+    const nonManagers = accounts.filter((a) => !a.manager);
+    if (nonManagers.length > 0) {
+      customerId = nonManagers[0]!.id;
+    } else {
+      const manager = accounts[0]!;
+      loginCustomerId = manager.id;
+      try {
+        const mc = client.Customer({
+          customer_id: manager.id,
+          refresh_token: creds.refreshToken,
+          login_customer_id: manager.id,
+        });
+        const clients = await mc.query(`
+          SELECT customer_client.client_customer, customer_client.descriptive_name, customer_client.manager, customer_client.status
+          FROM customer_client
+          WHERE customer_client.status = 'ENABLED'
+          LIMIT 40
+        `);
+        const list = Array.isArray(clients) ? clients : [];
+        for (const row of list) {
+          const cc = row.customer_client as {
+            client_customer?: string;
+            manager?: boolean;
+            descriptive_name?: string;
+          };
+          if (cc?.manager) continue;
+          const m = /customers\/(\d+)/.exec(String(cc?.client_customer || ""));
+          if (m?.[1]) {
+            customerId = m[1];
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn("[bootstrapGoogleAdsAfterOAuth] customer_client", e);
+      }
+      if (!customerId) {
+        return {
+          ...empty(
+            "Conta gestora (MCC) ligada, mas sem conta cliente acessível. Escolha uma conta de anúncios no Google Ads e volte a ligar.",
+          ),
+          accounts_found: accounts.length,
+          login_customer_id: loginCustomerId,
+        };
+      }
+    }
+  }
+
+  /** Se a conta escolhida for manager e ainda não há login, usar como login e tentar cliente. */
+  const chosenMeta = accounts.find((a) => a.id === customerId);
+  if (chosenMeta?.manager && !loginCustomerId) {
+    loginCustomerId = customerId;
+  }
+
+  const customer = client.Customer({
+    customer_id: customerId!,
+    refresh_token: creds.refreshToken,
+    ...(loginCustomerId ? { login_customer_id: loginCustomerId } : {}),
+  });
+
+  let conversionActionId = onlyDigits(user.googleAdsConversionActionId);
+  let conversionActionCreated = false;
+
+  try {
+    const actions = await customer.query(`
+      SELECT
+        conversion_action.id,
+        conversion_action.name,
+        conversion_action.type,
+        conversion_action.status
+      FROM conversion_action
+      WHERE conversion_action.type = 'UPLOAD_CLICKS'
+        AND conversion_action.status != 'REMOVED'
+      ORDER BY conversion_action.id
+      LIMIT 50
+    `);
+    const list = Array.isArray(actions) ? actions : [];
+    type ActionRow = { id: string; name: string };
+    const parsed: ActionRow[] = [];
+    for (const row of list) {
+      const a = row.conversion_action as { id?: unknown; name?: string; status?: string } | undefined;
+      const id = onlyDigits(String(a?.id ?? ""));
+      if (!id) continue;
+      parsed.push({ id, name: a?.name?.trim() || id });
+    }
+    const prefer =
+      parsed.find((a) => a.name.toLowerCase().includes("clickora")) ||
+      parsed.find((a) => /offline|upload|gclid|import/i.test(a.name)) ||
+      parsed[0];
+    if (prefer) {
+      conversionActionId = prefer.id;
+    } else {
+      const created = await customer.conversionActions.create([
+        {
+          name: CLICKORA_OFFLINE_ACTION_NAME,
+          type: enums.ConversionActionType.UPLOAD_CLICKS,
+          category: enums.ConversionActionCategory.PURCHASE,
+          status: enums.ConversionActionStatus.ENABLED,
+          click_through_lookback_window_days: 30,
+          value_settings: {
+            default_value: 0,
+            always_use_default_value: false,
+          },
+        },
+      ]);
+      const results = (created as { results?: Array<{ resource_name?: string }> })?.results;
+      const rn = results?.[0]?.resource_name || "";
+      const m = /conversionActions\/(\d+)/.exec(rn);
+      if (!m?.[1]) {
+        return {
+          ...empty("Não foi possível criar a ação de conversão offline na conta Google Ads."),
+          accounts_found: accounts.length,
+          customer_id: customerId,
+          login_customer_id: loginCustomerId,
+        };
+      }
+      conversionActionId = m[1];
+      conversionActionCreated = true;
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}`),
+      accounts_found: accounts.length,
+      customer_id: customerId,
+      login_customer_id: loginCustomerId,
+    };
+  }
+
+  const updated = await systemPrisma.user.update({
+    where: { id: userId },
+    data: {
+      googleAdsCustomerId: customerId,
+      googleAdsLoginCustomerId: loginCustomerId,
+      googleAdsConversionActionId: conversionActionId,
+      googleAdsEnabled: true,
+    },
+    select: {
+      googleAdsEnabled: true,
+      googleAdsCustomerId: true,
+      googleAdsConversionActionId: true,
+      googleAdsLoginCustomerId: true,
+      googleAdsRefreshToken: true,
+    },
+  });
+
+  return {
+    ok: true,
+    customer_id: customerId,
+    login_customer_id: loginCustomerId,
+    conversion_action_id: conversionActionId,
+    conversion_action_created: conversionActionCreated,
+    enabled: true,
+    can_upload: isGoogleAdsClickUploadReadyForUser(updated),
+    accounts_found: accounts.length,
+    detail: conversionActionCreated
+      ? `Conta ${customerId} · ação «${CLICKORA_OFFLINE_ACTION_NAME}» criada · upload automático ON`
+      : `Conta ${customerId} · ação ${conversionActionId} · upload automático ON`,
+  };
+}
