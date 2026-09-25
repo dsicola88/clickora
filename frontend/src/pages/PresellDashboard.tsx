@@ -463,7 +463,7 @@ export default function PresellDashboard() {
         html = exportPageToHtml(doc);
       } else {
         html = buildPresellStandaloneHtml(data, {
-          apiBase: getApiBaseUrl(),
+          apiBase: getTrackApiBaseUrl(),
           publicPageUrl: publicUrl,
           format: "htmlWidget",
         });
@@ -500,7 +500,7 @@ export default function PresellDashboard() {
         html = exportPageToHtml(doc);
       } else {
         html = buildPresellStandaloneHtml(data, {
-          apiBase: getApiBaseUrl(),
+          apiBase: getTrackApiBaseUrl(),
           publicPageUrl: publicUrl,
           format: "document",
         });
