@@ -24,6 +24,7 @@ import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents
 import { billingUserId } from "../lib/requestContext";
 import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
 import { normalizeUtmDimension } from "../lib/adUrlMacros";
+import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -1199,6 +1200,7 @@ export const analyticsController = {
         detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "EUR"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período só usam gasto Google Ads do mesmo intervalo — actualize o gasto por campanha alinhado às datas ou ligue o Google Ads.`,
       });
     }
+    let account_health: Awaited<ReturnType<typeof buildAccountHealth>> | null = null;
     try {
       const [macroRow] = await systemPrisma.$queryRaw<Array<{ ct: bigint }>>(Prisma.sql`
         SELECT COUNT(*)::bigint AS ct
@@ -1225,9 +1227,62 @@ export const analyticsController = {
           detail: `${macroClicks} clique(s) chegaram com {keyword}/{creative} literal. As macros só expandem quando o visitante clica no anúncio no Google Ads — testes manuais do link e URLs com %7Bkeyword%7D não contam como keyword real. Nos relatórios esses cliques passam a «(sem keyword)».`,
         });
       }
+
+      account_health = await buildAccountHealth({
+        userId,
+        rangeStart,
+        rangeEnd,
+        pipelineUser,
+        macroClicksInPeriod: macroClicks,
+      });
+      if (account_health.attribution.unattributed_sales > 0) {
+        mediaBuyerAlerts.unshift({
+          code: "unattributed_sales",
+          severity: "warning",
+          title: "Vendas sem atribuição",
+          detail: `${account_health.attribution.unattributed_sales} venda(s) aprovada(s) sem click ID — aparecem na receita mas não em keyword/campanha. Confirme subid/cid/sub3 no hoplink.`,
+        });
+      }
     } catch (e) {
-      console.warn("[analytics.getDashboard] macro alert", e);
+      console.warn("[analytics.getDashboard] macro/health", e);
     }
+
+    let compare:
+      | {
+          period: { from: string; to: string };
+          clicks: number;
+          conversions: number;
+          revenue: number;
+          delta: { clicks_pct: number | null; conversions_pct: number | null; revenue_pct: number | null };
+        }
+      | null = null;
+    const compareFromQ = req.query.compare_from?.toString();
+    const compareToQ = req.query.compare_to?.toString();
+    if (compareFromQ && compareToQ) {
+      try {
+        const cStart = new Date(compareFromQ);
+        cStart.setHours(0, 0, 0, 0);
+        const cEnd = new Date(compareToQ);
+        cEnd.setHours(23, 59, 59, 999);
+        if (!Number.isNaN(cStart.getTime()) && !Number.isNaN(cEnd.getTime()) && cStart <= cEnd) {
+          const snap = await loadPeriodSnapshot({ userId, rangeStart: cStart, rangeEnd: cEnd });
+          const pct = (cur: number, prev: number) =>
+            prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : cur > 0 ? 100 : null;
+          compare = {
+            period: { from: compareFromQ, to: compareToQ },
+            ...snap,
+            delta: {
+              clicks_pct: pct(clicks, snap.clicks),
+              conversions_pct: pct(conversions, snap.conversions),
+              revenue_pct: pct(revenue, snap.revenue),
+            },
+          };
+        }
+      } catch (e) {
+        console.warn("[analytics.getDashboard] compare", e);
+      }
+    }
+
     const media_buyer = {
       spend,
       spend_source,
@@ -1236,6 +1291,8 @@ export const analyticsController = {
       manual_spend_lifetime,
       revenue: mb.revenue,
       profit: mb.profit,
+      /** Lucro/ROAS só com gasto sincronizado do período — nunca gasto manual lifetime. */
+      profit_uses_period_spend: spend_source === "persisted" || spend_source === "google_ads",
       roas: mb.roas,
       cpa: mb.cpa,
       epc: mb.epc,
@@ -1262,7 +1319,10 @@ export const analyticsController = {
       period: {
         from: rangeStart.toISOString().split("T")[0],
         to: rangeEnd.toISOString().split("T")[0],
+        timezone: "UTC",
       },
+      compare,
+      account_health,
       tracking_install: {
         user_id: userId,
         embed_js_url: `${apiBase}/track/v2/clickora.min.js`,

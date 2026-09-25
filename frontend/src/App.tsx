@@ -72,8 +72,9 @@ const appRoutes = [
 
   // Resultados
   { path: "/resultados", element: <ResultsOverviewPage /> },
-  { path: "/resultados/conversoes", element: <Navigate to="/tracking/relatorios/conversoes" replace /> },
-  { path: "/resultados/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
+  { path: "/resultados/conversoes", element: <Navigate to="/resultados/relatorios/conversoes" replace /> },
+  { path: "/resultados/relatorios", element: <Navigate to="/resultados/relatorios/acessos" replace /> },
+  { path: "/resultados/relatorios/:tab", element: <Relatorios /> },
 
   // Configuração
   { path: "/integracoes", element: <IntegrationsHubPage /> },
@@ -99,8 +100,7 @@ const appRoutes = [
   { path: "/tracking/analytics/*", element: <Navigate to="/resultados" replace /> },
   { path: "/tracking/links", element: <Navigate to="/campanhas" replace /> },
 
-  // Avançado (acessível, fora da sidebar)
-  { path: "/tracking/relatorios", element: <Navigate to="/tracking/relatorios/acessos" replace /> },
+  { path: "/tracking/relatorios", element: <Navigate to="/resultados/relatorios/acessos" replace /> },
   { path: "/tracking/relatorios/:tab", element: <Relatorios /> },
   { path: "/tracking/rotadores", element: <Rotadores /> },
   { path: "/tracking/tools/*", element: <TrackingTools /> },

@@ -204,6 +204,10 @@ export default function AffiliateAutomizerPage() {
                 {l.dry_run ? (
                   <span className="ml-1 text-[10px] uppercase text-amber-600">dry-run</span>
                 ) : null}
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {new Date(l.created_at).toLocaleString("pt-PT")}
+                  {!l.ok ? " · falhou" : ""}
+                </p>
                 <p className="text-xs text-muted-foreground mt-0.5">{l.reason}</p>
               </li>
             ))}

@@ -316,10 +316,17 @@ export const analyticsService = {
     >(`/analytics/conversions${qs ? `?${qs}` : ""}`);
   },
 
-  async getDashboard(params?: { from?: string; to?: string }) {
+  async getDashboard(params?: {
+    from?: string;
+    to?: string;
+    compare_from?: string;
+    compare_to?: string;
+  }) {
     const query = new URLSearchParams();
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
+    if (params?.compare_from) query.set("compare_from", params.compare_from);
+    if (params?.compare_to) query.set("compare_to", params.compare_to);
     const qs = query.toString();
     return apiClient.get<{
       total_clicks: number;
@@ -336,7 +343,36 @@ export const analyticsService = {
       /** Plataformas distintas em metadata com pelo menos uma venda. */
       affiliate_platforms_count?: number;
       chart_data: Array<{ date: string; clicks: number; impressions: number }>;
-      period?: { from: string; to: string };
+      period?: { from: string; to: string; timezone?: string };
+      compare?: {
+        period: { from: string; to: string };
+        clicks: number;
+        conversions: number;
+        revenue: number;
+        delta: {
+          clicks_pct: number | null;
+          conversions_pct: number | null;
+          revenue_pct: number | null;
+        };
+      } | null;
+      account_health?: {
+        score: number;
+        checks: Array<{
+          id: string;
+          ok: boolean;
+          title: string;
+          detail: string;
+          href?: string;
+        }>;
+        attribution: {
+          approved_sales: number;
+          attributed_sales: number;
+          unattributed_sales: number;
+          attribution_rate: number | null;
+        };
+        last_cost_sync_at: string | null;
+        timezone: string;
+      } | null;
       tracking_install?: {
         user_id: string;
         embed_js_url: string;
@@ -409,6 +445,7 @@ export const analyticsService = {
         manual_spend_lifetime?: number | null;
         revenue: number;
         profit: number | null;
+        profit_uses_period_spend?: boolean;
         roas: number | null;
         cpa: number | null;
         epc: number | null;

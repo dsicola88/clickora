@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { buildTrackedPresellUrl, campaignsService } from "@/services/campaignsService";
 import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
+import { rangeLast14Days } from "@/lib/dateRangePresets";
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -28,12 +30,15 @@ export default function CampaignDetailPage() {
   const [copied, setCopied] = useState(false);
   const [advOpen, setAdvOpen] = useState(false);
   const [spendDraft, setSpendDraft] = useState<string | null>(null);
+  const initial = useMemo(() => rangeLast14Days(), []);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
 
   const { data: campaign, isLoading, isError, refetch } = useQuery({
-    queryKey: ["campaigns", id],
+    queryKey: ["campaigns", id, from, to],
     enabled: Boolean(id),
     queryFn: async () => {
-      const { data, error } = await campaignsService.getById(id!);
+      const { data, error } = await campaignsService.getById(id!, { from, to });
       if (error) throw new Error(error);
       return data!;
     },
@@ -111,11 +116,22 @@ export default function CampaignDetailPage() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title={campaign.name}
-        description={`${campaign.traffic_source}${campaign.country ? ` · ${campaign.country}` : ""}`}
+        description={`${campaign.traffic_source}${campaign.country ? ` · ${campaign.country}` : ""} · ${from} → ${to}`}
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/campanhas">Voltar</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangeFilter
+              from={from}
+              to={to}
+              showCompare={false}
+              onApply={(p) => {
+                setFrom(p.from);
+                setTo(p.to);
+              }}
+            />
+            <Button variant="outline" asChild>
+              <Link to="/campanhas">Voltar</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -298,7 +314,7 @@ export default function CampaignDetailPage() {
               { label: "Conversões", value: String(stats?.conversions ?? 0) },
               { label: "Receita", value: money(stats?.revenue) },
               { label: "CVR", value: `${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%` },
-              { label: "Gasto", value: money(campaign.spend_amount) },
+              { label: "Gasto (manual)", value: money(campaign.spend_amount) },
               { label: "Lucro", value: money(stats?.profit) },
               {
                 label: "ROAS",
@@ -313,7 +329,8 @@ export default function CampaignDetailPage() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Métricas dos últimos 14 dias, atribuídas pelo nome / utm_campaign desta campanha.
+            Métricas {from} → {to} (UTC), atribuídas por nome / slug utm_campaign. O gasto manual pode ser lifetime —
+            o ROAS do painel Resultados usa custo Google sincronizado do período.
           </p>
           <Button asChild variant="outline">
             <Link to="/resultados">Ver conta completa</Link>

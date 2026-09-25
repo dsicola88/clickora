@@ -50,7 +50,7 @@ function defaultDateRange() {
 }
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("pt-BR");
+  return new Date(iso).toLocaleString("pt-PT");
 }
 
 function originFromEvent(e: TrackingEvent) {
@@ -124,7 +124,7 @@ export default function Relatorios() {
 
   useEffect(() => {
     if (tabParam !== undefined && !isRelatorioTab(tabParam)) {
-      navigate("/tracking/relatorios/acessos", { replace: true });
+      navigate("/resultados/relatorios/acessos", { replace: true });
     }
   }, [tabParam, navigate]);
 
@@ -726,7 +726,7 @@ export default function Relatorios() {
         description="Cada separador tem URL próprio; filtros, CSV e sub-IDs nos links."
       />
 
-      <Tabs value={tab} onValueChange={(v) => navigate(`/tracking/relatorios/${v}`)}>
+      <Tabs value={tab} onValueChange={(v) => navigate(`/resultados/relatorios/${v}`)}>
         <TabsList className="bg-card border border-border flex flex-wrap h-auto gap-1 p-1 w-full justify-start sm:w-auto">
           <TabsTrigger value="acessos" className="shrink-0">
             Acessos
