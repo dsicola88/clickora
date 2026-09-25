@@ -152,6 +152,9 @@ export interface TrackingEvent {
   device_label?: string | null;
   browser?: string | null;
   os?: string | null;
+  /** URL da oferta / checkout (hoplink) para onde o visitante foi enviado. */
+  checkout_page?: string | null;
+  checkout_host?: string | null;
   created_at: string;
   metadata?: Record<string, unknown>;
   utm_source?: string | null;

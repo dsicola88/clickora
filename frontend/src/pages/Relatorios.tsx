@@ -134,6 +134,30 @@ function paidLabel(e: TrackingEvent) {
   return "Orgânico";
 }
 
+function CheckoutPageCell({ url, host }: { url?: string | null; host?: string | null }) {
+  const href = (url || "").trim();
+  if (!href) return <span className="text-muted-foreground">—</span>;
+  let label = (host || "").trim();
+  if (!label) {
+    try {
+      label = new URL(href).hostname.replace(/^www\./i, "");
+    } catch {
+      label = href.length > 40 ? `${href.slice(0, 37)}…` : href;
+    }
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-xs font-medium text-primary hover:underline truncate max-w-[11rem] inline-block align-bottom"
+      title={href}
+    >
+      {label}
+    </a>
+  );
+}
+
 function platformMatches(rowPlatform: string, selected: string) {
   if (!selected || selected === "all") return true;
   return rowPlatform.toLowerCase().includes(selected.replace(/_/g, "").toLowerCase());
@@ -406,6 +430,10 @@ export default function Relatorios() {
       const utmCamp = e.utm_campaign || e.campaign || "";
       const utmCont = e.utm_content || (typeof meta.utm_content === "string" ? meta.utm_content : "");
       const regionParts = [e.region, e.city].filter((x) => typeof x === "string" && x.trim());
+      const checkoutFromMeta =
+        e.checkout_page ||
+        (typeof meta.redirect_to === "string" ? meta.redirect_to : "") ||
+        "";
       return {
         id: e.id,
         ip: e.ip_address || "—",
@@ -423,6 +451,8 @@ export default function Relatorios() {
         type: paidLabel(e),
         country: e.country || "—",
         region: regionParts.length ? regionParts.join(" · ") : "—",
+        checkout_page: checkoutFromMeta,
+        checkout_host: e.checkout_host || "",
         status: e.is_bot ? (e.bot_label || "Bot") : "OK",
       };
     });
@@ -441,6 +471,10 @@ export default function Relatorios() {
       const utmCamp = e.utm_campaign || e.campaign || "";
       const utmCont = e.utm_content || (typeof meta.utm_content === "string" ? meta.utm_content : "");
       const regionParts = [e.region, e.city].filter((x) => typeof x === "string" && x.trim());
+      const checkoutFromMeta =
+        e.checkout_page ||
+        (typeof meta.redirect_to === "string" ? meta.redirect_to : "") ||
+        "";
       return {
         id: e.id,
         ip: e.ip_address || "—",
@@ -459,6 +493,8 @@ export default function Relatorios() {
         type: paidLabel(e),
         country: e.country || "—",
         region: regionParts.length ? regionParts.join(" · ") : "—",
+        checkout_page: checkoutFromMeta,
+        checkout_host: e.checkout_host || "",
         status: e.is_bot ? (e.bot_label || "Bot") : "OK",
       };
     });
@@ -481,6 +517,8 @@ export default function Relatorios() {
           r.postback_campaign,
           r.utm_source,
           r.utm_medium,
+          r.checkout_page,
+          r.checkout_host,
           r.google_ads_sync,
           r.meta_capi_sync,
           r.tiktok_events_sync,
@@ -515,6 +553,8 @@ export default function Relatorios() {
           r.postback_campaign,
           r.utm_source,
           r.utm_medium,
+          r.checkout_page,
+          r.checkout_host,
           r.google_ads_sync,
           r.meta_capi_sync,
           r.tiktok_events_sync,
@@ -548,6 +588,8 @@ export default function Relatorios() {
       "region",
       "origin",
       "type",
+      "checkout_page",
+      "checkout_host",
     ]),
   );
   const clickDisplay = paginate(
@@ -563,6 +605,8 @@ export default function Relatorios() {
       "region",
       "origin",
       "type",
+      "checkout_page",
+      "checkout_host",
     ]),
   );
   const convDisplay = paginate(
@@ -584,6 +628,8 @@ export default function Relatorios() {
         "postback_campaign",
         "platform",
         "commissionStr",
+        "checkout_page",
+        "checkout_host",
         "google_ads_sync",
         "meta_capi_sync",
         "tiktok_events_sync",
@@ -624,6 +670,8 @@ export default function Relatorios() {
         "postback_campaign",
         "platform",
         "commissionStr",
+        "checkout_page",
+        "checkout_host",
         "google_ads_sync",
         "meta_capi_sync",
         "tiktok_events_sync",
@@ -898,6 +946,12 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="SO · browser (User-Agent)">
                           Dispositivo
                         </th>
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="URL da oferta / checkout (hoplink) para onde o visitante foi enviado"
+                        >
+                          Checkout Page
+                        </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Origem
                         </th>
@@ -921,7 +975,7 @@ export default function Relatorios() {
                     <tbody>
                       {accessDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -951,6 +1005,9 @@ export default function Relatorios() {
                               {row.lastAccess}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.device}</td>
+                            <td className="py-2.5 px-3">
+                              <CheckoutPageCell url={row.checkout_page} host={row.checkout_host} />
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate" title={row.origin}>
                               {row.origin}
                             </td>
@@ -1096,6 +1153,12 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="SO · browser (User-Agent)">
                           Dispositivo
                         </th>
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="URL da oferta / checkout (hoplink) para onde o visitante foi enviado"
+                        >
+                          Checkout Page
+                        </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Origem
                         </th>
@@ -1119,7 +1182,7 @@ export default function Relatorios() {
                     <tbody>
                       {clickDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1146,6 +1209,9 @@ export default function Relatorios() {
                               {row.lastAccess}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.device}</td>
+                            <td className="py-2.5 px-3">
+                              <CheckoutPageCell url={row.checkout_page} host={row.checkout_host} />
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate" title={row.origin}>
                               {row.origin}
                             </td>
@@ -1396,6 +1462,12 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Click ID
                         </th>
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="URL da oferta / checkout (hoplink) do clique atribuído"
+                        >
+                          Checkout Page
+                        </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Origem (fonte/meio/campanha)
                         </th>
@@ -1431,7 +1503,7 @@ export default function Relatorios() {
                     <tbody>
                       {convDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1475,6 +1547,9 @@ export default function Relatorios() {
                               </td>
                               <td className="py-2.5 px-3 font-mono text-xs text-primary max-w-[200px] truncate">
                                 {row.click_id}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <CheckoutPageCell url={row.checkout_page} host={row.checkout_host} />
                               </td>
                               <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate" title={row.origin}>
                                 {row.origin}
@@ -1628,6 +1703,12 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Click ID
                         </th>
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="URL da oferta / checkout (hoplink) do clique atribuído"
+                        >
+                          Checkout Page
+                        </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Origem
                         </th>
@@ -1663,7 +1744,7 @@ export default function Relatorios() {
                     <tbody>
                       {noGclidDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1681,6 +1762,9 @@ export default function Relatorios() {
                               {formatDateTime(row.created_at)}
                             </td>
                             <td className="py-2.5 px-3 font-mono text-xs max-w-[180px] truncate">{row.click_id}</td>
+                            <td className="py-2.5 px-3">
+                              <CheckoutPageCell url={row.checkout_page} host={row.checkout_host} />
+                            </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[180px] truncate">
                               {row.origin}
                             </td>

@@ -304,6 +304,8 @@ export const analyticsService = {
         utm_content: string | null;
         postback_campaign: string | null;
         origin: string;
+        checkout_page?: string | null;
+        checkout_host?: string | null;
         commission: number | null;
         currency: string;
         platform: string;

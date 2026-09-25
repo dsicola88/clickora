@@ -106,6 +106,17 @@ function mapTrackingEventForApi(e: {
     formatDeviceLabel({ device: e.device || uaParsed.device, browser, os }) ||
     e.device ||
     null;
+  const redirectRaw = typeof metadata.redirect_to === "string" ? metadata.redirect_to.trim() : "";
+  let checkout_page: string | null = redirectRaw || null;
+  let checkout_host: string | null = null;
+  if (checkout_page) {
+    try {
+      const u = new URL(checkout_page);
+      checkout_host = u.hostname.replace(/^www\./i, "");
+    } catch {
+      /* keep full string */
+    }
+  }
   return {
     id: e.id,
     presell_id: e.presellPageId,
@@ -122,6 +133,9 @@ function mapTrackingEventForApi(e: {
     device_label,
     browser,
     os,
+    /** URL da oferta / checkout para onde o visitante foi enviado (hoplink). */
+    checkout_page,
+    checkout_host,
     created_at: e.createdAt.toISOString(),
     metadata: e.metadata ?? {},
     utm_source,
@@ -204,6 +218,17 @@ function mapConversionForApi(
         ? originParts.join(" / ")
         : "—";
 
+  const redirectRaw = typeof clickMeta.redirect_to === "string" ? clickMeta.redirect_to.trim() : "";
+  let checkout_page: string | null = redirectRaw || null;
+  let checkout_host: string | null = null;
+  if (checkout_page) {
+    try {
+      checkout_host = new URL(checkout_page).hostname.replace(/^www\./i, "");
+    } catch {
+      /* ignore */
+    }
+  }
+
   const amount = c.amount != null ? Number(c.amount) : null;
   return {
     id: c.id,
@@ -220,6 +245,8 @@ function mapConversionForApi(
     utm_content: utm_content_raw || null,
     postback_campaign: postbackCampaign,
     origin,
+    checkout_page,
+    checkout_host,
     commission: amount != null && Number.isFinite(amount) ? amount : null,
     currency: c.currency ?? "USD",
     platform,
@@ -483,6 +510,8 @@ export const analyticsController = {
         "device_label",
         "browser",
         "os",
+        "checkout_page",
+        "checkout_host",
         "ip_address",
         "traffic_type",
         "gclid",
@@ -513,6 +542,8 @@ export const analyticsController = {
           (r as { device_label?: string | null }).device_label ?? "",
           (r as { browser?: string | null }).browser ?? "",
           (r as { os?: string | null }).os ?? "",
+          (r as { checkout_page?: string | null }).checkout_page ?? "",
+          (r as { checkout_host?: string | null }).checkout_host ?? "",
           r.ip_address,
           r.traffic_type,
           r.gclid,
@@ -563,6 +594,8 @@ export const analyticsController = {
       "click_id",
       "presell_id",
       "origin",
+      "checkout_page",
+      "checkout_host",
       "utm_source",
       "utm_medium",
       "utm_campaign",
@@ -687,6 +720,8 @@ export const analyticsController = {
         r.click_id,
         r.presell_id,
         r.origin,
+        r.checkout_page,
+        r.checkout_host,
         r.utm_source,
         r.utm_medium,
         r.utm_campaign,
@@ -744,6 +779,8 @@ export const analyticsController = {
         r.click_id,
         r.presell_id,
         r.origin,
+        r.checkout_page,
+        r.checkout_host,
         r.utm_source,
         r.utm_medium,
         r.utm_campaign,
