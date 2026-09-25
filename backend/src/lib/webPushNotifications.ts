@@ -16,7 +16,7 @@ export function notifyWebPushConversion(
     await sendWebPushToUser(userId, {
       title: "Nova venda (dclickora)",
       body: lines.join(" · "),
-      url: "/tracking/dashboard",
+      url: "/resultados",
     });
   })();
 }

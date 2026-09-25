@@ -441,10 +441,10 @@ export default function Integrations() {
                   <>
                     Cole esta URL no Google Ads como origem HTTPS de upload. A API de cliques e o script de tracking estão no{" "}
                     <Link
-                      to="/tracking/dashboard"
+                      to="/integracoes/google-ads"
                       className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
                     >
-                      painel de tracking
+                      Integrações → Google Ads
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                     .
@@ -453,10 +453,10 @@ export default function Integrations() {
                   <>
                     Cole esta URL no Google Ads como origem de upload (HTTPS). O mesmo script e resumo estão no{" "}
                     <Link
-                      to="/tracking/dashboard"
+                      to="/integracoes/google-ads"
                       className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
                     >
-                      painel de tracking
+                      Integrações → Google Ads
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                     .

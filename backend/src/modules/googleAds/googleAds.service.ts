@@ -1021,6 +1021,20 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
 
   if (!customerId) {
     const nonManagers = accounts.filter((a) => !a.manager);
+    /** Várias contas cliente → não adivinhar; o utilizador escolhe no UI. */
+    if (nonManagers.length > 1 && !onlyDigits(user.googleAdsCustomerId)) {
+      return {
+        ok: false,
+        customer_id: null,
+        login_customer_id: loginCustomerId,
+        conversion_action_id: null,
+        conversion_action_created: false,
+        enabled: false,
+        can_upload: false,
+        accounts_found: accounts.length,
+        detail: `Várias contas Ads (${nonManagers.length}). Indique o Customer ID da conta de anúncios e use «Re-sincronizar setup».`,
+      };
+    }
     if (nonManagers.length > 0) {
       customerId = nonManagers[0]!.id;
     } else {

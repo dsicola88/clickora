@@ -54,8 +54,13 @@ export default function GoogleAdsConnectPage() {
         toast.success("Google Ads ligado · custos e conversões automáticos.");
       } else if (boot === "partial") {
         toast.message(params.get("boot_detail") || "OAuth OK — complete a conta abaixo.");
+      } else if (boot === "error") {
+        toast.error(
+          params.get("boot_detail") ||
+            "Google autorizado, mas o setup automático falhou. Use «Re-sincronizar setup» ou indique o Customer ID.",
+        );
       } else {
-        toast.success("Google ligado. A sincronizar…");
+        toast.message("Google autorizado. A confirmar setup…");
       }
       void qc.invalidateQueries({ queryKey: ["integrations", "google-ads"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });

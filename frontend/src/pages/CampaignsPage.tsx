@@ -94,7 +94,7 @@ export default function CampaignsPage() {
               <ProTh align="right">Conv</ProTh>
               <ProTh align="right">Receita</ProTh>
               <ProTh align="right">Manual*</ProTh>
-              <ProTh align="right">Lucro†</ProTh>
+              <ProTh align="right">EPC</ProTh>
               <ProTh align="right"> </ProTh>
             </tr>
           </thead>
@@ -121,14 +121,7 @@ export default function CampaignsPage() {
                 <ProTd align="right" className="text-muted-foreground">
                   {money(c.spend_amount)}
                 </ProTd>
-                <ProTd
-                  align="right"
-                  className={
-                    c.stats?.profit != null && c.stats.profit < 0 ? "text-destructive font-medium" : "font-medium"
-                  }
-                >
-                  {money(c.stats?.profit)}
-                </ProTd>
+                <ProTd align="right">{money(c.stats?.epc)}</ProTd>
                 <ProTd align="right">
                   <Button
                     variant="ghost"

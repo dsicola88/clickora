@@ -1331,6 +1331,25 @@ export const analyticsController = {
         });
       }
 
+      const [softPassRow] = await systemPrisma.$queryRaw<Array<{ ct: bigint }>>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS ct
+        FROM tracking_events
+        WHERE user_id = ${userId}
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND event_type::text = 'click'
+          AND COALESCE((metadata->>'guard_soft_pass') = 'true', false)
+      `);
+      const softPassClicks = Number(softPassRow?.ct ?? 0);
+      if (softPassClicks > 0) {
+        mediaBuyerAlerts.unshift({
+          code: "guard_soft_pass",
+          severity: "info",
+          title: "Protecções em soft-pass",
+          detail: `${softPassClicks} clique(s) passaram o redirect com soft-pass (proxy/rate/whitelist). O visitante foi à oferta; parte pode estar excluída do KPI. Bots/blacklist redireccionam sem criar clique — vê IP e protecções se o volume parecer estranho.`,
+        });
+      }
+
       account_health = await buildAccountHealth({
         userId,
         rangeStart,

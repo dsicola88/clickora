@@ -33,6 +33,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { FieldError } from "@/components/FieldError";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -1285,10 +1286,10 @@ export default function PresellDashboard() {
   }
 
   return (
-    <div className={cn(APP_PAGE_SHELL, "space-y-6")}>
-      <PageHeader
+    <div className={cn(PRO_PAGE_SHELL, "space-y-5")}>
+      <ProPageHeader
         title="Presells"
-        description="Páginas publicadas e rascunhos."
+        subtitle="Páginas publicadas e rascunhos."
         actions={
           canWritePresells ? (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">

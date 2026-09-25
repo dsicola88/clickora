@@ -500,8 +500,8 @@ function ManualGoogleConversionForm({
           </p>
           <p>
             Para o Google Ads receber pela API, liga a conta em{" "}
-            <Link to="/tracking/dashboard" className="font-medium text-primary underline underline-offset-2">
-              Rastreamento → Resumo e guia
+            <Link to="/integracoes/google-ads" className="font-medium text-primary underline underline-offset-2">
+              Integrações → Google Ads
             </Link>
             .
           </p>

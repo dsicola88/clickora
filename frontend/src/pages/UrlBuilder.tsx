@@ -125,14 +125,22 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
   "Facebook Ads": [
     { key: "utm_source", value: "facebook" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "{{campaign.name}}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)",
+    },
     { key: "utm_content", value: "{{ad.name}}" },
     { key: "fbclid", value: "", highlight: true },
   ],
   "TikTok Ads": [
     { key: "utm_source", value: "tiktok" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "{campaign_name}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)",
+    },
     { key: "utm_content", value: "{adgroup_name}" },
     { key: "ttclid", value: "{ttclid}", highlight: true },
   ],
@@ -148,31 +156,51 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
   "Taboola": [
     { key: "utm_source", value: "taboola" },
     { key: "utm_medium", value: "native" },
-    { key: "utm_campaign", value: "{campaign_name}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora",
+    },
     { key: "tblci", value: "{click_id}", highlight: true },
   ],
   "Outbrain": [
     { key: "utm_source", value: "outbrain" },
     { key: "utm_medium", value: "native" },
-    { key: "utm_campaign", value: "{campaign_name}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora",
+    },
     { key: "obclid", value: "{ob_click_id}", highlight: true },
   ],
   "Pinterest Ads": [
     { key: "utm_source", value: "pinterest" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "{campaign_name}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora",
+    },
     { key: "epik", value: "{epik}", highlight: true },
   ],
   "Kwai Ads": [
     { key: "utm_source", value: "kwai" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "{campaign_name}" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora",
+    },
     { key: "clickid", value: "{click_id}", highlight: true },
   ],
   "Twitter Ads": [
     { key: "utm_source", value: "twitter" },
     { key: "utm_medium", value: "cpc" },
-    { key: "utm_campaign", value: "" },
+    {
+      key: "utm_campaign",
+      value: "",
+      valuePlaceholder: "Slug da campanha Clickora",
+    },
     { key: "twclid", value: "", highlight: true },
   ],
   "ClickBank": [
@@ -299,12 +327,25 @@ export default function UrlBuilder() {
     const base = searchParams.get("base")?.trim();
     const from = searchParams.get("from");
     const offer = searchParams.get("offer")?.trim();
-    if (!base && from !== "presell") return;
+    const campSlug = searchParams.get("utm_campaign")?.trim();
+    if (!base && from !== "presell" && !campSlug) return;
 
     if (base && isAbsoluteHttpUrl(base)) setBaseUrl(base);
     if (from === "presell") {
       setShowPresellWelcome(true);
       if (offer && isAbsoluteHttpUrl(offer)) setPresellOfferHint(offer);
+    }
+    if (campSlug) {
+      setPlatform((prev) => prev || "Google Ads");
+      setParams((prev) => {
+        const rows =
+          prev.length > 0
+            ? prev
+            : (defaultParams["Google Ads"] || []).map((p) => ({ ...p }));
+        return rows.map((p) =>
+          p.key === "utm_campaign" ? { ...p, value: campSlug } : p,
+        );
+      });
     }
     prefillFromQueryRef.current = true;
     setSearchParams(
@@ -313,6 +354,7 @@ export default function UrlBuilder() {
         next.delete("base");
         next.delete("from");
         next.delete("offer");
+        next.delete("utm_campaign");
         return next;
       },
       { replace: true },
@@ -461,8 +503,8 @@ export default function UrlBuilder() {
               className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground"
               aria-label="Navegação contextual"
             >
-              <Link to="/tracking/dashboard" className="hover:text-foreground transition-colors">
-                Tracking
+              <Link to="/integracoes" className="hover:text-foreground transition-colors">
+                Integrações
               </Link>
               <ChevronRight className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
               <span className="font-medium text-foreground">Construtor de URL</span>

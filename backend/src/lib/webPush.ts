@@ -235,7 +235,7 @@ export function getVapidPublicKeyFromEnv(): string | null {
 export type WebPushPayload = {
   title: string;
   body: string;
-  /** Caminho relativo (ex. /tracking/dashboard) ou URL absoluta */
+  /** Caminho relativo (ex. /resultados) ou URL absoluta */
   url?: string;
 };
 
@@ -258,7 +258,7 @@ export async function sendWebPushToUser(userId: string, payload: WebPushPayload)
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body,
-    url: payload.url ?? "/tracking/dashboard",
+    url: payload.url ?? "/resultados",
   });
 
   const toRemove: string[] = [];

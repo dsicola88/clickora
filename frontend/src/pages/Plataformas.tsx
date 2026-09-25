@@ -19,8 +19,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
-import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { integrationsService } from "@/services/integrationsService";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
@@ -32,6 +30,7 @@ import {
   getAffiliatePostbackPreset,
 } from "@/lib/marketingPlatforms";
 import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
+import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 
 export default function Plataformas() {
   const { user, refreshUser, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
@@ -157,17 +156,17 @@ export default function Plataformas() {
 
   if (hookPlanDenied) {
     return (
-      <div className={APP_PAGE_SHELL}>
-        <PageHeader
+      <div className={PRO_PAGE_SHELL}>
+        <ProPageHeader
           title="Postback"
-          description="URL para a rede notificar vendas aprovadas no dclickora."
+          subtitle="URL para a rede notificar vendas aprovadas no dclickora."
         />
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
           <p className="flex items-center gap-2 font-medium">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
             Webhook de afiliados não está activo no seu plano
           </p>
-          <p className="text-muted-foreground leading-relaxed">
+          <p className="text-muted-foreground leading-relaxed text-xs">
             O URL de postback e a documentação por rede estão disponíveis nos planos que incluem esta funcionalidade.
             Um administrador pode também activar a opção «Webhook de afiliados» no seu plano no painel de administração.
           </p>
@@ -192,10 +191,10 @@ export default function Plataformas() {
   if (!info) return <ErrorState message="Sem dados." onRetry={() => refetch()} />;
 
   return (
-    <div className={APP_PAGE_SHELL}>
-      <PageHeader
+    <div className={PRO_PAGE_SHELL}>
+      <ProPageHeader
         title="Postback"
-        description="Escolhe a rede, copia o URL, cola na plataforma, testa — vendas ligadas ao clique."
+        subtitle="Escolhe a rede, copia o URL, cola na plataforma, testa — vendas ligadas ao clique."
       />
 
       {intLocked ? (

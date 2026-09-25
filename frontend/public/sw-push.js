@@ -6,7 +6,7 @@ self.addEventListener("push", function (event) {
       let data = {
         title: "dclickora",
         body: "Nova notificação",
-        url: "/tracking/dashboard",
+        url: "/resultados",
       };
       try {
         if (event.data) {
@@ -20,7 +20,7 @@ self.addEventListener("push", function (event) {
         body: data.body,
         icon: "/favicon.svg",
         badge: "/favicon.svg",
-        data: { url: data.url || "/tracking/dashboard" },
+        data: { url: data.url || "/resultados" },
         tag: "dclickora-push",
         renotify: true,
       });
@@ -31,7 +31,7 @@ self.addEventListener("push", function (event) {
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
   const url = event.notification.data && event.notification.data.url;
-  const path = typeof url === "string" && url.length > 0 ? url : "/tracking/dashboard";
+  const path = typeof url === "string" && url.length > 0 ? url : "/resultados";
   const abs = new URL(path, self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

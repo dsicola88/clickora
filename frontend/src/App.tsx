@@ -15,7 +15,6 @@ import Home from "./pages/Home";
 import PresellDashboard from "./pages/PresellDashboard";
 import PresellManualPagesPage from "./pages/PresellManualPagesPage";
 import PresellCreator from "./pages/PresellCreator";
-import TrackingDashboard from "./pages/TrackingDashboard";
 import Plataformas from "./pages/Plataformas";
 import Relatorios from "./pages/Relatorios";
 import Analytics from "./pages/Analytics";
@@ -112,7 +111,8 @@ const appRoutes = [
   { path: "/tracking/setup-assistant-legacy", element: <SetupAssistantPage /> },
   { path: "/tracking/integrations-legacy", element: <Integrations /> },
   { path: "/tracking/settings-legacy", element: <Settings /> },
-  { path: "/tracking/dashboard-legacy", element: <TrackingDashboard /> },
+  { path: "/tracking/dashboard-legacy", element: <Navigate to="/integracoes/google-ads" replace /> },
+  { path: "/dpilot", element: <Navigate to="/tracking/dpilot" replace /> },
   { path: "/tracking/vendas-legacy", element: <Navigate to="/resultados/conversoes" replace /> },
   { path: "/tracking/analytics-legacy/*", element: <Analytics /> },
   { path: "/tracking/links-legacy", element: <Links /> },

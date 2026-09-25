@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Megaphone, Plug, ShieldCheck } from "lucide-react";
+import { ArrowRight, Plug, ShieldCheck, LineChart, Zap, Megaphone } from "lucide-react";
 import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
@@ -81,7 +81,6 @@ export default function IntegrationsHubPage() {
           <ol className="divide-y divide-border/50">
             {steps.map((s, i) => {
               const check = health?.checks.find((c) => c.id === s.id);
-              const ok = check?.ok;
               return (
                 <li key={s.id} className="flex gap-3 px-4 py-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-semibold tabular-nums text-muted-foreground">
@@ -89,8 +88,15 @@ export default function IntegrationsHubPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <ProStatusDot ok={ok !== false} label={s.t} />
-                      {ok === false ? (
+                      {check == null ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" aria-hidden />
+                          {s.t}
+                        </span>
+                      ) : (
+                        <ProStatusDot ok={check.ok} label={s.t} />
+                      )}
+                      {check?.ok === false ? (
                         <Link to={s.href} className="text-[11px] font-medium text-primary hover:underline">
                           Resolver
                         </Link>
@@ -128,7 +134,7 @@ export default function IntegrationsHubPage() {
             className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
           >
             <div className="rounded-md bg-primary/10 p-2">
-              <Megaphone className="h-4 w-4 text-primary" />
+              <LineChart className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -149,7 +155,7 @@ export default function IntegrationsHubPage() {
             className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
           >
             <div className="rounded-md bg-primary/10 p-2">
-              <Megaphone className="h-4 w-4 text-primary" />
+              <Zap className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -183,7 +189,7 @@ export default function IntegrationsHubPage() {
 
           {dpilot ? (
             <Link
-              to="/dpilot"
+              to="/tracking/dpilot"
               className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
             >
               <div className="rounded-md bg-primary/10 p-2">

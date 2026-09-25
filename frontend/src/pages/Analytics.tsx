@@ -518,8 +518,8 @@ function GoogleAdsInsightsPanel() {
           (atribuição da conta). Use o filtro <strong className="font-medium text-foreground">Campanha</strong> para focar
           numa campanha: vê um <strong className="font-medium text-foreground">resumo</strong> e tabelas só dessa campanha.
           configuração faz-se em{" "}
-          <Link to="/tracking/dashboard" className="text-primary font-medium underline underline-offset-2">
-            Resumo e guia
+          <Link to="/integracoes/google-ads" className="text-primary font-medium underline underline-offset-2">
+            Integrações → Google Ads
           </Link>
           . Até <span className="text-foreground/90 font-medium">2000</span> linhas por relatório após agregação no período.
         </p>
@@ -577,8 +577,8 @@ function GoogleAdsInsightsPanel() {
                   variant={errCode === "google_ads_platform_not_configured" ? "outline" : "default"}
                   className="gap-2 w-full sm:w-auto"
                 >
-                  <Link to="/tracking/dashboard">
-                    {errCode === "google_ads_platform_not_configured" ? "Abrir Resumo e guia" : "Ir para Resumo e guia"}
+                  <Link to="/integracoes/google-ads">
+                    {errCode === "google_ads_platform_not_configured" ? "Abrir Google Ads" : "Ir para Google Ads"}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Link>
                 </Button>

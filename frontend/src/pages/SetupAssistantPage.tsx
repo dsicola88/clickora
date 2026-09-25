@@ -184,7 +184,7 @@ export default function SetupAssistantPage() {
         status: clicks > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
           { to: "/tracking/relatorios/cliques", label: "Ver cliques" },
-          { to: "/tracking/dashboard", label: "Resumo" },
+          { to: "/resultados", label: "P&L" },
         ],
         hint:
           clicks > 0
@@ -197,7 +197,7 @@ export default function SetupAssistantPage() {
         description:
           "Em Postback copia o URL e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
         status: approvedSales > 0 ? "done" : hasPublished ? "warn" : "pending",
-        actions: [{ to: "/tracking/plataformas", label: "Configurar postback" }],
+        actions: [{ to: "/integracoes/postback", label: "Configurar postback" }],
         hint: webhook?.hook_url
           ? approvedSales > 0
             ? "Há vendas aprovadas no período."
@@ -209,15 +209,15 @@ export default function SetupAssistantPage() {
         title: "6. Conversões e relatórios",
         description: "Cliques, vendas e receita aparecem em Conversões e relatórios (dados reais da conta).",
         status: approvedSales > 0 || clicks > 0 ? "done" : "pending",
-        actions: [{ to: "/tracking/relatorios", label: "Abrir relatórios" }],
+        actions: [{ to: "/resultados/relatorios", label: "Abrir relatórios" }],
       },
       {
         id: "google",
         title: "7. Google Ads (opcional)",
         description:
-          "Se anuncias no Google: no Resumo liga a conta para enviar vendas aprovadas (quando há gclid).",
+          "Se anuncias no Google: em Integrações → Google Ads liga a conta (1 clique) para custos e upload GCLID.",
         status: gaCanUpload ? "done" : gaHasOAuth && gaCustomer && gaEnv ? "warn" : "pending",
-        actions: [{ to: "/tracking/dashboard", label: "Resumo / Google Ads" }],
+        actions: [{ to: "/integracoes/google-ads", label: "Google Ads" }],
         hint: !gaEnv
           ? "API Google ainda não configurada neste ambiente (admin do servidor)."
           : gaCanUpload
@@ -227,7 +227,7 @@ export default function SetupAssistantPage() {
       {
         id: "capi",
         title: "8. Meta e TikTok (opcional)",
-        description: "Envio de compras às redes sociais — só se anunciares lá. Configura no Resumo.",
+        description: "Envio de compras às redes sociais — só se anunciares lá. Configura em Integrações.",
         status: !metaTikTokDataReady
           ? "pending"
           : metaTikTokOptionalOk && !metaTikTokWarn
@@ -235,7 +235,7 @@ export default function SetupAssistantPage() {
             : metaTikTokWarn
               ? "warn"
               : "pending",
-        actions: [{ to: "/tracking/dashboard", label: "Resumo" }],
+        actions: [{ to: "/integracoes", label: "Integrações" }],
         hint: !metaTikTokDataReady
           ? "A obter estado…"
           : [
@@ -313,8 +313,8 @@ export default function SetupAssistantPage() {
           {dashboardError ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90">
               Não foi possível carregar métricas. Abra o{" "}
-              <Link to="/tracking/dashboard" className="font-medium underline underline-offset-2">
-                Resumo
+              <Link to="/resultados" className="font-medium underline underline-offset-2">
+                P&L
               </Link>{" "}
               ou actualize.
             </p>

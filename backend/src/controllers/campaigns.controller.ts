@@ -14,7 +14,7 @@ const createSchema = z.object({
   platform: z.string().max(64).optional().nullable(),
   presell_id: z.string().uuid().optional().nullable(),
   status: z.enum(["draft", "active", "paused"]).optional(),
-  /** Gasto de ads no período que o media buyer está a analisar (manual). */
+  /** Gasto de ads lifetime na ficha (memo) — não entra no ROAS do período. */
   spend_amount: z.union([z.number().nonnegative(), z.null()]).optional(),
   spend_currency: z.string().max(8).optional().nullable(),
 });
@@ -68,8 +68,8 @@ function mapCampaign(c: CampaignRow, stats?: CampaignPerf | null) {
       ? {
           stats: {
             ...stats,
-            /** Gasto manual não é faturado por dia — trate como o gasto do período que está a analisar. */
-            spend_note: "manual_period_estimate" as const,
+            /** Memo lifetime na ficha — nunca misturar com ROAS do período. */
+            spend_note: "lifetime_memo" as const,
           },
         }
       : {}),

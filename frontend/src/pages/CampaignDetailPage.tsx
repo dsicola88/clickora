@@ -239,7 +239,7 @@ export default function CampaignDetailPage() {
 
             <ProPanel
               title="Gasto manual"
-              description="Meta/TikTok/Google sem sync: indique o gasto do período para lucro/ROAS nesta ficha. O P&L da conta usa custo sincronizado."
+              description="Memo lifetime na ficha — não entra no lucro/ROAS do período. O P&L da conta usa só custo sincronizado (Google Ads)."
             >
               <div className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap gap-2 items-end">
@@ -347,7 +347,7 @@ export default function CampaignDetailPage() {
                 <Link to="/integracoes/postback">Postback</Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link to="/tracking/url-builder">
+                <Link to={`/tracking/url-builder?utm_campaign=${encodeURIComponent(campaign.name)}`}>
                   URL Builder <ExternalLink className="ml-1 h-3 w-3" />
                 </Link>
               </Button>

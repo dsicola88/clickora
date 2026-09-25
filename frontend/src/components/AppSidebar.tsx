@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -16,6 +15,9 @@ import {
   ShieldAlert,
   Link2,
   PanelLeftClose,
+  PanelLeftOpen,
+  Webhook,
+  LineChart,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -56,13 +58,14 @@ const workNav: NavItem[] = [
 
 const resultsNav: NavItem[] = [
   { title: "P&L", url: "/resultados", icon: LayoutDashboard, end: true },
-  { title: "Conversões", url: "/resultados/conversoes", icon: ClipboardList },
-  { title: "Relatórios", url: "/resultados/relatorios", icon: BarChart3 },
+  { title: "Conversões", url: "/resultados/relatorios/conversoes", icon: ClipboardList, end: true },
+  { title: "Relatórios", url: "/resultados/relatorios", icon: BarChart3, end: true },
 ];
 
 const configNav: NavItem[] = [
   { title: "Integrações", url: "/integracoes", icon: Plug },
-  { title: "Google Ads", url: "/integracoes/google-ads", icon: Megaphone },
+  { title: "Postback", url: "/integracoes/postback", icon: Webhook },
+  { title: "Google Ads", url: "/integracoes/google-ads", icon: LineChart },
   { title: "Automizer", url: "/integracoes/automizer", icon: Zap },
   { title: "Configurações", url: "/configuracoes", icon: Settings2 },
 ];
@@ -96,17 +99,6 @@ function NavRows({ items, path, collapsed }: { items: NavItem[]; path: string; c
   );
 }
 
-export function AppSidebarDocked() {
-  return (
-    <Sidebar
-      collapsible="none"
-      className="h-full min-h-0 min-w-0 !w-full overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
-    >
-      <AppSidebarInner collapsed={false} />
-    </Sidebar>
-  );
-}
-
 export function AppSidebar() {
   const { state } = useSidebar();
   return (
@@ -136,17 +128,15 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
               </span>
             )}
           </NavLink>
-          {!collapsed ? (
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:inline-flex"
-              title="Encolher menu"
-              aria-label="Encolher menu"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:inline-flex"
+            title={collapsed ? "Expandir menu" : "Encolher menu"}
+            aria-label={collapsed ? "Expandir menu" : "Encolher menu"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
       </SidebarHeader>
 
@@ -283,13 +273,4 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
       </SidebarFooter>
     </>
   );
-}
-
-/** Compat: evita imports órfãos se algum sítio ainda esperar o collapsible antigo. */
-export function useLegacySidebarOpen(_key: string, initial: boolean) {
-  const [open, setOpen] = useState(initial);
-  useEffect(() => {
-    setOpen(initial);
-  }, [initial]);
-  return [open, setOpen] as const;
 }
