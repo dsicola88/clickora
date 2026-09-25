@@ -198,34 +198,85 @@ function mapConversionForApi(
   };
 }
 
+/**
+ * Prisma `NOT { metadata path equals true }` gera SQL com NULL → exclui eventos
+ * sem a chave `is_bot` / `exclude_from_kpi` (quase todos). O dashboard usa COALESCE;
+ * estes helpers alinham Relatórios ao mesmo critério.
+ */
+function sqlExcludeBotAndKpiNoise(includeBots: boolean): Prisma.Sql {
+  if (includeBots) return Prisma.empty;
+  return Prisma.sql`
+    AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+    AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+  `;
+}
+
+type TrackingEventListRow = {
+  id: string;
+  presell_page_id: string | null;
+  event_type: EventType;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  referrer: string | null;
+  country: string | null;
+  ip_address: string | null;
+  device: string | null;
+  created_at: Date;
+  metadata: Prisma.JsonValue;
+};
+
+function mapDbTrackingEventRow(r: TrackingEventListRow) {
+  return mapTrackingEventForApi({
+    id: r.id,
+    presellPageId: r.presell_page_id,
+    eventType: r.event_type,
+    source: r.source,
+    medium: r.medium,
+    campaign: r.campaign,
+    referrer: r.referrer,
+    country: r.country,
+    ipAddress: r.ip_address,
+    device: r.device,
+    createdAt: r.created_at,
+    metadata: r.metadata,
+  });
+}
+
 export const analyticsController = {
   async getSummary(req: Request, res: Response) {
     const { from, to, presell_id } = req.query;
     const userId = billingUserId(req);
 
-    const where: Prisma.TrackingEventWhereInput = {
-      userId,
-      /** Alinhado ao dashboard: bots / exclude_from_kpi não entram em cliques/impressões. */
-      AND: [
-        { NOT: { metadata: { path: ["is_bot"], equals: true } } },
-        { NOT: { metadata: { path: ["exclude_from_kpi"], equals: true } } },
-      ],
-    };
-    if (presell_id && typeof presell_id === "string") where.presellPageId = presell_id;
-    if (from || to) {
-      where.createdAt = {};
-      if (from && typeof from === "string") where.createdAt.gte = new Date(from);
-      if (to && typeof to === "string") where.createdAt.lte = new Date(to);
-    }
+    const rangeStart =
+      from && typeof from === "string" && !Number.isNaN(new Date(from).getTime())
+        ? new Date(from)
+        : null;
+    const rangeEnd =
+      to && typeof to === "string" && !Number.isNaN(new Date(to).getTime()) ? new Date(to) : null;
+    const presellId = presell_id && typeof presell_id === "string" ? presell_id : null;
 
-    const events = await prisma.trackingEvent.groupBy({
-      by: ["presellPageId", "eventType"],
-      where,
-      _count: true,
-    });
+    const eventRows = await systemPrisma.$queryRaw<
+      Array<{ presell_page_id: string | null; event_type: string; cnt: bigint }>
+    >(Prisma.sql`
+      SELECT presell_page_id, event_type::text AS event_type, COUNT(*)::bigint AS cnt
+      FROM tracking_events
+      WHERE user_id = ${userId}
+        ${presellId ? Prisma.sql`AND presell_page_id = ${presellId}` : Prisma.empty}
+        ${rangeStart ? Prisma.sql`AND created_at >= ${rangeStart}` : Prisma.empty}
+        ${rangeEnd ? Prisma.sql`AND created_at <= ${rangeEnd}` : Prisma.empty}
+        ${sqlExcludeBotAndKpiNoise(false)}
+      GROUP BY presell_page_id, event_type
+    `);
+
+    const events = eventRows.map((r) => ({
+      presellPageId: r.presell_page_id,
+      eventType: r.event_type as EventType,
+      _count: Number(r.cnt),
+    }));
 
     const convWhere: Prisma.ConversionWhereInput = { userId, status: "approved" };
-    if (presell_id && typeof presell_id === "string") convWhere.presellId = presell_id;
+    if (presellId) convWhere.presellId = presellId;
     if (from || to) {
       convWhere.createdAt = {};
       if (from && typeof from === "string") convWhere.createdAt.gte = new Date(from);
@@ -305,58 +356,74 @@ export const analyticsController = {
     const includeBots =
       include_bots === "1" || include_bots === "true" || include_bots === "yes";
 
-    const where: Prisma.TrackingEventWhereInput = { userId };
-    if (event_type && typeof event_type === "string") where.eventType = event_type as EventType;
-    if (presell_id && typeof presell_id === "string") where.presellPageId = presell_id;
-    if (from || to) {
-      where.createdAt = {};
-      if (from && typeof from === "string") {
-        const d = new Date(from);
-        d.setHours(0, 0, 0, 0);
-        if (!Number.isNaN(d.getTime())) where.createdAt.gte = d;
-      }
-      if (to && typeof to === "string") {
-        const d = new Date(to);
-        d.setHours(23, 59, 59, 999);
-        if (!Number.isNaN(d.getTime())) where.createdAt.lte = d;
-      }
+    let rangeStart: Date | null = null;
+    let rangeEnd: Date | null = null;
+    if (from && typeof from === "string") {
+      const d = new Date(from);
+      d.setHours(0, 0, 0, 0);
+      if (!Number.isNaN(d.getTime())) rangeStart = d;
     }
-    /** Default alinhado ao dashboard: sem bots / sem exclude_from_kpi. */
-    if (!includeBots) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        { NOT: { metadata: { path: ["is_bot"], equals: true } } },
-        { NOT: { metadata: { path: ["exclude_from_kpi"], equals: true } } },
-      ];
+    if (to && typeof to === "string") {
+      const d = new Date(to);
+      d.setHours(23, 59, 59, 999);
+      if (!Number.isNaN(d.getTime())) rangeEnd = d;
     }
+    const eventType = event_type && typeof event_type === "string" ? event_type : null;
+    const presellId = presell_id && typeof presell_id === "string" ? presell_id : null;
+
+    const baseWhere = Prisma.sql`
+      WHERE user_id = ${userId}
+        ${eventType ? Prisma.sql`AND event_type::text = ${eventType}` : Prisma.empty}
+        ${presellId ? Prisma.sql`AND presell_page_id = ${presellId}` : Prisma.empty}
+        ${rangeStart ? Prisma.sql`AND created_at >= ${rangeStart}` : Prisma.empty}
+        ${rangeEnd ? Prisma.sql`AND created_at <= ${rangeEnd}` : Prisma.empty}
+        ${sqlExcludeBotAndKpiNoise(includeBots)}
+    `;
 
     if (wantCsv) {
       const decoded = typeof cursor === "string" ? decodeTimeIdCursor(cursor) : null;
       if (cursor && typeof cursor === "string" && !decoded) {
         return res.status(400).json({ error: "cursor inválido" });
       }
-      if (decoded) {
-        where.AND = [
-          ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-          whereOlderThanTimeIdCursor(decoded),
-        ];
-      }
 
       const pageSize = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
-      const events = await prisma.trackingEvent.findMany({
-        where,
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        take: pageSize + 1,
-      });
+      const cursorSql =
+        decoded != null
+          ? Prisma.sql`AND (
+              created_at < ${new Date(decoded.t)}
+              OR (created_at = ${new Date(decoded.t)} AND id < ${decoded.id}::uuid)
+            )`
+          : Prisma.empty;
+
+      const events = await systemPrisma.$queryRaw<TrackingEventListRow[]>(Prisma.sql`
+        SELECT
+          id,
+          presell_page_id,
+          event_type,
+          source,
+          medium,
+          campaign,
+          referrer,
+          country,
+          ip_address,
+          device,
+          created_at,
+          metadata
+        FROM tracking_events
+        ${baseWhere}
+        ${cursorSql}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${pageSize + 1}
+      `);
 
       const hasMore = events.length > pageSize;
       const page = hasMore ? events.slice(0, pageSize) : events;
-      const rows = page.map((e) => mapTrackingEventForApi(e));
+      const rows = page.map(mapDbTrackingEventRow);
 
       const last = page.length > 0 ? page[page.length - 1]! : null;
-      const nextCursor = hasMore && last ? encodeTimeIdCursor(last.createdAt, last.id) : null;
+      const nextCursor = hasMore && last ? encodeTimeIdCursor(last.created_at, last.id) : null;
 
-      const evLabel = event_type && typeof event_type === "string" ? String(event_type) : "all";
+      const evLabel = eventType || "all";
       const fromS = from && typeof from === "string" ? from : "start";
       const toS = to && typeof to === "string" ? to : "end";
       const filename = `tracking-events_${evLabel}_${fromS}_${toS}.csv`;
@@ -413,13 +480,26 @@ export const analyticsController = {
     }
 
     const take = Math.min(Number(limit) || 200, 500);
-    const events = await prisma.trackingEvent.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take,
-    });
-    const rows = events.map((e) => mapTrackingEventForApi(e));
-    res.json(rows);
+    const events = await systemPrisma.$queryRaw<TrackingEventListRow[]>(Prisma.sql`
+      SELECT
+        id,
+        presell_page_id,
+        event_type,
+        source,
+        medium,
+        campaign,
+        referrer,
+        country,
+        ip_address,
+        device,
+        created_at,
+        metadata
+      FROM tracking_events
+      ${baseWhere}
+      ORDER BY created_at DESC
+      LIMIT ${take}
+    `);
+    res.json(events.map(mapDbTrackingEventRow));
   },
 
   /** Lista conversões aprovadas (postback) com dados do clique e sync Google Ads / Meta CAPI. */
