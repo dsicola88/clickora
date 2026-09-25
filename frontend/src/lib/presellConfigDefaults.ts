@@ -23,4 +23,13 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
    * sub1–sub3 são sempre considerados; aqui só se acrescentam nomes (ex.: clickid, var1, txid).
    */
   offerQueryForwardAllowlist: "",
+  /**
+   * Cloaking lite: bots / países em cloakGeoDeny recebem página segura (sem mirror nem hoplink).
+   * Humanos normais vêem a presell completa. Não é invisível a revisores humanos.
+   */
+  enterpriseCloak: false,
+  cloakSafeTitle: "",
+  cloakSafeBody: "",
+  /** ISO country codes separados por vírgula (ex.: CN,RU) — esses países vêem a safe page. */
+  cloakGeoDeny: "",
 };

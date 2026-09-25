@@ -46,19 +46,19 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "tsl",
         name: "TSL — Text Sales Letter",
         description:
-          "Carta de vendas em texto: blocos longos importados, imagens e vários botões para a oferta. Ideal quando a argumentação escrita é o foco (sem vídeo obrigatório no topo).",
+          "Com espelho 1:1 activo: clone da sales page + barra TSL e CTA rastreado. Sem espelho: carta de vendas em texto (blocos importados, imagens, CTAs). Sem vídeo obrigatório no topo.",
       },
       {
         id: "dtc",
         name: "DTC — Direct to Consumer",
         description:
-          "Página direta ao consumidor: hero com produto e cópia persuasiva num formato compacto (grelha tipo vitrine + texto). Bom para ofertas que querem decisão rápida.",
+          "Com espelho 1:1: clone + chrome DTC (decisão rápida). Sem espelho: hero compacto tipo vitrine com cópia persuasiva. Ideal para ofertas de conversão directa.",
       },
       {
         id: "review",
         name: "Review / análise",
         description:
-          "Mesma base de layout TSL/DTC, pensado para tom de crítica, resumo ou «review» da oferta — reforça credibilidade antes do clique no checkout.",
+          "Com espelho 1:1: clone + selo Review e rating quando existir. Sem espelho: layout de análise/crítica da oferta antes do checkout.",
       },
       {
         id: "desconto",
@@ -77,13 +77,13 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "vsl",
         name: "VSL — só vídeo (sem carta longa em baixo)",
         description:
-          "Layout escuro estilo Video Sales Letter: vídeo em destaque, CTA forte. A carta longa importada não é repetida por baixo do vídeo — o foco é ver e clicar.",
+          "Com espelho 1:1: clone + barra VSL com leitor de vídeo (se houver URL). Sem espelho: layout escuro VSL; a carta longa não se repete abaixo. Foco: ver e clicar.",
       },
       {
         id: "vsl_tsl",
         name: "VSL + TSL (combo)",
         description:
-          "O mesmo hero em vídeo no topo e, abaixo, toda a carta de vendas importada com texto e CTAs intercalados. Para quem quer vídeo primeiro e leitura completa a seguir.",
+          "Com espelho 1:1: clone + chrome VSL+TSL e vídeo no topo se disponível. Sem espelho: hero vídeo + carta completa abaixo.",
       },
     ],
   },

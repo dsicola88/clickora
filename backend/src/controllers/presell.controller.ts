@@ -22,6 +22,10 @@ import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
 import { billingUserId } from "../lib/requestContext";
 import { denyIfCannotWritePresells } from "./workspace.controller";
+import {
+  buildCloakSafePublicPayload,
+  shouldServeCloakSafePage,
+} from "../lib/presellEnterpriseCloak";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -131,7 +135,12 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    return res.json(mapPresellForPublic(page));
+    const mapped = mapPresellForPublic(page);
+    const cloak = shouldServeCloakSafePage(req, page.settings);
+    if (cloak.cloak) {
+      return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: cloak.reason }));
+    }
+    return res.json(mapped);
   },
 
   /**
@@ -180,7 +189,12 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    return res.json(mapPresellForPublic(page));
+    const mapped = mapPresellForPublic(page);
+    const cloak = shouldServeCloakSafePage(req, page.settings);
+    if (cloak.cloak) {
+      return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: cloak.reason }));
+    }
+    return res.json(mapped);
   },
 
   /**
@@ -539,6 +553,7 @@ export const presellController = {
         productUrl: parsed.data.product_url,
         language: parsed.data.language,
         affiliateLink: parsed.data.affiliate_link,
+        userId: billingUserId(req),
       });
       return res.json(data);
     } catch (error) {

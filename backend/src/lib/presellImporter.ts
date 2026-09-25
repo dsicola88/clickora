@@ -9,11 +9,14 @@ import {
 } from "./presellLocalePack";
 import { acceptLanguageForPresellImport, fetchRenderedPageBundle } from "./presellFoldBrowser";
 import { buildMirrorSrcDocFromParts, finalizeMirrorSrcDocForImport } from "./presellMirrorSnapshot";
+import { rehostMirrorImagesToR2 } from "./presellMirrorRehost";
 
 type ImportPresellInput = {
   productUrl: string;
   language?: string;
   affiliateLink?: string;
+  /** Para rehost de imagens do espelho no R2 (opcional). */
+  userId?: string;
 };
 
 export type ImportStorefrontTheme = "dark_commerce" | "default";
@@ -1307,7 +1310,29 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
       bundle.mirrorParts.bodyInner,
     );
     const finalized = finalizeMirrorSrcDocForImport(raw, finalUrl, affForMirror);
-    if (finalized) import_mirror_src_doc = finalized;
+    if (finalized) {
+      if (input.userId) {
+        try {
+          let pageHint = "mirror";
+          try {
+            pageHint = new URL(finalUrl).hostname.replace(/^www\./, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "mirror";
+          } catch {
+            /* keep mirror */
+          }
+          const rh = await rehostMirrorImagesToR2({
+            srcDoc: finalized,
+            userId: input.userId,
+            pageHint,
+          });
+          import_mirror_src_doc = rh.html;
+        } catch (err) {
+          console.warn("[presellImporter] rehost mirror images skipped", err);
+          import_mirror_src_doc = finalized;
+        }
+      } else {
+        import_mirror_src_doc = finalized;
+      }
+    }
   }
 
   const locale = localePack(language);

@@ -63,6 +63,7 @@ import { exportPageToHtml } from "@/page-builder/export-html";
 import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
+import { MirrorHtmlEditor } from "@/components/presell/MirrorHtmlEditor";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 import {
   PresellRastreamentoScriptCard,
@@ -291,6 +292,9 @@ export default function PresellDashboard() {
   });
 
   const [configSettings, setConfigSettings] = useState(() => ({ ...DEFAULT_PRESELL_CONFIG_SETTINGS }));
+  /** Rascunho do HTML espelhado ao editar (sincroniza com `content.importMirrorSrcDoc`). */
+  const [mirrorHtmlDraft, setMirrorHtmlDraft] = useState("");
+  const [mirrorReimportBusy, setMirrorReimportBusy] = useState(false);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -362,6 +366,7 @@ export default function PresellDashboard() {
     setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
     setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
+    setMirrorHtmlDraft("");
   };
 
   const populateFormFromPresell = (page: Presell) => {
@@ -400,7 +405,14 @@ export default function PresellDashboard() {
       customCss: String(settings.customCss ?? ""),
       countdownDurationMinutes: String(settings.countdownDurationMinutes ?? "15"),
       offerQueryForwardAllowlist: String(settings.offerQueryForwardAllowlist ?? ""),
+      enterpriseCloak: Boolean(settings.enterpriseCloak),
+      cloakSafeTitle: String(settings.cloakSafeTitle ?? ""),
+      cloakSafeBody: String(settings.cloakSafeBody ?? ""),
+      cloakGeoDeny: String(settings.cloakGeoDeny ?? ""),
     });
+    setMirrorHtmlDraft(
+      typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : "",
+    );
   };
 
   const exitCreator = () => {
@@ -584,6 +596,9 @@ export default function PresellDashboard() {
           ...prevContent,
           affiliateLink: ctaAffiliate,
           sourceUrl: prevContent.sourceUrl ?? importUrl,
+          ...(mirrorHtmlDraft.trim().length > 0
+            ? { importMirrorSrcDoc: mirrorHtmlDraft }
+            : { importMirrorSrcDoc: "" }),
         };
         await updateMutation.mutateAsync({
           id: editingId,
@@ -1167,6 +1182,45 @@ export default function PresellDashboard() {
                   : null
               }
             />
+
+            {isEditing ? (
+              <MirrorHtmlEditor
+                value={mirrorHtmlDraft}
+                onChange={setMirrorHtmlDraft}
+                reimportBusy={mirrorReimportBusy}
+                onReimport={async () => {
+                  const url = formData.productLink.trim() || formData.affiliateLink.trim();
+                  if (!/^https?:\/\//i.test(url)) {
+                    toast.error("Indique um URL https:// do produto para re-importar.");
+                    return;
+                  }
+                  setMirrorReimportBusy(true);
+                  try {
+                    const { data, error } = await presellService.importFromUrl({
+                      product_url: url,
+                      language: formData.language,
+                      affiliate_link: formData.affiliateLink.trim() || undefined,
+                    });
+                    if (error || !data) {
+                      toast.error(error || "Falha ao re-importar.");
+                      return;
+                    }
+                    const mirror =
+                      typeof data.import_mirror_src_doc === "string" ? data.import_mirror_src_doc : "";
+                    if (mirror.length < 200) {
+                      toast.warning("Re-import sem espelho fiel — HTML mantido. Verifique o URL.");
+                      return;
+                    }
+                    setMirrorHtmlDraft(mirror);
+                    toast.success("Espelho actualizado. Guarde para publicar.");
+                  } catch (e) {
+                    toastErrorFromCatch(e, "Falha ao re-importar.");
+                  } finally {
+                    setMirrorReimportBusy(false);
+                  }
+                }}
+              />
+            ) : null}
 
             <div className="space-y-2">
               <PresellAdvancedTrackingCollapsible

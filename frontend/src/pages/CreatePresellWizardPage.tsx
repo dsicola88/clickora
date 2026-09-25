@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { campaignsService, buildTrackedPresellUrl } from "@/services/campaignsService";
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
+import { trafficRotatorsService } from "@/services/trafficRotatorsService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { resolveVideoEmbedSrc, buildYoutubeEmbedUrlForPresell } from "@/lib/youtubeEmbed";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
@@ -49,9 +51,22 @@ function slugFromTitle(title: string) {
   );
 }
 
+/** Segunda variante A/B — distinta da primeira, com foco em conversão. */
+function defaultAbTypeB(typeA: string): string {
+  if (typeA === "cookies") return "desconto";
+  if (typeA === "desconto") return "cookies";
+  if (typeA === "tsl") return "review";
+  if (typeA === "review") return "tsl";
+  if (typeA === "dtc") return "tsl";
+  if (typeA === "vsl") return "vsl_tsl";
+  if (typeA === "vsl_tsl") return "vsl";
+  return "tsl";
+}
+
 /**
  * Fluxo: Oferta → Campanha → Tipo/idioma → Tracking → Publicar.
  * Tipos iguais ao formulário completo (cookies, desconto, VSL, etc.).
+ * Opcional: A/B com 2 landers + rotador 50/50.
  */
 export default function CreatePresellWizardPage() {
   const navigate = useNavigate();
@@ -65,14 +80,18 @@ export default function CreatePresellWizardPage() {
   const [country, setCountry] = useState("US");
   const [language, setLanguage] = useState<PresellLocaleKey>("pt-BR");
   const [presellType, setPresellType] = useState("cookies");
+  const [enableAbTest, setEnableAbTest] = useState(false);
+  const [abTypeB, setAbTypeB] = useState("desconto");
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
   const [minAge, setMinAge] = useState("18");
   const [manualYoutubeUrl, setManualYoutubeUrl] = useState("");
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [presellId, setPresellId] = useState<string | null>(null);
+  const [presellIdB, setPresellIdB] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
+  const [rotatorAdUrl, setRotatorAdUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish">("idle");
+  const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish" | "ab" | "rotator">("idle");
   const [mirrorFidelityOk, setMirrorFidelityOk] = useState(true);
 
   const platform = useMemo(() => detectPlatform(offerUrl), [offerUrl]);
@@ -123,98 +142,159 @@ export default function CreatePresellWizardPage() {
         affiliate_link: offer,
       });
 
-      let content: Record<string, unknown>;
-      let video_url: string | null = null;
-      let mirrorOk = false;
-      // Nome na lista de Presells = nome da campanha (não o título importado do produto).
-      const pageTitle = titleSeed.slice(0, 200);
+      const buildContent = (typeForPage: string) => {
+        let content: Record<string, unknown>;
+        let video_url: string | null = null;
+        let mirrorOk = false;
+        const pageTitle = titleSeed.slice(0, 200);
 
-      if (!imported.error && imported.data) {
-        const data = imported.data;
-        const isDiscount = isDiscountPresellType(type);
-        mirrorOk =
-          typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
-        content = {
-          title: data.title,
-          subtitle: data.subtitle,
-          salesText: data.sales_text,
-          ctaText: isDiscount ? data.official_buy_cta : data.cta_text,
-          affiliateLink: data.affiliate_link || offer,
-          productName: data.product_name,
-          productImages: data.images,
-          sourceUrl: data.source_url || productPage,
-          storefrontTheme: data.storefront_theme,
-          storefrontHeroTint: data.storefront_hero_tint,
-          /** Espelho = página clonada fiel; sem hero React extra por cima. */
-          mirrorShowSpotlight: false,
-          ...(mirrorOk ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
-          ratingValue: data.rating_value,
-          ratingStars: data.rating_stars ?? 5,
-          ...(isDiscount
-            ? {
-                discountHeadline: data.discount_headline,
-                socialProofLine: data.social_proof,
-                urgencyTimerSeconds: data.urgency_timer_seconds ?? 649,
-              }
-            : {}),
-        };
-        if (isVideoPresellType(type)) {
-          if (data.video_url) {
-            video_url = resolveVideoEmbedSrc(data.video_url) || null;
-          } else if (manualYoutubeUrl.trim()) {
+        if (!imported.error && imported.data) {
+          const data = imported.data;
+          const isDiscount = isDiscountPresellType(typeForPage);
+          mirrorOk =
+            typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
+          content = {
+            title: data.title,
+            subtitle: data.subtitle,
+            salesText: data.sales_text,
+            ctaText: isDiscount ? data.official_buy_cta : data.cta_text,
+            affiliateLink: data.affiliate_link || offer,
+            productName: data.product_name,
+            productImages: data.images,
+            sourceUrl: data.source_url || productPage,
+            storefrontTheme: data.storefront_theme,
+            storefrontHeroTint: data.storefront_hero_tint,
+            mirrorShowSpotlight: false,
+            ...(mirrorOk ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
+            ratingValue: data.rating_value,
+            ratingStars: data.rating_stars ?? 5,
+            ...(isDiscount
+              ? {
+                  discountHeadline: data.discount_headline,
+                  socialProofLine: data.social_proof,
+                  urgencyTimerSeconds: data.urgency_timer_seconds ?? 649,
+                }
+              : {}),
+          };
+          if (isVideoPresellType(typeForPage)) {
+            if (data.video_url) {
+              video_url = resolveVideoEmbedSrc(data.video_url) || null;
+            } else if (manualYoutubeUrl.trim()) {
+              const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
+              if (!embed) throw new Error("URL do YouTube inválido.");
+              video_url = embed;
+            }
+          }
+        } else {
+          content = {
+            title: titleSeed,
+            subtitle: "",
+            salesText: "Clique no botão abaixo para ver a oferta.",
+            ctaText: "Ver oferta",
+            affiliateLink: offer,
+            productName: titleSeed,
+            productImages: [],
+            sourceUrl: offer,
+          };
+          if (isVideoPresellType(typeForPage) && manualYoutubeUrl.trim()) {
             const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
-            if (!embed) throw new Error("URL do YouTube inválido.");
-            video_url = embed;
+            if (embed) video_url = embed;
           }
         }
-      } else {
-        content = {
-          title: titleSeed,
-          subtitle: "",
-          salesText: "Clique no botão abaixo para ver a oferta.",
-          ctaText: "Ver oferta",
-          affiliateLink: offer,
-          productName: titleSeed,
-          productImages: [],
-          sourceUrl: offer,
-        };
-        if (isVideoPresellType(type) && manualYoutubeUrl.trim()) {
-          const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
-          if (embed) video_url = embed;
-        }
-      }
+
+        return { content, video_url, mirrorOk, pageTitle };
+      };
 
       const settings: Record<string, unknown> = {
         cookiePolicyUrl: cookiePolicyUrl.trim() || undefined,
         minAge: minAge.trim() || "18",
       };
 
+      const a = buildContent(type);
       setGenPhase("publish");
-      /** Sem espelho fiel → rascunho (não gastar ads numa página placeholder). */
-      const publishStatus = mirrorOk ? "published" : "draft";
-      const { data, error } = await presellService.create({
-        title: pageTitle,
+      const publishStatus = a.mirrorOk ? "published" : "draft";
+      const { data: pageA, error: errA } = await presellService.create({
+        title: a.pageTitle,
         slug,
         type,
         language,
         status: publishStatus,
-        video_url,
+        video_url: a.video_url,
         tracking: {
           offerUrl: offer,
           affiliateNetwork: platform ?? undefined,
         },
-        content,
+        content: a.content,
         settings,
       } as never);
-      if (error || !data) throw new Error(error || "Falha ao criar presell");
-      return { page: data, mirrorOk };
+      if (errA || !pageA) throw new Error(errA || "Falha ao criar presell");
+
+      let pageB: typeof pageA | null = null;
+      let rotatorUrl: string | null = null;
+
+      if (enableAbTest && a.mirrorOk) {
+        setGenPhase("ab");
+        const typeB = abTypeB === type ? defaultAbTypeB(type) : abTypeB;
+        const b = buildContent(typeB);
+        const slugB = `${slugFromTitle(titleSeed)}-b-${Date.now().toString(36).slice(-4)}`;
+        const { data: createdB, error: errB } = await presellService.create({
+          title: `${a.pageTitle} (B)`,
+          slug: slugB,
+          type: typeB,
+          language,
+          status: b.mirrorOk ? "published" : "draft",
+          video_url: b.video_url,
+          tracking: {
+            offerUrl: offer,
+            affiliateNetwork: platform ?? undefined,
+          },
+          content: b.content,
+          settings,
+        } as never);
+        if (errB || !createdB) throw new Error(errB || "Falha ao criar variante B");
+        pageB = createdB;
+
+        if (b.mirrorOk) {
+          setGenPhase("rotator");
+          const urlA = getPublicPresellFullUrl(customDomains, pageA.custom_domain_id ?? null, pageA);
+          const urlB = getPublicPresellFullUrl(customDomains, pageB.custom_domain_id ?? null, pageB);
+          const rotSlug = `ab-${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-5)}`;
+          const { data: rotator, error: rotErr } = await trafficRotatorsService.create({
+            name: `A/B · ${titleSeed}`.slice(0, 120),
+            slug: rotSlug,
+            mode: "weighted",
+            context_presell_id: pageA.id,
+            is_active: true,
+            arms: [
+              {
+                destination_url: urlA,
+                label: `A · ${getPresellTypeOption(type)?.name ?? type}`,
+                order_index: 0,
+                weight: 50,
+              },
+              {
+                destination_url: urlB,
+                label: `B · ${getPresellTypeOption(typeB)?.name ?? typeB}`,
+                order_index: 1,
+                weight: 50,
+              },
+            ],
+          });
+          if (rotErr || !rotator) throw new Error(rotErr || "Falha ao criar rotador A/B");
+          rotatorUrl = rotator.public_click_url;
+        }
+      }
+
+      return { page: pageA, pageB, mirrorOk: a.mirrorOk, rotatorUrl };
     },
-    onSuccess: async ({ page, mirrorOk }) => {
+    onSuccess: async ({ page, pageB, mirrorOk, rotatorUrl }) => {
       setGenPhase("idle");
       setPresellId(page.id);
+      setPresellIdB(pageB?.id ?? null);
       setMirrorFidelityOk(mirrorOk);
       const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id ?? null, page);
       setPublicUrl(url);
+      setRotatorAdUrl(rotatorUrl);
       if (campaignId) {
         await campaignsService.update(campaignId, {
           presell_id: page.id,
@@ -223,8 +303,11 @@ export default function CreatePresellWizardPage() {
       }
       void qc.invalidateQueries({ queryKey: ["presells"] });
       void qc.invalidateQueries({ queryKey: ["campaigns"] });
+      void qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
       setStep(4);
-      if (mirrorOk) {
+      if (rotatorUrl) {
+        toast.success("A/B criado: 2 landers + rotador 50/50");
+      } else if (mirrorOk) {
         toast.success("Presell criada e publicada (espelho 1:1)");
       } else {
         toast.warning("Presell em rascunho — o espelho da página de vendas falhou. Edite antes de anunciar.");
@@ -237,16 +320,17 @@ export default function CreatePresellWizardPage() {
   });
 
   const previewUrl = publicUrl;
-  const tracked =
+  const trackedSingle =
     publicUrl && campaignName
       ? buildTrackedPresellUrl(publicUrl, campaignName, trafficSource)
       : publicUrl;
+  const tracked = rotatorAdUrl || trackedSingle;
 
   const copy = async () => {
     if (!tracked) return;
     await navigator.clipboard.writeText(tracked);
     setCopied(true);
-    toast.success("URL do anúncio copiada");
+    toast.success(rotatorAdUrl ? "URL do rotador A/B copiada" : "URL do anúncio copiada");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -263,9 +347,15 @@ export default function CreatePresellWizardPage() {
       ? "A ler a oferta…"
       : genPhase === "publish"
         ? "A publicar…"
-        : createPresell.isPending
-          ? "A gerar…"
-          : "Gerar e publicar";
+        : genPhase === "ab"
+          ? "A criar variante B…"
+          : genPhase === "rotator"
+            ? "A criar rotador A/B…"
+            : createPresell.isPending
+              ? "A gerar…"
+              : enableAbTest
+                ? "Gerar A/B e publicar"
+                : "Gerar e publicar";
 
   return (
     <div className={cn(APP_PAGE_SHELL, "max-w-2xl")}>
@@ -413,7 +503,13 @@ export default function CreatePresellWizardPage() {
 
           <div className="space-y-2">
             <Label>Tipo de presell</Label>
-            <PresellTypeCombobox value={presellType} onValueChange={setPresellType} />
+            <PresellTypeCombobox
+              value={presellType}
+              onValueChange={(v) => {
+                setPresellType(v);
+                if (enableAbTest) setAbTypeB(defaultAbTypeB(v));
+              }}
+            />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               Pesquisa por «cookie», «desconto», «VSL», «idade»… Cada tipo muda o que o visitante vê.
             </p>
@@ -421,6 +517,31 @@ export default function CreatePresellWizardPage() {
               <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
                 <p className="font-medium text-foreground/90">{typeDetail.name}</p>
                 <p className="mt-1">{typeDetail.description}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Teste A/B (2 landers + rotador)</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Cria variante B com outro tipo, mesmo espelho/hoplink, e um rotador 50/50. Use o URL do
+                  rotador no anúncio.
+                </p>
+              </div>
+              <Switch
+                checked={enableAbTest}
+                onCheckedChange={(v) => {
+                  setEnableAbTest(v);
+                  if (v) setAbTypeB(defaultAbTypeB(presellType));
+                }}
+              />
+            </div>
+            {enableAbTest ? (
+              <div className="space-y-2">
+                <Label>Tipo da variante B</Label>
+                <PresellTypeCombobox value={abTypeB} onValueChange={setAbTypeB} />
               </div>
             ) : null}
           </div>
@@ -561,8 +682,19 @@ export default function CreatePresellWizardPage() {
           </p>
           <ul className="text-sm space-y-1.5">
             <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-600" /> Tipo: {typeDetail?.name ?? presellType}
+              <Check className="h-4 w-4 text-emerald-600" /> Tipo A: {typeDetail?.name ?? presellType}
             </li>
+            {presellIdB ? (
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-emerald-600" /> Tipo B:{" "}
+                {getPresellTypeOption(abTypeB)?.name ?? abTypeB}
+              </li>
+            ) : null}
+            {rotatorAdUrl ? (
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-emerald-600" /> Rotador A/B 50/50 activo
+              </li>
+            ) : null}
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-emerald-600" /> Idioma: {language}
             </li>
@@ -580,19 +712,33 @@ export default function CreatePresellWizardPage() {
           </ul>
           {tracked && mirrorFidelityOk ? (
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">URL para o anúncio (Google Ads → URL final):</p>
-              <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Inclui <span className="font-mono">utm_campaign</span> = slug da campanha (ex.:{" "}
-                <span className="font-mono">neotonics-google-ads</span>),{" "}
-                <span className="font-mono">utm_term=&#123;keyword&#125;</span> e{" "}
-                <span className="font-mono">utm_content=&#123;adgroupid&#125;</span> — a Google só substitui no
-                clique real do anúncio. Preferir sufixo de URL? Use o{" "}
-                <Link to="/tracking/url-builder" className="text-primary underline-offset-2 hover:underline">
-                  construtor de URL
-                </Link>
-                .
+              <p className="text-xs text-muted-foreground">
+                {rotatorAdUrl
+                  ? "URL do rotador A/B (cole no anúncio — divide tráfego 50/50):"
+                  : "URL para o anúncio (Google Ads → URL final):"}
               </p>
+              <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
+              {rotatorAdUrl ? (
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Estatísticas e promoção do vencedor em{" "}
+                  <Link to="/tracking/rotadores" className="text-primary underline-offset-2 hover:underline">
+                    Rotadores
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Inclui <span className="font-mono">utm_campaign</span> = slug da campanha (ex.:{" "}
+                  <span className="font-mono">neotonics-google-ads</span>),{" "}
+                  <span className="font-mono">utm_term=&#123;keyword&#125;</span> e{" "}
+                  <span className="font-mono">utm_content=&#123;adgroupid&#125;</span> — a Google só substitui no
+                  clique real do anúncio. Preferir sufixo de URL? Use o{" "}
+                  <Link to="/tracking/url-builder" className="text-primary underline-offset-2 hover:underline">
+                    construtor de URL
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
           ) : !mirrorFidelityOk ? (
             <p className="text-sm text-muted-foreground">

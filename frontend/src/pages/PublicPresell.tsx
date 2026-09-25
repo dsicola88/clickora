@@ -29,6 +29,7 @@ import {
   getPresellGateKind,
   isDiscountPresellType,
   isGhostPresellType,
+  isMirrorChromePresellType,
   isVideoPresellType,
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
@@ -55,6 +56,7 @@ import { getPresellSeoPrimaryTitle } from "@/lib/publicPresellDocumentTitle";
 import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
 import { PresellLanguageSelector } from "@/components/presell/PresellLanguageSelector";
 import { ImportedPageMirrorIframe } from "@/components/presell/ImportedPageMirrorIframe";
+import { MirrorTypeChrome } from "@/components/presell/MirrorTypeChrome";
 import {
   darkStorefrontNavLabels,
   getPresellUiStrings,
@@ -843,6 +845,25 @@ export default function PublicPresell() {
     return <ErrorState message={msg} onRetry={isNotFound ? undefined : () => refetch()} />;
   }
 
+  if (page.cloak_safe === true) {
+    const safeContent = (page.content || {}) as Record<string, unknown>;
+    const safeTitle =
+      (typeof safeContent.title === "string" && safeContent.title.trim()) ||
+      page.title ||
+      "Informação";
+    const safeBody =
+      (typeof safeContent.salesText === "string" && safeContent.salesText.trim()) ||
+      "Conteúdo informativo.";
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <main className="mx-auto max-w-2xl px-4 py-16 sm:py-24">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{safeTitle}</h1>
+          <p className="mt-6 text-base leading-relaxed text-muted-foreground whitespace-pre-wrap">{safeBody}</p>
+        </main>
+      </div>
+    );
+  }
+
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
 
@@ -986,11 +1007,29 @@ export default function PublicPresell() {
         />
       ) : null}
 
+      {showImportedMirror && isMirrorChromePresellType(page.type) ? (
+        <MirrorTypeChrome
+          type={page.type}
+          ctaText={ctaText}
+          href={href}
+          ctaEnabled={ctaEnabled}
+          ratingValue={ratingValue}
+          ratingStars={ratingStars}
+          productLabel={productNameLabel || title}
+          videoUrl={showVideo ? page.video_url : null}
+          className={isDiscount ? "top-[5.25rem]" : undefined}
+        />
+      ) : null}
+
       {showImportedMirror && interactiveKind ? (
         <section
           className={cn(
             "sticky z-[35] w-full border-b border-border/60 bg-muted/95 px-3 py-5 sm:px-4 backdrop-blur-md shadow-[0_1px_0_rgba(0,0,0,0.05)]",
-            isDiscount ? "top-[5.25rem]" : "top-0",
+            isDiscount && isMirrorChromePresellType(page.type)
+              ? "top-[9.5rem]"
+              : isDiscount || isMirrorChromePresellType(page.type)
+                ? "top-[5.25rem]"
+                : "top-0",
             isVslLayout &&
               "border-white/10 bg-slate-900/95 text-slate-100 shadow-[0_1px_0_rgba(255,255,255,0.06)] [&_label]:text-slate-100 [&_p]:text-slate-200",
           )}

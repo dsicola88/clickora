@@ -238,6 +238,64 @@ export function PresellAdvancedTrackingCollapsible({
               />
             </div>
 
+            <div
+              className={cn(
+                "space-y-4 rounded-xl border px-3 py-3",
+                isEditor ? "border-editor-border bg-editor-panel-2/60" : "border-border/60 bg-muted/20",
+              )}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
+                    Cloaking enterprise (lite)
+                  </p>
+                  <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                    Bots e países bloqueados vêem página segura — sem espelho nem hoplink. Humanos vêem a
+                    presell completa. Não é invisível a revisores humanos.
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean(configSettings.enterpriseCloak)}
+                  onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, enterpriseCloak: v }))}
+                />
+              </div>
+              {configSettings.enterpriseCloak ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Título da página segura</Label>
+                    <Input
+                      placeholder="Informação"
+                      value={String(configSettings.cloakSafeTitle ?? "")}
+                      onChange={(e) => setConfigSettings((p) => ({ ...p, cloakSafeTitle: e.target.value }))}
+                      className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Texto da página segura</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="Conteúdo informativo…"
+                      value={String(configSettings.cloakSafeBody ?? "")}
+                      onChange={(e) => setConfigSettings((p) => ({ ...p, cloakSafeBody: e.target.value }))}
+                      className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Países bloqueados (ISO)</Label>
+                    <Input
+                      placeholder="CN, RU"
+                      value={String(configSettings.cloakGeoDeny ?? "")}
+                      onChange={(e) => setConfigSettings((p) => ({ ...p, cloakGeoDeny: e.target.value }))}
+                      className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                    />
+                    <p className={cn("text-[10px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                      Códigos de 2 letras separados por vírgula. Esses países recebem a página segura.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div className={cn("space-y-4 border-t pt-6", isEditor ? "border-editor-border" : "border-border/50")}>
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>

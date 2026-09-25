@@ -7,10 +7,21 @@
  * | desconto    | Faixa de urgência + modal de desconto sobre o conteúdo. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
  * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |
- * | tsl, dtc, review | Layout padrão (hero claro) com texto e imagens importados; com espelho importado, o iframe substitui esse bloco mantendo overlays e gates. |
+ * | tsl, dtc, review | Sem espelho: layout React (hero/texto). Com espelho: iframe 1:1 + chrome fino do tipo (selo + CTA); overlays/gates mantêm-se. |
  * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação antes do CTA; com espelho HTML o formulário fica fixo no topo e os cliques no clone ficam bloqueados até validar. |
  * | builder     | Editor visual; se existir espelho importado (`importMirrorSrcDoc`), usa-se o espelho com as regras abaixo. |
  */
+
+/** Tipos que mostram chrome diferenciador quando o espelho HTML está activo. */
+export function isMirrorChromePresellType(presellType: string): boolean {
+  return (
+    presellType === "tsl" ||
+    presellType === "dtc" ||
+    presellType === "review" ||
+    presellType === "vsl" ||
+    presellType === "vsl_tsl"
+  );
+}
 export type PresellGateKind =
   | "none"
   | "cookies"
