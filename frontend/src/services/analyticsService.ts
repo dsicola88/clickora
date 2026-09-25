@@ -407,6 +407,30 @@ export const analyticsService = {
       } | null;
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
+      country_performance?: Array<{
+        country: string;
+        clicks: number;
+        sales: number;
+        revenue: number;
+        epc: number | null;
+        cvr: number | null;
+      }>;
+      device_performance?: Array<{
+        device: string;
+        clicks: number;
+        sales: number;
+        revenue: number;
+        epc: number | null;
+        cvr: number | null;
+      }>;
+      source_performance?: Array<{
+        source: string;
+        clicks: number;
+        sales: number;
+        revenue: number;
+        epc: number | null;
+        cvr: number | null;
+      }>;
       keyword_performance?: Array<{
         keyword: string;
         clicks: number;

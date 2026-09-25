@@ -231,3 +231,127 @@ export function ProAlert({
     </div>
   );
 }
+
+/** Abas de dimensão estilo tracker (Campanhas / Keywords / País…). */
+export function ProDimTabs({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: Array<{ id: string; label: string; count?: number }>;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-0.5 border-b border-border/70 pb-0">
+      {tabs.map((t) => {
+        const active = t.id === value;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "relative px-3 py-2 text-xs font-medium transition-colors",
+              active
+                ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+            {t.count != null ? (
+              <span className="ml-1.5 tabular-nums text-[10px] text-muted-foreground">{t.count}</span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Célula numérica densa (grelha estilo Voluum). */
+export function ProReportTd({
+  children,
+  align = "right",
+  tone,
+  className,
+}: {
+  children: ReactNode;
+  align?: "left" | "right";
+  tone?: "positive" | "negative" | "muted";
+  className?: string;
+}) {
+  return (
+    <td
+      className={cn(
+        "border-b border-border/30 px-2.5 py-1.5 text-[12px] leading-tight align-middle whitespace-nowrap",
+        align === "right" && "text-right tabular-nums",
+        align === "left" && "text-left",
+        tone === "positive" && "text-emerald-600 dark:text-emerald-400 font-medium",
+        tone === "negative" && "text-destructive font-medium",
+        tone === "muted" && "text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </td>
+  );
+}
+
+export function ProReportTh({
+  children,
+  align = "right",
+  className,
+}: {
+  children: ReactNode;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  return (
+    <th
+      className={cn(
+        "sticky top-0 z-10 border-b border-border/70 bg-muted/80 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground backdrop-blur",
+        align === "right" && "text-right",
+        align === "left" && "text-left",
+        className,
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
+/** Footer escuro de totais — âncora visual do tracker. */
+export function ProTotalsBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-b-lg border-t border-border/60 bg-zinc-900 px-3 py-2 text-[11px] text-zinc-100 dark:bg-zinc-950">
+      <span className="font-semibold uppercase tracking-wide text-zinc-400 text-[10px]">Total</span>
+      {children}
+    </div>
+  );
+}
+
+export function ProTotalStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "positive" | "negative";
+}) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5 tabular-nums">
+      <span className="text-zinc-500 text-[10px] uppercase">{label}</span>
+      <span
+        className={cn(
+          "font-semibold",
+          tone === "positive" && "text-emerald-400",
+          tone === "negative" && "text-red-400",
+        )}
+      >
+        {value}
+      </span>
+    </span>
+  );
+}

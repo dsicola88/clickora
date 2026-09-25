@@ -679,7 +679,8 @@ export const analyticsController = {
     }
 
     try {
-    const [aggRow, linkedRow, platformDistRow, chartRows, geoRows, keywordPerfRows] = await Promise.all([
+    const [aggRow, linkedRow, platformDistRow, chartRows, countryPerfRows, devicePerfRows, sourcePerfRows, keywordPerfRows] =
+      await Promise.all([
       // Uma passagem na tabela: contagens + receita em metadata (evita findMany gigante + 502 no proxy).
       systemPrisma.$queryRaw<
         Array<{
@@ -758,19 +759,78 @@ export const analyticsController = {
         GROUP BY 1, 2
         ORDER BY 1 ASC
       `),
-      systemPrisma.$queryRaw<Array<{ country: string | null; ct: bigint }>>(Prisma.sql`
-        SELECT country,
-               COUNT(*)::bigint AS ct
-        FROM tracking_events
-        WHERE user_id = ${userId}
-          AND created_at >= ${rangeStart}
-          AND created_at <= ${rangeEnd}
-          AND event_type::text = 'click'
-          AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
-              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
-        GROUP BY country
-        ORDER BY ct DESC
-        LIMIT 25
+      systemPrisma.$queryRaw<
+        Array<{ country: string; clicks: bigint; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(UPPER(TRIM(te.country)), ''), '(sem país)') AS country,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1
+        ORDER BY revenue DESC, sales DESC, clicks DESC
+        LIMIT 50
+      `),
+      systemPrisma.$queryRaw<
+        Array<{ device: string; clicks: bigint; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(LOWER(TRIM(te.device)), ''), '(desconhecido)') AS device,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1
+        ORDER BY revenue DESC, sales DESC, clicks DESC
+        LIMIT 20
+      `),
+      systemPrisma.$queryRaw<
+        Array<{ source: string; clicks: bigint; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(TRIM(te.metadata->>'utm_source'), ''),
+            NULLIF(TRIM(te.source), ''),
+            '(sem fonte)'
+          ) AS source,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1
+        ORDER BY revenue DESC, sales DESC, clicks DESC
+        LIMIT 40
       `),
       systemPrisma.$queryRaw<
         Array<{ keyword: string; clicks: bigint; sales: bigint; revenue: unknown }>
@@ -912,12 +972,55 @@ export const analyticsController = {
       }
     }
 
-    const clicks_by_country = geoRows.map((row) => {
+    const country_performance = countryPerfRows.map((row) => {
+      const clicksD = Number(row.clicks);
+      const salesD = Number(row.sales);
+      const revD = Number(row.revenue ?? 0);
+      return {
+        country: row.country,
+        clicks: clicksD,
+        sales: salesD,
+        revenue: Math.round(revD * 100) / 100,
+        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
+        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+      };
+    });
+
+    const device_performance = devicePerfRows.map((row) => {
+      const clicksD = Number(row.clicks);
+      const salesD = Number(row.sales);
+      const revD = Number(row.revenue ?? 0);
+      return {
+        device: row.device,
+        clicks: clicksD,
+        sales: salesD,
+        revenue: Math.round(revD * 100) / 100,
+        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
+        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+      };
+    });
+
+    const source_performance = sourcePerfRows.map((row) => {
+      const clicksD = Number(row.clicks);
+      const salesD = Number(row.sales);
+      const revD = Number(row.revenue ?? 0);
+      return {
+        source: row.source,
+        clicks: clicksD,
+        sales: salesD,
+        revenue: Math.round(revD * 100) / 100,
+        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
+        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+      };
+    });
+
+    /** Compat: mapa simples de cliques por país (UI antiga / Home). */
+    const clicks_by_country = country_performance.map((row) => {
       const raw = row.country?.trim();
-      if (!raw) return { country_code: null as string | null, clicks: Number(row.ct) };
+      if (!raw || raw === "(sem país)") return { country_code: null as string | null, clicks: row.clicks };
       const u = raw.toUpperCase();
       const country_code = u.length === 2 && /^[A-Z]{2}$/.test(u) ? u : null;
-      return { country_code, clicks: Number(row.ct) };
+      return { country_code, clicks: row.clicks };
     });
 
     const keyword_performance = keywordPerfRows.map((row) => {
@@ -1343,6 +1446,9 @@ export const analyticsController = {
       google_ads_metrics,
       google_ads_metrics_error,
       clicks_by_country,
+      country_performance,
+      device_performance,
+      source_performance,
       keyword_performance,
       ad_group_performance,
       click_quota,
