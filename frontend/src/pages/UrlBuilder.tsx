@@ -110,7 +110,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
     { key: "utm_source", value: "google" },
     { key: "utm_medium", value: "cpc" },
     { key: "utm_campaign", value: "{campaignid}" },
-    { key: "utm_content", value: "{creative}" },
+    { key: "utm_content", value: "{adgroupid}" },
     { key: "utm_term", value: "{keyword}" },
     { key: "sub1", value: "{matchtype}" },
     { key: "sub2", value: "{device}" },

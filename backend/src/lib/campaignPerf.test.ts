@@ -8,6 +8,7 @@ import {
 
 test("campaignUtmSlug normaliza acentos e espaços", () => {
   assert.equal(campaignUtmSlug("Oferta Verão PT"), "oferta-verao-pt");
+  assert.equal(campaignUtmSlug("Neotonics Google Ads"), "neotonics-google-ads");
 });
 
 test("computePerf calcula ROAS, CPA, EPC e lucro", () => {

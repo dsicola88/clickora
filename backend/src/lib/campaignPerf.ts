@@ -67,26 +67,34 @@ export async function loadCampaignPerf(args: {
     WHERE user_id = ${args.userId}
       AND event_type::text = 'click'
       AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+      AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
       ${fromSql}
       ${toSql}
       AND (
         LOWER(TRIM(COALESCE(campaign, ''))) = LOWER(${name})
+        OR LOWER(TRIM(COALESCE(campaign, ''))) = LOWER(${slug})
         OR LOWER(TRIM(COALESCE(metadata->>'utm_campaign', ''))) = LOWER(${slug})
         OR LOWER(TRIM(COALESCE(metadata->>'utm_campaign', ''))) = LOWER(${name})
       )
   `);
 
   const [convRow] = await systemPrisma.$queryRaw<Array<{ cnt: bigint; rev: unknown }>>(Prisma.sql`
-    SELECT COUNT(*)::bigint AS cnt, COALESCE(SUM(amount), 0) AS rev
-    FROM conversions
-    WHERE user_id = ${args.userId}
-      AND status = 'approved'
-      ${fromSql}
-      ${toSql}
+    SELECT COUNT(*)::bigint AS cnt, COALESCE(SUM(c.amount), 0) AS rev
+    FROM conversions c
+    LEFT JOIN tracking_events te ON te.id = c.click_id AND te.user_id = c.user_id
+    WHERE c.user_id = ${args.userId}
+      AND c.status = 'approved'
+      ${args.from ? Prisma.sql`AND c.created_at >= ${args.from}` : Prisma.empty}
+      ${args.to ? Prisma.sql`AND c.created_at <= ${args.to}` : Prisma.empty}
       AND (
-        LOWER(TRIM(COALESCE(campaign, ''))) = LOWER(${name})
-        OR LOWER(TRIM(COALESCE(metadata->>'utm_campaign', ''))) = LOWER(${slug})
-        OR LOWER(TRIM(COALESCE(metadata->>'utm_campaign', ''))) = LOWER(${name})
+        LOWER(TRIM(COALESCE(c.campaign, ''))) = LOWER(${name})
+        OR LOWER(TRIM(COALESCE(c.campaign, ''))) = LOWER(${slug})
+        OR LOWER(TRIM(COALESCE(c.metadata->>'utm_campaign', ''))) = LOWER(${slug})
+        OR LOWER(TRIM(COALESCE(c.metadata->>'utm_campaign', ''))) = LOWER(${name})
+        OR LOWER(TRIM(COALESCE(te.campaign, ''))) = LOWER(${slug})
+        OR LOWER(TRIM(COALESCE(te.campaign, ''))) = LOWER(${name})
+        OR LOWER(TRIM(COALESCE(te.metadata->>'utm_campaign', ''))) = LOWER(${slug})
+        OR LOWER(TRIM(COALESCE(te.metadata->>'utm_campaign', ''))) = LOWER(${name})
       )
   `);
 

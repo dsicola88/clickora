@@ -572,25 +572,32 @@ export default function CreatePresellWizardPage() {
               ) : (
                 <span className="h-2 w-2 rounded-full bg-amber-500 mx-1" aria-hidden />
               )}
-              Tracking no clique activo
+              {mirrorFidelityOk
+                ? "Publicada · tracking no clique activo"
+                : "Rascunho · publique em Presells para o link público e o tracking funcionarem"}
               {presellId ? ` · ${presellId.slice(0, 8)}…` : ""}
-              {!mirrorFidelityOk ? " · rascunho" : ""}
             </li>
           </ul>
-          {tracked ? (
+          {tracked && mirrorFidelityOk ? (
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">URL para o anúncio (Google Ads → URL final):</p>
               <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Inclui <span className="font-mono">utm_campaign</span> (nome da campanha) e, no Google,{" "}
-                <span className="font-mono">utm_term={"{keyword}"}</span> — a Google só substitui no clique real do
-                anúncio. Preferir sufixo de URL? Use o{" "}
+                Inclui <span className="font-mono">utm_campaign</span> = slug da campanha (ex.:{" "}
+                <span className="font-mono">neotonics-google-ads</span>),{" "}
+                <span className="font-mono">utm_term=&#123;keyword&#125;</span> e{" "}
+                <span className="font-mono">utm_content=&#123;adgroupid&#125;</span> — a Google só substitui no
+                clique real do anúncio. Preferir sufixo de URL? Use o{" "}
                 <Link to="/tracking/url-builder" className="text-primary underline-offset-2 hover:underline">
                   construtor de URL
                 </Link>
                 .
               </p>
             </div>
+          ) : !mirrorFidelityOk ? (
+            <p className="text-sm text-muted-foreground">
+              Publique a presell com espelho fiel antes de copiar o URL do anúncio.
+            </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button className="gap-2" onClick={() => void copy()} disabled={!tracked || !mirrorFidelityOk}>

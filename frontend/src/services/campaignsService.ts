@@ -106,7 +106,8 @@ export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: str
       overrides.utm_term = "{keyword}";
     }
     if (isGoogle && !u.searchParams.has("utm_content")) {
-      overrides.utm_content = "{creative}";
+      /** ValueTrack: ID do ad group — alinha com costSync entityKey. */
+      overrides.utm_content = "{adgroupid}";
     }
     if (isGoogle && !u.searchParams.has("gclid")) {
       overrides.gclid = "{gclid}";

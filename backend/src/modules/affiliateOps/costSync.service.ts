@@ -143,6 +143,7 @@ async function syncGoogleForUser(
     SELECT
       segments.date,
       campaign.name,
+      ad_group.id,
       ad_group.name,
       ad_group_criterion.keyword.text,
       metrics.cost_micros,
@@ -156,14 +157,16 @@ async function syncGoogleForUser(
   try {
     const kwRows = (await customer.query(kwGaql)) as Array<Record<string, unknown>>;
     /** Agregar por dia+nível antes de upsert (várias keywords no mesmo ad group). */
-    type Agg = { label: string; cost: number; clicks: number; impressions: number };
+    type Agg = { label: string; cost: number; clicks: number; impressions: number; agId?: string };
     const byKw = new Map<string, Agg & { date: Date }>();
     const byAg = new Map<string, Agg & { date: Date }>();
     for (const row of Array.isArray(kwRows) ? kwRows : []) {
       const seg = row.segments as { date?: string } | undefined;
       const m = row.metrics as { cost_micros?: unknown; clicks?: unknown; impressions?: unknown } | undefined;
       const camp = (row.campaign as { name?: string } | undefined)?.name ?? "";
-      const ag = (row.ad_group as { name?: string } | undefined)?.name ?? "";
+      const agObj = row.ad_group as { name?: string; id?: string | number } | undefined;
+      const ag = agObj?.name ?? "";
+      const agId = agObj?.id != null ? String(agObj.id) : "";
       const kw =
         (row.ad_group_criterion as { keyword?: { text?: string } } | undefined)?.keyword?.text ?? "";
       if (!seg?.date) continue;
@@ -179,9 +182,17 @@ async function syncGoogleForUser(
         cur.impressions += impressions;
         byKw.set(k, cur);
       }
-      if (ag.trim() || camp.trim()) {
-        const k = `${seg.date}\t${camp}\t${ag}`.toLowerCase();
-        const cur = byAg.get(k) || { date, label: ag || camp, cost: 0, clicks: 0, impressions: 0 };
+      if (ag.trim() || camp.trim() || agId) {
+        const k = `${seg.date}\t${agId || `${camp}\t${ag}`}`.toLowerCase();
+        const cur =
+          byAg.get(k) || {
+            date,
+            label: ag || camp || agId,
+            agId: agId || undefined,
+            cost: 0,
+            clicks: 0,
+            impressions: 0,
+          };
         cur.cost += cost;
         cur.clicks += clicks;
         cur.impressions += impressions;
@@ -204,12 +215,13 @@ async function syncGoogleForUser(
       rows += 1;
     }
     for (const [, v] of byAg) {
+      const key = (v.agId || v.label).toLowerCase();
       await upsertCostRow({
         userId: user.id,
         platform: "google_ads",
         date: v.date,
         level: "ad_group",
-        entityKey: v.label.toLowerCase(),
+        entityKey: key,
         label: v.label,
         costMicros: BigInt(Math.round(v.cost)),
         clicks: v.clicks,
@@ -409,8 +421,13 @@ export async function sumPersistedAdGroupCosts(input: {
   });
   const map = new Map<string, number>();
   for (const r of rows) {
-    const k = (r.label || r.entityKey).toLowerCase();
-    map.set(k, (map.get(k) || 0) + Number(r.costMicros) / 1_000_000);
+    const euros = Number(r.costMicros) / 1_000_000;
+    const keys = new Set(
+      [r.entityKey, r.label].filter((x): x is string => Boolean(x && String(x).trim())).map((x) => x.toLowerCase()),
+    );
+    for (const k of keys) {
+      map.set(k, (map.get(k) || 0) + euros);
+    }
   }
   return map;
 }

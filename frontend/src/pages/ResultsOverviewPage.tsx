@@ -214,10 +214,9 @@ export default function ResultsOverviewPage() {
           <div className="mb-4">
             <h2 className="text-sm font-semibold text-foreground">Grupos de anúncios (P&amp;L)</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Receita por <code className="text-[10px] bg-muted px-1 rounded">utm_content</code> + custo Google
-              (ad group). No anúncio: macro{" "}
-              <code className="text-[10px] bg-muted px-1 rounded">utm_content=&#123;creative&#125;</code> ou o
-              nome do grupo em texto — macros literais não aparecem como linha.
+              Receita por <code className="text-[10px] bg-muted px-1 rounded">utm_content</code> (
+              <code className="text-[10px] bg-muted px-1 rounded">&#123;adgroupid&#125;</code>) + custo Google
+              (ad group). Macros literais não aparecem como linha.
             </p>
           </div>
           <div className="overflow-x-auto">

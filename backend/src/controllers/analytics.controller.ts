@@ -204,8 +204,11 @@ export const analyticsController = {
 
     const where: Prisma.TrackingEventWhereInput = {
       userId,
-      /** Alinhado ao dashboard: bots não entram em cliques/impressões. */
-      NOT: { metadata: { path: ["is_bot"], equals: true } },
+      /** Alinhado ao dashboard: bots / exclude_from_kpi não entram em cliques/impressões. */
+      AND: [
+        { NOT: { metadata: { path: ["is_bot"], equals: true } } },
+        { NOT: { metadata: { path: ["exclude_from_kpi"], equals: true } } },
+      ],
     };
     if (presell_id && typeof presell_id === "string") where.presellPageId = presell_id;
     if (from || to) {
@@ -294,10 +297,12 @@ export const analyticsController = {
   },
 
   async getEvents(req: Request, res: Response) {
-    const { event_type, presell_id, limit, from, to, format, cursor } = req.query;
+    const { event_type, presell_id, limit, from, to, format, cursor, include_bots } = req.query;
     const userId = billingUserId(req);
     const formatStr = typeof format === "string" ? format.toLowerCase() : "";
     const wantCsv = formatStr === "csv" || formatStr === "text/csv";
+    const includeBots =
+      include_bots === "1" || include_bots === "true" || include_bots === "yes";
 
     const where: Prisma.TrackingEventWhereInput = { userId };
     if (event_type && typeof event_type === "string") where.eventType = event_type as EventType;
@@ -315,6 +320,14 @@ export const analyticsController = {
         if (!Number.isNaN(d.getTime())) where.createdAt.lte = d;
       }
     }
+    /** Default alinhado ao dashboard: sem bots / sem exclude_from_kpi. */
+    if (!includeBots) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { NOT: { metadata: { path: ["is_bot"], equals: true } } },
+        { NOT: { metadata: { path: ["exclude_from_kpi"], equals: true } } },
+      ];
+    }
 
     if (wantCsv) {
       const decoded = typeof cursor === "string" ? decodeTimeIdCursor(cursor) : null;
@@ -322,7 +335,10 @@ export const analyticsController = {
         return res.status(400).json({ error: "cursor inválido" });
       }
       if (decoded) {
-        where.AND = [whereOlderThanTimeIdCursor(decoded)];
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          whereOlderThanTimeIdCursor(decoded),
+        ];
       }
 
       const pageSize = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
@@ -676,20 +692,24 @@ export const analyticsController = {
           COUNT(*) FILTER (
             WHERE event_type::text = 'click'
               AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
           ) AS clicks,
           COUNT(*) FILTER (
             WHERE event_type::text = 'impression'
               AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
           ) AS impressions,
           COUNT(*) FILTER (
             WHERE event_type::text IN ('conversion', 'sale')
               AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
           ) AS tracking_conversions,
           COALESCE(
             SUM(
               CASE
                 WHEN event_type::text IN ('conversion', 'sale')
                   AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
                   AND (metadata->>'value') IS NOT NULL
                   AND TRIM(metadata->>'value') ~ '^-?[0-9]+(\\.[0-9]*)?$'
                 THEN (metadata->>'value')::double precision
@@ -733,6 +753,7 @@ export const analyticsController = {
           AND created_at <= ${rangeEnd}
           AND event_type::text IN ('click', 'impression')
           AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
         GROUP BY 1, 2
         ORDER BY 1 ASC
       `),
@@ -745,6 +766,7 @@ export const analyticsController = {
           AND created_at <= ${rangeEnd}
           AND event_type::text = 'click'
           AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
         GROUP BY country
         ORDER BY ct DESC
         LIMIT 25
@@ -778,6 +800,7 @@ export const analyticsController = {
           AND te.created_at <= ${rangeEnd}
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
         GROUP BY 1
         ORDER BY revenue DESC, sales DESC, clicks DESC
         LIMIT 40
@@ -999,6 +1022,7 @@ export const analyticsController = {
           AND te.created_at <= ${rangeEnd}
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
         GROUP BY 1
         ORDER BY revenue DESC
         LIMIT 40
@@ -1051,6 +1075,7 @@ export const analyticsController = {
             AND event_type::text = 'click'
             AND created_at >= ${startOfMonth}
             AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
         `),
         systemPrisma.subscription.findUnique({
           where: { userId },
@@ -1183,6 +1208,7 @@ export const analyticsController = {
           AND created_at <= ${rangeEnd}
           AND event_type::text = 'click'
           AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
           AND (
             TRIM(COALESCE(metadata->>'utm_term', '')) ~ '^\{[a-zA-Z0-9_.]+\}$'
             OR TRIM(COALESCE(metadata->>'utm_content', '')) ~ '^\{[a-zA-Z0-9_.]+\}$'

@@ -233,9 +233,19 @@ export const trackController = {
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
-    if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    if (page.status !== "published") {
+      /** Visitante de anúncio não pode ver JSON 403 — entrega a oferta sem atribuir. */
+      console.warn("[track.redirect] presell não publicada → oferta sem click id", {
+        presellId,
+        status: page.status,
+      });
+      return res.redirect(302, to);
+    }
     const accessCheck = await validateOwnerCanTrack(page.userId);
-    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+    if (!accessCheck.ok) {
+      console.warn("[track.redirect] owner sem acesso → oferta sem click id", { presellId });
+      return res.redirect(302, to);
+    }
 
     const ip = extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
@@ -250,10 +260,10 @@ export const trackController = {
     });
     /**
      * Soft-pass no redirect: nunca devolver JSON ao visitante do anúncio.
-     * Blacklist → oferta sem atribuição. Rate/bot/proxy → clique com flag (KPIs filtram bots).
+     * Blacklist / bot → oferta sem atribuição. Rate/proxy → clique com exclude_from_kpi quando aplicável.
      */
-    if (!guard.ok && guard.reason === "blacklist") {
-      console.warn("[track.redirect] soft-pass blacklist → oferta sem click id", { presellId, ip });
+    if (!guard.ok && (guard.reason === "blacklist" || guard.reason === "bot_blocked" || guard.reason === "empty_user_agent")) {
+      console.warn("[track.redirect] soft-pass sem atribuição", { presellId, reason: guard.reason, ip });
       return res.redirect(302, to);
     }
     const guardSoftMeta =
@@ -261,14 +271,20 @@ export const trackController = {
         ? ({
             guard_soft_pass: true,
             guard_reason: guard.reason,
-            ...(guard.reason === "bot_blocked" || guard.reason === "empty_user_agent"
-              ? { is_bot: true, bot_label: guard.reason }
+            ...(guard.reason === "proxy_blocked" ||
+            guard.reason === "whitelist" ||
+            guard.reason === "auto_blacklist_clicks"
+              ? { exclude_from_kpi: true, ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}) }
               : {}),
-            ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}),
           } as Record<string, unknown>)
         : {};
 
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
+    /** Clique marcado bot pelo UA → não atribuir (mesmo soft-pass de guard). */
+    if (botMeta.is_bot === true) {
+      console.warn("[track.redirect] UA bot → oferta sem click id", { presellId, ip });
+      return res.redirect(302, to);
+    }
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -294,6 +310,7 @@ export const trackController = {
             msclkid,
             utm_term,
             utm_content,
+            utm_campaign: campaign || undefined,
             utm_source: utm_source ?? source,
             source,
             medium,
@@ -309,10 +326,12 @@ export const trackController = {
           } as Prisma.InputJsonValue,
         },
       });
-      await tx.presellPage.update({
-        where: { id: page.id },
-        data: { clicks: { increment: 1 } },
-      });
+      if (!(guardSoftMeta as { exclude_from_kpi?: boolean }).exclude_from_kpi) {
+        await tx.presellPage.update({
+          where: { id: page.id },
+          data: { clicks: { increment: 1 } },
+        });
+      }
       return ev;
     });
 
@@ -408,24 +427,6 @@ export const trackController = {
       channel: "rotator_redirect",
       recordedEventType: "click",
     });
-    if (!guard.ok && guard.reason === "blacklist") {
-      const countryEarly = countryIsoFromIp(ip) ?? null;
-      const pickEarly = await pickRotatorDestination(rotatorId, { country: countryEarly, device: "desktop" });
-      if (pickEarly.ok) return res.redirect(302, pickEarly.destinationUrl);
-      return res.redirect(302, "https://www.google.com");
-    }
-    const rotGuardSoft =
-      !guard.ok
-        ? ({
-            guard_soft_pass: true,
-            guard_reason: guard.reason,
-            ...(guard.reason === "bot_blocked" || guard.reason === "empty_user_agent"
-              ? { is_bot: true, bot_label: guard.reason }
-              : {}),
-            ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}),
-          } as Record<string, unknown>)
-        : {};
-
     const country = countryIsoFromIp(ip) ?? null;
     const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
     const pick = await pickRotatorDestination(rotatorId, { country, device });
@@ -444,8 +445,30 @@ export const trackController = {
         code: pick.reason,
       });
     }
-
     const finalUrl = pick.destinationUrl;
+
+    if (
+      !guard.ok &&
+      (guard.reason === "blacklist" || guard.reason === "bot_blocked" || guard.reason === "empty_user_agent")
+    ) {
+      console.warn("[track.rotator] soft-pass sem atribuição", { rotatorId, reason: guard.reason });
+      return res.redirect(302, finalUrl);
+    }
+    if (rotBotMeta.is_bot === true) {
+      return res.redirect(302, finalUrl);
+    }
+    const rotGuardSoft =
+      !guard.ok
+        ? ({
+            guard_soft_pass: true,
+            guard_reason: guard.reason,
+            ...(guard.reason === "proxy_blocked" ||
+            guard.reason === "whitelist" ||
+            guard.reason === "auto_blacklist_clicks"
+              ? { exclude_from_kpi: true, ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}) }
+              : {}),
+          } as Record<string, unknown>)
+        : {};
 
     const armIdForMeta = pick.usedBackup || pick.viaPolicyRedirect ? null : pick.armId;
 
@@ -472,6 +495,7 @@ export const trackController = {
           msclkid,
           utm_term,
           utm_content,
+          utm_campaign: campaign || undefined,
           utm_source: utm_source ?? source,
           source,
           medium,
