@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
-import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { getApiBaseUrl, getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { useAuth } from "@/contexts/AuthContext";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
@@ -62,6 +62,7 @@ export default function Links() {
   });
 
   const apiBase = useMemo(() => getApiBaseUrl(), []);
+  const trackApiBase = useMemo(() => getTrackApiBaseUrl(), []);
   const publishedPresells = presells.filter((p) => p.status === "published");
 
   const handleCopy = (url: string, id: string) => {
@@ -92,7 +93,7 @@ export default function Links() {
     if (sub1.trim()) query.set("sub1", sub1.trim());
     if (sub2.trim()) query.set("sub2", sub2.trim());
     if (sub3.trim()) query.set("sub3", sub3.trim());
-    const trackingUrl = `${apiBase}/track/r/${selectedPresellId}?${query.toString()}`;
+    const trackingUrl = `${trackApiBase.replace(/\/$/, "")}/track/r/${selectedPresellId}?${query.toString()}`;
 
     const newLink: TrackingLink = {
       id: Date.now().toString(),

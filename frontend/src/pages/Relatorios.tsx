@@ -416,7 +416,9 @@ export default function Relatorios() {
         utm_content: utmCont?.trim() || "—",
         contentMacro: Boolean(e.utm_content_macro),
         lastAccess: dt,
-        device: e.device || "—",
+        device: e.device_label || e.device || "—",
+        browser: e.browser || "—",
+        os: e.os || "—",
         origin: originFromEvent(e),
         type: paidLabel(e),
         country: e.country || "—",
@@ -450,7 +452,9 @@ export default function Relatorios() {
         utm_content: utmCont?.trim() || "—",
         contentMacro: Boolean(e.utm_content_macro),
         lastAccess: dt,
-        device: e.device || "—",
+        device: e.device_label || e.device || "—",
+        browser: e.browser || "—",
+        os: e.os || "—",
         origin: originFromEvent(e),
         type: paidLabel(e),
         country: e.country || "—",
@@ -891,7 +895,7 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="SO · browser (User-Agent)">
                           Dispositivo
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
@@ -1089,7 +1093,7 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="SO · browser (User-Agent)">
                           Dispositivo
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">

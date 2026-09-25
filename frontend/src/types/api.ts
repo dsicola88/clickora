@@ -148,6 +148,10 @@ export interface TrackingEvent {
   /** IP do cliente no evento (painel autenticado). */
   ip_address?: string | null;
   device?: string;
+  /** Ex.: Mac OS X · Firefox (como BuyGoods). */
+  device_label?: string | null;
+  browser?: string | null;
+  os?: string | null;
   created_at: string;
   metadata?: Record<string, unknown>;
   utm_source?: string | null;

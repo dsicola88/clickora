@@ -34,7 +34,7 @@ import {
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { PublicBuilderPresellView } from "@/components/presell/PublicBuilderPresellView";
-import { getApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
+import { getTrackApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
 import {
   getPublicPresellPrefetchResult,
   startPublicPresellPrefetchForParam,
@@ -622,7 +622,7 @@ export default function PublicPresell() {
   }, [page]);
 
   const search = useMemo(() => new URLSearchParams(window.location.search), []);
-  const apiBase = useMemo(() => getApiBaseUrl(), []);
+  const apiBase = useMemo(() => getTrackApiBaseUrl(), []);
 
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
   const [cookieDismissed, setCookieDismissed] = useState(false);

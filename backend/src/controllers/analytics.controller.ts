@@ -18,6 +18,7 @@ import {
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
+import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { sendCsvDownload } from "../lib/csvExport";
 import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
@@ -63,6 +64,7 @@ function mapTrackingEventForApi(e: {
   country: string | null;
   ipAddress: string | null;
   device: string | null;
+  userAgent?: string | null;
   createdAt: Date;
   metadata: Prisma.JsonValue;
 }) {
@@ -93,6 +95,17 @@ function mapTrackingEventForApi(e: {
     fbclid,
     ttclid,
   });
+  const uaParsed = parseUserAgent(e.userAgent);
+  const metaBrowser = typeof metadata.browser === "string" ? metadata.browser : null;
+  const metaOs = typeof metadata.os === "string" ? metadata.os : null;
+  const metaDeviceLabel = typeof metadata.device_label === "string" ? metadata.device_label : null;
+  const browser = metaBrowser || uaParsed.browser;
+  const os = metaOs || uaParsed.os;
+  const device_label =
+    metaDeviceLabel ||
+    formatDeviceLabel({ device: e.device || uaParsed.device, browser, os }) ||
+    e.device ||
+    null;
   return {
     id: e.id,
     presell_id: e.presellPageId,
@@ -102,15 +115,16 @@ function mapTrackingEventForApi(e: {
     campaign: e.campaign,
     referrer: e.referrer,
     country,
-    /** Região GeoIP (código MaxMind, ex. CA) quando o IP resolve. */
     region: geo?.region?.trim() || null,
     city: geo?.city?.trim() || null,
     ip_address: e.ipAddress,
     device: e.device,
+    device_label,
+    browser,
+    os,
     created_at: e.createdAt.toISOString(),
     metadata: e.metadata ?? {},
     utm_source,
-    /** Valor bruto (inclui macros literais) — Relatórios mostram a verdade. */
     utm_term: rawTerm || null,
     utm_term_macro: isUnreplacedAdMacro(rawTerm),
     utm_content: rawContent || null,
@@ -241,6 +255,7 @@ type TrackingEventListRow = {
   country: string | null;
   ip_address: string | null;
   device: string | null;
+  user_agent: string | null;
   created_at: Date;
   metadata: Prisma.JsonValue;
 };
@@ -257,6 +272,7 @@ function mapDbTrackingEventRow(r: TrackingEventListRow) {
     country: r.country,
     ipAddress: r.ip_address,
     device: r.device,
+    userAgent: r.user_agent,
     createdAt: r.created_at,
     metadata: r.metadata,
   });
@@ -426,6 +442,7 @@ export const analyticsController = {
           country,
           ip_address,
           device,
+          user_agent,
           created_at,
           metadata
         FROM tracking_events
@@ -463,6 +480,9 @@ export const analyticsController = {
         "utm_content",
         "utm_campaign",
         "device",
+        "device_label",
+        "browser",
+        "os",
         "ip_address",
         "traffic_type",
         "gclid",
@@ -490,6 +510,9 @@ export const analyticsController = {
           r.utm_content,
           r.utm_campaign,
           r.device,
+          (r as { device_label?: string | null }).device_label ?? "",
+          (r as { browser?: string | null }).browser ?? "",
+          (r as { os?: string | null }).os ?? "",
           r.ip_address,
           r.traffic_type,
           r.gclid,
@@ -515,6 +538,7 @@ export const analyticsController = {
         country,
         ip_address,
         device,
+        user_agent,
         created_at,
         metadata
       FROM tracking_events

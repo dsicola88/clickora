@@ -4,15 +4,18 @@
  * Definir em **build** (Vercel / CI):
  * - `VITE_PUBLIC_API_URL` — preferido (padrão Vite para variáveis expostas ao cliente)
  * - `VITE_API_URL` — legado, mesmo efeito se o anterior estiver vazio
+ * - `VITE_PUBLIC_TRACK_API_URL` — opcional; pixel/redirect `/track/*` (IP real do visitante)
  *
  * Comportamento:
- * - **Produção em `dclickora.com` ou domínio personalizado no mesmo deploy:** usa **`/api`** (same-origin via `vercel.json` → Railway). Previews `*.vercel.app` podem usar `VITE_PUBLIC_API_URL` explícita.
- * - **Produção (preview Vercel):** `VITE_PUBLIC_API_URL` ou `/api`.
+ * - **Produção em `dclickora.com` ou domínio personalizado:** app autenticada usa **`/api`** (same-origin → Railway).
+ * - **Tracking público (pixel, /track/r):** URL absoluta Railway quando possível — o proxy Vercel gravava o IP do hop AWS, não o do visitante.
  * - **Desenvolvimento sem URL:** `http://localhost:3001/api`
  */
 
 const LOCAL_DEFAULT = "http://localhost:3001/api";
 const PROD_SAME_ORIGIN = "/api";
+/** Mesmo destino que `vercel.json` rewrite — tracking directo para IP correcto. */
+const PROD_TRACK_API_FALLBACK = "https://clickora-production.up.railway.app/api";
 
 /** Produção no site real (dclickora ou domínio do afiliado no mesmo projeto), não preview local nem `*.vercel.app`. */
 function shouldUseSameOriginApiInProd(): boolean {
@@ -46,9 +49,7 @@ export function normalizeToApiBaseUrl(input: string): string {
 
 /**
  * Resolve a base da API usada por `apiClient`, `getApiBaseUrl()` e fetches manuais.
- * Em produção no browser, domínios personalizados (ex.: fastbuyzone.sbs) devem usar **sempre**
- * `/api` no mesmo host — o Vercel reescreve para a Railway. Se `VITE_PUBLIC_API_URL` apontar
- * para outro domínio, os pedidos públicos da presell podem falhar (CORS) ou ir para a API errada.
+ * Em produção no browser, domínios personalizados usam **`/api`** no mesmo host.
  */
 export function getResolvedPublicApiBaseUrl(): string {
   const raw = readEnvApiUrl();
@@ -58,7 +59,6 @@ export function getResolvedPublicApiBaseUrl(): string {
     return normalizeToApiBaseUrl(raw);
   }
 
-  // Produção no browser: mesmo site que o JS (dclickora.com, www, ou domínio personalizado no projeto Vercel).
   if (typeof window !== "undefined" && shouldUseSameOriginApiInProd()) {
     return PROD_SAME_ORIGIN;
   }
@@ -68,4 +68,26 @@ export function getResolvedPublicApiBaseUrl(): string {
   }
 
   return normalizeToApiBaseUrl(raw);
+}
+
+/**
+ * Base da API para pixel, `/track/r/` e beacons — HTTPS directo à Railway
+ * para o IP/país do visitante coincidir com BuyGoods/SmartAdv (não o hop Vercel/AWS).
+ */
+export function getTrackApiBaseUrl(): string {
+  const trackOnly = import.meta.env.VITE_PUBLIC_TRACK_API_URL?.trim();
+  if (trackOnly) return normalizeToApiBaseUrl(trackOnly);
+
+  const raw = readEnvApiUrl();
+  if (raw && /^https:\/\//i.test(raw)) return normalizeToApiBaseUrl(raw);
+
+  if (!import.meta.env.PROD) {
+    return getResolvedPublicApiBaseUrl();
+  }
+
+  if (typeof window !== "undefined") {
+    return PROD_TRACK_API_FALLBACK;
+  }
+
+  return getResolvedPublicApiBaseUrl();
 }

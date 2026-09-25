@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_PUBLIC_API_URL?: string;
   /** @deprecated Usar `VITE_PUBLIC_API_URL` */
   readonly VITE_API_URL?: string;
+  /** URL HTTPS da API só para pixel/redirect (IP real). Se vazio, usa fallback Railway em produção. */
+  readonly VITE_PUBLIC_TRACK_API_URL?: string;
   readonly VITE_PUBLIC_APP_URL?: string;
   /** Origem pública do site (HTTPS, sem barra final), ex. `https://www.dclickora.com` — OG, sitemap, links canónicos. */
   readonly VITE_PUBLIC_SITE_ORIGIN?: string;

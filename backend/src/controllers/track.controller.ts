@@ -23,6 +23,7 @@ import {
 } from "../lib/voluumStyleTrackingParams";
 import { normalizeUtmDimension, isUnreplacedAdMacro } from "../lib/adUrlMacros";
 import { extractClientIp } from "../lib/clientIp";
+import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -1343,9 +1344,7 @@ function parseCsvSimple(text: string): string[][] {
 }
 
 function detectDevice(ua: string): string {
-  if (/mobile|android|iphone|ipad/i.test(ua)) return "mobile";
-  if (/tablet/i.test(ua)) return "tablet";
-  return "desktop";
+  return parseUserAgent(ua).device;
 }
 
 /** Dispositivo + qualidade (bot / fraud_score) no metadata do clique. */
@@ -1353,6 +1352,7 @@ function deviceAndBotMeta(
   userAgent: string,
   opts?: { headers?: Record<string, string | string[] | undefined>; ip?: string },
 ): { device: string; botMeta: Record<string, unknown> } {
+  const parsed = parseUserAgent(userAgent);
   const q = assessClickQuality({
     userAgent,
     headers: opts?.headers,
@@ -1361,6 +1361,9 @@ function deviceAndBotMeta(
   const botMeta: Record<string, unknown> = {
     fraud_score: q.fraud_score,
     fraud_flags: q.fraud_flags,
+    browser: parsed.browser,
+    os: parsed.os,
+    device_label: formatDeviceLabel(parsed),
   };
   if (q.is_bot) {
     botMeta.is_bot = true;
@@ -1372,7 +1375,7 @@ function deviceAndBotMeta(
   if (q.is_bot) {
     return { device: "bot", botMeta };
   }
-  return { device: detectDevice(userAgent), botMeta };
+  return { device: parsed.device, botMeta };
 }
 
 async function validateOwnerCanTrack(userId: string): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
