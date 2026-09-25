@@ -15,15 +15,15 @@ import {
   sumPersistedKeywordCosts,
   sumPersistedSpend,
 } from "../modules/affiliateOps/costSync.service";
-import { countryIsoFromIp } from "../lib/countryFromIp";
-import { hasPaidNetworkClickId } from "../lib/networkClickId";
+import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
+import { resolveTrafficType } from "../lib/networkClickId";
+import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
 import { sendCsvDownload } from "../lib/csvExport";
 import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } from "../lib/cursorPagination";
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
 import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents.service";
 import { billingUserId } from "../lib/requestContext";
 import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
-import { normalizeUtmDimension } from "../lib/adUrlMacros";
 import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
 
 type AnalyticsSummaryItem = {
@@ -71,15 +71,28 @@ function mapTrackingEventForApi(e: {
   const msclkid = typeof metadata.msclkid === "string" ? metadata.msclkid : null;
   const fbclid = typeof metadata.fbclid === "string" ? metadata.fbclid : null;
   const ttclid = typeof metadata.ttclid === "string" ? metadata.ttclid : null;
-  const paid = hasPaidNetworkClickId({ gclid, msclkid, fbclid, ttclid });
+  const utm_source =
+    typeof metadata.utm_source === "string" ? metadata.utm_source : (e.source ?? null);
+  const rawTerm = typeof metadata.utm_term === "string" ? metadata.utm_term.trim() : "";
+  const rawContent = typeof metadata.utm_content === "string" ? metadata.utm_content.trim() : "";
+  const geo = geoLookupFromIp(e.ipAddress ?? null);
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
-  const country = storedCountry ?? countryIsoFromIp(e.ipAddress ?? null);
-  const utm_content = normalizeUtmDimension(
-    typeof metadata.utm_content === "string" ? metadata.utm_content : null,
-  );
+  const country = storedCountry ?? geo?.country_code ?? countryIsoFromIp(e.ipAddress ?? null);
   const utm_campaign =
     (e.campaign && String(e.campaign).trim()) ||
-    (typeof metadata.campaign === "string" && metadata.campaign.trim() ? metadata.campaign.trim() : null);
+    (typeof metadata.campaign === "string" && metadata.campaign.trim() ? metadata.campaign.trim() : null) ||
+    (typeof metadata.utm_campaign === "string" && metadata.utm_campaign.trim()
+      ? metadata.utm_campaign.trim()
+      : null);
+  const traffic_type = resolveTrafficType({
+    source: e.source,
+    medium: e.medium,
+    utm_source,
+    gclid,
+    msclkid,
+    fbclid,
+    ttclid,
+  });
   return {
     id: e.id,
     presell_id: e.presellPageId,
@@ -89,17 +102,23 @@ function mapTrackingEventForApi(e: {
     campaign: e.campaign,
     referrer: e.referrer,
     country,
+    /** Região GeoIP (código MaxMind, ex. CA) quando o IP resolve. */
+    region: geo?.region?.trim() || null,
+    city: geo?.city?.trim() || null,
     ip_address: e.ipAddress,
     device: e.device,
     created_at: e.createdAt.toISOString(),
     metadata: e.metadata ?? {},
-    utm_source: typeof metadata.utm_source === "string" ? metadata.utm_source : (e.source ?? null),
-    utm_term: normalizeUtmDimension(typeof metadata.utm_term === "string" ? metadata.utm_term : null),
-    utm_content,
+    utm_source,
+    /** Valor bruto (inclui macros literais) — Relatórios mostram a verdade. */
+    utm_term: rawTerm || null,
+    utm_term_macro: isUnreplacedAdMacro(rawTerm),
+    utm_content: rawContent || null,
+    utm_content_macro: isUnreplacedAdMacro(rawContent),
     utm_campaign: utm_campaign || null,
     gclid,
     msclkid,
-    traffic_type: paid ? "paid" : "organic",
+    traffic_type,
     is_bot: metadata.is_bot === true,
     bot_label: typeof metadata.bot_label === "string" ? metadata.bot_label : null,
   };
@@ -433,6 +452,8 @@ export const analyticsController = {
         "event_type",
         "created_at",
         "country",
+        "region",
+        "city",
         "source",
         "medium",
         "campaign",
@@ -458,6 +479,8 @@ export const analyticsController = {
           r.event_type,
           r.created_at,
           r.country,
+          (r as { region?: string | null }).region ?? "",
+          (r as { city?: string | null }).city ?? "",
           r.source,
           r.medium,
           r.campaign,

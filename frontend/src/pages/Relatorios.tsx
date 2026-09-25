@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search, RotateCcw, AlertTriangle, Download } from "lucide-react";
+import { Search, RotateCcw, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import {
   normalizeIsoCountryCode,
 } from "@/lib/countryDisplay";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
-import { hasPaidNetworkClickId } from "@/lib/networkClickId";
+import { hasPaidNetworkClickId, resolveTrafficType } from "@/lib/networkClickId";
 
 function CountryCell({ code }: { code: string }) {
   const iso = normalizeIsoCountryCode(code === "—" ? "" : code);
@@ -37,6 +37,37 @@ function CountryCell({ code }: { code: string }) {
       <span className="font-mono text-xs">{iso}</span>
     </span>
   );
+}
+
+function eventTypeLabel(t: string | undefined) {
+  switch (t) {
+    case "impression":
+      return "Impressão";
+    case "click":
+      return "Clique";
+    case "conversion":
+    case "sale":
+      return "Conversão";
+    case "lead":
+      return "Lead";
+    case "pageview":
+      return "Pageview";
+    default:
+      return t || "—";
+  }
+}
+
+function dimCell(value: string | null | undefined, isMacro?: boolean) {
+  const v = (value || "").trim();
+  if (!v) return "—";
+  if (isMacro) {
+    return (
+      <span className="font-mono text-amber-700 dark:text-amber-400" title="Macro não substituída — teste manual ou clique fora do Ads">
+        {v}
+      </span>
+    );
+  }
+  return v;
 }
 
 function defaultDateRange() {
@@ -81,14 +112,26 @@ function originFromEvent(e: TrackingEvent) {
 }
 
 function paidLabel(e: TrackingEvent) {
-  if (e.traffic_type === "paid") return "Pago";
-  if (e.traffic_type === "organic") return "Orgânico";
   const meta = e.metadata || {};
-  const g = typeof meta.gclid === "string" ? meta.gclid : "";
-  const m = typeof meta.msclkid === "string" ? meta.msclkid : "";
+  const g = typeof meta.gclid === "string" ? meta.gclid : e.gclid || "";
+  const m = typeof meta.msclkid === "string" ? meta.msclkid : e.msclkid || "";
   const f = typeof meta.fbclid === "string" ? meta.fbclid : "";
   const t = typeof meta.ttclid === "string" ? meta.ttclid : "";
-  return hasPaidNetworkClickId({ gclid: g, msclkid: m, fbclid: f, ttclid: t }) ? "Pago" : "Orgânico";
+  const resolved =
+    e.traffic_type ||
+    resolveTrafficType({
+      source: e.source,
+      medium: e.medium,
+      utm_source: e.utm_source,
+      gclid: g,
+      msclkid: m,
+      fbclid: f,
+      ttclid: t,
+    });
+  if (resolved === "paid") return "Pago";
+  if (resolved === "paid_untracked") return "Ads (sem ID)";
+  if (hasPaidNetworkClickId({ gclid: g, msclkid: m, fbclid: f, ttclid: t })) return "Pago";
+  return "Orgânico";
 }
 
 function platformMatches(rowPlatform: string, selected: string) {
@@ -361,21 +404,24 @@ export default function Relatorios() {
         "";
       const dt = formatDateTime(e.created_at);
       const utmCamp = e.utm_campaign || e.campaign || "";
-      const utmCont = e.utm_content || "";
+      const utmCont = e.utm_content || (typeof meta.utm_content === "string" ? meta.utm_content : "");
+      const regionParts = [e.region, e.city].filter((x) => typeof x === "string" && x.trim());
       return {
         id: e.id,
         ip: e.ip_address || "—",
-        clickId: "—",
-        keyword: keyword || "—",
+        eventLabel: eventTypeLabel(e.event_type),
+        keyword: keyword.trim() || "—",
+        keywordMacro: Boolean(e.utm_term_macro),
         utm_campaign: utmCamp?.trim() || "—",
         utm_content: utmCont?.trim() || "—",
+        contentMacro: Boolean(e.utm_content_macro),
         lastAccess: dt,
         device: e.device || "—",
         origin: originFromEvent(e),
         type: paidLabel(e),
         country: e.country || "—",
-        region: "—",
-        status: e.is_bot ? "Bot" : "OK",
+        region: regionParts.length ? regionParts.join(" · ") : "—",
+        status: e.is_bot ? (e.bot_label || "Bot") : "OK",
       };
     });
   }, [impressionsQuery.data]);
@@ -391,21 +437,25 @@ export default function Relatorios() {
         "";
       const dt = formatDateTime(e.created_at);
       const utmCamp = e.utm_campaign || e.campaign || "";
-      const utmCont = e.utm_content || "";
+      const utmCont = e.utm_content || (typeof meta.utm_content === "string" ? meta.utm_content : "");
+      const regionParts = [e.region, e.city].filter((x) => typeof x === "string" && x.trim());
       return {
         id: e.id,
         ip: e.ip_address || "—",
+        eventLabel: eventTypeLabel(e.event_type),
         clickId: e.id,
-        keyword: keyword || "—",
+        keyword: keyword.trim() || "—",
+        keywordMacro: Boolean(e.utm_term_macro),
         utm_campaign: utmCamp?.trim() || "—",
         utm_content: utmCont?.trim() || "—",
+        contentMacro: Boolean(e.utm_content_macro),
         lastAccess: dt,
         device: e.device || "—",
         origin: originFromEvent(e),
         type: paidLabel(e),
         country: e.country || "—",
-        region: "—",
-        status: e.is_bot ? "Bot" : "OK",
+        region: regionParts.length ? regionParts.join(" · ") : "—",
+        status: e.is_bot ? (e.bot_label || "Bot") : "OK",
       };
     });
   }, [clicksQuery.data]);
@@ -485,24 +535,30 @@ export default function Relatorios() {
   const accessDisplay = paginate(
     filterBySearch(impressionRows, [
       "ip",
+      "eventLabel",
       "keyword",
       "utm_campaign",
       "utm_content",
       "device",
       "country",
+      "region",
       "origin",
+      "type",
     ]),
   );
   const clickDisplay = paginate(
     filterBySearch(clickRows, [
       "ip",
       "clickId",
+      "eventLabel",
       "keyword",
       "utm_campaign",
       "utm_content",
       "device",
       "country",
+      "region",
       "origin",
+      "type",
     ]),
   );
   const convDisplay = paginate(
@@ -659,17 +715,9 @@ export default function Relatorios() {
   };
 
   const TimezoneAlert = () => (
-    <div className="bg-warning/5 border border-warning/20 rounded-xl p-4 flex items-start gap-3">
-      <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
-      <div>
-        <p className="text-sm font-medium text-card-foreground">
-          <span className="text-warning">Atenção:</span> O horário atual da sua instalação é{" "}
-          <span className="text-primary font-bold">{currentTime}</span>.
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Ajuste o relógio do servidor se os horários dos eventos estiverem errados.
-        </p>
-      </div>
+    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
+      Horários dos eventos em UTC na API; nesta tabela vês a hora local do teu browser ({currentTime}).
+      Se o IP for de VPN/proxy, o país/região reflectem a saída do VPN — não a localização real do visitante.
     </div>
   );
 
@@ -749,8 +797,10 @@ export default function Relatorios() {
         <TabsContent value="acessos" className="mt-6 space-y-4">
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <strong className="font-medium text-foreground/90">«—»:</strong> UTMs só aparecem se o clique/impressão/link as trouxer; origem concatena UTMs ou referer;
-            país sim, estado ainda não.
+            <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = tipo real (impressão/clique).
+            Palavra-chave / anúncio mostram o valor gravado (macros literais em âmbar = teste sem clique no Ads).
+            Tipo: <em>Pago</em> = GCLID/msclkid real; <em>Ads (sem ID)</em> = UTM de rede sem ID real; <em>Orgânico</em> = sem sinais de ads.
+            País/região via GeoIP do IP capturado.
           </p>
           <TimezoneAlert />
           <DateFilters />
@@ -877,24 +927,27 @@ export default function Relatorios() {
                             key={row.id}
                             className="border-b border-border/50 hover:bg-muted/20 transition-colors"
                           >
-                            <td className="py-2.5 px-3 font-mono text-xs max-w-[130px] truncate">
+                            <td className="py-2.5 px-3 font-mono text-xs max-w-[130px] truncate" title={row.ip}>
                               {row.ip}
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-xs max-w-[120px] truncate">
-                              {row.id.slice(0, 8)}…
+                            <td className="py-2.5 px-3 text-xs" title={row.id}>
+                              <span className="font-medium text-foreground">{row.eventLabel}</span>
+                              <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground truncate max-w-[7rem]">
+                                {row.id.slice(0, 8)}…
+                              </span>
                             </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.keyword}</td>
+                            <td className="py-2.5 px-3 text-xs">{dimCell(row.keyword === "—" ? "" : row.keyword, row.keywordMacro)}</td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
                               {row.utm_campaign}
                             </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
-                              {row.utm_content}
+                            <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">
+                              {dimCell(row.utm_content === "—" ? "" : row.utm_content, row.contentMacro)}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {row.lastAccess}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.device}</td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate">
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate" title={row.origin}>
                               {row.origin}
                             </td>
                             <td className="py-2.5 px-3">
@@ -902,8 +955,15 @@ export default function Relatorios() {
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                   row.type === "Pago"
                                     ? "bg-primary/10 text-primary"
-                                    : "bg-muted text-muted-foreground"
+                                    : row.type === "Ads (sem ID)"
+                                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                                      : "bg-muted text-muted-foreground"
                                 }`}
+                                title={
+                                  row.type === "Ads (sem ID)"
+                                    ? "UTM/rede de ads sem GCLID real (teste manual ou macros não substituídas)"
+                                    : undefined
+                                }
                               >
                                 {row.type}
                               </span>
@@ -1065,24 +1125,24 @@ export default function Relatorios() {
                             key={row.id}
                             className="border-b border-border/50 hover:bg-muted/20 transition-colors"
                           >
-                            <td className="py-2.5 px-3 font-mono text-xs max-w-[130px] truncate">
+                            <td className="py-2.5 px-3 font-mono text-xs max-w-[130px] truncate" title={row.ip}>
                               {row.ip}
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-xs max-w-[160px] truncate">
+                            <td className="py-2.5 px-3 font-mono text-xs max-w-[160px] truncate" title={row.clickId}>
                               {row.clickId}
                             </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.keyword}</td>
+                            <td className="py-2.5 px-3 text-xs">{dimCell(row.keyword === "—" ? "" : row.keyword, row.keywordMacro)}</td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
                               {row.utm_campaign}
                             </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
-                              {row.utm_content}
+                            <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">
+                              {dimCell(row.utm_content === "—" ? "" : row.utm_content, row.contentMacro)}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {row.lastAccess}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.device}</td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate">
+                            <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[200px] truncate" title={row.origin}>
                               {row.origin}
                             </td>
                             <td className="py-2.5 px-3">
@@ -1090,8 +1150,15 @@ export default function Relatorios() {
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                   row.type === "Pago"
                                     ? "bg-primary/10 text-primary"
-                                    : "bg-muted text-muted-foreground"
+                                    : row.type === "Ads (sem ID)"
+                                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                                      : "bg-muted text-muted-foreground"
                                 }`}
+                                title={
+                                  row.type === "Ads (sem ID)"
+                                    ? "UTM/rede de ads sem GCLID real (teste manual ou macros não substituídas)"
+                                    : undefined
+                                }
                               >
                                 {row.type}
                               </span>

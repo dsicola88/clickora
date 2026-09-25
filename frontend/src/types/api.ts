@@ -142,25 +142,34 @@ export interface TrackingEvent {
   campaign?: string;
   referrer?: string;
   country?: string;
+  /** Região GeoIP (quando o IP resolve). */
+  region?: string | null;
+  city?: string | null;
   /** IP do cliente no evento (painel autenticado). */
   ip_address?: string | null;
   device?: string;
   created_at: string;
   metadata?: Record<string, unknown>;
   utm_source?: string | null;
-  /** Palavra-chave (UTM term) quando enviada no clique/impressão. */
+  /** Palavra-chave (UTM term) — valor bruto, pode ser macro literal. */
   utm_term?: string | null;
-  /** Criativo / anúncio (utm_content). */
+  utm_term_macro?: boolean;
+  /** Criativo / anúncio (utm_content) — valor bruto. */
   utm_content?: string | null;
+  utm_content_macro?: boolean;
   /** Nome da campanha UTM (coluna campaign ou metadata). */
   utm_campaign?: string | null;
   gclid?: string | null;
   msclkid?: string | null;
-  /** paid | organic — derivado de gclid/msclkid no evento. */
-  traffic_type?: "paid" | "organic";
+  /**
+   * paid = ID de rede real; paid_untracked = Ads/UTM sem ID real (teste/macros);
+   * organic = sem sinais de ads.
+   */
+  traffic_type?: "paid" | "paid_untracked" | "organic";
   is_bot?: boolean;
   bot_label?: string | null;
 }
+
 
 export interface AdminUser {
   user_id: string;
