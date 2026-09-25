@@ -411,10 +411,10 @@ export const presellController = {
           type: parsed.data.type || "cookies",
           category: parsed.data.category,
           language: parsed.data.language || "pt",
-          content: contentPayload,
+          content: contentPayload as Prisma.InputJsonValue,
           videoUrl: parsed.data.video_url,
-          settings: parsed.data.settings || {},
-          tracking: parsed.data.tracking || {},
+          settings: (parsed.data.settings || {}) as Prisma.InputJsonValue,
+          tracking: (parsed.data.tracking || {}) as Prisma.InputJsonValue,
           status: parsed.data.status || "draft",
           ...customDomainIdField,
         },
@@ -455,10 +455,10 @@ export const presellController = {
       ...(req.body.type && { type: req.body.type }),
       ...(req.body.category !== undefined && { category: req.body.category }),
       ...(req.body.language && { language: req.body.language }),
-      ...(nextContent && { content: nextContent }),
+      ...(nextContent && { content: nextContent as Prisma.InputJsonValue }),
       ...(req.body.video_url !== undefined && { videoUrl: req.body.video_url }),
-      ...(req.body.settings && { settings: req.body.settings }),
-      ...(req.body.tracking && { tracking: req.body.tracking }),
+      ...(req.body.settings && { settings: req.body.settings as Prisma.InputJsonValue }),
+      ...(req.body.tracking && { tracking: req.body.tracking as Prisma.InputJsonValue }),
     };
 
     if (req.body.custom_domain_id !== undefined) {
