@@ -1,32 +1,25 @@
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { analyticsService } from "@/services/analyticsService";
 import { presellService } from "@/services/presellService";
 import { useAuth } from "@/contexts/AuthContext";
-
-function todayYmd() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysAgoYmd(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
+import { rangeLast14Days } from "@/lib/dateRangePresets";
 
 /**
- * Início: uma pergunta — o que fazer agora?
- * Novo → criar presell. Com dados → 4 KPIs + ver resultados.
+ * Início: KPIs da conta com filtro de datas · atalho para P&L.
  */
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const from = daysAgoYmd(14);
-  const to = todayYmd();
+  const initial = useMemo(() => rangeLast14Days(), []);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
 
   const { data: pages = [], isLoading: loadingPages } = useQuery({
     queryKey: ["presells", "home"],
@@ -37,7 +30,7 @@ export default function Home() {
     },
   });
 
-  const { data: dash, isLoading: loadingDash } = useQuery({
+  const { data: dash, isLoading: loadingDash, isFetching } = useQuery({
     queryKey: ["dashboard", "home", from, to],
     queryFn: async () => {
       const { data, error } = await analyticsService.getDashboard({ from, to });
@@ -84,13 +77,33 @@ export default function Home() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <PageHeader title="Visão geral" description="Últimos 14 dias na sua conta." />
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-1 py-2 sm:px-2">
+      <div className="flex flex-col gap-4 border-b border-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <PageHeader
+          title="Visão geral"
+          description={
+            <span className="font-mono tabular-nums text-muted-foreground">
+              {from} → {to}
+              {isFetching ? " · a actualizar…" : ""} · UTC
+            </span>
+          }
+        />
         <Button className="gap-2 shrink-0" onClick={() => navigate("/presells/nova")}>
           <Plus className="h-4 w-4" />
           Nova presell
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangeFilter
+          from={from}
+          to={to}
+          showCompare={false}
+          onApply={(p) => {
+            setFrom(p.from);
+            setTo(p.to);
+          }}
+        />
       </div>
 
       {loadingDash ? (
@@ -128,7 +141,7 @@ export default function Home() {
 
       <Button variant="outline" className="gap-2" asChild>
         <Link to="/resultados">
-          Ver resultados
+          Ver P&L
           <ArrowRight className="h-4 w-4" />
         </Link>
       </Button>

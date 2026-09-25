@@ -1,61 +1,38 @@
 import type { ReactNode } from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { AppSidebar, AppSidebarDocked } from "@/components/AppSidebar";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 const mainChrome =
   "min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-10 md:p-5 md:pb-12 lg:p-6 lg:pb-14";
 
+/**
+ * Shell app: sidebar encolhível (ícones) estilo tracker — desktop e mobile.
+ */
 export function AppLayout({ children }: { children: ReactNode }) {
-  const isMobile = useIsMobile();
-
   return (
-    <SidebarProvider>
-      {isMobile ? (
-        <div className="flex min-h-svh w-full flex-col">
-          <AppSidebar />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <header className="flex h-14 shrink-0 items-center border-b border-border bg-card px-4 lg:hidden">
-              <SidebarTrigger />
-              <span className="ml-3 font-extrabold tracking-tight text-foreground">dclickora</span>
-            </header>
-            <main className={mainChrome}>{children}</main>
-          </div>
-        </div>
-      ) : (
-        <div className="flex min-h-svh w-full flex-col md:p-2">
-          <div
+    <SidebarProvider defaultOpen>
+      <div className="flex min-h-svh w-full">
+        <AppSidebar />
+        <SidebarInset className="min-w-0 flex-1">
+          <header
             className={cn(
-              "flex flex-1 flex-col overflow-hidden rounded-none border border-border/60 bg-muted/15 p-1 md:min-h-[calc(100svh-16px)] md:rounded-xl",
+              "sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",
             )}
           >
-            <p className="sr-only">Menu redimensionável</p>
-            <ResizablePanelGroup
-              direction="horizontal"
-              autoSaveId="clickora-app-shell-sidebar"
-              className="min-h-0 flex-1 rounded-b-xl bg-background"
-            >
-              <ResizablePanel defaultSize={20} minSize={14} maxSize={40} className="min-w-0">
-                <div className="flex h-full min-h-0 flex-col md:rounded-bl-[calc(0.75rem-2px)]">
-                  <AppSidebarDocked />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle
-                withHandle
-                title="Redimensionar menu principal e página"
-                className="w-3 shrink-0 bg-border/70 transition-colors hover:bg-primary/20 data-[resize-handle-active]:bg-primary/30"
-              />
-              <ResizablePanel defaultSize={80} minSize={45} className="min-w-0">
-                <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden md:rounded-br-[calc(0.75rem-2px)]">
-                  <main className={mainChrome}>{children}</main>
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
-        </div>
-      )}
+            <SidebarTrigger
+              className="h-8 w-8"
+              title="Encolher / expandir menu"
+              aria-label="Encolher ou expandir menu"
+            />
+            <Separator orientation="vertical" className="h-4" />
+            <span className="text-sm font-semibold tracking-tight text-foreground md:hidden">dclickora</span>
+            <span className="hidden text-[11px] text-muted-foreground md:inline">Menu</span>
+          </header>
+          <main className={mainChrome}>{children}</main>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }

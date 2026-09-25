@@ -15,6 +15,7 @@ import {
   Megaphone,
   ShieldAlert,
   Link2,
+  PanelLeftClose,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -119,20 +120,34 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const path = location.pathname;
   const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
+  const { toggleSidebar } = useSidebar();
 
   return (
     <>
-      <SidebarHeader className="border-b border-sidebar-border/80 p-4">
-        <NavLink to="/inicio" className="group/logo flex items-center gap-2.5">
-          <div className="gradient-primary flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md">
-            <Zap className="h-4 w-4 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <span className="text-lg font-extrabold tracking-tight text-sidebar-accent-foreground">
-              dclickora
-            </span>
-          )}
-        </NavLink>
+      <SidebarHeader className="border-b border-sidebar-border/80 p-3">
+        <div className="flex items-center gap-2">
+          <NavLink to="/inicio" className="group/logo flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="gradient-primary flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md">
+              <Zap className="h-4 w-4 text-primary-foreground" />
+            </div>
+            {!collapsed && (
+              <span className="truncate text-lg font-extrabold tracking-tight text-sidebar-accent-foreground">
+                dclickora
+              </span>
+            )}
+          </NavLink>
+          {!collapsed ? (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:inline-flex"
+              title="Encolher menu"
+              aria-label="Encolher menu"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="space-y-1 p-2">
