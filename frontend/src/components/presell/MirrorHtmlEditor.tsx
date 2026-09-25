@@ -54,7 +54,7 @@ export function MirrorHtmlEditor({
             <p className="text-[11px] leading-relaxed text-muted-foreground rounded-md border border-border/60 bg-muted/30 px-2.5 py-2">
               Edite o HTML do clone com cuidado. Scripts externos e JS da origem não correm no iframe.
               Use «Re-importar» para voltar a capturar a página do produto (Playwright + rehost R2 se
-              configurado).
+              configurado). Ao guardar, imagens http externas no espelho são reconciliadas de novo para o R2.
             </p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="mirror-html-editor">importMirrorSrcDoc</Label>

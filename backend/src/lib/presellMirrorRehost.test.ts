@@ -10,8 +10,6 @@ describe("presellMirrorRehost", () => {
       userId: "user-test",
       pageHint: "test",
     });
-    // Em CI/local sem R2: skipped true e HTML intacto.
-    // Com R2: pode rehostar — só assertamos contrato mínimo.
     assert.equal(typeof r.html, "string");
     assert.equal(typeof r.rehosted, "number");
     assert.equal(typeof r.skipped, "boolean");
@@ -19,5 +17,24 @@ describe("presellMirrorRehost", () => {
       assert.equal(r.rehosted, 0);
       assert.equal(r.html, html);
     }
+  });
+
+  it("reconcileMirrorInPresellContent is no-op without mirror", async () => {
+    const { reconcileMirrorInPresellContent } = await import("./presellMirrorRehost");
+    const r = await reconcileMirrorInPresellContent({
+      content: { title: "x" },
+      userId: "u1",
+    });
+    assert.equal(r.skipped, true);
+    assert.equal(r.rehosted, 0);
+  });
+
+  it("isAlreadyRehostedMirrorUrl detects path", async () => {
+    const { isAlreadyRehostedMirrorUrl } = await import("./presellMirrorRehost");
+    assert.equal(
+      isAlreadyRehostedMirrorUrl("https://cdn.example.com/presell-mirror/u/x/ab.jpg"),
+      true,
+    );
+    assert.equal(isAlreadyRehostedMirrorUrl("https://cdn.example.com/other.jpg"), false);
   });
 });

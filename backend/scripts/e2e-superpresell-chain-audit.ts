@@ -166,18 +166,18 @@ async function main() {
       "PresellDashboard + MirrorHtmlEditor",
     );
 
-    const rehostOnManualEdit = fileHas(
-      "frontend/src/pages/PresellDashboard.tsx",
-      "rehostMirrorImagesToR2",
+    const rehostWired = fileHas(
+      "backend/src/controllers/presell.controller.ts",
+      "reconcileMirrorInPresellContent",
     );
     rec(
       "EDITOR",
       "rehost_on_manual_save",
-      rehostOnManualEdit ? "PASS" : "GAP",
-      rehostOnManualEdit
-        ? "Save manual re-hospeda imagens"
-        : "Save do editor NÃO re-corre rehost R2 (só no import/re-import) — hotlinks possíveis após edit manual de src",
-      "PresellDashboard handleSave",
+      rehostWired ? "PASS" : "FAIL",
+      rehostWired
+        ? "PUT/update reconcilia importMirrorSrcDoc via reconcileMirrorInPresellContent (R2 se activo)"
+        : "Rehost no save ausente no controller",
+      "presell.controller update + reconcileMirrorInPresellContent",
     );
   }
 

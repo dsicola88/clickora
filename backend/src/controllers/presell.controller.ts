@@ -26,6 +26,7 @@ import {
   buildCloakSafePublicPayload,
   shouldServeCloakSafePage,
 } from "../lib/presellEnterpriseCloak";
+import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -390,15 +391,27 @@ export const presellController = {
 
     let page: PresellPage;
     try {
+      const userId = billingUserId(req);
+      let contentPayload: Record<string, unknown> =
+        parsed.data.content && typeof parsed.data.content === "object" && !Array.isArray(parsed.data.content)
+          ? (parsed.data.content as Record<string, unknown>)
+          : {};
+      const reconciled = await reconcileMirrorInPresellContent({
+        content: contentPayload,
+        userId,
+        pageHint: parsed.data.slug,
+      });
+      contentPayload = reconciled.content;
+
       page = await prisma.presellPage.create({
         data: {
-          userId: billingUserId(req),
+          userId,
           title: parsed.data.title,
           slug: parsed.data.slug,
           type: parsed.data.type || "cookies",
           category: parsed.data.category,
           language: parsed.data.language || "pt",
-          content: parsed.data.content || {},
+          content: contentPayload,
           videoUrl: parsed.data.video_url,
           settings: parsed.data.settings || {},
           tracking: parsed.data.tracking || {},
@@ -418,10 +431,23 @@ export const presellController = {
 
   async update(req: Request, res: Response) {
     if (await denyIfCannotWritePresells(req, res)) return;
+    const userId = billingUserId(req);
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: billingUserId(req) },
+      where: { id: req.params.id, userId },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+
+    let nextContent: Record<string, unknown> | undefined;
+    let mirrorRehosted = 0;
+    if (req.body.content && typeof req.body.content === "object" && !Array.isArray(req.body.content)) {
+      const reconciled = await reconcileMirrorInPresellContent({
+        content: req.body.content as Record<string, unknown>,
+        userId,
+        pageHint: page.slug || page.id.slice(0, 8),
+      });
+      nextContent = reconciled.content;
+      mirrorRehosted = reconciled.rehosted;
+    }
 
     const data: Record<string, unknown> = {
       ...(req.body.title && { title: req.body.title }),
@@ -429,7 +455,7 @@ export const presellController = {
       ...(req.body.type && { type: req.body.type }),
       ...(req.body.category !== undefined && { category: req.body.category }),
       ...(req.body.language && { language: req.body.language }),
-      ...(req.body.content && { content: req.body.content }),
+      ...(nextContent && { content: nextContent }),
       ...(req.body.video_url !== undefined && { videoUrl: req.body.video_url }),
       ...(req.body.settings && { settings: req.body.settings }),
       ...(req.body.tracking && { tracking: req.body.tracking }),
@@ -439,7 +465,7 @@ export const presellController = {
       try {
         const raw = req.body.custom_domain_id;
         const next = await resolveCustomDomainIdForUser(
-          billingUserId(req),
+          userId,
           raw === null || raw === "" ? null : String(raw),
         );
         data.customDomainId = next;
@@ -465,7 +491,11 @@ export const presellController = {
       }
     }
 
-    res.json(mapPresell(updated));
+    const mapped = mapPresell(updated) as Record<string, unknown>;
+    if (mirrorRehosted > 0) {
+      mapped.mirror_images_rehosted = mirrorRehosted;
+    }
+    res.json(mapped);
   },
 
   async delete(req: Request, res: Response) {

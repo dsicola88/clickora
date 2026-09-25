@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { parse } from "node-html-parser";
-import { isR2Configured, putR2Object } from "./r2Storage";
+import { getR2Config, isR2Configured, putR2Object } from "./r2Storage";
 
 const DEFAULT_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -30,6 +30,16 @@ function extFromContentType(ct: string): string {
   return "jpg";
 }
 
+/** Já no nosso CDN / rehost anterior — não voltar a descarregar. */
+export function isAlreadyRehostedMirrorUrl(url: string): boolean {
+  const u = url.trim();
+  if (!u) return false;
+  if (/\/presell-mirror\//i.test(u)) return true;
+  const cfg = getR2Config();
+  if (cfg?.publicBaseUrl && u.startsWith(cfg.publicBaseUrl)) return true;
+  return false;
+}
+
 /**
  * Rehost imagens do espelho no R2 (quando configurado) e reescreve `src`/`srcset`.
  * Se R2 estiver off ou falhar, devolve o HTML original — sem mentir fidelidade.
@@ -53,6 +63,10 @@ export async function rehostMirrorImagesToR2(args: {
   for (const img of imgs.slice(0, MAX_IMAGES)) {
     const src = (img.getAttribute("src") || "").trim();
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) continue;
+    if (isAlreadyRehostedMirrorUrl(src)) {
+      img.removeAttribute("srcset");
+      continue;
+    }
     let abs: string;
     try {
       abs = new URL(src, "https://example.invalid").href;
@@ -63,6 +77,7 @@ export async function rehostMirrorImagesToR2(args: {
 
     if (cache.has(abs)) {
       img.setAttribute("src", cache.get(abs)!);
+      img.removeAttribute("srcset");
       continue;
     }
 
@@ -93,4 +108,39 @@ export async function rehostMirrorImagesToR2(args: {
   }
 
   return { html: root.toString(), rehosted, skipped: false };
+}
+
+/**
+ * Reconciliação no Save do editor / update: rehost `content.importMirrorSrcDoc` se R2 estiver activo.
+ */
+export async function reconcileMirrorInPresellContent(args: {
+  content: Record<string, unknown>;
+  userId: string;
+  pageHint?: string;
+}): Promise<{ content: Record<string, unknown>; rehosted: number; skipped: boolean }> {
+  const raw = args.content.importMirrorSrcDoc;
+  if (typeof raw !== "string" || raw.trim().length < 200) {
+    return { content: args.content, rehosted: 0, skipped: true };
+  }
+  try {
+    const rh = await rehostMirrorImagesToR2({
+      srcDoc: raw,
+      userId: args.userId,
+      pageHint: args.pageHint,
+    });
+    if (rh.skipped) {
+      return { content: args.content, rehosted: 0, skipped: true };
+    }
+    if (rh.rehosted === 0 && rh.html === raw) {
+      return { content: args.content, rehosted: 0, skipped: false };
+    }
+    return {
+      content: { ...args.content, importMirrorSrcDoc: rh.html },
+      rehosted: rh.rehosted,
+      skipped: false,
+    };
+  } catch (err) {
+    console.warn("[reconcileMirrorInPresellContent] skipped", err);
+    return { content: args.content, rehosted: 0, skipped: true };
+  }
 }
