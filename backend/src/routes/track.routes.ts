@@ -12,6 +12,8 @@ trackRouter.get("/rot/:rotatorId/*", trackController.rotatorRedirect);
 trackRouter.get("/r/:presellId", trackController.redirect);
 trackRouter.get("/r/:presellId/*", trackController.redirect);
 trackRouter.get("/pixel/:presellId.gif", trackController.pixel);
+trackRouter.get("/funnel/:step.gif", trackController.funnelStepPixel);
+trackRouter.get("/funnel/:step", trackController.funnelStepPixel);
 trackRouter.get("/v2/clickora.min.js", trackController.serveClickoraEmbed);
 trackRouter.get("/conversions/csv", trackController.conversionsCsvPing);
 trackRouter.post(

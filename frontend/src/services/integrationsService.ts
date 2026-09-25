@@ -17,6 +17,21 @@ export const integrationsService = {
       sale_notify_email: string;
       fallback_account_email: string;
       smtp_configured: boolean;
+      funnel?: {
+        checkout_html: string;
+        lander_html: string;
+        checkout_pixel_url: string;
+        lander_pixel_url: string;
+        checkout_event_postback_url: string;
+        lander_event_postback_url: string;
+      };
+      /** Alias legado */
+      buygoods_funnel_pixels?: {
+        checkout_html: string;
+        lander_html: string;
+        checkout_pixel_url: string;
+        lander_pixel_url: string;
+      };
     }>("/integrations/affiliate-webhook-info");
   },
 

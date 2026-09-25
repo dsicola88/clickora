@@ -430,12 +430,25 @@ export const analyticsController = {
       d.setHours(23, 59, 59, 999);
       if (!Number.isNaN(d.getTime())) rangeEnd = d;
     }
-    const eventType = event_type && typeof event_type === "string" ? event_type : null;
+    const eventTypeRaw = event_type && typeof event_type === "string" ? event_type : null;
+    const eventTypes = eventTypeRaw
+      ? eventTypeRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
     const presellId = presell_id && typeof presell_id === "string" ? presell_id : null;
+
+    const eventTypeWhere =
+      eventTypes.length === 1
+        ? Prisma.sql`AND event_type::text = ${eventTypes[0]}`
+        : eventTypes.length > 1
+          ? Prisma.sql`AND event_type::text IN (${Prisma.join(eventTypes.map((t) => Prisma.sql`${t}`))})`
+          : Prisma.empty;
 
     const baseWhere = Prisma.sql`
       WHERE user_id = ${userId}
-        ${eventType ? Prisma.sql`AND event_type::text = ${eventType}` : Prisma.empty}
+        ${eventTypeWhere}
         ${presellId ? Prisma.sql`AND presell_page_id = ${presellId}` : Prisma.empty}
         ${rangeStart ? Prisma.sql`AND created_at >= ${rangeStart}` : Prisma.empty}
         ${rangeEnd ? Prisma.sql`AND created_at <= ${rangeEnd}` : Prisma.empty}
@@ -486,7 +499,7 @@ export const analyticsController = {
       const last = page.length > 0 ? page[page.length - 1]! : null;
       const nextCursor = hasMore && last ? encodeTimeIdCursor(last.created_at, last.id) : null;
 
-      const evLabel = eventType || "all";
+      const evLabel = eventTypes.length ? eventTypes.join("-") : "all";
       const fromS = from && typeof from === "string" ? from : "start";
       const toS = to && typeof to === "string" ? to : "end";
       const filename = `tracking-events_${evLabel}_${fromS}_${toS}.csv`;

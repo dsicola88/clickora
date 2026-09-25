@@ -16,6 +16,8 @@ import {
   pickCurrency,
   pickOrderIdFromPayload,
 } from "../lib/affiliatePostbackParsers";
+import { detectFunnelStepFromPayload, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
+import { extractClientIp } from "../lib/clientIp";
 import {
   bootstrapGoogleAdsAfterOAuth,
   getGoogleAdsApiClientConfigFromEnv,
@@ -80,12 +82,36 @@ export const integrationsController = {
     const token = createPostbackToken(userId);
     const base = publicApiBaseFromRequest(req);
     const hook_url = `${base}/integrations/affiliate-webhook?token=${encodeURIComponent(token)}`;
+    const checkoutPixelUrl = `${base}/track/funnel/checkout.gif?token=${encodeURIComponent(token)}`;
+    const landerPixelUrl = `${base}/track/funnel/lander.gif?token=${encodeURIComponent(token)}`;
+    /** HTML genérico: redes com campo Funnel/Offer Pixel. Tenta ler subid da URL. */
+    const buildFunnelHtml = (pixelUrl: string) =>
+      `<script>(function(){try{var q=new URLSearchParams(location.search);` +
+      `var s=q.get("subid")||q.get("SUBID")||q.get("clickora_click_id")||q.get("cid")||q.get("sub3")||"";` +
+      `var u=${JSON.stringify(pixelUrl)}+(s?"&subid="+encodeURIComponent(s):"")+"&_="+Date.now();` +
+      `new Image().src=u;}catch(e){}})();</script>`;
 
     res.json({
       hook_url,
       sale_notify_email: user.saleNotifyEmail ?? "",
       fallback_account_email: user.email,
       smtp_configured: isTransactionalEmailConfigured(),
+      funnel: {
+        checkout_html: buildFunnelHtml(checkoutPixelUrl),
+        lander_html: buildFunnelHtml(landerPixelUrl),
+        checkout_pixel_url: checkoutPixelUrl,
+        lander_pixel_url: landerPixelUrl,
+        /** S2S Event postback (SmartAdv, etc.): GET/POST no webhook com funnel_step. */
+        checkout_event_postback_url: `${hook_url}&funnel_step=checkout&status=checkout`,
+        lander_event_postback_url: `${hook_url}&funnel_step=lander&status=lander`,
+      },
+      /** @deprecated alias — manter até clientes antigos actualizarem */
+      buygoods_funnel_pixels: {
+        checkout_html: buildFunnelHtml(checkoutPixelUrl),
+        lander_html: buildFunnelHtml(landerPixelUrl),
+        checkout_pixel_url: checkoutPixelUrl,
+        lander_pixel_url: landerPixelUrl,
+      },
     });
   },
 
@@ -118,6 +144,47 @@ export const integrationsController = {
       flat.platform ||
       pickString(req.query.platform?.toString(), (req.body as Record<string, unknown>)?.platform) ||
       "postback";
+
+    const funnelStep = detectFunnelStepFromPayload(flat);
+    if (funnelStep) {
+      const clickId = extractClickIdFromPayload(flat);
+      const ip = extractClientIp(req);
+      const userAgent = req.headers["user-agent"] || "";
+      const referrer = typeof req.headers.referer === "string" ? req.headers.referer : null;
+      const result = await recordAffiliateFunnelStep({
+        userId: user.id,
+        step: funnelStep,
+        platform,
+        clickIdCandidate: clickId,
+        ip,
+        userAgent,
+        referrer,
+        headers: req.headers as Record<string, string | string[] | undefined>,
+        extraMeta: { postback_funnel: true, flat_keys: Object.keys(flat).slice(0, 40) },
+      });
+      await systemPrisma.postbackLog.create({
+        data: {
+          userId: user.id,
+          platform,
+          status: result.duplicate ? "funnel_duplicate" : "funnel_ok",
+          message: `Funnel ${funnelStep}${result.duplicate ? " (duplicado 24h)" : ""}`,
+          payload: {
+            funnel_step: funnelStep,
+            click_id: clickId,
+            recorded: result.recorded,
+            duplicate: result.duplicate,
+            event_id: result.eventId,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      return res.status(200).json({
+        ok: true,
+        funnel_step: funnelStep,
+        recorded: result.recorded,
+        duplicate: result.duplicate,
+        event_id: result.eventId,
+      });
+    }
 
     const clickId = extractClickIdFromPayload(flat);
     const statusRaw = extractSaleStatusFromPayload(flat);

@@ -136,7 +136,7 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
   },
   BuyGoods: {
     hint:
-      "BuyGoods: a Clickora envia subid=UUID no hoplink. Em Setup → Affiliates → Postback Pixels, cole o URL com macros. {SUBID} deve voltar — assim a venda liga ao clique e ao GCLID. Para refunds, envie um segundo postback com status/event=refund e o mesmo ORDERID.",
+      "BuyGoods: postback = vendas ({SUBID}). Para Checkout Visitors como no Overview, cole também o Funnel Pixel Checkout (abaixo nesta página) em BuyGoods → Funnel Pixels.",
     params: {
       subid: "{SUBID}",
       clickora_click_id: "{SUBID}",
@@ -253,3 +253,119 @@ export function buildAffiliatePostbackExampleUrl(hookUrl: string, platform: stri
   }
   return `${hookUrl}${joiner}${parts.join("&")}`;
 }
+
+// --- Funil (Checkout / Lander): capacidades honestas por rede ---
+
+/** Como a rede tipicamente entrega eventos de funil (não inventamos o que a rede não tem). */
+export type AffiliateFunnelMode =
+  /** BuyGoods: campos HTML Funnel Pixels (Checkout + Lander/VSL). */
+  | "html_funnel_pixels"
+  /** SmartAdv / Everflow-like: postback tipo Event (Checkout / Add to Cart se a oferta tiver). */
+  | "event_postback"
+  /** Só venda/IPN documentado; HTML opcional se a conta tiver slot de pixel. */
+  | "sale_only";
+
+export type AffiliateFunnelGuide = {
+  mode: AffiliateFunnelMode;
+  /** Onde colar no painel da rede (texto curto). */
+  panelPath: string;
+  /** Resumo honesto — o que esta rede costuma permitir. */
+  summary: string;
+  /** Macro típica do click id no Event postback (quando aplicável). */
+  eventClickIdMacro?: string;
+  supportsLander: boolean;
+};
+
+const FUNNEL_GUIDES: Partial<Record<string, AffiliateFunnelGuide>> = {
+  BuyGoods: {
+    mode: "html_funnel_pixels",
+    panelPath: "BuyGoods → Funnel Pixels → Checkout (e Lander/VSL se quiser)",
+    summary:
+      "BuyGoods injecta o teu HTML no checkout (e no lander/VSL). Sem colar o pixel, a dclickora não recebe Checkout Visitors — só o Overview do BuyGoods os conta.",
+    supportsLander: true,
+  },
+  SmartAdv: {
+    mode: "event_postback",
+    panelPath: "SmartAdv → Postbacks → Type: Event (não Conversion) → evento Checkout / Add to Cart se a oferta o tiver",
+    summary:
+      "SmartAdv distingue Conversion (venda) e Event (checkout, add to cart…). Só ofertas com o evento activo disparam. Confirme no catálogo/relatório Events da SmartAdv.",
+    eventClickIdMacro: "{sub3}",
+    supportsLander: false,
+  },
+  EverFlow: {
+    mode: "event_postback",
+    panelPath: "Everflow → postbacks / event pixels conforme o anunciante",
+    summary:
+      "Everflow costuma permitir event postbacks além da conversão. Use o URL de evento Checkout se o offer o expuser; senão só há venda.",
+    eventClickIdMacro: "{subid1}",
+    supportsLander: false,
+  },
+  Digistore24: {
+    mode: "sale_only",
+    panelPath: "Digistore24 → Sales & partners → Integrations (S2S postback)",
+    summary:
+      "Digistore24 (afiliado) notifica tipicamente na compra via S2S — não há Checkout Visitors oficiais para afiliados. Clique = saída para a oferta; venda = postback.",
+    supportsLander: false,
+  },
+  ClickBank: {
+    mode: "sale_only",
+    panelPath: "ClickBank → IPN / Hop Toolkit (pixels do vendor, se existirem)",
+    summary:
+      "ClickBank afiliado: IPN na venda. Pixels de order form só se o vendor/Hop Toolkit os disponibilizar — não inventamos checkout sem esse slot.",
+    supportsLander: false,
+  },
+  MaxWeb: {
+    mode: "sale_only",
+    panelPath: "MaxWeb → Postback Tracking Tags (venda)",
+    summary:
+      "MaxWeb documenta postback de conversão/comissão. Checkout Visitors da rede não entram automaticamente; use o pixel HTML só se a conta tiver campo de pixel no funil.",
+    supportsLander: false,
+  },
+  Hotmart: {
+    mode: "sale_only",
+    panelPath: "Hotmart → Webhook / Postback de compra",
+    summary:
+      "Hotmart notifica na compra (webhook). Não há evento de «chegou ao checkout Hotmart» para afiliados na dclickora.",
+    supportsLander: false,
+  },
+  AdCombo: {
+    mode: "sale_only",
+    panelPath: "AdCombo → Postback da oferta",
+    summary: "Tipicamente só conversão/lead pago via postback. Checkout da rede só se o painel oferecer pixel/evento extra.",
+    supportsLander: false,
+  },
+  Gurumedia: {
+    mode: "sale_only",
+    panelPath: "Gurumedia → Postback",
+    summary: "Postback de conversão. Sem Funnel Pixels tipo BuyGoods na documentação típica.",
+    supportsLander: false,
+  },
+};
+
+const DEFAULT_FUNNEL_GUIDE: AffiliateFunnelGuide = {
+  mode: "sale_only",
+  panelPath: "Painel da rede → Postback / IPN / Pixel (venda)",
+  summary:
+    "A maioria das redes só notifica a venda (ou lead pago). A dclickora já regista o Clique (saída para a oferta). Checkout da rede só aparece se colar pixel HTML / Event postback — e só se a rede o injectar ou disparar.",
+  supportsLander: false,
+};
+
+export function getAffiliateFunnelGuide(platform: string): AffiliateFunnelGuide {
+  return FUNNEL_GUIDES[platform] ?? DEFAULT_FUNNEL_GUIDE;
+}
+
+/** URL de Event postback com macro do click id + funnel_step (S2S). */
+export function buildAffiliateFunnelEventUrl(
+  eventBaseUrl: string,
+  platform: string,
+  step: "checkout" | "lander",
+): string {
+  const guide = getAffiliateFunnelGuide(platform);
+  const macro = guide.eventClickIdMacro || "{SUBID}";
+  const joiner = eventBaseUrl.includes("?") ? "&" : "?";
+  return (
+    `${eventBaseUrl}${joiner}platform=${encodeURIComponent(platform)}` +
+    `&funnel_step=${step}&status=${step}&clickora_click_id=${macro}&subid1=${macro}`
+  );
+}
+

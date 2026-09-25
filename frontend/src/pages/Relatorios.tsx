@@ -39,7 +39,13 @@ function CountryCell({ code }: { code: string }) {
   );
 }
 
-function eventTypeLabel(t: string | undefined) {
+function eventTypeLabel(t: string | undefined, meta?: Record<string, unknown>) {
+  if (t === "lead") {
+    const step = typeof meta?.funnel_step === "string" ? meta.funnel_step : "";
+    if (step === "checkout") return "Checkout";
+    if (step === "lander") return "Lander / VSL";
+    return "Lead";
+  }
   switch (t) {
     case "impression":
       return "Impressão";
@@ -48,8 +54,6 @@ function eventTypeLabel(t: string | undefined) {
     case "conversion":
     case "sale":
       return "Conversão";
-    case "lead":
-      return "Lead";
     case "pageview":
       return "Pageview";
     default:
@@ -218,7 +222,7 @@ export default function Relatorios() {
     try {
       if (kind === "impression" || kind === "click") {
         const { data, filename, error } = await analyticsService.downloadEventsCsv({
-          event_type: kind === "impression" ? "impression" : "click",
+          event_type: kind === "impression" ? "impression,lead" : "click",
           from: applied.from,
           to: applied.to,
         });
@@ -290,10 +294,10 @@ export default function Relatorios() {
   };
 
   const impressionsQuery = useQuery({
-    queryKey: ["relatorios", "events", "impression", applied.from, applied.to],
+    queryKey: ["relatorios", "events", "impression-lead", applied.from, applied.to],
     queryFn: async () => {
       const { data, error } = await analyticsService.getEvents({
-        event_type: "impression",
+        event_type: "impression,lead",
         from: applied.from,
         to: applied.to,
         limit: 500,
@@ -437,7 +441,7 @@ export default function Relatorios() {
       return {
         id: e.id,
         ip: e.ip_address || "—",
-        eventLabel: eventTypeLabel(e.event_type),
+        eventLabel: eventTypeLabel(e.event_type, meta),
         keyword: keyword.trim() || "—",
         keywordMacro: Boolean(e.utm_term_macro),
         utm_campaign: utmCamp?.trim() || "—",
@@ -849,10 +853,11 @@ export default function Relatorios() {
         <TabsContent value="acessos" className="mt-6 space-y-4">
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = tipo real (impressão/clique).
-            Palavra-chave / anúncio mostram o valor gravado (macros literais em âmbar = teste sem clique no Ads).
-            Tipo: <em>Pago</em> = GCLID/msclkid real; <em>Ads (sem ID)</em> = UTM de rede sem ID real; <em>Orgânico</em> = sem sinais de ads.
-            País/região via GeoIP do IP capturado.
+            <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = Impressão (presell) ou{" "}
+            <em>Checkout</em> / Lander (funil da rede). Tipo: <em>Pago</em> = GCLID/msclkid real;{" "}
+            <em>Ads (sem ID)</em> = UTM de rede sem ID real; <em>Orgânico</em> = sem sinais de ads. País/região via GeoIP.
+            Checkout da rede (BuyGoods Funnel Pixel, SmartAdv Event, etc.) só aparece depois de configurar o bloco Funil em
+            Integrações → Postback — não inventamos Checkout Visitors.
           </p>
           <TimezoneAlert />
           <DateFilters />
@@ -948,7 +953,7 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="URL da oferta / checkout (hoplink) para onde o visitante foi enviado"
+                          title="Em eventos Checkout (pixel/Event da rede): hoplink do clique atribuído, se existir."
                         >
                           Checkout Page
                         </th>
@@ -1092,7 +1097,12 @@ export default function Relatorios() {
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
-              <span className="text-sm text-muted-foreground min-w-0 flex-1">Cliques no período seleccionado.</span>
+              <span className="text-sm text-muted-foreground min-w-0 flex-1">
+                Cliques no período.{" "}
+                <span className="text-foreground/80">
+                  Checkout Page = hoplink para onde o visitante foi enviado (não é o contador «Checkout Visitors» do BuyGoods).
+                </span>
+              </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                 <Button
                   type="button"
@@ -1155,7 +1165,7 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="URL da oferta / checkout (hoplink) para onde o visitante foi enviado"
+                          title="Hoplink (URL da oferta) gravado no redirect do clique. Não é o contador Checkout Visitors do BuyGoods — esse só existe no painel da rede."
                         >
                           Checkout Page
                         </th>
@@ -1464,7 +1474,7 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="URL da oferta / checkout (hoplink) do clique atribuído"
+                          title="Hoplink do clique atribuído. Diferente do contador Checkout Visitors do BuyGoods."
                         >
                           Checkout Page
                         </th>
@@ -1705,7 +1715,7 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="URL da oferta / checkout (hoplink) do clique atribuído"
+                          title="Hoplink do clique atribuído. Diferente do contador Checkout Visitors do BuyGoods."
                         >
                           Checkout Page
                         </th>

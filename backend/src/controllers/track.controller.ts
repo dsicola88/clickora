@@ -22,8 +22,10 @@ import {
   voluumStyleQuerySchema,
 } from "../lib/voluumStyleTrackingParams";
 import { normalizeUtmDimension, isUnreplacedAdMacro } from "../lib/adUrlMacros";
+import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 import { extractClientIp } from "../lib/clientIp";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
+import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -104,6 +106,63 @@ function sendTrackingPixelGif(res: Response) {
   res.setHeader("Content-Type", "image/gif");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   return res.status(200).send(buffer);
+}
+
+/**
+ * Funnel Pixel / Event GET: img 1×1 autenticada por token de postback.
+ * Grava lead com metadata.funnel_step (checkout|lander). Não é venda.
+ */
+async function recordFunnelStepFromPixel(req: Request, res: Response) {
+  const stepRaw = (req.params.step || "").toLowerCase().replace(/\.gif$/i, "");
+  if (!isFunnelStep(stepRaw)) {
+    return sendTrackingPixelGif(res);
+  }
+
+  const token =
+    firstQueryString(req.query, "token") ||
+    req.headers["x-postback-token"]?.toString();
+  const decoded = token ? verifyPostbackToken(token) : null;
+  if (!decoded) {
+    return sendTrackingPixelGif(res);
+  }
+
+  const subGate = await systemPrisma.subscription.findUnique({
+    where: { userId: decoded.userId },
+    include: { plan: true },
+  });
+  if (!planAllowsAffiliateWebhook(subGate?.plan)) {
+    return sendTrackingPixelGif(res);
+  }
+
+  const subidCandidate =
+    realClickIdQuery(req.query, "subid") ||
+    realClickIdQuery(req.query, "SUBID") ||
+    realClickIdQuery(req.query, "clickora_click_id") ||
+    realClickIdQuery(req.query, "cid") ||
+    realClickIdQuery(req.query, "subid1") ||
+    realClickIdQuery(req.query, "sub3");
+
+  const platform =
+    firstQueryString(req.query, "platform") ||
+    firstQueryString(req.query, "network") ||
+    "affiliate";
+
+  const ip = extractClientIp(req);
+  const userAgent = req.headers["user-agent"] || "";
+  const referrer = typeof req.headers.referer === "string" ? req.headers.referer : null;
+
+  await recordAffiliateFunnelStep({
+    userId: decoded.userId,
+    step: stepRaw,
+    platform,
+    clickIdCandidate: subidCandidate,
+    ip,
+    userAgent,
+    referrer,
+    headers: req.headers as Record<string, string | string[] | undefined>,
+  });
+
+  return sendTrackingPixelGif(res);
 }
 
 function firstQueryString(q: Request["query"], key: string): string | undefined {
@@ -594,6 +653,11 @@ export const trackController = {
     ]);
 
     return sendTrackingPixelGif(res);
+  },
+
+  /** BuyGoods Funnel Pixels (Checkout / Lander): `GET /track/funnel/checkout.gif?token=…&subid=…` */
+  async funnelStepPixel(req: Request, res: Response) {
+    return recordFunnelStepFromPixel(req, res);
   },
 
   async trackClick(req: Request, res: Response) {

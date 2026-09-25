@@ -22,6 +22,7 @@ import { assessClickQuality, detectBot } from "../src/lib/detectBot";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../src/lib/adUrlMacros";
 import { appendClickIdToAffiliateUrl } from "../src/lib/appendClickIdToUrl";
 import { hasPaidNetworkClickId } from "../src/lib/networkClickId";
+import { detectFunnelStepFromPayload } from "../src/lib/funnelStepEvent";
 
 type Row = { id: string; ok: boolean; detail: string };
 const rows: Row[] = [];
@@ -152,6 +153,22 @@ async function main() {
       "paid_vs_organic",
       hasPaidNetworkClickId({ gclid: "EAIa..." }) && !hasPaidNetworkClickId({ gclid: null }),
       "gclid = pago",
+    );
+  }
+
+  /** 8. Funil (Checkout) — não confundir com venda */
+  {
+    check(
+      "funnel_checkout_event",
+      detectFunnelStepFromPayload({ funnel_step: "checkout" }) === "checkout" &&
+        detectFunnelStepFromPayload({ event: "Checkout" }) === "checkout",
+      "funnel_step/event Checkout → checkout",
+    );
+    check(
+      "funnel_sale_not_funnel",
+      detectFunnelStepFromPayload({ status: "approved" }) === null &&
+        detectFunnelStepFromPayload({ billing_status: "completed" }) === null,
+      "venda aprovada ≠ funil",
     );
   }
 

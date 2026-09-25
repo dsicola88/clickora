@@ -26,7 +26,9 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import {
   AFFILIATE_PLATFORMS,
+  buildAffiliateFunnelEventUrl,
   buildAffiliatePostbackExampleUrl,
+  getAffiliateFunnelGuide,
   getAffiliatePostbackPreset,
 } from "@/lib/marketingPlatforms";
 import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
@@ -44,6 +46,7 @@ export default function Plataformas() {
   const [emailField, setEmailField] = useState("");
   const [copied, setCopied] = useState(false);
   const [copiedExample, setCopiedExample] = useState(false);
+  const [copiedFunnel, setCopiedFunnel] = useState<null | "checkout" | "lander" | "checkout_event">(null);
 
   const {
     data: info,
@@ -126,6 +129,15 @@ export default function Plataformas() {
   }, [displayHookUrl, selected]);
 
   const postbackPresetHint = useMemo(() => getAffiliatePostbackPreset(selected).hint, [selected]);
+  const funnelGuide = useMemo(() => getAffiliateFunnelGuide(selected), [selected]);
+  const funnelAssets = info?.funnel ?? info?.buygoods_funnel_pixels ?? null;
+
+  const checkoutEventUrl = useMemo(() => {
+    const raw = info?.funnel?.checkout_event_postback_url || "";
+    if (!raw) return "";
+    const base = raw.split("&funnel_step=")[0] || raw;
+    return buildAffiliateFunnelEventUrl(base, selected, "checkout");
+  }, [info?.funnel?.checkout_event_postback_url, selected]);
 
   const handleCopyExample = useCallback(() => {
     if (!examplePostbackUrl) return;
@@ -134,6 +146,26 @@ export default function Plataformas() {
     toast.success("URL de exemplo (com macros) copiada!");
     setTimeout(() => setCopiedExample(false), 2000);
   }, [examplePostbackUrl]);
+
+  const handleCopyFunnel = useCallback(
+    (kind: "checkout" | "lander" | "checkout_event") => {
+      let text = "";
+      if (kind === "checkout") text = funnelAssets?.checkout_html || "";
+      else if (kind === "lander") text = funnelAssets?.lander_html || "";
+      else text = checkoutEventUrl;
+      if (!text) return;
+      void navigator.clipboard.writeText(text);
+      setCopiedFunnel(kind);
+      const msgs = {
+        checkout: `Pixel HTML Checkout — cole em: ${funnelGuide.panelPath}`,
+        lander: `Pixel HTML Lander — cole em: ${funnelGuide.panelPath}`,
+        checkout_event: `URL Event Checkout — postback tipo Event em ${selected}`,
+      } as const;
+      toast.success(msgs[kind]);
+      setTimeout(() => setCopiedFunnel(null), 2000);
+    },
+    [checkoutEventUrl, funnelAssets?.checkout_html, funnelAssets?.lander_html, funnelGuide.panelPath, selected],
+  );
 
   const testPostback = useMutation({
     mutationFn: async () => {
@@ -194,7 +226,7 @@ export default function Plataformas() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Postback"
-        subtitle="Escolhe a rede, copia o URL, cola na plataforma, testa — vendas ligadas ao clique."
+        subtitle="Vendas por postback · funil (Checkout) só quando a rede dispara pixel ou Event — sem inventar métricas."
       />
 
       {intLocked ? (
@@ -210,27 +242,25 @@ export default function Plataformas() {
         </div>
         <ol className="list-decimal list-outside space-y-2.5 pl-5 text-sm text-muted-foreground leading-relaxed marker:font-semibold marker:text-foreground">
           <li>
-            Escolha a <strong className="text-foreground/90">rede</strong> à esquerda (BuyGoods, SmartAdv, Digistore24…).
+            Escolha a <strong className="text-foreground/90">rede</strong> à esquerda. O cartão à direita adapta-se ao que essa rede permite de verdade.
           </li>
           <li>
-            Clique <strong className="text-foreground/90">Copiar com macros</strong> e cole esse URL no postback / IPN da rede.
+            <strong className="text-foreground/90">Vendas:</strong> Copiar com macros → cole no postback / IPN da rede (Conversion).
           </li>
           <li>
-            Na <strong className="text-foreground/90">presell</strong>, use o hoplink oficial da rede — a Clickora acrescenta sozinha o ID do clique
+            <strong className="text-foreground/90">Checkout (opcional):</strong> no bloco Funil — pixel HTML (ex. BuyGoods) ou Event postback (ex. SmartAdv). Se a rede só notifica venda, o bloco diz-lhe isso sem inventar Checkout Visitors.
+          </li>
+          <li>
+            Na <strong className="text-foreground/90">presell</strong>, use o hoplink oficial — a Clickora acrescenta o ID do clique
             (BuyGoods → <span className="font-mono text-[11px]">subid</span>, SmartAdv →{" "}
             <span className="font-mono text-[11px]">sub3</span>, Digistore → <span className="font-mono text-[11px]">cid</span>).
           </li>
           <li>
-            No anúncio, use o <strong className="text-foreground/90">link da campanha Clickora</strong> (com UTMs). O{" "}
-            <span className="font-mono text-[11px]">gclid</span> fica no clique.
-          </li>
-          <li>
-            Com venda aprovada, a rede chama este webhook → a conversão aparece em{" "}
-            <strong className="text-foreground/90">Resultados → Conversões</strong>, ligada ao clique (e ao GCLID, se houver).
+            Venda aprovada → Conversões. Evento Checkout → Relatórios → Acessos (não conta como venda).
           </li>
         </ol>
         <p className="mt-4 text-xs text-muted-foreground border-t border-border/50 pt-3">
-          Se o postback chegar sem ID de clique, a venda <strong className="text-foreground/90">ainda é registada</strong> como não atribuída — não se perde o registo; só falta a ligação ao anúncio.
+          Se o postback de venda chegar sem ID de clique, a venda <strong className="text-foreground/90">ainda é registada</strong> como não atribuída — não se perde o registo; só falta a ligação ao anúncio.
         </p>
       </div>
 
@@ -404,6 +434,131 @@ export default function Plataformas() {
                 <span className="font-mono">platform=…</span> nos alertas.
               </p>
             </div>
+
+            {funnelAssets ? (
+              <div className="space-y-4 rounded-xl border border-border/60 bg-muted/15 p-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label className="font-semibold text-foreground text-base">
+                      Funil: Checkout / Lander
+                    </Label>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {funnelGuide.mode === "html_funnel_pixels"
+                        ? "Pixel HTML"
+                        : funnelGuide.mode === "event_postback"
+                          ? "Event postback"
+                          : "Só venda (típico)"}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{funnelGuide.summary}</p>
+                  <p className="mt-1 text-xs text-foreground/80">
+                    Onde configurar: <span className="font-medium">{funnelGuide.panelPath}</span>
+                  </p>
+                  <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed border-t border-border/40 pt-2">
+                    Sempre disponível sem pixel: <strong className="text-foreground/85">Clique</strong> (saída para a
+                    oferta) e <strong className="text-foreground/85">Venda</strong> (postback acima). Checkout na
+                    dclickora só depois de a rede disparar pixel/evento.
+                  </p>
+                </div>
+
+                {funnelGuide.mode === "html_funnel_pixels" || funnelGuide.mode === "sale_only" ? (
+                  <div className="space-y-3">
+                    {funnelGuide.mode === "sale_only" ? (
+                      <p className="text-xs text-amber-900/90 dark:text-amber-100/90 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 leading-relaxed">
+                        Esta rede, na documentação típica, <strong>não</strong> envia Checkout Visitors. Os campos
+                        abaixo só servem se o painel tiver slot de pixel HTML no checkout/order form — caso contrário
+                        ignore.
+                      </p>
+                    ) : null}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Pixel HTML — Checkout</Label>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                        <Input
+                          readOnly
+                          value={funnelAssets.checkout_html}
+                          className="font-mono text-[10px] leading-snug bg-background h-auto min-h-[2.75rem] py-2 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="gap-2 shrink-0"
+                          disabled={intLocked}
+                          onClick={() => handleCopyFunnel("checkout")}
+                        >
+                          {copiedFunnel === "checkout" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          Copiar Checkout
+                        </Button>
+                      </div>
+                    </div>
+                    {(funnelGuide.supportsLander || funnelGuide.mode === "sale_only") && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Pixel HTML — Lander / VSL (opcional)</Label>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                          <Input
+                            readOnly
+                            value={funnelAssets.lander_html}
+                            className="font-mono text-[10px] leading-snug bg-background h-auto min-h-[2.75rem] py-2 flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-2 shrink-0"
+                            disabled={intLocked}
+                            onClick={() => handleCopyFunnel("lander")}
+                          >
+                            {copiedFunnel === "lander" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            Copiar Lander
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {funnelGuide.mode === "event_postback" && checkoutEventUrl ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">
+                      URL Event postback — Checkout (não use como Conversion/venda)
+                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                      <Input
+                        readOnly
+                        value={checkoutEventUrl}
+                        className="font-mono text-[10px] leading-snug bg-background h-auto min-h-[2.75rem] py-2 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="gap-2 shrink-0"
+                        disabled={intLocked}
+                        onClick={() => handleCopyFunnel("checkout_event")}
+                      >
+                        {copiedFunnel === "checkout_event" ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        Copiar Event
+                      </Button>
+                    </div>
+                    {funnelGuide.eventClickIdMacro ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Macro do click id nesta rede:{" "}
+                        <span className="font-mono text-foreground/85">{funnelGuide.eventClickIdMacro}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Eventos de funil aparecem em{" "}
+                  <Link to="/resultados/relatorios/acessos" className="text-primary underline-offset-2 hover:underline">
+                    Relatórios → Acessos
+                  </Link>{" "}
+                  como <strong className="text-foreground/90">Checkout</strong> ou Lander / VSL — nunca como venda.
+                </p>
+              </div>
+            ) : null}
 
             <Collapsible>
               <CollapsibleTrigger asChild>
