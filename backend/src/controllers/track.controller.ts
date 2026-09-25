@@ -22,6 +22,7 @@ import {
   voluumStyleQuerySchema,
 } from "../lib/voluumStyleTrackingParams";
 import { normalizeUtmDimension, isUnreplacedAdMacro } from "../lib/adUrlMacros";
+import { extractClientIp } from "../lib/clientIp";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -1372,15 +1373,6 @@ function deviceAndBotMeta(
     return { device: "bot", botMeta };
   }
   return { device: detectDevice(userAgent), botMeta };
-}
-
-function extractClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"]?.toString();
-  if (forwarded) {
-    const [first] = forwarded.split(",");
-    if (first) return first.trim();
-  }
-  return req.socket.remoteAddress || "";
 }
 
 async function validateOwnerCanTrack(userId: string): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
