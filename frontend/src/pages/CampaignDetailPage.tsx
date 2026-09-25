@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,15 +11,31 @@ import { ErrorState } from "@/components/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { buildTrackedPresellUrl, campaignsService } from "@/services/campaignsService";
 import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
+import {
+  PRO_PAGE_SHELL,
+  ProPageHeader,
+  ProToolbar,
+  ProKpiGrid,
+  ProKpiCell,
+  ProPanel,
+  ProStatusDot,
+  ProInlineLink,
+} from "@/components/enterprise/ProShell";
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
   return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
+}
+
+function statusLabel(s: string) {
+  if (s === "active") return "Activa";
+  if (s === "draft") return "Rascunho";
+  if (s === "paused") return "Pausada";
+  return s;
 }
 
 export default function CampaignDetailPage() {
@@ -80,7 +95,13 @@ export default function CampaignDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading) return <LoadingState message="A carregar campanha…" />;
+  if (isLoading) {
+    return (
+      <div className={PRO_PAGE_SHELL}>
+        <LoadingState message="A carregar campanha…" />
+      </div>
+    );
+  }
   if (isError || !campaign) {
     return <ErrorState message="Campanha não encontrada." onRetry={() => refetch()} />;
   }
@@ -111,230 +132,242 @@ export default function CampaignDetailPage() {
         ? String(campaign.spend_amount)
         : "";
   const stats = campaign.stats;
+  const profit = stats?.profit;
+  const roas = stats?.roas;
 
   return (
-    <div className={APP_PAGE_SHELL}>
-      <PageHeader
+    <div className={PRO_PAGE_SHELL}>
+      <ProPageHeader
         title={campaign.name}
-        description={`${campaign.traffic_source}${campaign.country ? ` · ${campaign.country}` : ""} · ${from} → ${to}`}
+        subtitle={`${campaign.traffic_source}${campaign.country ? ` · ${campaign.country}` : ""} · stats por utm_campaign slug`}
+        meta={
+          <>
+            <ProStatusDot ok={campaign.status === "active"} label={statusLabel(campaign.status)} />
+            <span className="font-mono tabular-nums">
+              {from} → {to}
+            </span>
+            <span>UTC</span>
+          </>
+        }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <DateRangeFilter
-              from={from}
-              to={to}
-              showCompare={false}
-              onApply={(p) => {
-                setFrom(p.from);
-                setTo(p.to);
-              }}
-            />
-            <Button variant="outline" asChild>
-              <Link to="/campanhas">Voltar</Link>
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/campanhas">Todas as campanhas</Link>
+          </Button>
         }
       />
 
-      <Tabs defaultValue="resumo">
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="resumo">Resumo</TabsTrigger>
+      <ProToolbar>
+        <DateRangeFilter
+          from={from}
+          to={to}
+          showCompare={false}
+          onApply={(p) => {
+            setFrom(p.from);
+            setTo(p.to);
+          }}
+        />
+        {campaign.status !== "active" ? (
+          <Button size="sm" onClick={() => activate.mutate()} disabled={activate.isPending}>
+            Activar
+          </Button>
+        ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => void copyLink()}
+          disabled={!trackedUrl}
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          Copiar link anúncio
+        </Button>
+      </ProToolbar>
+
+      <ProKpiGrid>
+        <ProKpiCell label="Cliques" value={String(stats?.clicks ?? 0)} />
+        <ProKpiCell label="Conversões" value={String(stats?.conversions ?? 0)} />
+        <ProKpiCell label="Receita" value={money(stats?.revenue)} />
+        <ProKpiCell
+          label="CVR"
+          value={`${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`}
+        />
+        <ProKpiCell label="Gasto manual" value={money(campaign.spend_amount)} hint="Lifetime / ficha" />
+        <ProKpiCell
+          label="Lucro"
+          value={money(profit)}
+          tone={profit != null && profit < 0 ? "negative" : profit != null && profit > 0 ? "positive" : undefined}
+        />
+        <ProKpiCell
+          label="ROAS"
+          value={roas != null ? `${roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—"}
+          hint="Com gasto manual"
+        />
+        <ProKpiCell label="EPC" value={money(stats?.epc)} />
+      </ProKpiGrid>
+
+      <Tabs defaultValue="operacao">
+        <TabsList className="h-auto flex-wrap gap-1 bg-card border border-border/70 p-1">
+          <TabsTrigger value="operacao">Operação</TabsTrigger>
           <TabsTrigger value="presell">Presell</TabsTrigger>
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
-          <TabsTrigger value="resultados">Resultados</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="resumo" className="space-y-4 mt-4">
-          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Estado:{" "}
-              <span className="font-medium text-foreground">
-                {campaign.status === "active"
-                  ? "Activa"
-                  : campaign.status === "draft"
-                    ? "Rascunho"
-                    : campaign.status === "paused"
-                      ? "Pausada"
-                      : campaign.status}
-              </span>
-            </p>
-            {campaign.offer_url ? (
-              <p className="text-sm break-all">
-                <span className="text-muted-foreground">Oferta: </span>
-                {campaign.offer_url}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap gap-2 pt-2">
-              {campaign.status !== "active" ? (
-                <Button onClick={() => activate.mutate()} disabled={activate.isPending}>
-                  Activar campanha
-                </Button>
-              ) : null}
-              <Button variant="secondary" className="gap-2" onClick={() => void copyLink()} disabled={!trackedUrl}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                Copiar link do anúncio
-              </Button>
-            </div>
-            {trackedUrl ? (
-              <p className="text-xs font-mono text-muted-foreground break-all border-t border-border/40 pt-3">
-                {trackedUrl}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Associe uma presell publicada para gerar o link rastreável automaticamente.
-              </p>
-            )}
-          </div>
+        <TabsContent value="operacao" className="mt-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ProPanel title="Link do anúncio" description="Presell pública + UTMs da campanha.">
+              <div className="space-y-3 px-4 py-4">
+                {campaign.offer_url ? (
+                  <p className="text-xs break-all">
+                    <span className="text-muted-foreground">Oferta: </span>
+                    <span className="font-mono">{campaign.offer_url}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600">Sem URL de oferta na ficha.</p>
+                )}
+                {trackedUrl ? (
+                  <p className="text-[11px] font-mono text-muted-foreground break-all rounded-md border border-border/50 bg-muted/30 p-3">
+                    {trackedUrl}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Associe uma presell publicada para gerar o link rastreável.
+                  </p>
+                )}
+              </div>
+            </ProPanel>
 
-          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
-            <Label htmlFor="spend">Gasto de ads (período que está a analisar)</Label>
-            <p className="text-xs text-muted-foreground">
-              Meta/TikTok/Google sem API: indique aqui o gasto do mesmo período dos Resultados para ver lucro, ROAS e CPA.
-            </p>
-            <div className="flex flex-wrap gap-2 items-end">
-              <Input
-                id="spend"
-                type="number"
-                min={0}
-                step="0.01"
-                className="max-w-[160px]"
-                value={spendValue}
-                onChange={(e) => setSpendDraft(e.target.value)}
-                placeholder="0.00"
-              />
-              <Button
-                disabled={saveSpend.isPending}
-                onClick={() => {
-                  const raw = spendValue.trim();
-                  if (!raw) {
-                    saveSpend.mutate(null);
-                    return;
-                  }
-                  const n = Number(raw.replace(",", "."));
-                  if (!Number.isFinite(n) || n < 0) {
-                    toast.error("Gasto inválido");
-                    return;
-                  }
-                  saveSpend.mutate(n);
-                }}
-              >
-                Guardar gasto
-              </Button>
-            </div>
+            <ProPanel
+              title="Gasto manual"
+              description="Meta/TikTok/Google sem sync: indique o gasto do período para lucro/ROAS nesta ficha. O P&L da conta usa custo sincronizado."
+            >
+              <div className="space-y-3 px-4 py-4">
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="spend" className="text-xs">
+                      EUR
+                    </Label>
+                    <Input
+                      id="spend"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="w-[140px] h-9"
+                      value={spendValue}
+                      onChange={(e) => setSpendDraft(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={saveSpend.isPending}
+                    onClick={() => {
+                      const raw = spendValue.trim();
+                      if (!raw) {
+                        saveSpend.mutate(null);
+                        return;
+                      }
+                      const n = Number(raw.replace(",", "."));
+                      if (!Number.isFinite(n) || n < 0) {
+                        toast.error("Gasto inválido");
+                        return;
+                      }
+                      saveSpend.mutate(n);
+                    }}
+                  >
+                    Guardar
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Preferível: sync em <ProInlineLink to="/integracoes/automizer">Automizer & custos</ProInlineLink>{" "}
+                  e leitura no <ProInlineLink to="/resultados">P&L</ProInlineLink>.
+                </p>
+              </div>
+            </ProPanel>
           </div>
         </TabsContent>
 
-        <TabsContent value="presell" className="mt-4 space-y-3">
+        <TabsContent value="presell" className="mt-4">
           {campaign.presell ? (
-            <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
-              <p className="font-medium">{campaign.presell.title}</p>
-              <p className="text-sm text-muted-foreground">
-                Estado:{" "}
-                {campaign.presell.status === "published"
-                  ? "Publicada"
-                  : campaign.presell.status === "draft"
-                    ? "Rascunho"
-                    : campaign.presell.status === "paused"
-                      ? "Pausada"
-                      : campaign.presell.status}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild>
-                  <Link to="/presells">Gerir em Presells</Link>
+            <ProPanel title={campaign.presell.title}>
+              <div className="flex flex-wrap items-center gap-3 px-4 py-4">
+                <ProStatusDot
+                  ok={campaign.presell.status === "published"}
+                  label={
+                    campaign.presell.status === "published"
+                      ? "Publicada"
+                      : campaign.presell.status === "draft"
+                        ? "Rascunho"
+                        : campaign.presell.status === "paused"
+                          ? "Pausada"
+                          : campaign.presell.status
+                  }
+                />
+                <Button size="sm" asChild>
+                  <Link to="/presells">Gerir Presells</Link>
                 </Button>
                 {campaign.presell.status === "published" ? (
-                  <Button variant="outline" asChild>
-                    <a
-                      href={`/p/${campaign.presell.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Abrir página pública
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={`/p/${campaign.presell.id}`} target="_blank" rel="noreferrer">
+                      Abrir pública
                     </a>
                   </Button>
                 ) : null}
               </div>
-            </div>
+            </ProPanel>
           ) : (
-            <div className="rounded-xl border border-dashed border-border p-6 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">Ainda sem presell ligada.</p>
-              <Button onClick={() => navigate("/presells/nova")}>Criar presell</Button>
-            </div>
+            <ProPanel title="Presell">
+              <div className="flex flex-col items-start gap-3 px-4 py-8">
+                <p className="text-sm text-muted-foreground">Ainda sem presell ligada.</p>
+                <Button size="sm" onClick={() => navigate("/presells/nova")}>
+                  Criar presell
+                </Button>
+              </div>
+            </ProPanel>
           )}
         </TabsContent>
 
-        <TabsContent value="tracking" className="mt-4 space-y-4">
-          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
-            <p className="text-sm font-semibold">Tracking</p>
-            <ul className="space-y-2 text-sm">
+        <TabsContent value="tracking" className="mt-4">
+          <ProPanel title="Pipeline" description="Clique → redirect → postback → conversão.">
+            <ul className="divide-y divide-border/50 text-sm">
               {[
                 ["Estado", "Activo (automático no clique)"],
                 ["Parâmetros do anúncio", "Aplicados ao copiar o link"],
                 ["Click ID", "Inserido no redirect para a oferta"],
                 ["Vendas da rede", "Via Integrações → Postback"],
               ].map(([k, v]) => (
-                <li key={k} className="flex justify-between gap-4 border-b border-border/40 py-2 last:border-0">
-                  <span className="text-muted-foreground">{k}</span>
-                  <span className="font-medium text-right">{v}</span>
+                <li key={k} className="flex justify-between gap-4 px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">{k}</span>
+                  <span className="text-xs font-medium text-right">{v}</span>
                 </li>
               ))}
             </ul>
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-2 border-t border-border/60 px-4 py-3">
               <Button variant="outline" size="sm" asChild>
-                <Link to="/integracoes/postback">Configurar postback</Link>
+                <Link to="/integracoes/postback">Postback</Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/tracking/url-builder">
-                  Construtor de URL <ExternalLink className="ml-1 h-3 w-3" />
+                  URL Builder <ExternalLink className="ml-1 h-3 w-3" />
                 </Link>
               </Button>
+              <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1">
+                    Avançado
+                    <ChevronDown className={`h-4 w-4 transition-transform ${advOpen ? "rotate-180" : ""}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/integracoes">Hub integrações</Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/configuracoes?avancado=1">Diagnóstico</Link>
+                  </Button>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
-            <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1 px-0">
-                  Configurações avançadas
-                  <ChevronDown className={`h-4 w-4 transition-transform ${advOpen ? "rotate-180" : ""}`} />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2 space-y-2 text-sm">
-                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
-                  <Link to="/integracoes">Hub de integrações</Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto ml-0 sm:ml-2">
-                  <Link to="/configuracoes?avancado=1">Diagnóstico e protecções</Link>
-                </Button>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="resultados" className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: "Cliques", value: String(stats?.clicks ?? 0) },
-              { label: "Conversões", value: String(stats?.conversions ?? 0) },
-              { label: "Receita", value: money(stats?.revenue) },
-              { label: "CVR", value: `${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%` },
-              { label: "Gasto (manual)", value: money(campaign.spend_amount) },
-              { label: "Lucro", value: money(stats?.profit) },
-              {
-                label: "ROAS",
-                value: stats?.roas != null ? `${stats.roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—",
-              },
-              { label: "EPC", value: money(stats?.epc) },
-            ].map((k) => (
-              <div key={k.label} className="rounded-xl border border-border/60 bg-card px-4 py-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{k.label}</p>
-                <p className="mt-1 text-xl font-semibold tabular-nums">{k.value}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Métricas {from} → {to} (UTC), atribuídas por nome / slug utm_campaign. O gasto manual pode ser lifetime —
-            o ROAS do painel Resultados usa custo Google sincronizado do período.
-          </p>
-          <Button asChild variant="outline">
-            <Link to="/resultados">Ver conta completa</Link>
-          </Button>
+          </ProPanel>
         </TabsContent>
       </Tabs>
     </div>

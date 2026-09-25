@@ -9,9 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { APP_PAGE_SHELL_PRO } from "@/lib/appPageLayout";
+import { ProPageHeader } from "@/components/enterprise/ProShell";
 import { analyticsService } from "@/services/analyticsService";
 import type { TrackingEvent } from "@/types/api";
 import { LoadingState } from "@/components/LoadingState";
@@ -720,10 +720,10 @@ export default function Relatorios() {
   );
 
   return (
-    <div className={APP_PAGE_SHELL}>
-      <PageHeader
+    <div className={APP_PAGE_SHELL_PRO}>
+      <ProPageHeader
         title="Relatórios"
-        description="Cada separador tem URL próprio; filtros, CSV e sub-IDs nos links."
+        subtitle="Eventos e conversões com o mesmo filtro de bots que o P&L. Separadores com URL próprio · export CSV."
       />
 
       <Tabs value={tab} onValueChange={(v) => navigate(`/resultados/relatorios/${v}`)}>

@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Zap } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
-import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { LoadingState } from "@/components/LoadingState";
 import { useState, useEffect } from "react";
+import { PRO_PAGE_SHELL, ProPageHeader, ProPanel, ProTable, ProTh, ProTd, ProEmpty } from "@/components/enterprise/ProShell";
 
 /**
  * Automizer de keywords + sync de custos — controlo simples para media buyers Google Ads.
@@ -74,20 +73,21 @@ export default function AffiliateAutomizerPage() {
 
   if (isLoading) {
     return (
-      <div className={APP_PAGE_SHELL}>
+      <div className={PRO_PAGE_SHELL}>
         <LoadingState message="A carregar Automizer…" />
       </div>
     );
   }
 
   return (
-    <div className={APP_PAGE_SHELL}>
-      <PageHeader
+    <div className={PRO_PAGE_SHELL}>
+      <ProPageHeader
         title="Automizer & custos"
-        description="Pausa keywords Google sem receita e sincroniza gasto diário (Google / Meta / TikTok) para P&L histórico."
+        subtitle="Pausa keywords Google sem receita postback · sync diário de custo para P&L. Dry-run primeiro."
       />
 
-      <section className="max-w-2xl space-y-5 rounded-xl border border-border/60 bg-card p-5">
+      <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+      <section className="max-w-none space-y-5 rounded-lg border border-border/70 bg-card p-5">
         <div className="flex items-start gap-3">
           <Zap className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground space-y-1">
@@ -191,29 +191,40 @@ export default function AffiliateAutomizerPage() {
         </div>
       </section>
 
-      <section className="max-w-2xl mt-6 rounded-xl border border-border/60 bg-card p-5">
-        <h2 className="text-sm font-semibold mb-3">Últimas acções</h2>
+      <ProPanel title="Auditoria" description="Últimas 30 acções (dry-run ou pause real).">
         {(data?.recent_logs?.length ?? 0) === 0 ? (
-          <p className="text-sm text-muted-foreground">Ainda sem logs. Active dry-run e sync custos.</p>
+          <ProEmpty title="Sem logs" detail="Active dry-run e corra o Automizer ou sync de custos." />
         ) : (
-          <ul className="space-y-2 text-sm">
-            {data!.recent_logs.map((l) => (
-              <li key={l.id} className="border-t border-border/40 pt-2 first:border-0 first:pt-0">
-                <span className="font-mono text-xs">{l.keyword}</span>
-                <span className="text-muted-foreground"> — {l.action}</span>
-                {l.dry_run ? (
-                  <span className="ml-1 text-[10px] uppercase text-amber-600">dry-run</span>
-                ) : null}
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {new Date(l.created_at).toLocaleString("pt-PT")}
-                  {!l.ok ? " · falhou" : ""}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{l.reason}</p>
-              </li>
-            ))}
-          </ul>
+          <ProTable>
+            <thead>
+              <tr>
+                <ProTh>Quando</ProTh>
+                <ProTh>Keyword</ProTh>
+                <ProTh>Acção</ProTh>
+                <ProTh>Modo</ProTh>
+              </tr>
+            </thead>
+            <tbody>
+              {data!.recent_logs.map((l) => (
+                <tr key={l.id} className="hover:bg-muted/30">
+                  <ProTd className="text-[11px] text-muted-foreground whitespace-nowrap">
+                    {new Date(l.created_at).toLocaleString("pt-PT")}
+                  </ProTd>
+                  <ProTd mono>{l.keyword}</ProTd>
+                  <ProTd>
+                    <span className="text-xs">{l.action}</span>
+                    {l.reason ? <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[280px]">{l.reason}</p> : null}
+                  </ProTd>
+                  <ProTd className="text-[11px]">
+                    {l.dry_run ? "dry-run" : l.ok ? "real" : "erro"}
+                  </ProTd>
+                </tr>
+              ))}
+            </tbody>
+          </ProTable>
         )}
-      </section>
+      </ProPanel>
+      </div>
     </div>
   );
 }

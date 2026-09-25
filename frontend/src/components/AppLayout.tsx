@@ -6,7 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 const mainChrome =
-  "min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 pb-12 md:p-6 md:pb-14 lg:p-8 lg:pb-16";
+  "min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-10 md:p-5 md:pb-12 lg:p-6 lg:pb-14";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();

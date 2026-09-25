@@ -14,6 +14,7 @@ import {
   Plug,
   Megaphone,
   ShieldAlert,
+  Link2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -49,16 +50,18 @@ type NavItem = {
 const workNav: NavItem[] = [
   { title: "Presells", url: "/presells", icon: FileText },
   { title: "Campanhas", url: "/campanhas", icon: Megaphone },
+  { title: "URL Builder", url: "/tracking/url-builder", icon: Link2 },
 ];
 
 const resultsNav: NavItem[] = [
-  { title: "Visão geral", url: "/resultados", icon: LayoutDashboard, end: true },
+  { title: "P&L", url: "/resultados", icon: LayoutDashboard, end: true },
   { title: "Conversões", url: "/resultados/conversoes", icon: ClipboardList },
   { title: "Relatórios", url: "/resultados/relatorios", icon: BarChart3 },
 ];
 
 const configNav: NavItem[] = [
   { title: "Integrações", url: "/integracoes", icon: Plug },
+  { title: "Automizer", url: "/integracoes/automizer", icon: Zap },
   { title: "Configurações", url: "/configuracoes", icon: Settings2 },
 ];
 
@@ -163,7 +166,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
-              Resultados
+              Performance
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>

@@ -14,9 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/PageHeader";
-import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
+import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
 import { orderedAdNetworkTokenSections } from "@/lib/adNetworkDynamicTokens";
 import { UrlBuilderTokenModalBody } from "@/components/tracking/UrlBuilderTokenModalBody";
@@ -408,20 +407,19 @@ export default function UrlBuilder() {
   ];
 
   return (
-    <div className={APP_PAGE_SHELL}>
-      <PageHeader
-        centered
-        title="Gerar link"
-        description="URL da presell com UTMs para colar no anúncio. O botão da página usa o hoplink (já com tracking)."
+    <div className={PRO_PAGE_SHELL}>
+      <ProPageHeader
+        title="URL Builder"
+        subtitle="Link da presell com UTMs e click IDs para colar no anúncio. O botão da página usa o hoplink (tracking no redirect)."
         actions={
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="gap-2 border-violet-500/30 bg-violet-500/[0.06] hover:bg-violet-500/10"
+            className="gap-2"
             onClick={() => setMacrosReferenceOpen(true)}
           >
-            <BookOpen className="h-4 w-4" /> Macros (referência)
+            <BookOpen className="h-4 w-4" /> Macros
           </Button>
         }
       />

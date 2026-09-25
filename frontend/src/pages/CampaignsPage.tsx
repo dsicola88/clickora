@@ -2,18 +2,31 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Megaphone } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
-import { Badge } from "@/components/ui/badge";
-import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
-import { campaignsService, type AffiliateCampaign } from "@/services/campaignsService";
+import { campaignsService } from "@/services/campaignsService";
+import {
+  PRO_PAGE_SHELL,
+  ProPageHeader,
+  ProPanel,
+  ProTable,
+  ProTh,
+  ProTd,
+  ProStatusDot,
+} from "@/components/enterprise/ProShell";
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
   return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+}
+
+function statusLabel(s: string) {
+  if (s === "active") return "Activa";
+  if (s === "draft") return "Rascunho";
+  if (s === "paused") return "Pausada";
+  return s;
 }
 
 export default function CampaignsPage() {
@@ -49,7 +62,7 @@ export default function CampaignsPage() {
     return (
       <EmptyState
         title="Ainda sem campanhas"
-        description="Uma campanha liga a oferta, a fonte de tráfego e a presell. Comece por criar uma presell."
+        description="Uma campanha liga oferta, fonte de tráfego e presell. Comece pela presell com URL rastreado."
         actionLabel="Criar presell"
         onAction={() => navigate("/presells/nova")}
         icon={<Megaphone className="h-8 w-8 text-muted-foreground" />}
@@ -58,80 +71,82 @@ export default function CampaignsPage() {
   }
 
   return (
-    <div className={APP_PAGE_SHELL}>
-      <PageHeader
+    <div className={PRO_PAGE_SHELL}>
+      <ProPageHeader
         title="Campanhas"
-        description="Cliques, conversões, gasto e lucro por campanha (últimos 14 dias)."
+        subtitle="Stats dos últimos 14 dias por utm_campaign (slug). Gasto na tabela = valor manual na ficha."
         actions={
-          <Button className="gap-2" onClick={() => navigate("/presells/nova")}>
+          <Button size="sm" className="gap-1.5" onClick={() => navigate("/presells/nova")}>
             <Plus className="h-4 w-4" />
             Nova campanha
           </Button>
         }
       />
 
-      <div className="overflow-x-auto rounded-xl border border-border/60">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+      <ProPanel title={`${data.length} campanha(s)`}>
+        <ProTable>
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">Nome</th>
-              <th className="px-4 py-3 font-medium">Fonte</th>
-              <th className="px-4 py-3 font-medium text-right">Cliques</th>
-              <th className="px-4 py-3 font-medium text-right">Conv.</th>
-              <th className="px-4 py-3 font-medium text-right">Receita</th>
-              <th className="px-4 py-3 font-medium text-right">Gasto</th>
-              <th className="px-4 py-3 font-medium text-right">Lucro</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium w-12" />
+              <ProTh>Nome</ProTh>
+              <ProTh>Estado</ProTh>
+              <ProTh>Fonte</ProTh>
+              <ProTh align="right">Clk</ProTh>
+              <ProTh align="right">Conv</ProTh>
+              <ProTh align="right">Receita</ProTh>
+              <ProTh align="right">Manual</ProTh>
+              <ProTh align="right">Lucro</ProTh>
+              <ProTh align="right"> </ProTh>
             </tr>
           </thead>
           <tbody>
-            {data.map((c: AffiliateCampaign) => {
-              const s = c.stats;
-              return (
-                <tr key={c.id} className="border-t border-border/50 hover:bg-muted/20">
-                  <td className="px-4 py-3">
-                    <Link to={`/campanhas/${c.id}`} className="font-medium text-primary hover:underline">
-                      {c.name}
-                    </Link>
-                    {c.presell?.title ? (
-                      <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">{c.presell.title}</p>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.traffic_source}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{s?.clicks ?? "—"}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{s?.conversions ?? "—"}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{money(s?.revenue)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{money(c.spend_amount)}</td>
-                  <td
-                    className={`px-4 py-3 text-right tabular-nums font-medium ${
-                      s?.profit != null && s.profit < 0 ? "text-destructive" : ""
-                    }`}
+            {data.map((c) => (
+              <tr key={c.id} className="hover:bg-muted/30">
+                <ProTd>
+                  <Link to={`/campanhas/${c.id}`} className="font-medium text-primary hover:underline">
+                    {c.name}
+                  </Link>
+                  {c.presell ? (
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[220px]">{c.presell.title}</p>
+                  ) : (
+                    <p className="text-[10px] text-amber-600">Sem presell</p>
+                  )}
+                </ProTd>
+                <ProTd>
+                  <ProStatusDot ok={c.status === "active"} label={statusLabel(c.status)} />
+                </ProTd>
+                <ProTd className="text-xs text-muted-foreground">{c.traffic_source}</ProTd>
+                <ProTd align="right">{c.stats?.clicks ?? 0}</ProTd>
+                <ProTd align="right">{c.stats?.conversions ?? 0}</ProTd>
+                <ProTd align="right">{money(c.stats?.revenue)}</ProTd>
+                <ProTd align="right" className="text-muted-foreground">
+                  {money(c.spend_amount)}
+                </ProTd>
+                <ProTd
+                  align="right"
+                  className={
+                    c.stats?.profit != null && c.stats.profit < 0 ? "text-destructive font-medium" : "font-medium"
+                  }
+                >
+                  {money(c.stats?.profit)}
+                </ProTd>
+                <ProTd align="right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    title="Eliminar"
+                    onClick={() => {
+                      if (confirm(`Eliminar «${c.name}»?`)) del.mutate(c.id);
+                    }}
                   >
-                    {money(s?.profit)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-muted-foreground"
-                      onClick={() => {
-                        if (confirm("Remover esta campanha?")) del.mutate(c.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </ProTd>
+              </tr>
+            ))}
           </tbody>
-        </table>
-      </div>
+        </ProTable>
+      </ProPanel>
     </div>
   );
 }
