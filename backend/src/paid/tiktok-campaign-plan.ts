@@ -244,7 +244,7 @@ Geo (ISO2): ${data.geoTargets.join(", ")}
 Hook / copy locale (write hooks in this language): ${localeHint}
 ${bidHint}
 Age: ${data.ageMin}-${data.ageMax}
-Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on TikTok still needs video in Ads Manager for full ad)"}`;
+Has uploaded video file path: ${data.videoAssetPath ?? "(none — without a video only campaign and ad group are created)"}`;
 
   let plan: TiktokPlan;
   let tokensIn = 0;

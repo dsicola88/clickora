@@ -490,7 +490,7 @@ export function DpilotTiktokWizardPage() {
             platform="tiktok"
             stepLabel="Passo 5 de 7"
             title="Criativo inicial (recomendado)"
-            description="Vídeo vertical 9:16 funciona melhor; pode ficar por gerar apenas no plano de IA quando preferir."
+            description="Vídeo vertical 9:16 funciona melhor; o ficheiro é enviado para a biblioteca do advertiser e usado no anúncio criado pela API."
           >
             <div className="grid gap-2">
               <Label>Criativo (vídeo ou imagem, opcional)</Label>
@@ -528,6 +528,10 @@ export function DpilotTiktokWizardPage() {
                   />
                 </label>
               )}
+              <p className="text-[11px] text-muted-foreground">
+                Sem vídeo ou imagem, a publicação cria apenas campanha e ad group — o anúncio fica por
+                criar até enviar material.
+              </p>
             </div>
           </DpilotWizardFormSection>
 
