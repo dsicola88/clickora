@@ -6,6 +6,7 @@ import type {
   PaidAdsEntityStatus as EntityStatus,
 } from "@prisma/client";
 
+import { resolveMetaPageId } from "./meta-ads.creative";
 import { prisma } from "./paidPrisma";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -141,13 +142,6 @@ export async function applyMetaPublishCreative(
   projectId: string,
   p: { creative_id: string },
 ): Promise<CrResult> {
-  const pageId = process.env.META_PROMOTED_PAGE_ID?.trim() || process.env.META_PAGE_ID?.trim();
-  if (!pageId) {
-    return {
-      ok: false,
-      error: "Defina META_PROMOTED_PAGE_ID para publicar criativos com ligação.",
-    };
-  }
   const t0 = await getMetaToken(projectId);
   if ("err" in t0) return { ok: false, error: t0.err };
 
@@ -166,6 +160,15 @@ export async function applyMetaPublishCreative(
   if (!conn?.adAccountId) return { ok: false, error: "Ad Account em falta." };
   const act = normActId(conn.adAccountId);
   const actPath = `${act}/`;
+
+  const pageId = resolveMetaPageId({ connection: conn.pageId });
+  if (!pageId) {
+    return {
+      ok: false,
+      error:
+        "Escolha a Página do Facebook nas ligações Meta (ou defina META_PROMOTED_PAGE_ID) para publicar criativos com ligação.",
+    };
+  }
 
   const CTA: Record<string, string> = {
     learn_more: "LEARN_MORE",

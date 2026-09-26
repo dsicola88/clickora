@@ -63,6 +63,13 @@ export const metaCampaignPlanInputSchema = z
     specialAdCategories: z.array(specialCategoryEnum).max(6).default([]),
     complianceAcknowledged: z.boolean(),
     assetPath: z.string().max(300).nullable().optional(),
+    /** Página Facebook que promove os anúncios (ID numérico do Graph). */
+    pageId: z
+      .string()
+      .trim()
+      .regex(/^\d{5,25}$/, "Escolha a Página do Facebook (ID numérico) para promover os anúncios.")
+      .nullable()
+      .optional(),
     meta_bidding_strategy: metaBiddingStrategyEnum.optional().default("lowest_cost"),
     meta_bid_amount_usd: z.number().positive().max(1000).nullable().optional(),
   })
@@ -385,6 +392,19 @@ export async function runMetaCampaignPlan(
 
   const ownerUserId = project.userId;
 
+  /** Página promovida: escolha do assistente ou a já guardada na ligação Meta do projecto. */
+  const metaConn = await prisma.paidAdsMetaConnection.findUnique({
+    where: { projectId: project.id },
+    select: { id: true, pageId: true },
+  });
+  const pageId = data.pageId?.trim() || metaConn?.pageId || null;
+  if (metaConn && pageId && pageId !== metaConn.pageId) {
+    await prisma.paidAdsMetaConnection.update({
+      where: { id: metaConn.id },
+      data: { pageId },
+    });
+  }
+
   const aiRun = await prisma.paidAdsAiRun.create({
     data: {
       userId: ownerUserId,
@@ -544,6 +564,7 @@ Age range: ${data.ageMin}-${data.ageMax}`;
     compliance_acknowledged_by: actor.userId,
     compliance_acknowledged_at: new Date().toISOString(),
     asset_path: data.assetPath ?? null,
+    page_id: pageId,
     compliance_notice:
       sensitive.length > 0
         ? `Categorias especiais declaradas: ${sensitive.join(", ")}. Limitações de targeting do Meta serão aplicadas no momento da publicação.`

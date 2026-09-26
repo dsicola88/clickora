@@ -79,6 +79,12 @@ paidRouter.delete("/change-requests/:id", (req, res) => void paidController.dele
 paidRouter.get("/projects/:projectId/meta-connection", (req, res) =>
   void paidController.getMetaConnection(req, res),
 );
+paidRouter.get("/projects/:projectId/meta-pages", (req, res) =>
+  void paidController.listMetaPages(req, res),
+);
+paidRouter.post("/projects/:projectId/meta-page", (req, res) =>
+  void paidController.selectMetaPage(req, res),
+);
 paidRouter.get("/projects/:projectId/tiktok-connection", (req, res) =>
   void paidController.getTikTokConnection(req, res),
 );

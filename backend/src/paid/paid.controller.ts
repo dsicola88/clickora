@@ -25,6 +25,7 @@ import {
   runGoogleKeywordSuggest,
 } from "./google-keyword-decision";
 import { fetchKeywordPlannerMetrics } from "./google-keyword-planner";
+import { listMetaPagesForProject } from "./meta-ads.creative";
 import { metaCampaignPlanInputSchema, runMetaCampaignPlan } from "./meta-campaign-plan";
 import { reconcileProjectCampaigns } from "./reconcile-campaigns";
 import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-campaign-plan";
@@ -326,6 +327,49 @@ export const paidController = {
     }
     const c = await prisma.paidAdsMetaConnection.findUnique({ where: { projectId: parsed.data.projectId } });
     return res.json(c ? mappers.mapMetaConnection(c) : null);
+  },
+
+  /** Páginas Facebook geridas pelo utilizador ligado (Graph `me/accounts`). */
+  async listMetaPages(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso." });
+    }
+    const out = await listMetaPagesForProject(parsed.data.projectId);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json({ pages: out.pages, selected_page_id: out.selectedPageId });
+  },
+
+  /** Guarda a Página escolhida na ligação Meta do projecto (usada na publicação). */
+  async selectMetaPage(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para alterar a ligação Meta." });
+    }
+    const body = z
+      .object({
+        pageId: z.string().trim().regex(/^\d{5,25}$/, "Use o ID numérico da Página Facebook."),
+        pageName: z.string().trim().max(200).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: body.error.issues[0]?.message ?? "Dados inválidos." });
+    }
+    const conn = await prisma.paidAdsMetaConnection.findUnique({
+      where: { projectId: parsed.data.projectId },
+    });
+    if (!conn) return res.status(404).json({ error: "Ligação Meta não encontrada." });
+    const updated = await prisma.paidAdsMetaConnection.update({
+      where: { id: conn.id },
+      data: { pageId: body.data.pageId, pageName: body.data.pageName ?? null },
+    });
+    return res.json(mappers.mapMetaConnection(updated));
   },
 
   async getTikTokConnection(req: Request, res: Response) {

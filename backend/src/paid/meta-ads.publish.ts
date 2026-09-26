@@ -2,11 +2,18 @@
  * Publica campanha Meta (Facebook/Instagram) a partir do modelo local, via Graph API.
  * - Estados ACTIVE no Meta; orçamento pode consumir.
  * - Targeting UE/EEA: dsa_beneficiary + dsa_payor (payload ou META_DSA_BENEFICIARY / META_DSA_PAYOR).
- * - Página: META_PROMOTED_PAGE_ID, META_PAGE_ID ou `page_id` no payload.
+ * - Página: `page_id` no payload, Página da ligação do projecto ou META_PROMOTED_PAGE_ID / META_PAGE_ID.
+ * - Criativo: imagem/vídeo carregado no assistente é enviado para a conta antes do anúncio.
  */
 import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMetaCta as MetaCta } from "@prisma/client";
 
 import { paidLog } from "../lib/paidLog";
+import {
+  buildMetaObjectStorySpec,
+  isValidMetaPageId,
+  resolveMetaCreativeAsset,
+  resolveMetaPageId,
+} from "./meta-ads.creative";
 import { metaGraphAdsetBiddingFields } from "./meta-tiktok-bidding";
 import { prisma } from "./paidPrisma";
 
@@ -232,19 +239,6 @@ export async function publishMetaCreateCampaignFromLocal(
   campaignId: string,
   crPayload: MetaApiPayload = null,
 ): Promise<MetaPublishResult> {
-  const pageId =
-    (crPayload as { page_id?: string } | undefined)?.page_id?.trim() ||
-    process.env.META_PROMOTED_PAGE_ID?.trim() ||
-    process.env.META_PAGE_ID?.trim();
-  if (!pageId) {
-    paidLog("error", "meta.publish.missing_page", { projectId, campaignId });
-    return {
-      ok: false,
-      error:
-        "Defina META_PROMOTED_PAGE_ID (ou META_PAGE_ID) no servidor, ou inclua `page_id` no payload. Anúncios de ligação precisam de uma Página Facebook.",
-    };
-  }
-
   const conn = await prisma.paidAdsMetaConnection.findUnique({ where: { projectId } });
   if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.adAccountId) {
     paidLog("error", "meta.publish.no_connection", { projectId, campaignId });
@@ -253,6 +247,26 @@ export async function publishMetaCreateCampaignFromLocal(
   if (conn.tokenRef.startsWith("state:")) {
     paidLog("error", "meta.publish.invalid_token_state", { projectId, campaignId });
     return { ok: false, error: "Sessão Meta inválida; volte a conectar." };
+  }
+
+  const pageId = resolveMetaPageId({
+    payload: (crPayload as { page_id?: unknown } | null)?.page_id,
+    connection: conn.pageId,
+  });
+  if (!pageId) {
+    paidLog("error", "meta.publish.missing_page", { projectId, campaignId });
+    return {
+      ok: false,
+      error:
+        "Escolha a Página do Facebook no assistente Meta (ou defina META_PROMOTED_PAGE_ID no servidor). Anúncios de ligação precisam de uma Página.",
+    };
+  }
+  if (!isValidMetaPageId(pageId)) {
+    paidLog("error", "meta.publish.invalid_page", { projectId, campaignId });
+    return {
+      ok: false,
+      error: `ID de Página Facebook inválido: «${pageId}». Use o ID numérico da Página.`,
+    };
   }
 
   const { categories: specCats, error: specErr } = toSpecialAdCategories(
@@ -370,21 +384,29 @@ export async function publishMetaCreateCampaignFromLocal(
     const aRes = await graphFormPost(`${actPath}adsets`, token, adsetBase);
     const metaAdsetId = aRes.id;
 
+    /** Imagem/vídeo do assistente: carregado uma vez e reutilizado pelos criativos. */
+    const assetPath = adset.creatives[0]!.imageAssetRef ?? crPayload?.asset_path;
+    const assetRes = await resolveMetaCreativeAsset(projectId, actPath, token, assetPath);
+    if (!assetRes.ok) {
+      return { ok: false, error: assetRes.error };
+    }
+
     for (const mcr of adset.creatives) {
       const msg = (mcr.primaryText ?? "").slice(0, 2000);
       const title = (mcr.headline ?? "").slice(0, 255);
       const desc = (mcr.description ?? "")?.slice(0, 200) ?? "";
       const cta = CTA_MAP[mcr.cta] ?? "LEARN_MORE";
-      const story = JSON.stringify({
-        page_id: pageId,
-        link_data: {
+      const story = JSON.stringify(
+        buildMetaObjectStorySpec({
+          pageId,
           message: msg,
-          name: title,
+          headline: title,
           description: desc,
           link: landing,
-          call_to_action: { type: cta },
-        },
-      });
+          ctaType: cta,
+          asset: assetRes.asset,
+        }),
+      );
 
       const crRes = await graphFormPost(`${actPath}adcreatives`, token, {
         name: `Creative — ${title}`.slice(0, 256),

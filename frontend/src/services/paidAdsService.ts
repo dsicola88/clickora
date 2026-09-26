@@ -41,6 +41,14 @@ export type CampaignRow = {
   optimizer_flags?: Record<string, unknown>;
 };
 
+/** Página Facebook gerida pela conta ligada (Graph `me/accounts`). */
+export type MetaPageOption = {
+  id: string;
+  name: string;
+  category: string | null;
+  can_advertise: boolean;
+};
+
 export type GoogleStudioKeywordRow = {
   id: string;
   text: string;
@@ -213,6 +221,16 @@ export const paidAdsService = {
 
   getTikTokConnection(projectId: string) {
     return apiClient.get<Record<string, unknown> | null>(`/paid/projects/${projectId}/tiktok-connection`);
+  },
+
+  listMetaPages(projectId: string) {
+    return apiClient.get<{ pages: MetaPageOption[]; selected_page_id: string | null }>(
+      `/paid/projects/${projectId}/meta-pages`,
+    );
+  },
+
+  selectMetaPage(projectId: string, body: { pageId: string; pageName?: string }) {
+    return apiClient.post<Record<string, unknown>>(`/paid/projects/${projectId}/meta-page`, body);
   },
 
   googleOAuthStart(projectId: string) {
@@ -551,6 +569,7 @@ export const paidAdsService = {
       specialAdCategories: string[];
       complianceAcknowledged: boolean;
       assetPath: string | null;
+      pageId: string;
       meta_bidding_strategy?: "lowest_cost" | "bid_cap_usd" | "cost_cap_usd";
       meta_bid_amount_usd?: number;
     },

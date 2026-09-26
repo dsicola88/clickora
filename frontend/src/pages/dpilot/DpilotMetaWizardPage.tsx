@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ImageIcon, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
-import { paidAdsService } from "@/services/paidAdsService";
+import { paidAdsService, type MetaPageOption } from "@/services/paidAdsService";
 import { Gate } from "./DpilotPaidPages";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DPILOT_OFFER_TEMPLATE } from "./dpilotOfferTemplate";
@@ -94,6 +94,9 @@ const specialCategories = [
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"];
 const MAX_BYTES = 25 * 1024 * 1024;
+
+/** IDs de Página no Graph são numéricos. */
+const PAGE_ID_RE = /^\d{5,25}$/;
 
 const DPILOT_META_CAMPAIGN_STEPS = [
   { id: "dpilot-wiz-meta-offer", label: "Destino e público" },

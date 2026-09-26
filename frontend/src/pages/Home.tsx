@@ -11,7 +11,6 @@ import { presellService } from "@/services/presellService";
 import { useAuth } from "@/contexts/AuthContext";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
 import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
-import { EnterpriseOnboardingCard } from "@/components/enterprise/EnterprisePanels";
 
 /**
  * Início: KPIs da conta com filtro de datas · atalho para P&L.
@@ -57,7 +56,7 @@ export default function Home() {
       <div className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-10">
         <PageHeader
           centered
-          title={`Bem-vindo${user?.full_name ? `, ${String(user.full_name).split(" ")[0]}` : ""}`}
+          title={`Bem-vindo${user?.name ? `, ${String(user.name).split(" ")[0]}` : ""}`}
           description="Crie a sua primeira presell em poucos passos. O tracking fica activo automaticamente."
         />
         <Button
@@ -83,7 +82,6 @@ export default function Home() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-1 py-2 sm:px-2">
-      <EnterpriseOnboardingCard />
       <div className="flex flex-col gap-4 border-b border-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <PageHeader
           title="Visão geral"
