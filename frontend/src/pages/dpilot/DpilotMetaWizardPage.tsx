@@ -367,7 +367,8 @@ export function DpilotMetaWizardPage() {
   };
 
   const hasSensitive = categories.length > 0;
-  const canSubmit = complianceAck && !submitting && !uploading;
+  const pageIdValid = PAGE_ID_RE.test(pageId.trim());
+  const canSubmit = complianceAck && pageIdValid && !submitting && !uploading;
 
   return (
     <Gate>
@@ -413,7 +414,7 @@ export function DpilotMetaWizardPage() {
             platform="meta"
             stepLabel="Passo 1 de 7"
             title="Destino e mensagem"
-            description="URL da oferta, proposta de valor e notas de público para o conjunto e criativos gerados."
+            description="Página promotora, URL da oferta, proposta de valor e notas de público para o conjunto e criativos gerados."
           >
             <div className="grid gap-2">
               <Label htmlFor="m-url">URL de destino</Label>
@@ -424,6 +425,54 @@ export function DpilotMetaWizardPage() {
                 onChange={(e) => setLandingUrl(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="m-page">Página do Facebook (obrigatória)</Label>
+              {pagesLoading ? (
+                <div className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  A carregar as Páginas da conta ligada…
+                </div>
+              ) : pages.length > 0 ? (
+                <select
+                  id="m-page"
+                  value={pageId}
+                  onChange={(e) => handlePageChange(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  required
+                >
+                  <option value="">Selecione a Página…</option>
+                  {pages.map((p) => (
+                    <option key={p.id} value={p.id} disabled={!p.can_advertise}>
+                      {p.name}
+                      {p.category ? ` · ${p.category}` : ""}
+                      {p.can_advertise ? "" : " · sem permissão para anunciar"}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  id="m-page"
+                  inputMode="numeric"
+                  placeholder="ID numérico da Página — ex.: 102938475610293"
+                  value={pageId}
+                  onChange={(e) => setPageId(e.target.value)}
+                  onBlur={() => persistPageSelection(pageId)}
+                  required
+                />
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Os anúncios com ligação são publicados por uma Página.{" "}
+                {pagesError
+                  ? `${pagesError} Indique o ID manualmente para continuar.`
+                  : "A escolha fica guardada na ligação Meta do projeto."}
+              </p>
+              {pageId.trim() && !pageIdValid ? (
+                <p className="text-[11px] text-destructive">
+                  Use o ID numérico da Página (apenas dígitos).
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
