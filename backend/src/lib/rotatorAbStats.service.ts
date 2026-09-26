@@ -46,10 +46,10 @@ export async function getRotatorAbStats(args: { userId: string; rotatorId: strin
          FROM tracking_events child
          WHERE child.user_id = te.user_id
            AND child.event_type = 'click'
-           AND child.metadata->>'parent_rotator_click_id' = te.id::text
+           AND child.metadata->>'parent_rotator_click_id' = te.id
        )
      )
-    WHERE te.user_id = ${args.userId}::uuid
+    WHERE te.user_id = ${args.userId}
       AND te.event_type = 'click'
       AND te.metadata->>'rotator_id' = ${args.rotatorId}
       AND (te.metadata->>'rotator_arm_id') IS NOT NULL

@@ -331,8 +331,15 @@ async function main() {
       rec("abStats.clicks", "PASS", "cliques rotator já provados acima");
       rec("abStats.sales", "BLOCKED", "depende de postback no plano Pro");
     } else {
-      const hookUrl = String(hook.body.hook_url || hook.body.url || "");
-      assert.ok(hookUrl.includes("token="), `hook ${hook.status} ${JSON.stringify(hook.body)}`);
+      const rawHook = String(hook.body.hook_url || hook.body.url || "");
+      assert.ok(rawHook.includes("token="), `hook ${hook.status} ${JSON.stringify(hook.body)}`);
+      /** Postback tem de bater na mesma API/DB do E2E (hook_url público pode ser dclickora.com). */
+      const hookParsed = new URL(rawHook);
+      const apiBase = new URL(BASE.endsWith("/") ? BASE : `${BASE}/`);
+      hookParsed.protocol = apiBase.protocol;
+      hookParsed.host = apiBase.host;
+      // BASE = …/api → path do hook já inclui /api/integrations/…
+      const hookUrl = hookParsed.toString();
 
       async function sale(clickId: string, amount: string) {
         const u = new URL(hookUrl);
@@ -352,22 +359,28 @@ async function main() {
       const stats = await jsonFetch(`/traffic-rotators/${rotatorId}/ab-stats?lookback_days=7`, {
         token: auth,
       });
-      const arms = (stats.body.arms as { label: string | null; clicks: number; conversions: number }[]) || [];
-      const armA = arms.find((x) => x.label === "A");
-      const armB = arms.find((x) => x.label === "B");
-      const clicksOk = !!armA && !!armB && armA.clicks >= 1 && armB.clicks >= 1;
-      const salesOk =
-        !!armA && !!armB && armA.conversions >= 1 && armB.conversions >= 1;
-      rec(
-        "abStats.clicks",
-        clicksOk ? "PASS" : "FAIL",
-        `A c=${armA?.clicks} B c=${armB?.clicks}`,
-      );
-      rec(
-        "abStats.sales",
-        salesOk ? "PASS" : "FAIL",
-        `A cv=${armA?.conversions} B cv=${armB?.conversions}`,
-      );
+      if (stats.status >= 400) {
+        rec("abStats.clicks", "FAIL", `ab-stats → ${stats.status} ${JSON.stringify(stats.body)}`);
+        rec("abStats.sales", "FAIL", "depende de ab-stats OK");
+      } else {
+        const arms =
+          (stats.body.arms as { label: string | null; clicks: number; conversions: number }[]) || [];
+        const armA = arms.find((x) => x.label === "A");
+        const armB = arms.find((x) => x.label === "B");
+        const clicksOk = !!armA && !!armB && armA.clicks >= 1 && armB.clicks >= 1;
+        const salesOk =
+          !!armA && !!armB && armA.conversions >= 1 && armB.conversions >= 1;
+        rec(
+          "abStats.clicks",
+          clicksOk ? "PASS" : "FAIL",
+          `A c=${armA?.clicks} B c=${armB?.clicks}`,
+        );
+        rec(
+          "abStats.sales",
+          salesOk ? "PASS" : "FAIL",
+          `A cv=${armA?.conversions} B cv=${armB?.conversions}`,
+        );
+      }
     }
 
     {
