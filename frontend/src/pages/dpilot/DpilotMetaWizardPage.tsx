@@ -110,6 +110,10 @@ const DPILOT_META_CAMPAIGN_STEPS = [
 
 const schema = z.object({
   landingUrl: z.string().url("Informe uma URL válida").max(500),
+  pageId: z
+    .string()
+    .trim()
+    .regex(PAGE_ID_RE, "Selecione a Página do Facebook que vai publicar os anúncios"),
   offer: z.string().trim().min(3).max(500),
   audienceNotes: z.string().trim().min(3).max(800),
   objective: z.enum(["traffic", "leads", "purchases", "awareness", "engagement", "app_promotion"]),
@@ -143,11 +147,56 @@ export function DpilotMetaWizardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [pageId, setPageId] = useState("");
+  const [pages, setPages] = useState<MetaPageOption[]>([]);
+  const [pagesLoading, setPagesLoading] = useState(true);
+  const [pagesError, setPagesError] = useState<string | null>(null);
+
   const [assetPath, setAssetPath] = useState<string | null>(null);
   const [assetPreview, setAssetPreview] = useState<string | null>(null);
   const [assetIsVideo, setAssetIsVideo] = useState(false);
   const [assetName, setAssetName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    setPagesLoading(true);
+    void paidAdsService.listMetaPages(projectId).then(({ data, error: apiErr }) => {
+      if (!active) return;
+      setPagesLoading(false);
+      if (apiErr || !data) {
+        setPagesError(apiErr || "Não foi possível listar as Páginas da conta Meta ligada.");
+        return;
+      }
+      setPagesError(null);
+      setPages(data.pages);
+      const preferred = data.selected_page_id ?? (data.pages.length === 1 ? data.pages[0]!.id : "");
+      if (preferred) setPageId(preferred);
+    });
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  /** Guarda a escolha na ligação do projeto para reutilização nas publicações seguintes. */
+  const persistPageSelection = (value: string) => {
+    const next = value.trim();
+    if (!projectId || !PAGE_ID_RE.test(next)) return;
+    const name = pages.find((p) => p.id === next)?.name;
+    void paidAdsService
+      .selectMetaPage(projectId, { pageId: next, ...(name ? { pageName: name } : {}) })
+      .then(({ error: apiErr }) => {
+        if (apiErr) {
+          toast.error("Não foi possível guardar a Página", { description: apiErr });
+        }
+      });
+  };
+
+  const handlePageChange = (value: string) => {
+    setPageId(value);
+    persistPageSelection(value);
+  };
 
   const togglePlacement = (v: string) => {
     setPlacements((curr) => (curr.includes(v) ? curr.filter((x) => x !== v) : [...curr, v]));
@@ -221,6 +270,7 @@ export function DpilotMetaWizardPage() {
     setError(null);
     const parsed = schema.safeParse({
       landingUrl,
+      pageId,
       offer,
       audienceNotes,
       objective,
@@ -275,6 +325,7 @@ export function DpilotMetaWizardPage() {
         specialAdCategories: categories.length === 0 ? ["none"] : categories,
         complianceAcknowledged: complianceAck,
         assetPath: assetPath,
+        pageId: parsed.data.pageId,
         meta_bidding_strategy: metaBiddingStrategy,
         ...(metaBiddingStrategy !== "lowest_cost"
           ? {
