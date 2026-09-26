@@ -321,7 +321,9 @@ Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on
     compliance_acknowledged_by: actor.userId,
     compliance_acknowledged_at: new Date().toISOString(),
     compliance_notice:
-      "O anunciante é responsável pelo cumprimento das políticas de conteúdo e anúncios do TikTok. Criar anúncios de vídeo completos no feed pode exigir passos adicionais no TikTok Ads Manager.",
+      data.videoAssetPath
+        ? "O anunciante é responsável pelo cumprimento das políticas de conteúdo e anúncios do TikTok. O vídeo carregado é enviado para a biblioteca do advertiser e usado no anúncio criado pela API."
+        : "O anunciante é responsável pelo cumprimento das políticas de conteúdo e anúncios do TikTok. Sem vídeo ou imagem, a publicação cria apenas campanha e ad group — o anúncio exige material no assistente.",
     bidding_config: tikTokBiddingStored,
     reasons,
   };
@@ -394,7 +396,9 @@ Has uploaded video file path: ${data.videoAssetPath ?? "(none — ad creative on
       tokensOut,
       outputSummary: `TikTok · ${objectiveType} · ${
         didAutoApply
-          ? "campanha e ad group na API"
+          ? data.videoAssetPath
+            ? "campanha, ad group e anúncio na API"
+            : "campanha e ad group na API"
           : shouldTryAutoApply
             ? "autopilot: falha na publicação — ver aprovações"
             : "aguardando aprovação"

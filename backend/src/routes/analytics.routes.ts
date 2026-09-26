@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { analyticsController } from "../controllers/analytics.controller";
-import { authenticate } from "../middleware/authenticate";
+import { authenticateJwtOrApiKey } from "../middleware/authenticateJwtOrApiKey";
 import { tenantIsolation } from "../middleware/tenantIsolation";
 import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 
 export const analyticsRouter = Router();
 
-analyticsRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
+analyticsRouter.use(authenticateJwtOrApiKey, tenantIsolation, requireActiveSubscription);
 
 analyticsRouter.get("/", analyticsController.getSummary);
 analyticsRouter.get("/tracking-click/:eventId", analyticsController.getTrackingClick);

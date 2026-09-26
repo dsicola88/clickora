@@ -411,7 +411,8 @@ export const analyticsController = {
   },
 
   async getEvents(req: Request, res: Response) {
-    const { event_type, presell_id, limit, from, to, format, cursor, include_bots } = req.query;
+    const { event_type, presell_id, source, campaign, limit, from, to, format, cursor, include_bots } =
+      req.query;
     const userId = billingUserId(req);
     const formatStr = typeof format === "string" ? format.toLowerCase() : "";
     const wantCsv = formatStr === "csv" || formatStr === "text/csv";
@@ -438,6 +439,10 @@ export const analyticsController = {
           .filter(Boolean)
       : [];
     const presellId = presell_id && typeof presell_id === "string" ? presell_id : null;
+    const sourceFilter =
+      source && typeof source === "string" && source.trim() ? source.trim() : null;
+    const campaignFilter =
+      campaign && typeof campaign === "string" && campaign.trim() ? campaign.trim() : null;
 
     const eventTypeWhere =
       eventTypes.length === 1
@@ -450,6 +455,8 @@ export const analyticsController = {
       WHERE user_id = ${userId}
         ${eventTypeWhere}
         ${presellId ? Prisma.sql`AND presell_page_id = ${presellId}` : Prisma.empty}
+        ${sourceFilter ? Prisma.sql`AND source = ${sourceFilter}` : Prisma.empty}
+        ${campaignFilter ? Prisma.sql`AND campaign = ${campaignFilter}` : Prisma.empty}
         ${rangeStart ? Prisma.sql`AND created_at >= ${rangeStart}` : Prisma.empty}
         ${rangeEnd ? Prisma.sql`AND created_at <= ${rangeEnd}` : Prisma.empty}
         ${sqlExcludeBotAndKpiNoise(includeBots)}

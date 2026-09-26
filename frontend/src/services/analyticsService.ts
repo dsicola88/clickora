@@ -132,6 +132,8 @@ export const analyticsService = {
   async getEvents(params?: {
     event_type?: string;
     presell_id?: string;
+    source?: string;
+    campaign?: string;
     from?: string;
     to?: string;
     limit?: number;
@@ -139,6 +141,8 @@ export const analyticsService = {
     const query = new URLSearchParams();
     if (params?.event_type) query.set("event_type", params.event_type);
     if (params?.presell_id) query.set("presell_id", params.presell_id);
+    if (params?.source) query.set("source", params.source);
+    if (params?.campaign) query.set("campaign", params.campaign);
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     if (params?.limit) query.set("limit", String(params.limit));

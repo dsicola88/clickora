@@ -125,27 +125,26 @@ function looksLikeTiktokAuthError(code: number, message: string): boolean {
   return false;
 }
 
-/**
- * Chama a API com o token corrente; se falhar por auth e existir refresh, renova e repete uma vez.
- */
-export async function tiktokApiPostWithTokenRetry<T>(projectId: string, path: string, body: object): Promise<{
+export type TikTokApiResponse<T> = {
   code: number;
   message: string;
   data?: T;
   request_id?: string;
-}> {
+};
+
+/**
+ * Corre o pedido com o token corrente; se falhar por auth e existir refresh, renova e repete uma vez.
+ */
+async function tiktokWithTokenRetry<T>(
+  projectId: string,
+  path: string,
+  run: (token: string) => Promise<TikTokApiResponse<T>>,
+): Promise<TikTokApiResponse<T>> {
   const first = await ensureTikTokAccessToken(projectId);
   if (!first.ok) {
     return { code: 40001, message: first.error };
   }
-  const doPost = (token: string) =>
-    fetch(`${TIKTOK_BASE}/${path.replace(/^\//, "")}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Access-Token": token },
-      body: JSON.stringify(body),
-    }).then((r) => r.json() as Promise<{ code: number; message: string; data?: T; request_id?: string }>);
-
-  let env = await doPost(first.accessToken);
+  let env = await run(first.accessToken);
   if (env.code === 0) return env;
 
   const conn = await prisma.paidAdsTikTokConnection.findUnique({ where: { projectId } });
@@ -158,8 +157,63 @@ export async function tiktokApiPostWithTokenRetry<T>(projectId: string, path: st
     });
     const r = await refreshTikTokAccessToken(conn.id, conn.refreshTokenRef);
     if (r.ok) {
-      env = await doPost(r.accessToken);
+      env = await run(r.accessToken);
     }
   }
   return env;
+}
+
+export function tiktokApiPostWithTokenRetry<T>(
+  projectId: string,
+  path: string,
+  body: object,
+): Promise<TikTokApiResponse<T>> {
+  return tiktokWithTokenRetry<T>(projectId, path, (token) =>
+    fetch(`${TIKTOK_BASE}/${path.replace(/^\//, "")}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Access-Token": token },
+      body: JSON.stringify(body),
+    }).then((r) => r.json() as Promise<TikTokApiResponse<T>>),
+  );
+}
+
+/** Query string da Marketing API: listas e objectos vão em JSON (ex.: `video_ids=["x"]`). */
+export function tiktokQueryString(query: Record<string, string | number | string[]>): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    qs.set(k, Array.isArray(v) ? JSON.stringify(v) : String(v));
+  }
+  return qs.toString();
+}
+
+export function tiktokApiGetWithTokenRetry<T>(
+  projectId: string,
+  path: string,
+  query: Record<string, string | number | string[]>,
+): Promise<TikTokApiResponse<T>> {
+  const qs = tiktokQueryString(query);
+  return tiktokWithTokenRetry<T>(projectId, path, (token) =>
+    fetch(`${TIKTOK_BASE}/${path.replace(/^\//, "")}?${qs}`, {
+      method: "GET",
+      headers: { "Access-Token": token },
+    }).then((r) => r.json() as Promise<TikTokApiResponse<T>>),
+  );
+}
+
+/**
+ * Upload multipart (`file/video/ad/upload/`, `file/image/ad/upload/`).
+ * `Content-Type` fica a cargo do runtime para incluir o boundary do FormData.
+ */
+export function tiktokApiUploadWithTokenRetry<T>(
+  projectId: string,
+  path: string,
+  form: FormData,
+): Promise<TikTokApiResponse<T>> {
+  return tiktokWithTokenRetry<T>(projectId, path, (token) =>
+    fetch(`${TIKTOK_BASE}/${path.replace(/^\//, "")}`, {
+      method: "POST",
+      headers: { "Access-Token": token },
+      body: form,
+    }).then((r) => r.json() as Promise<TikTokApiResponse<T>>),
+  );
 }

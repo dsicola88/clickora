@@ -2,9 +2,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Globe } from "lucide-react";
 import { PRO_PAGE_SHELL, ProPageHeader, ProPanel } from "@/components/enterprise/ProShell";
+import { EnterpriseApiKeysPanel } from "@/components/settings/EnterpriseApiKeysPanel";
+import { EnterpriseTenantBrandingPanel } from "@/components/settings/EnterpriseTenantBrandingPanel";
 
 /**
- * Configurações: domínio + atalhos avançados.
+ * Configurações: domínio, API keys, white-label e atalhos avançados.
  */
 export default function SettingsHubPage() {
   const [params] = useSearchParams();
@@ -14,7 +16,7 @@ export default function SettingsHubPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Configurações"
-        subtitle="Domínio da conta e ferramentas avançadas."
+        subtitle="Domínio da conta, API keys, marca white-label e ferramentas avançadas."
       />
 
       <div className="grid gap-4 max-w-2xl">
@@ -35,6 +37,9 @@ export default function SettingsHubPage() {
             </span>
           </div>
         </Link>
+
+        <EnterpriseApiKeysPanel />
+        <EnterpriseTenantBrandingPanel />
 
         <ProPanel
           title="Configurações avançadas"

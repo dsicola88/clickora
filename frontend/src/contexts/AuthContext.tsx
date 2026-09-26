@@ -3,6 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { authService } from "@/services/authService";
 import type { User, UserPlan } from "@/types/api";
 
+export type SignInResult = {
+  error: string | null;
+  mfa?: { mfa_token: string; email: string };
+};
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -11,7 +16,8 @@ interface AuthContextType {
   userPlan: UserPlan | null;
   presellCount: number;
   signOut: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
+  verifyMfa: (mfa_token: string, code: string) => Promise<{ error: string | null }>;
   signInWithGoogle: (idToken: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
@@ -71,9 +77,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser, queryClient]);
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string): Promise<SignInResult> => {
       const { data, error } = await authService.login({ email, password });
-      if (data) {
+      if (error) return { error };
+      if (data && "mfa_required" in data && data.mfa_required) {
+        return {
+          error: null,
+          mfa: { mfa_token: data.mfa_token, email: data.email },
+        };
+      }
+      if (data && "token" in data && data.token) {
+        queryClient.clear();
+        setUser(data.user);
+      }
+      return { error: null };
+    },
+    [queryClient],
+  );
+
+  const verifyMfa = useCallback(
+    async (mfa_token: string, code: string) => {
+      const { data, error } = await authService.verifyMfaLogin(mfa_token, code);
+      if (data?.token) {
         queryClient.clear();
         setUser(data.user);
       }
@@ -125,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         presellCount,
         signOut,
         signIn,
+        verifyMfa,
         signInWithGoogle,
         signUp,
         refreshUser,

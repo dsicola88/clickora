@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authController } from "../controllers/auth.controller";
+import { mfaController } from "../controllers/mfa.controller";
+import { oidcController } from "../controllers/oidc.controller";
 import { authenticate } from "../middleware/authenticate";
 import { tenantIsolation } from "../middleware/tenantIsolation";
 import { avatarUpload } from "../lib/avatarUpload";
@@ -21,6 +23,9 @@ authRouter.post("/login", authCredentialLimiter, authController.login);
 authRouter.post("/google", authCredentialLimiter, authController.googleLogin);
 authRouter.post("/register", authCredentialLimiter, authController.register);
 authRouter.post("/logout", authController.logout);
+authRouter.post("/mfa/verify-login", authCredentialLimiter, mfaController.verifyLogin);
+authRouter.get("/oidc/login", oidcController.loginRedirect);
+authRouter.get("/oidc/callback", oidcController.callback);
 authRouter.get("/me", authenticate, tenantIsolation, authController.me);
 authRouter.patch("/me", authenticate, tenantIsolation, authController.patchProfile);
 authRouter.get("/me/data-export", authenticate, tenantIsolation, authController.exportMyData);

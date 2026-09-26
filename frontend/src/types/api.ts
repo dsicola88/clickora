@@ -267,6 +267,15 @@ export interface AuthResponse {
   user: User;
 }
 
+/** Login com MFA activo — ainda sem sessão JWT. */
+export interface AuthMfaChallenge {
+  mfa_required: true;
+  mfa_token: string;
+  email: string;
+}
+
+export type LoginResult = AuthResponse | AuthMfaChallenge;
+
 export interface LoginPayload {
   email: string;
   password: string;

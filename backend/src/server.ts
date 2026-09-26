@@ -19,6 +19,7 @@ import { trafficRotatorsRouter } from "./routes/trafficRotators.routes";
 import { workspaceRouter } from "./routes/workspace.routes";
 import { paidOauthPublicRouter } from "./routes/paidOauthPublic.routes";
 import { paidRouter } from "./routes/paid.routes";
+import { enterpriseRouter } from "./routes/enterprise.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/customDomainCache";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
@@ -216,6 +217,7 @@ app.get("/api", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/enterprise", enterpriseRouter);
 app.use("/api/presells", presellRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/analytics", analyticsRouter);

@@ -1,10 +1,20 @@
 /**
- * TikTok Marketing API (v1.3): cria campanha (orçamento infinito a nível campanha)
- * + ad group com orçamento diário. Anúncios (vídeo) requerem passos adicionais.
+ * TikTok Marketing API: campanha + ad group + anúncio (vídeo ou imagem).
+ * O material vem do payload do plano: ficheiro carregado no assistente, URL pública
+ * ou `video_id` / `image_ids` já existentes na biblioteca do advertiser.
  */
 import { paidLog } from "../lib/paidLog";
 import { tiktokAdgroupBidExtras } from "./meta-tiktok-bidding";
 import { prisma } from "./paidPrisma";
+import {
+  buildTikTokAdCreative,
+  createTikTokAd,
+  ensureTikTokIdentity,
+  extractTikTokCreativeSource,
+  hasTikTokCreativeSource,
+  resolveTikTokCreativeAssets,
+  tiktokCallToActionFromObjective,
+} from "./tiktok-ads.creative";
 import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
 
 type TikTokApiEnvelope<T = unknown> = {
@@ -14,11 +24,10 @@ type TikTokApiEnvelope<T = unknown> = {
   request_id?: string;
 };
 
-export type TikTokPublishResult = { ok: true } | { ok: false; error: string };
+export type TikTokPublishResult = { ok: true; ad_id?: string } | { ok: false; error: string };
 
 const TT_US = "6252001";
 
-/** IDs de região TikTok (Marketing API) — ampliar conforme necessário. */
 const ISO2_TO_TT_LOCATION: Record<string, string> = {
   US: TT_US,
   CA: "6251999",
@@ -65,8 +74,7 @@ export function resolveTikTokLocationIds(geo: unknown): { ids: string[]; unmappe
     const id = ISO2_TO_TT_LOCATION[code];
     if (!id) {
       unmapped.push(code);
-      const fallback = TT_US;
-      if (!out.includes(fallback)) out.push(fallback);
+      if (!out.includes(TT_US)) out.push(TT_US);
       continue;
     }
     if (!out.includes(id)) out.push(id);
@@ -83,9 +91,8 @@ function objectiveFromCrPayload(crPayload: Record<string, unknown> | undefined):
 }
 
 /**
- * Cria campanha + ad group; grava `externalCampaignId` e `tiktokAdGroupId` quando bem-sucedido.
- * Recupera ad group se já existir campanha remota sem ad group local.
- * `crPayload` (opcional): vindo do pedido de alteração, usa `objective_type` (ex.: TRAFFIC) no create remoto.
+ * Cria campanha + ad group + anúncio. O anúncio só é criado quando o payload traz
+ * material (ficheiro, URL ou id); sem material fica campanha + ad group.
  */
 export async function publishTikTokCreateCampaignFromLocal(
   projectId: string,
@@ -105,8 +112,11 @@ export async function publishTikTokCreateCampaignFromLocal(
     return { ok: false, error: "Campanha TikTok não encontrada." };
   }
 
-  if (campaign.externalCampaignId && campaign.tiktokAdGroupId) {
-    return { ok: true };
+  const creativeSource = extractTikTokCreativeSource(crPayload);
+  const wantsAd = hasTikTokCreativeSource(creativeSource);
+  const alreadyComplete = Boolean(campaign.externalCampaignId && campaign.tiktokAdGroupId);
+  if (alreadyComplete && (!wantsAd || campaign.tiktokAdId)) {
+    return { ok: true, ...(campaign.tiktokAdId ? { ad_id: campaign.tiktokAdId } : {}) };
   }
 
   const daily =
@@ -124,6 +134,7 @@ export async function publishTikTokCreateCampaignFromLocal(
 
   try {
     let remoteCampaignId = campaign.externalCampaignId;
+    let adGroupId = campaign.tiktokAdGroupId;
 
     if (!remoteCampaignId) {
       const cRes = (await tiktokApiPostWithTokenRetry<{ campaign_id: string }>(
@@ -154,7 +165,7 @@ export async function publishTikTokCreateCampaignFromLocal(
       });
     }
 
-    if (!campaign.tiktokAdGroupId) {
+    if (!adGroupId) {
       const agName = `${campaign.name} — G1`.slice(0, 512);
       const bidExtras = tiktokAdgroupBidExtras(campaign.biddingConfig);
       const agBody = {
@@ -195,16 +206,83 @@ export async function publishTikTokCreateCampaignFromLocal(
             `TikTok ad group (code ${agRes.code}) — campanha remota: ${remoteCampaignId}`,
         };
       }
+      adGroupId = String(agId);
       await prisma.paidAdsCampaign.update({
         where: { id: campaign.id },
-        data: { tiktokAdGroupId: String(agId) },
+        data: { tiktokAdGroupId: adGroupId },
       });
     }
+
+    /** Sem material no plano: campanha e ad group ficam prontos, o anúncio é criado mais tarde. */
+    if (!wantsAd) {
+      paidLog("warn", "tiktok.publish.ad_skipped_no_creative", { projectId, campaignId });
+      return { ok: true };
+    }
+    if (campaign.tiktokAdId) {
+      return { ok: true, ad_id: campaign.tiktokAdId };
+    }
+
+    const landing = creativeSource.landingUrl;
+    if (!landing) {
+      return {
+        ok: false,
+        error: "URL de destino em falta: sem ela o TikTok não aceita o anúncio.",
+      };
+    }
+
+    const identity = await ensureTikTokIdentity(
+      projectId,
+      conn.advertiserId,
+      creativeSource.displayName ?? campaign.name,
+      creativeSource.identityId ?? campaign.tiktokIdentityId,
+    );
+    if (!identity.ok) {
+      return { ok: false, error: identity.error };
+    }
+    if (identity.identityId !== campaign.tiktokIdentityId) {
+      await prisma.paidAdsCampaign.update({
+        where: { id: campaign.id },
+        data: { tiktokIdentityId: identity.identityId },
+      });
+    }
+
+    const assets = await resolveTikTokCreativeAssets(projectId, conn.advertiserId, creativeSource);
+    if (!assets.ok) {
+      return { ok: false, error: assets.error };
+    }
+
+    const ad = await createTikTokAd(projectId, {
+      advertiserId: conn.advertiserId,
+      adgroupId: adGroupId!,
+      creative: buildTikTokAdCreative({
+        adName: `${campaign.name} — Ad`,
+        identityId: identity.identityId,
+        videoId: assets.creative.videoId,
+        imageIds: assets.creative.imageIds,
+        adText: creativeSource.adText ?? campaign.objectiveSummary ?? campaign.name,
+        callToAction: creativeSource.callToAction ?? tiktokCallToActionFromObjective(objectiveType),
+        landingPageUrl: landing,
+        displayName: creativeSource.displayName ?? campaign.name,
+      }),
+    });
+    if (!ad.ok) {
+      return { ok: false, error: ad.error };
+    }
+
+    await prisma.paidAdsCampaign.update({
+      where: { id: campaign.id },
+      data: { tiktokAdId: ad.adId },
+    });
+    paidLog("info", "tiktok.publish.ad_created", {
+      projectId,
+      campaignId,
+      adId: ad.adId,
+      format: assets.creative.videoId ? "SINGLE_VIDEO" : "SINGLE_IMAGE",
+    });
+    return { ok: true, ad_id: ad.adId };
   } catch (e) {
     const m = e instanceof Error ? e.message : "Falha na API TikTok.";
     paidLog("error", "tiktok.publish.exception", { projectId, campaignId, message: m });
     return { ok: false, error: m };
   }
-
-  return { ok: true };
 }

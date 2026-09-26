@@ -1,16 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Check,
-  Images,
-  LayoutDashboard,
-  LayoutPanelLeft,
   Megaphone,
   MousePointerClick,
   Search,
-  ShoppingBag,
   Tag,
   UserPlus,
-  Video,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -55,62 +50,19 @@ export const GOOGLE_WIZARD_OBJECTIVES: {
   },
 ];
 
-export type GoogleWizardChannelId =
-  | "performance_max"
-  | "search"
-  | "demand_gen"
-  | "video"
-  | "display"
-  | "shopping";
+export type GoogleWizardChannelId = "search";
 
 const CHANNEL_CARDS: {
   id: GoogleWizardChannelId;
   label: string;
   description: string;
   icon: LucideIcon;
-  enabled: boolean;
 }[] = [
-  {
-    id: "performance_max",
-    label: "Performance Max",
-    description: "Multi-canal (Pesquisa, YouTube, Display…). Ainda não disponível neste assistente.",
-    icon: LayoutDashboard,
-    enabled: false,
-  },
   {
     id: "search",
     label: "Pesquisar",
     description: "Anúncios de texto na Pesquisa Google — palavras-chave, RSA e o assistente de decisão.",
     icon: Search,
-    enabled: true,
-  },
-  {
-    id: "demand_gen",
-    label: "Geração de demanda",
-    description: "Demanda e conversões com anúncios gráficos e vídeo em várias superfícies.",
-    icon: Images,
-    enabled: false,
-  },
-  {
-    id: "video",
-    label: "Vídeo",
-    description: "Campanhas de vídeo no YouTube e parceiros.",
-    icon: Video,
-    enabled: false,
-  },
-  {
-    id: "display",
-    label: "Rede de Display",
-    description: "Alcance em sites e apps da Rede de Display.",
-    icon: LayoutPanelLeft,
-    enabled: false,
-  },
-  {
-    id: "shopping",
-    label: "Shopping",
-    description: "Anúncios de produto via Merchant Center.",
-    icon: ShoppingBag,
-    enabled: false,
   },
 ];
 
@@ -228,51 +180,26 @@ export function DpilotGoogleWizardCampaignTypeStep() {
           Tipo de campanha
         </h2>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Ao <strong className="font-medium text-foreground">publicar</strong> na Google, criamos sempre uma campanha de{" "}
+          Ao <strong className="font-medium text-foreground">publicar</strong> na Google, criamos uma campanha de{" "}
           <strong className="font-medium text-foreground">Pesquisa (Search)</strong>:{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-[11px]">advertisingChannelType: SEARCH</code>, rede de
-          pesquisa, palavras-chave e RSA. O cartão <strong className="font-medium text-foreground">Pesquisar</strong>{" "}
-          é o único ativo; os restantes aparecem só como referência («em breve») e{" "}
-          <strong className="font-medium text-foreground">não</strong> alteram o pedido à API.
+          pesquisa, palavras-chave e RSA. Outros tipos de canal não estão disponíveis nesta versão do produto.
         </p>
       </div>
 
-      <div
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-        role="list"
-        aria-label="Tipos de campanha Google Ads"
-      >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list" aria-label="Tipos de campanha Google Ads">
         {CHANNEL_CARDS.map((c) => {
           const Icon = c.icon;
-          const selected = c.enabled && c.id === "search";
-          const disabled = !c.enabled;
           return (
             <div
               key={c.id}
               role="listitem"
-              className={cn(
-                "relative flex flex-col rounded-xl border p-4 transition-all",
-                selected && "border-emerald-500/50 bg-emerald-500/[0.07] ring-1 ring-emerald-500/30 dark:bg-emerald-500/[0.1]",
-                disabled && "border-dashed border-muted-foreground/25 bg-muted/20 opacity-80",
-                !selected && !disabled && "border-border bg-card",
-              )}
+              className="relative flex flex-col rounded-xl border border-emerald-500/50 bg-emerald-500/[0.07] p-4 ring-1 ring-emerald-500/30 transition-all dark:bg-emerald-500/[0.1]"
             >
-              {selected ? (
-                <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500">
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
-                </span>
-              ) : null}
-              {!c.enabled ? (
-                <span className="absolute right-3 top-3 rounded-full border border-muted-foreground/30 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  Em breve
-                </span>
-              ) : null}
-              <div
-                className={cn(
-                  "mb-3 flex h-10 w-10 items-center justify-center rounded-lg border bg-background/90",
-                  selected ? "border-emerald-500/40 text-emerald-800 dark:text-emerald-200" : "text-muted-foreground",
-                )}
-              >
+              <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500">
+                <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
+              </span>
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/40 bg-background/90 text-emerald-800 dark:text-emerald-200">
                 <Icon className="h-5 w-5" aria-hidden />
               </div>
               <span className="font-semibold text-foreground">{c.label}</span>

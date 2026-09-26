@@ -10,6 +10,8 @@ import { analyticsService } from "@/services/analyticsService";
 import { presellService } from "@/services/presellService";
 import { useAuth } from "@/contexts/AuthContext";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
+import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
+import { EnterpriseOnboardingCard } from "@/components/enterprise/EnterprisePanels";
 
 /**
  * Início: KPIs da conta com filtro de datas · atalho para P&L.
@@ -66,6 +68,9 @@ export default function Home() {
           <Plus className="h-5 w-5" />
           Criar presell
         </Button>
+        <div className="mt-8 w-full">
+          <OnboardingChecklistCard />
+        </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
           Já tem conta noutra área?{" "}
           <Link to="/presells" className="text-primary underline-offset-2 hover:underline">
@@ -78,6 +83,7 @@ export default function Home() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-1 py-2 sm:px-2">
+      <EnterpriseOnboardingCard />
       <div className="flex flex-col gap-4 border-b border-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <PageHeader
           title="Visão geral"
@@ -93,6 +99,8 @@ export default function Home() {
           Nova presell
         </Button>
       </div>
+
+      <OnboardingChecklistCard compact />
 
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeFilter

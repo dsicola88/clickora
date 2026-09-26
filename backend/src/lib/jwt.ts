@@ -14,10 +14,12 @@ export interface JwtPayload {
   workspaceRole?: WorkspaceRole;
   /** Permissões extra do membro (ex.: rotators:write). Tokens antigos podem omitir. */
   workspacePermissions?: string[];
+  /** `mfa` = token temporário até verificar TOTP. */
+  purpose?: "mfa" | "session";
 }
 
-export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+export function signToken(payload: JwtPayload, expiresIn?: SignOptions["expiresIn"]): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn ?? JWT_EXPIRES_IN });
 }
 
 export function verifyToken(token: string): JwtPayload {

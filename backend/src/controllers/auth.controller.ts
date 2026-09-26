@@ -52,6 +52,7 @@ type SerialUser = {
   saleNotifyEmail: string | null;
   createdAt: Date;
   updatedAt: Date;
+  mfaEnabled?: boolean;
   roles: { role: string }[];
   subscription: {
     plan: {
@@ -67,7 +68,7 @@ type SerialUser = {
   } | null;
 };
 
-function serializeUser(
+export function serializeUser(
   user: SerialUser,
   req: Request,
   opts?: {
@@ -94,6 +95,7 @@ function serializeUser(
     avatar_url: publicAvatarUrl(req, user),
     created_at: user.createdAt.toISOString(),
     sale_notify_email: user.saleNotifyEmail ?? "",
+    mfa_enabled: Boolean((user as { mfaEnabled?: boolean }).mfaEnabled),
     plan: plan
       ? {
           plan_name: plan.name,
@@ -177,6 +179,23 @@ export const authController = {
       });
     }
 
+    if (user.mfaEnabled) {
+      const { signMfaPendingToken } = await import("../lib/mfa");
+      const mfa_token = signMfaPendingToken({
+        userId: user.id,
+        email: user.email,
+        tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+      });
+      return res.json({
+        mfa_required: true,
+        mfa_token,
+        email: user.email,
+      });
+    }
+
     const token = signToken({
       userId: user.id,
       email: user.email,
@@ -184,6 +203,7 @@ export const authController = {
       workspaceId: sess.workspaceId,
       workspaceRole: sess.workspaceRole,
       workspacePermissions: sess.workspacePermissions,
+      purpose: "session",
     });
 
     res.json({

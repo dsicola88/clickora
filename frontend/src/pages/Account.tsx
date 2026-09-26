@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DASHBOARD_USER_GUIDE_DISMISSED_KEY } from "@/components/DashboardUserGuide";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { toast } from "sonner";
+import { AccountMfaSection } from "@/components/account/AccountMfaSection";
 import { Camera, ChevronDown, ChevronUp, Download, Loader2, Shield, Trash2, User, Users } from "lucide-react";
 import {
   Select,
@@ -580,6 +581,8 @@ export default function Account() {
             </CardContent>
           </Card>
         </div>
+
+        <AccountMfaSection />
 
         <Card className="border-border/80 lg:col-span-2">
           <CardHeader>

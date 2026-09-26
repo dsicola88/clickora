@@ -18,7 +18,6 @@ import PresellCreator from "./pages/PresellCreator";
 import Plataformas from "./pages/Plataformas";
 import Relatorios from "./pages/Relatorios";
 import Analytics from "./pages/Analytics";
-import Links from "./pages/Links";
 import Rotadores from "./pages/Rotadores";
 import TrackingTools from "./pages/TrackingTools";
 import Blacklist from "./pages/Blacklist";
@@ -115,7 +114,7 @@ const appRoutes = [
   { path: "/dpilot", element: <Navigate to="/tracking/dpilot" replace /> },
   { path: "/tracking/vendas-legacy", element: <Navigate to="/resultados/conversoes" replace /> },
   { path: "/tracking/analytics-legacy/*", element: <Analytics /> },
-  { path: "/tracking/links-legacy", element: <Links /> },
+  { path: "/tracking/links-legacy", element: <Navigate to="/tracking/url-builder" replace /> },
 ] as const;
 
 const queryClient = new QueryClient({

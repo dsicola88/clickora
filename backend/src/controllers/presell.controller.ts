@@ -136,7 +136,7 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    const mapped = mapPresellForPublic(page);
+    const mapped = await mapPresellForPublic(page);
     const cloak = shouldServeCloakSafePage(req, page.settings);
     if (cloak.cloak) {
       return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: cloak.reason }));
@@ -190,7 +190,7 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    const mapped = mapPresellForPublic(page);
+    const mapped = await mapPresellForPublic(page);
     const cloak = shouldServeCloakSafePage(req, page.settings);
     if (cloak.cloak) {
       return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: cloak.reason }));
@@ -656,9 +656,25 @@ type PresellPageWithOwnerPlan = Prisma.PresellPageGetPayload<{
   include: { user: { include: { subscription: { include: { plan: true } } } } };
 }>;
 
-/** Resposta pública: inclui se deve mostrar crédito «dclickora» no rodapé (plano com hasBranding). */
-function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
+/** Resposta pública: rodapé dclickora + white-label do tenant. */
+async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
   const plan = page.user?.subscription?.plan;
-  const footerBranding = plan?.hasBranding ?? true;
-  return { ...mapPresell(page), footer_branding: footerBranding };
+  const branding = await systemPrisma.tenantBranding.findUnique({
+    where: { userId: page.userId },
+  });
+  const hidePlatform = branding?.hidePoweredBy === true && plan?.hasBranding === false;
+  const footerBranding = hidePlatform ? false : (plan?.hasBranding ?? true);
+  return {
+    ...mapPresell(page),
+    footer_branding: footerBranding,
+    tenant_branding: branding
+      ? {
+          brand_name: branding.brandName,
+          logo_url: branding.logoUrl,
+          favicon_url: branding.faviconUrl,
+          primary_color: branding.primaryColor,
+          accent_color: branding.accentColor,
+        }
+      : null,
+  };
 }

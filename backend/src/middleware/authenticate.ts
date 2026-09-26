@@ -19,6 +19,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
     const token = header.split(" ")[1];
     const raw = verifyToken(token);
+    if (raw.purpose === "mfa") {
+      return res.status(401).json({ error: "Complete a verificação MFA" });
+    }
     const tenantUserId = raw.tenantUserId ?? raw.userId;
     req.user = {
       ...raw,

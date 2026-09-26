@@ -10,23 +10,103 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/FieldError";
-import { Zap, Mail, Lock, User, ArrowLeft } from "lucide-react";
+import { Zap, Mail, Lock, User, ArrowLeft, Building2 } from "lucide-react";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { toast } from "sonner";
 import { loginSchema, registerSchema, recoverySchema, type LoginForm, type RegisterForm, type RecoveryForm } from "@/lib/validations";
 
 type AuthMode = "login" | "register" | "recovery";
 
+function MfaVerifyForm({
+  email,
+  mfaToken,
+  onSuccess,
+  onBack,
+}: {
+  email: string;
+  mfaToken: string;
+  onSuccess: () => void;
+  onBack: () => void;
+}) {
+  const { verifyMfa } = useAuth();
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = code.trim();
+    if (trimmed.length < 6) {
+      toast.error("Introduza o código de 6 dígitos (ou um código de recuperação).");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await verifyMfa(mfaToken, trimmed);
+      if (error) throw new Error(error);
+      toast.success("Login realizado com sucesso!");
+      onSuccess();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Código incorrecto";
+      toast.error(message);
+      setCode("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <p className="text-sm text-muted-foreground text-pretty">
+        Introduza o código da app Authenticator para <strong className="text-foreground font-medium">{email}</strong>,
+        ou um código de recuperação.
+      </p>
+      <div className="space-y-2">
+        <Label htmlFor="mfa-code">Código MFA</Label>
+        <Input
+          id="mfa-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="000000"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          disabled={loading}
+          maxLength={32}
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={loading || code.trim().length < 6}>
+        {loading ? "A verificar…" : "Verificar e entrar"}
+      </Button>
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+      >
+        <ArrowLeft className="h-3 w-3" /> Voltar ao login
+      </button>
+    </form>
+  );
+}
+
 function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
   const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({ resolver: zodResolver(loginSchema), mode: "onTouched" });
+  const [mfa, setMfa] = useState<{ mfa_token: string; email: string } | null>(null);
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    mode: "onTouched",
+  });
 
   const onSubmit = async (values: LoginForm) => {
     setLoading(true);
     try {
-      const { error } = await signIn(values.email, values.password);
-      if (error) throw new Error(error);
+      const result = await signIn(values.email, values.password);
+      if (result.error) throw new Error(result.error);
+      if (result.mfa) {
+        setMfa(result.mfa);
+        toast.message("Confirme o código MFA para continuar.");
+        return;
+      }
       toast.success("Login realizado com sucesso!");
       onSuccess();
     } catch (error: unknown) {
@@ -37,13 +117,30 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  if (mfa) {
+    return (
+      <MfaVerifyForm
+        email={mfa.email}
+        mfaToken={mfa.mfa_token}
+        onSuccess={onSuccess}
+        onBack={() => setMfa(null)}
+      />
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">E-mail</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="email" type="email" placeholder="seu@email.com" className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`} {...register("email")} />
+          <Input
+            id="email"
+            type="email"
+            placeholder="seu@email.com"
+            className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            {...register("email")}
+          />
         </div>
         <FieldError message={errors.email?.message} />
       </div>
@@ -51,7 +148,13 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <Label htmlFor="password">Senha</Label>
         <div className="relative">
           <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="password" type="password" placeholder="••••••••" className={`pl-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`} {...register("password")} />
+          <Input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            className={`pl-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            {...register("password")}
+          />
         </div>
         <FieldError message={errors.password?.message} />
       </div>
@@ -66,7 +169,10 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
   const { signUp } = useAuth();
   const [loading, setLoading] = useState(false);
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema), mode: "onTouched" });
+  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    mode: "onTouched",
+  });
 
   const onSubmit = async (values: RegisterForm) => {
     if (!acceptedPolicies) {
@@ -93,7 +199,12 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <Label htmlFor="fullName">Nome completo</Label>
         <div className="relative">
           <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="fullName" placeholder="Seu nome" className={`pl-10 ${errors.fullName ? "border-destructive focus-visible:ring-destructive" : ""}`} {...register("fullName")} />
+          <Input
+            id="fullName"
+            placeholder="Seu nome"
+            className={`pl-10 ${errors.fullName ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            {...register("fullName")}
+          />
         </div>
         <FieldError message={errors.fullName?.message} />
       </div>
@@ -101,7 +212,13 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <Label htmlFor="email">E-mail</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="email" type="email" placeholder="seu@email.com" className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`} {...register("email")} />
+          <Input
+            id="email"
+            type="email"
+            placeholder="seu@email.com"
+            className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            {...register("email")}
+          />
         </div>
         <FieldError message={errors.email?.message} />
       </div>
@@ -109,9 +226,33 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <Label htmlFor="password">Senha</Label>
         <div className="relative">
           <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="password" type="password" placeholder="••••••••" className={`pl-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`} {...register("password")} />
+          <Input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            className={`pl-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            {...register("password")}
+          />
         </div>
         <FieldError message={errors.password?.message} />
+      </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="accept-policies"
+          checked={acceptedPolicies}
+          onCheckedChange={(v) => setAcceptedPolicies(v === true)}
+        />
+        <label htmlFor="accept-policies" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+          Aceito os{" "}
+          <Link to="/termos" className="underline underline-offset-2 hover:text-foreground">
+            Termos
+          </Link>{" "}
+          e a{" "}
+          <Link to="/privacidade" className="underline underline-offset-2 hover:text-foreground">
+            Política de Privacidade
+          </Link>
+          .
+        </label>
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Processando..." : "Criar conta"}
@@ -122,7 +263,10 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
 
 function RecoveryFormComponent() {
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<RecoveryForm>({ resolver: zodResolver(recoverySchema), mode: "onTouched" });
+  const { register, handleSubmit, formState: { errors } } = useForm<RecoveryForm>({
+    resolver: zodResolver(recoverySchema),
+    mode: "onTouched",
+  });
 
   const onSubmit = async (values: RecoveryForm) => {
     setLoading(true);
@@ -144,7 +288,13 @@ function RecoveryFormComponent() {
         <Label htmlFor="email">E-mail</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="email" type="email" placeholder="seu@email.com" className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`} {...register("email")} />
+          <Input
+            id="email"
+            type="email"
+            placeholder="seu@email.com"
+            className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            {...register("email")}
+          />
         </div>
         <FieldError message={errors.email?.message} />
       </div>
@@ -208,7 +358,13 @@ export default function Auth() {
                   </div>
                 </div>
               ) : null}
-              <LoginFormComponent onSuccess={() => navigate("/")} />
+              <LoginFormComponent onSuccess={() => navigate("/inicio")} />
+              <Button type="button" variant="outline" className="w-full gap-2" asChild>
+                <a href={authService.getOidcLoginUrl()}>
+                  <Building2 className="h-4 w-4" />
+                  Entrar com SSO (empresa)
+                </a>
+              </Button>
             </div>
           )}
           {mode === "register" && <RegisterFormComponent onSuccess={() => navigate("/inicio")} />}
@@ -238,11 +394,17 @@ export default function Auth() {
             {mode === "register" && (
               <p className="text-muted-foreground">
                 Já tem conta?{" "}
-                <button type="button" onClick={() => setMode("login")} className="text-primary hover:underline">Entrar</button>
+                <button type="button" onClick={() => setMode("login")} className="text-primary hover:underline">
+                  Entrar
+                </button>
               </p>
             )}
             {mode === "recovery" && (
-              <button type="button" onClick={() => setMode("login")} className="text-primary hover:underline flex items-center gap-1 mx-auto">
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="text-primary hover:underline flex items-center gap-1 mx-auto"
+              >
                 <ArrowLeft className="h-3 w-3" /> Voltar ao login
               </button>
             )}

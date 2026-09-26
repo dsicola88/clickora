@@ -132,6 +132,14 @@ model User {
   blockBotClicks      Boolean @default(false) @map("block_bot_clicks")
   /** Opt-in: bloqueia cliques com sinais fortes de VPN/proxy/datacenter. */
   blockProxyClicks    Boolean @default(false) @map("block_proxy_clicks")
+  /** MFA TOTP (Authenticator). */
+  mfaEnabled    Boolean @default(false) @map("mfa_enabled")
+  /** Segredo TOTP cifrado (`ENCRYPTION_KEY`). */
+  mfaSecretEnc  String? @map("mfa_secret_enc") @db.Text
+  /** Backup codes bcrypt JSON array (one-time). */
+  mfaBackupCodes String? @map("mfa_backup_codes") @db.Text
+  /** Subject OIDC externo (SSO enterprise). */
+  oidcSubject   String? @unique @map("oidc_subject")
   /**
    * Automizer afiliado: pausa keywords Google com gasto e sem receita de postback.
    */
@@ -171,6 +179,8 @@ model User {
   affiliateAutomizerLogs AffiliateAutomizerLog[]
   ownedWorkspace       Workspace?           @relation("WorkspaceOwner")
   workspaceMemberships WorkspaceMember[]
+  apiKeys              ApiKey[]
+  tenantBranding       TenantBranding?
 
   /** Módulo anúncios (ex-Dpiloto) — dados escopados ao dono da conta (tenant). */
   paidAdsProjects              PaidAdsProject[]
@@ -632,6 +642,41 @@ model SiteBranding {
   @@map("site_branding")
 }
 
+/** White-label por conta (tenant) — logo/cores/nome na app e nas páginas públicas. */
+model TenantBranding {
+  userId         String   @id @map("user_id")
+  brandName      String?  @map("brand_name") @db.VarChar(120)
+  logoUrl        String?  @map("logo_url") @db.Text
+  faviconUrl     String?  @map("favicon_url") @db.Text
+  primaryColor   String?  @map("primary_color") @db.VarChar(32)
+  accentColor    String?  @map("accent_color") @db.VarChar(32)
+  hidePoweredBy  Boolean  @default(true) @map("hide_powered_by")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_branding")
+}
+
+/** API keys B2B (Bearer ck_live_…). */
+model ApiKey {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  name       String
+  keyPrefix  String    @map("key_prefix") @db.VarChar(16)
+  keyHash    String    @unique @map("key_hash")
+  scopes     Json      @default("[\"read\",\"write\"]")
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([keyPrefix])
+  @@map("api_keys")
+}
+
 /** Conteúdo da landing pública /plans (hero, textos, imagem) — uma linha id "default". */
 model PlansLandingConfig {
   id            String   @id @default("default")
@@ -826,6 +871,9 @@ model PaidAdsMetaConnection {
   adAccountId    String?                @map("ad_account_id")
   businessId     String?                @map("business_id")
   accountName    String?                @map("account_name")
+  /** Página Facebook escolhida para promover os anúncios (obrigatória na publicação). */
+  pageId         String?                @map("page_id")
+  pageName       String?                @map("page_name")
   status         PaidAdsConnectionStatus @default(disconnected)
   tokenRef       String?                @map("token_ref")
   lastSyncAt     DateTime?              @map("last_sync_at")
@@ -864,6 +912,10 @@ model PaidAdsCampaign {
   platform           PaidAdsPlatform      @default(google_ads)
   externalCampaignId String?              @map("external_campaign_id")
   tiktokAdGroupId    String?              @map("tiktok_ad_group_id")
+  /** Anúncio TikTok criado em `ad/create/` (um por campanha neste fluxo). */
+  tiktokAdId         String?              @map("tiktok_ad_id")
+  /** Identidade TikTok (CUSTOMIZED_USER) usada nos criativos do anúncio. */
+  tiktokIdentityId   String?              @map("tiktok_identity_id")
   name               String
   status             PaidAdsCampaignStatus @default(draft)
   objectiveSummary   String?              @map("objective_summary")

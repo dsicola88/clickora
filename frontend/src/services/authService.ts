@@ -1,24 +1,50 @@
 import { apiClient } from "@/lib/apiClient";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/api";
+import type {
+  AuthResponse,
+  LoginPayload,
+  LoginResult,
+  RegisterPayload,
+  User,
+} from "@/types/api";
+
+function persistSession(data: AuthResponse) {
+  apiClient.setToken(data.token);
+  localStorage.setItem("clickora_user", JSON.stringify(data.user));
+}
 
 export const authService = {
   async loginWithGoogle(idToken: string) {
     const result = await apiClient.post<AuthResponse>("/auth/google", { id_token: idToken });
     if (result.data?.token) {
-      apiClient.setToken(result.data.token);
-      localStorage.setItem("clickora_user", JSON.stringify(result.data.user));
+      persistSession(result.data);
     }
     return result;
   },
 
   async login(payload: LoginPayload) {
-    const result = await apiClient.post<AuthResponse>("/auth/login", payload);
-    if (result.data?.token) {
-      apiClient.setToken(result.data.token);
-      localStorage.setItem("clickora_user", JSON.stringify(result.data.user));
+    const result = await apiClient.post<LoginResult>("/auth/login", payload);
+    if (result.data && "token" in result.data && result.data.token) {
+      persistSession(result.data);
     }
     return result;
+  },
+
+  /** Completa o login após OTP / código de recuperação. */
+  async verifyMfaLogin(mfa_token: string, code: string) {
+    const result = await apiClient.post<AuthResponse>("/auth/mfa/verify-login", {
+      mfa_token,
+      code,
+    });
+    if (result.data?.token) {
+      persistSession(result.data);
+    }
+    return result;
+  },
+
+  /** SSO enterprise (OIDC) — redireciona o browser para a API. */
+  getOidcLoginUrl(): string {
+    return `${getApiBaseUrl().replace(/\/$/, "")}/auth/oidc/login`;
   },
 
   async register(payload: RegisterPayload) {
@@ -27,8 +53,7 @@ export const authService = {
       accept_policies: payload.accept_policies === true,
     });
     if (result.data?.token) {
-      apiClient.setToken(result.data.token);
-      localStorage.setItem("clickora_user", JSON.stringify(result.data.user));
+      persistSession(result.data);
     }
     return result;
   },
