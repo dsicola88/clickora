@@ -56,10 +56,17 @@ export function CreativePanels({
               : "Fallback determinístico. Não é uma redação da IA. Pode editar antes de copiar."}
           </p>
         ) : null}
+        <section className="rounded-md border border-border/60 px-3 py-2 text-sm">
+          <p className="font-medium">Anúncio de pesquisa</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {bundle.headlines.length} títulos de 3 a 15, cada um até 30 caracteres. {bundle.descriptions.length} descrições de 2 a 4, cada uma até 90.
+            Caminhos até 15. Estes limites são os do Google Ads e do Microsoft Advertising.
+          </p>
+        </section>
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">Títulos</h3>
           <p className="text-xs text-muted-foreground">
-            Google Ads e Microsoft Advertising: 30 caracteres, mínimo 3 e máximo 15. Fixar uma posição reduz as combinações.
+            Cada título conta até 30 caracteres. Caracteres largos, como chinês ou emoji, contam como 2. Fixar uma posição reduz as combinações.
           </p>
           {bundle.headlines.map((h, i) => (
             <div key={h.id} className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center">
@@ -276,6 +283,16 @@ export function CreativePanels({
   );
 }
 
+function previewHost(bundle: AdBundle): string {
+  const raw = bundle.sitelinks.find((s) => s.url.trim())?.url;
+  if (!raw) return "exemplo.com";
+  try {
+    return new URL(raw).hostname.replace(/^www\./, "");
+  } catch {
+    return "exemplo.com";
+  }
+}
+
 function SearchPreview({ bundle }: { bundle: AdBundle }) {
   const heads = bundle.headlines.map((h) => h.text).filter(Boolean).slice(0, 3);
   const desc = bundle.descriptions[0]?.text ?? "";
@@ -284,7 +301,8 @@ function SearchPreview({ bundle }: { bundle: AdBundle }) {
     <div className="rounded-lg border border-dashed border-border p-4 space-y-1">
       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Simulação, não o anúncio publicado</p>
       <p className="text-sm text-muted-foreground">
-        exemplo.com{bundle.path1 ? `/${bundle.path1}` : ""}
+        {previewHost(bundle)}
+        {bundle.path1 ? `/${bundle.path1}` : ""}
         {bundle.path2 ? `/${bundle.path2}` : ""}
       </p>
       <p className="text-base text-primary font-medium">{heads.join(" | ") || "Títulos"}</p>

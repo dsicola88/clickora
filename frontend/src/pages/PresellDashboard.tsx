@@ -698,7 +698,7 @@ export default function PresellDashboard() {
             : {}),
         },
         settings: buildPresellSettingsPayload(),
-        status: data.import_mode === "mirror" ? "published" : "draft",
+        status: data.publishable === true ? "published" : "draft",
       });
       if (data.import_notes?.length) {
         toast.warning(data.import_notes.join(" "));

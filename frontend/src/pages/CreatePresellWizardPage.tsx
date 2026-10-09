@@ -218,7 +218,7 @@ export default function CreatePresellWizardPage() {
 
       const a = buildContent(type);
       setGenPhase("publish");
-      const publishStatus = imported.data?.import_mode === "mirror" && a.mirrorOk ? "published" : "draft";
+      const publishStatus = imported.data?.publishable === true && a.mirrorOk ? "published" : "draft";
       const { data: pageA, error: errA } = await presellService.create({
         title: a.pageTitle,
         slug,
@@ -248,7 +248,7 @@ export default function CreatePresellWizardPage() {
           slug: slugB,
           type: typeB,
           language,
-          status: imported.data?.import_mode === "mirror" && b.mirrorOk ? "published" : "draft",
+          status: imported.data?.publishable === true && b.mirrorOk ? "published" : "draft",
           video_url: b.video_url,
           tracking: {
             offerUrl: offer,

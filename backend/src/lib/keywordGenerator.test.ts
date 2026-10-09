@@ -110,6 +110,10 @@ describe("buildDeterministicKeywords", () => {
     assert.ok(intents.has("NEGATIVE"));
     assert.ok(items.every((i) => !("volume" in i) && !("cpc" in i)));
     assert.ok(items.some((i) => i.keyword.includes("buy")));
+    assert.equal(items.find((i) => i.intent === "BUY")?.funnel, "BOTTOM");
+    assert.equal(items.find((i) => i.intent === "INFORMATIONAL")?.funnel, "TOP");
+    assert.equal(items.find((i) => i.intent === "COMPARISON")?.funnel, "MIDDLE");
+    assert.equal(items.find((i) => i.intent === "NEGATIVE")?.funnel, null);
     assert.equal(items.find((i) => i.keyword === "glucotrust scam")?.intent, "COMMERCIAL");
     assert.equal(items.find((i) => i.keyword === "glucotrust jobs")?.negativeGroup, "JOBS");
     assert.ok(!items.some((i) => i.keyword.endsWith(" vs")));

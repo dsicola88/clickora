@@ -32,9 +32,11 @@ import {
   filterKeywords,
   formatResearchDate,
   groupNegativeKeywords,
+  KEYWORD_FUNNEL_SECTIONS,
   KEYWORD_INTENT_FILTERS,
-  KEYWORD_INTENT_SECTIONS,
+  funnelLabel,
   keywordsToCsv,
+  keywordFunnel,
   negativeGroupLabel,
   relevanceLabel,
   setKeywordSelection,
@@ -147,11 +149,10 @@ function KeywordList({
                     className="h-8"
                     onChange={(e) => onEdit(item.keyword, e.target.value)}
                   />
-                  {item.matchTypes?.length ? (
-                    <span className="block text-[11px] text-muted-foreground mt-1">
-                      {item.matchTypes.map((m) => MATCH_LABEL[m] ?? m).join(" · ")}
-                    </span>
-                  ) : null}
+                  <span className="block text-[11px] text-muted-foreground mt-1">
+                    {funnelLabel(item)}
+                    {item.matchTypes?.length ? ` · ${item.matchTypes.map((m) => MATCH_LABEL[m] ?? m).join(" · ")}` : ""}
+                  </span>
                   {item.natural === false ? (
                     <span className="block text-[11px] text-amber-700">Frase pouco natural — rever</span>
                   ) : null}
@@ -219,7 +220,7 @@ function KeywordRow({
       <div className="min-w-0 flex-1">
         <Input aria-label={`Editar ${item.keyword}`} value={item.keyword} className="h-8" onChange={(e) => onEdit(e.target.value)} />
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          Relevância estimada: {relevanceLabel(item.relevance)}
+          {funnelLabel(item)} · Relevância estimada: {relevanceLabel(item.relevance)}
           {item.matchTypes?.length ? ` · ${item.matchTypes.map((m) => MATCH_LABEL[m] ?? m).join(" · ")}` : ""}
           {item.natural === false ? " · rever a frase" : ""}
           {item.negativeSuggestion ? " · sugestão de negativa" : ""}
@@ -717,50 +718,56 @@ export default function KeywordsPage() {
                   Nenhuma palavra-chave corresponde a este filtro.
                 </p>
               ) : (
-                KEYWORD_INTENT_SECTIONS.map((section) => {
-                  const rows = visible.filter((k) => k.intent === section.intent);
-                  if (!rows.length) return null;
-                  const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
-                  if (section.intent !== "NEGATIVE") {
+                <>
+                  {KEYWORD_FUNNEL_SECTIONS.map((section) => {
+                    const rows = visible.filter((k) => keywordFunnel(k) === section.id);
+                    if (!rows.length) return null;
+                    const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
                     return (
-                      <section key={section.intent} className="space-y-2">
+                      <section key={section.id} className="space-y-2">
                         <h3 className="text-sm font-semibold pt-2">{section.title}</h3>
+                        <p className="text-xs text-muted-foreground">{section.hint}</p>
                         <KeywordList rows={rows} selected={selected} onToggle={onToggle} onEdit={editKeyword} />
                       </section>
                     );
-                  }
-                  const groups = groupNegativeKeywords(rows);
-                  return (
-                    <section key={section.intent} className="space-y-3">
-                      <h3 className="text-sm font-semibold pt-2">{section.title}</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Reveja antes de usar numa campanha. Uma negativa mal escolhida pode bloquear quem ainda está a
-                        decidir comprar.
-                      </p>
-                      {groups.map((group) => {
-                        const keys = group.items.map((k) => k.keyword);
-                        const allOn = keys.every((k) => selected.has(k));
-                        return (
-                          <div key={group.group} className="space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h4 className="text-xs font-medium text-muted-foreground">{negativeGroupLabel(group.group)}</h4>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => setSelected((s) => setKeywordSelection(s, keys, !allOn))}
-                              >
-                                {allOn ? "Desmarcar grupo" : "Seleccionar grupo"}
-                              </Button>
+                  })}
+                  {(() => {
+                    const rows = visible.filter((k) => k.intent === "NEGATIVE");
+                    if (!rows.length) return null;
+                    const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
+                    const groups = groupNegativeKeywords(rows);
+                    return (
+                      <section className="space-y-3">
+                        <h3 className="text-sm font-semibold pt-2">Sugestões de negativas</h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Reveja antes de usar numa campanha. Uma negativa mal escolhida pode bloquear quem ainda está a
+                          decidir comprar. Não fazem parte do funil.
+                        </p>
+                        {groups.map((group) => {
+                          const keys = group.items.map((k) => k.keyword);
+                          const allOn = keys.every((k) => selected.has(k));
+                          return (
+                            <div key={group.group} className="space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <h4 className="text-xs font-medium text-muted-foreground">{negativeGroupLabel(group.group)}</h4>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => setSelected((s) => setKeywordSelection(s, keys, !allOn))}
+                                >
+                                  {allOn ? "Desmarcar grupo" : "Seleccionar grupo"}
+                                </Button>
+                              </div>
+                              <KeywordList rows={group.items} selected={selected} onToggle={onToggle} onEdit={editKeyword} />
                             </div>
-                            <KeywordList rows={group.items} selected={selected} onToggle={onToggle} onEdit={editKeyword} />
-                          </div>
-                        );
-                      })}
-                    </section>
-                  );
-                })
+                          );
+                        })}
+                      </section>
+                    );
+                  })()}
+                </>
               )}
               </>
               ) : null}

@@ -168,8 +168,14 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   features: {
     title: "Do link da oferta ao relatório — no mesmo painel",
     subtitle:
-      "Publique presells, meça cliques com GCLID/UTMs e veja conversões quando a rede envia o postback. Resultados de venda dependem da sua oferta, criativos e tráfego — a dclickora organiza o fluxo e os dados.",
+      "Publique presells, pesquise palavras-chave por funil, monte o rascunho do anúncio para Google Ads e Microsoft Advertising, e veja conversões quando a rede envia o postback. Resultados de venda dependem da sua oferta, criativos e tráfego.",
     cards: [
+      {
+        title: "Pesquisa e anúncios",
+        body:
+          "Palavras-chave em topo, meio e fundo de funil, e um rascunho para Google Ads e Microsoft Advertising: títulos até 30 caracteres, descrições até 90, caminhos, sitelinks e destaques. Só entra o que confirmar — sem volume, CPC ou promoção inventados. O CSV é de revisão: não publica a campanha nem garante aprovação.",
+        image_url: "/landing/hero-default.png",
+      },
       {
         title: "Presells prontas a publicar",
         body:
@@ -196,6 +202,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       "Números reais da sua conta — não são médias inventadas. A disponibilidade depende da infraestrutura em produção.",
     items: [
       { value: "Presells", label: "Tipos e idiomas no editor, com quotas do plano" },
+      { value: "Anúncios", label: "Rascunho Google Ads e Microsoft, com limites da plataforma" },
       { value: "Cliques", label: "Eventos com UTMs, GCLID e dispositivo" },
       { value: "Hotmart", label: "Checkout externo + activação por webhook" },
       { value: "Domínio", label: "Hostname próprio nos planos que o incluem" },
@@ -218,6 +225,11 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
         q: "Posso usar o meu domínio nas presells?",
         a:
           "Sim, nos planos que incluem domínio personalizado: adicione o domínio em Configurações, siga a verificação DNS e publique. O número de domínios permitido depende do plano.",
+      },
+      {
+        q: "A pesquisa de anúncios publica no Google ou na Microsoft?",
+        a:
+          "Não. Recebe palavras-chave e um rascunho para rever: títulos, descrições, caminhos, sitelinks e destaques. O CSV é um ficheiro de revisão, não a importação oficial. A aprovação das plataformas não é garantida. Se a geração inteligente não estiver disponível, o texto usa o modelo do idioma do mercado e isso fica indicado.",
       },
       {
         q: "A dclickora garante vendas ou ROI?",

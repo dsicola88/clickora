@@ -21,6 +21,7 @@ export type KeywordItem = {
   theme?: string;
   matchTypes?: Array<"BROAD" | "PHRASE" | "EXACT">;
   natural?: boolean;
+  funnel?: "TOP" | "MIDDLE" | "BOTTOM" | null;
 };
 
 export type AdText = { id: string; text: string; pin: 1 | 2 | 3 | null; angle?: string | null };

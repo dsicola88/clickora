@@ -151,13 +151,16 @@ export const keywordResearchController = {
     const notes = typeof (existing.bundle as { notes?: string } | null)?.notes === "string"
       ? (existing.bundle as { notes: string }).notes
       : "";
-    const row = await prisma.keywordResearch.update({
+    const updated = await prisma.keywordResearch.updateMany({
       where: { id },
       data: {
         keywords: keywords as Prisma.InputJsonValue,
         bundle: { ...(bundle as object), notes } as Prisma.InputJsonValue,
       },
     });
+    if (updated.count !== 1) return res.status(404).json({ error: "Pesquisa não encontrada." });
+    const row = await prisma.keywordResearch.findFirst({ where: keywordResearchByIdWhere(userId, id) });
+    if (!row) return res.status(404).json({ error: "Pesquisa não encontrada." });
     const body = present(row);
     body.validation = validateBundle(bundle as AdBundle, notes);
     body.validation_summary = validationSummary(body.validation);

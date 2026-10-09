@@ -50,6 +50,7 @@ export const presellService = {
       urgency_timer_seconds: number;
       import_notes: string[];
       import_mode: "mirror" | "template" | "incomplete";
+      publishable: boolean;
       storefront_theme: "dark_commerce" | "default";
       storefront_hero_tint: boolean;
     }>("/presells/import-from-url", payload);

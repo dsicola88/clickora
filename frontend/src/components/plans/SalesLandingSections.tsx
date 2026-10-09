@@ -68,7 +68,12 @@ export function SalesLandingFeatures({ extras, className }: Props) {
           ) : null}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6 lg:gap-8">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-8 md:gap-6 lg:gap-8",
+          cards.length === 4 ? "sm:grid-cols-2" : cards.length > 4 ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-3",
+        )}
+      >
         {cards.map((card, i) => {
           const img = card.image_url?.trim();
           return (
@@ -176,7 +181,12 @@ export function SalesLandingStats({ extras, className }: Props) {
             ) : null}
           </div>
         )}
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-8",
+            items.length > 4 ? "md:grid-cols-3" : "md:grid-cols-4",
+          )}
+        >
           {items.map((it, i) => (
             <div key={i} className="text-center">
               <p

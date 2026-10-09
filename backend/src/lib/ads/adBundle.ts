@@ -162,6 +162,8 @@ type CopyBank = {
   sitelinkDetails: string;
   sitelinkOffer: string;
   sitelinkPending: string;
+  sitelinkLine1: string;
+  sitelinkLine2: string;
 };
 
 const BANKS: Record<LocaleId, CopyBank> = {
@@ -186,6 +188,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Product details",
     sitelinkOffer: "Current offer",
     sitelinkPending: "Add a real page",
+    sitelinkLine1: "Open this product page.",
+    sitelinkLine2: "Review the details there.",
   },
   "en-GB": {
     buy: (p) => `Buy ${p}`,
@@ -208,6 +212,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Product details",
     sitelinkOffer: "Current offer",
     sitelinkPending: "Add a real page",
+    sitelinkLine1: "Open this product page.",
+    sitelinkLine2: "Review the details there.",
   },
   "pt-PT": {
     buy: (p) => `Comprar ${p}`,
@@ -230,6 +236,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Detalhes",
     sitelinkOffer: "Oferta actual",
     sitelinkPending: "Página por indicar",
+    sitelinkLine1: "Abra a página do produto.",
+    sitelinkLine2: "Confirme os detalhes lá.",
   },
   "pt-BR": {
     buy: (p) => `Comprar ${p}`,
@@ -252,6 +260,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Detalhes",
     sitelinkOffer: "Oferta atual",
     sitelinkPending: "Página por indicar",
+    sitelinkLine1: "Abra a página do produto.",
+    sitelinkLine2: "Confira os detalhes lá.",
   },
   "es-ES": {
     buy: (p) => `Comprar ${p}`,
@@ -274,6 +284,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Detalles",
     sitelinkOffer: "Oferta actual",
     sitelinkPending: "Página pendiente",
+    sitelinkLine1: "Abre la página del producto.",
+    sitelinkLine2: "Revisa los detalles allí.",
   },
   "es-419": {
     buy: (p) => `Comprar ${p}`,
@@ -296,6 +308,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Detalles",
     sitelinkOffer: "Oferta actual",
     sitelinkPending: "Página pendiente",
+    sitelinkLine1: "Abre la página del producto.",
+    sitelinkLine2: "Revisa los detalles allí.",
   },
   "fr-FR": {
     buy: (p) => `Acheter ${p}`,
@@ -318,6 +332,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Détails",
     sitelinkOffer: "Offre actuelle",
     sitelinkPending: "Page à indiquer",
+    sitelinkLine1: "Ouvrez la page du produit.",
+    sitelinkLine2: "Vérifiez les détails ici.",
   },
   "de-DE": {
     buy: (p) => `${p} kaufen`,
@@ -340,6 +356,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Details",
     sitelinkOffer: "Aktuelles Angebot",
     sitelinkPending: "Seite fehlt",
+    sitelinkLine1: "Produktseite öffnen.",
+    sitelinkLine2: "Details dort prüfen.",
   },
   "it-IT": {
     buy: (p) => `Compra ${p}`,
@@ -362,6 +380,8 @@ const BANKS: Record<LocaleId, CopyBank> = {
     sitelinkDetails: "Dettagli",
     sitelinkOffer: "Offerta attuale",
     sitelinkPending: "Pagina da indicare",
+    sitelinkLine1: "Apri la pagina del prodotto.",
+    sitelinkLine2: "Controlla i dettagli lì.",
   },
 };
 
@@ -403,6 +423,8 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
   };
   pushLine(bank.buy(p), "purchase");
   pushLine(bank.official(p), "brand");
+  pushLine(bank.order(p), "purchase");
+  pushLine(bank.details(p), "brand");
   pushLine(bank.neutralOpen, "purchase");
   if (input.objective === "comparison") pushLine(bank.compare(p), "comparison");
   const offerLine = [input.offer_note, input.price_note].find((note) => note && adTextLength(note) <= maxH);
@@ -453,8 +475,8 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
       id: "sl-1",
       text: bank.sitelinkDetails,
       url: destination,
-      description1: "",
-      description2: "",
+      description1: destination ? bank.sitelinkLine1 : "",
+      description2: destination ? bank.sitelinkLine2 : "",
     },
     {
       id: "sl-2",

@@ -19,6 +19,28 @@ export const KEYWORD_INTENT_SECTIONS: { intent: KeywordIntent; title: string }[]
   { intent: "NEGATIVE", title: "🚫 Sugestões de negativas" },
 ];
 
+export const KEYWORD_FUNNEL_SECTIONS: { id: "BOTTOM" | "MIDDLE" | "TOP"; title: string; hint: string }[] = [
+  { id: "BOTTOM", title: "Fundo de funil", hint: "Compra e marca. Quem está pronto a escolher a página." },
+  { id: "MIDDLE", title: "Meio de funil", hint: "Comparação e pesquisa comercial. Quem ainda avalia." },
+  { id: "TOP", title: "Topo de funil", hint: "Pesquisa informativa. Quem ainda está a perceber o tema." },
+];
+
+export function keywordFunnel(item: KeywordItem): "TOP" | "MIDDLE" | "BOTTOM" | null {
+  if (item.funnel === "TOP" || item.funnel === "MIDDLE" || item.funnel === "BOTTOM") return item.funnel;
+  if (item.intent === "BUY" || item.intent === "BRAND") return "BOTTOM";
+  if (item.intent === "COMMERCIAL" || item.intent === "COMPARISON") return "MIDDLE";
+  if (item.intent === "INFORMATIONAL") return "TOP";
+  return null;
+}
+
+export function funnelLabel(item: KeywordItem): string {
+  const funnel = keywordFunnel(item);
+  if (funnel === "BOTTOM") return "Fundo de funil";
+  if (funnel === "MIDDLE") return "Meio de funil";
+  if (funnel === "TOP") return "Topo de funil";
+  return "Fora do funil";
+}
+
 export const NEGATIVE_GROUP_ORDER: NegativeGroup[] = ["JOBS", "FREE", "ACCOUNT", "OTHER"];
 
 export function negativeGroupLabel(group: NegativeGroup): string {
@@ -90,11 +112,12 @@ export function keywordsToCsv(
   items: KeywordItem[],
   meta: Pick<KeywordResearch, "language" | "market" | "product">,
 ): string {
-  const header = "keyword,intent,relevance,theme,match_types,natural,negative_suggestion,negative_group,language,market,product";
+  const header = "keyword,intent,funnel,relevance,theme,match_types,natural,negative_suggestion,negative_group,language,market,product";
   const rows = items.map((k) =>
     [
       csvEscape(k.keyword),
       csvEscape(k.intent),
+      csvEscape(keywordFunnel(k) ?? ""),
       csvEscape(k.relevance),
       csvEscape(k.theme ?? ""),
       csvEscape((k.matchTypes ?? []).join("|")),

@@ -46,6 +46,14 @@ export function releaseImportBrowser(): void {
   activeImportBrowsers = Math.max(0, activeImportBrowsers - 1);
 }
 
+/** O browser não contorna o proxy. `<-loopback>` impede o Chromium de ligar direto a localhost. */
+export function importChromiumProxy(port: number): { server: string; bypass: string } {
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error("Proxy de importação indisponível. A navegação foi bloqueada.");
+  }
+  return { server: `http://127.0.0.1:${port}`, bypass: "<-loopback>" };
+}
+
 export function browserStatusFromLaunchError(message: string): "unavailable" | "failed" {
   if (/Executable doesn't exist|Please run the following command|browserType\.launch/i.test(message)) {
     return "unavailable";
@@ -92,7 +100,7 @@ export async function fetchRenderedPageBundle(
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     });
     const context = await browser.newContext({
-      proxy: { server: `http://127.0.0.1:${proxy.port}` },
+      proxy: importChromiumProxy(proxy.port),
       viewport: { width: 1440, height: 980 },
       userAgent: DEFAULT_UA,
       locale: acceptLanguage.split(",")[0]?.trim() || "en-US",

@@ -76,6 +76,8 @@ export const keywordItemSchema = z.object({
   theme: z.string().max(40).optional(),
   matchTypes: z.array(z.enum(["BROAD", "PHRASE", "EXACT"])).max(3).optional(),
   natural: z.boolean().optional(),
+  /** Topo, meio ou fundo. Negativas não entram no funil. */
+  funnel: z.enum(["TOP", "MIDDLE", "BOTTOM"]).nullable().optional(),
 });
 
 export type KeywordItem = z.infer<typeof keywordItemSchema>;
@@ -343,12 +345,20 @@ function matchTypesFor(item: KeywordItem): Array<"BROAD" | "PHRASE" | "EXACT"> {
   return ["PHRASE"];
 }
 
+export function funnelForIntent(intent: KeywordIntent): "TOP" | "MIDDLE" | "BOTTOM" | null {
+  if (intent === "BUY" || intent === "BRAND") return "BOTTOM";
+  if (intent === "COMMERCIAL" || intent === "COMPARISON") return "MIDDLE";
+  if (intent === "INFORMATIONAL") return "TOP";
+  return null;
+}
+
 export function decorateKeyword(item: KeywordItem): KeywordItem {
   return {
     ...item,
     theme: THEME_BY_INTENT[item.intent],
     matchTypes: matchTypesFor(item),
     natural: isNaturalKeyword(item),
+    funnel: funnelForIntent(item.intent),
   };
 }
 
@@ -397,10 +407,9 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
       INFORMATIONAL: [
         `what is ${p}`,
         `how does ${p} work`,
-        `${p} ingredients`,
-        `${p} benefits`,
-        `${p} side effects`,
         `${p} how to use`,
+        `${p} specs`,
+        `${p} manual`,
         `${p} reddit`,
       ],
       COMPARISON: [`${p} alternatives`, `best ${p} alternatives`, `${p} compared`, `compare ${p}`],
@@ -429,10 +438,9 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
       INFORMATIONAL: [
         `o que é ${p}`,
         `como funciona ${p}`,
-        `${p} ingredientes`,
-        `${p} benefícios`,
-        `${p} efeitos colaterais`,
         `como usar ${p}`,
+        `${p} especificações`,
+        `${p} manual`,
       ],
       COMPARISON: [
         `${p} alternativas`,
@@ -446,7 +454,7 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
     es: {
       BUY: [`comprar ${p}`, `${p} sitio oficial`, `precio ${p}`, `comprar ${p} online`, `dónde comprar ${p}`],
       COMMERCIAL: [`${p} reseña`, `${p} descuento`, `${p} oferta`, `${p} cupón`, `vale la pena ${p}`, `${p} estafa`],
-      INFORMATIONAL: [`qué es ${p}`, `cómo funciona ${p}`, `${p} ingredientes`, `${p} beneficios`, `${p} efectos secundarios`],
+      INFORMATIONAL: [`qué es ${p}`, `cómo funciona ${p}`, `cómo usar ${p}`, `${p} especificaciones`, `${p} manual`],
       COMPARISON: [`${p} alternativas`, `mejores alternativas ${p}`, `comparar ${p}`],
       BRAND: [`${p}`, `${p} oficial`],
       NEGATIVE: [`${p} empleo`, `${p} login`, `${p} pdf`, `descargar ${p} gratis`],
@@ -454,7 +462,7 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
     fr: {
       BUY: [`acheter ${p}`, `${p} site officiel`, `prix ${p}`, `acheter ${p} en ligne`, `où acheter ${p}`],
       COMMERCIAL: [`avis ${p}`, `${p} réduction`, `${p} offre`, `coupon ${p}`, `${p} ça vaut le coup`, `${p} arnaque`],
-      INFORMATIONAL: [`qu'est-ce que ${p}`, `comment ça marche ${p}`, `${p} ingrédients`, `${p} bienfaits`],
+      INFORMATIONAL: [`qu'est-ce que ${p}`, `comment ça marche ${p}`, `comment utiliser ${p}`, `${p} spécifications`],
       COMPARISON: [`${p} alternatives`, `meilleures alternatives ${p}`, `comparer ${p}`],
       BRAND: [`${p}`, `${p} officiel`],
       NEGATIVE: [`emploi ${p}`, `${p} login`, `${p} pdf`, `${p} gratuit`],
@@ -462,7 +470,7 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
     de: {
       BUY: [`${p} kaufen`, `${p} offizielle seite`, `${p} preis`, `${p} online kaufen`, `${p} bestellen`],
       COMMERCIAL: [`${p} erfahrungen`, `${p} rabatt`, `${p} angebot`, `${p} gutschein`, `lohnt sich ${p}`, `${p} betrug`],
-      INFORMATIONAL: [`was ist ${p}`, `wie wirkt ${p}`, `${p} inhaltsstoffe`, `${p} wirkung`],
+      INFORMATIONAL: [`was ist ${p}`, `wie funktioniert ${p}`, `${p} anleitung`, `${p} technische daten`],
       COMPARISON: [`${p} alternativen`, `beste ${p} alternativen`, `${p} vergleich`],
       BRAND: [`${p}`, `${p} offiziell`],
       NEGATIVE: [`${p} job`, `${p} login`, `${p} pdf`, `${p} kostenlos`],
@@ -470,7 +478,7 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
     it: {
       BUY: [`comprare ${p}`, `${p} sito ufficiale`, `prezzo ${p}`, `comprare ${p} online`, `dove comprare ${p}`],
       COMMERCIAL: [`${p} recensione`, `${p} sconto`, `${p} offerta`, `coupon ${p}`, `${p} conviene`, `${p} truffa`],
-      INFORMATIONAL: [`cos'è ${p}`, `come funziona ${p}`, `${p} ingredienti`, `${p} benefici`],
+      INFORMATIONAL: [`cos'è ${p}`, `come funziona ${p}`, `come si usa ${p}`, `${p} specifiche`],
       COMPARISON: [`${p} alternative`, `migliori alternative ${p}`, `confronta ${p}`],
       BRAND: [`${p}`, `${p} ufficiale`],
       NEGATIVE: [`${p} lavoro`, `${p} login`, `${p} pdf`, `${p} gratis`],

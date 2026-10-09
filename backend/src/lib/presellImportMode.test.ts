@@ -4,17 +4,56 @@ import { classifyPresellImport } from "./presellImportMode";
 import { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImporter";
 
 describe("classifyPresellImport", () => {
-  it("publica só o espelho e avisa que o JavaScript da origem não corre", () => {
+  it("não publica um espelho longo sem preço nem chamada de compra", () => {
+    const out = classifyPresellImport({
+      mirrorChars: 20_000,
+      imageCount: 12,
+      salesChars: 4000,
+      sourceTextChars: 4000,
+      headingCount: 4,
+      hasPrice: false,
+      hasSourceCta: false,
+      title: "StopWatt Official",
+      browser: "rendered",
+    });
+    assert.equal(out.mode, "mirror");
+    assert.equal(out.publishable, false);
+    assert.match(out.notes.join(" "), /não é uma cópia fiel/i);
+    assert.match(out.notes.join(" "), /não provam uma oferta/i);
+  });
+
+  it("publica o espelho só com título, imagem, texto e prova de oferta", () => {
     const out = classifyPresellImport({
       mirrorChars: 1200,
       imageCount: 2,
       salesChars: 400,
+      sourceTextChars: 400,
+      headingCount: 2,
+      hasPrice: true,
+      hasSourceCta: false,
       title: "StopWatt Official",
       browser: "rendered",
     });
     assert.equal(out.mode, "mirror");
     assert.equal(out.publishable, true);
     assert.match(out.notes.join(" "), /não é uma cópia fiel/i);
+  });
+
+  it("mantém Example Domain em rascunho mesmo com espelho e preço", () => {
+    const out = classifyPresellImport({
+      mirrorChars: 5000,
+      imageCount: 3,
+      salesChars: 900,
+      sourceTextChars: 900,
+      headingCount: 1,
+      hasPrice: true,
+      hasSourceCta: true,
+      title: "Example Domain",
+      browser: "rendered",
+    });
+    assert.equal(out.mode, "mirror");
+    assert.equal(out.publishable, false);
+    assert.match(out.notes.join(" "), /genérico/i);
   });
 
   it("fica em modelo editável sem espelho quando há texto e imagem", () => {

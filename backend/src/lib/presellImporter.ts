@@ -7,7 +7,7 @@ import {
   referencePriceLineRich,
 } from "./presellLocalePack";
 import { acceptLanguageForPresellImport, fetchRenderedPageBundle, type BrowserRenderStatus } from "./presellFoldBrowser";
-import { classifyPresellImport, type PresellImportMode } from "./presellImportMode";
+import { classifyPresellImport, sourceHasCommercialCta, type PresellImportMode } from "./presellImportMode";
 import { assertExternalProductUrl, IMPORT_MAX_HTML_BYTES, PresellImportBlockedError } from "./presellImportSsrf";
 import { safeImportFetch } from "./presellSafeFetch";
 
@@ -59,6 +59,8 @@ export type ImportPresellResult = {
   import_notes: string[];
   /** mirror = espelho sem JS no visitante; template = modelo editável; incomplete = rascunho. */
   import_mode: PresellImportMode;
+  /** Só true quando o espelho passa as verificações de oferta. O modo mirror sozinho não publica. */
+  publishable: boolean;
   /** Texto do botão principal em presell “desconto”. */
   official_buy_cta: string;
   /**
@@ -1430,6 +1432,10 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     mirrorChars: import_mirror_src_doc?.length ?? 0,
     imageCount: images.length,
     salesChars: sales_text.length,
+    sourceTextChars: paragraphs.join(" ").length,
+    headingCount: headings.length,
+    hasPrice: price.trim().length > 0,
+    hasSourceCta: sourceHasCommercialCta(htmlToSearchableText(html)),
     title: heroTitle,
     browser: browserStatus,
   });
@@ -1456,5 +1462,6 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
     import_notes,
     import_mode: classified.mode,
+    publishable: classified.publishable,
   };
 }

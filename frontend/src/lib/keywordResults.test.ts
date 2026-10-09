@@ -62,8 +62,8 @@ describe("keywordsToCsv", () => {
       product: "GlucoTrust",
     });
     expect(csv.startsWith("\uFEFF")).toBe(true);
-    expect(csv).toContain("keyword,intent,relevance,theme,match_types,natural,negative_suggestion,negative_group,language,market,product");
-    expect(csv).toContain("glucotrust buy,BUY,HIGH,,,true,false,,en,US,GlucoTrust");
+    expect(csv).toContain("keyword,intent,funnel,relevance,theme,match_types,natural,negative_suggestion,negative_group,language,market,product");
+    expect(csv).toContain("glucotrust buy,BUY,BOTTOM,HIGH,,,true,false,,en,US,GlucoTrust");
     expect(csv).not.toContain("volume");
     expect(csv).not.toContain("cpc");
   });

@@ -8,6 +8,7 @@ import {
   releaseImportBrowser,
   tryAcquireImportBrowser,
 } from "./presellFoldBrowser";
+import { importChromiumProxy } from "./presellFoldBrowser";
 import { openVettedSocket, startPresellImportProxy } from "./presellImportProxy";
 import { assertExternalProductUrl, isBlockedIpAddress, vetImportUrl } from "./presellImportSsrf";
 import { safeImportFetch, type ImportExchange, type ImportRequest } from "./presellSafeFetch";
@@ -301,6 +302,14 @@ describe("proxy local com DNS simulado", () => {
 });
 
 describe("browser", () => {
+  it("obriga o Chromium a usar o proxy local, inclusive no loopback", () => {
+    assert.deepEqual(importChromiumProxy(4312), {
+      server: "http://127.0.0.1:4312",
+      bypass: "<-loopback>",
+    });
+    assert.throws(() => importChromiumProxy(0), /bloqueada/);
+  });
+
   it("identifica executável em falta, timeout e fecho", () => {
     assert.equal(browserStatusFromLaunchError("Executable doesn't exist"), "unavailable");
     assert.equal(browserStatusFromLaunchError("page.goto: Timeout 28000ms exceeded"), "failed");

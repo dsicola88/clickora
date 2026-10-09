@@ -67,8 +67,11 @@ function policyNeedsClickCount(policy: Prisma.JsonValue | null | undefined): boo
 export async function pickRotatorDestination(
   rotatorId: string,
   ctx: { country: string | null; device: string },
+  deps?: { db?: typeof systemPrisma; randomUnit?: number },
 ): Promise<RotatorDestinationResult> {
-  return systemPrisma.$transaction(async (tx) => {
+  const db = deps?.db ?? systemPrisma;
+  const randomUnit = deps?.randomUnit ?? Math.random();
+  return db.$transaction(async (tx) => {
     const rot = await tx.trafficRotator.findFirst({
       where: { id: rotatorId, isActive: true },
       include: { arms: { orderBy: { orderIndex: "asc" } } },
@@ -192,7 +195,7 @@ export async function pickRotatorDestination(
         return { ok: false, reason: "no_destination" };
       }
       const weights = weightPositive.map((a) => a.weight);
-      chosen = weightPositive[pickWeightedIndex(weights, Math.random())]!;
+      chosen = weightPositive[pickWeightedIndex(weights, randomUnit)]!;
     } else {
       chosen = eligible[Math.floor(Math.random() * eligible.length)]!;
     }
