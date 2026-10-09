@@ -5,9 +5,13 @@ import {
   officialBuyCta,
   referencePriceLineCompact,
   referencePriceLineRich,
-  socialProofFallback,
 } from "./presellLocalePack";
-import { acceptLanguageForPresellImport, fetchRenderedPageBundle } from "./presellFoldBrowser";
+import { acceptLanguageForPresellImport, fetchRenderedPageBundle, type BrowserRenderStatus } from "./presellFoldBrowser";
+import { classifyPresellImport, type PresellImportMode } from "./presellImportMode";
+import { assertExternalProductUrl, IMPORT_MAX_HTML_BYTES, PresellImportBlockedError } from "./presellImportSsrf";
+import { safeImportFetch } from "./presellSafeFetch";
+
+export { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImportSsrf";
 import { buildMirrorSrcDocFromParts, finalizeMirrorSrcDocForImport } from "./presellMirrorSnapshot";
 import { rehostMirrorImagesToR2 } from "./presellMirrorRehost";
 
@@ -45,9 +49,16 @@ export type ImportPresellResult = {
   discount_percent: number | null;
   discount_headline: string;
   social_proof: string;
+  /** true só quando a página de origem tinha uma nota (JSON-LD ou texto). */
+  rating_from_source: boolean;
   rating_value: string;
   rating_stars: number;
+  /** 0 quando a página não declara um temporizador. Não usar um valor inventado. */
   urgency_timer_seconds: number;
+  /** Avisos de importação incompleta. Não bloqueiam o resultado. */
+  import_notes: string[];
+  /** mirror = espelho sem JS no visitante; template = modelo editável; incomplete = rascunho. */
+  import_mode: PresellImportMode;
   /** Texto do botão principal em presell “desconto”. */
   official_buy_cta: string;
   /**
@@ -94,25 +105,6 @@ function cleanText(value: string | undefined | null) {
 
 function stripTags(html: string) {
   return cleanText(html.replace(/<[^>]+>/g, " ").replace(/\*{2,}/g, ""));
-}
-
-export function assertExternalProductUrl(url: string): void {
-  let u: URL;
-  try {
-    u = new URL(url.trim());
-  } catch {
-    throw new Error("URL inválido.");
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") {
-    throw new Error("Use um link que comece com https://");
-  }
-  const h = u.hostname.toLowerCase();
-  if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".local")) {
-    throw new Error("Não use localhost — cole o link público da página do produto (ex.: theneotonics.com/...).");
-  }
-  if (/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) {
-    throw new Error("URL inválido para importação.");
-  }
 }
 
 function brandFromHostname(hostname: string): string {
@@ -414,19 +406,44 @@ export function staticHtmlLikelyMissingMainContent(html: string): boolean {
   return headings.length === 0 && paragraphs.length < 2 && listItems.length < 2;
 }
 
-function bestUrlFromSrcset(srcset: string): string {
-  const candidates: { url: string; w: number }[] = [];
+function bestSrcsetCandidate(srcset: string): { url: string; width: number } | null {
+  const candidates: { url: string; width: number }[] = [];
   for (const part of srcset.split(",")) {
     const bit = part.trim();
     if (!bit) continue;
     const m = bit.match(/^(\S+)(?:\s+(\d+)w)?(?:\s+([\d.]+)x)?$/i);
     if (!m?.[1]) continue;
-    const w = m[2] ? parseInt(m[2], 10) : 0;
-    candidates.push({ url: m[1], w });
+    const width = m[2] ? parseInt(m[2], 10) : m[3] ? Math.round(parseFloat(m[3]) * 400) : 0;
+    candidates.push({ url: m[1], width });
   }
-  if (candidates.length === 0) return "";
-  candidates.sort((a, b) => b.w - a.w);
-  return candidates[0].url;
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.width - a.width);
+  return candidates[0];
+}
+
+function bestUrlFromSrcset(srcset: string): string {
+  return bestSrcsetCandidate(srcset)?.url || "";
+}
+
+function widthScoreForHero(width: number): number {
+  if (!width) return 0;
+  if (width <= 160) return -36;
+  if (width >= 900) return 22;
+  if (width >= 480) return 12;
+  return 0;
+}
+
+/** Ordena fotos do produto. `width` vem do srcset ou do atributo, não de um palpite. */
+export function orderImportedProductImages(items: { url: string; width: number }[]): string[] {
+  if (items.length <= 1) return items.map((i) => i.url);
+  return [...items]
+    .map((item, index) => ({
+      url: item.url,
+      index,
+      score: scoreProductImageUrlForHero(item.url) + widthScoreForHero(item.width),
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((e) => e.url);
 }
 
 function extractHeadings(html: string): string[] {
@@ -478,19 +495,21 @@ function extractListItemsFromHtml(html: string): string[] {
   return out;
 }
 
-function extractSrcFromImgTag(tag: string): string {
+function extractImgCandidate(tag: string): { url: string; width: number } | null {
+  const attrW = Number(tag.match(/\bwidth=["']?(\d{2,4})/i)?.[1] || 0);
   const srcsetM = tag.match(/\bsrcset=["']([^"']+)["']/i);
   if (srcsetM?.[1]) {
-    const best = bestUrlFromSrcset(srcsetM[1]);
-    if (best) return cleanText(best);
+    const best = bestSrcsetCandidate(srcsetM[1]);
+    if (best?.url) return { url: cleanText(best.url), width: best.width || attrW };
   }
   const dataLazy =
     tag.match(/\bdata-src=["']([^"']+)["']/i) ||
     tag.match(/\bdata-lazy-src=["']([^"']+)["']/i) ||
     tag.match(/\bdata-original=["']([^"']+)["']/i);
-  if (dataLazy?.[1]) return cleanText(dataLazy[1]);
+  if (dataLazy?.[1]) return { url: cleanText(dataLazy[1]), width: attrW };
   const src = tag.match(/\bsrc=["']([^"']+)["']/i);
-  return cleanText(src?.[1] || "");
+  const url = cleanText(src?.[1] || "");
+  return url ? { url, width: attrW } : null;
 }
 
 function isLikelyTrackingOrIcon(url: string) {
@@ -563,14 +582,6 @@ function scoreProductImageUrlForHero(url: string): number {
   penal(/\b(site[_-]?)?logo(?:\/|\.|$)|\/logos?\/|[-_]logo\.|\/brand\//i, 42);
   penal(/\b(wordmark|lettermark)\b/i, 30);
   return score;
-}
-
-function sortProductImagesForHero(urls: string[]): string[] {
-  if (urls.length <= 1) return urls;
-  return [...urls]
-    .map((url, index) => ({ url, index, score: scoreProductImageUrlForHero(url) }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map((e) => e.url);
 }
 
 function walkJsonLdForProductImages(obj: unknown, out: string[], depth: number): void {
@@ -654,16 +665,19 @@ function extractVideoPosterUrls(html: string): string[] {
  */
 function extractProductImages(fullHtml: string, baseUrl: string, foldHtml: string): string[] {
   const ordered: string[] = [];
+  const widthHint = new Map<string, number>();
   const seen = new Set<string>();
   const htmlScan = fullHtml.length > 450_000 ? fullHtml.slice(0, 450_000) : fullHtml;
 
-  const tryPush = (raw: string, allowNoisy: boolean) => {
+  const tryPush = (raw: string, allowNoisy: boolean, width = 0) => {
     const s = cleanText(decodeHtml(raw));
     if (!s || s.startsWith("data:")) return;
     const abs = toAbsoluteUrl(s, baseUrl);
-    if (!abs || seen.has(abs)) return;
-    if (isLikelyTrackingOrIcon(abs)) return;
+    if (!abs || isLikelyTrackingOrIcon(abs)) return;
     if (!allowNoisy && isLikelyNonProductImageUrl(abs)) return;
+    const prev = widthHint.get(abs) ?? 0;
+    if (width > prev) widthHint.set(abs, width);
+    if (seen.has(abs)) return;
     seen.add(abs);
     ordered.push(abs);
   };
@@ -681,8 +695,8 @@ function extractProductImages(fullHtml: string, baseUrl: string, foldHtml: strin
     const imgTagRe = /<img[^>]*>/gi;
     let tagMatch: RegExpExecArray | null;
     while ((tagMatch = imgTagRe.exec(chunk)) !== null && ordered.length < 28) {
-      const src = extractSrcFromImgTag(tagMatch[0]);
-      if (src) tryPush(src, allowNoisy);
+      const cand = extractImgCandidate(tagMatch[0]);
+      if (cand) tryPush(cand.url, allowNoisy, cand.width);
     }
     const sourceTagRe = /<source\b[^>]*>/gi;
     while ((tagMatch = sourceTagRe.exec(chunk)) !== null && ordered.length < 28) {
@@ -690,8 +704,8 @@ function extractProductImages(fullHtml: string, baseUrl: string, foldHtml: strin
       const srcsetRaw =
         tag.match(/\bsrcset=["']([^"']+)["']/i)?.[1] || tag.match(/\bsrcset=([^\s>]+)/i)?.[1];
       if (!srcsetRaw) continue;
-      const pick = bestUrlFromSrcset(decodeHtml(srcsetRaw));
-      if (pick) tryPush(pick, allowNoisy);
+      const pick = bestSrcsetCandidate(decodeHtml(srcsetRaw));
+      if (pick?.url) tryPush(pick.url, allowNoisy, pick.width);
     }
   };
 
@@ -707,16 +721,14 @@ function extractProductImages(fullHtml: string, baseUrl: string, foldHtml: strin
     const imgTagRe = /<img[^>]*>/gi;
     let tagMatch: RegExpExecArray | null;
     while ((tagMatch = imgTagRe.exec(htmlScan)) !== null && ordered.length < 4) {
-      const src = extractSrcFromImgTag(tagMatch[0]);
-      if (!src || src.startsWith("data:")) continue;
-      const abs = toAbsoluteUrl(cleanText(src), baseUrl);
-      if (!abs || seen.has(abs) || isLikelyTrackingOrIcon(abs)) continue;
-      seen.add(abs);
-      ordered.push(abs);
+      const cand = extractImgCandidate(tagMatch[0]);
+      if (cand) tryPush(cand.url, true, cand.width);
     }
   }
 
-  return sortProductImagesForHero(ordered.filter(Boolean).slice(0, 18));
+  return orderImportedProductImages(
+    ordered.filter(Boolean).slice(0, 18).map((url) => ({ url, width: widthHint.get(url) ?? 0 })),
+  );
 }
 
 function toAbsoluteUrl(url: string, baseUrl: string) {
@@ -802,15 +814,16 @@ function extractDiscountSignals(html: string, language: string) {
   const text = htmlToSearchableText(html);
   const percent = extractDiscountPercentFromText(text);
   const headline = buildDiscountHeadline(percent, language);
-  const social = extractSocialProofLine(text) || socialProofFallback(language);
-  const rating = extractRatingFromHtml(html) || "4.9";
+  const social = extractSocialProofLine(text) || "";
+  const rating = extractRatingFromHtml(html);
   return {
     discount_percent: percent,
-    discount_headline: headline,
+    discount_headline: percent != null ? headline : "",
     social_proof: social,
-    rating_value: rating,
-    rating_stars: 5,
-    urgency_timer_seconds: 649,
+    rating_from_source: Boolean(rating),
+    rating_value: rating || "",
+    rating_stars: rating ? 5 : 0,
+    urgency_timer_seconds: 0,
   };
 }
 
@@ -1225,12 +1238,12 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const language = input.language || "pt-BR";
   const acceptLang = acceptLanguageForPresellImport(language);
 
-  let response: Response;
+  let fetched: Awaited<ReturnType<typeof safeImportFetch>>;
   try {
-    response = await fetch(input.productUrl, {
-      method: "GET",
-      redirect: "follow",
-      signal: AbortSignal.timeout(IMPORT_FETCH_MS),
+    fetched = await safeImportFetch({
+      url: input.productUrl,
+      timeoutMs: IMPORT_FETCH_MS,
+      maxBytes: IMPORT_MAX_HTML_BYTES,
       headers: {
         "user-agent": DEFAULT_UA,
         accept: "text/html,application/xhtml+xml",
@@ -1238,24 +1251,18 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
       },
     });
   } catch (e) {
-    const name = e instanceof Error ? e.name : "";
-    const msg = e instanceof Error ? e.message : String(e);
-    if (name === "AbortError" || /aborted|timeout/i.test(msg)) {
-      throw new Error(
-        `Timeout ao ler a página do produto (${Math.round(IMPORT_FETCH_MS / 1000)}s). Tente outro link ou confirme que o site responde rápido — pedidos lentos falham atrás do proxy.`,
-      );
-    }
+    if (e instanceof PresellImportBlockedError) throw new Error(e.message);
     throw e;
   }
 
-  if (!response.ok) {
-    throw new Error(`Não foi possível ler a página do produto (${response.status}).`);
+  if (fetched.status < 200 || fetched.status >= 300) {
+    throw new Error(`Não foi possível ler a página do produto (${fetched.status}).`);
   }
 
-  const finalUrl = response.url || input.productUrl;
+  const finalUrl = fetched.url;
   assertExternalProductUrl(finalUrl);
 
-  let html = await response.text();
+  let html = fetched.body.toString("utf8");
   const MIN_HTML_CHARS = 800;
 
   if (htmlLooksLikeWrongProduct(html, finalUrl)) {
@@ -1272,9 +1279,17 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const needsBrowserRender =
     html.length < MIN_HTML_CHARS || staticHtmlLikelyMissingMainContent(html);
 
-  const bundle =
-    wantMirror || needsBrowserRender ? await fetchRenderedPageBundle(finalUrl, acceptLang) : null;
-  const renderedHtml = bundle?.html ?? null;
+  let browserStatus: BrowserRenderStatus | "skipped" = "skipped";
+  let browserDetail = "";
+  let renderedHtml: string | null = null;
+  let mirrorParts: { baseHref: string; headSnip: string; bodyInner: string } | null = null;
+  if (wantMirror || needsBrowserRender) {
+    const bundle = await fetchRenderedPageBundle(finalUrl, acceptLang);
+    browserStatus = bundle.browser;
+    browserDetail = bundle.browserDetail || "";
+    renderedHtml = bundle.html || null;
+    mirrorParts = bundle.mirrorParts;
+  }
 
   if (html.length < MIN_HTML_CHARS) {
     if (
@@ -1303,11 +1318,11 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   const affForMirror = (input.affiliateLink || finalUrl).trim();
   let import_mirror_src_doc: string | undefined;
-  if (wantMirror && bundle?.mirrorParts) {
+  if (wantMirror && mirrorParts) {
     const raw = buildMirrorSrcDocFromParts(
-      bundle.mirrorParts.baseHref,
-      bundle.mirrorParts.headSnip,
-      bundle.mirrorParts.bodyInner,
+      mirrorParts.baseHref,
+      mirrorParts.headSnip,
+      mirrorParts.bodyInner,
     );
     const finalized = finalizeMirrorSrcDocForImport(raw, finalUrl, affForMirror);
     if (finalized) {
@@ -1411,6 +1426,15 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   const discount = extractDiscountSignals(html, language);
 
+  const classified = classifyPresellImport({
+    mirrorChars: import_mirror_src_doc?.length ?? 0,
+    imageCount: images.length,
+    salesChars: sales_text.length,
+    title: heroTitle,
+    browser: browserStatus,
+  });
+  const import_notes = browserDetail ? [...classified.notes, browserDetail] : classified.notes;
+
   const foldSampleForTheme = foldHtml.slice(0, 48_000);
   const tintedLightBgHits = countTintedLightBackgroundHits(foldSampleForTheme);
   const storefront_theme = resolveImportStorefrontTheme(html, foldSampleForTheme, tintedLightBgHits);
@@ -1430,5 +1454,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     ...discount,
     ...(video_url ? { video_url } : {}),
     ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
+    import_notes,
+    import_mode: classified.mode,
   };
 }

@@ -25,7 +25,9 @@ import {
   isRtlLocale,
   normalizePresellLocale,
 } from "@/lib/presellUiStrings";
+import { presellImageDisplayCandidates } from "@/lib/presellImageDisplay";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
+import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 
 function escapeHtml(s: string): string {
   return s
@@ -37,6 +39,17 @@ function escapeHtml(s: string): string {
 
 function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/\n/g, "&#10;");
+}
+
+function exportImgTag(src: string, alt: string, loading: "eager" | "lazy"): string {
+  const candidates = presellImageDisplayCandidates(src);
+  const primary = candidates[0] || src;
+  const fallback = candidates[1] && candidates[1] !== primary ? candidates[1] : "";
+  const onerr = fallback
+    ? ` data-presell-fallback="${escapeAttr(fallback)}" onerror="if(this.dataset.presellFallback&&this.src!==this.dataset.presellFallback){this.onerror=null;this.src=this.dataset.presellFallback}"`
+    : "";
+  const priority = loading === "eager" ? ` fetchpriority="high"` : "";
+  return `<img src="${escapeAttr(primary)}" alt="${escapeAttr(alt)}" loading="${loading}" decoding="async"${priority}${onerr} />`;
 }
 
 function looksLikeSectionHeading(block: string): boolean {
@@ -105,8 +118,8 @@ const EXPORT_STYLES = `
 .pe-h1--vsl{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);}
 .pe-sub{font-size:clamp(1rem,2.5vw,1.25rem);font-weight:500;line-height:1.375;margin:0 0 1.25rem;}
 .pe-sub--vsl{color:#e2e8f0;}
-.pe-img-card{max-width:42rem;margin:0 auto 1.25rem;padding:1rem;background:rgba(255,255,255,.6);border-radius:1rem;border:1px solid rgba(0,0,0,.08);}
-.pe-img-card img{width:100%;max-height:min(420px,55vh);object-fit:contain;border-radius:.5rem;display:block;}
+.pe-img-card{max-width:56rem;margin:0 auto 1.25rem;padding:.75rem;background:rgba(255,255,255,.6);border-radius:1rem;border:1px solid rgba(0,0,0,.08);}
+.pe-img-card img{width:100%;max-height:min(78vh,820px);min-height:min(42vh,280px);object-fit:contain;object-position:center;border-radius:.5rem;display:block;}
 .pe-video{position:relative;width:100%;max-width:min(1200px,96vw);margin:1rem auto;aspect-ratio:16/9;background:#000;border-radius:.75rem;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 50px -15px rgba(0,0,0,.4);}
 .pe-video--inline{max-width:48rem;margin-top:1rem;border:1px solid rgba(0,0,0,.1);}
 .pe-video iframe,.pe-video video{position:absolute;inset:0;width:100%;height:100%;border:0;}
@@ -124,7 +137,7 @@ const EXPORT_STYLES = `
 .pe-gallery{max-width:64rem;margin:0 auto;padding:2.5rem 1rem;display:grid;grid-template-columns:1fr;gap:1rem;}
 @media(min-width:640px){.pe-gallery{grid-template-columns:1fr 1fr;}}
 .pe-gallery > div{border-radius:.75rem;overflow:hidden;border:1px solid rgba(0,0,0,.08);background:rgba(245,245,245,.5);box-shadow:0 1px 3px rgba(0,0,0,.06);}
-.pe-gallery img{width:100%;max-height:20rem;object-fit:cover;display:block;}
+.pe-gallery img{width:100%;max-height:min(70vh,36rem);object-fit:contain;object-position:center;display:block;background:#fff;}
 .pe-letter{max-width:48rem;margin:0 auto;padding:2rem 1rem;}
 .pe-letter-box{border-radius:1rem;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.55);padding:2rem 1.25rem;}
 @media(min-width:768px){.pe-letter-box{padding:2.5rem 2.5rem;}}
@@ -314,14 +327,15 @@ ${policyLink}
 var go=${JSON.stringify(href)};
 var fb=${JSON.stringify(fallbackHref)};
 function pick(){if(go&&go!=="#")return go;if(fb&&fb!=="#")return fb;return"";}
-function g(){var u=pick();if(u)location.replace(u);}
+function go(){var u=pick();if(u)location.assign(u);}
+function hide(){if(o)o.remove();}
 var o=document.getElementById("pe-cookie-overlay");
 var b=document.getElementById("pe-cookie-backdrop");
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
-if(b)b.addEventListener("click",g);
-if(c)c.addEventListener("click",g);
-if(a)a.addEventListener("click",g);
+if(b)b.addEventListener("click",hide);
+if(c)c.addEventListener("click",hide);
+if(a)a.addEventListener("click",go);
 })();
 </script>`;
 }
@@ -362,15 +376,20 @@ function buildDiscountModalHtml(
   ctaText: string,
   href: string,
 ): string {
-  const stars = Math.min(5, Math.max(1, Math.round(ratingStars || 5)));
-  const starStr = "★".repeat(stars);
+  const stars = Math.min(5, Math.max(0, Math.round(ratingStars || 0)));
+  const starStr = stars > 0 ? "★".repeat(stars) : "";
+  const socialHtml = socialProof.trim() ? `<p class="pe-soc">${escapeHtml(socialProof)}</p>` : "";
+  const ratingHtml =
+    ratingValue.trim() && stars > 0
+      ? `<div class="pe-discount-rating"><div class="pe-num">${escapeHtml(ratingValue)}</div><div class="pe-stars" aria-hidden="true">${escapeHtml(starStr)}</div></div>`
+      : "";
   return `<div class="pe-discount-modal-wrap" id="pe-discount-modal">
 <button type="button" class="pe-modal-bg-btn" id="pe-discount-bg" aria-label="Continue"></button>
 <div class="pe-discount-card">
 <a href="${escapeAttr(href)}" class="pe-close-x" aria-label="Fechar" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">×</a>
 <h2>${escapeHtml(headline)}</h2>
-<p class="pe-soc">${escapeHtml(socialProof)}</p>
-<div class="pe-discount-rating"><div class="pe-num">${escapeHtml(ratingValue)}</div><div class="pe-stars" aria-hidden="true">${escapeHtml(starStr)}</div></div>
+${socialHtml}
+${ratingHtml}
 <div style="margin-top:.5rem;">${ctaHtml(href, ctaText, "light", {})}</div>
 </div>
 </div>
@@ -543,13 +562,12 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   const isDiscount = isDiscountPresellType(page.type);
   const discountHeadline = (content.discountHeadline as string) || title;
   const socialProofLineRaw = typeof content.socialProofLine === "string" ? content.socialProofLine : "";
-  const socialProofDisplay = socialProofLineRaw.trim()
-    ? socialProofLineRaw
-    : getPresellUiStrings(page.language).discountSocial;
-  const ratingValue = typeof content.ratingValue === "string" ? content.ratingValue : "4.9";
-  const ratingStars = typeof content.ratingStars === "number" ? content.ratingStars : 5;
-  const urgencyTimerSeconds =
-    typeof content.urgencyTimerSeconds === "number" ? content.urgencyTimerSeconds : 649;
+  const socialProofDisplay = stripStockSocialClaim(socialProofLineRaw);
+  const ratingFromSource = content.ratingFromSource === true;
+  const ratingValue = ratingFromSource && typeof content.ratingValue === "string" ? content.ratingValue : "";
+  const ratingStars = ratingFromSource && typeof content.ratingStars === "number" ? content.ratingStars : 0;
+  const urgencyRaw = typeof content.urgencyTimerSeconds === "number" ? content.urgencyTimerSeconds : 0;
+  const urgencyTimerSeconds = urgencyRaw === 649 ? 0 : urgencyRaw;
 
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
@@ -567,8 +585,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   }
 
   if (heroImage && !hideHeroImageForVslFallback) {
-    const heroAlt = escapeHtml(getPresellSeoPrimaryTitle(page));
-    heroInner.push(`<div class="pe-img-card"><img src="${escapeAttr(heroImage)}" alt="${heroAlt}" loading="eager" decoding="async" /></div>`);
+    heroInner.push(`<div class="pe-img-card">${exportImgTag(heroImage, getPresellSeoPrimaryTitle(page), "eager")}</div>`);
   }
 
   heroInner.push(`<h1 class="pe-h1 ${isVslLayout ? "pe-h1--vsl" : ""}">${escapeHtml(title)}</h1>`);
@@ -615,8 +632,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   let gallerySection = "";
   if (galleryImages.length > 0 && !showVslFallback) {
     gallerySection = `<section class="pe-gallery">${galleryImages.map((src, i) => {
-      const galAlt = escapeHtml(`${getPresellSeoPrimaryTitle(page)} — ${i + 2}`);
-      return `<div><img src="${escapeAttr(src)}" alt="${galAlt}" loading="lazy" decoding="async" /></div>`;
+      return `<div>${exportImgTag(src, `${getPresellSeoPrimaryTitle(page)} — ${i + 2}`, "lazy")}</div>`;
     }).join("")}</section>`;
   }
 
@@ -652,9 +668,10 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   core += heroSection + gallerySection + salesSection + footerSection;
 
   if (isDiscount) {
+    const bar = urgencyTimerSeconds > 0 ? buildDiscountBarHtml(urgencyTimerSeconds, page.language) : "";
     core =
-      buildDiscountBarHtml(urgencyTimerSeconds, page.language) +
-      `<div class="pe-discount-offset">` +
+      bar +
+      `<div class="${urgencyTimerSeconds > 0 ? "pe-discount-offset" : ""}">` +
       core +
       `</div>` +
       buildDiscountModalHtml(

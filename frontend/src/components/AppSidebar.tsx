@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   Webhook,
   LineChart,
+  Search,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -53,6 +54,7 @@ type NavItem = {
 const workNav: NavItem[] = [
   { title: "Presells", url: "/presells", icon: FileText },
   { title: "Campanhas", url: "/campanhas", icon: Megaphone },
+  { title: "Pesquisa e anúncios", url: "/palavras-chave", icon: Search },
   { title: "URL Builder", url: "/tracking/url-builder", icon: Link2 },
 ];
 

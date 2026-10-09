@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { rotatorMetaFromParentClick } from "./rotatorParentAttribution";
+import { pickWeightedIndex } from "./rotatorWeights";
 
 describe("rotatorParentAttribution", () => {
   it("copies rotator ids from parent click metadata", () => {
@@ -37,5 +38,17 @@ describe("rotatorParentAttribution", () => {
       parentMetadata: { source: "google" },
     });
     assert.equal(r, null);
+  });
+});
+
+describe("pesos do rotador", () => {
+  it("mantém a proporção 50/50 e 90/10", () => {
+    assert.equal(pickWeightedIndex([50, 50], 0), 0);
+    assert.equal(pickWeightedIndex([50, 50], 0.49), 0);
+    assert.equal(pickWeightedIndex([50, 50], 0.5), 0);
+    assert.equal(pickWeightedIndex([50, 50], 0.51), 1);
+    assert.equal(pickWeightedIndex([90, 10], 0.9), 0);
+    assert.equal(pickWeightedIndex([90, 10], 0.91), 1);
+    assert.equal(pickWeightedIndex([0, 100], 0.1), 1);
   });
 });

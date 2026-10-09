@@ -17,6 +17,7 @@ const USER_ID_MODELS = [
   "subscription",
   "customDomain",
   "userRole",
+  "keywordResearch",
 ] as const;
 
 const MUTATING_PLAN_OPS = new Set(["create", "createMany", "update", "updateMany", "delete", "deleteMany", "upsert"]);

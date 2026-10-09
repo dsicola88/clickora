@@ -679,21 +679,32 @@ export default function PresellDashboard() {
           ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
             ? { importMirrorSrcDoc: data.import_mirror_src_doc }
             : {}),
+          importMode: data.import_mode,
           /** Extraído da página do produto — usado no layout tipo loja (estrelas). */
-          ratingValue: data.rating_value,
-          ratingStars: data.rating_stars ?? 5,
+          ...(data.rating_from_source
+            ? {
+                ratingValue: data.rating_value,
+                ratingStars: data.rating_stars ?? 5,
+                ratingFromSource: true,
+              }
+            : {}),
           ...(isDiscount
             ? {
-                discountHeadline: data.discount_headline,
-                socialProofLine: data.social_proof,
-                urgencyTimerSeconds: data.urgency_timer_seconds ?? 649,
+                discountHeadline: data.discount_headline || data.title,
+                ...(data.social_proof ? { socialProofLine: data.social_proof } : {}),
+                urgencyTimerSeconds: data.urgency_timer_seconds > 0 ? data.urgency_timer_seconds : 0,
                 discountPercent: data.discount_percent,
               }
             : {}),
         },
         settings: buildPresellSettingsPayload(),
-        status: "published",
+        status: data.import_mode === "mirror" ? "published" : "draft",
       });
+      if (data.import_notes?.length) {
+        toast.warning(data.import_notes.join(" "));
+      } else if (!(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200)) {
+        toast.warning("Presell em rascunho — o espelho da página original não foi gerado.");
+      }
     } catch (e) {
       toastErrorFromCatch(e, "Erro ao criar página.");
     } finally {

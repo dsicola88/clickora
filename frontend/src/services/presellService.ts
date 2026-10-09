@@ -44,9 +44,12 @@ export const presellService = {
       discount_percent: number | null;
       discount_headline: string;
       social_proof: string;
+      rating_from_source: boolean;
       rating_value: string;
       rating_stars: number;
       urgency_timer_seconds: number;
+      import_notes: string[];
+      import_mode: "mirror" | "template" | "incomplete";
       storefront_theme: "dark_commerce" | "default";
       storefront_hero_tint: boolean;
     }>("/presells/import-from-url", payload);

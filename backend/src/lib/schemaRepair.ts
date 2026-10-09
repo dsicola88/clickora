@@ -153,4 +153,40 @@ export async function repairPlanSchemaColumns(): Promise<void> {
   } catch (e) {
     console.warn("[schemaRepair] conversions status index (ignorado):", e);
   }
+  try {
+    await systemPrisma.$executeRawUnsafe(`
+CREATE TABLE IF NOT EXISTS "keyword_researches" (
+  "id" TEXT NOT NULL,
+  "user_id" TEXT NOT NULL,
+  "product" VARCHAR(200) NOT NULL,
+  "language" VARCHAR(16) NOT NULL,
+  "market" VARCHAR(8) NOT NULL,
+  "market_name" VARCHAR(80) NOT NULL,
+  "product_url" TEXT,
+  "url_title" VARCHAR(240),
+  "keywords" JSONB NOT NULL,
+  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "keyword_researches_pkey" PRIMARY KEY ("id")
+)`);
+    await systemPrisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "keyword_researches_user_id_created_at_idx" ON "keyword_researches"("user_id", "created_at")`,
+    );
+    await systemPrisma.$executeRawUnsafe(`
+DO $$ BEGIN
+  ALTER TABLE "keyword_researches"
+    ADD CONSTRAINT "keyword_researches_user_id_fkey"
+    FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;`);
+  } catch (e) {
+    console.warn("[schemaRepair] keyword_researches (ignorado):", e);
+  }
+  try {
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "bundle" JSONB`);
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "platform" VARCHAR(16)`);
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "objective" VARCHAR(24)`);
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "source" VARCHAR(24)`);
+  } catch (e) {
+    console.warn("[schemaRepair] keyword_researches bundle (ignorado):", e);
+  }
 }

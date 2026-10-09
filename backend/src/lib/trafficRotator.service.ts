@@ -1,6 +1,7 @@
 import type { Prisma, RotatorDeviceRule, TrafficRotatorMode } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { evaluateRotatorRulesPolicy, rotatorRulesPolicySchema } from "./routingRules";
+import { pickWeightedIndex } from "./rotatorWeights";
 
 function parseCountriesJson(j: Prisma.JsonValue | null | undefined): string[] | null {
   if (j == null) return null;
@@ -191,16 +192,7 @@ export async function pickRotatorDestination(
         return { ok: false, reason: "no_destination" };
       }
       const weights = weightPositive.map((a) => a.weight);
-      const sum = weights.reduce((s, w) => s + w, 0);
-      let r = Math.random() * sum;
-      chosen = weightPositive[weightPositive.length - 1]!;
-      for (let i = 0; i < weightPositive.length; i++) {
-        r -= weights[i]!;
-        if (r <= 0) {
-          chosen = weightPositive[i]!;
-          break;
-        }
-      }
+      chosen = weightPositive[pickWeightedIndex(weights, Math.random())]!;
     } else {
       chosen = eligible[Math.floor(Math.random() * eligible.length)]!;
     }

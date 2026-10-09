@@ -40,7 +40,21 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Modal central: overlay + Allow (laranja, alinhado ao CTA da oferta) + Close. Qualquer ação de saída envia para o link rastreado; fallback evita ficar preso na presell se o URL de tracking falhar. */
+/** Allow segue para a oferta com o histórico intacto. Fechar ou o fundo ficam na presell. */
+export function cookieConsentNavigation(
+  action: "allow" | "dismiss",
+  redirectHref: string,
+  fallbackHref?: string,
+): { kind: "assign"; url: string } | { kind: "stay" } {
+  if (action === "dismiss") return { kind: "stay" };
+  const a = redirectHref.trim();
+  const b = (fallbackHref || "").trim();
+  const url = a && a !== "#" ? a : b && b !== "#" ? b : "";
+  if (!url) return { kind: "stay" };
+  return { kind: "assign", url };
+}
+
+/** Folha de cookies por baixo do produto. Allow vai à oferta; Close revela a página. */
 export function CookieConsentModal({
   language,
   policyUrl,
@@ -52,7 +66,7 @@ export function CookieConsentModal({
 }: {
   language: string;
   policyUrl: string;
-  /** URL rastreada (oferta); preferida para Allow, Close e fundo. */
+  /** URL rastreada da oferta. Só o botão Allow navega; Close e o fundo ficam na página. */
   redirectHref: string;
   /** Ex.: hoplink cru ou sourceUrl quando `redirectHref` ainda não está disponível. */
   fallbackHref?: string;
@@ -63,48 +77,36 @@ export function CookieConsentModal({
   const L = getPresellUiStrings(language);
   if (accepted) return null;
 
-  const pickUrl = (): string => {
-    const a = redirectHref.trim();
-    const b = (fallbackHref || "").trim();
-    if (a && a !== "#") return a;
-    if (b && b !== "#") return b;
-    return "";
-  };
-
-  /** Se há URL, navega e não actualiza estado React — evita o modal desaparecer e a presell aparecer um instante antes do salto (parecia um «segundo fluxo»). */
   const handleAllow = () => {
-    const u = pickUrl();
-    if (u) {
-      window.location.replace(u);
+    const next = cookieConsentNavigation("allow", redirectHref, fallbackHref);
+    if (next.kind === "assign") {
+      window.location.assign(next.url);
       return;
     }
     onAccept();
   };
 
   const handleClose = () => {
-    const u = pickUrl();
-    if (u) {
-      window.location.replace(u);
-      return;
-    }
     onDismiss();
   };
 
   return (
     <div
-      className="fixed inset-0 z-[520] flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-[520] flex items-end justify-center p-3 sm:p-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cookie-policy-title"
+      data-testid="presell-cookie-sheet"
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/55 backdrop-blur-[2px] cursor-pointer border-0 p-0"
+        className="absolute inset-0 cursor-pointer border-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent p-0"
         aria-label={L.cookieClose}
         onClick={handleClose}
       />
       <div
-        className="relative z-10 w-full max-w-[min(100%,28rem)] rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-2xl"
+        data-testid="presell-cookie-card"
+        className="relative z-10 mb-1 w-full max-w-[min(100%,32rem)] rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="cookie-policy-title" className="text-xl font-bold text-foreground tracking-tight">

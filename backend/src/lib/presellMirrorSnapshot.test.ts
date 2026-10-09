@@ -97,4 +97,14 @@ describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
     assert.ok(out);
     assert.ok(out!.includes(CLICKORA_MIRROR_TRACK_MARKER));
   });
+
+  it("promove o srcset grande para src e mantém o srcset", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<img src="https://cdn.example/pack_300x300.jpg" srcset="https://cdn.example/pack_300x300.jpg 300w, https://cdn.example/pack_1400x.jpg 1400w" alt="Pack" />
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(html, "https://offer.example/land", "https://offer.example/buy");
+    assert.ok(out);
+    assert.match(out!, /src="https:\/\/cdn\.example\/pack_1400x\.jpg"/);
+    assert.match(out!, /srcset=/);
+  });
 });

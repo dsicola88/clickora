@@ -301,6 +301,65 @@ function sanitizeMirrorIframes(root: HTMLElement, base: URL): void {
   });
 }
 
+/** Maior candidato de um srcset (`url 1200w` ou `url 2x`). Sem descritor, width fica 0. */
+export function largestUrlInSrcset(srcset: string): { url: string; width: number } | null {
+  let best: { url: string; width: number } | null = null;
+  for (const part of srcset.split(",")) {
+    const bit = part.trim();
+    if (!bit) continue;
+    const m = bit.match(/^(\S+)(?:\s+(\d+)w)?(?:\s+([\d.]+)x)?$/i);
+    if (!m?.[1]) continue;
+    const width = m[2] ? parseInt(m[2], 10) : m[3] ? Math.round(parseFloat(m[3]) * 400) : 0;
+    if (!best || width > best.width) best = { url: m[1], width };
+  }
+  return best;
+}
+
+/** Largura declarada no próprio URL (Shopify, WordPress, query width). 0 se não houver. */
+export function hintedImageWidth(url: string): number {
+  const q = url.match(/(?:[?&](?:w|width|imwidth)=)(\d{2,4})\b/i);
+  if (q) return Number(q[1]);
+  const shop = url.match(/_(\d{2,4})x\d{0,4}\.(?:jpe?g|png|webp|gif|avif)(?:\?|#|$)/i);
+  if (shop) return Number(shop[1]);
+  const wp = url.match(/-(\d{2,4})x(\d{2,4})\.(?:jpe?g|png|webp|gif|avif)(?:\?|#|$)/i);
+  if (wp) return Number(wp[1]);
+  return 0;
+}
+
+/**
+ * Se o `src` é uma miniatura e o srcset (ou o `<source>` do `<picture>`) tem um ficheiro maior
+ * da mesma imagem, passa esse URL para `src`. O srcset mantém-se para o browser escolher.
+ */
+export function promoteLargestMirrorImageSrc(root: HTMLElement, base: URL): void {
+  root.querySelectorAll("img").forEach((img) => {
+    let bestUrl = "";
+    let bestW = 0;
+    const consider = (raw: string | null | undefined) => {
+      if (!raw) return;
+      const hit = largestUrlInSrcset(raw);
+      if (hit && hit.width > bestW && hit.url) {
+        bestW = hit.width;
+        bestUrl = hit.url;
+      }
+    };
+    consider(img.getAttribute("srcset"));
+    const parent = img.parentNode as HTMLElement | null;
+    if (parent && parent.tagName?.toLowerCase() === "picture") {
+      parent.querySelectorAll("source").forEach((source) => consider(source.getAttribute("srcset")));
+    }
+    if (!bestUrl || bestW < 320) return;
+    const current = img.getAttribute("src") || "";
+    const curW = hintedImageWidth(current);
+    if (curW > 0 && bestW <= curW + 40) return;
+    try {
+      const abs = new URL(bestUrl, base);
+      if (abs.protocol === "http:" || abs.protocol === "https:") img.setAttribute("src", abs.href);
+    } catch {
+      img.setAttribute("src", bestUrl);
+    }
+  });
+}
+
 /**
  * Remove elementos perigosos, normaliza links da oferta para marcador de tracking,
  * força `target="_top"` para sair do iframe.
@@ -325,6 +384,7 @@ export function finalizeMirrorSrcDocForImport(
 
   const root = parse(srcDoc, { comment: true });
   root.querySelectorAll("script, object, embed, noscript").forEach((n) => n.remove());
+  promoteLargestMirrorImageSrc(root, base);
   sanitizeMirrorIframes(root, base);
 
   root.querySelectorAll("a").forEach((a) => {

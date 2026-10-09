@@ -1,4 +1,5 @@
 import rateLimit from "express-rate-limit";
+import type { Request } from "express";
 
 /** Rotas de credenciais (login, registo, recuperação) — por IP. */
 export const authCredentialLimiter = rateLimit({
@@ -7,4 +8,18 @@ export const authCredentialLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas tentativas. Tente novamente dentro de alguns minutos." },
+});
+
+/** Gerador de palavras-chave (IA) — por conta. */
+export const keywordGenerateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const u = req.user;
+    return u?.tenantUserId || u?.userId || req.ip || "anon";
+  },
+  validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+  message: { error: "Demasiadas gerações. Tente novamente dentro de alguns minutos." },
 });

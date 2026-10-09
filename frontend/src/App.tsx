@@ -46,6 +46,7 @@ import IntegrationsHubPage from "./pages/IntegrationsHubPage";
 import GoogleAdsConnectPage from "./pages/GoogleAdsConnectPage";
 import SettingsHubPage from "./pages/SettingsHubPage";
 import AffiliateAutomizerPage from "./pages/AffiliateAutomizerPage";
+import KeywordsPage from "./pages/KeywordsPage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -68,6 +69,7 @@ const appRoutes = [
   { path: "/presells/nova", element: <CreatePresellWizardPage /> },
   { path: "/campanhas", element: <CampaignsPage /> },
   { path: "/campanhas/:id", element: <CampaignDetailPage /> },
+  { path: "/palavras-chave", element: <KeywordsPage /> },
 
   // Resultados
   { path: "/resultados", element: <ResultsOverviewPage /> },

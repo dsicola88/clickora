@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { parse } from "node-html-parser";
+import { parse, type HTMLElement } from "node-html-parser";
+import { hintedImageWidth, largestUrlInSrcset } from "./presellMirrorSnapshot";
 import { getR2Config, isR2Configured, putR2Object } from "./r2Storage";
+import { safeImportFetch } from "./presellSafeFetch";
 
 const DEFAULT_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -28,6 +30,33 @@ function extFromContentType(ct: string): string {
   if (ct.includes("svg")) return "svg";
   if (ct.includes("avif")) return "avif";
   return "jpg";
+}
+
+/** Prefere o candidato maior do srcset quando o `src` atual é mais pequeno ou não declara tamanho. */
+function chooseMirrorImageUrl(img: HTMLElement): string {
+  const src = (img.getAttribute("src") || "").trim();
+  let bestUrl = "";
+  let bestW = 0;
+  const consider = (raw: string | null | undefined) => {
+    if (!raw) return;
+    const hit = largestUrlInSrcset(raw);
+    if (hit && hit.width > bestW) {
+      bestW = hit.width;
+      bestUrl = hit.url;
+    }
+  };
+  consider(img.getAttribute("srcset"));
+  const parent = img.parentNode as HTMLElement | null;
+  if (parent && parent.tagName?.toLowerCase() === "picture") {
+    parent.querySelectorAll("source").forEach((source) => consider(source.getAttribute("srcset")));
+  }
+  if (!bestUrl || bestW < 320) return src;
+  if (hintedImageWidth(src) > 0 && bestW <= hintedImageWidth(src) + 40) return src;
+  try {
+    return new URL(bestUrl, src || "https://example.invalid").href;
+  } catch {
+    return bestUrl || src;
+  }
 }
 
 /** Já no nosso CDN / rehost anterior — não voltar a descarregar. */
@@ -61,7 +90,7 @@ export async function rehostMirrorImagesToR2(args: {
   const hint = (args.pageHint || "mirror").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "mirror";
 
   for (const img of imgs.slice(0, MAX_IMAGES)) {
-    const src = (img.getAttribute("src") || "").trim();
+    const src = chooseMirrorImageUrl(img);
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) continue;
     if (isAlreadyRehostedMirrorUrl(src)) {
       img.removeAttribute("srcset");
@@ -82,16 +111,14 @@ export async function rehostMirrorImagesToR2(args: {
     }
 
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-      const res = await fetch(abs, {
-        signal: ctrl.signal,
+      const res = await safeImportFetch({
+        url: abs,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        maxBytes: MAX_BYTES,
         headers: { "User-Agent": DEFAULT_UA, Accept: "image/*,*/*" },
-        redirect: "follow",
       });
-      clearTimeout(t);
-      if (!res.ok) continue;
-      const buf = Buffer.from(await res.arrayBuffer());
+      if (res.status < 200 || res.status >= 300) continue;
+      const buf = res.body;
       if (buf.length < 32 || buf.length > MAX_BYTES) continue;
       const ct = guessContentType(abs, res.headers.get("content-type"));
       if (!ct.startsWith("image/")) continue;

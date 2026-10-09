@@ -181,6 +181,7 @@ model User {
   workspaceMemberships WorkspaceMember[]
   apiKeys              ApiKey[]
   tenantBranding       TenantBranding?
+  keywordResearches    KeywordResearch[]
 
   /** Módulo anúncios (ex-Dpiloto) — dados escopados ao dono da conta (tenant). */
   paidAdsProjects              PaidAdsProject[]
@@ -404,6 +405,30 @@ model AffiliateCampaign {
   @@index([userId, createdAt])
   @@index([presellId])
   @@map("affiliate_campaigns")
+}
+
+/** Gerador de palavras-chave para afiliados — isolado por tenant; não liga a campanhas/ads. */
+model KeywordResearch {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  product    String   @db.VarChar(200)
+  language   String   @db.VarChar(16)
+  market     String   @db.VarChar(8)
+  marketName String   @map("market_name") @db.VarChar(80)
+  productUrl String?  @map("product_url") @db.Text
+  urlTitle   String?  @map("url_title") @db.VarChar(240)
+  keywords   Json
+  /** Pacote de anúncios e recursos. Nulo nas pesquisas antigas, que continuam só com keywords. */
+  bundle     Json?
+  platform   String?  @db.VarChar(16)
+  objective  String?  @db.VarChar(24)
+  source     String?  @db.VarChar(24)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("keyword_researches")
 }
 
 model PostbackLog {

@@ -166,13 +166,19 @@ export default function CreatePresellWizardPage() {
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,
             ...(mirrorOk ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
-            ratingValue: data.rating_value,
-            ratingStars: data.rating_stars ?? 5,
+            importMode: data.import_mode,
+            ...(data.rating_from_source
+              ? {
+                  ratingValue: data.rating_value,
+                  ratingStars: data.rating_stars ?? 5,
+                  ratingFromSource: true,
+                }
+              : {}),
             ...(isDiscount
               ? {
-                  discountHeadline: data.discount_headline,
-                  socialProofLine: data.social_proof,
-                  urgencyTimerSeconds: data.urgency_timer_seconds ?? 649,
+                  discountHeadline: data.discount_headline || data.title,
+                  ...(data.social_proof ? { socialProofLine: data.social_proof } : {}),
+                  urgencyTimerSeconds: data.urgency_timer_seconds > 0 ? data.urgency_timer_seconds : 0,
                 }
               : {}),
           };
@@ -212,7 +218,7 @@ export default function CreatePresellWizardPage() {
 
       const a = buildContent(type);
       setGenPhase("publish");
-      const publishStatus = a.mirrorOk ? "published" : "draft";
+      const publishStatus = imported.data?.import_mode === "mirror" && a.mirrorOk ? "published" : "draft";
       const { data: pageA, error: errA } = await presellService.create({
         title: a.pageTitle,
         slug,
@@ -242,7 +248,7 @@ export default function CreatePresellWizardPage() {
           slug: slugB,
           type: typeB,
           language,
-          status: b.mirrorOk ? "published" : "draft",
+          status: imported.data?.import_mode === "mirror" && b.mirrorOk ? "published" : "draft",
           video_url: b.video_url,
           tracking: {
             offerUrl: offer,
@@ -285,9 +291,15 @@ export default function CreatePresellWizardPage() {
         }
       }
 
-      return { page: pageA, pageB, mirrorOk: a.mirrorOk, rotatorUrl };
+      return {
+        page: pageA,
+        pageB,
+        mirrorOk: a.mirrorOk,
+        rotatorUrl,
+        importNotes: imported.data?.import_notes ?? [],
+      };
     },
-    onSuccess: async ({ page, pageB, mirrorOk, rotatorUrl }) => {
+    onSuccess: async ({ page, pageB, mirrorOk, rotatorUrl, importNotes }) => {
       setGenPhase("idle");
       setPresellId(page.id);
       setPresellIdB(pageB?.id ?? null);
@@ -308,9 +320,14 @@ export default function CreatePresellWizardPage() {
       if (rotatorUrl) {
         toast.success("A/B criado: 2 landers + rotador 50/50");
       } else if (mirrorOk) {
-        toast.success("Presell criada e publicada (espelho 1:1)");
+        toast.success(
+          "Presell publicada no modo espelho. O visitante não executa o JavaScript da página original; não é uma cópia fiel.",
+        );
+        if (importNotes.length > 0) toast.warning(importNotes.join(" "));
+      } else if (importNotes.length > 0) {
+        toast.warning(importNotes.join(" "));
       } else {
-        toast.warning("Presell em rascunho — o espelho da página de vendas falhou. Edite antes de anunciar.");
+        toast.warning("Presell em rascunho — a importação não produziu um espelho. Edite antes de anunciar.");
       }
     },
     onError: (e: Error) => {

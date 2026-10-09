@@ -3,6 +3,8 @@
  * (shell HTML + bundle — o fetch simples não vê a primeira dobra real).
  * Captura espelho HTML (head + body) para iframe de alta fidelidade à página original.
  */
+import { startPresellImportProxy } from "./presellImportProxy";
+import { vetImportUrl } from "./presellImportSsrf";
 
 const DEFAULT_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -21,10 +23,39 @@ export function acceptLanguageForPresellImport(language: string | undefined): st
   return "en-US,en;q=0.9";
 }
 
+export type BrowserRenderStatus = "rendered" | "disabled" | "unavailable" | "failed" | "empty";
+
 export type RenderedPageBundle = {
   html: string;
   mirrorParts: { baseHref: string; headSnip: string; bodyInner: string } | null;
+  /** Porque o espelho existe ou não. Não significa cópia fiel da página. */
+  browser: BrowserRenderStatus;
+  browserDetail?: string;
 };
+
+const MAX_IMPORT_BROWSERS = 1;
+let activeImportBrowsers = 0;
+
+export function tryAcquireImportBrowser(): boolean {
+  if (activeImportBrowsers >= MAX_IMPORT_BROWSERS) return false;
+  activeImportBrowsers += 1;
+  return true;
+}
+
+export function releaseImportBrowser(): void {
+  activeImportBrowsers = Math.max(0, activeImportBrowsers - 1);
+}
+
+export function browserStatusFromLaunchError(message: string): "unavailable" | "failed" {
+  if (/Executable doesn't exist|Please run the following command|browserType\.launch/i.test(message)) {
+    return "unavailable";
+  }
+  return "failed";
+}
+
+function emptyRenderedBundle(browser: BrowserRenderStatus, browserDetail?: string): RenderedPageBundle {
+  return { html: "", mirrorParts: null, browser, ...(browserDetail ? { browserDetail } : {}) };
+}
 
 /**
  * HTML após JS + recorte do head (CSS/fonts) e body para espelho no iframe da presell.
@@ -33,23 +64,35 @@ export type RenderedPageBundle = {
 export async function fetchRenderedPageBundle(
   pageUrl: string,
   acceptLanguage: string,
-): Promise<RenderedPageBundle | null> {
-  if (process.env.PRESELL_DISABLE_PLAYWRIGHT === "1") return null;
+): Promise<RenderedPageBundle> {
+  if (process.env.PRESELL_DISABLE_PLAYWRIGHT === "1") return emptyRenderedBundle("disabled");
+  if (!tryAcquireImportBrowser()) {
+    return emptyRenderedBundle(
+      "failed",
+      "Já há uma importação com browser em curso. Espere que termine e tente de novo.",
+    );
+  }
 
   let chromium: typeof import("playwright").chromium;
   try {
     ({ chromium } = await import("playwright"));
   } catch {
-    return null;
+    releaseImportBrowser();
+    return emptyRenderedBundle("unavailable");
   }
 
   let browser: import("playwright").Browser | undefined;
+  let proxy: { port: number; close: () => Promise<void> } | undefined;
   try {
+    proxy = await startPresellImportProxy();
+    const channel = process.env.PRESELL_PLAYWRIGHT_CHANNEL?.trim();
     browser = await chromium.launch({
       headless: true,
+      ...(channel ? { channel: channel as "chrome" } : {}),
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     });
     const context = await browser.newContext({
+      proxy: { server: `http://127.0.0.1:${proxy.port}` },
       viewport: { width: 1440, height: 980 },
       userAgent: DEFAULT_UA,
       locale: acceptLanguage.split(",")[0]?.trim() || "en-US",
@@ -59,7 +102,19 @@ export async function fetchRenderedPageBundle(
       "Accept-Language": acceptLanguage,
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     });
+    await context.route("**/*", async (route) => {
+      try {
+        await vetImportUrl(route.request().url());
+      } catch {
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
     const page = await context.newPage();
+    page.on("download", (download) => {
+      void download.cancel();
+    });
     await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: GOTO_MS });
     try {
       await page.waitForLoadState("networkidle", { timeout: 8_000 });
@@ -208,11 +263,21 @@ export async function fetchRenderedPageBundle(
           }
         : null;
 
-    return { html, mirrorParts: mirror };
-  } catch {
-    return null;
+    return { html, mirrorParts: mirror, browser: mirror ? "rendered" : "empty" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const status = browserStatusFromLaunchError(msg);
+    const detail =
+      status === "failed" && /closed|crash|Target page/i.test(msg)
+        ? "O browser de importação encerrou antes de terminar a captura."
+        : status === "failed" && /timeout/i.test(msg)
+          ? "O browser esgotou o tempo de abertura da página."
+          : undefined;
+    return emptyRenderedBundle(status, detail);
   } finally {
     await browser?.close().catch(() => {});
+    await proxy?.close().catch(() => {});
+    releaseImportBrowser();
   }
 }
 
@@ -221,5 +286,5 @@ export async function fetchRenderedPageBundle(
  */
 export async function fetchHtmlAfterJsRender(pageUrl: string, acceptLanguage: string): Promise<string | null> {
   const bundle = await fetchRenderedPageBundle(pageUrl, acceptLanguage);
-  return bundle?.html ?? null;
+  return bundle.html || null;
 }

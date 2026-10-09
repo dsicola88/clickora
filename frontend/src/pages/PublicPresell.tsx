@@ -41,10 +41,7 @@ import {
   startPublicPresellPrefetchForParam,
 } from "@/lib/publicPresellEarlyPrefetch";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
-import {
-  DiscountPresellOverlay,
-  discountSocialFallback,
-} from "@/components/presell/DiscountPresellOverlay";
+import { DiscountPresellOverlay } from "@/components/presell/DiscountPresellOverlay";
 import { PresellCta } from "@/components/presell/PresellCta";
 import { VslProductVideoFallback } from "@/components/presell/VslProductVideoFallback";
 import { injectWithCleanup } from "@/lib/injectPresellCustomCode";
@@ -65,7 +62,9 @@ import {
 } from "@/lib/presellUiStrings";
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { cn } from "@/lib/utils";
+import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
+import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 
@@ -187,6 +186,17 @@ function looksLikeSectionHeading(block: string): boolean {
   return words >= 4 && words <= 14;
 }
 
+/** Linha curta em maiúsculas (título de secção importado), sem inventar texto. */
+function isShoutHeading(line: string): boolean {
+  const t = line.trim();
+  if (t.length < 12 || t.length > 90) return false;
+  if (/[.!?]$/.test(t)) return false;
+  const letters = t.replace(/[^A-Za-zÀ-ÿ]/g, "");
+  if (letters.length < 8) return false;
+  const upper = letters.replace(/[^A-ZÀ-Ý]/g, "");
+  return upper.length / letters.length >= 0.85;
+}
+
 function looksLikeBulletList(block: string): boolean {
   const lines = block
     .split(/\n/)
@@ -258,7 +268,28 @@ function ContentBlock({ block }: { block: string }) {
       </ul>
     );
   }
-  return <p className="text-base md:text-[1.05rem] leading-[1.75] text-foreground/90 whitespace-pre-line">{t}</p>;
+  const lines = t.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.some(isShoutHeading)) {
+    return (
+      <div className="space-y-3">
+        {lines.map((line, i) =>
+          isShoutHeading(line) ? (
+            <h3
+              key={i}
+              className="text-xl md:text-2xl font-bold tracking-tight text-foreground pt-2"
+            >
+              {line}
+            </h3>
+          ) : (
+            <p key={i} className="text-base md:text-lg leading-[1.7] text-foreground/90">
+              {line}
+            </p>
+          ),
+        )}
+      </div>
+    );
+  }
+  return <p className="text-base md:text-lg leading-[1.7] text-foreground/90 whitespace-pre-line">{t}</p>;
 }
 
 function StorefrontRatingRow({
@@ -394,19 +425,12 @@ function ImportedMirrorProductSpotlight({
             "border border-slate-200/90 bg-white shadow-md dark:border-border/60 dark:bg-card",
         )}
       >
-        <img
+        <PresellProductHero
           src={mainSrc}
           alt={primarySeoLabel}
           onError={heroImgOnError}
-          className={cn(
-            "w-full rounded-2xl object-contain mx-auto",
-            "max-h-[min(560px,70vh)] min-h-[12rem]",
-            useTintedTheme && "bg-white/50",
-            !useDarkTheme && !useTintedTheme && "bg-slate-50/90 dark:bg-muted/25",
-          )}
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
+          emphasis="primary"
+          tone={useDarkTheme ? "dark" : useTintedTheme ? "tint" : "light"}
         />
       </div>
       {productImages.length > 1 ? (
@@ -437,7 +461,7 @@ function ImportedMirrorProductSpotlight({
               )}
               aria-label={`Imagem ${i + 1}`}
             >
-              <img src={src} alt="" className="h-16 w-16 sm:h-20 sm:w-20 object-cover" loading="lazy" />
+              <PresellSecondaryImage src={src} alt="" className="h-20 w-20 sm:h-24 sm:w-24 object-cover" />
             </button>
           ))}
         </div>
@@ -537,7 +561,7 @@ function ImportedMirrorProductSpotlight({
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_75%_at_15%_10%,rgba(255,255,255,0.38),transparent_58%)]" />
       ) : null}
       <div className="relative w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-8 md:pb-12">
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+        <div className="grid md:grid-cols-[minmax(0,1.22fr)_minmax(0,0.88fr)] gap-8 lg:gap-10 items-start">
           {imageBlock}
           {copyBlock}
         </div>
@@ -754,7 +778,7 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: o modal redireciona para a oferta (Allow / Close / fundo); na página, outros CTAs seguem o mesmo href.
+    // Cookies: Allow segue para a oferta; Close e o fundo só fecham a folha. Os CTAs da página usam o mesmo href.
     if (gk === "cookies") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
@@ -904,7 +928,9 @@ export default function PublicPresell() {
 
   const isDiscount = isDiscountPresellType(page.type);
   const discountHeadline = (content.discountHeadline as string) || title;
-  const socialProofLine = typeof content.socialProofLine === "string" ? content.socialProofLine : "";
+  const socialProofLine = stripStockSocialClaim(
+    typeof content.socialProofLine === "string" ? content.socialProofLine : "",
+  );
   const ratingValue = typeof content.ratingValue === "string" ? content.ratingValue : "4.9";
   const ratingStars = typeof content.ratingStars === "number" ? content.ratingStars : 5;
   const urgencyTimerSeconds =
@@ -925,14 +951,10 @@ export default function PublicPresell() {
     importMirrorSrcDocRaw.length > 800 && mirrorSrcDoc.length > 800;
 
   /**
-   * Com o modal de cookies aberto, não usar só o iframe do espelho: o overlay escuro sobre iframe claro parecia “página em branco”. Mostra o layout React por baixo; Allow/Close/fundo redirecionam na mesma para o link rastreado.
+   * O espelho importado mantém-se visível com o aviso de cookies.
+   * A folha fica em baixo; fechar não troca a landing pelo modelo React nem sai para a oferta.
    */
-  const cookieModalBlocking =
-    gateKind === "cookies" && !cookieAccepted && !cookieDismissed;
-
-  /** Espelho HTML importado; se o documento vier vazio (ex.: só JS na origem), volta ao layout React. */
-  const showImportedMirror =
-    mirrorEligible && !mirrorUseTemplateFallback && !cookieModalBlocking;
+  const showImportedMirror = mirrorEligible && !mirrorUseTemplateFallback;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel = plainTextFromMaybeHtml(
@@ -942,7 +964,9 @@ export default function PublicPresell() {
         ? String((content as { product_name: string }).product_name).trim()
         : "",
   );
+  const ratingFromSource = content.ratingFromSource === true;
   const showStorefrontRating =
+    ratingFromSource &&
     !isDiscount &&
     typeof content.ratingStars === "number" &&
     content.ratingStars > 0 &&
@@ -1123,17 +1147,15 @@ export default function PublicPresell() {
                   </div>
                 ) : null}
 
-                <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+                <div className="grid md:grid-cols-[minmax(0,1.22fr)_minmax(0,0.88fr)] gap-8 lg:gap-10 items-start">
                   <div className="space-y-4 md:sticky md:top-6">
-                    <div className="rounded-2xl border border-amber-500/25 bg-black/25 shadow-[0_0_48px_-12px_rgba(251,191,36,0.12)] p-4 sm:p-5">
-                      <img
+                    <div className="rounded-2xl border border-amber-500/25 bg-black/25 shadow-[0_0_48px_-12px_rgba(251,191,36,0.12)] p-2 sm:p-3">
+                      <PresellProductHero
                         src={heroImageFallback.src}
                         onError={heroImageFallback.onError}
                         alt={primarySeoLabel}
-                        className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl"
-                        loading="eager"
-                        decoding="async"
-                        fetchPriority="high"
+                        tone="dark"
+                        emphasis="primary"
                       />
                     </div>
                     {productImages.length > 1 ? (
@@ -1151,11 +1173,10 @@ export default function PublicPresell() {
                             )}
                             aria-label={`Imagem ${i + 1}`}
                           >
-                            <img
+                            <PresellSecondaryImage
                               src={src}
                               alt=""
-                              className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
-                              loading="lazy"
+                              className="h-20 w-20 sm:h-24 sm:w-24 object-cover"
                             />
                           </button>
                         ))}
@@ -1271,17 +1292,15 @@ export default function PublicPresell() {
                   </div>
                 ) : null}
 
-                <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+                <div className="grid md:grid-cols-[minmax(0,1.22fr)_minmax(0,0.88fr)] gap-8 lg:gap-10 items-start">
                   <div className="space-y-4 md:sticky md:top-6">
-                    <div className="rounded-2xl border border-white/55 bg-white/25 shadow-[0_12px_40px_-12px_rgba(91,33,182,0.25)] backdrop-blur-[2px] p-4 sm:p-5">
-                      <img
+                    <div className="rounded-2xl border border-white/55 bg-white/25 shadow-[0_12px_40px_-12px_rgba(91,33,182,0.25)] backdrop-blur-[2px] p-2 sm:p-3">
+                      <PresellProductHero
                         src={heroImageFallback.src}
                         onError={heroImageFallback.onError}
                         alt={primarySeoLabel}
-                        className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-white/40"
-                        loading="eager"
-                        decoding="async"
-                        fetchPriority="high"
+                        tone="tint"
+                        emphasis="primary"
                       />
                     </div>
                     {productImages.length > 1 ? (
@@ -1299,11 +1318,10 @@ export default function PublicPresell() {
                             )}
                             aria-label={`Imagem ${i + 1}`}
                           >
-                            <img
+                            <PresellSecondaryImage
                               src={src}
                               alt=""
-                              className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
-                              loading="lazy"
+                              className="h-20 w-20 sm:h-24 sm:w-24 object-cover"
                             />
                           </button>
                         ))}
@@ -1382,17 +1400,15 @@ export default function PublicPresell() {
                 </div>
               ) : null}
 
-              <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
+              <div className="grid md:grid-cols-[minmax(0,1.22fr)_minmax(0,0.88fr)] gap-8 lg:gap-10 items-start">
                 <div className="space-y-4 md:sticky md:top-6">
-                  <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-4 sm:p-5">
-                    <img
+                  <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-2 sm:p-3">
+                    <PresellProductHero
                       src={heroImageFallback.src}
                       onError={heroImageFallback.onError}
                       alt={primarySeoLabel}
-                      className="w-full max-h-[min(520px,65vh)] object-contain mx-auto rounded-xl bg-slate-50/80 dark:bg-muted/20"
-                      loading="eager"
-                      decoding="async"
-                      fetchPriority="high"
+                      tone="light"
+                      emphasis="primary"
                     />
                   </div>
                   {productImages.length > 1 ? (
@@ -1410,11 +1426,10 @@ export default function PublicPresell() {
                           )}
                           aria-label={`Imagem ${i + 1}`}
                         >
-                          <img
+                          <PresellSecondaryImage
                             src={src}
                             alt=""
-                            className="h-16 w-16 sm:h-20 sm:w-20 object-cover"
-                            loading="lazy"
+                            className="h-20 w-20 sm:h-24 sm:w-24 object-cover"
                           />
                         </button>
                       ))}
@@ -1499,15 +1514,13 @@ export default function PublicPresell() {
             ) : null}
 
             {heroImage && !hideHeroImageForVslFallback ? (
-              <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-4 shadow-sm border border-border/40 mx-auto max-w-2xl">
-                <img
+              <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-2 sm:p-3 shadow-sm border border-border/40 mx-auto w-full max-w-4xl">
+                <PresellProductHero
                   src={heroImageFallback.src}
                   onError={heroImageFallback.onError}
                   alt={primarySeoLabel}
-                  className="w-full max-h-[min(420px,55vh)] object-contain mx-auto rounded-lg"
-                  loading="eager"
-                  decoding="async"
-                  fetchPriority="high"
+                  tone="plain"
+                  emphasis={showVideo ? "support" : "primary"}
                 />
               </div>
             ) : null}
@@ -1619,12 +1632,10 @@ export default function PublicPresell() {
                 key={`${i}-${src.slice(0, 40)}`}
                 className="rounded-xl overflow-hidden border border-border/50 bg-muted/30 shadow-sm"
               >
-                <img
+                <PresellSecondaryImage
                   src={src}
                   alt={`${primarySeoLabel} — ${i + 2}`}
-                  className="w-full object-cover max-h-80"
-                  loading="lazy"
-                  decoding="async"
+                  className="w-full object-contain max-h-[min(70vh,36rem)] min-h-[12rem] bg-white"
                 />
               </div>
             ))}
@@ -1771,10 +1782,10 @@ export default function PublicPresell() {
         <DiscountPresellOverlay
           language={uiLang}
           headline={discountHeadline}
-          socialProof={socialProofLine.trim() ? socialProofLine : discountSocialFallback(uiLang)}
-          ratingValue={ratingValue}
-          ratingStars={ratingStars}
-          initialTimerSeconds={urgencyTimerSeconds}
+          socialProof={socialProofLine.trim()}
+          ratingValue={ratingFromSource ? ratingValue : ""}
+          ratingStars={ratingFromSource ? ratingStars : 0}
+          initialTimerSeconds={urgencyTimerSeconds === 649 ? 0 : urgencyTimerSeconds}
           ctaText={ctaText}
           href={href}
         >
