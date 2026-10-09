@@ -108,14 +108,15 @@ export async function startPresellImportProxy(deps?: {
   };
 
   server.on("connect", (req, client, head) => {
+    const socket = client as net.Socket;
     const target = req.url || "";
     const [host, portText] = target.split(":");
     const port = Number(portText || "443");
     if (!host) {
-      refuse(client);
+      refuse(socket);
       return;
     }
-    void accept(`https://${host}:${port}/`, client, head, true);
+    void accept(`https://${host}:${port}/`, socket, head, true);
   });
 
   server.on("request", (req, res) => {

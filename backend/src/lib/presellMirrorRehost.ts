@@ -120,7 +120,7 @@ export async function rehostMirrorImagesToR2(args: {
       if (res.status < 200 || res.status >= 300) continue;
       const buf = res.body;
       if (buf.length < 32 || buf.length > MAX_BYTES) continue;
-      const ct = guessContentType(abs, res.headers.get("content-type"));
+      const ct = guessContentType(abs, res.contentType);
       if (!ct.startsWith("image/")) continue;
       const hash = createHash("sha1").update(buf).digest("hex").slice(0, 16);
       const key = `presell-mirror/${args.userId}/${hint}/${hash}.${extFromContentType(ct)}`;
