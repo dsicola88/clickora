@@ -41,7 +41,7 @@ export function DiscountPresellOverlay({
   href,
   children,
 }: Props) {
-  const [open, setOpen] = useState(true);
+  const [open] = useState(true);
   const [secondsLeft, setSecondsLeft] = useState(() =>
     Number.isFinite(initialTimerSeconds) && initialTimerSeconds > 0 ? Math.floor(initialTimerSeconds) : 0,
   );
@@ -63,6 +63,12 @@ export function DiscountPresellOverlay({
   }, [open]);
 
   const stars = Math.min(5, Math.max(1, Math.round(ratingStars || 5)));
+
+  const goOffer = () => {
+    const url = href.trim();
+    if (!url || url === "#") return;
+    window.location.assign(url);
+  };
 
   return (
     <div className="relative">
@@ -87,16 +93,20 @@ export function DiscountPresellOverlay({
         >
           <button
             type="button"
+            data-testid="presell-discount-backdrop"
             className="absolute inset-0 cursor-pointer border-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent p-0"
-            aria-label="Fechar oferta"
-            onClick={() => setOpen(false)}
+            aria-label="Continuar para a oferta"
+            onClick={goOffer}
           />
-          <div className="relative z-10 w-full max-w-md rounded-2xl bg-[#eceff1] shadow-2xl border border-white/40 px-6 py-8 sm:px-8">
+          <div
+            className="relative z-10 w-full max-w-md rounded-2xl bg-[#eceff1] shadow-2xl border border-white/40 px-6 py-8 sm:px-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               className="absolute right-3 top-3 rounded-full p-1.5 text-foreground/50 hover:text-foreground hover:bg-black/5 transition-colors"
               aria-label="Fechar"
-              onClick={() => setOpen(false)}
+              onClick={goOffer}
             >
               <X className="h-5 w-5" />
             </button>

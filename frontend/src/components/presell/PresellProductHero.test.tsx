@@ -60,7 +60,6 @@ describe("CookieConsentModal", () => {
         redirectHref=""
         accepted={false}
         onAccept={() => {}}
-        onDismiss={() => {}}
       />,
     );
     const sheet = screen.getByTestId("presell-cookie-sheet");

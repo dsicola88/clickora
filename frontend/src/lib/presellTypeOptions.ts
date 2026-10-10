@@ -27,7 +27,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "cookies",
         name: "Cookies (consentimento)",
         description:
-          "Modal de política de cookies no centro do ecrã. «Permitir» ou fechar segue para o teu link de afiliado; podes indicar URL opcional da política. Comportamento equivalente ao «modelo cookie» de ferramentas de presell.",
+          "Modal de política de cookies. Permitir, fechar ou clicar fora segue para o link rastreado da oferta. A política, se existir, abre noutro separador. Sem destino, o modal permanece.",
       },
       {
         id: "fantasma",
@@ -64,7 +64,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "desconto",
         name: "Desconto + urgência",
         description:
-          "Faixa de urgência com contagem, modal de desconto e prova social sobre o conteúdo. Percentuais e mensagens alinham ao que foi possível extrair da página do produto no import.",
+          "Faixa de urgência e modal de desconto. O botão, o fechar e o clique fora vão para a oferta rastreada. Sem destino, o modal permanece.",
       },
     ],
   },

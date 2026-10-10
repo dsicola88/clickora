@@ -9,11 +9,15 @@ describe("cookieConsentNavigation", () => {
     });
   });
 
-  it("Close e o fundo ficam na presell", () => {
-    expect(cookieConsentNavigation("dismiss", "/track/r/1")).toEqual({ kind: "stay" });
+  it("Fechar e o fundo seguem para a oferta rastreada", () => {
+    expect(cookieConsentNavigation("dismiss", "/track/r/1?gclid=abc", "https://offer.example")).toEqual({
+      kind: "assign",
+      url: "/track/r/1?gclid=abc",
+    });
   });
 
-  it("Allow sem destino não navega", () => {
+  it("sem destino o modal não navega", () => {
+    expect(cookieConsentNavigation("dismiss", "#", "")).toEqual({ kind: "stay" });
     expect(cookieConsentNavigation("allow", "#", "")).toEqual({ kind: "stay" });
   });
 });

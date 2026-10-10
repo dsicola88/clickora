@@ -1052,8 +1052,7 @@ export default function PresellDashboard() {
               ) : null}
               {formData.presellType === "desconto" ? (
                 <p className="text-xs text-muted-foreground">
-                  A página pública mostra faixa rosa com contagem regressiva, modal com desconto, prova social e
-                  avaliação — extraídos automaticamente do texto da oferta quando possível.
+                  A página pública mostra faixa rosa com contagem regressiva e um modal de desconto. O botão, fechar e o clique fora vão para o link rastreado da oferta. Textos e prova social vêm da página importada quando existem.
                 </p>
               ) : null}
               {["tsl", "dtc", "review"].includes(formData.presellType) ? (

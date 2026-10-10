@@ -4,7 +4,7 @@
  * | Tipo        | Comportamento |
  * |-------------|----------------|
  * | cookies     | Modal de cookies; cliques redirecionam para o link da presell. |
- * | desconto    | Faixa de urgência + modal de desconto sobre o conteúdo. |
+ * | desconto    | Faixa de urgência + modal. CTA, fechar e o fundo vão para a oferta rastreada. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
  * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |
  * | tsl, dtc, review | Sem espelho: layout React (hero/texto). Com espelho: iframe 1:1 + chrome fino do tipo (selo + CTA); overlays/gates mantêm-se. |

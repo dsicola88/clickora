@@ -10,7 +10,7 @@ function stringsFor(lang: Lang) {
     exitTitle: "Espera — não percas esta oferta",
     exitBody: "Clica abaixo para aceder ao link com rastreamento.",
     exitCta: "Ir para a oferta",
-    exitDismiss: "Continuar na página",
+    exitDismiss: "Fechar",
     countdownLabel: "Tempo restante",
     socialBought: "comprou há pouco",
     socialFrom: "de",
@@ -19,7 +19,7 @@ function stringsFor(lang: Lang) {
     exitTitle: "Wait — don’t miss this offer",
     exitBody: "Click below to open the tracked link.",
     exitCta: "Go to the offer",
-    exitDismiss: "Stay on this page",
+    exitDismiss: "Close",
     countdownLabel: "Time left",
     socialBought: "purchased recently",
     socialFrom: "from",
@@ -177,14 +177,25 @@ export function PresellMarketingOverlays({
           role="dialog"
           aria-modal
           aria-labelledby="presell-exit-title"
+          data-testid="presell-exit-sheet"
         >
-          <div className="max-w-md w-full rounded-xl border border-border bg-card p-6 shadow-xl space-y-4">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-pointer border-0 bg-transparent p-0"
+            aria-label={str.exitCta}
+            data-testid="presell-exit-backdrop"
+            onClick={goOffer}
+          />
+          <div
+            className="relative z-10 max-w-md w-full rounded-xl border border-border bg-card p-6 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 id="presell-exit-title" className="text-lg font-semibold text-card-foreground">
               {str.exitTitle}
             </h2>
             <p className="text-sm text-muted-foreground">{str.exitBody}</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setExitOpen(false)}>
+              <Button type="button" variant="outline" onClick={goOffer}>
                 {str.exitDismiss}
               </Button>
               <Button type="button" onClick={goOffer}>

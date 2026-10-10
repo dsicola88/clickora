@@ -120,12 +120,30 @@ test.describe("presell — produto visível com cookies", () => {
     });
   }
 
-  test("fechar cookies fica na presell e o voltar continua a funcionar", async ({ page }) => {
+  test("fechar cookies vai ao rastreio", async ({ page }) => {
     await openPresell(page, "cookies");
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
+      }),
+    );
     await page.getByTestId("presell-cookie-card").getByRole("button", { name: "Close" }).click();
-    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
-    await expect(page.getByTestId("presell-cookie-card")).toHaveCount(0);
-    await expect(page.locator("[data-presell-hero='product']").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/track\//);
+  });
+
+  test("clicar fora dos cookies vai ao rastreio", async ({ page }) => {
+    await openPresell(page, "cookies");
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
+      }),
+    );
+    await page.getByTestId("presell-cookie-backdrop").click({ position: { x: 12, y: 12 } });
+    await expect(page).toHaveURL(/\/track\//);
   });
 
   test("aceitar cookies vai ao rastreio e o voltar regressa à presell", async ({ page }) => {
@@ -157,18 +175,42 @@ test.describe("presell — produto visível com cookies", () => {
     await expect(frame.getByRole("heading", { name: "StopWatt official page" })).toBeVisible();
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
     await expect(page.locator("[data-presell-hero='product']")).toHaveCount(0);
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
+      }),
+    );
     await page.getByTestId("presell-cookie-card").getByRole("button", { name: "Close" }).click();
-    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
-    await expect(frame.getByRole("heading", { name: "StopWatt official page" })).toBeVisible();
+    await expect(page).toHaveURL(/\/track\//);
   });
 
-  test("fechar o desconto não sai para a oferta", async ({ page }) => {
+  test("fechar o desconto vai ao rastreio", async ({ page }) => {
     await openPresell(page, "desconto");
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
+      }),
+    );
     await expect(page.getByTestId("presell-discount-sheet")).toBeVisible();
-    await page.getByRole("button", { name: "Fechar", exact: true }).click();
-    await expect(page.getByTestId("presell-discount-sheet")).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.getByTestId("presell-discount-sheet").getByRole("button", { name: "Fechar", exact: true }).click();
+    await expect(page).toHaveURL(/\/track\//);
+  });
+
+  test("clicar fora do desconto vai ao rastreio", async ({ page }) => {
+    await openPresell(page, "desconto");
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
+      }),
+    );
+    await page.getByTestId("presell-discount-backdrop").click({ position: { x: 12, y: 12 } });
+    await expect(page).toHaveURL(/\/track\//);
   });
 
   test("rascunho não publicado não mostra a landing", async ({ page }) => {

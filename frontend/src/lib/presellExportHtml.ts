@@ -324,18 +324,16 @@ ${policyLink}
 </div>
 <script>
 (function(){
-var go=${JSON.stringify(href)};
+var dest=${JSON.stringify(href)};
 var fb=${JSON.stringify(fallbackHref)};
-function pick(){if(go&&go!=="#")return go;if(fb&&fb!=="#")return fb;return"";}
-function go(){var u=pick();if(u)location.assign(u);}
-function hide(){if(o)o.remove();}
-var o=document.getElementById("pe-cookie-overlay");
+function pick(){if(dest&&dest!=="#")return dest;if(fb&&fb!=="#")return fb;return"";}
+function visit(){var u=pick();if(u)location.assign(u);}
 var b=document.getElementById("pe-cookie-backdrop");
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
-if(b)b.addEventListener("click",hide);
-if(c)c.addEventListener("click",hide);
-if(a)a.addEventListener("click",go);
+if(b)b.addEventListener("click",visit);
+if(c)c.addEventListener("click",visit);
+if(a)a.addEventListener("click",visit);
 })();
 </script>`;
 }

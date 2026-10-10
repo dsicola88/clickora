@@ -14,7 +14,6 @@ import { presellService } from "@/services/presellService";
 import { ErrorState } from "@/components/ErrorState";
 import {
   CookieConsentModal,
-  CookieSettingsChip,
   mergeParamsIntoAffiliateUrl,
   PresellGateFields,
   useCookieAcceptedState,
@@ -657,7 +656,6 @@ export default function PublicPresell() {
   const apiBase = useMemo(() => getTrackApiBaseUrl(), []);
 
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
-  const [cookieDismissed, setCookieDismissed] = useState(false);
   const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: true });
 
   const { resolved: uiLang, setMode, override } = usePresellUiLanguage(page?.id, page?.language);
@@ -669,7 +667,6 @@ export default function PublicPresell() {
 
   useEffect(() => {
     setCookieAccepted(false);
-    setCookieDismissed(false);
     setFieldGate({ params: {}, ctaEnabled: true });
   }, [page?.id, setCookieAccepted]);
 
@@ -760,10 +757,7 @@ export default function PublicPresell() {
   );
   const heroImageFallback = usePresellHeroImageWithFallback(productImages, storefrontMainIdx);
 
-  const showCookieModal =
-    getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted && !cookieDismissed;
-  const showCookieChip =
-    getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted && cookieDismissed;
+  const showCookieModal = getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted;
 
   useEffect(() => {
     if (showCookieModal) {
@@ -778,7 +772,7 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: Allow segue para a oferta; Close e o fundo só fecham a folha. Os CTAs da página usam o mesmo href.
+    // Cookies: Allow, Fechar e o fundo seguem para a oferta. Os CTAs da página usam o mesmo href.
     if (gk === "cookies") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
@@ -1019,7 +1013,7 @@ export default function PublicPresell() {
 
   const pageBody = (
     <>
-      {gateKind === "cookies" && !cookieAccepted && !cookieDismissed ? (
+      {gateKind === "cookies" && showCookieModal ? (
         <CookieConsentModal
           language={uiLang}
           policyUrl={cookiePolicyUrl}
@@ -1027,13 +1021,6 @@ export default function PublicPresell() {
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
-          onDismiss={() => setCookieDismissed(true)}
-        />
-      ) : null}
-      {gateKind === "cookies" && showCookieChip ? (
-        <CookieSettingsChip
-          language={uiLang}
-          onClick={() => setCookieDismissed(false)}
         />
       ) : null}
 

@@ -40,13 +40,12 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Allow segue para a oferta com o histórico intacto. Fechar ou o fundo ficam na presell. */
+/** Allow, Fechar e o fundo seguem para a oferta. Sem destino, o modal permanece. */
 export function cookieConsentNavigation(
-  action: "allow" | "dismiss",
+  _action: "allow" | "dismiss",
   redirectHref: string,
   fallbackHref?: string,
 ): { kind: "assign"; url: string } | { kind: "stay" } {
-  if (action === "dismiss") return { kind: "stay" };
   const a = redirectHref.trim();
   const b = (fallbackHref || "").trim();
   const url = a && a !== "#" ? a : b && b !== "#" ? b : "";
@@ -54,7 +53,7 @@ export function cookieConsentNavigation(
   return { kind: "assign", url };
 }
 
-/** Folha de cookies por baixo do produto. Allow vai à oferta; Close revela a página. */
+/** Folha de cookies obrigatória: Allow, Fechar e o fundo vão à oferta. Sem destino, não fecha. */
 export function CookieConsentModal({
   language,
   policyUrl,
@@ -62,32 +61,26 @@ export function CookieConsentModal({
   fallbackHref,
   accepted,
   onAccept,
-  onDismiss,
 }: {
   language: string;
   policyUrl: string;
-  /** URL rastreada da oferta. Só o botão Allow navega; Close e o fundo ficam na página. */
+  /** URL rastreada da oferta. Qualquer ação (Allow, Fechar ou o fundo) navega. */
   redirectHref: string;
   /** Ex.: hoplink cru ou sourceUrl quando `redirectHref` ainda não está disponível. */
   fallbackHref?: string;
   accepted: boolean;
   onAccept: () => void;
-  onDismiss: () => void;
 }) {
   const L = getPresellUiStrings(language);
   if (accepted) return null;
 
-  const handleAllow = () => {
-    const next = cookieConsentNavigation("allow", redirectHref, fallbackHref);
+  const goToOffer = (action: "allow" | "dismiss") => {
+    const next = cookieConsentNavigation(action, redirectHref, fallbackHref);
     if (next.kind === "assign") {
       window.location.assign(next.url);
       return;
     }
-    onAccept();
-  };
-
-  const handleClose = () => {
-    onDismiss();
+    if (action === "allow") onAccept();
   };
 
   return (
@@ -100,9 +93,10 @@ export function CookieConsentModal({
     >
       <button
         type="button"
+        data-testid="presell-cookie-backdrop"
         className="absolute inset-0 cursor-pointer border-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent p-0"
-        aria-label={L.cookieClose}
-        onClick={handleClose}
+        aria-label={L.cookieAllow}
+        onClick={() => goToOffer("dismiss")}
       />
       <div
         data-testid="presell-cookie-card"
@@ -128,14 +122,14 @@ export function CookieConsentModal({
             type="button"
             variant="outline"
             className="sm:flex-1 border-border bg-background hover:bg-muted"
-            onClick={handleClose}
+            onClick={() => goToOffer("dismiss")}
           >
             {L.cookieClose}
           </Button>
           <Button
             type="button"
             className="sm:flex-1 bg-orange-500 text-white hover:bg-orange-600 border-0 shadow-md"
-            onClick={handleAllow}
+            onClick={() => goToOffer("allow")}
           >
             {L.cookieAllow}
           </Button>
