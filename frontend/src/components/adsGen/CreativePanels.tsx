@@ -200,7 +200,7 @@ export function CreativePanels({
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">Destaques</h3>
           {bundle.callouts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem preço, oferta ou garantia confirmados. Não inventámos destaques.</p>
+            <p className="text-sm text-muted-foreground">Nenhum destaque cabe em 25 caracteres. Preço ou garantia mais longos ficam na descrição e não são cortados.</p>
           ) : (
             bundle.callouts.map((c) => (
               <p key={c.id} className="text-sm">

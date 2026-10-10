@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronsUpDown, Copy, Download, Search, Sparkles } from "lucide-react";
+import { Copy, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,20 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { cn } from "@/lib/utils";
 import {
+  campaignReviewText,
   copyKeywordsText,
   downloadCsv,
   filterKeywords,
@@ -53,23 +45,34 @@ import {
 } from "@/services/keywordResearchService";
 
 const FALLBACK_LANGUAGES = [
-  { code: "en", label: "English" },
+  { code: "en", label: "Inglês" },
   { code: "pt", label: "Português" },
-  { code: "es", label: "Español" },
-  { code: "fr", label: "Français" },
-  { code: "de", label: "Deutsch" },
+  { code: "es", label: "Espanhol" },
+  { code: "fr", label: "Francês" },
+  { code: "de", label: "Alemão" },
   { code: "it", label: "Italiano" },
 ];
 
-const FALLBACK_MARKETS = [
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" },
-  { code: "AU", name: "Australia" },
-  { code: "AO", name: "Angola" },
-  { code: "BR", name: "Brazil" },
-  { code: "PT", name: "Portugal" },
+const AFFILIATE_PLATFORMS = [
+  ["digistore24", "Digistore24"],
+  ["buygoods", "BuyGoods"],
+  ["hotmart", "Hotmart"],
+  ["clickbank", "ClickBank"],
+  ["maxweb", "MaxWeb"],
+  ["smartadv", "SmartAdv"],
+  ["braip", "Braip"],
+  ["monetizze", "Monetizze"],
+  ["kiwify", "Kiwify"],
+  ["other", "Outra"],
+] as const;
+
+const FUNNEL_OPTIONS = [
+  { id: "BOTTOM" as const, title: "Fundo de funil", hint: "Compra e marca" },
+  { id: "MIDDLE" as const, title: "Meio de funil", hint: "Comparação e avaliação" },
+  { id: "TOP" as const, title: "Topo de funil", hint: "Descoberta e informação" },
 ];
+
+type StudioTab = "summary" | "keywords" | "negatives" | "ads" | "extensions" | "review";
 
 function platformLabel(platform: string | null | undefined): string {
   if (platform === "microsoft") return "Microsoft Advertising";
@@ -240,24 +243,79 @@ function KeywordRow({
   );
 }
 
+function ProductSummary({ research, onCopy }: { research: KeywordResearch; onCopy: (text: string) => void }) {
+  const analysis = research.bundle?.analysis;
+  const funnelName = FUNNEL_OPTIONS.find((option) => option.id === analysis?.funnel)?.title ?? "Funil não registado nesta pesquisa";
+  return (
+    <section className="space-y-4 rounded-xl border border-border/70 bg-card p-4">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">{research.product}</h2>
+        <p className="text-sm text-muted-foreground">
+          {analysis?.affiliatePlatformLabel ?? "Plataforma não registada"} · {funnelName} · {research.language_label}
+        </p>
+        <p className="mt-2 text-sm">
+          {analysis?.pageStatus === "fetched"
+            ? "A página foi consultada. Confirmado entra no anúncio. O que está só citado fica de fora."
+            : analysis?.pageStatus === "pasted"
+              ? "A página não foi consultada. Os trechos vêm do texto colado."
+              : "Esta pesquisa não tem leitura de página. Gere de novo para obter o resumo."}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{generationStatus(research)}</p>
+      </div>
+      {analysis?.adGroups?.length ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {analysis.adGroups.map((group) => (
+            <div key={group.name} className="rounded-lg border border-border/60 px-3 py-2">
+              <p className="text-sm font-semibold">{group.name}</p>
+              <p className="text-xs text-muted-foreground">{group.hint}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {analysis?.facts?.length ? (
+        <ul className="space-y-2">
+          {analysis.facts.map((fact) => (
+            <li key={`${fact.label}-${fact.value}`} className="rounded-lg border border-border/60 px-3 py-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{fact.label}</p>
+                <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => onCopy(fact.value)}>
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Copiar
+                </Button>
+              </div>
+              <p className="text-sm">{fact.value}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {fact.status === "confirmed" ? "Confirmado. Pode entrar no anúncio." : "Citado na página. Não entrou no anúncio."}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {analysis?.missing?.length ? (
+        <div>
+          <p className="text-sm font-medium">Não encontrado na página</p>
+          <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+            {analysis.missing.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function KeywordsPage() {
   const qc = useQueryClient();
   const [product, setProduct] = useState("");
-  const [language, setLanguage] = useState("en");
-  const [market, setMarket] = useState("US");
+  const [language, setLanguage] = useState("pt");
+  const [affiliatePlatform, setAffiliatePlatform] = useState<(typeof AFFILIATE_PLATFORMS)[number][0]>("hotmart");
   const [productUrl, setProductUrl] = useState("");
-  const [platform, setPlatform] = useState<"google" | "microsoft" | "both">("google");
-  const [objective, setObjective] = useState<"purchase" | "leads" | "comparison" | "commercial">("purchase");
-  const [details, setDetails] = useState("");
-  const [finalUrl, setFinalUrl] = useState("");
-  const [brand, setBrand] = useState("");
-  const [priceNote, setPriceNote] = useState("");
-  const [offerNote, setOfferNote] = useState("");
-  const [guaranteeNote, setGuaranteeNote] = useState("");
-  const [promoValue, setPromoValue] = useState("");
-  const [studioTab, setStudioTab] = useState<"keywords" | "ad" | "assets" | "review" | "export">("keywords");
+  const [funnel, setFunnel] = useState<(typeof FUNNEL_OPTIONS)[number]["id"]>("BOTTOM");
+  const [pageText, setPageText] = useState("");
+  const [needsPageText, setNeedsPageText] = useState(false);
+  const [studioTab, setStudioTab] = useState<StudioTab>("summary");
   const [draftDirty, setDraftDirty] = useState(false);
-  const [marketOpen, setMarketOpen] = useState(false);
   const [research, setResearch] = useState<KeywordResearch | null>(null);
   const [query, setQuery] = useState("");
   const [intent, setIntent] = useState<"ALL" | KeywordIntent>("ALL");
@@ -282,43 +340,30 @@ export default function KeywordsPage() {
     },
   });
 
-  const languages = optionsQ.data?.languages?.length ? optionsQ.data.languages : FALLBACK_LANGUAGES;
-  const markets = optionsQ.data?.markets?.length ? optionsQ.data.markets : FALLBACK_MARKETS;
-  const marketLabel = markets.find((m) => m.code === market)?.name ?? market;
+  const languages = FALLBACK_LANGUAGES.map((fallback) => {
+    const remote = optionsQ.data?.languages?.find((item) => item.code === fallback.code);
+    return remote ? { ...remote, label: fallback.label } : fallback;
+  });
 
   const generate = useMutation({
     mutationFn: async () => {
       const url = productUrl.trim();
-      const dest = finalUrl.trim();
-      const promo = promoValue.trim();
+      const pasted = pageText.trim();
       const { data, error, errorCode } = await keywordResearchService.generate({
         product: product.trim(),
         language,
-        market,
-        platform,
-        objective,
-        ...(url ? { product_url: url } : {}),
-        ...(dest ? { final_url: dest } : {}),
-        ...(details.trim() ? { description: details.trim() } : {}),
-        ...(brand.trim() ? { brand: brand.trim() } : {}),
-        ...(priceNote.trim() ? { price_note: priceNote.trim() } : {}),
-        ...(offerNote.trim() ? { offer_note: offerNote.trim() } : {}),
-        ...(guaranteeNote.trim() ? { guarantee_note: guaranteeNote.trim() } : {}),
-        ...(promo
-          ? {
-              promotion: {
-                kind: promo.includes("%") ? "percent" : "amount",
-                value: promo.replace("%", ""),
-                ...(dest ? { url: dest } : url ? { url } : {}),
-              },
-            }
-          : {}),
+        affiliate_platform: affiliatePlatform,
+        product_url: url,
+        funnel,
+        ...(needsPageText && pasted.length >= 40 ? { page_text: pasted } : {}),
       });
       if (error || !data) {
-        const err = new Error(error || "Não foi possível gerar as palavras-chave.") as Error & {
+        const err = new Error(error || "Não foi possível gerar a campanha.") as Error & {
           noResults?: boolean;
+          needsPageText?: boolean;
         };
         err.noResults = errorCode === "NO_RESULTS";
+        err.needsPageText = errorCode === "PAGE_UNAVAILABLE";
         throw err;
       }
       return data;
@@ -329,14 +374,21 @@ export default function KeywordsPage() {
       setIntent("ALL");
       setSelected(new Set());
       setGenerateError(null);
-      setStudioTab("keywords");
+      setNeedsPageText(false);
+      setStudioTab("summary");
       setDraftDirty(false);
       void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
     },
-    onError: (e: Error & { noResults?: boolean }) => {
+    onError: (e: Error & { noResults?: boolean; needsPageText?: boolean }) => {
+      if (e.needsPageText) {
+        setNeedsPageText(true);
+        setResearch(null);
+        setGenerateError({ message: e.message });
+        return;
+      }
       setResearch(null);
       setGenerateError({
-        message: e.message || "Não foi possível gerar as palavras-chave.",
+        message: e.message || "Não foi possível gerar a campanha.",
         noResults: e.noResults,
       });
     },
@@ -352,8 +404,13 @@ export default function KeywordsPage() {
       setResearch(data);
       setProduct(data.product);
       setLanguage(data.language);
-      setMarket(data.market);
       setProductUrl(data.product_url ?? "");
+      if (data.bundle?.analysis?.funnel) setFunnel(data.bundle.analysis.funnel);
+      if (data.bundle?.analysis?.affiliatePlatform) {
+        const known = AFFILIATE_PLATFORMS.some(([id]) => id === data.bundle?.analysis?.affiliatePlatform);
+        if (known) setAffiliatePlatform(data.bundle.analysis.affiliatePlatform as (typeof AFFILIATE_PLATFORMS)[number][0]);
+      }
+      setStudioTab("summary");
       setQuery("");
       setIntent("ALL");
       setSelected(new Set());
@@ -392,16 +449,16 @@ export default function KeywordsPage() {
 
   function submitGenerate() {
     if (product.trim().length < 2) {
-      toast.error("Indique o produto ou nicho.");
+      toast.error("Indique o nome do produto.");
       return;
     }
     const url = productUrl.trim();
-    if (url && !isHttpUrl(url)) {
-      toast.error("A URL do produto deve começar por http:// ou https://");
+    if (!isHttpUrl(url)) {
+      toast.error("Indique o link oficial do produto, começando por http:// ou https://");
       return;
     }
-    if (finalUrl.trim() && !isHttpUrl(finalUrl)) {
-      toast.error("A URL final deve começar por http:// ou https://");
+    if (needsPageText && pageText.trim().length < 40) {
+      toast.error("Cole o texto visível da página. O link não foi consultado, por isso a campanha não foi gerada.");
       return;
     }
     setGenerateError(null);
@@ -415,7 +472,7 @@ export default function KeywordsPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Pesquisa e anúncios"
-        subtitle="Produto, plataforma, idioma e mercado. Revê palavras-chave, anúncio e recursos antes de copiar ou exportar."
+        subtitle="Nome, idioma, plataforma de afiliados, link e funil. A campanha fica pronta para rever."
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
@@ -428,50 +485,21 @@ export default function KeywordsPage() {
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="kw-product">Produto ou nicho</Label>
+              <Label htmlFor="kw-product">Nome do produto</Label>
               <Input
                 id="kw-product"
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
-                placeholder="Ex.: GlucoTrust"
+                placeholder="Ex.: Nordic Oak Lamp"
                 maxLength={200}
                 autoComplete="off"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Plataforma</Label>
-                <Select value={platform} onValueChange={(v) => setPlatform(v as typeof platform)}>
-                  <SelectTrigger aria-label="Plataforma">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="google">Google Ads</SelectItem>
-                    <SelectItem value="microsoft">Microsoft Advertising</SelectItem>
-                    <SelectItem value="both">Ambas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Objetivo</Label>
-                <Select value={objective} onValueChange={(v) => setObjective(v as typeof objective)}>
-                  <SelectTrigger aria-label="Objetivo">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="purchase">Compra</SelectItem>
-                    <SelectItem value="leads">Leads</SelectItem>
-                    <SelectItem value="comparison">Comparação</SelectItem>
-                    <SelectItem value="commercial">Pesquisa comercial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Idioma</Label>
+                <Label>Idioma do anúncio</Label>
                 <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger aria-label="Idioma">
+                  <SelectTrigger aria-label="Idioma do anúncio">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -484,100 +512,76 @@ export default function KeywordsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Mercado</Label>
-                <Popover open={marketOpen} onOpenChange={setMarketOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={marketOpen}
-                      className="w-full justify-between font-normal h-10"
-                    >
-                      <span className="truncate">{marketLabel}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[min(24rem,calc(100vw-2rem))]" align="start">
-                    <Command>
-                      <CommandInput placeholder="Pesquisar mercado…" />
-                      <CommandList>
-                        <CommandEmpty>Nenhum mercado encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {markets.map((m) => (
-                            <CommandItem
-                              key={m.code}
-                              value={`${m.name} ${m.code}`}
-                              onSelect={() => {
-                                setMarket(m.code);
-                                setMarketOpen(false);
-                              }}
-                            >
-                              {m.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Label>Plataforma de afiliados</Label>
+                <Select value={affiliatePlatform} onValueChange={(value) => setAffiliatePlatform(value as typeof affiliatePlatform)}>
+                  <SelectTrigger aria-label="Plataforma de afiliados">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AFFILIATE_PLATFORMS.map(([id, label]) => (
+                      <SelectItem key={id} value={id}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="kw-url">URL do produto — opcional</Label>
+              <Label htmlFor="kw-url">Link oficial do produto</Label>
               <Input
                 id="kw-url"
                 value={productUrl}
-                onChange={(e) => setProductUrl(e.target.value)}
-                placeholder="Cole a URL do produto (opcional)"
+                onChange={(e) => {
+                  setProductUrl(e.target.value);
+                  setNeedsPageText(false);
+                }}
+                placeholder="https://… página de vendas"
                 inputMode="url"
                 autoComplete="off"
               />
             </div>
-            <details className="rounded-lg border border-border/70 px-3 py-2">
-              <summary className="cursor-pointer text-sm font-medium">Opções avançadas</summary>
-              <div className="grid gap-3 pt-3">
-                <div className="space-y-1">
-                  <Label htmlFor="kw-details">Descrição e benefícios comprovados</Label>
-                  <textarea
-                    id="kw-details"
-                    className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={details}
-                    maxLength={1000}
-                    onChange={(e) => setDetails(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="kw-final">URL final ou de afiliado</Label>
-                    <Input id="kw-final" value={finalUrl} onChange={(e) => setFinalUrl(e.target.value)} inputMode="url" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="kw-brand">Marca</Label>
-                    <Input id="kw-brand" value={brand} maxLength={80} onChange={(e) => setBrand(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="kw-price">Preço confirmado</Label>
-                    <Input id="kw-price" value={priceNote} maxLength={120} onChange={(e) => setPriceNote(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="kw-offer">Oferta confirmada</Label>
-                    <Input id="kw-offer" value={offerNote} maxLength={120} onChange={(e) => setOfferNote(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="kw-guarantee">Garantia confirmada</Label>
-                    <Input id="kw-guarantee" value={guaranteeNote} maxLength={120} onChange={(e) => setGuaranteeNote(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="kw-promo">Desconto confirmado</Label>
-                    <Input id="kw-promo" value={promoValue} maxLength={20} placeholder="Ex.: 15%" onChange={(e) => setPromoValue(e.target.value)} />
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <Label>Tipo de funil</Label>
+              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Tipo de funil">
+                {FUNNEL_OPTIONS.map((option) => {
+                  const selectedFunnel = funnel === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selectedFunnel}
+                      onClick={() => setFunnel(option.id)}
+                      className={cn(
+                        "rounded-lg border px-3 py-3 text-left transition-colors",
+                        selectedFunnel ? "border-primary bg-primary/10" : "border-border/70 hover:bg-muted/50",
+                      )}
+                    >
+                      <span className="block text-sm font-semibold">{option.title}</span>
+                      <span className="block text-xs text-muted-foreground">{option.hint}</span>
+                    </button>
+                  );
+                })}
               </div>
-            </details>
-            <Button type="submit" className="gap-2" disabled={generate.isPending}>
-              <Sparkles className="h-4 w-4" />
-              Gerar
+            </div>
+            {needsPageText ? (
+              <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                <Label htmlFor="kw-page-text">Texto da página</Label>
+                <p className="text-xs text-muted-foreground">
+                  O link não foi consultado. Cole o texto visível da página de vendas. Sem este texto, a campanha não é gerada.
+                </p>
+                <textarea
+                  id="kw-page-text"
+                  className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={pageText}
+                  maxLength={8000}
+                  onChange={(e) => setPageText(e.target.value)}
+                />
+              </div>
+            ) : null}
+            <Button type="submit" className="h-11 w-full text-sm font-semibold tracking-wide" disabled={generate.isPending}>
+              {generate.isPending ? "A gerar campanha…" : "GERAR CAMPANHA"}
             </Button>
           </form>
 
@@ -585,11 +589,11 @@ export default function KeywordsPage() {
             <LoadingState
               message={
                 generate.isPending
-                  ? "A gerar palavras-chave e anúncios..."
+                  ? "A consultar a página e a montar a campanha..."
                   : "A abrir a pesquisa..."
               }
             />
-          ) : generateError ? (
+          ) : generateError && !needsPageText ? (
             generateError.noResults ? (
               <ErrorState
                 message="Não encontramos sugestões suficientes. Tente outro produto ou nicho."
@@ -600,14 +604,15 @@ export default function KeywordsPage() {
             )
           ) : research ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Secções do pacote">
+              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Secções da campanha">
                 {(
                   [
+                    ["summary", "Resumo do produto"],
                     ["keywords", "Palavras-chave"],
-                    ["ad", "Anúncio"],
-                    ["assets", "Sitelinks e recursos"],
-                    ["review", "Revisão"],
-                    ["export", "Exportação"],
+                    ["negatives", "Negativas"],
+                    ["ads", "Anúncios"],
+                    ["extensions", "Extensões"],
+                    ["review", "Revisão final"],
                   ] as const
                 ).map(([id, label]) => (
                   <Button
@@ -624,28 +629,37 @@ export default function KeywordsPage() {
                   </Button>
                 ))}
               </div>
-              {studioTab !== "keywords" && research.bundle ? (
-                <CreativePanels
-                  tab={studioTab}
-                  bundle={research.bundle}
-                  issues={research.validation ?? []}
-                  onChange={(bundle) => {
-                    setDraftDirty(true);
-                    setResearch({ ...research, bundle });
-                  }}
-                />
-              ) : studioTab !== "keywords" ? (
-                <p className="text-sm text-muted-foreground">Esta pesquisa antiga não tem pacote de anúncios. Gera de novo para o criar.</p>
+              {studioTab === "summary" ? (
+                <ProductSummary research={research} onCopy={(text) => void copyText(text, "Copiado")} />
               ) : null}
-              {studioTab === "keywords" ? (
+              {studioTab === "ads" || studioTab === "extensions" || studioTab === "review" ? (
+                research.bundle ? (
+                  <CreativePanels
+                    tab={studioTab === "ads" ? "ad" : studioTab === "extensions" ? "assets" : "review"}
+                    bundle={research.bundle}
+                    issues={research.validation ?? []}
+                    onChange={(bundle) => {
+                      setDraftDirty(true);
+                      setResearch({ ...research, bundle });
+                    }}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Esta pesquisa antiga não tem pacote de anúncios. Gera de novo para o criar.</p>
+                )
+              ) : null}
+              {studioTab === "keywords" || studioTab === "negatives" ? (
               <>
               <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Palavras-chave para</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {studioTab === "negatives" ? "Negativas para" : "Palavras-chave para"}
+                </p>
                 <h2 className="text-xl font-semibold tracking-tight">{research.product}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {platformLabel(research.platform)}
-                  {research.platform ? " · " : ""}
-                  {research.language_label} · {research.market_name}
+                  {research.bundle?.analysis?.affiliatePlatformLabel ?? platformLabel(research.platform)}
+                  {" · "}
+                  {FUNNEL_OPTIONS.find((option) => option.id === research.bundle?.analysis?.funnel)?.title ?? "Funil da pesquisa"}
+                  {" · "}
+                  {research.language_label}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">{generationStatus(research)}</p>
               </div>
@@ -661,8 +675,8 @@ export default function KeywordsPage() {
                 />
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {KEYWORD_INTENT_FILTERS.map((f) => (
+              {studioTab === "keywords" ? <div className="flex flex-wrap gap-1.5">
+                {KEYWORD_INTENT_FILTERS.filter((f) => f.id !== "NEGATIVE").map((f) => (
                   <Button
                     key={f.id}
                     type="button"
@@ -674,7 +688,7 @@ export default function KeywordsPage() {
                     {f.label}
                   </Button>
                 ))}
-              </div>
+              </div> : null}
 
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-muted-foreground">{selected.size} selecionadas</span>
@@ -719,8 +733,8 @@ export default function KeywordsPage() {
                 </p>
               ) : (
                 <>
-                  {KEYWORD_FUNNEL_SECTIONS.map((section) => {
-                    const rows = visible.filter((k) => keywordFunnel(k) === section.id);
+                  {studioTab === "keywords" ? KEYWORD_FUNNEL_SECTIONS.map((section) => {
+                    const rows = visible.filter((k) => k.intent !== "NEGATIVE" && keywordFunnel(k) === section.id);
                     if (!rows.length) return null;
                     const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
                     return (
@@ -730,9 +744,9 @@ export default function KeywordsPage() {
                         <KeywordList rows={rows} selected={selected} onToggle={onToggle} onEdit={editKeyword} />
                       </section>
                     );
-                  })}
-                  {(() => {
-                    const rows = visible.filter((k) => k.intent === "NEGATIVE");
+                  }) : null}
+                  {studioTab === "negatives" ? (() => {
+                    const rows = (research?.keywords ?? []).filter((k) => k.intent === "NEGATIVE" && (!query.trim() || k.keyword.toLowerCase().includes(query.trim().toLowerCase())));
                     if (!rows.length) return null;
                     const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
                     const groups = groupNegativeKeywords(rows);
@@ -766,13 +780,37 @@ export default function KeywordsPage() {
                         })}
                       </section>
                     );
-                  })()}
+                  })() : null}
                 </>
               )}
               </>
               ) : null}
               {research.bundle ? (
                 <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const bundle = research.bundle as AdBundle;
+                      const funnelName = FUNNEL_OPTIONS.find((option) => option.id === bundle.analysis?.funnel)?.title ?? "Campanha";
+                      void copyText(
+                        campaignReviewText({
+                          product: research.product,
+                          language: research.language_label,
+                          funnel: funnelName,
+                          keywords: research.keywords,
+                          headlines: bundle.headlines.map((item) => item.text),
+                          descriptions: bundle.descriptions.map((item) => item.text),
+                          sitelinks: bundle.sitelinks.map((item) => [item.text, item.description1, item.description2, item.url].filter(Boolean).join(" — ")),
+                          callouts: bundle.callouts.map((item) => item.text),
+                        }),
+                        "Campanha copiada",
+                      );
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copiar campanha
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"

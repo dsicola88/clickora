@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { KeywordItem } from "@/services/keywordResearchService";
 import {
+  campaignReviewText,
   copyKeywordsText,
   filterKeywords,
   groupNegativeKeywords,
@@ -37,6 +38,26 @@ describe("toggleKeywordSelection", () => {
 describe("copyKeywordsText", () => {
   it("copia uma por linha", () => {
     expect(copyKeywordsText(items.slice(0, 2))).toBe("glucotrust buy\nglucotrust review");
+  });
+});
+
+describe("campaignReviewText", () => {
+  it("junta palavras-chave, negativas e anúncios", () => {
+    const text = campaignReviewText({
+      product: "Nordic Lamp",
+      language: "Inglês",
+      funnel: "Fundo de funil",
+      keywords: items,
+      headlines: ["Buy Nordic Lamp"],
+      descriptions: ["See the page."],
+      sitelinks: ["Details — https://example.com"],
+      callouts: ["$49"],
+    });
+    expect(text).toContain("Fundo de funil");
+    expect(text).toContain("glucotrust buy");
+    expect(text).toContain("glucotrust scam");
+    expect(text).toContain("Buy Nordic Lamp");
+    expect(text.indexOf("glucotrust scam")).toBeGreaterThan(text.indexOf("Negativas"));
   });
 });
 

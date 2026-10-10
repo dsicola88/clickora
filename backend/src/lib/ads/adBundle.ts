@@ -35,6 +35,7 @@ export const adGenerateInputSchema = z.object({
       url: z.string().url().max(2000).optional(),
     })
     .optional(),
+  funnel: z.enum(["TOP", "MIDDLE", "BOTTOM"]).optional(),
 });
 
 export type AdGenerateInput = z.infer<typeof adGenerateInputSchema>;
@@ -421,12 +422,22 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
       usedAngles.add(angle);
     }
   };
-  pushLine(bank.buy(p), "purchase");
-  pushLine(bank.official(p), "brand");
-  pushLine(bank.order(p), "purchase");
-  pushLine(bank.details(p), "brand");
-  pushLine(bank.neutralOpen, "purchase");
-  if (input.objective === "comparison") pushLine(bank.compare(p), "comparison");
+  if (input.funnel === "TOP") {
+    pushLine(bank.details(p), "brand");
+    pushLine(bank.shortDetails, "brand");
+    pushLine(bank.official(p), "brand");
+  } else if (input.funnel === "MIDDLE") {
+    pushLine(bank.compare(p), "comparison");
+    pushLine(bank.shortCompare, "comparison");
+    pushLine(bank.details(p), "brand");
+  } else {
+    pushLine(bank.buy(p), "purchase");
+    pushLine(bank.official(p), "brand");
+    pushLine(bank.order(p), "purchase");
+    pushLine(bank.details(p), "brand");
+    pushLine(bank.neutralOpen, "purchase");
+    if (input.objective === "comparison") pushLine(bank.compare(p), "comparison");
+  }
   const offerLine = [input.offer_note, input.price_note].find((note) => note && adTextLength(note) <= maxH);
   if (offerLine) pushLine(offerLine, "offer");
   const facts = input.description ? factualSourceSentences(input.description) : null;
@@ -465,7 +476,13 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
 
   const descTexts: string[] = [];
   for (const sentence of facts?.usable ?? []) pushUnique(descTexts, sentence, GOOGLE_RSA.descriptionMax);
-  for (const line of [bank.descSee(p), bank.descOrder(p), bank.descCompare(p), bank.descInfo(p)]) {
+  const descBank =
+    input.funnel === "TOP"
+      ? [bank.descInfo(p), bank.descSee(p), bank.descCompare(p), bank.descOrder(p)]
+      : input.funnel === "MIDDLE"
+        ? [bank.descCompare(p), bank.descSee(p), bank.descInfo(p), bank.descOrder(p)]
+        : [bank.descSee(p), bank.descOrder(p), bank.descCompare(p), bank.descInfo(p)];
+  for (const line of descBank) {
     pushUnique(descTexts, line, GOOGLE_RSA.descriptionMax);
   }
 
@@ -490,11 +507,16 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
 
   const callouts = verifiedCallouts(input).map((text, i) => ({ id: id("co", i + 1), text }));
   if (callouts.length === 0) {
-    limitations.push("Sem preço, oferta ou garantia confirmados: não há destaques.");
+    const notes = [input.price_note, input.offer_note, input.guarantee_note].filter(Boolean);
+    limitations.push(
+      notes.length
+        ? "Nenhum preço, oferta ou garantia confirmados cabe em 25 caracteres. Não foram cortados para virar destaque."
+        : "Sem preço, oferta ou garantia confirmados: não há destaques.",
+    );
   }
 
   const path1 = pathToken(p, 15);
-  const path2Wanted = input.objective === "comparison" ? pathToken("compare", 15) : "";
+  const path2Wanted = input.objective === "comparison" || input.funnel === "MIDDLE" ? pathToken("compare", 15) : "";
   const path2 = path1 && path2Wanted !== path1 ? path2Wanted : "";
 
   return {

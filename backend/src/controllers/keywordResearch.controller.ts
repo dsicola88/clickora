@@ -8,6 +8,7 @@ import {
   marketName,
 } from "../lib/keywordGenerator";
 import { generateResearchPackage, notesForBundle } from "../lib/ads/adBundleLlm";
+import { CampaignPageUnavailableError } from "../lib/ads/campaignBrief";
 import { validateBundle, validationSummary } from "../lib/ads/adValidate";
 import type { AdBundle } from "../lib/ads/adBundle";
 import { Prisma } from "@prisma/client";
@@ -127,6 +128,9 @@ export const keywordResearchController = {
       const details = e && typeof e === "object" && "details" in e ? (e as { details?: unknown }).details : undefined;
       if (details) return res.status(400).json({ error: "Dados inválidos", details });
       const msg = e instanceof Error ? e.message : "Não foi possível gerar as palavras-chave.";
+      if (e instanceof CampaignPageUnavailableError) {
+        return res.status(422).json({ error: e.message, code: e.code });
+      }
       if (/suficientes/i.test(msg)) {
         return res.status(422).json({ error: msg, code: "NO_RESULTS" });
       }

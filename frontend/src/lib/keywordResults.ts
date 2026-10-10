@@ -142,6 +142,42 @@ export function downloadCsv(filename: string, csv: string): void {
   URL.revokeObjectURL(url);
 }
 
+export function campaignReviewText(input: {
+  product: string;
+  language: string;
+  funnel: string;
+  keywords: KeywordItem[];
+  headlines: string[];
+  descriptions: string[];
+  sitelinks: string[];
+  callouts: string[];
+}): string {
+  const positives = input.keywords.filter((item) => item.intent !== "NEGATIVE").map((item) => item.keyword);
+  const negatives = input.keywords.filter((item) => item.intent === "NEGATIVE").map((item) => item.keyword);
+  return [
+    input.product,
+    `${input.language} · ${input.funnel}`,
+    "",
+    "Palavras-chave",
+    positives.join("\n") || "—",
+    "",
+    "Negativas",
+    negatives.join("\n") || "—",
+    "",
+    "Títulos",
+    input.headlines.join("\n") || "—",
+    "",
+    "Descrições",
+    input.descriptions.join("\n") || "—",
+    "",
+    "Sitelinks",
+    input.sitelinks.join("\n") || "—",
+    "",
+    "Destaques",
+    input.callouts.join("\n") || "—",
+  ].join("\n");
+}
+
 export function formatResearchDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;

@@ -3,6 +3,13 @@ import { languageLabel, marketName } from "../keywordGenerator";
 import { fetchPublicPageTitle } from "../keywordGeneratorLlm";
 import { generateKeywordsForInput } from "../keywordGeneratorLlm";
 import {
+  campaignBriefSchema,
+  isCampaignBrief,
+  keywordsForFunnel,
+  prepareCampaignInput,
+  type CampaignAnalysis,
+} from "./campaignBrief";
+import {
   adGenerateInputSchema,
   buildDeterministicBundle,
   claimIsUserSupplied,
@@ -105,10 +112,23 @@ async function fetchCopy(input: AdGenerateInput, urlTitle: string | null): Promi
 export async function generateResearchPackage(body: unknown): Promise<{
   input: AdGenerateInput;
   keywords: KeywordItem[];
-  bundle: AdBundle;
+  bundle: AdBundle & { analysis?: CampaignAnalysis };
   urlTitle: string | null;
 }> {
-  const parsed = adGenerateInputSchema.safeParse(body);
+  let analysis: CampaignAnalysis | undefined;
+  let request = body;
+  if (isCampaignBrief(body)) {
+    const brief = campaignBriefSchema.safeParse(body);
+    if (!brief.success) {
+      const err = new Error("Dados inválidos") as Error & { details?: unknown };
+      err.details = brief.error.flatten();
+      throw err;
+    }
+    const prepared = await prepareCampaignInput(brief.data);
+    analysis = prepared.analysis;
+    request = prepared.input;
+  }
+  const parsed = adGenerateInputSchema.safeParse(request);
   if (!parsed.success) {
     const err = new Error("Dados inválidos") as Error & { details?: unknown };
     err.details = parsed.error.flatten();
@@ -122,16 +142,26 @@ export async function generateResearchPackage(body: unknown): Promise<{
     market: input.market,
     product_url: input.product_url,
   });
-  const base = buildDeterministicBundle(input, keywordResult.keywords);
+  const keywords = input.funnel ? keywordsForFunnel(keywordResult.keywords, input.funnel) : keywordResult.keywords;
+  const base = buildDeterministicBundle(input, keywords);
+  if (analysis) {
+    base.limitations = [
+      analysis.pageStatus === "pasted"
+        ? "A página não foi consultada nesta tentativa. Os factos, quando existem, vêm só do texto colado."
+        : "A página foi consultada. Só entram nos anúncios os preços, garantias e descontos encontrados no texto.",
+      ...base.limitations,
+    ];
+  }
   if (keywordResult.llmFailed) {
     base.limitations = [
       "As palavras-chave usam o fallback determinístico porque a geração inteligente falhou. Não são um resultado novo da IA.",
       ...base.limitations,
     ];
   }
+  const withAnalysis = analysis ? { ...base, analysis } : base;
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim());
   if (!hasKey) {
-    return { input, keywords: keywordResult.keywords, bundle: base, urlTitle: urlTitle || keywordResult.urlTitle };
+    return { input, keywords, bundle: withAnalysis, urlTitle: urlTitle || keywordResult.urlTitle };
   }
   try {
     const copy = await fetchCopy(input, urlTitle || keywordResult.urlTitle);
@@ -143,13 +173,13 @@ export async function generateResearchPackage(body: unknown): Promise<{
       headlines: copy.headlines.map((text, i) => ({ id: `h-${i + 1}`, text, pin: null })),
       descriptions: copy.descriptions.map((text, i) => ({ id: `d-${i + 1}`, text, pin: null })),
     };
-    return { input, keywords: keywordResult.keywords, bundle, urlTitle: urlTitle || keywordResult.urlTitle };
+    return { input, keywords, bundle: { ...bundle, ...(analysis ? { analysis } : {}) }, urlTitle: urlTitle || keywordResult.urlTitle };
   } catch {
     return {
       input,
-      keywords: keywordResult.keywords,
+      keywords,
       bundle: {
-        ...base,
+        ...withAnalysis,
         llmFailed: true,
         limitations: [
           "A geração inteligente de anúncios falhou. O que vê é o fallback determinístico, não um resultado novo da IA.",

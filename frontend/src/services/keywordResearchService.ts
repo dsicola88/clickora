@@ -53,6 +53,15 @@ export type AdBundle = {
   } | null;
   businessName: string;
   notes?: string;
+  analysis?: {
+    pageStatus: "fetched" | "pasted";
+    affiliatePlatform: string;
+    affiliatePlatformLabel: string;
+    funnel: "TOP" | "MIDDLE" | "BOTTOM";
+    facts: { label: string; value: string; status: "confirmed" | "quoted" }[];
+    missing: string[];
+    adGroups: { name: string; intent: string; hint: string }[];
+  };
 };
 
 export type ValidationIssue = {
