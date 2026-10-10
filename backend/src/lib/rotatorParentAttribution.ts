@@ -62,11 +62,11 @@ export function adClickIdsFromMetadata(metadata: unknown): Partial<Record<AdClic
 export function fillMissingAdClickIds<T extends Partial<Record<AdClickQueryKey, string | undefined>>>(
   current: T,
   parentMetadata: unknown,
-): T {
+): T & Partial<Record<AdClickQueryKey, string | undefined>> {
   const parent = adClickIdsFromMetadata(parentMetadata);
-  const next = { ...current };
+  const next: T & Partial<Record<AdClickQueryKey, string | undefined>> = { ...current };
   for (const key of AD_CLICK_QUERY_KEYS) {
-    if (!usableAdValue(next[key]) && parent[key]) next[key] = parent[key] as T[typeof key];
+    if (!usableAdValue(next[key]) && parent[key]) next[key] = parent[key];
   }
   return next;
 }
