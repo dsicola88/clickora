@@ -472,3 +472,84 @@ test("redige token no log", () => {
   assert.equal(redacted.cverify, "[redacted]");
   assert.equal(redacted.orderid, "1");
 });
+
+test("postback já colado nas campanhas continua a contar a venda", () => {
+  const digistore = parseAffiliatePostback({
+    platform: "Digistore24",
+    flat: {
+      cid: UUID,
+      sid1: UUID,
+      clickora_click_id: UUID,
+      amount: "21.85",
+      billing_status: "completed",
+      transaction_type: "payment",
+      orderid: "ORD-ANTIGO",
+      cy: "EUR",
+    },
+  });
+  assert.equal(digistore.outcome.kind, "approved");
+  assert.equal(digistore.clickId, UUID);
+  assert.equal(digistore.externalId, "ORD-ANTIGO");
+  assert.equal(Number(digistore.amount), 21.85);
+
+  const buygoodsRefund = parseAffiliatePostback({
+    platform: "BuyGoods",
+    flat: {
+      subid: UUID,
+      clickora_click_id: UUID,
+      orderid: "BG1",
+      amount: "12.00",
+      status: "approved",
+      transaction_type: "refund",
+    },
+  });
+  assert.equal(buygoodsRefund.outcome.kind, "refund");
+
+  const smartadv = parseAffiliatePostback({
+    platform: "SmartAdv",
+    flat: {
+      cid: UUID,
+      sub3: UUID,
+      clickora_click_id: UUID,
+      orderid: "SA1",
+      amount: "9.00",
+      status: "approved",
+      transaction_type: "approved",
+    },
+  });
+  assert.equal(smartadv.outcome.kind, "approved");
+  assert.equal(smartadv.clickId, UUID);
+
+  const maxweb = parseAffiliatePostback({
+    platform: "MaxWeb",
+    flat: { s1: UUID, orderid: "MW1", amount: "8.00", cy: "USD" },
+  });
+  assert.equal(maxweb.outcome.kind, "approved");
+  assert.equal(maxweb.clickId, UUID);
+
+  for (const platform of ["ClickBank", "JVZoo", "WarriorPlus", "Hotmart"]) {
+    const legacy = parseAffiliatePostback({
+      platform,
+      flat: {
+        orderid: "LEG-1",
+        amount: "15.00",
+        cy: "USD",
+        status: "approved",
+        clickora_click_id: UUID,
+        subid1: UUID,
+      },
+    });
+    assert.equal(legacy.outcome.kind, "approved", platform);
+    assert.equal(legacy.clickId, UUID, platform);
+    assert.equal(legacy.externalId, "LEG-1", platform);
+    assert.equal(Number(legacy.amount), 15, platform);
+  }
+
+  const encrypted = parseAffiliatePostback({
+    platform: "ClickBank",
+    flat: { notification: "abc", iv: "def" },
+    body: { notification: "abc", iv: "def" },
+  });
+  assert.equal(encrypted.outcome.kind, "ignore");
+  if (encrypted.outcome.kind === "ignore") assert.equal(encrypted.outcome.reason, "clickbank_encrypted");
+});

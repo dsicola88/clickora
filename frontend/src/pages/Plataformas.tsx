@@ -358,7 +358,7 @@ export default function Plataformas() {
                 ) : (
                   <>o painel de Postback / IPN da {selected}</>
                 )}
-                . As macros entre chaves são preenchidas pela rede na venda.
+                . As macros entre chaves são preenchidas pela rede na venda. Campanhas que já estão a correr mantêm o postback que já foi colado: a venda continua a entrar, sem ser preciso substituir o URL.
               </p>
               <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-background/80 border border-border/50 px-3 py-2">
                 <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}

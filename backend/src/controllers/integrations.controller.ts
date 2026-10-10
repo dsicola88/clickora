@@ -201,7 +201,7 @@ export const integrationsController = {
     const amount = parsed.amount;
     const currency = parsed.currency;
 
-    if (parsed.adapterId === "jvzoo") {
+    if (parsed.adapterId === "jvzoo" && (flat.ctransaction || flat.cverify)) {
       const secret = decryptSecretField(user.jvzooIpnSecret);
       const signed = jvzooSignedFields(req.body);
       const reason = !secret

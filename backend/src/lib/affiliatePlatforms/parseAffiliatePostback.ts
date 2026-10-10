@@ -180,13 +180,30 @@ function parseDigistore(flat: Record<string, string>): ParsedAffiliatePostback {
   return done("digistore24", flat, { ...base, outcome: { kind: "ignore", reason: billing ? `billing_status:${billing}` : "sem_estado" } });
 }
 
+/** O URL já colado trazia status=approved fixo e o estado real em transaction_type. */
+function statusFromInstalledUrl(flat: Record<string, string>): string {
+  const declared = norm(flat.status);
+  const tx = norm(flat.transaction_type || flat.event);
+  const movement =
+    tx === "refund" ||
+    tx === "refunded" ||
+    tx === "partial_refund" ||
+    tx === "chargeback" ||
+    tx === "charge_back" ||
+    tx === "cancel" ||
+    tx === "cancelled" ||
+    tx === "canceled";
+  if (declared === "approved" && movement) return tx;
+  return declared || tx;
+}
+
 function parseSubidCommission(adapterId: string, flat: Record<string, string>): ParsedAffiliatePostback {
   const funnel = funnelFrom(flat);
-  const clickId = firstUuid(flat, ["subid", "SUBID", "clickora_click_id"]);
+  const clickId = firstUuid(flat, ["subid", "SUBID", "clickora_click_id", "subid1", "s1"]);
   const externalId = firstText(flat, ["ORDERID", "orderid", "order_id"]);
   const amount = moneyFrom(flat, ["COMMISSION_AMOUNT", "commission_amount", "amount"]);
   const currency = currencyFrom(flat, ["currency", "cy", "CURRENCY"]);
-  const status = norm(flat.status || flat.event || flat.transaction_type);
+  const status = statusFromInstalledUrl(flat);
   const base = { clickId, externalId, amount, currency, statusRaw: status || null };
 
   if (funnel && status !== "approved" && status !== "sale" && status !== "purchase") {
@@ -220,7 +237,7 @@ function parseSmartAdv(flat: Record<string, string>): ParsedAffiliatePostback {
   const externalId = firstText(flat, ["transaction_id", "orderid", "order_id"]);
   const amount = moneyFrom(flat, ["payout", "amount"]);
   const currency = currencyFrom(flat, ["currency", "cy"]);
-  const status = norm(flat.status || flat.transaction_type);
+  const status = statusFromInstalledUrl(flat);
   const base = { clickId, externalId, amount, currency, statusRaw: status || null };
 
   if (status === "refund" || status === "refunded" || status === "reversed") {
@@ -420,6 +437,24 @@ export function canonicalPlatformId(name: string | null | undefined): string | n
   return NAME_TO_ID[key] || null;
 }
 
+const LEGACY_IGNORE = new Set([
+  "clickbank_sem_tipo",
+  "sem_wp_action",
+  "sem_ctransaction",
+  "evento_hotmart_desconhecido",
+]);
+
+/** URL genérico que as campanhas já tinham colado, antes do IPN nativo. */
+function legacyInstalledPostback(flat: Record<string, string>, reason: string | undefined): boolean {
+  if (!reason || !LEGACY_IGNORE.has(reason)) return false;
+  if (flat.notification || flat.iv || flat.ctransaction || flat.cverify || flat.WP_ACTION || flat.wp_action) return false;
+  const status = norm(flat.status);
+  if (status !== "approved" && status !== "pending" && status !== "refund" && status !== "refunded" && status !== "chargeback") {
+    return false;
+  }
+  return Boolean(firstText(flat, ["orderid", "ORDERID"]) || firstUuid(flat, ["clickora_click_id", "subid1"]));
+}
+
 function fingerprint(flat: Record<string, string>, body: unknown): string | null {
   const event = (str(dig(body, ["event"])) || flat.event || "").toUpperCase();
   if (event.startsWith("PURCHASE_") || flat.WP_ACTION || flat.wp_action) {
@@ -441,7 +476,13 @@ export function parseAffiliatePostback(input: {
 }): ParsedAffiliatePostback {
   const body = input.body ?? null;
   const named = canonicalPlatformId(input.platform);
-  if (named && NAMED[named]) return NAMED[named](input.flat, body);
+  if (named && NAMED[named]) {
+    const parsed = NAMED[named](input.flat, body);
+    if (parsed.outcome.kind === "ignore" && legacyInstalledPostback(input.flat, parsed.outcome.reason)) {
+      return parseGeneric(input.flat, named);
+    }
+    return parsed;
+  }
   if (input.platform && norm(input.platform) !== "postback") {
     return parseGeneric(input.flat, `generic:${norm(input.platform).slice(0, 40)}`);
   }
