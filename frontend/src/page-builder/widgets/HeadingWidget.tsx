@@ -1,6 +1,7 @@
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
+import { useInlineEdit } from "../inline-edit";
 
 const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span"]);
 
@@ -16,6 +17,7 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
 
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
+  const commit = useInlineEdit();
 
   const rel =
     linkTarget === "_blank"
@@ -25,6 +27,36 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
       : linkNofollow
         ? "nofollow"
         : undefined;
+
+  const frame = {
+    display: "flex" as const,
+    justifyContent: alignToFlexJustify(align),
+    width: "100%",
+  };
+
+  if (commit) {
+    return (
+      <div style={frame}>
+        <Tag
+          style={{ margin: 0, ...css }}
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => {
+            const next = e.currentTarget.textContent ?? "";
+            if (next !== text) commit({ text: next });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+        >
+          {text}
+        </Tag>
+      </div>
+    );
+  }
 
   const inner =
     link.length > 0 ? (
@@ -41,13 +73,7 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
     );
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: alignToFlexJustify(align),
-        width: "100%",
-      }}
-    >
+    <div style={frame}>
       <Tag style={{ margin: 0, ...css }}>{inner}</Tag>
     </div>
   );

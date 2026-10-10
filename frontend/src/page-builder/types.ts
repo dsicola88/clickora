@@ -34,7 +34,8 @@ export type WidgetType =
   | "dateWidget"
   | "navMenu"
   | "ticker"
-  | "infoBox";
+  | "infoBox"
+  | "container";
 
 export interface PageSeo {
   title?: string;
@@ -139,6 +140,25 @@ export interface WidgetNode {
   customCss?: string;
 }
 
+export type FlexDirection = "row" | "column" | "row-reverse" | "column-reverse";
+export type FlexJustify =
+  | "flex-start"
+  | "center"
+  | "flex-end"
+  | "space-between"
+  | "space-around"
+  | "space-evenly";
+export type FlexAlign = "flex-start" | "center" | "flex-end" | "stretch";
+export type FlexWrapMode = "nowrap" | "wrap";
+
+/** Contentor flex, por dispositivo. Sem valor, a secção fica em linha no desktop e empilha no telemóvel. */
+export interface FlexLayout {
+  direction?: ResponsiveValue<FlexDirection>;
+  justify?: ResponsiveValue<FlexJustify>;
+  align?: ResponsiveValue<FlexAlign>;
+  wrap?: ResponsiveValue<FlexWrapMode>;
+}
+
 export interface ColumnNode {
   id: string;
   /** Width as percentage of section, per device. */
@@ -156,6 +176,8 @@ export interface SectionNode {
   columnGap: ResponsiveValue<number>;
   /** YouTube ou Bunny Stream — vídeo em autoplay silencioso atrás do conteúdo da seção. */
   backgroundVideoUrl?: string;
+  /** Direção, alinhamento e quebra do contentor. As colunas são os filhos flex. */
+  flex?: FlexLayout;
   styles: BaseStyles & ResponsiveStyles;
   columns: ColumnNode[];
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { InlinePlain } from "../inline-edit";
 import { trackEvent } from "../tracking";
 
 export interface FormField {
@@ -217,7 +218,7 @@ export function FormWidget({ widget, device }: { widget: WidgetNode; device: Dev
             transition: "opacity 0.2s",
           }}
         >
-          {status === "submitting" ? "Enviando..." : submitText}
+          {status === "submitting" ? "Enviando..." : <InlinePlain value={submitText} field="submitText" />}
         </button>
       )}
     </form>

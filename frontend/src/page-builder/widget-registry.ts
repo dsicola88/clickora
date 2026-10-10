@@ -33,7 +33,9 @@ import {
   PanelTop,
   Newspaper,
   Info,
+  LayoutGrid,
 } from "lucide-react";
+import { ContainerWidget } from "./widgets/ContainerWidget";
 import { HeadingWidget } from "./widgets/HeadingWidget";
 import { TextWidget } from "./widgets/TextWidget";
 import { ImageWidget } from "./widgets/ImageWidget";
@@ -75,6 +77,13 @@ export interface WidgetDefinition {
 }
 
 export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
+  container: {
+    type: "container",
+    label: "Contentor",
+    category: "basic",
+    icon: LayoutGrid,
+    Render: ContainerWidget,
+  },
   heading: {
     type: "heading",
     label: "Título",
@@ -151,7 +160,7 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   imageCarousel: {
     type: "imageCarousel",
-    label: "Carrossel de imagens com setas configuracao de movimentos",
+    label: "Carrossel",
     category: "pro",
     icon: GalleryHorizontal,
     Render: GalleryWidget,

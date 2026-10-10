@@ -28,6 +28,7 @@ import {
 } from "../lib/presellEnterpriseCloak";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { extractClientIp } from "../lib/clientIp";
+import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { z } from "zod";
 
@@ -662,10 +663,15 @@ async function sendPublicPresell(
     console.info("[presell.public] página segura", { id: page.id, reason: geo.reason });
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));
   }
+  const ip = extractClientIp(req);
+  if (datacenterClickPlace(ip)) {
+    console.info("[presell.public] página segura", { id: page.id, reason: "datacenter" });
+    return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: "datacenter" }));
+  }
   const guard = await enforceTrackingRules({
     ownerUserId: page.userId,
     presellPageId: page.id,
-    ip: extractClientIp(req),
+    ip,
     userAgent: req.headers["user-agent"] || "",
     headers: req.headers as Record<string, string | string[] | undefined>,
     channel: "public_page",

@@ -1,6 +1,6 @@
 import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types";
 import { resolveResponsive } from "../store";
-import { stylesToCss, stylesToCssWidgetShell } from "../style-utils";
+import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { WidgetInlineStyle } from "../widget-custom-css";
@@ -34,6 +34,9 @@ export function PageRenderer({
 function SectionRender({ section, device }: { section: SectionNode; device: DeviceType }) {
   const sectionStyle = stylesToCss(section.styles, device);
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
+  const widths = section.columns.map((c) => resolveResponsive(c.widthPercent, device) ?? 100);
+  const direction = sectionDirectionFor(section.flex?.direction, device, section.columns.length);
+  const stacked = isSectionStacked(direction);
   const bgVideo = (section.backgroundVideoUrl ?? "").trim();
   const hasBgVideo = bgVideo.length > 0;
 
@@ -52,30 +55,47 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
           maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
           marginLeft: "auto",
           marginRight: "auto",
-          display: "flex",
-          flexDirection: device === "mobile" ? "column" : "row",
-          gap: `${gap}px`,
+          ...sectionColumnsGrid(widths, device, gap, {
+            direction,
+            justify: resolveResponsive(section.flex?.justify, device),
+            align: resolveResponsive(section.flex?.align, device),
+            wrap: resolveResponsive(section.flex?.wrap, device),
+          }),
         }}
       >
-        {section.columns.map((col) => (
-          <ColumnRender key={col.id} column={col} device={device} />
+        {section.columns.map((col, index) => (
+          <ColumnRender
+            key={col.id}
+            column={col}
+            device={device}
+            stacked={stacked}
+            widthPercent={widths[index] ?? 100}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function ColumnRender({ column, device }: { column: ColumnNode; device: DeviceType }) {
-  const widthPct = resolveResponsive(column.widthPercent, device) ?? 100;
+function ColumnRender({
+  column,
+  device,
+  stacked,
+  widthPercent,
+}: {
+  column: ColumnNode;
+  device: DeviceType;
+  stacked: boolean;
+  widthPercent: number;
+}) {
   const colStyle = stylesToCss(column.styles, device);
   return (
     <div
       style={{
-        flexBasis: device === "mobile" ? "100%" : `${widthPct}%`,
+        ...columnFlexItem(widthPercent, stacked),
         display: "flex",
         flexDirection: "column",
         alignItems: "stretch",
-        minWidth: 0,
         ...colStyle,
       }}
     >

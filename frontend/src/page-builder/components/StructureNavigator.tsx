@@ -1,7 +1,10 @@
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useBuilder } from "../store";
 import type { SelectionTarget } from "../types";
 import { WIDGET_REGISTRY } from "../widget-registry";
-import { ListTree } from "lucide-react";
+import { readContainerChildren } from "../widget-tree";
+import type { WidgetNode } from "../types";
+import { GripVertical, ListTree } from "lucide-react";
 
 function selectionClasses(active: boolean) {
   return `w-full rounded px-2 py-1.5 text-left text-[11px] transition-colors ${
@@ -62,29 +65,18 @@ export function StructureNavigator() {
                         Coluna {ci + 1}
                       </button>
                       <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-editor-border pl-2">
-                        {column.widgets.map((widget) => {
-                          const label = WIDGET_REGISTRY[widget.type]?.label ?? widget.type;
-                          return (
-                            <li key={widget.id}>
-                              <button
-                                type="button"
-                                className={selectionClasses(
-                                  isWidgetSel(section.id, column.id, widget.id),
-                                )}
-                                onClick={() =>
-                                  select({
-                                    kind: "widget",
-                                    sectionId: section.id,
-                                    columnId: column.id,
-                                    id: widget.id,
-                                  } satisfies SelectionTarget)
-                                }
-                              >
-                                {label}
-                              </button>
-                            </li>
-                          );
-                        })}
+                        {column.widgets.map((widget, index) => (
+                          <WidgetBranch
+                            key={widget.id}
+                            widget={widget}
+                            index={index}
+                            sectionId={section.id}
+                            columnId={column.id}
+                            active={isWidgetSel(section.id, column.id, widget.id)}
+                            isWidgetSel={isWidgetSel}
+                            onSelect={select}
+                          />
+                        ))}
                       </ul>
                     </li>
                   ))}
@@ -95,5 +87,111 @@ export function StructureNavigator() {
         )}
       </div>
     </aside>
+  );
+}
+
+function WidgetBranch({
+  widget,
+  index,
+  sectionId,
+  columnId,
+  containerId,
+  depth = 0,
+  active,
+  isWidgetSel,
+  onSelect,
+}: {
+  widget: WidgetNode;
+  index: number;
+  sectionId: string;
+  columnId: string;
+  containerId?: string;
+  depth?: number;
+  active: boolean;
+  isWidgetSel: (sectionId: string, columnId: string, widgetId: string) => boolean;
+  onSelect: (target: SelectionTarget) => void;
+}) {
+  const children = readContainerChildren(widget);
+  return (
+    <li>
+      <NavWidget
+        label={WIDGET_REGISTRY[widget.type]?.label ?? widget.type}
+        active={active}
+        sectionId={sectionId}
+        columnId={columnId}
+        widgetId={widget.id}
+        index={index}
+        containerId={containerId}
+        depth={depth}
+        onSelect={() =>
+          onSelect({ kind: "widget", sectionId, columnId, id: widget.id } satisfies SelectionTarget)
+        }
+      />
+      {children.length > 0 ? (
+        <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-editor-border pl-2">
+          {children.map((child, childIndex) => (
+            <WidgetBranch
+              key={child.id}
+              widget={child}
+              index={childIndex}
+              sectionId={sectionId}
+              columnId={columnId}
+              containerId={widget.id}
+              depth={depth + 1}
+              active={isWidgetSel(sectionId, columnId, child.id)}
+              isWidgetSel={isWidgetSel}
+              onSelect={onSelect}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function NavWidget({
+  label,
+  active,
+  sectionId,
+  columnId,
+  widgetId,
+  index,
+  containerId,
+  depth,
+  onSelect,
+}: {
+  label: string;
+  active: boolean;
+  sectionId: string;
+  columnId: string;
+  widgetId: string;
+  index: number;
+  containerId?: string;
+  depth: number;
+  onSelect: () => void;
+}) {
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `nav-slot:${widgetId}`,
+    data: { kind: "widget-slot", sectionId, columnId, index, containerId, depth },
+  });
+  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
+    id: `nav:${widgetId}`,
+    data: { source: "canvas-widget", sectionId, columnId, widgetId },
+  });
+
+  return (
+    <div ref={setDropRef} className={isOver ? "rounded bg-editor-accent/20" : undefined}>
+      <button
+        type="button"
+        ref={setDragRef}
+        {...listeners}
+        {...attributes}
+        className={`${selectionClasses(active)} flex items-center gap-1`}
+        onClick={onSelect}
+      >
+        <GripVertical className="h-3 w-3 shrink-0 opacity-60" />
+        <span className="truncate">{label}</span>
+      </button>
+    </div>
   );
 }

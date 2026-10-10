@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { InlinePlain } from "../inline-edit";
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
 type AlertVariant = "info" | "success" | "warning" | "danger";
@@ -90,7 +91,7 @@ export function AlertWidget({ widget, device }: { widget: WidgetNode; device: De
                 lineHeight: 1.35,
               }}
             >
-              {title}
+              <InlinePlain value={title} field="title" />
             </p>
           ) : null}
           {message ? (

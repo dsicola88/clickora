@@ -112,7 +112,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
 
       {pendingTemplate && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-4"
           onClick={() => setPendingTemplate(null)}
         >
           <div

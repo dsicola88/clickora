@@ -2,19 +2,41 @@
  * Tema do editor visual (ex-build_dpa) — variáveis usadas pelas classes Tailwind `editor-*`.
  * Aplicar no contentor do editor: `className="page-builder-scope"`.
  */
+/*
+ * Variáveis no :root para menus portados (Select, dropdown) fora de .page-builder-scope.
+ * Hex primeiro: se o browser ignorar oklch, a cor anterior mantém-se.
+ */
+:root,
 .page-builder-scope {
+  --editor-bg: #1e2128;
   --editor-bg: oklch(0.18 0.01 260);
+  --editor-panel: #2a2e38;
   --editor-panel: oklch(0.22 0.012 260);
+  --editor-panel-2: #353a46;
   --editor-panel-2: oklch(0.26 0.012 260);
+  --editor-border: #454b5a;
   --editor-border: oklch(0.32 0.012 260);
+  --editor-fg: #f4f5f7;
   --editor-fg: oklch(0.96 0.005 260);
+  --editor-fg-muted: #a3a8b4;
   --editor-fg-muted: oklch(0.68 0.012 260);
+  --editor-canvas: #eceef2;
   --editor-canvas: oklch(0.94 0.005 260);
+  --editor-accent: #e11d48;
   --editor-accent: oklch(0.62 0.21 27);
+  --editor-accent-fg: #fff;
   --editor-accent-fg: oklch(0.985 0 0);
+  --editor-section: #16a34a;
   --editor-section: oklch(0.55 0.18 145);
+  --editor-column: #3b82f6;
   --editor-column: oklch(0.6 0.16 250);
+  --editor-widget: #e11d48;
   --editor-widget: oklch(0.62 0.21 27);
+}
+
+.page-builder-scope [contenteditable="true"] {
+  outline: none;
+  cursor: text;
 }
 
 .page-builder-scope .editor-scrollbar::-webkit-scrollbar {

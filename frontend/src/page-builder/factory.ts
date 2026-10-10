@@ -104,7 +104,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   video: () => ({
     content: {
       provider: "youtube",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      url: "",
       autoplay: false,
       controls: true,
     },
@@ -607,6 +607,20 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       borderRadius: 0,
     },
     styles: { padding: r(spacing(12, 12, 12, 12)) },
+  }),
+  container: () => ({
+    content: {
+      direction: "row",
+      justify: "flex-start",
+      align: "stretch",
+      wrap: "wrap",
+      gap: 16,
+      widgets: [],
+    },
+    styles: {
+      padding: r(spacing(8, 8, 8, 8)),
+      margin: r(spacing(0, 0, 12, 0)),
+    },
   }),
 };
 

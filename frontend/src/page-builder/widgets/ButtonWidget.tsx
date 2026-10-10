@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
+import { useInlineEdit } from "../inline-edit";
 
 function sanitizeClassId(id: string): string {
   return id.replace(/[^a-zA-Z0-9]/g, "_");
@@ -104,6 +105,10 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
   }
 
   const hasEntrance = Boolean(keyEnt && entranceAnimation !== "none");
+  const commit = useInlineEdit();
+  const rawHref = String(c.href ?? "").trim();
+  const placeholderHref = !rawHref || rawHref === "#" || rawHref.startsWith("#");
+  const openBlank = c.target === "_blank";
 
   return (
     <div style={{ display: "flex", justifyContent: alignToFlexJustify(align) }}>
@@ -112,9 +117,39 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
         style={{ display: "inline-block" }}
       >
         {injectedCss ? <style dangerouslySetInnerHTML={{ __html: injectedCss }} /> : null}
-        <button type="button" className={`lovBtn_${sid}`} style={btnStyle} onClick={(e) => e.preventDefault()}>
-          {text}
-        </button>
+        {commit ? (
+          <button
+            type="button"
+            className={`lovBtn_${sid}`}
+            style={btnStyle}
+            contentEditable
+            suppressContentEditableWarning
+            onClick={(e) => e.preventDefault()}
+            onBlur={(e) => {
+              const next = e.currentTarget.textContent ?? "";
+              if (next !== text) commit({ text: next });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+          >
+            {text}
+          </button>
+        ) : (
+          <a
+            href={placeholderHref ? "#" : rawHref}
+            target={openBlank ? "_blank" : undefined}
+            rel={openBlank ? "noopener noreferrer" : undefined}
+            data-clickora-offer={placeholderHref ? "1" : undefined}
+            className={`lovBtn_${sid}`}
+            style={{ ...btnStyle, display: "inline-block", textDecoration: "none" }}
+          >
+            {text}
+          </a>
+        )}
       </div>
     </div>
   );

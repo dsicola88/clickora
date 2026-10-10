@@ -14,6 +14,7 @@ import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
 import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
+import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
@@ -355,7 +356,8 @@ export const trackController = {
       console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
-    if (countryOnCloakDenyList(page.settings, countryIsoFromIp(ip))) {
+    const place = datacenterClickPlace(ip);
+    if (countryOnCloakDenyList(page.settings, place?.country ?? countryIsoFromIp(ip))) {
       console.warn("[track.redirect] país sem oferta", { presellId, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
@@ -401,7 +403,7 @@ export const trackController = {
           medium,
           campaign,
           referrer,
-          country: countryIsoFromIp(ip) ?? undefined,
+          country: place?.country ?? countryIsoFromIp(ip) ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
@@ -420,7 +422,8 @@ export const trackController = {
             source,
             medium,
             campaign,
-            redirect_to: to,
+            ...(place ? {} : { redirect_to: to }),
+            ...datacenterClickMeta(ip),
             ...(sub1 ? { sub1 } : {}),
             ...(sub2 ? { sub2 } : {}),
             ...(sub3 ? { sub3 } : {}),
@@ -431,12 +434,19 @@ export const trackController = {
           } as Prisma.InputJsonValue,
         },
       });
-      await tx.presellPage.update({
-        where: { id: page.id },
-        data: { clicks: { increment: 1 } },
-      });
+      if (!place) {
+        await tx.presellPage.update({
+          where: { id: page.id },
+          data: { clicks: { increment: 1 } },
+        });
+      }
       return ev;
     });
+
+    if (place) {
+      console.warn("[track.redirect] datacenter sem oferta", { presellId, ip, network: place.ip_network });
+      return sendSafeVisitorPage(res, page.settings);
+    }
 
     notifyTelegramClick(page.userId, {
       presellTitle: page.title,
@@ -546,7 +556,33 @@ export const trackController = {
       console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
-    const country = countryIsoFromIp(ip) ?? null;
+    const place = datacenterClickPlace(ip);
+    const country = place?.country ?? countryIsoFromIp(ip) ?? null;
+    if (place) {
+      const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
+      await systemPrisma.trackingEvent.create({
+        data: {
+          userId: rot.userId,
+          presellPageId: rot.contextPresellId,
+          eventType: "click",
+          source,
+          medium,
+          campaign,
+          referrer,
+          country: place.country ?? undefined,
+          ipAddress: ip,
+          userAgent,
+          device,
+          metadata: {
+            rotator_id: rotatorId,
+            ...datacenterClickMeta(ip),
+            ...rotBotMeta,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      console.warn("[track.rotator] datacenter sem oferta", { rotatorId, ip, network: place.ip_network });
+      return sendSafeVisitorPage(res, rot.contextPresell.settings);
+    }
     if (countryOnCloakDenyList(rot.contextPresell.settings, country)) {
       console.warn("[track.rotator] país sem oferta", { rotatorId, country });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);

@@ -1,5 +1,6 @@
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { InlinePlain } from "../inline-edit";
 import * as Icons from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -75,7 +76,7 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
             color: c.titleColor ?? "#0f172a",
           }}
         >
-          {c.title ?? "Título"}
+          <InlinePlain value={c.title ?? "Título"} field="title" />
         </h3>
         <p
           style={{
@@ -85,7 +86,7 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
             color: c.descColor ?? "#475569",
           }}
         >
-          {c.description ?? "Descrição"}
+          <InlinePlain value={c.description ?? "Descrição"} field="description" />
         </p>
         {c.ctaText ? (
           <a

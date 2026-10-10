@@ -1,11 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -32,37 +31,16 @@ import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import type { Presell } from "@/types/api";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import "@/page-builder/page-builder-theme.css";
 
 const PageEditor = lazy(() =>
   import("@/page-builder/components/PageEditor").then((m) => ({ default: m.PageEditor })),
 );
 
-/** Separador horizontal entre zona superior (slug + ajuda) e o editor — cursor e área de arrasto. */
-const BUILDER_CHROME_RESIZE_HANDLE =
-  "group relative z-10 h-2.5 min-h-[10px] max-h-3 shrink-0 select-none rounded-sm border-0 bg-editor-border/75 outline-none transition-colors hover:bg-editor-accent/45 data-[resize-handle-state=drag]:bg-editor-accent/60 data-[panel-group-direction=vertical]:cursor-row-resize focus-visible:ring-2 focus-visible:ring-editor-accent focus-visible:ring-offset-1 focus-visible:ring-offset-editor-bg";
-
-const BUILDER_HEALTH_VISIBLE_KEY = "clickora:builder:trackingHealthVisible";
-
-function readTrackingHealthVisible(): boolean {
-  try {
-    const v = localStorage.getItem(BUILDER_HEALTH_VISIBLE_KEY);
-    if (v === "0") return false;
-    if (v === "1") return true;
-  } catch {
-    /* ignore */
-  }
-  /* Sem preferência guardada: oculto por defeito para dar mais espaço ao canvas. */
-  return false;
-}
-
 function sanitizeSlug(raw: string): string {
   const s = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "_")
@@ -84,18 +62,8 @@ export default function PresellManualBuilderPage() {
   const [configSettings, setConfigSettings] = useState<PresellConfigSettings>(() => ({
     ...DEFAULT_PRESELL_CONFIG_SETTINGS,
   }));
-  /** Nova página manual: abre «Opcional» para o afiliado colar logo o script de conversão. */
-  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(!routeId);
-  const [trackingHealthVisible, setTrackingHealthVisible] = useState(readTrackingHealthVisible);
-
-  const persistTrackingHealthVisible = useCallback((visible: boolean) => {
-    setTrackingHealthVisible(visible);
-    try {
-      localStorage.setItem(BUILDER_HEALTH_VISIBLE_KEY, visible ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(true);
+  const [publishDrawer, setPublishDrawer] = useState(false);
 
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
@@ -113,11 +81,6 @@ export default function PresellManualBuilderPage() {
         hasPublishedPageId: Boolean(routeId),
       }).readyScore,
     [configSettings, trackingEmbedScript, affiliateDraft, routeId],
-  );
-
-  const builderChromeLayoutSaveId = useMemo(
-    () => `clickora-pb-chrome:${(routeId ?? "").trim() || "new"}`,
-    [routeId],
   );
 
   useEffect(() => {
@@ -324,91 +287,105 @@ export default function PresellManualBuilderPage() {
   return (
     <PresellBuilderEmbedProvider value={embedValue}>
       <div className="page-builder-scope fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-editor-bg text-editor-fg">
-        <ResizablePanelGroup
-          direction="vertical"
-          className="flex min-h-0 min-w-0 flex-1 flex-col"
-          autoSaveId={builderChromeLayoutSaveId}
-        >
-          <ResizablePanel
-            id="presell-builder-chrome"
-            defaultSize={26}
-            minSize={18}
-            maxSize={46}
-            className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-editor-border bg-editor-panel px-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
+            onClick={() => navigate("/presell/dashboard")}
           >
-            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-editor-border bg-editor-panel px-3 py-2 text-xs">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
-                onClick={() => navigate("/presell/dashboard")}
-              >
-                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                Voltar
-              </Button>
-              <div className="h-6 w-px bg-editor-border hidden sm:block" />
-              <div className="flex min-w-0 items-center gap-1.5">
-                <Label className="shrink-0 text-editor-fg-muted">Slug</Label>
-                <Input
-                  value={slugDraft}
-                  onChange={(e) => setSlugDraft(e.target.value)}
-                  className="h-8 w-36 bg-editor-bg text-xs text-editor-fg border-editor-border sm:w-44"
-                  placeholder="minha_pagina"
-                />
-              </div>
-              <div className="flex min-w-[12rem] flex-1 items-center gap-1.5">
-                <Label className="hidden shrink-0 text-editor-fg-muted md:inline">Oferta (cliques)</Label>
-                <Input
-                  value={affiliateDraft}
-                  onChange={(e) => setAffiliateDraft(e.target.value)}
-                  className="h-8 min-w-0 flex-1 bg-editor-bg text-xs text-editor-fg border-editor-border"
-                  placeholder="https://… (link de afiliado para rastrear cliques)"
-                />
-              </div>
-              {hasVerifiedCustomDomain ? (
-                <Select
-                  value={customDomainId || "default"}
-                  onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
-                >
-                  <SelectTrigger className="h-8 w-[10rem] bg-editor-bg text-xs text-editor-fg border-editor-border sm:w-52">
-                    <SelectValue placeholder="Domínio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Domínio padrão</SelectItem>
-                    {customDomains
-                      .filter((d) => d.status === "verified")
-                      .map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.hostname}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-            </div>
+            <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+            Voltar
+          </Button>
+          <Input
+            value={slugDraft}
+            onChange={(e) => setSlugDraft(e.target.value)}
+            aria-label="Slug"
+            className="h-8 w-36 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-44"
+            placeholder="slug da página"
+          />
+          <Input
+            value={affiliateDraft}
+            onChange={(e) => setAffiliateDraft(e.target.value)}
+            aria-label="Link da oferta"
+            className="h-8 min-w-0 flex-1 border-editor-border bg-editor-bg text-xs text-editor-fg"
+            placeholder="Link da oferta — https://…"
+          />
+          {hasVerifiedCustomDomain ? (
+            <Select
+              value={customDomainId || "default"}
+              onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
+            >
+              <SelectTrigger className="h-8 w-40 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-52">
+                <SelectValue placeholder="Domínio" />
+              </SelectTrigger>
+              <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg">
+                <SelectItem value="default">Domínio padrão</SelectItem>
+                {customDomains
+                  .filter((d) => d.status === "verified")
+                  .map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.hostname}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
+            onClick={() => {
+              setAdvancedSettingsOpen(true);
+              setPublishDrawer(true);
+            }}
+          >
+            <Settings2 className="mr-1 h-3.5 w-3.5" />
+            Rastreio
+            <span className="ml-1.5 tabular-nums text-editor-fg-muted">{trackingHealthScore}</span>
+          </Button>
+        </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto border-b border-editor-border bg-editor-panel-2 editor-scrollbar">
-              <div className="space-y-2 px-3 py-2">
-                <p className="text-[11px] leading-relaxed text-editor-fg-muted line-clamp-3 sm:line-clamp-none">
-                  <span className="font-medium text-editor-fg">Presell automática vs manual:</span> aqui montas o layout no
-                  editor (secções e widgets). O <span className="text-editor-fg">link público</span> é o mesmo formato{" "}
-                  <span className="font-mono text-[10px]">/p/&lt;id&gt;</span> que na lista de presells. Usa «Guardar na
-                  conta» no topo do editor para publicar. Em «Opcional» podes colar o{" "}
-                  <span className="font-medium text-editor-fg">script de conversão</span> (vai para o &lt;head&gt; na ordem
-                  certa) e o restante código extra, como na criação automática.
-                </p>
-                {trackingEmbedScript ? (
-                  <div className="rounded border border-editor-border bg-editor-panel px-2 py-1.5 text-[11px] leading-relaxed text-editor-fg-muted">
-                    <span className="font-medium text-editor-fg">Clickora:</span> o script da conta entra no head ao
-                    guardar; podes acrescentar pixels em «Opcional».
+        <div className="relative min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center text-sm text-editor-fg-muted">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                A carregar o editor…
+              </div>
+            }
+          >
+            <PageEditor />
+          </Suspense>
+
+          {publishDrawer ? (
+            <div className="absolute inset-0 z-30 flex justify-end bg-black/45">
+              <button
+                type="button"
+                className="absolute inset-0 cursor-default"
+                aria-label="Fechar painel"
+                onClick={() => setPublishDrawer(false)}
+              />
+              <div className="relative flex h-full w-full max-w-xl flex-col border-l border-editor-border bg-editor-panel shadow-2xl">
+                <div className="flex items-start justify-between gap-3 border-b border-editor-border px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-editor-fg">Publicação e rastreio</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-editor-fg-muted">
+                      O script Clickora entra no head ao guardar. Pixels e o script de conversão ficam aqui, fora do canvas.
+                    </p>
                   </div>
-                ) : (
-                  <div className="rounded border border-dashed border-editor-border px-2 py-1.5 text-[11px] text-editor-fg-muted">
-                    Inicia sessão para incluir o rastreamento Clickora ao guardar.
-                  </div>
-                )}
-                {trackingHealthVisible ? (
+                  <button
+                    type="button"
+                    onClick={() => setPublishDrawer(false)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="editor-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
                   <PresellTrackingHealthPanel
                     configSettings={configSettings}
                     trackingEmbedScript={trackingEmbedScript}
@@ -416,65 +393,20 @@ export default function PresellManualBuilderPage() {
                     publishedPageId={routeId ?? null}
                     publicPageUrl={publicPresellTestUrl}
                     isEditor
-                    onRequestHide={() => persistTrackingHealthVisible(false)}
                   />
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-editor-border/80 bg-editor-panel px-2.5 py-2">
-                    <div className="flex min-w-0 items-center gap-2 text-[11px] text-editor-fg-muted">
-                      <Activity className="h-3.5 w-3.5 shrink-0 text-editor-fg-muted" aria-hidden />
-                      <span>
-                        Painel de saúde oculto — pontuação{" "}
-                        <span className="tabular-nums font-semibold text-editor-fg">{trackingHealthScore}</span>
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 shrink-0 border-editor-border bg-editor-panel text-editor-fg text-xs hover:bg-editor-border/80"
-                      onClick={() => persistTrackingHealthVisible(true)}
-                    >
-                      Mostrar saúde
-                    </Button>
-                  </div>
-                )}
-                <PresellAdvancedTrackingCollapsible
-                  open={advancedSettingsOpen}
-                  onOpenChange={setAdvancedSettingsOpen}
-                  configSettings={configSettings}
-                  setConfigSettings={setConfigSettings}
-                  trackingEmbedScript={trackingEmbedScript}
-                  surface="editor"
-                />
+                  <PresellAdvancedTrackingCollapsible
+                    open={advancedSettingsOpen}
+                    onOpenChange={setAdvancedSettingsOpen}
+                    configSettings={configSettings}
+                    setConfigSettings={setConfigSettings}
+                    trackingEmbedScript={trackingEmbedScript}
+                    surface="editor"
+                  />
+                </div>
               </div>
             </div>
-          </ResizablePanel>
-
-          <ResizableHandle
-            title="Arrastar para ajustar a altura da barra superior"
-            className={BUILDER_CHROME_RESIZE_HANDLE}
-          />
-
-          <ResizablePanel
-            id="presell-builder-workspace"
-            defaultSize={74}
-            minSize={54}
-            className="min-h-0 min-w-0 flex flex-col overflow-hidden"
-          >
-            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              <Suspense
-                fallback={
-                  <div className="flex h-full items-center justify-center text-sm text-editor-fg-muted">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    A carregar o editor…
-                  </div>
-                }
-              >
-                <PageEditor />
-              </Suspense>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          ) : null}
+        </div>
       </div>
     </PresellBuilderEmbedProvider>
   );

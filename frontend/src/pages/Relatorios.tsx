@@ -457,7 +457,8 @@ export default function Relatorios() {
         region: regionParts.length ? regionParts.join(" · ") : "—",
         checkout_page: checkoutFromMeta,
         checkout_host: e.checkout_host || "",
-        status: e.is_bot ? (e.bot_label || "Bot") : "OK",
+        status: e.unqualified ? "Não qualificado" : e.is_bot ? (e.bot_label || "Bot") : "OK",
+        statusTitle: e.unqualified_reason || "",
       };
     });
   }, [impressionsQuery.data]);
@@ -499,7 +500,8 @@ export default function Relatorios() {
         region: regionParts.length ? regionParts.join(" · ") : "—",
         checkout_page: checkoutFromMeta,
         checkout_host: e.checkout_host || "",
-        status: e.is_bot ? (e.bot_label || "Bot") : "OK",
+        status: e.unqualified ? "Não qualificado" : e.is_bot ? (e.bot_label || "Bot") : "OK",
+        statusTitle: e.unqualified_reason || "",
       };
     });
   }, [clicksQuery.data]);
@@ -773,7 +775,8 @@ export default function Relatorios() {
   const TimezoneAlert = () => (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
       Horários dos eventos em UTC na API; nesta tabela vês a hora local do teu browser ({currentTime}).
-      Se o IP for de VPN/proxy, o país/região reflectem a saída do VPN — não a localização real do visitante.
+      O país é o do IP que abriu a página. Uma rede de datacenter ou VPN (por exemplo CDN77) aparece como
+      «Não qualificado»: pode ser VPN ou proxy, não conta como clique bom e não abre o hoplink.
     </div>
   );
 
@@ -1040,6 +1043,7 @@ export default function Relatorios() {
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
                             <td className="py-2.5 px-3">
                               <span
+                                title={row.statusTitle || undefined}
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
                                   row.status === "OK"
                                     ? "bg-success/10 text-success"
@@ -1249,6 +1253,7 @@ export default function Relatorios() {
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
                             <td className="py-2.5 px-3">
                               <span
+                                title={row.statusTitle || undefined}
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
                                   row.status === "OK"
                                     ? "bg-success/10 text-success"

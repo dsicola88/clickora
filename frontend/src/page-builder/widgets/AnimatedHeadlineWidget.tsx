@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { InlinePlain } from "../inline-edit";
 
 export interface AnimatedHeadlineContent {
   prefix: string;
@@ -134,7 +135,7 @@ export function AnimatedHeadlineWidget({
         @keyframes lov-ah-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
       `}</style>
       <Tag style={{ margin: 0, ...css }}>
-        {prefix} {renderWord()} {suffix}
+        <InlinePlain value={prefix} field="prefix" /> {renderWord()} {suffix}
       </Tag>
     </>
   );

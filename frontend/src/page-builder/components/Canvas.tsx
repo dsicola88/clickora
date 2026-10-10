@@ -1,39 +1,74 @@
-import { useDroppable } from "@dnd-kit/core";
+import { useState } from "react";
+import type { SelectionTarget } from "../types";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useBuilder, resolveResponsive } from "../store";
 import type {
   ColumnNode,
   DeviceType,
   SectionNode,
-  SelectionTarget,
   WidgetNode,
 } from "../types";
 import { WIDGET_REGISTRY } from "../widget-registry";
-import { stylesToCss, stylesToCssWidgetShell } from "../style-utils";
+import { NestedRenderProvider } from "../nested-render";
+import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WidgetInlineStyle } from "../widget-custom-css";
-import { Plus, Copy, Trash2, GripVertical, Columns3 } from "lucide-react";
+import { InlineEditProvider } from "../inline-edit";
+import {
+  Plus,
+  Copy,
+  Trash2,
+  GripVertical,
+  Columns3,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 
 const DEVICE_WIDTHS: Record<DeviceType, string> = {
   desktop: "100%",
   tablet: "768px",
-  mobile: "375px",
+  mobile: "390px",
 };
+
+const SECTION_LAYOUTS: Array<{ label: string; widths: number[] }> = [
+  { label: "1", widths: [100] },
+  { label: "2", widths: [50, 50] },
+  { label: "3", widths: [33, 34, 33] },
+  { label: "4", widths: [25, 25, 25, 25] },
+  { label: "1/3", widths: [33, 67] },
+  { label: "2/3", widths: [67, 33] },
+];
 
 export function Canvas() {
   const doc = useBuilder((s) => s.doc);
   const device = useBuilder((s) => s.device);
   const preview = useBuilder((s) => s.preview);
   const select = useBuilder((s) => s.select);
-  const addSection = useBuilder((s) => s.addSection);
+  const addSectionLayout = useBuilder((s) => s.addSectionLayout);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; target: Exclude<SelectionTarget, null> } | null>(
+    null,
+  );
+
+  const openMenu = (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    select(target);
+    setMenu({ x: event.clientX, y: event.clientY, target });
+  };
 
   return (
     <div
       className="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto bg-editor-canvas"
-      onClick={() => select(null)}
+      onClick={() => {
+        if (!preview) select(null);
+        setLayoutOpen(false);
+        setMenu(null);
+      }}
     >
-      <div className="flex min-h-full justify-center p-4">
+      <div className={`flex min-h-full justify-center ${preview ? "p-0" : "p-6"}`}>
         <div
-          className="min-h-full bg-white shadow-xl transition-all"
+          className="min-h-full bg-white shadow-2xl transition-[width] duration-200"
           style={{
             width: DEVICE_WIDTHS[device],
             maxWidth: "100%",
@@ -42,30 +77,70 @@ export function Canvas() {
           onClick={(e) => e.stopPropagation()}
         >
           {doc.sections.length === 0 ? (
-            <EmptyCanvasDropZone onAdd={() => addSection(1)} />
+            <EmptyCanvasDropZone onAdd={() => addSectionLayout([100])} />
           ) : (
             doc.sections.map((section, idx) => (
               <SectionView
                 key={section.id}
                 section={section}
                 index={idx}
+                count={doc.sections.length}
                 device={device}
                 preview={preview}
+                onContextMenu={openMenu}
               />
             ))
           )}
 
           {!preview && doc.sections.length > 0 && (
-            <button
-              type="button"
-              onClick={() => addSection(1)}
-              className="m-4 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded border-2 border-dashed border-editor-accent/40 bg-editor-accent/5 py-4 text-sm font-medium text-editor-accent transition-all hover:border-editor-accent hover:bg-editor-accent/10"
-            >
-              <Plus className="h-4 w-4" /> Adicionar nova seção
-            </button>
+            <div className="relative mx-4 mb-6 mt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLayoutOpen((v) => !v);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 py-3 text-sm font-medium text-slate-600 transition-colors hover:border-editor-accent hover:text-editor-accent"
+              >
+                <Plus className="h-4 w-4" /> Adicionar secção
+              </button>
+              {layoutOpen ? (
+                <div
+                  className="absolute left-1/2 top-full z-30 mt-2 w-[280px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Estrutura
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {SECTION_LAYOUTS.map((layout) => (
+                      <button
+                        key={layout.label}
+                        type="button"
+                        title={layout.widths.join(" / ")}
+                        onClick={() => {
+                          addSectionLayout(layout.widths);
+                          setLayoutOpen(false);
+                        }}
+                        className="flex h-12 items-center gap-0.5 rounded-md border border-slate-200 px-1.5 hover:border-editor-accent"
+                      >
+                        {layout.widths.map((w, i) => (
+                          <span
+                            key={i}
+                            className="h-7 rounded-sm bg-slate-200"
+                            style={{ flex: w }}
+                          />
+                        ))}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
       </div>
+      {menu && !preview ? <CanvasContextMenu menu={menu} onClose={() => setMenu(null)} /> : null}
     </div>
   );
 }
@@ -79,24 +154,24 @@ function EmptyCanvasDropZone({ onAdd }: { onAdd: () => void }) {
     <div
       ref={setNodeRef}
       className={`flex min-h-[60vh] flex-col items-center justify-center gap-4 p-12 text-center transition-colors ${
-        isOver ? "bg-editor-accent/5" : ""
+        isOver ? "bg-rose-50" : "bg-white"
       }`}
     >
-      <div className="rounded-full bg-editor-canvas p-6">
-        <Columns3 className="h-10 w-10 text-editor-fg-muted" />
+      <div className="rounded-full bg-slate-100 p-6">
+        <Columns3 className="h-10 w-10 text-slate-400" />
       </div>
       <div>
-        <h3 className="mb-1 text-lg font-semibold text-foreground">Comece a construir</h3>
-        <p className="text-sm text-muted-foreground">
-          Arraste um widget aqui ou adicione uma seção para começar.
+        <h3 className="mb-1 text-lg font-semibold text-slate-900">Comece a página</h3>
+        <p className="max-w-sm text-sm text-slate-500">
+          Escolha uma estrutura ou arraste um elemento da esquerda para aqui.
         </p>
       </div>
       <button
         type="button"
         onClick={onAdd}
-        className="flex items-center gap-2 rounded bg-editor-accent px-4 py-2 text-sm font-medium text-editor-accent-fg hover:opacity-90"
+        className="flex items-center gap-2 rounded-md bg-editor-accent px-4 py-2 text-sm font-medium text-editor-accent-fg hover:opacity-90"
       >
-        <Plus className="h-4 w-4" /> Adicionar seção
+        <Plus className="h-4 w-4" /> Secção de uma coluna
       </button>
     </div>
   );
@@ -104,30 +179,44 @@ function EmptyCanvasDropZone({ onAdd }: { onAdd: () => void }) {
 
 function SectionView({
   section,
+  index,
+  count,
   device,
   preview,
+  onContextMenu,
 }: {
   section: SectionNode;
   index: number;
+  count: number;
   device: DeviceType;
   preview: boolean;
+  onContextMenu: (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => void;
 }) {
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
   const removeSection = useBuilder((s) => s.removeSection);
   const duplicateSection = useBuilder((s) => s.duplicateSection);
+  const moveSection = useBuilder((s) => s.moveSection);
   const addColumn = useBuilder((s) => s.addColumn);
+  const setColumnWidths = useBuilder((s) => s.setColumnWidths);
+  const [liveWidths, setLiveWidths] = useState<number[] | null>(null);
 
   const isSelected =
-    selection?.kind === "section" && (selection as Extract<SelectionTarget, { kind: "section" }>).id === section.id;
+    selection?.kind === "section" &&
+    (selection as Extract<SelectionTarget, { kind: "section" }>).id === section.id;
   const sectionStyle = stylesToCss(section.styles, device);
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
   const bgVideo = (section.backgroundVideoUrl ?? "").trim();
   const hasBgVideo = bgVideo.length > 0;
+  const widths =
+    liveWidths ?? section.columns.map((c) => resolveResponsive(c.widthPercent, device) ?? 100);
+  const direction = sectionDirectionFor(section.flex?.direction, device, section.columns.length);
+  const stacked = isSectionStacked(direction);
 
   return (
     <div
-      className={`group/section relative ${!preview ? "transition-all" : ""}`}
+      className={`group/section relative ${!preview ? "transition-shadow" : ""}`}
+      onContextMenu={(event) => onContextMenu(event, { kind: "section", id: section.id })}
       style={{
         ...sectionStyle,
         ...(hasBgVideo ? { position: "relative", overflow: "hidden" as const } : {}),
@@ -143,30 +232,38 @@ function SectionView({
       {!preview && (
         <div
           className={`pointer-events-none absolute inset-0 z-[5] border-2 transition-colors ${
-            isSelected
-              ? "border-editor-section"
-              : "border-transparent group-hover/section:border-editor-section/40"
+            isSelected ? "border-editor-section" : "border-transparent group-hover/section:border-editor-section/40"
           }`}
         />
       )}
 
       {!preview && (
         <div
-          className={`absolute -top-px left-0 z-20 flex items-center gap-0.5 rounded-br bg-editor-section px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white transition-opacity ${
+          className={`absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-md bg-editor-section px-1 py-0.5 text-white shadow-sm transition-opacity ${
             isSelected ? "opacity-100" : "opacity-0 group-hover/section:opacity-100"
           }`}
         >
-          <GripVertical className="h-3 w-3" />
-          Seção
-        </div>
-      )}
-
-      {!preview && (
-        <div
-          className={`absolute -top-px right-0 z-20 flex items-center gap-0.5 rounded-bl bg-editor-section px-1 py-0.5 text-white transition-opacity ${
-            isSelected ? "opacity-100" : "opacity-0 group-hover/section:opacity-100"
-          }`}
-        >
+          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider">Secção</span>
+          <ToolbarBtn
+            title="Mover para cima"
+            disabled={index === 0}
+            onClick={(e) => {
+              e.stopPropagation();
+              moveSection(index, index - 1);
+            }}
+          >
+            <ChevronUp className="h-3 w-3" />
+          </ToolbarBtn>
+          <ToolbarBtn
+            title="Mover para baixo"
+            disabled={index >= count - 1}
+            onClick={(e) => {
+              e.stopPropagation();
+              moveSection(index, index + 1);
+            }}
+          >
+            <ChevronDown className="h-3 w-3" />
+          </ToolbarBtn>
           <ToolbarBtn
             title="Adicionar coluna"
             onClick={(e) => {
@@ -198,22 +295,79 @@ function SectionView({
       )}
 
       <div
-        className="relative z-[1] mx-auto flex"
+        className="relative z-[1] mx-auto"
         style={{
           maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
-          gap: `${gap}px`,
-          flexDirection: device === "mobile" ? "column" : "row",
+          ...sectionColumnsGrid(widths, device, gap, {
+            direction,
+            justify: resolveResponsive(section.flex?.justify, device),
+            align: resolveResponsive(section.flex?.align, device),
+            wrap: resolveResponsive(section.flex?.wrap, device),
+          }),
         }}
       >
-        {section.columns.map((column) => (
+        {section.columns.map((column, columnIndex) => (
           <ColumnView
             key={column.id}
             section={section}
             column={column}
             device={device}
             preview={preview}
+            stacked={stacked}
+            widthPercent={widths[columnIndex] ?? 100}
+            onContextMenu={onContextMenu}
           />
         ))}
+        {!preview && !stacked && section.columns.length > 1
+          ? section.columns.slice(0, -1).map((_, leftIndex) => {
+              const total = widths.reduce((sum, width) => sum + width, 0) || 1;
+              const left = widths.slice(0, leftIndex + 1).reduce((sum, width) => sum + width, 0);
+              return (
+                <div
+                  key={`resize-${leftIndex}`}
+                  role="separator"
+                  aria-orientation="vertical"
+                  title="Arrastar para mudar a largura"
+                  className="absolute top-0 z-30 h-full w-3 -translate-x-1/2 cursor-col-resize"
+                  style={{ left: `${(left / total) * 100}%` }}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const startX = event.clientX;
+                    const start = widths.slice();
+                    const pair = start[leftIndex] + start[leftIndex + 1];
+                    const bounds = (event.currentTarget.parentElement?.getBoundingClientRect().width ?? 1);
+                    const move = (ev: PointerEvent) => {
+                      const delta = ((ev.clientX - startX) / bounds) * 100;
+                      let nextLeft = start[leftIndex] + delta;
+                      nextLeft = Math.max(12, Math.min(pair - 12, nextLeft));
+                      const next = start.slice();
+                      next[leftIndex] = nextLeft;
+                      next[leftIndex + 1] = pair - nextLeft;
+                      setLiveWidths(next);
+                    };
+                    const up = (ev: PointerEvent) => {
+                      window.removeEventListener("pointermove", move);
+                      window.removeEventListener("pointerup", up);
+                      const delta = ((ev.clientX - startX) / bounds) * 100;
+                      let nextLeft = start[leftIndex] + delta;
+                      nextLeft = Math.max(12, Math.min(pair - 12, nextLeft));
+                      const next = start.slice();
+                      next[leftIndex] = nextLeft;
+                      next[leftIndex + 1] = pair - nextLeft;
+                      setLiveWidths(null);
+                      setColumnWidths(section.id, next, device);
+                    };
+                    window.addEventListener("pointermove", move);
+                    window.addEventListener("pointerup", up);
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <span className="absolute inset-y-2 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-editor-column/70 opacity-0 transition-opacity hover:opacity-100" />
+                </div>
+              );
+            })
+          : null}
       </div>
     </div>
   );
@@ -224,17 +378,22 @@ function ColumnView({
   column,
   device,
   preview,
+  stacked,
+  widthPercent,
+  onContextMenu,
 }: {
   section: SectionNode;
   column: ColumnNode;
   device: DeviceType;
   preview: boolean;
+  stacked: boolean;
+  widthPercent: number;
+  onContextMenu: (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => void;
 }) {
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
   const removeColumn = useBuilder((s) => s.removeColumn);
 
-  const widthPct = resolveResponsive(column.widthPercent, device) ?? 100;
   const isSelected =
     selection?.kind === "column" &&
     (selection as Extract<SelectionTarget, { kind: "column" }>).id === column.id;
@@ -243,18 +402,18 @@ function ColumnView({
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${column.id}`,
     data: { kind: "column", sectionId: section.id, columnId: column.id },
+    disabled: preview,
   });
 
   return (
     <div
       ref={setNodeRef}
-      className="group/column relative min-h-[60px]"
+      className="group/column relative min-h-[48px] min-w-0"
       style={{
-        flexBasis: device === "mobile" ? "100%" : `${widthPct}%`,
+        ...columnFlexItem(widthPercent, stacked),
         display: "flex",
         flexDirection: "column",
         alignItems: "stretch",
-        minWidth: 0,
         ...colStyle,
       }}
       onClick={(e) => {
@@ -262,6 +421,9 @@ function ColumnView({
         e.stopPropagation();
         select({ kind: "column", sectionId: section.id, id: column.id });
       }}
+      onContextMenu={(event) =>
+        onContextMenu(event, { kind: "column", sectionId: section.id, id: column.id })
+      }
     >
       {!preview && (
         <div
@@ -269,15 +431,15 @@ function ColumnView({
             isSelected
               ? "border-editor-column"
               : isOver
-                ? "border-editor-accent bg-editor-accent/5"
-                : "border-transparent group-hover/column:border-editor-column/50"
+                ? "border-editor-accent bg-rose-50/80"
+                : "border-transparent group-hover/column:border-editor-column/40"
           }`}
         />
       )}
 
-      {!preview && (
+      {!preview && section.columns.length > 1 && (
         <div
-          className={`absolute -top-px left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-b bg-editor-column px-1 py-0.5 text-[10px] text-white transition-opacity ${
+          className={`absolute left-1/2 top-1 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-editor-column px-1 py-0.5 text-[10px] text-white shadow-sm transition-opacity ${
             isSelected ? "opacity-100" : "opacity-0 group-hover/column:opacity-100"
           }`}
         >
@@ -294,42 +456,73 @@ function ColumnView({
       )}
 
       {column.widgets.length === 0 && !preview ? (
-        <div className="flex min-h-[80px] items-center justify-center rounded border-2 border-dashed border-editor-fg-muted/20 bg-editor-canvas/50 p-4 text-xs text-editor-fg-muted">
-          Arraste widgets para esta coluna
+        <div className="m-2 flex min-h-[72px] items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
+          Largue um elemento aqui
         </div>
       ) : (
-        column.widgets.map((widget) => (
-          <WidgetView
-            key={widget.id}
-            section={section}
-            column={column}
-            widget={widget}
-            device={device}
-            preview={preview}
-          />
-        ))
+        column.widgets.map((widget, index) =>
+          preview ? (
+            <StaticWidget
+              key={widget.id}
+              widget={widget}
+              device={device}
+            />
+          ) : (
+            <EditableWidget
+              key={widget.id}
+              section={section}
+              column={column}
+              widget={widget}
+              index={index}
+              device={device}
+              depth={0}
+              onContextMenu={onContextMenu}
+            />
+          ),
+        )
       )}
     </div>
   );
 }
 
-function WidgetView({
+function StaticWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const def = WIDGET_REGISTRY[widget.type];
+  if (!def) return null;
+  const shell = stylesToCssWidgetShell(widget.styles, device);
+  const wid = widget.cssId?.trim();
+  const wcls = widget.cssClasses?.trim();
+  return (
+    <div className={wcls || undefined} id={wid || undefined} style={shell}>
+      <WidgetInlineStyle widget={widget} />
+      <def.Render widget={widget} device={device} />
+    </div>
+  );
+}
+
+function EditableWidget({
   section,
   column,
   widget,
+  index,
   device,
-  preview,
+  depth,
+  containerId,
+  onContextMenu,
 }: {
   section: SectionNode;
   column: ColumnNode;
   widget: WidgetNode;
+  index: number;
   device: DeviceType;
-  preview: boolean;
+  depth: number;
+  containerId?: string;
+  onContextMenu: (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => void;
 }) {
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
   const removeWidget = useBuilder((s) => s.removeWidget);
   const duplicateWidget = useBuilder((s) => s.duplicateWidget);
+  const updateWidget = useBuilder((s) => s.updateWidget);
 
   const def = WIDGET_REGISTRY[widget.type];
   const shell = stylesToCssWidgetShell(widget.styles, device);
@@ -340,13 +533,51 @@ function WidgetView({
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
 
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `slot:${widget.id}`,
+    data: {
+      kind: "widget-slot",
+      sectionId: section.id,
+      columnId: column.id,
+      index,
+      containerId,
+      depth,
+    },
+  });
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+    id: `canvas:${widget.id}`,
+    data: {
+      source: "canvas-widget",
+      sectionId: section.id,
+      columnId: column.id,
+      widgetId: widget.id,
+    },
+  });
+
+  if (!def) return null;
+
+  const body = (
+    <>
+      <InlineEditProvider
+        value={(patch) =>
+          updateWidget(section.id, column.id, widget.id, {
+            content: { ...widget.content, ...patch },
+          })
+        }
+      >
+        <WidgetInlineStyle widget={widget} />
+        <def.Render widget={widget} device={device} />
+      </InlineEditProvider>
+    </>
+  );
+
   return (
     <div
-      className={`group/widget relative${wcls ? ` ${wcls}` : ""}`}
+      ref={widget.type === "container" ? undefined : setDropRef}
+      className={`group/widget relative${wcls ? ` ${wcls}` : ""}${isDragging ? " opacity-40" : ""}`}
       id={wid || undefined}
       style={shell}
       onClick={(e) => {
-        if (preview) return;
         e.stopPropagation();
         select({
           kind: "widget",
@@ -355,49 +586,88 @@ function WidgetView({
           id: widget.id,
         });
       }}
+      onContextMenu={(event) =>
+        onContextMenu(event, {
+          kind: "widget",
+          sectionId: section.id,
+          columnId: column.id,
+          id: widget.id,
+        })
+      }
     >
-      {!preview && (
-        <div
-          className={`pointer-events-none absolute inset-0 z-10 border transition-colors ${
-            isSelected
-              ? "border-editor-widget"
-              : "border-transparent group-hover/widget:border-editor-widget/50"
-          }`}
-        />
-      )}
-
-      {!preview && (
-        <div
-          className={`absolute -top-px right-0 z-20 flex items-center gap-0.5 rounded-bl bg-editor-widget px-1 py-0.5 text-white transition-opacity ${
-            isSelected ? "opacity-100" : "opacity-0 group-hover/widget:opacity-100"
-          }`}
+      {widget.type === "container" ? (
+        <div ref={setDropRef} className="absolute inset-x-0 -top-1 z-40 h-2" />
+      ) : null}
+      {isOver ? <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-0.5 bg-editor-accent" /> : null}
+      <div
+        className={`pointer-events-none absolute inset-0 z-10 border transition-colors ${
+          isSelected ? "border-editor-widget" : "border-transparent group-hover/widget:border-editor-widget/40"
+        }`}
+      />
+      <div
+        className={`absolute right-1 top-1 z-20 flex items-center gap-0.5 rounded-md bg-editor-widget px-1 py-0.5 text-white shadow-sm transition-opacity ${
+          isSelected || isDragging ? "opacity-100" : "opacity-0 group-hover/widget:opacity-100"
+        }`}
+      >
+        <button
+          type="button"
+          title="Arrastar"
+          ref={setDragRef}
+          {...listeners}
+          {...attributes}
+          className="flex h-5 w-5 cursor-grab items-center justify-center rounded active:cursor-grabbing"
+          onClick={(e) => e.stopPropagation()}
         >
-          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider">
-            {def.label}
-          </span>
-          <ToolbarBtn
-            title="Duplicar"
-            onClick={(e) => {
-              e.stopPropagation();
-              duplicateWidget(section.id, column.id, widget.id);
-            }}
-          >
-            <Copy className="h-3 w-3" />
-          </ToolbarBtn>
-          <ToolbarBtn
-            title="Excluir"
-            onClick={(e) => {
-              e.stopPropagation();
-              removeWidget(section.id, column.id, widget.id);
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </ToolbarBtn>
-        </div>
-      )}
+          <GripVertical className="h-3 w-3" />
+        </button>
+        <span className="px-1 text-[10px] font-semibold uppercase tracking-wider">{def.label}</span>
+        <ToolbarBtn
+          title="Duplicar"
+          onClick={(e) => {
+            e.stopPropagation();
+            duplicateWidget(section.id, column.id, widget.id);
+          }}
+        >
+          <Copy className="h-3 w-3" />
+        </ToolbarBtn>
+        <ToolbarBtn
+          title="Excluir"
+          onClick={(e) => {
+            e.stopPropagation();
+            removeWidget(section.id, column.id, widget.id);
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+        </ToolbarBtn>
+      </div>
 
-      <WidgetInlineStyle widget={widget} />
-      <def.Render widget={widget} device={device} />
+      {widget.type === "container" ? (
+        <NestedRenderProvider
+          value={{
+            depth: depth + 1,
+            sectionId: section.id,
+            columnId: column.id,
+            containerId: widget.id,
+            render: (child, childIndex) => (
+              <EditableWidget
+                key={child.id}
+                section={section}
+                column={column}
+                widget={child}
+                index={childIndex}
+                device={device}
+                depth={depth + 1}
+                containerId={widget.id}
+                onContextMenu={onContextMenu}
+              />
+            ),
+          }}
+        >
+          {body}
+        </NestedRenderProvider>
+      ) : (
+        body
+      )}
     </div>
   );
 }
@@ -406,19 +676,126 @@ function ToolbarBtn({
   children,
   onClick,
   title,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick: (e: React.MouseEvent) => void;
   title: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       title={title}
+      disabled={disabled}
       onClick={onClick}
-      className="flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-white/20"
+      className="flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30"
     >
       {children}
     </button>
+  );
+}
+
+function CanvasContextMenu({
+  menu,
+  onClose,
+}: {
+  menu: { x: number; y: number; target: Exclude<SelectionTarget, null> };
+  onClose: () => void;
+}) {
+  const clipboard = useBuilder((s) => s.clipboard);
+  const styleClipboard = useBuilder((s) => s.styleClipboard);
+  const copySelection = useBuilder((s) => s.copySelection);
+  const pasteClipboard = useBuilder((s) => s.pasteClipboard);
+  const copyStyle = useBuilder((s) => s.copyStyle);
+  const pasteStyle = useBuilder((s) => s.pasteStyle);
+  const deleteSelection = useBuilder((s) => s.deleteSelection);
+  const duplicateSelection = useBuilder((s) => s.duplicateSelection);
+  const doc = useBuilder((s) => s.doc);
+  const moveSection = useBuilder((s) => s.moveSection);
+
+  const sectionIndex =
+    menu.target.kind === "section" ? doc.sections.findIndex((section) => section.id === menu.target.id) : -1;
+
+  const run = (action: () => void) => {
+    action();
+    onClose();
+  };
+
+  const items: Array<{ label: string; hint?: string; disabled?: boolean; action: () => void; danger?: boolean }> = [
+    {
+      label: "Duplicar",
+      hint: "⌘D",
+      disabled: menu.target.kind === "column",
+      action: () => duplicateSelection(),
+    },
+    {
+      label: "Copiar",
+      hint: "⌘C",
+      disabled: menu.target.kind !== "widget",
+      action: () => copySelection(),
+    },
+    {
+      label: "Colar",
+      hint: "⌘V",
+      disabled: !clipboard,
+      action: () => pasteClipboard(),
+    },
+    {
+      label: "Copiar estilo",
+      hint: "⇧⌘C",
+      action: () => copyStyle(),
+    },
+    {
+      label: "Colar estilo",
+      hint: "⇧⌘V",
+      disabled: !styleClipboard,
+      action: () => pasteStyle(),
+    },
+  ];
+  if (menu.target.kind === "section") {
+    items.push(
+      {
+        label: "Mover para cima",
+        disabled: sectionIndex <= 0,
+        action: () => moveSection(sectionIndex, sectionIndex - 1),
+      },
+      {
+        label: "Mover para baixo",
+        disabled: sectionIndex < 0 || sectionIndex >= doc.sections.length - 1,
+        action: () => moveSection(sectionIndex, sectionIndex + 1),
+      },
+    );
+  }
+  items.push({
+    label: "Eliminar",
+    hint: "⌫",
+    danger: true,
+    action: () => deleteSelection(),
+  });
+
+  return (
+    <div className="fixed inset-0 z-[280]" onClick={onClose} onContextMenu={(event) => event.preventDefault()}>
+      <div
+        className="absolute min-w-[11rem] overflow-hidden rounded-md border border-editor-border bg-editor-panel py-1 text-editor-fg shadow-2xl"
+        style={{ left: menu.x, top: menu.y }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            disabled={item.disabled}
+            onClick={() => run(item.action)}
+            className={`flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-xs hover:bg-editor-border disabled:cursor-not-allowed disabled:opacity-40 ${
+              item.danger ? "text-red-300" : ""
+            }`}
+          >
+            <span>{item.label}</span>
+            {item.hint ? <span className="text-[10px] text-editor-fg-muted">{item.hint}</span> : null}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

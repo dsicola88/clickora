@@ -16,6 +16,7 @@ import {
   sumPersistedSpend,
 } from "../modules/affiliateOps/costSync.service";
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
+import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
@@ -79,7 +80,10 @@ function mapTrackingEventForApi(e: {
   const rawContent = typeof metadata.utm_content === "string" ? metadata.utm_content.trim() : "";
   const geo = geoLookupFromIp(e.ipAddress ?? null);
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
-  const country = storedCountry ?? geo?.country_code ?? countryIsoFromIp(e.ipAddress ?? null);
+  const datacenter = datacenterClickPlace(e.ipAddress);
+  const country = datacenter?.country ?? storedCountry ?? geo?.country_code ?? countryIsoFromIp(e.ipAddress ?? null);
+  const region = datacenter?.region ?? (geo?.region?.trim() || null);
+  const city = datacenter ? null : geo?.city?.trim() || null;
   const utm_campaign =
     (e.campaign && String(e.campaign).trim()) ||
     (typeof metadata.campaign === "string" && metadata.campaign.trim() ? metadata.campaign.trim() : null) ||
@@ -126,8 +130,8 @@ function mapTrackingEventForApi(e: {
     campaign: e.campaign,
     referrer: e.referrer,
     country,
-    region: geo?.region?.trim() || null,
-    city: geo?.city?.trim() || null,
+    region,
+    city,
     ip_address: e.ipAddress,
     device: e.device,
     device_label,
@@ -149,6 +153,9 @@ function mapTrackingEventForApi(e: {
     traffic_type,
     is_bot: metadata.is_bot === true,
     bot_label: typeof metadata.bot_label === "string" ? metadata.bot_label : null,
+    unqualified: datacenter?.unqualified === true,
+    unqualified_reason: datacenter?.unqualified_reason ?? null,
+    ip_network: datacenter?.ip_network ?? null,
   };
 }
 
@@ -267,7 +274,10 @@ function sqlExcludeBotAndKpiNoise(includeBots: boolean): Prisma.Sql {
   if (includeBots) return Prisma.empty;
   return Prisma.sql`
     AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
-    AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+    AND (
+      NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+      OR COALESCE(metadata->>'ip_quality', '') = 'datacenter'
+    )
   `;
 }
 

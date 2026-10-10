@@ -2,6 +2,11 @@ import type { CSSProperties } from "react";
 import type {
   BaseStyles,
   DeviceType,
+  FlexAlign,
+  FlexDirection,
+  FlexJustify,
+  FlexLayout,
+  FlexWrapMode,
   ResponsiveStyles,
   SpacingValue,
   TypographyValue,
@@ -80,6 +85,55 @@ export function stylesToCssWidgetShell(
     if (v !== undefined) (out as Record<string, unknown>)[k] = v;
   }
   return out;
+}
+
+/** Direção do contentor. No telemóvel, várias colunas empilham até haver um valor explícito para esse dispositivo. */
+export function sectionDirectionFor(
+  flex: FlexLayout["direction"] | undefined,
+  device: DeviceType,
+  columnCount: number,
+): FlexDirection {
+  if (device === "mobile" && flex?.mobile) return flex.mobile;
+  if (device === "tablet" && flex?.tablet) return flex.tablet;
+  if (device === "desktop" && flex?.desktop) return flex.desktop;
+  if (flex?.desktop && device !== "mobile") return flex.desktop;
+  if (device === "mobile" && columnCount > 1) return "column";
+  return flex?.desktop ?? "row";
+}
+
+export function isSectionStacked(direction: FlexDirection) {
+  return direction === "column" || direction === "column-reverse";
+}
+
+export function columnFlexItem(widthPercent: number, stacked: boolean): CSSProperties {
+  if (stacked) return { width: "100%", flex: "0 0 auto", minWidth: 0 };
+  return { flex: `${Math.max(widthPercent, 1)} 1 0%`, width: "auto", minWidth: 0 };
+}
+
+/** Contentor flex das colunas. A direção em linha usa `flex-grow` para o intervalo não partir 50%+50%. */
+export function sectionColumnsGrid(
+  widths: number[],
+  device: DeviceType,
+  gapPx: number,
+  flex?: {
+    direction?: FlexDirection;
+    justify?: FlexJustify;
+    align?: FlexAlign;
+    wrap?: FlexWrapMode;
+  },
+): CSSProperties {
+  const direction =
+    flex?.direction ?? (device === "mobile" && widths.length > 1 ? "column" : "row");
+  const stacked = isSectionStacked(direction);
+  return {
+    display: "flex",
+    flexDirection: direction,
+    flexWrap: stacked ? "nowrap" : (flex?.wrap ?? "nowrap"),
+    justifyContent: flex?.justify ?? "flex-start",
+    alignItems: flex?.align ?? "stretch",
+    gap: `${gapPx}px`,
+    width: "100%",
+  };
 }
 
 /** Build a CSS style object from a node's styles for the given device. */

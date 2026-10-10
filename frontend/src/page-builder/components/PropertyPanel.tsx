@@ -3,6 +3,10 @@ import type {
   BaseStyles,
   ColumnNode,
   DeviceType,
+  FlexAlign,
+  FlexDirection,
+  FlexJustify,
+  FlexWrapMode,
   ResponsiveStyles,
   ResponsiveValue,
   SectionNode,
@@ -12,6 +16,7 @@ import type {
   WidgetType,
 } from "../types";
 import { WIDGET_REGISTRY } from "../widget-registry";
+import { locateWidget } from "../widget-tree";
 import { Settings2, Trash2, Plus, GripVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { nanoid } from "nanoid";
@@ -69,7 +74,8 @@ export function PropertyPanel() {
     return <ColumnPanel section={section} column={column} device={device} />;
   }
 
-  const widget = column.widgets.find((w) => w.id === selection.id);
+  const located = locateWidget(column.widgets, selection.id);
+  const widget = located ? located.list[located.index] : undefined;
   if (!widget) return <EmptyPanel />;
   return <WidgetPanel section={section} column={column} widget={widget} device={device} />;
 }
@@ -434,6 +440,65 @@ function WidgetContentTab({
       return <TickerContentEditor content={c} setContent={setContent} />;
     case "infoBox":
       return <InfoBoxContentEditor content={c} setContent={setContent} />;
+    case "container":
+      return (
+        <Section title="Contentor">
+          <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1">
+            Os elementos lá dentro ficam lado a lado ou empilhados, como um contentor flex.
+          </p>
+          <SelectField
+            label="Direção"
+            value={(c.direction as string) ?? "row"}
+            options={[
+              { value: "row", label: "Linha" },
+              { value: "column", label: "Coluna" },
+              { value: "row-reverse", label: "Linha invertida" },
+              { value: "column-reverse", label: "Coluna invertida" },
+            ]}
+            onChange={(v) => setContent({ direction: v })}
+          />
+          <SelectField
+            label="Justificar"
+            value={(c.justify as string) ?? "flex-start"}
+            options={[
+              { value: "flex-start", label: "Início" },
+              { value: "center", label: "Centro" },
+              { value: "flex-end", label: "Fim" },
+              { value: "space-between", label: "Espaço entre" },
+              { value: "space-around", label: "Espaço à volta" },
+              { value: "space-evenly", label: "Espaço igual" },
+            ]}
+            onChange={(v) => setContent({ justify: v })}
+          />
+          <SelectField
+            label="Alinhar"
+            value={(c.align as string) ?? "stretch"}
+            options={[
+              { value: "stretch", label: "Esticar" },
+              { value: "flex-start", label: "Início" },
+              { value: "center", label: "Centro" },
+              { value: "flex-end", label: "Fim" },
+            ]}
+            onChange={(v) => setContent({ align: v })}
+          />
+          <SelectField
+            label="Quebra"
+            value={(c.wrap as string) ?? "wrap"}
+            options={[
+              { value: "wrap", label: "Quebrar linha" },
+              { value: "nowrap", label: "Uma linha" },
+            ]}
+            onChange={(v) => setContent({ wrap: v })}
+          />
+          <NumberField
+            label="Intervalo (px)"
+            value={(c.gap as number) ?? 16}
+            min={0}
+            max={80}
+            onChange={(v) => setContent({ gap: v })}
+          />
+        </Section>
+      );
     default:
       return null;
   }
@@ -677,6 +742,78 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
               min={0}
               max={120}
+            />
+            <SelectField
+              label={`Direção (${device})`}
+              value={resolveResponsive(section.flex?.direction, device) ?? (device === "mobile" ? "column" : "row")}
+              options={[
+                { value: "row", label: "Linha" },
+                { value: "column", label: "Coluna" },
+                { value: "row-reverse", label: "Linha invertida" },
+                { value: "column-reverse", label: "Coluna invertida" },
+              ]}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  flex: {
+                    ...section.flex,
+                    direction: setResponsive(section.flex?.direction, device, v as FlexDirection),
+                  },
+                })
+              }
+            />
+            <SelectField
+              label={`Justificar (${device})`}
+              value={resolveResponsive(section.flex?.justify, device) ?? "flex-start"}
+              options={[
+                { value: "flex-start", label: "Início" },
+                { value: "center", label: "Centro" },
+                { value: "flex-end", label: "Fim" },
+                { value: "space-between", label: "Espaço entre" },
+                { value: "space-around", label: "Espaço à volta" },
+                { value: "space-evenly", label: "Espaço igual" },
+              ]}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  flex: {
+                    ...section.flex,
+                    justify: setResponsive(section.flex?.justify, device, v as FlexJustify),
+                  },
+                })
+              }
+            />
+            <SelectField
+              label={`Alinhar (${device})`}
+              value={resolveResponsive(section.flex?.align, device) ?? "stretch"}
+              options={[
+                { value: "flex-start", label: "Início" },
+                { value: "center", label: "Centro" },
+                { value: "flex-end", label: "Fim" },
+                { value: "stretch", label: "Esticar" },
+              ]}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  flex: {
+                    ...section.flex,
+                    align: setResponsive(section.flex?.align, device, v as FlexAlign),
+                  },
+                })
+              }
+            />
+            <SelectField
+              label={`Quebra (${device})`}
+              value={resolveResponsive(section.flex?.wrap, device) ?? "nowrap"}
+              options={[
+                { value: "nowrap", label: "Uma linha" },
+                { value: "wrap", label: "Quebrar linha" },
+              ]}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  flex: {
+                    ...section.flex,
+                    wrap: setResponsive(section.flex?.wrap, device, v as FlexWrapMode),
+                  },
+                })
+              }
             />
           </Section>
         </>

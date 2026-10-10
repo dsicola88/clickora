@@ -52,10 +52,16 @@ export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Prop
       const a = el.closest("a");
       if (!a || !(a instanceof HTMLAnchorElement)) return;
       const hrefAttr = (a.getAttribute("href") || "").trim();
+      const marked = a.getAttribute("data-clickora-offer") === "1";
+      const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");
+      if (marked && hashOnly) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign(track);
+        return;
+      }
       if (
-        !hrefAttr ||
-        hrefAttr === "#" ||
-        hrefAttr.startsWith("#") ||
+        hashOnly ||
         hrefAttr.startsWith("mailto:") ||
         hrefAttr.startsWith("tel:")
       ) {
@@ -69,7 +75,6 @@ export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Prop
       }
       const linkNorm = normalizeComparableUrl(absolute);
       if (!linkNorm) return;
-      const marked = a.getAttribute("data-clickora-offer") === "1";
       if (!marked && linkNorm !== offerNorm) return;
 
       e.preventDefault();

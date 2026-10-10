@@ -1,5 +1,6 @@
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { InlinePlain, useInlineEdit } from "../inline-edit";
 
 export interface CtaBoxContent {
   title: string;
@@ -37,6 +38,8 @@ export function CtaBoxWidget({ widget, device }: { widget: WidgetNode; device: D
   const imageUrl = c.imageUrl ?? "";
 
   const containerBg = gradient || background;
+  const editing = Boolean(useInlineEdit());
+  const offerLink = (href: string) => !href || href === "#" || href.startsWith("#");
 
   const buttons = (
     <div
@@ -50,6 +53,7 @@ export function CtaBoxWidget({ widget, device }: { widget: WidgetNode; device: D
       <a
         href={primaryHref}
         className="btn"
+        data-clickora-offer={offerLink(primaryHref) ? "1" : undefined}
         style={{
           background: primaryBg,
           color: primaryColor,
@@ -61,10 +65,10 @@ export function CtaBoxWidget({ widget, device }: { widget: WidgetNode; device: D
           display: "inline-block",
         }}
         onClick={(e) => {
-          if (primaryHref === "#") e.preventDefault();
+          if (editing && offerLink(primaryHref)) e.preventDefault();
         }}
       >
-        {primaryText}
+        <InlinePlain value={primaryText} field="primaryText" />
       </a>
       {secondaryText && (
         <a
@@ -117,7 +121,7 @@ export function CtaBoxWidget({ widget, device }: { widget: WidgetNode; device: D
               color: textColor,
             }}
           >
-            {title}
+            <InlinePlain value={title} field="title" />
           </h3>
           <p
             style={{
@@ -127,7 +131,7 @@ export function CtaBoxWidget({ widget, device }: { widget: WidgetNode; device: D
               opacity: 0.85,
             }}
           >
-            {description}
+            <InlinePlain value={description} field="description" />
           </p>
           {buttons}
         </div>

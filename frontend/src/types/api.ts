@@ -180,6 +180,10 @@ export interface TrackingEvent {
   traffic_type?: "paid" | "paid_untracked" | "organic";
   is_bot?: boolean;
   bot_label?: string | null;
+  /** Rede de datacenter/VPN conhecida. O país passa a ser o do registo, não o da base geográfica errada. */
+  unqualified?: boolean;
+  unqualified_reason?: string | null;
+  ip_network?: string | null;
 }
 
 

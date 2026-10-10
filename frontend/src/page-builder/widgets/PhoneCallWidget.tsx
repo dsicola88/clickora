@@ -1,6 +1,7 @@
 import { Phone } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
+import { InlinePlain } from "../inline-edit";
 import { resolveResponsive } from "../store";
 
 export interface PhoneCallContent {
@@ -86,7 +87,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
           }}
         >
           {showIcon && <Phone size={fontSize + 2} />}
-          {displayText}
+          <InlinePlain value={displayText} field="displayText" />
         </a>
       </div>
     );
@@ -116,7 +117,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
         }}
       >
         {showIcon && <Phone size={fontSize + 2} />}
-        {displayText}
+        <InlinePlain value={displayText} field="displayText" />
       </a>
     </div>
   );

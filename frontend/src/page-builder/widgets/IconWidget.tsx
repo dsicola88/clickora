@@ -10,12 +10,15 @@ export function IconWidget({ widget, device }: { widget: WidgetNode; device: Dev
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
 
-  // Convert "star" -> "Star" to look up the lucide component
-  const compName = name.charAt(0).toUpperCase() + name.slice(1);
-  const IconComp =
-    ((Icons as unknown as Record<string, ComponentType<{ size?: number; color?: string }>>)[
-      compName
-    ] as ComponentType<{ size?: number; color?: string }>) ?? Icons.Star;
+  const compName = name
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+  const lookedUp = (Icons as unknown as Record<string, ComponentType<{ size?: number; color?: string }>>)[
+    compName
+  ];
+  const IconComp = lookedUp ?? Icons.Star;
 
   return (
     <div style={{ display: "flex", justifyContent: alignToFlexJustify(align), ...css }}>
