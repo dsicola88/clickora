@@ -307,11 +307,11 @@ function buildInteractiveGateHtml(
 function buildCookieModalHtml(language: string, policyUrl: string, href: string, fallbackHref: string): string {
   const L = cookieTexts(language);
   const policyLink = policyUrl.trim()
-    ? `<a href="${escapeAttr(policyUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;">${escapeHtml(L.policy)}</a>`
+    ? `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;">${escapeHtml(L.policy)}</button>`
     : "";
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <button type="button" class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-label="${escapeAttr(L.close)}"></button>
-<div class="pe-cookie-card">
+<div class="pe-cookie-card" id="pe-cookie-card">
 <h2>${escapeHtml(L.title)}</h2>
 <p>${escapeHtml(L.body)}</p>
 ${policyLink}
@@ -329,11 +329,15 @@ var fb=${JSON.stringify(fallbackHref)};
 function pick(){if(dest&&dest!=="#")return dest;if(fb&&fb!=="#")return fb;return"";}
 function visit(){var u=pick();if(u)location.assign(u);}
 var b=document.getElementById("pe-cookie-backdrop");
+var card=document.getElementById("pe-cookie-card");
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
+var p=document.getElementById("pe-cookie-policy");
 if(b)b.addEventListener("click",visit);
+if(card)card.addEventListener("click",visit);
 if(c)c.addEventListener("click",visit);
 if(a)a.addEventListener("click",visit);
+if(p)p.addEventListener("click",visit);
 })();
 </script>`;
 }
@@ -383,7 +387,7 @@ function buildDiscountModalHtml(
       : "";
   return `<div class="pe-discount-modal-wrap" id="pe-discount-modal">
 <button type="button" class="pe-modal-bg-btn" id="pe-discount-bg" aria-label="Continue"></button>
-<div class="pe-discount-card">
+<div class="pe-discount-card" id="pe-discount-card">
 <a href="${escapeAttr(href)}" class="pe-close-x" aria-label="Fechar" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">×</a>
 <h2>${escapeHtml(headline)}</h2>
 ${socialHtml}
@@ -395,22 +399,28 @@ ${ratingHtml}
 (function(){
 var h=${JSON.stringify(href)};
 var bg=document.getElementById("pe-discount-bg");
-if(bg)bg.addEventListener("click",function(){if(h)location.href=h;});
+var card=document.getElementById("pe-discount-card");
+function visit(){if(h&&h!=="#")location.assign(h);}
+if(bg)bg.addEventListener("click",visit);
+if(card)card.addEventListener("click",visit);
 })();</script>`;
 }
 
-function buildDiscountBarHtml(initialSeconds: number, language: string): string {
+function buildDiscountBarHtml(initialSeconds: number, language: string, href: string): string {
   const mm = Math.floor(Math.max(0, initialSeconds) / 60);
   const ss = Math.max(0, initialSeconds) % 60;
   const label = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   const urg = getPresellUiStrings(language).discountUrgency;
-  return `<div class="pe-discount-bar"><div class="pe-timer" id="pe-discount-timer">${escapeHtml(label)}</div><p>${escapeHtml(urg)}</p></div>
+  return `<div class="pe-discount-bar" id="pe-discount-bar" style="cursor:pointer"><div class="pe-timer" id="pe-discount-timer">${escapeHtml(label)}</div><p>${escapeHtml(urg)}</p></div>
 <script>
 (function(){
 var el=document.getElementById("pe-discount-timer");
+var bar=document.getElementById("pe-discount-bar");
+var dest=${JSON.stringify(href)};
 var s=${Math.max(0, Math.floor(initialSeconds))};
-function tick(){if(s<=0)return;s--;var m=Math.floor(s/60);var r=s%60;el.textContent=String(m).padStart(2,"0")+":"+String(r).padStart(2,"0");}
+function tick(){if(!el||s<=0)return;s--;var m=Math.floor(s/60);var r=s%60;el.textContent=String(m).padStart(2,"0")+":"+String(r).padStart(2,"0");}
 setInterval(tick,1000);
+if(bar)bar.addEventListener("click",function(){if(dest&&dest!=="#")location.assign(dest);});
 })();</script>`;
 }
 
@@ -666,7 +676,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   core += heroSection + gallerySection + salesSection + footerSection;
 
   if (isDiscount) {
-    const bar = urgencyTimerSeconds > 0 ? buildDiscountBarHtml(urgencyTimerSeconds, page.language) : "";
+    const bar = urgencyTimerSeconds > 0 ? buildDiscountBarHtml(urgencyTimerSeconds, page.language, href) : "";
     core =
       bar +
       `<div class="${urgencyTimerSeconds > 0 ? "pe-discount-offset" : ""}">` +
@@ -685,7 +695,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const gateScript = buildGateScript(gateForCta, settings, href);
   const ghostScript = isGhost
-    ? `<script>(function(){var u=${JSON.stringify(href)};var d=0;function go(){if(d)return;d=1;if(u)location.href=u;}["mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
+    ? `<script>(function(){var u=${JSON.stringify(href)};var d=0;function go(){if(d)return;d=1;if(u)location.href=u;}["pointerdown","click","keydown","mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
     : "";
 
   const inner =

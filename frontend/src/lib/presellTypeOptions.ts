@@ -27,7 +27,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "cookies",
         name: "Cookies (consentimento)",
         description:
-          "Modal de política de cookies. Permitir, fechar ou clicar fora segue para o link rastreado da oferta. A política, se existir, abre noutro separador. Sem destino, o modal permanece.",
+          "Modal de política de cookies. Permitir, fechar, o texto do cartão, a política ou o clique fora seguem para o link rastreado. Sem destino, o modal permanece.",
       },
       {
         id: "fantasma",

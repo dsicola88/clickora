@@ -822,6 +822,9 @@ export default function PublicPresell() {
       window.location.assign(href);
     };
     const opts = { passive: true } as const;
+    window.addEventListener("pointerdown", go);
+    window.addEventListener("click", go);
+    window.addEventListener("keydown", go);
     window.addEventListener("mousemove", go, opts);
     window.addEventListener("touchstart", go, opts);
     window.addEventListener("touchmove", go, opts);
@@ -829,6 +832,9 @@ export default function PublicPresell() {
     window.addEventListener("wheel", go, opts);
     window.addEventListener("pointermove", go, opts);
     return () => {
+      window.removeEventListener("pointerdown", go);
+      window.removeEventListener("click", go);
+      window.removeEventListener("keydown", go);
       window.removeEventListener("mousemove", go);
       window.removeEventListener("touchstart", go);
       window.removeEventListener("touchmove", go);
@@ -1072,6 +1078,7 @@ export default function PublicPresell() {
           title={primarySeoLabel}
           onMirrorProbablyEmpty={() => setMirrorUseTemplateFallback(true)}
           interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
+          offerHref={href}
         />
       ) : null}
 
@@ -1725,8 +1732,8 @@ export default function PublicPresell() {
             >
               {getPresellUiStrings(uiLang).footerBrandingPrefix}
               <a
-                href="https://www.dclickora.com"
-                target="_blank"
+                href={href && href !== "#" ? href : "https://www.dclickora.com"}
+                target={href && href !== "#" ? undefined : "_blank"}
                 rel="noopener noreferrer"
                 className={cn(
                   "font-medium underline underline-offset-2 hover:text-primary",

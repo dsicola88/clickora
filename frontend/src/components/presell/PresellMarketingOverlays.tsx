@@ -8,7 +8,7 @@ type Lang = string;
 function stringsFor(lang: Lang) {
   const pt = {
     exitTitle: "Espera — não percas esta oferta",
-    exitBody: "Clica abaixo para aceder ao link com rastreamento.",
+    exitBody: "Continua para ver a oferta.",
     exitCta: "Ir para a oferta",
     exitDismiss: "Fechar",
     countdownLabel: "Tempo restante",
@@ -17,14 +17,56 @@ function stringsFor(lang: Lang) {
   };
   const en = {
     exitTitle: "Wait — don’t miss this offer",
-    exitBody: "Click below to open the tracked link.",
+    exitBody: "Continue to see the offer.",
     exitCta: "Go to the offer",
     exitDismiss: "Close",
     countdownLabel: "Time left",
     socialBought: "purchased recently",
     socialFrom: "from",
   };
-  return String(lang || "").toLowerCase().startsWith("en") ? en : pt;
+  const es = {
+    exitTitle: "Espera — no te pierdas esta oferta",
+    exitBody: "Continúa para ver la oferta.",
+    exitCta: "Ir a la oferta",
+    exitDismiss: "Cerrar",
+    countdownLabel: "Tiempo restante",
+    socialBought: "compró hace poco",
+    socialFrom: "de",
+  };
+  const de = {
+    exitTitle: "Warte — verpass dieses Angebot nicht",
+    exitBody: "Weiter, um das Angebot zu sehen.",
+    exitCta: "Zum Angebot",
+    exitDismiss: "Schließen",
+    countdownLabel: "Verbleibende Zeit",
+    socialBought: "hat gerade gekauft",
+    socialFrom: "aus",
+  };
+  const fr = {
+    exitTitle: "Attends — ne rate pas cette offre",
+    exitBody: "Continue pour voir l’offre.",
+    exitCta: "Voir l’offre",
+    exitDismiss: "Fermer",
+    countdownLabel: "Temps restant",
+    socialBought: "a acheté récemment",
+    socialFrom: "de",
+  };
+  const it = {
+    exitTitle: "Aspetta — non perdere questa offerta",
+    exitBody: "Continua per vedere l’offerta.",
+    exitCta: "Vai all’offerta",
+    exitDismiss: "Chiudi",
+    countdownLabel: "Tempo rimasto",
+    socialBought: "ha acquistato da poco",
+    socialFrom: "da",
+  };
+  const code = String(lang || "").toLowerCase();
+  if (code.startsWith("pt")) return pt;
+  if (code.startsWith("es")) return es;
+  if (code.startsWith("de")) return de;
+  if (code.startsWith("fr")) return fr;
+  if (code.startsWith("it")) return it;
+  return en;
 }
 
 const SOCIAL_NAMES = [
@@ -187,8 +229,8 @@ export function PresellMarketingOverlays({
             onClick={goOffer}
           />
           <div
-            className="relative z-10 max-w-md w-full rounded-xl border border-border bg-card p-6 shadow-xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 max-w-md w-full cursor-pointer rounded-xl border border-border bg-card p-6 shadow-xl space-y-4"
+            onClick={goOffer}
           >
             <h2 id="presell-exit-title" className="text-lg font-semibold text-card-foreground">
               {str.exitTitle}

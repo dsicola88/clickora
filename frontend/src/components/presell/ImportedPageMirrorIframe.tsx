@@ -6,8 +6,8 @@ type Props = {
   title?: string;
   /** Chamado se o `<body>` parecer vazio (texto mínimo e sem media/tabelas) — permite cair no layout React. */
   onMirrorProbablyEmpty?: () => void;
-  /** Quando true, bloqueia cliques na página clonada (ex.: gate idade/sexo ainda inválido). */
-  interactionLocked?: boolean;
+  /** Quando definido, um link http(s) do clone que não seja já o rastreio vai para esta oferta. */
+  offerHref?: string;
 };
 
 /**
@@ -19,6 +19,7 @@ export function ImportedPageMirrorIframe({
   title = "Página do produto",
   onMirrorProbablyEmpty,
   interactionLocked = false,
+  offerHref,
 }: Props) {
   const ref = useRef<HTMLIFrameElement>(null);
   const roRef = useRef<ResizeObserver | null>(null);
@@ -100,6 +101,10 @@ export function ImportedPageMirrorIframe({
     };
   }, [measureDebounced]);
 
+  const offerHrefRef = useRef(offerHref);
+  offerHrefRef.current = offerHref;
+  const mirrorClickCleanup = useRef<(() => void) | null>(null);
+
   const onLoad = useCallback(() => {
     measureDebounced();
     const el = ref.current;
@@ -115,10 +120,30 @@ export function ImportedPageMirrorIframe({
     window.setTimeout(checkProbablyEmpty, 320);
     window.setTimeout(checkProbablyEmpty, 1400);
     window.setTimeout(checkProbablyEmpty, 2800);
+    mirrorClickCleanup.current?.();
+    mirrorClickCleanup.current = null;
+    const offer = (offerHrefRef.current || "").trim();
+    const clickDoc = el?.contentDocument;
+    if (!offer || offer === "#" || !clickDoc) return;
+    const onClick = (e: MouseEvent) => {
+      const node = e.target;
+      if (!(node instanceof Element)) return;
+      const a = node.closest("a");
+      if (!a) return;
+      const raw = (a.getAttribute("href") || "").trim();
+      if (!raw || raw.startsWith("#") || /^mailto:|^tel:/i.test(raw)) return;
+      if (raw === offer || raw.includes("/track/")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.assign(offer);
+    };
+    clickDoc.addEventListener("click", onClick, true);
+    mirrorClickCleanup.current = () => clickDoc.removeEventListener("click", onClick, true);
   }, [measureDebounced, checkProbablyEmpty]);
 
   useEffect(() => {
     return () => {
+      mirrorClickCleanup.current?.();
       roRef.current?.disconnect();
       roRef.current = null;
     };

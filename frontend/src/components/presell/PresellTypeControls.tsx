@@ -60,7 +60,6 @@ export function CookieConsentModal({
   redirectHref,
   fallbackHref,
   accepted,
-  onAccept,
 }: {
   language: string;
   policyUrl: string;
@@ -69,18 +68,15 @@ export function CookieConsentModal({
   /** Ex.: hoplink cru ou sourceUrl quando `redirectHref` ainda não está disponível. */
   fallbackHref?: string;
   accepted: boolean;
-  onAccept: () => void;
+  /** Mantido por compatibilidade. Sem destino o modal não fecha. */
+  onAccept?: () => void;
 }) {
   const L = getPresellUiStrings(language);
   if (accepted) return null;
 
   const goToOffer = (action: "allow" | "dismiss") => {
     const next = cookieConsentNavigation(action, redirectHref, fallbackHref);
-    if (next.kind === "assign") {
-      window.location.assign(next.url);
-      return;
-    }
-    if (action === "allow") onAccept();
+    if (next.kind === "assign") window.location.assign(next.url);
   };
 
   return (
@@ -100,22 +96,21 @@ export function CookieConsentModal({
       />
       <div
         data-testid="presell-cookie-card"
-        className="relative z-10 mb-1 w-full max-w-[min(100%,32rem)] rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 mb-1 w-full max-w-[min(100%,32rem)] cursor-pointer rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-2xl"
+        onClick={() => goToOffer("dismiss")}
       >
         <h2 id="cookie-policy-title" className="text-xl font-bold text-foreground tracking-tight">
           {L.cookieTitle}
         </h2>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{L.cookieBody}</p>
         {policyUrl ? (
-          <a
-            href={policyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
             className="mt-3 inline-block text-sm font-medium text-primary underline underline-offset-4 hover:opacity-90"
+            onClick={() => goToOffer("dismiss")}
           >
             {L.cookiePolicy}
-          </a>
+          </button>
         ) : null}
         <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
           <Button

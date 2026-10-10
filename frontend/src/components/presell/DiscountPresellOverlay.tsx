@@ -73,19 +73,23 @@ export function DiscountPresellOverlay({
   return (
     <div className="relative">
       {secondsLeft > 0 ? (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-[#e91e8c] text-white text-center px-3 py-2.5 shadow-md">
+        <button
+          type="button"
+          className="fixed top-0 left-0 right-0 z-[530] bg-[#e91e8c] text-white text-center px-3 py-2.5 shadow-md"
+          onClick={goOffer}
+        >
           <div className="text-2xl font-bold tabular-nums tracking-tight">{formatMmSs(secondsLeft)}</div>
           <p className="text-xs sm:text-sm font-medium opacity-95 leading-snug max-w-lg mx-auto">
             {discountUrgencyCopy(language)}
           </p>
-        </div>
+        </button>
       ) : null}
 
       <div className={secondsLeft > 0 ? "pt-[5.25rem]" : undefined}>{children}</div>
 
       {open ? (
         <div
-          className="fixed inset-0 z-[55] flex items-end justify-center p-3 sm:p-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          className="fixed inset-0 z-[520] flex items-end justify-center p-3 sm:p-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="discount-modal-title"
@@ -99,8 +103,8 @@ export function DiscountPresellOverlay({
             onClick={goOffer}
           />
           <div
-            className="relative z-10 w-full max-w-md rounded-2xl bg-[#eceff1] shadow-2xl border border-white/40 px-6 py-8 sm:px-8"
-            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-md cursor-pointer rounded-2xl bg-[#eceff1] shadow-2xl border border-white/40 px-6 py-8 sm:px-8"
+            onClick={goOffer}
           >
             <button
               type="button"

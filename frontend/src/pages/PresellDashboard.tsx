@@ -981,8 +981,7 @@ export default function PresellDashboard() {
                     onChange={(e) => setTypeOptions((o) => ({ ...o, cookiePolicyUrl: e.target.value }))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Modal de cookies; qualquer ação redireciona para o link da oferta. Link opcional da política abre
-                    noutro separador.
+                    Modal de cookies. Qualquer clique, incluindo a política, vai para o link rastreado da oferta. Sem destino, o modal fica.
                   </p>
                 </div>
               ) : null}
