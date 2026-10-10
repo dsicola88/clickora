@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { SelectionTarget } from "../types";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useBuilder, resolveResponsive } from "../store";
@@ -46,6 +46,11 @@ export function Canvas() {
   const select = useBuilder((s) => s.select);
   const addSectionLayout = useBuilder((s) => s.addSectionLayout);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!layoutOpen) return;
+    layoutRef.current?.scrollIntoView({ block: "nearest" });
+  }, [layoutOpen]);
   const [menu, setMenu] = useState<{ x: number; y: number; target: Exclude<SelectionTarget, null> } | null>(
     null,
   );
@@ -59,7 +64,7 @@ export function Canvas() {
 
   return (
     <div
-      className="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto bg-editor-canvas"
+      className="editor-scrollbar h-full min-h-0 min-w-0 overflow-auto bg-editor-canvas"
       onClick={() => {
         if (!preview) select(null);
         setLayoutOpen(false);
@@ -68,7 +73,7 @@ export function Canvas() {
     >
       <div className={`flex min-h-full justify-center ${preview ? "p-0" : "p-6"}`}>
         <div
-          className="min-h-full bg-white shadow-2xl transition-[width] duration-200"
+          className="flex min-h-full flex-col bg-white shadow-2xl transition-[width] duration-200"
           style={{
             width: DEVICE_WIDTHS[device],
             maxWidth: "100%",
@@ -93,7 +98,7 @@ export function Canvas() {
           )}
 
           {!preview && doc.sections.length > 0 && (
-            <div className="relative mx-4 mb-6 mt-2">
+            <div className="relative mx-4 mb-6 mt-auto pt-2">
               <button
                 type="button"
                 onClick={(e) => {
@@ -106,7 +111,8 @@ export function Canvas() {
               </button>
               {layoutOpen ? (
                 <div
-                  className="absolute left-1/2 top-full z-30 mt-2 w-[280px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+                  ref={layoutRef}
+                  className="mt-2 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
