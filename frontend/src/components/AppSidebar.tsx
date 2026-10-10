@@ -19,6 +19,7 @@ import {
   Webhook,
   LineChart,
   Search,
+  GraduationCap,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -151,6 +152,14 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
                   <NavLink to="/inicio" end className={itemClass} activeClassName={itemActive}>
                     <Home className="h-4 w-4 flex-shrink-0" />
                     {!collapsed && <span>Início</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={path.startsWith("/aulas")} tooltip="Aulas">
+                  <NavLink to="/aulas" className={itemClass} activeClassName={itemActive}>
+                    <GraduationCap className="h-4 w-4 flex-shrink-0" />
+                    {!collapsed && <span>Aulas</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

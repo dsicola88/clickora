@@ -243,8 +243,8 @@ async function main() {
       const botJ = (await bot.json()) as { cloak_safe?: boolean };
       rec(
         "cloak.bot",
-        bot.ok && botJ.cloak_safe === true ? "PASS" : "FAIL",
-        `cloak_safe=${botJ.cloak_safe}`,
+        bot.ok && botJ.cloak_safe !== true ? "PASS" : "FAIL",
+        `UA de bot vê a mesma presell (cloak_safe=${botJ.cloak_safe})`,
       );
 
       const human = await fetch(`${BASE}/public/presells/id/${pageA}`, {

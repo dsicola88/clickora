@@ -26,7 +26,13 @@ export type AffiliateCampaign = {
   spend_currency: string;
   created_at: string;
   updated_at: string;
-  presell: { id: string; title: string; status: string; slug: string } | null;
+  presell: {
+    id: string;
+    title: string;
+    status: string;
+    slug: string;
+    custom_domain_id?: string | null;
+  } | null;
   stats?: CampaignStats;
 };
 

@@ -86,6 +86,8 @@ export default function CreatePresellWizardPage() {
   const [minAge, setMinAge] = useState("18");
   const [manualYoutubeUrl, setManualYoutubeUrl] = useState("");
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  /** Vazio = domínio padrão da conta. As duas variantes A/B usam o mesmo. */
+  const [customDomainId, setCustomDomainId] = useState("");
   const [presellId, setPresellId] = useState<string | null>(null);
   const [presellIdB, setPresellIdB] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
@@ -151,8 +153,9 @@ export default function CreatePresellWizardPage() {
         if (!imported.error && imported.data) {
           const data = imported.data;
           const isDiscount = isDiscountPresellType(typeForPage);
-          mirrorOk =
+          const hasMirror =
             typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
+          mirrorOk = data.publishable === true && hasMirror;
           content = {
             title: data.title,
             subtitle: data.subtitle,
@@ -165,7 +168,7 @@ export default function CreatePresellWizardPage() {
             storefrontTheme: data.storefront_theme,
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,
-            ...(mirrorOk ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
+            ...(hasMirror ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
             importMode: data.import_mode,
             ...(data.rating_from_source
               ? {
@@ -218,7 +221,7 @@ export default function CreatePresellWizardPage() {
 
       const a = buildContent(type);
       setGenPhase("publish");
-      const publishStatus = imported.data?.publishable === true && a.mirrorOk ? "published" : "draft";
+      const publishStatus = a.mirrorOk ? "published" : "draft";
       const { data: pageA, error: errA } = await presellService.create({
         title: a.pageTitle,
         slug,
@@ -232,6 +235,7 @@ export default function CreatePresellWizardPage() {
         },
         content: a.content,
         settings,
+        ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
       } as never);
       if (errA || !pageA) throw new Error(errA || "Falha ao criar presell");
 
@@ -248,7 +252,7 @@ export default function CreatePresellWizardPage() {
           slug: slugB,
           type: typeB,
           language,
-          status: imported.data?.publishable === true && b.mirrorOk ? "published" : "draft",
+          status: b.mirrorOk ? "published" : "draft",
           video_url: b.video_url,
           tracking: {
             offerUrl: offer,
@@ -256,6 +260,7 @@ export default function CreatePresellWizardPage() {
           },
           content: b.content,
           settings,
+          ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
         } as never);
         if (errB || !createdB) throw new Error(errB || "Falha ao criar variante B");
         pageB = createdB;
@@ -321,7 +326,7 @@ export default function CreatePresellWizardPage() {
         toast.success("A/B criado: 2 landers + rotador 50/50");
       } else if (mirrorOk) {
         toast.success(
-          "Presell publicada no modo espelho. O visitante não executa o JavaScript da página original; não é uma cópia fiel.",
+          "Presell publicada. O visitante não executa o JavaScript da página original; a captura é estática.",
         );
         if (importNotes.length > 0) toast.warning(importNotes.join(" "));
       } else if (importNotes.length > 0) {
@@ -485,6 +490,33 @@ export default function CreatePresellWizardPage() {
             <Label>País (anúncio)</Label>
             <Input value={country} onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))} />
           </div>
+          {customDomains.filter((d) => d.status === "verified").length > 1 ? (
+            <div className="space-y-2 max-w-xl">
+              <Label>Domínio do anúncio</Label>
+              <Select
+                value={customDomainId || "default"}
+                onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Domínio padrão da conta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Domínio padrão da conta</SelectItem>
+                  {customDomains
+                    .filter((d) => d.status === "verified")
+                    .map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.hostname}
+                        {d.is_default ? " (padrão)" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                A campanha X e a Y ficam em domínios diferentes ao escolheres aqui o domínio de cada uma.
+              </p>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setStep(1)}>
               <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
@@ -642,8 +674,8 @@ export default function CreatePresellWizardPage() {
           <p className="font-semibold">Tracking</p>
           {!mirrorFidelityOk ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-3 text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
-              O espelho 1:1 da página de vendas falhou — a presell ficou em <strong>rascunho</strong>. Publique só
-              depois de editar o conteúdo em Presells.
+              A presell ficou em <strong>rascunho</strong>. O link do anúncio só abre depois de a publicares em
+              Presells.
             </div>
           ) : null}
           <ul className="space-y-2 text-sm">
@@ -654,7 +686,7 @@ export default function CreatePresellWizardPage() {
                 "Postback (vendas)",
                 "Pendente — configure BuyGoods / SmartAdv / Digistore",
               ],
-              ["Espelho da página", mirrorFidelityOk ? "Fiel à página de vendas" : "Falhou — editar antes de anunciar"],
+              ["Espelho da página", mirrorFidelityOk ? "Publicada, com captura estática" : "Rascunho — editar antes de anunciar"],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-3 border-b border-border/40 py-2">
                 <span className="text-muted-foreground">{k}</span>

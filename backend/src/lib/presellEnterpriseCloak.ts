@@ -1,5 +1,4 @@
-import type { Request } from "express";
-import { detectBot } from "./detectBot";
+import type { Request, Response } from "express";
 import { countryIsoFromIp } from "./countryFromIp";
 import { extractClientIp } from "./clientIp";
 
@@ -22,36 +21,62 @@ function parseSettings(raw: unknown): CloakSettings {
   };
 }
 
+/** Países da lista desta presell. O User-Agent não muda a página. */
+export function countryOnCloakDenyList(settingsRaw: unknown, country: string | null | undefined): boolean {
+  const settings = parseSettings(settingsRaw);
+  if (!settings.enterpriseCloak) return false;
+  const denyRaw = (settings.cloakGeoDeny || "")
+    .split(/[,;\s]+/)
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => /^[A-Z]{2}$/.test(c));
+  if (denyRaw.length === 0) return false;
+  const code = (country || "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) && denyRaw.includes(code);
+}
+
 /**
- * Cloaking enterprise: bots / geo deny → página limpa (sem mirror, sem hoplink).
- * Humanos normais → presell completa. Não é “invisível” a revisores humanos.
+ * Página segura por país configurado nesta presell.
+ * Bot, IP e proxy seguem as regras da conta, não o User-Agent desta função.
  */
 export function shouldServeCloakSafePage(
   req: Request,
   settingsRaw: unknown,
 ): { cloak: true; reason: string } | { cloak: false } {
-  const settings = parseSettings(settingsRaw);
-  if (!settings.enterpriseCloak) return { cloak: false };
-
-  const ua = req.headers["user-agent"]?.toString() || "";
-  const bot = detectBot(ua);
-  if (bot.isBot) {
-    return { cloak: true, reason: `bot:${bot.label}` };
+  const ip = extractClientIp(req);
+  const country = countryIsoFromIp(ip)?.toUpperCase();
+  if (countryOnCloakDenyList(settingsRaw, country)) {
+    return { cloak: true, reason: `geo:${country}` };
   }
-
-  const denyRaw = (settings.cloakGeoDeny || "")
-    .split(/[,;\s]+/)
-    .map((c) => c.trim().toUpperCase())
-    .filter((c) => /^[A-Z]{2}$/.test(c));
-  if (denyRaw.length > 0) {
-    const ip = extractClientIp(req);
-    const country = countryIsoFromIp(ip)?.toUpperCase();
-    if (country && denyRaw.includes(country)) {
-      return { cloak: true, reason: `geo:${country}` };
-    }
-  }
-
   return { cloak: false };
+}
+
+export function safeCopyFromSettings(settingsRaw: unknown): { title: string; body: string } {
+  const settings = parseSettings(settingsRaw);
+  const title = (settings.cloakSafeTitle || "").trim() || "Informação";
+  const body =
+    (settings.cloakSafeBody || "").trim() ||
+    "Conteúdo informativo. Para mais detalhes, contacte o responsável pela página.";
+  return { title, body };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export function safeVisitorHtml(title: string, body: string): string {
+  const safeTitle = escapeHtml(title);
+  const safeBody = escapeHtml(body).replace(/\n/g, "<br>");
+  return `<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${safeTitle}</title></head><body style="font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;line-height:1.5"><h1>${safeTitle}</h1><p>${safeBody}</p></body></html>`;
+}
+
+/** Visitante filtrado: HTML sem hoplink. O motivo fica no log, não na página. */
+export function sendSafeVisitorPage(res: Response, settingsRaw: unknown): void {
+  const copy = safeCopyFromSettings(settingsRaw);
+  res.status(403).type("html").send(safeVisitorHtml(copy.title, copy.body));
 }
 
 export function buildCloakSafePublicPayload(args: {
@@ -59,38 +84,43 @@ export function buildCloakSafePublicPayload(args: {
   settingsRaw: unknown;
   reason: string;
 }): Record<string, unknown> {
-  const settings = parseSettings(args.settingsRaw);
-  const title =
-    (settings.cloakSafeTitle || "").trim() ||
-    (typeof args.base.title === "string" && args.base.title.trim()
-      ? String(args.base.title).trim()
-      : "Informação");
-  const body =
-    (settings.cloakSafeBody || "").trim() ||
-    "Conteúdo informativo. Para mais detalhes, contacte o responsável pela página.";
+  const copy = safeCopyFromSettings(args.settingsRaw);
+  void args.reason;
 
   return {
-    ...args.base,
+    id: args.base.id,
+    slug: args.base.slug,
+    status: args.base.status,
+    language: args.base.language,
+    footer_branding: args.base.footer_branding,
+    tenant_branding: args.base.tenant_branding ?? null,
+    custom_domain_id: args.base.custom_domain_id ?? null,
     cloak_safe: true,
-    cloak_reason: args.reason,
+    title: copy.title,
     type: "tsl",
+    category: "",
+    clicks: 0,
+    impressions: 0,
+    conversions: 0,
+    video_url: undefined,
     content: {
-      title,
+      title: copy.title,
       subtitle: "",
-      salesText: body,
+      salesText: copy.body,
       ctaText: "",
       images: [],
+      productImages: [],
       affiliateLink: "#",
       importMirrorSrcDoc: "",
     },
     settings: {
-      ...(typeof args.base.settings === "object" && args.base.settings && !Array.isArray(args.base.settings)
-        ? (args.base.settings as Record<string, unknown>)
-        : {}),
       enterpriseCloak: true,
       exitPopup: false,
       countdownTimer: false,
       socialProof: false,
     },
+    tracking: {},
+    created_at: args.base.created_at,
+    updated_at: args.base.updated_at,
   };
 }

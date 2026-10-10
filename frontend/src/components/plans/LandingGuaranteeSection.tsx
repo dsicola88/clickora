@@ -66,9 +66,10 @@ export function LandingGuaranteeSection({ extras, className }: Props) {
           {g.lead?.trim() ? (
             <p
               className={cn(
-                "text-base leading-relaxed md:text-lg",
+                "text-base leading-relaxed hyphens-auto [text-align-last:start] md:text-lg",
                 landingTextStyleBodyClasses(ts?.guarantee_lead),
                 salesDark && !ts?.guarantee_lead?.color ? "text-white/90" : !salesDark ? "text-muted-foreground" : "",
+                "text-justify",
               )}
               style={landingTextStyleColorStyle(ts?.guarantee_lead)}
             >
@@ -79,9 +80,10 @@ export function LandingGuaranteeSection({ extras, className }: Props) {
           {g.body?.trim() ? (
             <div
               className={cn(
-                "text-sm leading-relaxed md:text-base [&_p]:mb-3 [&_p:last-child]:mb-0",
+                "text-sm leading-relaxed hyphens-auto [text-align-last:start] md:text-base [&_p]:mb-3 [&_p]:hyphens-auto [&_p]:[text-align-last:start] [&_p:last-child]:mb-0",
                 landingTextStyleBodyClasses(ts?.guarantee_body),
                 salesDark && !ts?.guarantee_body?.color ? "text-white/80" : "",
+                "text-justify [&_p]:text-justify",
               )}
               style={landingTextStyleColorStyle(ts?.guarantee_body)}
             >
@@ -116,8 +118,9 @@ export function LandingGuaranteeSection({ extras, className }: Props) {
               />
               <div
                 className={cn(
-                  "min-w-0 text-sm leading-relaxed md:text-base",
+                  "min-w-0 text-sm leading-relaxed hyphens-auto [text-align-last:start] md:text-base [&_p]:hyphens-auto [&_p]:[text-align-last:start]",
                   landingTextStyleBodyClasses(ts?.guarantee_footer),
+                  "text-justify [&_p]:text-justify",
                 )}
                 style={landingTextStyleColorStyle(ts?.guarantee_footer)}
               >

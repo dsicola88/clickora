@@ -5,6 +5,7 @@ import { authenticate } from "../middleware/authenticate";
 import { requireRole } from "../middleware/requireRole";
 import { faviconUpload } from "../lib/brandingUpload";
 import { plansLandingController } from "../controllers/plansLanding.controller";
+import { academyLessonController } from "../controllers/academyLesson.controller";
 import { plansGalleryUpload, plansHeroUpload } from "../lib/plansLandingUpload";
 
 export const adminRouter = Router();
@@ -64,6 +65,11 @@ adminRouter.post(
   plansLandingController.uploadGalleryImage,
 );
 adminRouter.delete("/plans-landing/hero-image", requireRole("super_admin"), plansLandingController.clearHero);
+
+adminRouter.get("/lessons", requireRole("super_admin"), academyLessonController.listAdmin);
+adminRouter.post("/lessons", requireRole("super_admin"), academyLessonController.create);
+adminRouter.patch("/lessons/:id", requireRole("super_admin"), academyLessonController.update);
+adminRouter.delete("/lessons/:id", requireRole("super_admin"), academyLessonController.remove);
 
 adminRouter.use(requireRole("super_admin", "admin"));
 

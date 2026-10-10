@@ -248,11 +248,11 @@ export function PresellAdvancedTrackingCollapsible({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                    Cloaking enterprise (lite)
+                    Página segura por país
                   </p>
                   <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    Bots e países bloqueados vêem página segura — sem espelho nem hoplink. Humanos vêem a
-                    presell completa. Não é invisível a revisores humanos.
+                    Os países desta lista vêem o texto seguro, sem oferta. O mesmo texto serve para quem a conta
+                    bloquear (IP, bot, proxy ou rajada). Um browser normal, fora dessas regras, vê a presell completa.
                   </p>
                 </div>
                 <Switch

@@ -97,6 +97,23 @@ export default function InAppUserGuidePage() {
         }
       />
 
+      <Card className="max-w-3xl mx-auto border-primary/25 bg-primary/[0.04]">
+        <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">Aulas em vídeo</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Veja como usar a ferramenta, módulo a módulo. Os vídeos são do YouTube ou do Bunny e estão incluídos na
+              assinatura.
+            </p>
+          </div>
+          <Button className="shrink-0 gap-2" asChild>
+            <Link to="/aulas">
+              Abrir aulas <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between max-w-3xl mx-auto w-full">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />

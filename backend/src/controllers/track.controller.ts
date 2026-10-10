@@ -11,8 +11,9 @@ import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePos
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
-import { assessClickQuality, detectBot } from "../lib/detectBot";
+import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
+import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
@@ -27,7 +28,7 @@ import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 import { extractClientIp } from "../lib/clientIp";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
-import { rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
+import { fillMissingAdClickIds, forwardAdQueryToUrl, rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -330,17 +331,13 @@ export const trackController = {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") {
-      /** Visitante de anúncio não pode ver JSON 403 — entrega a oferta sem atribuir. */
-      console.warn("[track.redirect] presell não publicada → oferta sem click id", {
-        presellId,
-        status: page.status,
-      });
-      return res.redirect(302, to);
+      console.warn("[track.redirect] presell não publicada → sem oferta", { presellId, status: page.status });
+      return sendSafeVisitorPage(res, page.settings);
     }
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) {
-      console.warn("[track.redirect] owner sem acesso → oferta sem click id", { presellId });
-      return res.redirect(302, to);
+      console.warn("[track.redirect] owner sem acesso → sem oferta", { presellId });
+      return sendSafeVisitorPage(res, page.settings);
     }
 
     const ip = extractClientIp(req);
@@ -354,35 +351,19 @@ export const trackController = {
       channel: "redirect",
       recordedEventType: "click",
     });
-    /**
-     * Soft-pass no redirect: nunca devolver JSON ao visitante do anúncio.
-     * Blacklist / bot → oferta sem atribuição. Rate/proxy → clique com exclude_from_kpi quando aplicável.
-     */
-    if (!guard.ok && (guard.reason === "blacklist" || guard.reason === "bot_blocked" || guard.reason === "empty_user_agent")) {
-      console.warn("[track.redirect] soft-pass sem atribuição", { presellId, reason: guard.reason, ip });
-      return res.redirect(302, to);
+    if (!guard.ok) {
+      console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
+      return sendSafeVisitorPage(res, page.settings);
     }
-    const guardSoftMeta =
-      !guard.ok
-        ? ({
-            guard_soft_pass: true,
-            guard_reason: guard.reason,
-            ...(guard.reason === "proxy_blocked" ||
-            guard.reason === "whitelist" ||
-            guard.reason === "auto_blacklist_clicks"
-              ? { exclude_from_kpi: true, ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}) }
-              : {}),
-          } as Record<string, unknown>)
-        : {};
+    if (countryOnCloakDenyList(page.settings, countryIsoFromIp(ip))) {
+      console.warn("[track.redirect] país sem oferta", { presellId, ip });
+      return sendSafeVisitorPage(res, page.settings);
+    }
 
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
-    /** Clique marcado bot pelo UA → não atribuir (mesmo soft-pass de guard). */
-    if (botMeta.is_bot === true) {
-      console.warn("[track.redirect] UA bot → oferta sem click id", { presellId, ip });
-      return res.redirect(302, to);
-    }
 
     let rotatorParentMeta: Record<string, unknown> = {};
+    let parentMetadata: unknown = null;
     if (parentClickIdRaw) {
       const parentEv = await systemPrisma.trackingEvent.findFirst({
         where: { id: parentClickIdRaw, eventType: "click" },
@@ -396,6 +377,7 @@ export const trackController = {
           parentMetadata: parentEv.metadata,
         });
         if (linked) {
+          parentMetadata = parentEv.metadata;
           rotatorParentMeta = {
             parent_rotator_click_id: linked.parent_rotator_click_id,
             rotator_id: linked.rotator_id,
@@ -404,6 +386,10 @@ export const trackController = {
         }
       }
     }
+    const adIds = fillMissingAdClickIds(
+      { gclid, gbraid, wbraid, msclkid, fbclid, ttclid },
+      rotatorParentMeta.parent_rotator_click_id ? parentMetadata : null,
+    );
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -420,13 +406,13 @@ export const trackController = {
           userAgent,
           device,
           metadata: {
-            gclid,
-            gbraid,
-            wbraid,
-            fbclid,
+            gclid: adIds.gclid,
+            gbraid: adIds.gbraid,
+            wbraid: adIds.wbraid,
+            fbclid: adIds.fbclid,
             fbp,
-            ttclid,
-            msclkid,
+            ttclid: adIds.ttclid,
+            msclkid: adIds.msclkid,
             utm_term,
             utm_content,
             utm_campaign: campaign || undefined,
@@ -441,17 +427,14 @@ export const trackController = {
             ...pathMetaJson,
             ...voluumMeta,
             ...botMeta,
-            ...guardSoftMeta,
             ...rotatorParentMeta,
           } as Prisma.InputJsonValue,
         },
       });
-      if (!(guardSoftMeta as { exclude_from_kpi?: boolean }).exclude_from_kpi) {
-        await tx.presellPage.update({
-          where: { id: page.id },
-          data: { clicks: { increment: 1 } },
-        });
-      }
+      await tx.presellPage.update({
+        where: { id: page.id },
+        data: { clicks: { increment: 1 } },
+      });
       return ev;
     });
 
@@ -528,7 +511,7 @@ export const trackController = {
 
     const rot = await systemPrisma.trafficRotator.findFirst({
       where: { id: rotatorId, isActive: true },
-      include: { contextPresell: { select: { id: true, userId: true, title: true, status: true } } },
+      include: { contextPresell: { select: { id: true, userId: true, title: true, status: true, settings: true } } },
     });
     if (!rot || rot.contextPresell.status !== "published") {
       return res.status(404).json({ error: "Rotador não encontrado" });
@@ -559,15 +542,20 @@ export const trackController = {
       channel: "rotator_redirect",
       recordedEventType: "click",
     });
+    if (!guard.ok) {
+      console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
+      return sendSafeVisitorPage(res, rot.contextPresell.settings);
+    }
     const country = countryIsoFromIp(ip) ?? null;
+    if (countryOnCloakDenyList(rot.contextPresell.settings, country)) {
+      console.warn("[track.rotator] país sem oferta", { rotatorId, country });
+      return sendSafeVisitorPage(res, rot.contextPresell.settings);
+    }
     const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
     const pick = await pickRotatorDestination(rotatorId, { country, device });
     if (!pick.ok) {
       if (pick.reason === "policy_block") {
-        return res.status(403).json({
-          error: "Este tráfego foi bloqueado pela política de regras do rotador.",
-          code: "policy_block",
-        });
+        return sendSafeVisitorPage(res, rot.contextPresell.settings);
       }
       return res.status(503).json({
         error:
@@ -578,29 +566,6 @@ export const trackController = {
       });
     }
     const finalUrl = pick.destinationUrl;
-
-    if (
-      !guard.ok &&
-      (guard.reason === "blacklist" || guard.reason === "bot_blocked" || guard.reason === "empty_user_agent")
-    ) {
-      console.warn("[track.rotator] soft-pass sem atribuição", { rotatorId, reason: guard.reason });
-      return res.redirect(302, finalUrl);
-    }
-    if (rotBotMeta.is_bot === true) {
-      return res.redirect(302, finalUrl);
-    }
-    const rotGuardSoft =
-      !guard.ok
-        ? ({
-            guard_soft_pass: true,
-            guard_reason: guard.reason,
-            ...(guard.reason === "proxy_blocked" ||
-            guard.reason === "whitelist" ||
-            guard.reason === "auto_blacklist_clicks"
-              ? { exclude_from_kpi: true, ...(guard.reason === "proxy_blocked" ? { is_proxy_suspect: true } : {}) }
-              : {}),
-          } as Record<string, unknown>)
-        : {};
 
     const armIdForMeta = pick.usedBackup || pick.viaPolicyRedirect ? null : pick.armId;
 
@@ -641,7 +606,6 @@ export const trackController = {
           ...rotPathMetaJson,
           ...rotVoluumMeta,
           ...rotBotMeta,
-          ...rotGuardSoft,
         } as Prisma.InputJsonValue,
       },
     });
@@ -657,7 +621,20 @@ export const trackController = {
       userId: rot.userId,
       presellId: rot.contextPresellId,
     });
-    const redirectTo = appendClickIdToAffiliateUrl(finalUrl, click.id, offerNetwork);
+    const landed = forwardAdQueryToUrl(finalUrl, {
+      gclid,
+      gbraid,
+      wbraid,
+      msclkid,
+      fbclid,
+      ttclid,
+      utm_source,
+      utm_medium: medium,
+      utm_campaign: campaign,
+      utm_term,
+      utm_content,
+    });
+    const redirectTo = appendClickIdToAffiliateUrl(landed, click.id, offerNetwork);
     return res.redirect(302, redirectTo);
   },
 

@@ -121,11 +121,10 @@ export interface Presell {
   /** Só API pública: `true` = mostrar crédito dclickora no rodapé (plano com branding). */
   footer_branding?: boolean;
   /**
-   * Só API pública: `true` quando cloaking enterprise serviu a página segura
-   * (bots / geo deny) — sem espelho HTML nem hoplink real.
+   * Só API pública: `true` quando o país desta presell ou uma regra da conta
+   * serviu a página segura — sem espelho, scripts, tracking nem hoplink.
    */
   cloak_safe?: boolean;
-  cloak_reason?: string;
 };
 
 export interface AnalyticsSummary {

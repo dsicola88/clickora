@@ -24,6 +24,7 @@ import {
 import { rehostMirrorImagesToR2 } from "../src/lib/presellMirrorRehost";
 import {
   buildCloakSafePublicPayload,
+  countryOnCloakDenyList,
   shouldServeCloakSafePage,
 } from "../src/lib/presellEnterpriseCloak";
 import { appendClickIdToAffiliateUrl } from "../src/lib/appendClickIdToUrl";
@@ -288,7 +289,9 @@ async function main() {
       { enterpriseCloak: true },
     );
     assert.equal(cloakOff.cloak, false);
-    assert.equal(cloakOn.cloak, true);
+    assert.equal(cloakOn.cloak, false);
+    const geoListed = countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "CN" }, "CN");
+    assert.equal(geoListed, true);
 
     const payload = buildCloakSafePublicPayload({
       base: { id: "1", title: "X", content: { importMirrorSrcDoc: "<html/>", affiliateLink: "https://x" } },
@@ -303,8 +306,8 @@ async function main() {
     rec(
       "CLOAKING",
       "unit_bot_safe",
-      cloakOn.cloak && payloadOk ? "PASS" : "FAIL",
-      "Bot + enterpriseCloak → cloak_safe sem mirror/hoplink",
+      !cloakOn.cloak && geoListed && payloadOk ? "PASS" : "FAIL",
+      "User-Agent de bot não muda a página; país na lista e payload seguro sem hoplink",
       "presellEnterpriseCloak",
     );
 

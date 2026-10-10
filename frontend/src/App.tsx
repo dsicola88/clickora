@@ -47,6 +47,7 @@ import GoogleAdsConnectPage from "./pages/GoogleAdsConnectPage";
 import SettingsHubPage from "./pages/SettingsHubPage";
 import AffiliateAutomizerPage from "./pages/AffiliateAutomizerPage";
 import KeywordsPage from "./pages/KeywordsPage";
+import LessonsPage from "./pages/LessonsPage";
 
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
@@ -59,6 +60,7 @@ function BrandingFaviconGate() {
 /** Rotas novas + redirects das URLs antigas (bookmarks). */
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
+  { path: "/aulas", element: <LessonsPage /> },
   { path: "/ajuda", element: <InAppUserGuidePage /> },
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminEntryRedirect /> },

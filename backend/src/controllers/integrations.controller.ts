@@ -41,6 +41,7 @@ import {
   syncConversionToTikTokEvents,
 } from "../modules/tiktokEvents/tiktokEvents.service";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
+import { effectiveAutoBlacklistThreshold } from "../lib/trackingGuardPolicy";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
 import { notifyWebPushConversion } from "../lib/webPushNotifications";
@@ -1783,7 +1784,7 @@ export const integrationsController = {
         ...(d.block_bot_clicks !== undefined ? { blockBotClicks: d.block_bot_clicks } : {}),
         ...(d.block_proxy_clicks !== undefined ? { blockProxyClicks: d.block_proxy_clicks } : {}),
         ...(d.auto_blacklist_click_threshold !== undefined
-          ? { autoBlacklistClickThreshold: d.auto_blacklist_click_threshold }
+          ? { autoBlacklistClickThreshold: effectiveAutoBlacklistThreshold(d.auto_blacklist_click_threshold) }
           : {}),
         ...(d.auto_blacklist_click_window_hours !== undefined
           ? { autoBlacklistClickWindowHours: d.auto_blacklist_click_window_hours }

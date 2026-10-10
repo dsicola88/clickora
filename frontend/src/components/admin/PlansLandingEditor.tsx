@@ -60,6 +60,7 @@ import {
   LANDING_SECTION_LABELS,
   LANDING_SECTION_IDS,
   resolveSectionOrder,
+  resolveSectionsEnabled,
   type LandingSectionId,
 } from "@/lib/landingSectionLayout";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -438,6 +439,28 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     { label: "", href: "" },
     { label: "", href: "" },
   ]);
+  const [heroNote, setHeroNote] = useState("");
+  const [recommendedPlanType, setRecommendedPlanType] = useState("monthly");
+  const [recommendedNote, setRecommendedNote] = useState("");
+  const [freeLimitsNote, setFreeLimitsNote] = useState("");
+  const [planTaglines, setPlanTaglines] = useState({
+    free_trial: "",
+    monthly: "",
+    annual: "",
+    quarterly: "",
+  });
+  const [demoOffer, setDemoOffer] = useState("");
+  const [demoNav, setDemoNav] = useState("");
+  const [demoStatus, setDemoStatus] = useState("");
+  const [demoPresellNote, setDemoPresellNote] = useState("");
+  const [demoKeywordsLabel, setDemoKeywordsLabel] = useState("");
+  const [demoKeywords, setDemoKeywords] = useState("");
+  const [demoKeywordMeta, setDemoKeywordMeta] = useState("");
+  const [demoAdLabel, setDemoAdLabel] = useState("");
+  const [demoAdTitle, setDemoAdTitle] = useState("");
+  const [demoAdMeta, setDemoAdMeta] = useState("");
+  const [demoRows, setDemoRows] = useState("");
+  const [demoCaption, setDemoCaption] = useState("");
   const [contentBlocks, setContentBlocks] = useState<EditorContentBlockWithKey[]>([]);
 
   const contentBlockListSensors = useSensors(
@@ -549,47 +572,58 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     setFeatTitle(ex.features?.title ?? "");
     setFeatSubtitle(ex.features?.subtitle ?? "");
     const fc = ex.features?.cards ?? [];
-    setFeatCards([
-      {
-        title: fc[0]?.title ?? "",
-        body: fc[0]?.body ?? "",
-        image_url: fc[0]?.image_url?.trim() ?? "",
-      },
-      {
-        title: fc[1]?.title ?? "",
-        body: fc[1]?.body ?? "",
-        image_url: fc[1]?.image_url?.trim() ?? "",
-      },
-      {
-        title: fc[2]?.title ?? "",
-        body: fc[2]?.body ?? "",
-        image_url: fc[2]?.image_url?.trim() ?? "",
-      },
-    ]);
+    setFeatCards(
+      fc.length
+        ? fc.slice(0, 6).map((card) => ({
+            title: card.title ?? "",
+            body: card.body ?? "",
+            image_url: card.image_url?.trim() ?? "",
+          }))
+        : [{ title: "", body: "", image_url: "" }],
+    );
     setStatTitle(ex.stats?.title ?? "");
     setStatSubtitle(ex.stats?.subtitle ?? "");
     const si = ex.stats?.items ?? [];
-    setStatItems([
-      { value: si[0]?.value ?? "", label: si[0]?.label ?? "" },
-      { value: si[1]?.value ?? "", label: si[1]?.label ?? "" },
-      { value: si[2]?.value ?? "", label: si[2]?.label ?? "" },
-      { value: si[3]?.value ?? "", label: si[3]?.label ?? "" },
-    ]);
+    setStatItems(
+      si.length
+        ? si.slice(0, 8).map((item) => ({ value: item.value ?? "", label: item.label ?? "" }))
+        : [{ value: "", label: "" }],
+    );
     setFaqTitle(ex.faq?.title ?? "");
     const fq = ex.faq?.items ?? [];
     setFaqItems(
-      Array.from({ length: 5 }, (_, i) => ({
-        q: fq[i]?.q ?? "",
-        a: fq[i]?.a ?? "",
-      })),
+      fq.length ? fq.slice(0, 20).map((item) => ({ q: item.q ?? "", a: item.a ?? "" })) : [{ q: "", a: "" }],
     );
     setLegalLines((ex.legal_footer?.lines ?? []).join("\n"));
     const ll = ex.legal_footer?.links ?? [];
-    setLegalLinks([
-      { label: ll[0]?.label ?? "", href: ll[0]?.href ?? "" },
-      { label: ll[1]?.label ?? "", href: ll[1]?.href ?? "" },
-      { label: ll[2]?.label ?? "", href: ll[2]?.href ?? "" },
-    ]);
+    setLegalLinks(
+      ll.length
+        ? ll.slice(0, 12).map((link) => ({ label: link.label ?? "", href: link.href ?? "" }))
+        : [{ label: "", href: "" }],
+    );
+    setHeroNote(ex.hero_note ?? "");
+    setRecommendedPlanType(ex.recommended_plan_type?.trim() || "none");
+    setRecommendedNote(ex.recommended_note ?? "");
+    setFreeLimitsNote(ex.free_limits_note ?? "");
+    setPlanTaglines({
+      free_trial: ex.plan_taglines?.free_trial ?? "",
+      monthly: ex.plan_taglines?.monthly ?? "",
+      annual: ex.plan_taglines?.annual ?? "",
+      quarterly: ex.plan_taglines?.quarterly ?? "",
+    });
+    const demo = ex.product_demo;
+    setDemoOffer(demo?.offer_name ?? "");
+    setDemoNav((demo?.nav_items ?? []).join("\n"));
+    setDemoStatus(demo?.presell_status ?? "");
+    setDemoPresellNote(demo?.presell_note ?? "");
+    setDemoKeywordsLabel(demo?.keywords_label ?? "");
+    setDemoKeywords((demo?.keywords ?? []).join("\n"));
+    setDemoKeywordMeta(demo?.keyword_meta ?? "");
+    setDemoAdLabel(demo?.ad_label ?? "");
+    setDemoAdTitle(demo?.ad_title ?? "");
+    setDemoAdMeta(demo?.ad_meta ?? "");
+    setDemoRows((demo?.rows ?? []).map((row) => `${row.label} | ${row.value}`).join("\n"));
+    setDemoCaption(demo?.caption ?? "");
 
     const blocks = ex.content_blocks;
     if (blocks?.length) {
@@ -637,23 +671,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     }
 
     setSectionOrder(resolveSectionOrder(ex.section_order));
-    const se = ex.sections_enabled;
-    if (se) {
-      setSectionsEnabled({
-        content_blocks: se.content_blocks !== false,
-        features: se.features !== false,
-        stats: se.stats !== false,
-        testimonials: se.testimonials !== false,
-        gallery: se.gallery !== false,
-        planos: se.planos !== false,
-        guarantee: se.guarantee !== false,
-        faq: se.faq !== false,
-      });
-    } else {
-      const o = {} as Record<LandingSectionId, boolean>;
-      for (const id of LANDING_SECTION_IDS) o[id] = true;
-      setSectionsEnabled(o);
-    }
+    setSectionsEnabled(resolveSectionsEnabled(ex.sections_enabled));
 
     const te = ex.testimonials;
     setTestimonialTitle(te?.title ?? "");
@@ -917,6 +935,39 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         planos: sectionsEnabled.planos,
         guarantee: sectionsEnabled.guarantee,
         faq: sectionsEnabled.faq,
+        product_demo: sectionsEnabled.product_demo,
+        account_plan: sectionsEnabled.account_plan,
+      },
+      hero_note: heroNote.trim() || null,
+      recommended_plan_type: recommendedPlanType === "none" ? "" : recommendedPlanType,
+      recommended_note: recommendedNote.trim() || null,
+      free_limits_note: freeLimitsNote.trim() || null,
+      plan_taglines: {
+        free_trial: planTaglines.free_trial.trim() || null,
+        monthly: planTaglines.monthly.trim() || null,
+        annual: planTaglines.annual.trim() || null,
+        quarterly: planTaglines.quarterly.trim() || null,
+      },
+      product_demo: {
+        offer_name: demoOffer.trim() || null,
+        nav_items: demoNav.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6),
+        presell_status: demoStatus.trim() || null,
+        presell_note: demoPresellNote.trim() || null,
+        keywords_label: demoKeywordsLabel.trim() || null,
+        keywords: demoKeywords.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 8),
+        keyword_meta: demoKeywordMeta.trim() || null,
+        ad_label: demoAdLabel.trim() || null,
+        ad_title: demoAdTitle.trim() || null,
+        ad_meta: demoAdMeta.trim() || null,
+        rows: demoRows
+          .split("\n")
+          .map((line) => {
+            const [label, ...rest] = line.split("|");
+            return { label: (label ?? "").trim(), value: rest.join("|").trim() };
+          })
+          .filter((row) => row.label || row.value)
+          .slice(0, 6),
+        caption: demoCaption.trim() || null,
       },
       theme: themePayload,
       text_styles,
@@ -961,6 +1012,23 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       guaranteeFooter,
       sectionOrder,
       sectionsEnabled,
+      heroNote,
+      recommendedPlanType,
+      recommendedNote,
+      freeLimitsNote,
+      planTaglines,
+      demoOffer,
+      demoNav,
+      demoStatus,
+      demoPresellNote,
+      demoKeywordsLabel,
+      demoKeywords,
+      demoKeywordMeta,
+      demoAdLabel,
+      demoAdTitle,
+      demoAdMeta,
+      demoRows,
+      demoCaption,
     ],
   );
 
@@ -1536,8 +1604,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 Tema e secções (estilo página de vendas)
               </p>
               <p className="text-xs text-muted-foreground">
-                Ative o fundo escuro (estilo landing de vendas), títulos da secção de planos, até 3 cartões de destaque, números, FAQ e rodapé
-                legal. Deixe vazio o que não quiser mostrar.
+                Ative o fundo escuro, os títulos, os cartões, os números, o FAQ e o rodapé legal. Cada secção liga-se e desliga-se na lista de cima. Deixe vazio o que não quiser mostrar.
               </p>
               <div className="space-y-1.5">
                 <Label className="text-xs">Aparência global</Label>
@@ -1553,6 +1620,64 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectItem value="sales_dark">Escuro — vendas (cartões brancos, destaque verde)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-3 rounded-md border border-border/60 bg-background/50 p-3">
+                <p className="text-xs font-semibold text-foreground">Primeiro ecrã e cartões</p>
+                <p className="text-xs text-muted-foreground">
+                  Deixe um campo vazio para o esconder. A janela do produto e o resumo da conta ligam-se na lista de secções.
+                  A lista de cada plano edita-se no cartão do plano, uma linha por frase.
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nota por baixo do subtítulo</Label>
+                  <Textarea value={heroNote} onChange={(e) => setHeroNote(e.target.value)} rows={3} className="resize-y text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Plano em destaque</Label>
+                  <Select value={recommendedPlanType} onValueChange={setRecommendedPlanType}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      <SelectItem value="free_trial">Starter</SelectItem>
+                      <SelectItem value="monthly">Pro Mensal</SelectItem>
+                      <SelectItem value="annual">Pro Anual</SelectItem>
+                      <SelectItem value="quarterly">Trimestral</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Frase do plano em destaque</Label>
+                  <Input value={recommendedNote} onChange={(e) => setRecommendedNote(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nota dos cliques no plano grátis</Label>
+                  <Input value={freeLimitsNote} onChange={(e) => setFreeLimitsNote(e.target.value)} />
+                </div>
+                {(["free_trial", "monthly", "annual", "quarterly"] as const).map((key) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label className="text-xs">Frase curta — {key === "free_trial" ? "Starter" : key === "monthly" ? "Pro Mensal" : key === "annual" ? "Pro Anual" : "Trimestral"}</Label>
+                    <Input
+                      value={planTaglines[key]}
+                      onChange={(e) => setPlanTaglines((prev) => ({ ...prev, [key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+                <Separator />
+                <p className="text-xs font-medium text-foreground">Textos da janela do produto</p>
+                <Input placeholder="Nome da oferta" value={demoOffer} onChange={(e) => setDemoOffer(e.target.value)} />
+                <Textarea placeholder="Menu, um item por linha" value={demoNav} onChange={(e) => setDemoNav(e.target.value)} rows={4} className="resize-y text-sm" />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Input placeholder="Estado da presell" value={demoStatus} onChange={(e) => setDemoStatus(e.target.value)} />
+                  <Input placeholder="Nota da presell" value={demoPresellNote} onChange={(e) => setDemoPresellNote(e.target.value)} />
+                  <Input placeholder="Rótulo das palavras-chave" value={demoKeywordsLabel} onChange={(e) => setDemoKeywordsLabel(e.target.value)} />
+                  <Input placeholder="Meta da palavra-chave" value={demoKeywordMeta} onChange={(e) => setDemoKeywordMeta(e.target.value)} />
+                  <Input placeholder="Rótulo do anúncio" value={demoAdLabel} onChange={(e) => setDemoAdLabel(e.target.value)} />
+                  <Input placeholder="Título do anúncio" value={demoAdTitle} onChange={(e) => setDemoAdTitle(e.target.value)} />
+                  <Input placeholder="Contagem do título" value={demoAdMeta} onChange={(e) => setDemoAdMeta(e.target.value)} />
+                </div>
+                <Textarea placeholder="Palavras-chave, uma por linha" value={demoKeywords} onChange={(e) => setDemoKeywords(e.target.value)} rows={3} className="resize-y text-sm" />
+                <Textarea placeholder={"Linhas de rastreio, uma por linha: Campanha | pesquisa"} value={demoRows} onChange={(e) => setDemoRows(e.target.value)} rows={3} className="resize-y text-sm" />
+                <Textarea placeholder="Legenda" value={demoCaption} onChange={(e) => setDemoCaption(e.target.value)} rows={2} className="resize-y text-sm" />
               </div>
 
               <div className="rounded-md border border-border/60 bg-background/50 p-3 space-y-3">
@@ -1768,12 +1893,17 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
               ))}
+              {featCards.length < 6 ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setFeatCards((prev) => [...prev, { title: "", body: "", image_url: "" }])}>
+                  Adicionar cartão
+                </Button>
+              ) : null}
               {MARKDOWN_HINT}
 
               <Separator />
 
               <p className="text-xs font-medium text-foreground">
-                Números / estatísticas (até 4) — visíveis na página só com aparência «Escuro — vendas»
+                Números / estatísticas (até 8) — visíveis na página só com aparência «Escuro — vendas»
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Input
@@ -1811,10 +1941,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
               ))}
+              {statItems.length < 8 ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setStatItems((prev) => [...prev, { value: "", label: "" }])}>
+                  Adicionar número
+                </Button>
+              ) : null}
 
               <Separator />
 
-              <p className="text-xs font-medium text-foreground">FAQ (até 5 perguntas)</p>
+              <p className="text-xs font-medium text-foreground">FAQ (até 20 perguntas)</p>
               <Input
                 placeholder="Título da secção FAQ"
                 value={faqTitle}
@@ -1846,6 +1981,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
               ))}
+              {faqItems.length < 20 ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setFaqItems((prev) => [...prev, { q: "", a: "" }])}>
+                  Adicionar pergunta
+                </Button>
+              ) : null}
 
               <Separator />
 
@@ -2639,6 +2779,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
               ))}
+              {legalLinks.length < 12 ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setLegalLinks((prev) => [...prev, { label: "", href: "" }])}>
+                  Adicionar link
+                </Button>
+              ) : null}
             </div>
 
             <Separator />

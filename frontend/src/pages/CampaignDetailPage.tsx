@@ -106,9 +106,15 @@ export default function CampaignDetailPage() {
     return <ErrorState message="Campanha não encontrada." onRetry={() => refetch()} />;
   }
 
-  const publicBase = campaign.presell_id
-    ? getPublicPresellFullUrl(customDomains, null, { id: campaign.presell_id })
-    : null;
+  const presellIsPublic = campaign.presell?.status === "published";
+  const publicBase =
+    campaign.presell_id && presellIsPublic
+      ? getPublicPresellFullUrl(
+          customDomains,
+          campaign.presell?.custom_domain_id ?? null,
+          { id: campaign.presell_id },
+        )
+      : null;
   const trackedUrl =
     publicBase && campaign.name
       ? buildTrackedPresellUrl(publicBase, campaign.name, campaign.traffic_source)

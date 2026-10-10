@@ -51,15 +51,16 @@ function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string,
   if (isCurrent) return labels.cta_current ?? "Plano atual";
   const custom = plan.cta_label?.trim();
   if (custom) return custom;
-  if (plan.type === "free_trial") return labels.cta_free ?? "Começar grátis";
-  return labels.cta_upgrade ?? "Fazer upgrade";
+  if (plan.price_cents === 0 || plan.type === "free_trial") return labels.cta_free ?? "Começar grátis";
+  return "Assinar";
 }
 
-const PLAN_TAGLINES: Record<string, string> = {
-  free_trial: "Limites reduzidos para experimentar presells e tracking",
-  monthly: "Quotas mensais para quem publica com frequência",
-  annual: "Mesmas ferramentas com quotas amplas e pagamento anual",
-};
+function planTagline(extras: LandingPageBodySectionsProps["extras"], planType: string): string {
+  const lines = extras.plan_taglines;
+  if (!lines) return "";
+  const value = lines[planType as keyof typeof lines];
+  return typeof value === "string" ? value.trim() : "";
+}
 
 const planColors: Record<string, string> = {
   free_trial: "border-emerald-500/50",
@@ -272,10 +273,11 @@ export function LandingPageBodySections({
               </h2>
               <p
                 className={cn(
-                  "max-w-2xl",
+                  "max-w-2xl leading-relaxed hyphens-auto",
+                  salesDark ? "mx-auto [text-align-last:center]" : "[text-align-last:start]",
                   !salesDark && "text-muted-foreground",
-                  salesDark && "mx-auto",
                   extras.text_styles?.plans_section_subtitle && landingTextStyleBodyClasses(extras.text_styles.plans_section_subtitle),
+                  "text-justify",
                 )}
                 style={{
                   ...(salesDark && !extras.text_styles?.plans_section_subtitle?.color
@@ -290,17 +292,17 @@ export function LandingPageBodySections({
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan) => {
                 const isCurrent = plan.type === userPlan?.plan_type;
-                const isPopular = plan.type === "monthly";
-                const showBestValue = plan.type === "annual" && annualSavingsPitch;
+                const isRecommended =
+                  Boolean(extras.recommended_plan_type?.trim()) && plan.type === extras.recommended_plan_type;
+                const tagline = planTagline(extras, plan.type);
+                const featureLines = (plan.features ?? []).map((feature) => feature.trim()).filter(Boolean);
                 const accent = planVisualAccent(plan.type);
-                const tagline = PLAN_TAGLINES[plan.type] ?? "";
-                const monthlyName = monthlyPlanForPitch?.name?.trim() || "Pro Mensal";
 
                 return (
                   <div
                     key={plan.id}
                     className={cn(
-                      "relative flex min-h-0 flex-col rounded-2xl p-6 transition-all duration-300 md:min-h-[480px]",
+                      "relative flex min-h-0 flex-col rounded-2xl p-6 transition-all duration-300 md:p-7",
                       salesDark
                         ? "border-0 text-slate-900 shadow-xl hover:-translate-y-1 hover:shadow-2xl"
                         : `border-2 bg-card transition-all hover:shadow-card-hover ${planColors[plan.type] ?? "border-border"}`,
@@ -310,7 +312,7 @@ export function LandingPageBodySections({
                       ...(salesDark
                         ? {
                             backgroundColor: salesThemed.card_surface,
-                            boxShadow: isPopular
+                            boxShadow: isRecommended
                               ? `0 0 0 2px ${salesThemed.accent}55, 0 25px 50px -12px rgba(0,0,0,0.25)`
                               : undefined,
                           }
@@ -319,12 +321,12 @@ export function LandingPageBodySections({
                   >
                     {salesDark ? (
                       <div
-                        className={cn("absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl", !isPopular && accent.bar)}
-                        style={isPopular && salesDark ? { backgroundColor: salesThemed.accent } : undefined}
+                        className={cn("absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl", !isRecommended && accent.bar)}
+                        style={isRecommended && salesDark ? { backgroundColor: salesThemed.accent } : undefined}
                         aria-hidden
                       />
                     ) : null}
-                    {isPopular && (
+                    {isRecommended && (
                       <Badge
                         className={cn(
                           "absolute -top-3 left-1/2 -translate-x-1/2 text-white border-0",
@@ -333,24 +335,6 @@ export function LandingPageBodySections({
                         style={salesDark ? { backgroundColor: salesThemed.accent } : undefined}
                       >
                         {lb.badge_popular}
-                      </Badge>
-                    )}
-                    {showBestValue && (
-                      <Badge
-                        className={cn(
-                          "absolute -top-3 left-1/2 -translate-x-1/2 border-0 text-white shadow-md",
-                          !salesDark && "bg-violet-600 hover:bg-violet-600",
-                        )}
-                        style={
-                          salesDark
-                            ? {
-                                backgroundColor: "rgb(124 58 237)",
-                                boxShadow: "0 8px 24px -6px rgb(124 58 237 / 0.55)",
-                              }
-                            : undefined
-                        }
-                      >
-                        {lb.badge_best_value}
                       </Badge>
                     )}
                     <div className="mb-4 flex items-start gap-3">
@@ -363,17 +347,22 @@ export function LandingPageBodySections({
                         {planIcons[plan.type] ?? <Star className="h-6 w-6" />}
                       </div>
                       <div className="min-w-0">
-                        <h3 className={cn("font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
+                        <h3 className={cn("text-lg font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
                           {plan.name}
                         </h3>
                         {tagline ? (
                           <p
                             className={cn(
-                              "mt-1 text-xs leading-snug",
+                              "mt-1 text-justify text-sm leading-snug hyphens-auto [text-align-last:start]",
                               salesDark ? "text-slate-600" : "text-muted-foreground",
                             )}
                           >
                             {tagline}
+                          </p>
+                        ) : null}
+                        {isRecommended && extras.recommended_note?.trim() ? (
+                          <p className={cn("mt-2 text-justify text-sm font-medium leading-snug hyphens-auto [text-align-last:start]", salesDark ? "text-slate-800" : "text-foreground")}>
+                            {extras.recommended_note}
                           </p>
                         ) : null}
                         {isCurrent && (
@@ -385,58 +374,44 @@ export function LandingPageBodySections({
                     </div>
                     <div className="mb-5 space-y-3">
                       <div>
-                        <span className={cn("text-3xl font-bold", salesDark ? "text-slate-900" : "text-foreground")}>
+                        <span className={cn("text-4xl font-extrabold tracking-tight md:text-5xl", salesDark ? "text-slate-900" : "text-foreground")}>
                           {formatPlanPrice(plan.price_cents, lb)}
                         </span>
-                        <span className={cn("text-sm", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                        <span className={cn("ml-1 text-base", salesDark ? "text-slate-500" : "text-muted-foreground")}>
                           {getPlanPriceSuffix(plan.type, lb)}
                         </span>
                       </div>
                       {plan.type === "annual" && annualSavingsPitch ? (
-                        <div
-                          className={cn(
-                            "space-y-2 rounded-xl border px-3 py-2.5",
-                            salesDark
-                              ? "border-violet-400/35 bg-violet-950/35"
-                              : "border-violet-500/35 bg-violet-500/[0.07]",
-                          )}
-                        >
-                          <p
-                            className={cn(
-                              "text-xs leading-snug",
-                              salesDark ? "text-violet-100/95" : "text-slate-700",
-                            )}
-                          >
-                            {interpolatePlanLabelTemplate(lb.annual_pitch_equiv, {
-                              equiv: formatPlanPrice(annualSavingsPitch.equivalentMonthlyCents, lb),
-                            })}
-                          </p>
-                          <p
-                            className={cn(
-                              "text-xs font-semibold leading-snug",
-                              salesDark ? "text-white" : "text-violet-900",
-                            )}
-                          >
-                            {interpolatePlanLabelTemplate(lb.annual_pitch_savings, {
-                              save: formatPlanPrice(annualSavingsPitch.savingsCents, lb),
-                              pct: String(annualSavingsPitch.percentRounded),
-                              monthly_name: monthlyName,
-                            })}
-                          </p>
-                          <p
-                            className={cn(
-                              "text-[11px] leading-snug opacity-90",
-                              salesDark ? "text-violet-200/85" : "text-muted-foreground",
-                            )}
-                          >
-                            {interpolatePlanLabelTemplate(lb.annual_pitch_reference, {
-                              compare_yearly: formatPlanPrice(annualSavingsPitch.yearlyAtMonthlyRateCents, lb),
-                              monthly_name: monthlyName,
-                            })}
-                          </p>
-                        </div>
+                        <p className={cn("text-justify text-sm leading-snug hyphens-auto [text-align-last:start]", salesDark ? "text-slate-600" : "text-muted-foreground")}>
+                          {interpolatePlanLabelTemplate(lb.annual_pitch_equiv, {
+                            equiv: formatPlanPrice(annualSavingsPitch.equivalentMonthlyCents, lb),
+                          })}
+                        </p>
                       ) : null}
                     </div>
+
+                    {featureLines.length && lb.includes_title.trim() ? (
+                      <>
+                    <p
+                      className={cn(
+                        "mb-2 text-xs font-semibold uppercase tracking-wide",
+                        salesDark ? "text-slate-500" : "text-muted-foreground",
+                      )}
+                    >
+                      {lb.includes_title}
+                    </p>
+                    <ul className="mb-6 flex-1 space-y-3">
+                      {featureLines.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2 text-base">
+                          <Check
+                            className={cn("mt-0.5 h-4 w-4 flex-shrink-0", accent.check)}
+                          />
+                          <span className={cn("text-justify hyphens-auto [text-align-last:start]", salesDark ? "text-slate-800" : "text-foreground")}>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                      </>
+                    ) : null}
 
                     <div
                       className={cn(
@@ -469,14 +444,11 @@ export function LandingPageBodySections({
                             </p>
                             <p
                               className={cn(
-                                "text-base font-bold tabular-nums",
+                                "text-2xl font-bold tabular-nums",
                                 salesDark ? "text-slate-900" : "text-foreground",
                               )}
                             >
                               {formatPagesLimit(plan.max_presell_pages)}
-                            </p>
-                            <p className={cn("text-[11px]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
-                              {lb.sub_presell_pages}
                             </p>
                           </div>
                         </div>
@@ -498,15 +470,17 @@ export function LandingPageBodySections({
                             </p>
                             <p
                               className={cn(
-                                "text-base font-bold tabular-nums",
+                                "text-2xl font-bold tabular-nums",
                                 salesDark ? "text-slate-900" : "text-foreground",
                               )}
                             >
                               {formatClicksLimit(plan.max_clicks_per_month)}
                             </p>
-                            <p className={cn("text-[11px]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
-                              {lb.sub_clicks}
-                            </p>
+                            {plan.type === "free_trial" && extras.free_limits_note?.trim() ? (
+                              <p className={cn("mt-1 text-justify text-xs leading-snug hyphens-auto [text-align-last:start]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                                {extras.free_limits_note}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                         <div
@@ -543,33 +517,18 @@ export function LandingPageBodySections({
                       </div>
                     </div>
 
-                    <p
-                      className={cn(
-                        "mb-2 text-xs font-semibold uppercase tracking-wide",
-                        salesDark ? "text-slate-500" : "text-muted-foreground",
-                      )}
-                    >
-                      {lb.includes_title}
-                    </p>
-                    <ul className="mb-6 flex-1 space-y-3">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <Check
-                            className={cn("mt-0.5 h-4 w-4 flex-shrink-0", accent.check)}
-                          />
-                          <span className={salesDark ? "text-slate-800" : "text-foreground"}>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
                     <Button
                       type="button"
                       onClick={() => {
                         if (!previewMode) onSelectPlan(plan);
                       }}
-                      variant={isCurrent ? "outline" : isPopular ? "default" : "secondary"}
-                      className={cn("w-full", salesDark && !isCurrent && isPopular && "border-0 text-white hover:opacity-[0.92]")}
+                      variant={isCurrent ? "outline" : isRecommended ? "default" : "secondary"}
+                      className={cn(
+                        "h-12 w-full text-base font-semibold",
+                        salesDark && !isCurrent && isRecommended && "border-0 text-white hover:opacity-[0.92]",
+                      )}
                       style={
-                        salesDark && !isCurrent && isPopular
+                        salesDark && !isCurrent && isRecommended
                           ? {
                               backgroundColor: salesThemed.accent,
                               boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
@@ -590,6 +549,9 @@ export function LandingPageBodySections({
       case "guarantee":
         if (!sectionsOn.guarantee) return null;
         return <LandingGuaranteeSection extras={extras} className="mb-12" />;
+      case "product_demo":
+      case "account_plan":
+        return null;
       case "faq":
         if (!sectionsOn.faq || !salesDark || !(extras.faq?.items?.length ?? 0)) {
           return null;

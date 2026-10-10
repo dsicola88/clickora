@@ -36,7 +36,7 @@ type CampaignRow = {
   spendCurrency: string | null;
   createdAt: Date;
   updatedAt: Date;
-  presell?: { id: string; title: string; status: string; slug: string } | null;
+  presell?: { id: string; title: string; status: string; slug: string; customDomainId: string | null } | null;
 };
 
 function spendNumber(v: Prisma.Decimal | null | undefined): number | null {
@@ -62,7 +62,13 @@ function mapCampaign(c: CampaignRow, stats?: CampaignPerf | null) {
     created_at: c.createdAt.toISOString(),
     updated_at: c.updatedAt.toISOString(),
     presell: c.presell
-      ? { id: c.presell.id, title: c.presell.title, status: c.presell.status, slug: c.presell.slug }
+      ? {
+          id: c.presell.id,
+          title: c.presell.title,
+          status: c.presell.status,
+          slug: c.presell.slug,
+          custom_domain_id: c.presell.customDomainId,
+        }
       : null,
     ...(stats
       ? {
@@ -106,7 +112,7 @@ function isMissingTableError(e: unknown): boolean {
 }
 
 const presellInclude = {
-  presell: { select: { id: true, title: true, status: true, slug: true } },
+  presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
 } as const;
 
 /** Lista campanhas; se a migração spend_* ainda não correu em produção, não derruba a página. */
@@ -137,7 +143,7 @@ async function findCampaignsForUser(userId: string): Promise<CampaignRow[]> {
         status: true,
         createdAt: true,
         updatedAt: true,
-        presell: { select: { id: true, title: true, status: true, slug: true } },
+        presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
       },
     });
     return rows.map((r) => ({ ...r, spendAmount: null, spendCurrency: null }));
@@ -169,7 +175,7 @@ async function findCampaignById(userId: string, id: string): Promise<CampaignRow
         status: true,
         createdAt: true,
         updatedAt: true,
-        presell: { select: { id: true, title: true, status: true, slug: true } },
+        presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
       },
     });
     if (!row) return null;
@@ -285,7 +291,7 @@ export const campaignsController = {
           : {}),
       },
       include: {
-        presell: { select: { id: true, title: true, status: true, slug: true } },
+        presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
       },
     });
     res.status(201).json(mapCampaign({ ...created, spendAmount: created.spendAmount ?? null, spendCurrency: created.spendCurrency ?? null } as CampaignRow));
@@ -331,7 +337,7 @@ export const campaignsController = {
         where: { id: existing.id },
         data,
         include: {
-          presell: { select: { id: true, title: true, status: true, slug: true } },
+          presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
         },
       });
 

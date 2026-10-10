@@ -10,6 +10,8 @@ export const LANDING_SECTION_IDS = [
   "planos",
   "guarantee",
   "faq",
+  "product_demo",
+  "account_plan",
 ] as const;
 
 export type LandingSectionId = (typeof LANDING_SECTION_IDS)[number];
@@ -23,6 +25,8 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   planos: "Planos e preços",
   guarantee: "Garantia / selo (abaixo dos planos)",
   faq: "FAQ",
+  product_demo: "Janela do produto (primeiro ecrã)",
+  account_plan: "Resumo do plano da conta (só com sessão)",
 };
 
 export const DEFAULT_LANDING_SECTION_ORDER: LandingSectionId[] = [
@@ -60,5 +64,7 @@ export function resolveSectionsEnabled(
     planos: raw?.planos !== false,
     guarantee: raw?.guarantee !== false,
     faq: raw?.faq !== false,
+    product_demo: raw?.product_demo !== false,
+    account_plan: raw?.account_plan !== false,
   };
 }

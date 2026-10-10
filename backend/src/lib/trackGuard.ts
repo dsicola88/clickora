@@ -3,6 +3,8 @@ import { systemPrisma } from "./prisma";
 import { normalizeIpForMatch } from "./normalizeIp";
 import { detectBot, assessClickQuality } from "./detectBot";
 import { consumeTrackRateLimit } from "./trackRateLimit";
+import { isPrivateOrLocalIp } from "./clientIp";
+import { effectiveAutoBlacklistThreshold } from "./trackingGuardPolicy";
 
 /** Mantém compat com relatórios que filtram `platform: blacklist_block`. */
 export async function logBlacklistBlock(params: {
@@ -38,7 +40,8 @@ export type TrackingGuardChannel =
   | "api_click"
   | "pixel"
   | "impression_api"
-  | "track_event";
+  | "track_event"
+  | "public_page";
 
 /**
  * Regras globais de tracking (IP): rate limit → blacklist → whitelist (se ativa) → UA vazio → bots (opt-in).
@@ -207,13 +210,8 @@ export async function enforceTrackingRules(args: {
     }
   }
 
-  const threshold = owner.autoBlacklistClickThreshold;
-  if (
-    args.recordedEventType === "click" &&
-    threshold > 0 &&
-    ipKey.includes(".") &&
-    /^\d{1,3}(\.\d{1,3}){3}$/.test(ipKey)
-  ) {
+  const threshold = effectiveAutoBlacklistThreshold(owner.autoBlacklistClickThreshold);
+  if (args.recordedEventType === "click" && threshold > 0 && ipKey && !isPrivateOrLocalIp(ipKey)) {
     const windowH = Math.min(Math.max(owner.autoBlacklistClickWindowHours || 24, 1), 168);
     const since = new Date(Date.now() - windowH * 60 * 60 * 1000);
     const countRows = await systemPrisma.$queryRaw<Array<{ c: bigint }>>(
@@ -226,10 +224,10 @@ export async function enforceTrackingRules(args: {
           AND ip_address IS NOT NULL
           AND TRIM(ip_address) <> ''
           AND (
-            TRIM(ip_address) = ${ipKey}
+            LOWER(TRIM(ip_address)) = ${ipKey}
             OR (
-              TRIM(ip_address) LIKE ${"::ffff:%"}
-              AND SUBSTRING(TRIM(ip_address) FROM 8) = ${ipKey}
+              LOWER(TRIM(ip_address)) LIKE ${"::ffff:%"}
+              AND SUBSTRING(LOWER(TRIM(ip_address)) FROM 8) = ${ipKey}
             )
           )
       `,

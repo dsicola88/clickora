@@ -1530,7 +1530,7 @@ export const analyticsController = {
           code: "guard_soft_pass",
           severity: "info",
           title: "Protecções em soft-pass",
-          detail: `${softPassClicks} clique(s) passaram o redirect com soft-pass (proxy/rate/whitelist). O visitante foi à oferta; parte pode estar excluída do KPI. Bots/blacklist redireccionam sem criar clique — vê IP e protecções se o volume parecer estranho.`,
+          detail: `${softPassClicks} clique(s) antigos foram à oferta com soft-pass (proxy, limite ou whitelist). Os bloqueios novos não criam clique nem abrem o hoplink.`,
         });
       }
 

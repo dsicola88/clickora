@@ -25,7 +25,9 @@ import {
 import { mergeWithDefaultLabels } from "@/lib/planDisplayLabels";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
+import { SalesProductDemo } from "@/components/plans/SalesProductDemo";
 import { coerceLandingExtras } from "@/lib/plansLandingExtras";
+import { resolveSectionsEnabled } from "@/lib/landingSectionLayout";
 import { LandingPageBodySections } from "@/components/plans/LandingPageBodySections";
 import {
   resolveLandingPageTheme,
@@ -107,10 +109,11 @@ export default function Plans() {
   const OLD_HERO_TITLES = new Set([
     "Escolha seu plano",
     "A plataforma completa para presells e rastreamento",
+    "Publique presells e meça cada clique — sem mentir nos números",
   ]);
-  const defaultHeroTitle = "Publique presells e meça cada clique — sem mentir nos números";
+  const defaultHeroTitle = "Da criação da presell ao acompanhamento das vendas. Tudo num só lugar.";
   const defaultHeroSubtitle =
-    "Crie páginas que convertem, copie o URL do anúncio com campanha, palavra-chave e GCLID, e veja conversões quando a rede envia o postback. Planos pagos via Hotmart quando o checkout está configurado.";
+    "Crie páginas para as suas ofertas, prepare as suas campanhas de anúncios e acompanhe os resultados sem precisar de juntar várias ferramentas.";
   const rawTitle = landing?.hero_title?.trim() ?? "";
   const heroTitle = !rawTitle || OLD_HERO_TITLES.has(rawTitle) ? defaultHeroTitle : rawTitle;
   const rawSubtitle = landing?.hero_subtitle?.trim() ?? "";
@@ -143,6 +146,12 @@ export default function Plans() {
   const extras = coerceLandingExtras(landing?.landing_extras);
   const ts = extras.text_styles ?? undefined;
   const salesDark = extras.appearance === "sales_dark";
+  const sectionsOn = resolveSectionsEnabled(extras.sections_enabled);
+  const heroVisual = coercePlansHeroVisual(heroVisualRaw);
+  const heroCtaLabel = heroVisual.cta_label?.trim() ?? "";
+  const heroCtaHref = heroVisual.cta_href?.trim() || "#planos";
+  const showHeroCta = heroVisual.cta_enabled && Boolean(heroCtaLabel);
+  const showProductDemo = sectionsOn.product_demo && extras.product_demo != null;
   const salesThemed = resolveLandingPageTheme(extras.theme);
   const numLocale = lb.locale || "pt-BR";
 
@@ -193,11 +202,46 @@ export default function Plans() {
       >
         <nav
           className={cn(
-            "mx-auto grid w-full max-w-2xl grid-cols-1 gap-2 sm:gap-3",
-            "sm:max-w-lg sm:grid-cols-2",
+            salesDark
+              ? "mx-auto flex w-full max-w-6xl items-center justify-between gap-4"
+              : "mx-auto grid w-full max-w-2xl grid-cols-1 gap-2 sm:max-w-lg sm:grid-cols-2 sm:gap-3",
           )}
           aria-label="Ações da página"
         >
+          {salesDark ? (
+            <Link to="/" className="text-base font-semibold tracking-tight text-white">
+              Clickora
+            </Link>
+          ) : null}
+          {salesDark ? (
+            <div className="flex items-center gap-3 sm:gap-5">
+              {userPlan ? (
+                <span className="hidden text-sm text-white/60 sm:inline">{userPlan.plan_name}</span>
+              ) : null}
+              <Link
+                to={user ? "/inicio" : "/auth"}
+                className="text-sm font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
+              >
+                {user ? "Painel" : "Entrar"}
+              </Link>
+              {showHeroCta ? (
+              <Button
+                size="sm"
+                className="h-10 border-0 px-4 text-white hover:opacity-[0.92]"
+                style={{
+                  backgroundColor: salesThemed.accent,
+                  boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
+                  ...resolvedAccentButtonRadiusStyle(salesThemed),
+                }}
+                asChild
+              >
+                <a href={heroCtaHref}>{heroCtaLabel}</a>
+              </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {salesDark ? null : (
+          <>
           <Button
             size="sm"
             className={cn(
@@ -271,13 +315,16 @@ export default function Plans() {
               </Link>
             </Button>
           )}
+          </>
+          )}
         </nav>
       </div>
 
+      {salesDark ? null : (
       <nav
         className={cn(
           "mb-4 flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3",
-          salesDark ? "border-white/10 bg-white/[0.03]" : "border-border/50 bg-muted/35",
+          "border-border/50 bg-muted/35",
         )}
         aria-label="Soluções por objetivo"
       >
@@ -325,6 +372,7 @@ export default function Plans() {
           </Link>
         </div>
       </nav>
+      )}
 
       {isSuperAdmin && (
         <div
@@ -348,11 +396,69 @@ export default function Plans() {
         </div>
       )}
 
+      {salesDark ? (
+        <section className={cn("grid items-center gap-8", showProductDemo && "md:grid-cols-2 md:gap-10")}>
+          <div className="space-y-5">
+            {badgeText ? (
+              <span
+                className="inline-flex w-fit max-w-full items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+                style={{
+                  borderColor: salesThemed.badge_border,
+                  backgroundColor: salesThemed.badge_background,
+                  color: salesThemed.badge_text,
+                }}
+              >
+                {badgeText}
+              </span>
+            ) : null}
+            <h1
+              className={cn(
+                resolvedHeroTitleClassNameFixed(
+                  {
+                    hero_title_size: landing?.hero_title_size,
+                    hero_title_weight: landing?.hero_title_weight,
+                  },
+                  ts?.hero_title,
+                ),
+                "text-white",
+              )}
+              style={landingTextStyleColorStyle(ts?.hero_title)}
+            >
+              {heroTitle}
+            </h1>
+            {heroSubtitle ? (
+              <p className="text-justify text-lg leading-relaxed text-white/75 hyphens-auto [text-align-last:start]">
+                {heroSubtitle}
+              </p>
+            ) : null}
+            {extras.hero_note?.trim() ? (
+              <p className="text-justify text-sm leading-relaxed text-white/60 hyphens-auto [text-align-last:start]">
+                {extras.hero_note}
+              </p>
+            ) : null}
+            {showHeroCta ? (
+              <Button
+                size="lg"
+                className="h-12 border-0 px-6 text-base text-white hover:opacity-[0.92]"
+                style={{
+                  backgroundColor: salesThemed.accent,
+                  boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
+                  ...resolvedAccentButtonRadiusStyle(salesThemed),
+                }}
+                asChild
+              >
+                <a href={heroCtaHref}>{heroCtaLabel}</a>
+              </Button>
+            ) : null}
+          </div>
+          {showProductDemo && extras.product_demo ? <SalesProductDemo demo={extras.product_demo} /> : null}
+        </section>
+      ) : (
       <PlansLandingHeroBlock
         heroImg={heroImg}
         heroVisualRaw={heroVisualRaw}
-        tone={salesDark ? "dark" : "default"}
-        salesTheme={salesDark ? salesThemed : null}
+        tone="default"
+        salesTheme={null}
       >
         <div
           className={cn(
@@ -427,8 +533,9 @@ export default function Plans() {
           ) : null}
         </div>
       </PlansLandingHeroBlock>
+      )}
 
-      {userPlan && (
+      {!salesDark && userPlan ? (
         <div
           className={cn(
             "rounded-xl border p-4",
@@ -442,7 +549,7 @@ export default function Plans() {
             </span>
           </p>
         </div>
-      )}
+      ) : null}
 
       {introText ? (
         <div
@@ -527,22 +634,7 @@ export default function Plans() {
 
       <SalesLandingLegalFooter extras={extras} />
 
-      <nav
-        className={cn(
-          "mt-8 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm",
-          salesDark ? "text-white/70" : "text-muted-foreground",
-        )}
-        aria-label="Informação legal"
-      >
-        <Link to="/privacidade" className="underline-offset-4 hover:underline">
-          Política de privacidade
-        </Link>
-        <Link to="/termos" className="underline-offset-4 hover:underline">
-          Termos de utilização
-        </Link>
-      </nav>
-
-      {userPlan && (
+      {sectionsOn.account_plan && userPlan ? (
         <div
           className={cn(
             "mt-10 rounded-2xl border p-6",
@@ -587,7 +679,7 @@ export default function Plans() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
       </div>
     </div>
     </LandingPageThemeProvider>

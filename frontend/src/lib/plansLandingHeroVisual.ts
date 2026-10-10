@@ -33,8 +33,8 @@ export const DEFAULT_PLANS_HERO_VISUAL: PlansHeroVisual = {
   min_height_mobile_px: 420,
   min_height_desktop_px: 560,
   cta_enabled: true,
-  cta_label: "Ver planos",
-  cta_href: "#planos",
+  cta_label: "Começar grátis",
+  cta_href: "/auth",
 };
 
 /** Imagem da 1ª dobra quando o admin ainda não enviou hero próprio. */

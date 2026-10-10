@@ -4,7 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useLandingSalesTheme } from "@/contexts/LandingPageThemeContext";
+import { useLandingSalesTheme, useLandingSalesThemeOptional } from "@/contexts/LandingPageThemeContext";
 import { cn } from "@/lib/utils";
 import type { LandingExtrasPublic } from "@/lib/plansLandingExtras";
 import {
@@ -24,11 +24,46 @@ type Props = {
 
 export function SalesLandingFeatures({ extras, className }: Props) {
   const t = useLandingSalesTheme();
+  const salesDark = useLandingSalesThemeOptional() != null;
   const f = extras.features;
   const st = extras.text_styles;
   const cards =
     f?.cards?.filter((c) => c.title.trim() || c.body.trim() || c.image_url?.trim()) ?? [];
   if (!cards.length) return null;
+
+  if (salesDark) {
+    return (
+      <section className={cn("space-y-8", className)}>
+        {(f?.title?.trim() || f?.subtitle?.trim()) && (
+          <div className="mx-auto max-w-3xl space-y-2 text-center">
+            {f?.title?.trim() ? (
+              <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">{f.title}</h2>
+            ) : null}
+            {f?.subtitle?.trim() ? (
+              <p className="whitespace-pre-line text-justify text-base leading-relaxed text-white/70 hyphens-auto [text-align-last:center]">
+                {f.subtitle}
+              </p>
+            ) : null}
+          </div>
+        )}
+        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {cards.map((card, i) => (
+            <article key={`${card.title}-${i}`} className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+              <p className="text-sm font-semibold tabular-nums" style={{ color: t.accent }}>
+                {String(i + 1).padStart(2, "0")}
+              </p>
+              {card.title.trim() ? <h3 className="mt-3 text-lg font-semibold leading-snug text-white">{card.title}</h3> : null}
+              {card.body.trim() ? (
+                <p className="mt-3 flex-1 text-justify text-sm leading-relaxed text-white/70 hyphens-auto [text-align-last:start]">
+                  {card.body}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   /** Faixa clara tipo landing de produto: texto escuro por defeito; tipografia opcional sobrepõe. */
   const bandClass =
@@ -170,7 +205,11 @@ export function SalesLandingStats({ extras, className }: Props) {
             ) : null}
             {s?.subtitle?.trim() ? (
               <p
-                className={cn("whitespace-pre-line", st?.stats_subtitle && landingTextStyleBodyClasses(st.stats_subtitle))}
+                className={cn(
+                  "whitespace-pre-line leading-relaxed hyphens-auto [text-align-last:center]",
+                  st?.stats_subtitle && landingTextStyleBodyClasses(st.stats_subtitle),
+                  "text-justify",
+                )}
                 style={{
                   ...(!st?.stats_subtitle?.color ? { color: t.muted_on_dark } : {}),
                   ...landingTextStyleColorStyle(st?.stats_subtitle),
@@ -183,8 +222,8 @@ export function SalesLandingStats({ extras, className }: Props) {
         )}
         <div
           className={cn(
-            "grid grid-cols-2 gap-8",
-            items.length > 4 ? "md:grid-cols-3" : "md:grid-cols-4",
+            "grid grid-cols-1 gap-8 sm:grid-cols-2",
+            items.length === 3 ? "md:grid-cols-3" : items.length > 4 ? "md:grid-cols-3" : "md:grid-cols-4",
           )}
         >
           {items.map((it, i) => (
@@ -201,7 +240,11 @@ export function SalesLandingStats({ extras, className }: Props) {
                 {it.value}
               </p>
               <p
-                className={cn("mt-1", st?.stat_label && landingTextStyleBodyClasses(st.stat_label))}
+                className={cn(
+                  "mt-2 text-sm leading-relaxed hyphens-auto [text-align-last:center]",
+                  st?.stat_label && landingTextStyleBodyClasses(st.stat_label),
+                  "text-justify",
+                )}
                 style={{
                   ...(!st?.stat_label?.color ? { color: t.muted_on_dark } : {}),
                   ...landingTextStyleColorStyle(st?.stat_label),
@@ -265,7 +308,11 @@ export function SalesLandingFaq({ extras, className }: Props) {
               {it.q}
             </AccordionTrigger>
             <AccordionContent
-              className={cn("pb-4 whitespace-pre-line border-t pt-3", st?.faq_answer && landingTextStyleBodyClasses(st.faq_answer))}
+              className={cn(
+                "whitespace-pre-line border-t pb-4 pt-3 leading-relaxed hyphens-auto [text-align-last:start]",
+                st?.faq_answer && landingTextStyleBodyClasses(st.faq_answer),
+                "text-justify",
+              )}
               style={{
                 ...(!st?.faq_answer?.color ? { color: t.muted_on_dark, borderColor: `${t.accent}33` } : { borderColor: `${t.accent}33` }),
                 ...landingTextStyleColorStyle(st?.faq_answer),
@@ -302,7 +349,7 @@ export function SalesLandingLegalFooter({ extras, className }: Props) {
           }}
         >
           {lines.map((line, i) => (
-            <p key={i} className="whitespace-pre-line">
+            <p key={i} className="whitespace-pre-line text-justify leading-relaxed hyphens-auto [text-align-last:center]">
               {line}
             </p>
           ))}

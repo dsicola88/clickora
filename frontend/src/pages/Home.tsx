@@ -71,6 +71,11 @@ export default function Home() {
           <OnboardingChecklistCard />
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
+          Prefere ver como se faz?{" "}
+          <Link to="/aulas" className="text-primary underline-offset-2 hover:underline">
+            Abrir aulas
+          </Link>
+          {" · "}
           Já tem conta noutra área?{" "}
           <Link to="/presells" className="text-primary underline-offset-2 hover:underline">
             Ver Presells

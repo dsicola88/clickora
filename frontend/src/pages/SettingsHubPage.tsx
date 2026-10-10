@@ -53,6 +53,7 @@ export default function SettingsHubPage() {
               { to: "/tracking/blacklist", label: "IP e protecções" },
               { to: "/tracking/logs", label: "Logs" },
               { to: "/tracking/url-builder", label: "URL manual" },
+              { to: "/aulas", label: "Aulas" },
               { to: "/ajuda", label: "Ajuda" },
             ].map((x) => (
               <Button key={x.to} variant="outline" className="justify-start h-9 text-xs" asChild>

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { rotatorMetaFromParentClick } from "./rotatorParentAttribution";
+import {
+  fillMissingAdClickIds,
+  forwardAdQueryToUrl,
+  rotatorMetaFromParentClick,
+} from "./rotatorParentAttribution";
 import { pickWeightedIndex } from "./rotatorWeights";
 
 describe("rotatorParentAttribution", () => {
@@ -28,6 +32,28 @@ describe("rotatorParentAttribution", () => {
       parentMetadata: { rotator_id: "22222222-2222-4222-8222-222222222222" },
     });
     assert.equal(r, null);
+  });
+
+  it("copia o gclid do rotador para o clique da presell quando a lander não o traz", () => {
+    const filled = fillMissingAdClickIds(
+      { gclid: undefined, msclkid: "bing-real" },
+      { gclid: "Cj0KCQreal", gbraid: "{gbraid}", rotator_id: "22222222-2222-4222-8222-222222222222" },
+    );
+    assert.equal(filled.gclid, "Cj0KCQreal");
+    assert.equal(filled.msclkid, "bing-real");
+    assert.equal(filled.gbraid, undefined);
+  });
+
+  it("leva o gclid do anúncio para o URL da presell", () => {
+    const url = forwardAdQueryToUrl("https://loja.example/p/abc", {
+      gclid: "Cj0KCQreal",
+      utm_source: "google_ads",
+      utm_term: "{keyword}",
+    });
+    const parsed = new URL(url);
+    assert.equal(parsed.searchParams.get("gclid"), "Cj0KCQreal");
+    assert.equal(parsed.searchParams.get("utm_source"), "google_ads");
+    assert.equal(parsed.searchParams.get("utm_term"), null);
   });
 
   it("rejects parent without rotator_id", () => {

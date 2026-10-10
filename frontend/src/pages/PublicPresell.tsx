@@ -683,12 +683,12 @@ export default function PublicPresell() {
   }, []);
 
   useEffect(() => {
-    if (!page?.id) return;
+    if (!page?.id || page.cloak_safe === true) return;
     const pixel = new Image();
     pixel.src = buildImpressionPixelUrl(apiBase, page.id, search);
     // Uma visita = uma impressão; mudanças de query na mesma página não recontam.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só page.id
-  }, [page?.id, apiBase]);
+  }, [page?.id, page?.cloak_safe, apiBase]);
 
   const bodyCodeMountRef = useRef<HTMLDivElement>(null);
   const settingsInjectKey = useMemo(() => {
@@ -707,7 +707,7 @@ export default function PublicPresell() {
 
   // Re-run when serialized custom code changes (settingsInjectKey), not when page.settings object identity changes.
   useLayoutEffect(() => {
-    if (!page?.id) return;
+    if (!page?.id || page.cloak_safe === true) return;
     const s = (page.settings || {}) as Record<string, unknown>;
     const conversionTrackingScript = String(s.conversionTrackingScript ?? "").trim();
     const headerCode = String(s.headerCode ?? "").trim();
@@ -741,7 +741,7 @@ export default function PublicPresell() {
 
     return () => cleanups.forEach((fn) => fn());
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deps above: settingsInjectKey covers page.settings fields
-  }, [page?.id, settingsInjectKey]);
+  }, [page?.id, page?.cloak_safe, settingsInjectKey]);
 
   const content = (page?.content || {}) as Record<string, unknown>;
   const tracking = (page?.tracking || {}) as Record<string, unknown>;

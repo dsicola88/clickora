@@ -24,8 +24,9 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
    */
   offerQueryForwardAllowlist: "",
   /**
-   * Cloaking lite: bots / países em cloakGeoDeny recebem página segura (sem mirror nem hoplink).
-   * Humanos normais vêem a presell completa. Não é invisível a revisores humanos.
+   * Página segura para os países em cloakGeoDeny.
+   * IP, bot, proxy e rajada seguem as regras da conta e usam o mesmo texto.
+   * Um browser normal fora dessas regras vê a presell completa.
    */
   enterpriseCloak: false,
   cloakSafeTitle: "",

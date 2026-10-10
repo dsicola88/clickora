@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { Request } from "express";
 import {
   buildCloakSafePublicPayload,
+  countryOnCloakDenyList,
   shouldServeCloakSafePage,
 } from "./presellEnterpriseCloak";
 
@@ -19,12 +20,18 @@ describe("presellEnterpriseCloak", () => {
     assert.equal(r.cloak, false);
   });
 
-  it("cloak on + bot UA → true", () => {
+  it("cloak on + bot UA → false (o UA não muda a página)", () => {
     const r = shouldServeCloakSafePage(mockReq("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"), {
       enterpriseCloak: true,
     });
-    assert.equal(r.cloak, true);
-    if (r.cloak) assert.match(r.reason, /^bot:/);
+    assert.equal(r.cloak, false);
+  });
+
+  it("país na lista → true; fora da lista → false", () => {
+    assert.equal(countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "CN, RU" }, "cn"), true);
+    assert.equal(countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "CN" }, "PT"), false);
+    assert.equal(countryOnCloakDenyList({ enterpriseCloak: false, cloakGeoDeny: "CN" }, "CN"), false);
+    assert.equal(countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "CN" }, null), false);
   });
 
   it("cloak on + human UA → false (sem geo deny)", () => {
@@ -43,12 +50,14 @@ describe("presellEnterpriseCloak", () => {
         id: "x",
         title: "Produto X",
         type: "desconto",
+        video_url: "https://video.example/v",
         content: {
           importMirrorSrcDoc: "<html>huge</html>",
           affiliateLink: "https://offer.example/go",
           title: "old",
         },
-        settings: { exitPopup: true, socialProof: true },
+        tracking: { offerUrl: "https://offer.example/go" },
+        settings: { exitPopup: true, socialProof: true, headerCode: "<script>x</script>" },
       },
       settingsRaw: {
         enterpriseCloak: true,
@@ -58,8 +67,10 @@ describe("presellEnterpriseCloak", () => {
       reason: "bot:google",
     });
     assert.equal(payload.cloak_safe, true);
-    assert.equal(payload.cloak_reason, "bot:google");
+    assert.equal(payload.cloak_reason, undefined);
+    assert.equal(payload.title, "Safe title");
     assert.equal(payload.type, "tsl");
+    assert.equal(payload.video_url, undefined);
     const content = payload.content as Record<string, unknown>;
     assert.equal(content.title, "Safe title");
     assert.equal(content.salesText, "Safe body text");
@@ -68,5 +79,8 @@ describe("presellEnterpriseCloak", () => {
     const settings = payload.settings as Record<string, unknown>;
     assert.equal(settings.enterpriseCloak, true);
     assert.equal(settings.exitPopup, false);
+    assert.equal(settings.headerCode, undefined);
+    const tracking = payload.tracking as Record<string, unknown>;
+    assert.deepEqual(tracking, {});
   });
 });

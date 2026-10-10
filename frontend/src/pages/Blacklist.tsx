@@ -181,17 +181,18 @@ export default function Blacklist() {
         <p className="font-medium text-foreground/90">Ordem em que o servidor avalia cada pedido de tracking</p>
         <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm leading-relaxed">
           <li>Limite de frequência por IP (anti-spam em memória; por defeito ~240 pedidos por minuto por IP — ajustável no servidor com TRACK_RATE_LIMIT_*).</li>
-          <li>Blacklist — IP bloqueado → 403.</li>
-          <li>Whitelist — se existir pelo menos um IP permitido, só esses IPs passam; restantes → 403.</li>
-          <li>User-Agent vazio — se a regra estiver ativa → 403.</li>
-          <li>Bot (UA) — se a regra estiver ativa → 403.</li>
+          <li>Blacklist — IP bloqueado: a página pública fica no texto seguro e o clique não abre o hoplink.</li>
+          <li>Whitelist — se existir pelo menos um IP permitido, só esses IPs passam.</li>
+          <li>User-Agent vazio — se a regra estiver ativa.</li>
+          <li>Bot (UA) — se a regra estiver ativa. Desligada, o clique conta, inclusive de um crawler.</li>
+          <li>Proxy / VPN — se a regra estiver ativa.</li>
           <li>
-            Limite de cliques por IP (opcional) — se activo, conta só eventos de <strong className="text-foreground/90">clique</strong>{" "}
-            rastreados na janela; ao exceder o máximo, o IP é colocado na blacklist e os pedidos seguintes → 403.
+            Limite de cliques por IP (opcional) — conta cliques já gravados na janela. Com 0 fica desligado. O mínimo activo é 30,
+            em IPv4 e IPv6. O pedido que atinge o limite entra na blacklist e não abre o hoplink.
           </li>
         </ol>
         <p className="text-xs border-t border-border/50 pt-2 mt-2">
-          Isto não substitui WAF/CDN (Cloudflare, etc.). IPv6 e intervalos CIDR não são suportados nas listas — apenas um IPv4 por linha. Importação em massa e bloqueio por país seriam evoluções à parte.
+          A mesma decisão vale para a página, o pixel e o clique. O IP é o do proxy (Railway, Vercel ou Cloudflare), não um cabeçalho à escolha do browser. Intervalos CIDR não são suportados — um endereço por linha.
         </p>
       </div>
 
@@ -244,18 +245,18 @@ export default function Blacklist() {
 
         <div className="rounded-lg border border-border/60 p-4 space-y-4">
           <div className="space-y-1">
-            <Label>Bloqueio automático: repetir cliques no anúncio (mesmo IPv4)</Label>
+            <Label>Bloqueio automático: repetir cliques no anúncio (IPv4 ou IPv6)</Label>
             <p className="text-xs text-muted-foreground">
               Conta apenas cliques já gravados (redirect, API ou evento <span className="font-mono text-[10px]">click</span>).
-              Com <strong className="text-foreground/90">0</strong> fica desligado. Com N ≥ 1, permite no máximo N cliques por IP na
-              janela; no pedido seguinte o IP entra na blacklist com motivo automático e deixa de contar tráfego. Impressões não entram na
+              Com <strong className="text-foreground/90">0</strong> fica desligado. O mínimo activo é 30, para um IP de operador móvel
+              não cair na lista. Ao atingir o máximo, esse pedido não abre o hoplink e o IP entra na blacklist. Impressões não entram na
               conta.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:items-end">
             <div className="space-y-1.5 flex-1 min-w-[140px]">
               <Label htmlFor="auto-click-limit-input" className="text-xs text-muted-foreground">
-                Máximo de cliques por IP (0 = desativado)
+                Máximo de cliques por IP (0 = desativado, mínimo activo 30)
               </Label>
               <Input
                 id="auto-click-limit-input"
@@ -295,7 +296,8 @@ export default function Blacklist() {
               disabled={intLocked || patchGuardsMutation.isPending}
               onClick={() =>
                 patchGuardsMutation.mutate({
-                  auto_blacklist_click_threshold: autoClickLimit,
+                  auto_blacklist_click_threshold:
+                    autoClickLimit > 0 ? Math.max(30, Math.min(5000, autoClickLimit)) : 0,
                   auto_blacklist_click_window_hours: autoClickWindowH,
                 })
               }

@@ -1,8 +1,9 @@
 import type { Request } from "express";
 
 /**
- * Extrai o IP público do visitante atrás de Vercel → Railway / Cloudflare / proxies.
- * Não usar só `socket.remoteAddress` (é o hop interno, ex. EC2 Railway) nem o último XFF cegamente.
+ * Extrai o IP público do visitante atrás de Vercel → Railway / Cloudflare.
+ * O browser não escolhe o IP: `X-Client-IP`, `X-Real-IP` e `True-Client-IP` são ignorados.
+ * Numa cadeia `X-Forwarded-For`, conta o público mais à direita, sem o hop do socket.
  */
 
 function headerFirst(req: Request, name: string): string {
@@ -13,7 +14,7 @@ function headerFirst(req: Request, name: string): string {
 
 /** Remove prefixo IPv4 mapeado em IPv6. */
 export function normalizeClientIp(ip: string): string {
-  let t = ip.trim().replace(/^\[|\]$/g, "");
+  let t = ip.trim().replace(/^\[|\]$/g, "").toLowerCase();
   if (t.startsWith("::ffff:")) t = t.slice(7);
   return t;
 }
@@ -37,59 +38,77 @@ export function isPrivateOrLocalIp(ip: string): boolean {
   return false;
 }
 
-function firstPublicFromCsv(csv: string, skipExact?: string): string | null {
-  const skip = skipExact ? normalizeClientIp(skipExact) : "";
-  for (const part of csv.split(",")) {
-    const ip = normalizeClientIp(part);
-    if (!ip || isPrivateOrLocalIp(ip)) continue;
-    if (skip && ip === skip) continue;
-    return ip;
+function forwardedParts(csv: string): string[] {
+  return csv
+    .split(",")
+    .map((part) => normalizeClientIp(part))
+    .filter(Boolean);
+}
+
+/**
+ * Cliente real numa cadeia em que o proxy acrescenta o hop no fim.
+ * O endereço da esquerda é o que o browser pode ter escrito; usa-se o público mais à direita, sem o peer.
+ * Se o peer é privado e a cadeia não termina nele, o último público é o que o proxy gravou.
+ */
+export function clientIpFromForwardedChain(csv: string, peer: string): string | null {
+  const parts = forwardedParts(csv);
+  if (parts.length === 0) return null;
+  const hop = normalizeClientIp(peer);
+  const last = parts[parts.length - 1];
+
+  if (hop && last === hop) {
+    for (let i = parts.length - 2; i >= 0; i--) {
+      const ip = parts[i];
+      if (!isPrivateOrLocalIp(ip) && ip !== hop) return ip;
+    }
+    return null;
+  }
+
+  if (hop && isPrivateOrLocalIp(hop)) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (!isPrivateOrLocalIp(parts[i])) return parts[i];
+    }
+  }
+
+  return null;
+}
+
+function rightmostPublic(csv: string, peer: string): string | null {
+  const hop = normalizeClientIp(peer);
+  const parts = forwardedParts(csv);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const ip = parts[i];
+    if (!isPrivateOrLocalIp(ip) && ip !== hop) return ip;
   }
   return null;
 }
 
 /**
- * Ordem: headers de CDN/edge que trazem o cliente real → XFF (público, ≠ hop socket) → Express `req.ip` → socket.
+ * IP do visitante atrás de Railway / Vercel / Cloudflare.
+ * `X-Client-IP`, `X-Real-IP` e `True-Client-IP` não escolhem o IP: o browser pode enviá-los.
+ * `X-Forwarded-For` só conta quando o último hop é o socket, ou quando o socket é privado.
+ * `CF-Connecting-IP` (com `CF-Ray`) e `X-Vercel-Forwarded-For` só entram quando o XFF não tem o cliente
+ * — o caso Vercel → Railway, em que o XFF é só o hop.
  */
 export function extractClientIp(req: Request): string {
   const peer = normalizeClientIp(req.socket?.remoteAddress || "");
-
-  const candidates: string[] = [
-    headerFirst(req, "cf-connecting-ip"),
-    headerFirst(req, "true-client-ip"),
-    headerFirst(req, "x-vercel-forwarded-for"),
-    headerFirst(req, "x-real-ip"),
-    headerFirst(req, "x-client-ip"),
-  ];
-
-  for (const c of candidates) {
-    if (!c) continue;
-    const fromCsv = firstPublicFromCsv(c, peer);
-    if (fromCsv) return fromCsv;
-    const one = normalizeClientIp(c);
-    if (one && !isPrivateOrLocalIp(one) && one !== peer) return one;
-  }
-
   const xff = headerFirst(req, "x-forwarded-for");
-  if (xff) {
-    const pub = firstPublicFromCsv(xff, peer);
-    if (pub) return pub;
-    /** Cadeia só com o peer (comum se o proxy não reencaminhou o cliente). */
-    const anyPub = firstPublicFromCsv(xff);
-    if (anyPub && anyPub !== peer) return anyPub;
+  const fromXff = xff ? clientIpFromForwardedChain(xff, peer) : null;
+  if (fromXff) return fromXff;
+
+  const xffParts = xff ? forwardedParts(xff) : [];
+  const xffTail = xffParts[xffParts.length - 1] || "";
+  const sawProxy = (peer && isPrivateOrLocalIp(peer)) || (peer && xffTail === peer);
+  if (!sawProxy) return peer;
+
+  const cfRay = headerFirst(req, "cf-ray");
+  if (cfRay) {
+    const cf = rightmostPublic(headerFirst(req, "cf-connecting-ip"), peer);
+    if (cf) return cf;
   }
 
-  const forwarded = headerFirst(req, "forwarded");
-  if (forwarded) {
-    const m = /for=(?:"?\[?)([a-f0-9:.]+)(?:\]?"?)/i.exec(forwarded);
-    if (m?.[1]) {
-      const ip = normalizeClientIp(m[1]);
-      if (ip && !isPrivateOrLocalIp(ip) && ip !== peer) return ip;
-    }
-  }
+  const vercel = rightmostPublic(headerFirst(req, "x-vercel-forwarded-for"), peer);
+  if (vercel) return vercel;
 
-  const expressIp = typeof req.ip === "string" ? normalizeClientIp(req.ip) : "";
-  if (expressIp && !isPrivateOrLocalIp(expressIp) && expressIp !== peer) return expressIp;
-
-  return peer || expressIp || "";
+  return peer;
 }

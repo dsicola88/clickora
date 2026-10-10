@@ -32,6 +32,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
         label: "Percursos passo a passo (nesta página)",
         hint: "Domínio, presell, GCLID, BuyGoods/SmartAdv, conversões",
       },
+      { to: "/aulas", label: "Aulas em vídeo", hint: "YouTube e Bunny — aprender sem abrir ticket" },
       { to: "/inicio", label: "Página inicial", hint: "Atalhos para criar e ver resultados" },
       { to: "/presells/nova", label: "Criar presell agora", hint: "Assistente Oferta → Campanha → Publicar" },
       { to: "/integracoes", label: "Integrações (postback + anúncios)", hint: "Obrigatório para vendas no painel" },

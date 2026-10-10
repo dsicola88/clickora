@@ -123,6 +123,28 @@ export interface LandingGuarantee {
 
 export type LandingSectionsEnabled = Partial<Record<LandingSectionId, boolean>>;
 
+export interface LandingProductDemo {
+  offer_name: string | null;
+  nav_items: string[];
+  presell_status: string | null;
+  presell_note: string | null;
+  keywords_label: string | null;
+  keywords: string[];
+  keyword_meta: string | null;
+  ad_label: string | null;
+  ad_title: string | null;
+  ad_meta: string | null;
+  rows: { label: string; value: string }[];
+  caption: string | null;
+}
+
+export interface LandingPlanTaglines {
+  free_trial: string | null;
+  monthly: string | null;
+  annual: string | null;
+  quarterly: string | null;
+}
+
 export interface LandingExtrasPublic {
   appearance: LandingExtrasAppearance;
   plans_section_label: string | null;
@@ -152,6 +174,12 @@ export interface LandingExtrasPublic {
   guarantee: LandingGuarantee | null;
   section_order: LandingSectionId[] | null;
   sections_enabled: LandingSectionsEnabled | null;
+  hero_note: string | null;
+  product_demo: LandingProductDemo | null;
+  recommended_plan_type: string | null;
+  recommended_note: string | null;
+  free_limits_note: string | null;
+  plan_taglines: LandingPlanTaglines | null;
   /** Cores / tipografia secções (tema escuro); ver editor Planos → Cores da landing. */
   theme: LandingPageThemeInput | null;
   /** Tipografia por zona (cor, fonte, tamanho, peso, alinhamento). */
@@ -162,50 +190,47 @@ export interface LandingExtrasPublic {
 export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   appearance: "sales_dark",
   plans_section_label: "PLANOS",
-  plans_section_title: "Escolha o plano certo para o seu volume",
+  plans_section_title: "Escolha pelo que precisa agora",
   plans_section_subtitle:
-    "Os limites de presells e cliques estão em cada cartão. Comece grátis e faça upgrade quando precisar. Planos pagos abrem o checkout Hotmart (ou o link que o administrador configurar) — use o mesmo e-mail na compra e na conta dclickora para o webhook activar o acesso.",
+    "Compare presells, cliques e o que cada plano inclui. Os números são os limites da conta, não uma previsão de vendas. O plano grátis não pede cartão nesta página.",
   features: {
-    title: "Do link da oferta ao relatório — no mesmo painel",
+    title: "O que leva no mesmo dia",
     subtitle:
-      "Publique presells, pesquise palavras-chave por funil, monte o rascunho do anúncio para Google Ads e Microsoft Advertising, e veja conversões quando a rede envia o postback. Resultados de venda dependem da sua oferta, criativos e tráfego.",
+      "A presell, as palavras-chave, os títulos do anúncio e o rastreio dos cliques. Sem WordPress e sem alojamento à parte. A venda entra quando a rede a confirma.",
     cards: [
       {
-        title: "Pesquisa e anúncios",
-        body:
-          "Palavras-chave em topo, meio e fundo de funil, e um rascunho para Google Ads e Microsoft Advertising: títulos até 30 caracteres, descrições até 90, caminhos, sitelinks e destaques. Só entra o que confirmar — sem volume, CPC ou promoção inventados. O CSV é de revisão: não publica a campanha nem garante aprovação.",
-        image_url: "/landing/hero-default.png",
+        title: "A presell no ar, sem WordPress",
+        body: "Não instala alojamento, tema nem plugins. Cria a página da oferta no editor — cookies, desconto, VSL ou TSL — e publica. O clique do anúncio chega a uma página sua.",
       },
       {
-        title: "Presells prontas a publicar",
-        body:
-          "Cookies, desconto com urgência, VSL, TSL, DTC, gates de idade/país e editor manual. Importe a página da oferta, escolha o tipo e publique no seu domínio ou no da dclickora.",
-        image_url: "/landing/hotmart-benefit-500.png",
+        title: "Palavras-chave da oferta",
+        body: "Indica o produto, o idioma e se a pessoa está a comprar, a comparar ou só a descobrir. Recebe a lista de pesquisas para usar no anúncio, em vez de a escrever numa folha.",
       },
       {
-        title: "Tracking que o media buyer usa",
-        body:
-          "URL do anúncio com campanha, palavra-chave e GCLID. Impressões e cliques no servidor; país e dispositivo pelo pedido real. Vendas entram via postback da rede (BuyGoods, SmartAdv, Digistore…).",
-        image_url: "/landing/hero-default.png",
+        title: "Títulos e texto do anúncio",
+        body: "No mesmo passo recebe títulos, descrições, caminhos, sitelinks e destaques, já contados para Google Ads e Microsoft Advertising. Copia para a campanha. A publicação continua na plataforma de anúncios.",
       },
       {
-        title: "Domínio e planos alinhados",
-        body:
-          "Nos planos com domínio personalizado, verifique o DNS e publique na sua URL. Pagamento dos planos pagos via Hotmart quando o link está configurado; o webhook activa a assinatura automaticamente.",
-        image_url: "/landing/hotmart-benefit-500.png",
+        title: "Cliques e vendas rastreados",
+        body: "O link do anúncio leva a campanha e a palavra-chave. Vê o clique quando chega. A venda aparece no mesmo painel quando a rede de afiliados envia o postback.",
+      },
+      {
+        title: "Onde vale a pena gastar",
+        body: "A campanha e a palavra-chave ficam ao lado da venda confirmada. Vê o que trouxe resultado e o que só gastou. A decisão de aumentar o orçamento é sua, com os dados juntos.",
+      },
+      {
+        title: "Uma conta, em vez de quatro ferramentas",
+        body: "Página, palavras-chave, anúncio e rastreio deixam de estar em sítios diferentes. Começa sem construtor de sites, sem folha de keywords e sem tracker à parte.",
       },
     ],
   },
   stats: {
-    title: "O que fica medido na conta",
-    subtitle:
-      "Números reais da sua conta — não são médias inventadas. A disponibilidade depende da infraestrutura em produção.",
+    title: "Para quem é",
+    subtitle: "Quem anuncia uma oferta e quer a página, o anúncio e os números no mesmo lugar.",
     items: [
-      { value: "Presells", label: "Tipos e idiomas no editor, com quotas do plano" },
-      { value: "Anúncios", label: "Rascunho Google Ads e Microsoft, com limites da plataforma" },
-      { value: "Cliques", label: "Eventos com UTMs, GCLID e dispositivo" },
-      { value: "Hotmart", label: "Checkout externo + activação por webhook" },
-      { value: "Domínio", label: "Hostname próprio nos planos que o incluem" },
+      { value: "A começar", label: "Publica a primeira presell e recebe palavras-chave e títulos sem montar um site." },
+      { value: "Já anuncia", label: "Junta a página, o texto do anúncio e o postback, e deixa o WordPress de fora." },
+      { value: "Várias ofertas", label: "Vê que campanha e que palavra-chave trouxeram o clique e a venda." },
     ],
   },
   faq: {
@@ -214,12 +239,22 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       {
         q: "O plano grátis inclui o quê?",
         a:
-          "Pode criar presells e usar o tracking até aos limites do cartão (número de páginas e cliques/mês). Ferramentas de tracking e tipos de presell seguem o que está no plano; o branding dclickora pode aparecer no rodapé no grátis.",
+          "Cria a conta e fica no Starter. O cartão mostra quantas presells e quantos cliques por mês pode usar. Não pedimos cartão nesta página. A marca Clickora pode aparecer no rodapé. O postback das redes fica nos planos pagos.",
+      },
+      {
+        q: "Como cancelo ou peço reembolso?",
+        a:
+          "O pagamento dos planos pagos corre na Hotmart. O prazo, o cancelamento e o reembolso são os desse produto. A Clickora não acrescenta uma garantia de sete dias nesta página.",
       },
       {
         q: "Como funciona o pagamento Hotmart?",
         a:
-          "Nos planos pagos, o botão Compra abre o checkout Hotmart (se HOTMART_PRODUCT_URL ou HOTMART_PLAN_CHECKOUT_URLS estiver configurado no servidor). Após pagamento aprovado, o webhook Hotmart activa a assinatura — use o mesmo e-mail na Hotmart e na dclickora. Se o link não estiver configurado, verá um aviso em vez do redirect.",
+          "Nos planos pagos, o botão Assinar abre o checkout Hotmart quando o link está configurado. Depois do pagamento aprovado, o webhook ativa o plano se o e-mail da compra for o da conta Clickora. Se o link não estiver configurado, a página avisa em vez de redirecionar.",
+      },
+      {
+        q: "Preciso de WordPress ou de alojamento?",
+        a:
+          "Não. A presell publica na Clickora. Não instala WordPress, tema nem plugins. O domínio próprio, quando o plano o inclui, aponta para essa página: não é um alojamento à parte.",
       },
       {
         q: "Posso usar o meu domínio nas presells?",
@@ -232,7 +267,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
           "Não. Recebe palavras-chave e um rascunho para rever: títulos, descrições, caminhos, sitelinks e destaques. O CSV é um ficheiro de revisão, não a importação oficial. A aprovação das plataformas não é garantida. Se a geração inteligente não estiver disponível, o texto usa o modelo do idioma do mercado e isso fica indicado.",
       },
       {
-        q: "A dclickora garante vendas ou ROI?",
+        q: "A Clickora garante vendas ou ROI?",
         a:
           "Não. A plataforma fornece páginas, tracking e relatórios. Conversões e lucro dependem da oferta, da rede de afiliados, dos anúncios e do tráfego. Não inventamos cliques nem testemunhos de ganhos.",
       },
@@ -240,38 +275,22 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   },
   legal_footer: {
     lines: [
-      "dclickora — presells, rastreamento e ferramentas para afiliados.",
+      "Clickora — presell, palavras-chave, anúncio e rastreio para afiliados.",
       "Pagamentos de planos via Hotmart quando o checkout está configurado. Resultados comerciais não são garantidos.",
     ],
     links: [
       { label: "Criar conta", href: "/auth" },
       { label: "Entrar", href: "/auth" },
+      { label: "Presell", href: "/presell-para-afiliados" },
+      { label: "Rastreamento", href: "/rastreamento-afiliados" },
+      { label: "Guia", href: "/guia-vendas-afiliados" },
       { label: "Privacidade", href: "/privacidade" },
+      { label: "Termos", href: "/termos" },
     ],
   },
-  content_blocks: [
-    {
-      type: "rich_text",
-      content:
-        "## Saia do amador e opere com dados reais\n\n- Publique cookies, VSL, desconto e gates sem WordPress\n- URL do anúncio com campanha, palavra-chave e GCLID\n- Vendas no painel quando a rede envia o postback (BuyGoods, SmartAdv…)\n- Domínio próprio no Pro Mensal (1) e Pro Anual (até 2); pagamento via Hotmart com o mesmo e-mail\n\n*Resultados dependem da oferta e do tráfego — a dclickora organiza o fluxo.*",
-      layout: "contained",
-      font_family: "sans",
-      font_size: "base",
-      font_weight: "normal",
-      text_align: "left",
-    },
-    {
-      type: "image",
-      title: null,
-      subtitle: null,
-      src: "/landing/hotmart-benefit-500.png",
-      alt: "Painel dclickora — tracking e presells",
-      caption: "Painel: cliques, campanhas e conversões",
-      layout: "contained",
-    },
-  ],
+  content_blocks: [],
   testimonials: {
-    enabled: true,
+    enabled: false,
     title: "O que o fluxo resolve no dia a dia",
     subtitle:
       "Citações sobre o uso da ferramenta — não são promessas de rendimento. Cada conta vê os seus próprios números.",
@@ -309,21 +328,117 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   guarantee: {
     enabled: true,
     seal_image_url: null,
-    title: "Pagamento seguro na Hotmart",
-    lead: "Os planos pagos usam o checkout externo da Hotmart quando o administrador configura o link.",
+    title: "Como funciona o pagamento",
+    lead: "Os planos pagos abrem o checkout da Hotmart. A Clickora não cobra o cartão nesta página.",
     body:
-      "A dclickora não processa o cartão na app: o pagamento corre na Hotmart. Após aprovação, o webhook activa o plano na sua conta (mesmo e-mail). Reembolsos e garantias comerciais seguem as regras da Hotmart e do produto vendido lá — não prometemos ROI nem resultados de campanha.",
-    footer:
-      "Dúvidas sobre o acesso após o pagamento? Confirme o e-mail da compra e o estado do webhook em Integrações / suporte.",
+      "Depois do pagamento aprovado, o webhook ativa o plano se o e-mail da compra for o da conta. Reembolso, prazo e cancelamento são os do produto na Hotmart. Esta página não acrescenta uma garantia de sete dias nem devolve o valor por conta própria. Não há promessa de vendas, ROI ou aprovação dos anúncios.",
+    footer: "O plano grátis não pede cartão aqui. Os limites ficam no cartão Starter.",
   },
-  section_order: ["features", "content_blocks", "testimonials", "stats", "planos", "guarantee", "faq"],
+  section_order: ["features", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
+  hero_note:
+    "O plano grátis está disponível. Cria a conta e fica no Starter, com os limites escritos no cartão. Não pedimos cartão nesta página.",
+  product_demo: {
+    offer_name: "Oferta de exemplo",
+    nav_items: ["Presell", "Palavras-chave", "Anúncio", "Rastreio"],
+    presell_status: "No ar",
+    presell_note: "Publicada na Clickora. Sem WordPress.",
+    keywords_label: "Palavras-chave",
+    keywords: [
+      "comprar oferta de exemplo",
+      "oferta de exemplo vale a pena",
+      "o que é oferta de exemplo",
+    ],
+    keyword_meta: "frase",
+    ad_label: "Título do anúncio",
+    ad_title: "Ver Oferta de exemplo",
+    ad_meta: "22/30",
+    rows: [
+      { label: "Campanha", value: "pesquisa" },
+      { label: "Clique", value: "1 exemplo" },
+      { label: "Venda", value: "à espera do postback" },
+    ],
+    caption:
+      "Exemplo da interface. Postback recebido de Hotmart, Digistore24, ClickBank, BuyGoods, JVZoo e SmartAdv.",
+  },
+  recommended_plan_type: "monthly",
+  recommended_note: "Inclui o postback: a venda entra no painel quando a rede a confirma.",
+  free_limits_note: "Serve para testar o fluxo, não para uma campanha em escala.",
+  plan_taglines: {
+    free_trial: "Para experimentar o fluxo, com poucas páginas e poucos cliques.",
+    monthly: "Para quem já anuncia e precisa de registar as vendas.",
+    annual: "Para usar o ano inteiro, com domínio próprio.",
+    quarterly: null,
+  },
   theme: null,
   text_styles: null,
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+function optionalText(value: unknown, fallback: string | null): string | null {
+  if (typeof value === "string") return value;
+  if (value === null) return null;
+  return fallback;
+}
+
+function stringList(value: unknown, fallback: string[], max: number): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
+
+export function coerceProductDemo(raw: unknown): LandingProductDemo {
+  const base = DEFAULT_LANDING_EXTRAS.product_demo;
+  if (!base) {
+    throw new Error("product-demo-default-missing");
+  }
+  if (!isPlainObject(raw)) return base;
+  const rows = Array.isArray(raw.rows)
+    ? raw.rows
+        .map((row) => {
+          if (!isPlainObject(row)) return null;
+          const label = typeof row.label === "string" ? row.label.trim() : "";
+          const value = typeof row.value === "string" ? row.value.trim() : "";
+          if (!label && !value) return null;
+          return { label, value };
+        })
+        .filter((row): row is { label: string; value: string } => row !== null)
+        .slice(0, 6)
+    : base.rows;
+  return {
+    offer_name: optionalText(raw.offer_name, base.offer_name),
+    nav_items: stringList(raw.nav_items, base.nav_items, 6),
+    presell_status: optionalText(raw.presell_status, base.presell_status),
+    presell_note: optionalText(raw.presell_note, base.presell_note),
+    keywords_label: optionalText(raw.keywords_label, base.keywords_label),
+    keywords: stringList(raw.keywords, base.keywords, 8),
+    keyword_meta: optionalText(raw.keyword_meta, base.keyword_meta),
+    ad_label: optionalText(raw.ad_label, base.ad_label),
+    ad_title: optionalText(raw.ad_title, base.ad_title),
+    ad_meta: optionalText(raw.ad_meta, base.ad_meta),
+    rows,
+    caption: optionalText(raw.caption, base.caption),
+  };
+}
+
+function coercePlanTaglines(raw: unknown): LandingPlanTaglines {
+  const base = DEFAULT_LANDING_EXTRAS.plan_taglines;
+  if (!base) {
+    throw new Error("plan-taglines-default-missing");
+  }
+  if (!isPlainObject(raw)) return base;
+  return {
+    free_trial: optionalText(raw.free_trial, base.free_trial),
+    monthly: optionalText(raw.monthly, base.monthly),
+    annual: optionalText(raw.annual, base.annual),
+    quarterly: optionalText(raw.quarterly, base.quarterly),
+  };
 }
 
 export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
@@ -448,7 +563,10 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
 
   let content_blocks: LandingExtrasPublic["content_blocks"] = null;
   const rawBlocks = raw.content_blocks;
-  if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
+  const contentBlocksProvided = Array.isArray(rawBlocks);
+  if (contentBlocksProvided && rawBlocks.length === 0) {
+    content_blocks = [];
+  } else if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
     const parsed: LandingContentBlock[] = [];
     for (const item of rawBlocks) {
       if (!isPlainObject(item)) continue;
@@ -760,7 +878,7 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
   const textStylesParsed = coerceLandingTextStyles(raw.text_styles);
   const text_styles = Object.keys(textStylesParsed).length ? textStylesParsed : null;
 
-  if (!content_blocks?.length) {
+  if (!contentBlocksProvided && !content_blocks?.length) {
     content_blocks = DEFAULT_LANDING_EXTRAS.content_blocks;
   }
   if (!guarantee) {
@@ -811,6 +929,12 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     guarantee,
     section_order: order,
     sections_enabled,
+    hero_note: optionalText(raw.hero_note, DEFAULT_LANDING_EXTRAS.hero_note),
+    product_demo: raw.product_demo === null ? null : coerceProductDemo(raw.product_demo),
+    recommended_plan_type: optionalText(raw.recommended_plan_type, DEFAULT_LANDING_EXTRAS.recommended_plan_type),
+    recommended_note: optionalText(raw.recommended_note, DEFAULT_LANDING_EXTRAS.recommended_note),
+    free_limits_note: optionalText(raw.free_limits_note, DEFAULT_LANDING_EXTRAS.free_limits_note),
+    plan_taglines: raw.plan_taglines === null ? null : coercePlanTaglines(raw.plan_taglines),
     theme,
     text_styles,
   };

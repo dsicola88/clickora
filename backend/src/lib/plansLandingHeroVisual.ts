@@ -28,8 +28,8 @@ export const DEFAULT_HERO_VISUAL = {
   overlay_intensity: "medium" as const,
   content_entrance: "fade-up" as const,
   cta_enabled: true as const,
-  cta_label: "Ver planos" as string | null,
-  cta_href: "#planos" as string | null,
+  cta_label: "Começar grátis" as string | null,
+  cta_href: "/auth" as string | null,
 };
 
 export type HeroVisualMerged = typeof DEFAULT_HERO_VISUAL;

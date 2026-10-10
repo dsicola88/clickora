@@ -750,6 +750,26 @@ model PlansLandingConfig {
   @@map("plans_landing_config")
 }
 
+/** Catálogo global de aulas em vídeo (YouTube ou Bunny Stream). Só assinantes vêem as publicadas. */
+model AcademyLesson {
+  id             String   @id @default(uuid())
+  title          String   @db.VarChar(200)
+  description    String?  @db.Text
+  /** youtube | bunny */
+  provider       String   @db.VarChar(16)
+  sourceUrl      String   @map("source_url") @db.Text
+  videoId        String   @map("video_id") @db.VarChar(80)
+  bunnyLibraryId String?  @map("bunny_library_id") @db.VarChar(16)
+  moduleName     String   @default("Começar") @map("module_name") @db.VarChar(80)
+  sortOrder      Int      @default(0) @map("sort_order")
+  published      Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([published, moduleName, sortOrder], map: "academy_lessons_published_module_name_sort_order_idx")
+  @@map("academy_lessons")
+}
+
 // ---------------------------------------------------------------------------
 // Paid Ads (ex-Dpiloto) — monólito: mesmo Postgres e User.id = tenant (dono)
 // (organizationId antigo = userId do dono da subscrição / workspace)

@@ -26,6 +26,8 @@ import {
   buildCloakSafePublicPayload,
   shouldServeCloakSafePage,
 } from "../lib/presellEnterpriseCloak";
+import { enforceTrackingRules } from "../lib/trackGuard";
+import { extractClientIp } from "../lib/clientIp";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { z } from "zod";
 
@@ -137,11 +139,7 @@ export const presellController = {
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
     const mapped = await mapPresellForPublic(page);
-    const cloak = shouldServeCloakSafePage(req, page.settings);
-    if (cloak.cloak) {
-      return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: cloak.reason }));
-    }
-    return res.json(mapped);
+    return sendPublicPresell(req, res, page, mapped);
   },
 
   /**
@@ -191,11 +189,7 @@ export const presellController = {
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
     const mapped = await mapPresellForPublic(page);
-    const cloak = shouldServeCloakSafePage(req, page.settings);
-    if (cloak.cloak) {
-      return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: cloak.reason }));
-    }
-    return res.json(mapped);
+    return sendPublicPresell(req, res, page, mapped);
   },
 
   /**
@@ -657,6 +651,33 @@ type PresellPageWithOwnerPlan = Prisma.PresellPageGetPayload<{
 }>;
 
 /** Resposta pública: rodapé dclickora + white-label do tenant. */
+async function sendPublicPresell(
+  req: Request,
+  res: Response,
+  page: { id: string; userId: string; settings: unknown },
+  mapped: Record<string, unknown>,
+) {
+  const geo = shouldServeCloakSafePage(req, page.settings);
+  if (geo.cloak) {
+    console.info("[presell.public] página segura", { id: page.id, reason: geo.reason });
+    return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));
+  }
+  const guard = await enforceTrackingRules({
+    ownerUserId: page.userId,
+    presellPageId: page.id,
+    ip: extractClientIp(req),
+    userAgent: req.headers["user-agent"] || "",
+    headers: req.headers as Record<string, string | string[] | undefined>,
+    channel: "public_page",
+    recordedEventType: "other",
+  });
+  if (!guard.ok) {
+    console.info("[presell.public] página segura", { id: page.id, reason: guard.reason });
+    return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: guard.reason }));
+  }
+  return res.json(mapped);
+}
+
 async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
   const plan = page.user?.subscription?.plan;
   const branding = await systemPrisma.tenantBranding.findUnique({

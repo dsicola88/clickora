@@ -30,6 +30,7 @@ import {
   Bell,
   FlaskConical,
   Timer,
+  GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -42,11 +43,12 @@ import { SubscriptionDatesDialog } from "@/components/admin/SubscriptionDatesDia
 import { AdminPasswordDialog } from "@/components/admin/AdminPasswordDialog";
 import { PlanEditorCard } from "@/components/admin/PlanEditorCard";
 import { PlansLandingEditor } from "@/components/admin/PlansLandingEditor";
+import { AdminLessonsPanel } from "@/components/admin/AdminLessonsPanel";
 import type { AdminUser } from "@/types/api";
 
 const PUBLIC_BRANDING_KEY = ["public-branding"] as const;
 
-const ADMIN_TABS_SUPER = ["overview", "users", "plans", "brand"] as const;
+const ADMIN_TABS_SUPER = ["overview", "users", "plans", "brand", "lessons"] as const;
 const ADMIN_TABS_BASIC = ["overview", "users", "plans"] as const;
 
 const ADMIN_BASE = "/admin";
@@ -330,15 +332,15 @@ export default function AdminPanel() {
             Painel do sistema
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Visão global, assinantes, planos e personalização — {isSuperAdmin ? "super administrador" : "administrador"}.
+            Visão global, assinantes, planos, aulas e personalização — {isSuperAdmin ? "super administrador" : "administrador"}.
           </p>
         </div>
       </div>
 
       <nav
         className={cn(
-          "grid w-full max-w-3xl gap-1 bg-muted/60 p-1 h-auto rounded-lg",
-          isSuperAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3",
+          "grid w-full max-w-4xl gap-1 bg-muted/60 p-1 h-auto rounded-lg",
+          isSuperAdmin ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : "grid-cols-2 sm:grid-cols-3",
         )}
         aria-label="Secções do painel"
       >
@@ -390,6 +392,20 @@ export default function AdminPanel() {
           >
             <ImageIcon className="h-4 w-4" />
             Marca
+          </NavLink>
+        )}
+        {isSuperAdmin && (
+          <NavLink
+            to={`${ADMIN_BASE}/lessons`}
+            className={({ isActive }) =>
+              cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )
+            }
+          >
+            <GraduationCap className="h-4 w-4" />
+            Aulas
           </NavLink>
         )}
       </nav>
@@ -981,6 +997,7 @@ export default function AdminPanel() {
             </Card>
           </div>
         ) : null}
+        {activeTab === "lessons" && isSuperAdmin ? <AdminLessonsPanel /> : null}
       </div>
     </div>
   );
