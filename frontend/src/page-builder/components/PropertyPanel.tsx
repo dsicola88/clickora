@@ -337,6 +337,28 @@ function WidgetContentTab({
             <span className="font-semibold text-editor-fg">Bunny.net:</span> página Play (video.bunnycdn.com/play/…) ou
             iframe (iframe.mediadelivery.net/embed/…).
           </p>
+          <SelectField
+            label="Reprodução automática"
+            value={(c.autoplay as boolean) ? "yes" : "no"}
+            options={[
+              { value: "no", label: "Não" },
+              { value: "yes", label: "Sim (começa sem som)" },
+            ]}
+            onChange={(v) => setContent({ autoplay: v === "yes" })}
+          />
+          <SelectField
+            label="Controlos do leitor"
+            value={(c.controls as boolean) !== false ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Visíveis" },
+              { value: "no", label: "Ocultos" },
+            ]}
+            onChange={(v) => setContent({ controls: v === "yes" })}
+          />
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+            O alinhamento na coluna (esquerda, centro, direita) fica na aba Estilo. Com largura 100% o vídeo ocupa a
+            coluna inteira.
+          </p>
         </Section>
       );
     case "icon":
@@ -578,6 +600,7 @@ function WidgetStyleTab({
           ) : null}
 
           {(widget.type === "image" ||
+            widget.type === "video" ||
             widget.type === "button" ||
             widget.type === "heading" ||
             widget.type === "text" ||

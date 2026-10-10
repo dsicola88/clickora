@@ -1,7 +1,8 @@
 import { AlertCircle, Play } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
-import { stylesToCssWidgetContent } from "../style-utils";
-import { resolvePageBuilderVideoUrl } from "../videoEmbed";
+import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
+import { resolveResponsive } from "../store";
+import { embedUrlWithPlayback, resolvePageBuilderVideoUrl } from "../videoEmbed";
 
 function VideoPlaceholder({
   variant,
@@ -82,38 +83,52 @@ function VideoPlaceholder({
 
 export function VideoWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const url = (widget.content.url as string) ?? "";
+  const autoplay = widget.content.autoplay === true;
+  const controls = widget.content.controls !== false;
   const resolved = resolvePageBuilderVideoUrl(url);
+  const embedSrc = resolved ? embedUrlWithPlayback(resolved, { autoplay, controls }) : null;
+  const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
+  const { width, ...rest } = css;
 
   return (
-    <div style={{ ...css, position: "relative", paddingBottom: "56.25%", height: 0 }}>
-      {resolved ? (
-        <iframe
-          src={resolved.embedUrl}
-          title="Vídeo"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-          allowFullScreen
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            border: 0,
-          }}
-        />
-      ) : url.trim() ? (
-        <VideoPlaceholder
-          variant="error"
-          title="Ligação não suportada"
-          subtitle="Usa um URL do YouTube ou do Bunny Stream (página Play ou iframe mediadelivery.net)."
-        />
-      ) : (
-        <VideoPlaceholder
-          variant="empty"
-          title="Escolhe o vídeo"
-          subtitle="Painel à direita → Conteúdo → YouTube ou Bunny.net — cola o link do vídeo (não é upload de ficheiro)."
-        />
-      )}
+    <div style={{ ...rest, display: "flex", justifyContent: alignToFlexJustify(align), width: "100%" }}>
+      <div
+        style={{
+          position: "relative",
+          width: width ?? "100%",
+          maxWidth: "100%",
+          aspectRatio: "16 / 9",
+        }}
+      >
+        {embedSrc ? (
+          <iframe
+            src={embedSrc}
+            title="Vídeo"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              border: 0,
+            }}
+          />
+        ) : url.trim() ? (
+          <VideoPlaceholder
+            variant="error"
+            title="Ligação não suportada"
+            subtitle="Usa um URL do YouTube ou do Bunny Stream (página Play ou iframe mediadelivery.net)."
+          />
+        ) : (
+          <VideoPlaceholder
+            variant="empty"
+            title="Escolhe o vídeo"
+            subtitle="Painel à direita → Conteúdo → YouTube ou Bunny.net — cola o link do vídeo (não é upload de ficheiro)."
+          />
+        )}
+      </div>
     </div>
   );
 }

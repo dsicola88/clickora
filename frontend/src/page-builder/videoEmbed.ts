@@ -76,6 +76,39 @@ export function resolvePageBuilderVideoUrl(raw: string): ResolvedVideoEmbed | nu
   return null;
 }
 
+/** Aplica autoplay (sempre mudo) e controlos ao iframe do widget de vídeo. */
+export function embedUrlWithPlayback(
+  resolved: ResolvedVideoEmbed,
+  opts: { autoplay?: boolean; controls?: boolean },
+): string {
+  const autoplay = opts.autoplay === true;
+  const controls = opts.controls !== false;
+  if (resolved.kind === "youtube") {
+    const q = new URLSearchParams();
+    q.set("rel", "0");
+    q.set("modestbranding", "1");
+    q.set("controls", controls ? "1" : "0");
+    if (autoplay) {
+      q.set("autoplay", "1");
+      q.set("mute", "1");
+      q.set("playsinline", "1");
+    }
+    const base = resolved.embedUrl.split("?")[0];
+    return `${base}?${q}`;
+  }
+  try {
+    const url = new URL(resolved.embedUrl);
+    if (autoplay) {
+      url.searchParams.set("autoplay", "true");
+      url.searchParams.set("muted", "true");
+    }
+    url.searchParams.set("controls", controls ? "true" : "false");
+    return url.toString();
+  } catch {
+    return resolved.embedUrl;
+  }
+}
+
 /** Parâmetros de autoplay/loop/mudo para vídeo de fundo de secção (sem controlos). */
 export function embedUrlForSectionBackground(resolved: ResolvedVideoEmbed): string {
   const base = resolved.embedUrl;

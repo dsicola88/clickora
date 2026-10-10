@@ -1,13 +1,16 @@
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
+import { useInlineEdit } from "../inline-edit";
 
 export function ImageWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const src = (widget.content.src as string) ?? "";
   const alt = (widget.content.alt as string) ?? "";
+  const link = ((widget.content.link as string) ?? "").trim();
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
   const { width, height, ...wrapperRest } = css;
+  const editing = Boolean(useInlineEdit());
 
   const hasSrc = src.trim().length > 0;
 
@@ -41,6 +44,20 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
     </div>
   );
 
+  const placeholderHref = !link || link === "#" || link.startsWith("#");
+  const media =
+    !editing && link ? (
+      <a
+        href={placeholderHref ? "#" : link}
+        data-clickora-offer={placeholderHref ? "1" : undefined}
+        style={{ display: "block", maxWidth: "100%" }}
+      >
+        {inner}
+      </a>
+    ) : (
+      inner
+    );
+
   return (
     <div
       style={{
@@ -49,7 +66,7 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
         justifyContent: alignToFlexJustify(align),
       }}
     >
-      {inner}
+      {media}
     </div>
   );
 }
