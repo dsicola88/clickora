@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   ListChecks,
   Music2,
+  Key,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1033,6 +1034,117 @@ function TiktokEventsIntegrationCard({
   );
 }
 
+function AffiliateNetworkSecretsCard({
+  secrets,
+  jvzooSecret,
+  setJvzooSecret,
+  clickbankSecret,
+  setClickbankSecret,
+  saveSecrets,
+  integrationsLocked = false,
+}: {
+  secrets: { has_jvzoo_ipn_secret: boolean; has_clickbank_ins_secret: boolean } | undefined;
+  jvzooSecret: string;
+  setJvzooSecret: (v: string) => void;
+  clickbankSecret: string;
+  setClickbankSecret: (v: string) => void;
+  saveSecrets: {
+    mutate: (body?: {
+      jvzoo_ipn_secret?: string;
+      clickbank_ins_secret?: string;
+      clear_jvzoo_ipn_secret?: boolean;
+      clear_clickbank_ins_secret?: boolean;
+    }) => void;
+    isPending: boolean;
+  };
+  integrationsLocked?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+          <Key className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-semibold text-card-foreground">Segredos de postback — JVZoo e ClickBank</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            A JVZoo recusa o IPN sem o segredo do cverify. A ClickBank só decifra o Instant Notification Service com a secret key da conta (até 16 caracteres). O valor fica no cofre e não volta nesta página.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Segredo IPN da JVZoo</Label>
+          <Input
+            type="password"
+            value={jvzooSecret}
+            readOnly={integrationsLocked}
+            onChange={(e) => setJvzooSecret(e.target.value)}
+            placeholder={secrets?.has_jvzoo_ipn_secret ? "cole um novo para substituir" : "Cole o segredo do cverify"}
+            className="font-mono text-xs"
+            autoComplete="off"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Secret key da ClickBank</Label>
+          <Input
+            type="password"
+            value={clickbankSecret}
+            readOnly={integrationsLocked}
+            onChange={(e) => setClickbankSecret(e.target.value.slice(0, 16))}
+            placeholder={secrets?.has_clickbank_ins_secret ? "cole um novo para substituir" : "Até 16 caracteres"}
+            className="font-mono text-xs"
+            autoComplete="off"
+            maxLength={16}
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          onClick={() =>
+            saveSecrets.mutate({
+              ...(jvzooSecret.trim() ? { jvzoo_ipn_secret: jvzooSecret.trim() } : {}),
+              ...(clickbankSecret.trim() ? { clickbank_ins_secret: clickbankSecret.trim() } : {}),
+            })
+          }
+          disabled={integrationsLocked || saveSecrets.isPending}
+          className="gap-2"
+        >
+          {saveSecrets.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Guardar segredos
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={integrationsLocked || saveSecrets.isPending || !secrets?.has_jvzoo_ipn_secret}
+          onClick={() => saveSecrets.mutate({ clear_jvzoo_ipn_secret: true })}
+        >
+          Remover JVZoo
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={integrationsLocked || saveSecrets.isPending || !secrets?.has_clickbank_ins_secret}
+          onClick={() => saveSecrets.mutate({ clear_clickbank_ins_secret: true })}
+        >
+          Remover ClickBank
+        </Button>
+        {secrets?.has_jvzoo_ipn_secret ? (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            JVZoo em cofre
+          </Badge>
+        ) : null}
+        {secrets?.has_clickbank_ins_secret ? (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            ClickBank em cofre
+          </Badge>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function CopyFieldRow({
   value,
   disabled,
@@ -1397,6 +1509,8 @@ export default function TrackingDashboard() {
   const [ttPixelId, setTtPixelId] = useState("");
   const [ttToken, setTtToken] = useState("");
   const [ttTestCode, setTtTestCode] = useState("");
+  const [jvzooSecret, setJvzooSecret] = useState("");
+  const [clickbankSecret, setClickbankSecret] = useState("");
 
   const firstName = user?.name?.trim()?.split(/\s+/)[0];
   const integrationsLocked = !userCanWriteIntegrations(user);
@@ -1530,6 +1644,40 @@ export default function TrackingDashboard() {
       await queryClient.invalidateQueries({ queryKey: ["integrations-tiktok-events"] });
       await queryClient.invalidateQueries({ queryKey: ["tracking-dashboard"] });
       setTtToken("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const { data: affiliateSecrets } = useQuery({
+    queryKey: ["integrations-affiliate-secrets"],
+    queryFn: async () => {
+      const { data, error: err } = await integrationsService.getAffiliateSecrets();
+      if (err) throw new Error(err);
+      if (!data) throw new Error("Resposta vazia");
+      return data;
+    },
+  });
+
+  const saveAffiliateSecrets = useMutation({
+    mutationFn: async (body?: {
+      jvzoo_ipn_secret?: string;
+      clickbank_ins_secret?: string;
+      clear_jvzoo_ipn_secret?: boolean;
+      clear_clickbank_ins_secret?: boolean;
+    }) => {
+      const payload = body ?? {
+        ...(jvzooSecret.trim() ? { jvzoo_ipn_secret: jvzooSecret.trim() } : {}),
+        ...(clickbankSecret.trim() ? { clickbank_ins_secret: clickbankSecret.trim() } : {}),
+      };
+      const { data, error: err } = await integrationsService.patchAffiliateSecrets(payload);
+      if (err) throw new Error(err);
+      return data;
+    },
+    onSuccess: async () => {
+      toast.success("Segredos de postback atualizados.");
+      setJvzooSecret("");
+      setClickbankSecret("");
+      await queryClient.invalidateQueries({ queryKey: ["integrations-affiliate-secrets"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1766,6 +1914,15 @@ export default function TrackingDashboard() {
           saveTiktok={saveTiktokEvents}
           integrationsLocked={integrationsLocked}
         />
+        <AffiliateNetworkSecretsCard
+          secrets={affiliateSecrets}
+          jvzooSecret={jvzooSecret}
+          setJvzooSecret={setJvzooSecret}
+          clickbankSecret={clickbankSecret}
+          setClickbankSecret={setClickbankSecret}
+          saveSecrets={saveAffiliateSecrets}
+          integrationsLocked={integrationsLocked}
+        />
       </div>
     );
   }
@@ -1934,6 +2091,15 @@ export default function TrackingDashboard() {
           ttTestCode={ttTestCode}
           setTtTestCode={setTtTestCode}
           saveTiktok={saveTiktokEvents}
+          integrationsLocked={integrationsLocked}
+        />
+        <AffiliateNetworkSecretsCard
+          secrets={affiliateSecrets}
+          jvzooSecret={jvzooSecret}
+          setJvzooSecret={setJvzooSecret}
+          clickbankSecret={clickbankSecret}
+          setClickbankSecret={setClickbankSecret}
+          saveSecrets={saveAffiliateSecrets}
           integrationsLocked={integrationsLocked}
         />
       </section>

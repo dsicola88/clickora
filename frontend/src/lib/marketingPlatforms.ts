@@ -114,7 +114,7 @@ const DEFAULT_POSTBACK_PARAMS: Record<string, string> = {
 
 export const DEFAULT_AFFILIATE_POSTBACK_PRESET: AffiliatePostbackPreset = {
   hint:
-    "Query string genérica: a rede substitui {ORDERID}, {SUBID}, etc. O UUID do clique (presell → oferta) deve aparecer em clickora_click_id ou subid1 — o servidor aceita também sub1/SUB1 com UUID.",
+    "Contrato genérico desta app, não o IPN nativo da rede. Mapeie a comissão para amount, o id da transacção para orderid e o UUID do clique para clickora_click_id ou subid1. status tem de ser approved, pending, refund ou chargeback. Campos de outra rede (cid, billing_status, WP_ACTION, ctransaction) não são lidos neste contrato.",
   params: DEFAULT_POSTBACK_PARAMS,
 };
 
@@ -122,101 +122,99 @@ export const DEFAULT_AFFILIATE_POSTBACK_PRESET: AffiliatePostbackPreset = {
 export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbackPreset>> = {
   Digistore24: {
     hint:
-      "Digistore24 (S2S): no hoplink a Clickora envia cid=UUID. No postback usa {cid} (não {SUBID}). Inclui transaction_type — refunds revertem a venda no painel e no Google Ads.",
+      "Digistore24 (S2S). No hoplink vai cid (e sid1 se cid já existir). No postback use {cid}, {amount_affiliate}, {billing_status}, {transaction_type}, {transaction_id}, {order_id}, {payment_id} e {pay_sequence_no}. payment+completed/paying é venda. refund e chargeback revertem a transacção indicada por parent_transaction_id, payment_id ou pay_sequence_no. payment_missed não é reembolso.",
     params: {
       cid: "{cid}",
       sid1: "{sid1}",
       clickora_click_id: "{cid}",
-      amount: "{amount_affiliate}",
+      amount_affiliate: "{amount_affiliate}",
       billing_status: "{billing_status}",
       transaction_type: "{transaction_type}",
-      orderid: "{order_id}",
-      cy: "{currency}",
+      transaction_id: "{transaction_id}",
+      order_id: "{order_id}",
+      payment_id: "{payment_id}",
+      pay_sequence_no: "{pay_sequence_no}",
+      currency: "{currency}",
     },
   },
   BuyGoods: {
     hint:
-      "BuyGoods: postback = vendas ({SUBID}). Para Checkout Visitors como no Overview, cole também o Funnel Pixel Checkout (abaixo nesta página) em BuyGoods → Funnel Pixels.",
+      "BuyGoods: este URL é só a venda ({SUBID}, {ORDERID}, {COMMISSION_AMOUNT}). Não leva status=approved fixo. Checkout Visitors entram pelo pixel HTML ou pelo URL de evento Checkout, nunca por este URL.",
     params: {
       subid: "{SUBID}",
       clickora_click_id: "{SUBID}",
-      subid1: "{SUBID}",
       orderid: "{ORDERID}",
       amount: "{COMMISSION_AMOUNT}",
       product: "{PRODUCT_CODENAME}",
-      status: "approved",
-      transaction_type: "{EVENT}",
       cy: "USD",
     },
   },
   SmartAdv: {
     hint:
-      "SmartAdv: a Clickora envia o UUID em sub3 (recomendado pela rede). No postback use cid={sub3}. Global postback cobre todas as ofertas; refunds com o mesmo transaction_id revertem receita.",
+      "SmartAdv: o UUID vai em sub3. status={status} (approved, pending, refund, rejected). Checkout é o URL de evento, não esta conversão. O id de deduplicação é {transaction_id}.",
     params: {
-      cid: "{sub3}",
-      clickora_click_id: "{sub3}",
       sub3: "{sub3}",
+      clickora_click_id: "{sub3}",
       orderid: "{transaction_id}",
       amount: "{payout}",
-      status: "approved",
-      transaction_type: "{status}",
+      status: "{status}",
+      currency: "{currency}",
     },
   },
   MaxWeb: {
     hint:
-      "MaxWeb: muitos anunciantes usam s1–s3; o UUID do clique pode ir em s1 ou subid1 (o backend lê sub1 com UUID).",
+      "MaxWeb: o parâmetro oficial no hoplink é subid, ecoado como {SUBID}. Este URL é a compra. O evento Checkout Visit da MaxWeb tem de usar o URL de funil (funnel_step=checkout), não este.",
     params: {
-      s1: "{SUBID}",
-      s2: "{SUBID2}",
-      s3: "{SUBID3}",
+      subid: "{SUBID}",
+      clickora_click_id: "{SUBID}",
       orderid: "{ORDERID}",
       amount: "{COMMISSION_AMOUNT}",
+      product: "{PRODUCT_CODENAME}",
       cy: "USD",
-      status: "approved",
-      clickora_click_id: "{SUBID}",
-      subid1: "{SUBID}",
     },
   },
   ClickBank: {
     hint:
-      "ClickBank (IPN): confirme o secret na conta; o UUID deve coincidir com o subid que enviaste no hoplink (subid1 ou clickora_click_id).",
-    params: DEFAULT_POSTBACK_PARAMS,
+      "ClickBank INS chega cifrado (notification + iv). Sem a chave da conta este endpoint não decifra e ignora o aviso. Se os campos já vierem em claro, lê transactionType (SALE, BILL, RFND, CGBK), receipt, totalAccountAmount e tid. Não use macros {SUBID}.",
+    params: {},
   },
   Hotmart: {
     hint:
-      "Hotmart pode notificar por POST JSON; o mesmo conjunto de campos é aceite em query string e em form (flatten no servidor).",
-    params: DEFAULT_POSTBACK_PARAMS,
+      "Vendas Hotmart (webhook 2.0 do produto), separado do webhook de planos da aplicação. O hoplink recebe src=UUID. Eventos: PURCHASE_APPROVED e PURCHASE_COMPLETE são a mesma transacção; PURCHASE_REFUNDED e PURCHASE_CANCELED revertem; PURCHASE_CHARGEBACK é chargeback; boleto impresso fica pendente. A comissão lida é a linha AFFILIATE, não o preço do comprador.",
+    params: {},
   },
   WarriorPlus: {
-    hint: "WarriorPlus: confirme o WP IPN; o ID de tracking deve ser o UUID devolvido no link de oferta.",
-    params: DEFAULT_POSTBACK_PARAMS,
+    hint:
+      "WarriorPlus envia IPN em POST (WP_ACTION, WP_SALEID, WP_COMMISSION, WP_TID). sale regista a comissão. refund reverte. dispute é chargeback. Não usa {ORDERID}.",
+    params: {},
   },
   JVZoo: {
-    hint: "JVZoo: ctc ou parâmetros de tracking — o UUID do clique deve ser reenviado em subid1 ou clickora_click_id.",
-    params: DEFAULT_POSTBACK_PARAMS,
+    hint:
+      "JVZoo envia ctransaction (SALE, BILL, RFND, CGBK), ctransreceipt e tid. CANCEL-REBILL não é uma venda nova nem um reembolso da cobrança já paga.",
+    params: {},
   },
   "CJ Affiliate": {
-    hint: "CJ: parâmetros de comissão variam; mantenha clickora_click_id ou subid1 com o UUID do clique.",
+    hint: "CJ não tem adaptador nativo. Mapeie a comissão, o id e o UUID para o contrato genérico (amount, orderid, clickora_click_id, status).",
     params: DEFAULT_POSTBACK_PARAMS,
   },
   Impact: {
-    hint: "Impact.com: confirme os placeholders do programa; o click id interno deve ser o UUID do dclickora.",
+    hint: "Impact não tem adaptador nativo. Mapeie SharedId/ActionId para clickora_click_id, orderid, amount e status do contrato genérico.",
     params: DEFAULT_POSTBACK_PARAMS,
   },
   Rakuten: {
-    hint: "Rakuten: confirme o formato de notificação do anunciante; UUID em subid1 ou clickora_click_id.",
+    hint: "Rakuten não tem adaptador nativo. Use o contrato genérico: clickora_click_id, orderid, amount (comissão) e status.",
     params: DEFAULT_POSTBACK_PARAMS,
   },
   ShareASale: {
-    hint: "ShareASale: transaction e status típicos; afftrack/merchant — UUID do clique em subid1.",
+    hint: "ShareASale não tem adaptador nativo. Mapeie a transacção para orderid, a comissão para amount e o tracking para clickora_click_id.",
     params: DEFAULT_POSTBACK_PARAMS,
   },
   Awin: {
-    hint: "Awin: confirme o conversion pixel / postback do anunciante; UUID em clickora_click_id.",
+    hint: "Awin não tem adaptador nativo. Mapeie o clique e a comissão para o contrato genérico (clickora_click_id, orderid, amount, status).",
     params: DEFAULT_POSTBACK_PARAMS,
   },
   Keitaro: {
-    hint: "Keitaro: costuma reencaminhar parâmetros; o subid com UUID deve ser o mesmo do link de oferta.",
+    hint: "Keitaro reencaminha o que configurar. Aponte o postback para o contrato genérico: clickora_click_id, orderid, amount, status.",
     params: DEFAULT_POSTBACK_PARAMS,
   },
 };
@@ -315,10 +313,11 @@ const FUNNEL_GUIDES: Partial<Record<string, AffiliateFunnelGuide>> = {
     supportsLander: false,
   },
   MaxWeb: {
-    mode: "sale_only",
-    panelPath: "MaxWeb → Postback Tracking Tags (venda)",
+    mode: "event_postback",
+    panelPath: "MaxWeb → Postback Pixels. Compra neste URL. Checkout Visit no URL de evento (funnel_step=checkout).",
     summary:
-      "MaxWeb documenta postback de conversão/comissão. Checkout Visitors da rede não entram automaticamente; use o pixel HTML só se a conta tiver campo de pixel no funil.",
+      "A MaxWeb deixa escolher Purchase ou Checkout Visit. O URL de venda não traz status=approved. Cole o URL de funil só no evento Checkout Visit, senão a visita ao checkout conta como venda.",
+    eventClickIdMacro: "{SUBID}",
     supportsLander: false,
   },
   Hotmart: {

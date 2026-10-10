@@ -20,7 +20,7 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   countdownDurationMinutes: "15",
   /**
    * Parâmetros extra da URL da presell a copiar para o hoplink (vírgula ou espaço).
-   * sub1–sub3 são sempre considerados; aqui só se acrescentam nomes (ex.: clickid, var1, txid).
+   * sub1 e sub2 são sempre considerados; sub3 fica livre para o clique da rede. Aqui só se acrescentam nomes (ex.: clickid, var1, txid).
    */
   offerQueryForwardAllowlist: "",
   /**

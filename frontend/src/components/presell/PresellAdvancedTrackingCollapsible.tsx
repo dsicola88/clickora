@@ -160,9 +160,10 @@ export function PresellAdvancedTrackingCollapsible({
                   isEditor ? "text-editor-fg-muted" : "text-muted-foreground",
                 )}
               >
-                <span className="font-mono">sub1</span>, <span className="font-mono">sub2</span> e{" "}
-                <span className="font-mono">sub3</span> passam sempre para o link da oferta quando lá ainda não
-                existem. Acrescenta aqui mais nomes (vírgula ou espaço): só <span className="font-mono">a-z</span>,{" "}
+                <span className="font-mono">sub1</span> e <span className="font-mono">sub2</span> passam para o link da
+                oferta quando lá ainda não existem. <span className="font-mono">sub3</span> não vai por defeito: é o
+                identificador de clique da SmartAdv. Acrescenta aqui mais nomes (vírgula ou espaço): só{" "}
+                <span className="font-mono">a-z</span>,{" "}
                 <span className="font-mono">0-9</span>, <span className="font-mono">-</span> e{" "}
                 <span className="font-mono">_</span>, até 32 nomes. Nunca sobrepõe o que o hoplink já define.
               </p>

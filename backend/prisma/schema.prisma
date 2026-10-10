@@ -95,6 +95,10 @@ model User {
   avatarUrl   String?  @map("avatar_url")
   /** E-mail opcional para alertas de venda (postback de afiliados). Se vazio, usa `email`. */
   saleNotifyEmail String? @map("sale_notify_email")
+  /** Segredo JVZIPN da conta (cverify). Cifrado com ENCRYPTION_KEY quando existir. */
+  jvzooIpnSecret String? @map("jvzoo_ipn_secret") @db.Text
+  /** Secret key do Instant Notification Service da ClickBank (até 16 caracteres). */
+  clickbankInsSecret String? @map("clickbank_ins_secret") @db.Text
   /** OAuth refresh token da conta Google Ads (opcional se usar só variáveis de ambiente globais). */
   googleAdsRefreshToken String?  @map("google_ads_refresh_token") @db.Text
   googleAdsEnabled           Boolean  @default(false) @map("google_ads_enabled")

@@ -177,6 +177,26 @@ export const integrationsService = {
     }>("/integrations/tiktok-events", body);
   },
 
+  async getAffiliateSecrets() {
+    return apiClient.get<{
+      has_jvzoo_ipn_secret: boolean;
+      has_clickbank_ins_secret: boolean;
+    }>("/integrations/affiliate-secrets");
+  },
+
+  async patchAffiliateSecrets(body: {
+    jvzoo_ipn_secret?: string;
+    clickbank_ins_secret?: string;
+    clear_jvzoo_ipn_secret?: boolean;
+    clear_clickbank_ins_secret?: boolean;
+  }) {
+    return apiClient.patch<{
+      ok: boolean;
+      has_jvzoo_ipn_secret: boolean;
+      has_clickbank_ins_secret: boolean;
+    }>("/integrations/affiliate-secrets", body);
+  },
+
   async getTelegramSettings() {
     return apiClient.get<{
       telegram_chat_id: string;

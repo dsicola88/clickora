@@ -34,9 +34,10 @@ export function parseOfferQueryForwardAllowlist(raw: string): string[] {
   return out;
 }
 
-const DEFAULT_OFFER_FORWARD_KEYS = ["sub1", "sub2", "sub3"] as const;
+/** sub3 fica livre: é o clique da SmartAdv. O valor de tráfego continua no evento de clique. */
+const DEFAULT_OFFER_FORWARD_KEYS = ["sub1", "sub2"] as const;
 
-/** Ordem: sub1–sub3 sempre; depois extras da allowlist nas settings. */
+/** Ordem: sub1 e sub2 sempre; depois extras da allowlist nas settings. */
 export function buildOfferForwardParamKeys(settings: Record<string, unknown>): string[] {
   const raw = settings.offerQueryForwardAllowlist;
   const extra = typeof raw === "string" ? parseOfferQueryForwardAllowlist(raw) : [];

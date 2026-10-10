@@ -61,21 +61,48 @@ export function periodEndByPlan(planType: PlanType, startsAt = new Date()): Date
   return null;
 }
 
-export function normalizeSubscriptionStatus(input: string): SubscriptionStatus {
-  const normalized = input.trim().toLowerCase();
+/**
+ * Efeito de um evento Hotmart 2.0 na subscrição da app.
+ * `null` = não alterar acesso (boleto impresso, evento desconhecido, protesto).
+ * Não trata nomes oficiais como compra aprovada.
+ */
+export function normalizeSubscriptionStatus(input: string): SubscriptionStatus | null {
+  const normalized = input.trim().toLowerCase().replace(/[\s.-]+/g, "_");
 
-  if (["approved", "authorized", "active", "purchase_approved", "subscription_started", "billet_printed"].includes(normalized)) {
-    return "active";
-  }
-  if (["canceled", "cancelled", "refunded", "chargeback"].includes(normalized)) {
-    return "canceled";
-  }
-  if (["expired", "overdue", "delinquent", "subscription_expired", "payment_refused"].includes(normalized)) {
-    return "expired";
-  }
-  if (["suspended", "blocked"].includes(normalized)) {
-    return "suspended";
-  }
+  const active = new Set([
+    "approved",
+    "authorized",
+    "active",
+    "purchase_approved",
+    "purchase_complete",
+    "subscription_started",
+  ]);
+  const canceled = new Set([
+    "canceled",
+    "cancelled",
+    "refunded",
+    "chargeback",
+    "purchase_canceled",
+    "purchase_cancelled",
+    "purchase_refunded",
+    "purchase_chargeback",
+    "subscription_cancellation",
+    "subscription_canceled",
+    "subscription_cancelled",
+  ]);
+  const expired = new Set([
+    "expired",
+    "overdue",
+    "delinquent",
+    "subscription_expired",
+    "payment_refused",
+    "purchase_expired",
+  ]);
+  const suspended = new Set(["suspended", "blocked"]);
 
-  return "active";
+  if (active.has(normalized)) return "active";
+  if (canceled.has(normalized)) return "canceled";
+  if (expired.has(normalized)) return "expired";
+  if (suspended.has(normalized)) return "suspended";
+  return null;
 }

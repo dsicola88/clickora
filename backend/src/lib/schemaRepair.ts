@@ -36,6 +36,8 @@ const CONVERSIONS_TIKTOK_EVENTS_SQL = [
 
 /** Colunas/tabelas pro (20260924*) — idempotente se migrate deploy ainda não passou. */
 const USERS_PRO_AFFILIATE_SQL = [
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "jvzoo_ipn_secret" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "clickbank_ins_secret" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "block_proxy_clicks" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_enabled" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_dry_run" BOOLEAN NOT NULL DEFAULT true`,

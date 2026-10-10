@@ -7,6 +7,19 @@ import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
 
 const GRAPH_VERSION = "v22.0";
 
+/** Em produção o destino é sempre o Graph. O mock local só entra com E2E_AD_MOCK=1 fora de production. */
+function metaGraphOrigin(): string {
+  const override = process.env.META_CAPI_GRAPH_ORIGIN?.trim();
+  if (
+    override &&
+    process.env.E2E_AD_MOCK === "1" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return override.replace(/\/$/, "");
+  }
+  return "https://graph.facebook.com";
+}
+
 export function isMetaCapiReadyForUser(user: {
   metaCapiEnabled: boolean;
   metaPixelId: string | null | undefined;
@@ -22,6 +35,7 @@ export async function sendMetaPurchaseEvent(params: {
   pixelId: string;
   accessToken: string;
   eventId: string;
+  eventName?: "Purchase" | "Refund";
   eventTimeSec: number;
   value: number;
   currency: string;
@@ -36,7 +50,7 @@ export async function sendMetaPurchaseEvent(params: {
 }): Promise<{ ok: true; raw: unknown } | { ok: false; error: string; raw?: unknown }> {
   const pixel = params.pixelId.trim();
   const token = params.accessToken.trim();
-  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pixel)}/events?access_token=${encodeURIComponent(token)}`;
+  const url = `${metaGraphOrigin()}/${GRAPH_VERSION}/${encodeURIComponent(pixel)}/events?access_token=${encodeURIComponent(token)}`;
 
   const user_data: Record<string, string> = {};
   if (params.clientIp?.trim()) user_data.client_ip_address = params.clientIp.trim();
@@ -54,7 +68,7 @@ export async function sendMetaPurchaseEvent(params: {
   };
 
   const eventRow: Record<string, unknown> = {
-    event_name: "Purchase",
+    event_name: params.eventName || "Purchase",
     event_time: params.eventTimeSec,
     event_id: params.eventId,
     action_source: "website",
@@ -98,6 +112,24 @@ export async function sendMetaPurchaseEvent(params: {
   return { ok: true, raw: json };
 }
 
+async function noteMetaRefundBlocked(
+  conversionId: string,
+  prev: Record<string, unknown>,
+  reason: string,
+  field: "refund" | "partial_refund" = "refund",
+): Promise<void> {
+  await systemPrisma.conversion.update({
+    where: { id: conversionId },
+    data: {
+      metaCapiSyncDetail: {
+        ...prev,
+        [field]: "skipped",
+        [`${field}_error`]: reason,
+      } as Prisma.InputJsonValue,
+    },
+  });
+}
+
 async function markMetaCapiSkip(
   conversionId: string,
   code: string,
@@ -117,7 +149,24 @@ async function markMetaCapiSkip(
  * Após conversão aprovada (postback): envia Purchase para Meta CAPI se configurado.
  * Idempotente se `metaCapiSync === sent`.
  */
-export async function syncConversionToMetaCapi(conversionId: string): Promise<void> {
+export async function retractConversionFromMetaCapi(conversionId: string): Promise<void> {
+  return syncConversionToMetaCapi(conversionId, "refund");
+}
+
+/** Reembolso parcial: envia Refund só do valor devolvido e mantém o Purchase em sent. */
+export async function reportPartialRefundToMetaCapi(
+  conversionId: string,
+  refundAmount: number,
+  refundTxnId: string | null,
+): Promise<void> {
+  return syncConversionToMetaCapi(conversionId, "partial", { refundAmount, refundTxnId });
+}
+
+export async function syncConversionToMetaCapi(
+  conversionId: string,
+  mode: "purchase" | "refund" | "partial" = "purchase",
+  partial?: { refundAmount: number; refundTxnId: string | null },
+): Promise<void> {
   const conv = await systemPrisma.conversion.findUnique({
     where: { id: conversionId },
     include: {
@@ -126,9 +175,25 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
     },
   });
 
-  if (!conv || conv.status !== "approved") return;
-  if (conv.metaCapiSync === "sent") return;
+  if (!conv) return;
+  const prevDetail = (conv.metaCapiSyncDetail || {}) as Record<string, unknown>;
+  const partialIds = Array.isArray(prevDetail.partial_refund_ids)
+    ? prevDetail.partial_refund_ids.filter((id): id is string => typeof id === "string")
+    : [];
+  const partialKey = partial?.refundTxnId || (partial ? `amt:${partial.refundAmount}` : "");
+  if (mode === "partial") {
+    if (conv.status !== "approved" || conv.metaCapiSync !== "sent") return;
+    if (!partial || !(partial.refundAmount > 0) || partialIds.includes(partialKey)) return;
+  } else if (mode === "refund") {
+    if (conv.status !== "refunded") return;
+    if (prevDetail.refund === "sent") return;
+    if (conv.metaCapiSync !== "sent") return;
+  } else if (conv.status !== "approved" || conv.metaCapiSync === "sent") {
+    return;
+  }
+  const adMode = mode === "purchase" ? "purchase" : "refund";
   if (!conv.click) {
+    if (adMode === "refund") return;
     await markMetaCapiSkip(conv.id, "skipped_no_fbclid", {
       reason: "Conversão sem clique associado (não atribuída) — sem fbclid para CAPI.",
     });
@@ -137,6 +202,7 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
 
   const user = conv.user;
   if (!isMetaCapiReadyForUser(user)) {
+    if (adMode === "refund") return;
     await markMetaCapiSkip(conv.id, "skipped_disabled", {
       reason: "A integração Meta (CAPI) está inactiva ou faltam Pixel ID e token de acesso.",
     });
@@ -146,6 +212,15 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   const pixelId = user.metaPixelId!.trim();
   const accessToken = decryptSecretField(user.metaAccessToken)?.trim();
   if (!accessToken) {
+    if (adMode === "refund") {
+      await noteMetaRefundBlocked(
+        conv.id,
+        prevDetail,
+        "token_ilegivel",
+        mode === "partial" ? "partial_refund" : "refund",
+      );
+      return;
+    }
     await markMetaCapiSkip(conv.id, "skipped_no_config", {
       reason: "Não foi possível ler o token da Meta (confirme que está guardado e que ENCRYPTION_KEY não mudou).",
     });
@@ -157,6 +232,15 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   const fbp = typeof clickMeta.fbp === "string" ? clickMeta.fbp : null;
 
   if (!fbclid?.trim()) {
+    if (adMode === "refund") {
+      await noteMetaRefundBlocked(
+        conv.id,
+        prevDetail,
+        "sem_fbclid",
+        mode === "partial" ? "partial_refund" : "refund",
+      );
+      return;
+    }
     await markMetaCapiSkip(conv.id, "skipped_no_fbclid", {
       reason:
         "O clique não contém «fbclid» no rastreio. Os anúncios da Meta requerem o parâmetro no URL da landing para atribuição e envio CAPI.",
@@ -165,11 +249,15 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   }
 
   const clickTs = Math.floor(conv.click.createdAt.getTime() / 1000);
-  const amount = conv.amount != null ? Number(conv.amount) : 0;
+  const amount = mode === "partial" && partial
+    ? partial.refundAmount
+    : conv.amount != null
+      ? Number(conv.amount)
+      : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
   const eventTimeSec = Math.floor(conv.createdAt.getTime() / 1000);
   const flat = stringFieldsFromJson(conv.metadata);
-  const orderId = pickOrderIdFromPayload(flat) || conv.id;
+  const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const eventSourceUrl = eventSourceUrlFromClick({
     referrer: conv.click.referrer,
     metadata: conv.click.metadata,
@@ -178,7 +266,8 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
   const result = await sendMetaPurchaseEvent({
     pixelId,
     accessToken,
-    eventId: conv.id,
+    eventId: mode === "partial" ? `${conv.id}:partial:${partialKey}` : mode === "refund" ? `${conv.id}:refund` : conv.id,
+    eventName: adMode === "refund" ? "Refund" : "Purchase",
     eventTimeSec,
     value: Number.isFinite(amount) ? amount : 0,
     currency,
@@ -196,9 +285,25 @@ export async function syncConversionToMetaCapi(conversionId: string): Promise<vo
     await systemPrisma.conversion.update({
       where: { id: conv.id },
       data: {
-        metaCapiSync: "sent",
+        metaCapiSync: mode === "purchase" ? "sent" : conv.metaCapiSync,
         metaCapiSyncedAt: new Date(),
-        metaCapiSyncDetail: { ok: true, response: result.raw } as Prisma.InputJsonValue,
+        metaCapiSyncDetail: (mode === "partial"
+          ? { ...prevDetail, partial_refund: "sent", partial_refund_ids: [...partialIds, partialKey] }
+          : mode === "refund"
+          ? { ...prevDetail, refund: "sent", refund_response: result.raw }
+          : { ok: true, response: result.raw }) as Prisma.InputJsonValue,
+      },
+    });
+  } else if (mode === "refund" || mode === "partial") {
+    await systemPrisma.conversion.update({
+      where: { id: conv.id },
+      data: {
+        metaCapiSyncDetail: {
+          ...prevDetail,
+          ...(mode === "partial"
+            ? { partial_refund: "failed", partial_refund_error: result.error }
+            : { refund: "failed", refund_error: result.error }),
+        } as Prisma.InputJsonValue,
       },
     });
   } else {

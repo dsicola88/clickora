@@ -223,13 +223,14 @@ async function sendHotmartWelcomeEmail(to: string, provisionalPassword: string):
 export const webhookController = {
   async hotmart(req: Request, res: Response) {
     const expectedToken = process.env.HOTMART_WEBHOOK_TOKEN?.trim();
-    if (expectedToken) {
-      const hmacSecret = process.env.HOTMART_WEBHOOK_SECRET?.trim() || expectedToken;
-      const plainOk = extractHotmartWebhookToken(req) === expectedToken;
-      const hmacOk = verifyHotmartSignature(req, hmacSecret);
-      if (!plainOk && !hmacOk) {
-        return res.status(401).json({ error: "Webhook token inválido" });
-      }
+    if (!expectedToken) {
+      return res.status(401).json({ error: "Webhook Hotmart sem token configurado" });
+    }
+    const hmacSecret = process.env.HOTMART_WEBHOOK_SECRET?.trim() || expectedToken;
+    const plainOk = extractHotmartWebhookToken(req) === expectedToken;
+    const hmacOk = verifyHotmartSignature(req, hmacSecret);
+    if (!plainOk && !hmacOk) {
+      return res.status(401).json({ error: "Webhook token inválido" });
     }
 
     const payload = parseHotmartPayload(req.body);
@@ -244,7 +245,30 @@ export const webhookController = {
     }
 
     const status = normalizeSubscriptionStatus(payload.event);
-    const { user, created, provisionalPassword } = await findOrCreateUser(payload.email, payload.buyerName);
+    if (!status) {
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: "event_ignored",
+        event: payload.event,
+      });
+    }
+
+    const existingUser = await systemPrisma.user.findUnique({
+      where: { email: payload.email },
+      include: { roles: true },
+    });
+    if (!existingUser && status !== "active") {
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: "no_account_for_non_purchase",
+      });
+    }
+
+    const { user, created, provisionalPassword } = existingUser
+      ? { user: existingUser, created: false, provisionalPassword: null }
+      : await findOrCreateUser(payload.email, payload.buyerName);
 
     const planType = resolvePlanType(payload.productCode, payload.offerCode);
     const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
@@ -259,7 +283,10 @@ export const webhookController = {
     }
 
     const startsAt = payload.approvedDate ?? new Date();
-    const endsAt = payload.endDate ?? periodEndByPlan(plan.type, startsAt);
+    const endsAt =
+      status === "canceled" || status === "expired"
+        ? new Date()
+        : (payload.endDate ?? periodEndByPlan(plan.type, startsAt));
 
     await systemPrisma.subscription.upsert({
       where: { userId: user.id },

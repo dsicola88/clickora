@@ -415,7 +415,7 @@ async function main() {
 
     // --- 11) logs auditoria ---
     const logs = await prisma.postbackLog.findMany({
-      where: { userId: user.id, platform: "affiliate_webhook" },
+      where: { userId: user.id, platform: { in: ["digistore24", "affiliate_webhook"] } },
       orderBy: { createdAt: "desc" },
       take: 30,
     });

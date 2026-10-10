@@ -5,18 +5,19 @@ import prisma, { systemPrisma } from "../lib/prisma";
 import { createPostbackToken, verifyPostbackToken } from "../lib/postbackToken";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
+import { flattenAffiliatePayload } from "../lib/affiliatePostbackParsers";
 import {
-  extractClickIdFromPayload,
-  extractSaleStatusFromPayload,
-  flattenAffiliatePayload,
-  isApprovedSaleStatus,
-  isNegativeSaleEvent,
-  isPendingSaleStatus,
-  pickAmountDecimal,
-  pickCurrency,
-  pickOrderIdFromPayload,
-} from "../lib/affiliatePostbackParsers";
-import { detectFunnelStepFromPayload, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
+  buildTestSaleQuery,
+  classifyRefundAdjustment,
+  fallbackExternalId,
+  jvzooCverifyMatches,
+  jvzooSignedFields,
+  metadataWithRefundTxn,
+  parseAffiliatePostback,
+  redactAffiliateFlat,
+  refundTransactionIds,
+} from "../lib/affiliatePlatforms/parseAffiliatePostback";
+import { recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 import { extractClientIp } from "../lib/clientIp";
 import {
   bootstrapGoogleAdsAfterOAuth,
@@ -27,8 +28,18 @@ import {
   syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
 import { syncAdCostsForUser } from "../modules/affiliateOps/costSync.service";
-import { isMetaCapiReadyForUser, syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
-import { isTikTokEventsReadyForUser, syncConversionToTikTokEvents } from "../modules/tiktokEvents/tiktokEvents.service";
+import {
+  isMetaCapiReadyForUser,
+  retractConversionFromMetaCapi,
+  reportPartialRefundToMetaCapi,
+  syncConversionToMetaCapi,
+} from "../modules/metaCapi/metaCapi.service";
+import {
+  isTikTokEventsReadyForUser,
+  retractConversionFromTikTokEvents,
+  reportPartialRefundToTikTokEvents,
+  syncConversionToTikTokEvents,
+} from "../modules/tiktokEvents/tiktokEvents.service";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { sendTelegram } from "../lib/telegram";
 import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
@@ -40,6 +51,7 @@ import {
   sendWebPushToUser,
 } from "../lib/webPush";
 import { decryptSecretField, encryptSecretField } from "../lib/fieldEncryption";
+import { clickbankSaleFields, decryptClickbankNotification } from "../lib/affiliatePlatforms/clickbankIns";
 import {
   buildGoogleAdsAuthorizeUrl,
   exchangeGoogleAdsAuthorizationCode,
@@ -80,6 +92,9 @@ export const integrationsController = {
     if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
 
     const token = createPostbackToken(userId);
+    if (!token) {
+      return res.status(503).json({ error: "JWT_SECRET não configurado no servidor." });
+    }
     const base = publicApiBaseFromRequest(req);
     const hook_url = `${base}/integrations/affiliate-webhook?token=${encodeURIComponent(token)}`;
     const checkoutPixelUrl = `${base}/track/funnel/checkout.gif?token=${encodeURIComponent(token)}`;
@@ -87,7 +102,7 @@ export const integrationsController = {
     /** HTML genérico: redes com campo Funnel/Offer Pixel. Tenta ler subid da URL. */
     const buildFunnelHtml = (pixelUrl: string) =>
       `<script>(function(){try{var q=new URLSearchParams(location.search);` +
-      `var s=q.get("subid")||q.get("SUBID")||q.get("clickora_click_id")||q.get("cid")||q.get("sub3")||"";` +
+      `var s=q.get("clickora_click_id")||q.get("subid")||q.get("SUBID")||q.get("cid")||q.get("sid1")||q.get("sub3")||q.get("src")||q.get("tid")||"";` +
       `var u=${JSON.stringify(pixelUrl)}+(s?"&subid="+encodeURIComponent(s):"")+"&_="+Date.now();` +
       `new Image().src=u;}catch(e){}})();</script>`;
 
@@ -135,19 +150,93 @@ export const integrationsController = {
 
     const user = await systemPrisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, saleNotifyEmail: true },
+      select: { id: true, email: true, saleNotifyEmail: true, jvzooIpnSecret: true, clickbankInsSecret: true },
     });
     if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
 
-    const flat = flattenAffiliatePayload(req);
-    const platform =
+    const flatRaw = flattenAffiliatePayload(req);
+    const flat = redactAffiliateFlat(flatRaw);
+    const platformLabel =
       flat.platform ||
       pickString(req.query.platform?.toString(), (req.body as Record<string, unknown>)?.platform) ||
-      "postback";
+      "";
+    let parseFlat = flatRaw;
+    let parseBody: unknown = req.body;
+    const envelope = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+      ? (req.body as Record<string, unknown>)
+      : null;
+    const notification = typeof envelope?.notification === "string" ? envelope.notification : "";
+    const insIv = typeof envelope?.iv === "string" ? envelope.iv : "";
+    if (notification && insIv) {
+      const secret = decryptSecretField(user.clickbankInsSecret);
+      const reason = !secret
+        ? "clickbank_secret_missing"
+        : null;
+      const plain = secret ? decryptClickbankNotification(notification, insIv, secret) : null;
+      const fields = plain ? clickbankSaleFields(plain) : null;
+      if (reason || !fields) {
+        const why = reason || "clickbank_decrypt_failed";
+        await systemPrisma.postbackLog.create({
+          data: {
+            userId: user.id,
+            platform: "clickbank",
+            status: "rejected",
+            message: why,
+            payload: { platform: "clickbank", conversion: "ignored", reason: why, flat } as Prisma.InputJsonValue,
+          },
+        });
+        return res.status(200).json({ ok: true, ignored: true, conversion: "ignored", reason: why });
+      }
+      parseFlat = { ...flatRaw, ...fields };
+      delete parseFlat.notification;
+      delete parseFlat.iv;
+      parseBody = fields;
+    }
+    const parsed = parseAffiliatePostback({ platform: platformLabel || (notification ? "ClickBank" : ""), flat: parseFlat, body: parseBody });
+    const platform = parsed.adapterId;
+    const clickId = parsed.clickId;
+    const statusRaw = parsed.statusRaw ?? undefined;
+    const approved = parsed.outcome.kind === "approved";
+    const externalOrderId = fallbackExternalId(parsed);
+    const amount = parsed.amount;
+    const currency = parsed.currency;
 
-    const funnelStep = detectFunnelStepFromPayload(flat);
-    if (funnelStep) {
-      const clickId = extractClickIdFromPayload(flat);
+    if (parsed.adapterId === "jvzoo") {
+      const secret = decryptSecretField(user.jvzooIpnSecret);
+      const signed = jvzooSignedFields(req.body);
+      const reason = !secret
+        ? "jvzoo_secret_missing"
+        : jvzooCverifyMatches(signed, secret)
+          ? null
+          : "jvzoo_cverify_invalid";
+      if (reason) {
+        await systemPrisma.postbackLog.create({
+          data: {
+            userId: user.id,
+            platform,
+            status: "rejected",
+            message: reason,
+            payload: {
+              platform,
+              conversion: "ignored",
+              reason,
+              click_id: clickId,
+              external_order_id: externalOrderId,
+              flat,
+            } as Prisma.InputJsonValue,
+          },
+        });
+        return res.status(200).json({
+          ok: true,
+          ignored: true,
+          conversion: "ignored",
+          reason,
+        });
+      }
+    }
+
+    if (parsed.outcome.kind === "funnel") {
+      const funnelStep = parsed.outcome.step;
       const ip = extractClientIp(req);
       const userAgent = req.headers["user-agent"] || "";
       const referrer = typeof req.headers.referer === "string" ? req.headers.referer : null;
@@ -179,6 +268,7 @@ export const integrationsController = {
       });
       return res.status(200).json({
         ok: true,
+        ignored: false,
         funnel_step: funnelStep,
         recorded: result.recorded,
         duplicate: result.duplicate,
@@ -186,12 +276,30 @@ export const integrationsController = {
       });
     }
 
-    const clickId = extractClickIdFromPayload(flat);
-    const statusRaw = extractSaleStatusFromPayload(flat);
-    const approved = isApprovedSaleStatus(statusRaw) && !isNegativeSaleEvent(flat);
-    const externalOrderId = pickOrderIdFromPayload(flat);
-    const amount = pickAmountDecimal(flat);
-    const currency = pickCurrency(flat);
+    if (parsed.outcome.kind === "ignore") {
+      await systemPrisma.postbackLog.create({
+        data: {
+          userId: user.id,
+          platform,
+          status: "rejected",
+          message: parsed.outcome.reason,
+          payload: {
+            platform,
+            conversion: "ignored",
+            reason: parsed.outcome.reason,
+            click_id: clickId,
+            external_order_id: externalOrderId,
+            flat,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        conversion: "ignored",
+        reason: parsed.outcome.reason,
+      });
+    }
 
     type ConversionResult =
       | "created"
@@ -204,6 +312,7 @@ export const integrationsController = {
       | "refunded"
       | "already_refunded"
       | "refund_not_found"
+      | "refund_ambiguous"
       | "skipped_not_approved"
       | "skipped_no_click_id"
       | "invalid_click";
@@ -218,6 +327,7 @@ export const integrationsController = {
       ...flat,
       platform,
       postback_status: statusRaw,
+      network_order_id: parsed.networkOrderId,
     };
 
     async function resolveClickAttribution(): Promise<{
@@ -248,19 +358,149 @@ export const integrationsController = {
     }
 
     /** Refund/chargeback: reverte receita da encomenda existente (não cria venda fantasma). */
-    async function applyRefund(): Promise<"refunded" | "already_refunded" | "refund_not_found"> {
-      if (!externalOrderId) return "refund_not_found";
-      const existing = await systemPrisma.conversion.findUnique({
-        where: {
-          userId_externalOrderId: { userId: user!.id, externalOrderId },
-        },
-      });
+    async function applyRefund(): Promise<
+      "refunded" | "already_refunded" | "refund_not_found" | "restated" | "refund_ambiguous"
+    > {
+      const orderKey = parsed.networkOrderId;
+      const remember = (row: { id: string; attribution: string | null; presellId: string | null }) => {
+        createdConversionId = row.id;
+        attribution = row.attribution === "unattributed" ? "unattributed" : "attributed";
+        presellPageId = row.presellId;
+      };
+      const textField = (key: string) => {
+        const value = flat[key]?.trim();
+        return value || null;
+      };
+      const orderMatch = orderKey
+        ? [
+            { externalOrderId: orderKey },
+            { metadata: { path: ["network_order_id"], equals: orderKey } },
+          ]
+        : [];
+
+      if (externalOrderId) {
+        const priorTxn = await systemPrisma.conversion.findFirst({
+          where: {
+            userId: user!.id,
+            metadata: { path: ["refund_transaction_ids"], array_contains: externalOrderId },
+          },
+        });
+        if (priorTxn) {
+          remember(priorTxn);
+          return "already_refunded";
+        }
+      }
+
+      const parentTxn = textField("parent_transaction_id");
+      const paymentId = textField("payment_id");
+      const sequence = textField("pay_sequence_no");
+
+      let existing = parentTxn
+        ? await systemPrisma.conversion.findUnique({
+            where: { userId_externalOrderId: { userId: user!.id, externalOrderId: parentTxn } },
+          })
+        : null;
+      if (!existing && paymentId) {
+        existing = await systemPrisma.conversion.findFirst({
+          where: {
+            userId: user!.id,
+            metadata: { path: ["payment_id"], equals: paymentId },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+      if (!existing && externalOrderId) {
+        existing = await systemPrisma.conversion.findUnique({
+          where: { userId_externalOrderId: { userId: user!.id, externalOrderId } },
+        });
+      }
+      if (!existing && orderKey && sequence && sequence !== "0") {
+        const sequenced = await systemPrisma.conversion.findMany({
+          where: {
+            userId: user!.id,
+            AND: [
+              { OR: orderMatch },
+              { metadata: { path: ["pay_sequence_no"], equals: sequence } },
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        const open = sequenced.filter((row) => row.status === "approved" || row.status === "pending");
+        if (open.length === 1) existing = open[0];
+        else if (open.length > 1) return "refund_ambiguous";
+        else if (sequenced.some((row) => row.status === "refunded")) {
+          remember(sequenced.find((row) => row.status === "refunded")!);
+          return "already_refunded";
+        }
+      }
+      if (!existing && orderKey) {
+        const open = await systemPrisma.conversion.findMany({
+          where: {
+            userId: user!.id,
+            status: { in: ["approved", "pending"] },
+            OR: orderMatch,
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (open.length === 1) existing = open[0];
+        else if (open.length > 1) return "refund_ambiguous";
+        else {
+          const priorRefund = await systemPrisma.conversion.findFirst({
+            where: {
+              userId: user!.id,
+              status: "refunded",
+              OR: orderMatch,
+            },
+            orderBy: { createdAt: "desc" },
+          });
+          if (priorRefund) {
+            remember(priorRefund);
+            return "already_refunded";
+          }
+        }
+      }
       if (!existing) return "refund_not_found";
-      if (existing.status === "refunded") {
-        createdConversionId = existing.id;
-        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
-        presellPageId = existing.presellId;
+      if (existing.status === "refunded" || (externalOrderId && refundTransactionIds(existing.metadata).includes(externalOrderId))) {
+        remember(existing);
         return "already_refunded";
+      }
+      const refundKind = parsed.outcome.kind === "chargeback" ? "chargeback" : "refund";
+      const adjustment = classifyRefundAdjustment({
+        kind: refundKind,
+        existingAmount: existing.amount != null ? Number(existing.amount) : null,
+        refundAmount: amount != null ? Number(amount) : null,
+      });
+      if (adjustment === "partial" && existing.status === "approved" && amount != null && existing.amount != null) {
+        const prev = Number(existing.amount);
+        const next = prev - Number(amount);
+        await systemPrisma.conversion.update({
+          where: { id: existing.id },
+          data: {
+            amount: new Prisma.Decimal(next),
+            metadata: metadataWithRefundTxn(
+              existing.metadata,
+              {
+                ...baseMeta,
+                partial_refund_at: new Date().toISOString(),
+                partial_refund_amount: amount.toString(),
+                previous_amount: prev,
+              },
+              externalOrderId,
+            ) as Prisma.InputJsonValue,
+          },
+        });
+        remember(existing);
+        const partialAmount = Number(amount);
+        void restateConversionToGoogleAds(existing.id).catch((err) =>
+          console.error("[restateConversionToGoogleAds]", err),
+        );
+        void reportPartialRefundToMetaCapi(existing.id, partialAmount, externalOrderId).catch((err) =>
+          console.error("[reportPartialRefundToMetaCapi]", err),
+        );
+        void reportPartialRefundToTikTokEvents(existing.id, partialAmount, externalOrderId).catch((err) =>
+          console.error("[reportPartialRefundToTikTokEvents]", err),
+        );
+        return "restated";
       }
       /** Pending cancelado sem ter contado receita — só marca refunded. */
       if (existing.status === "pending") {
@@ -268,18 +508,17 @@ export const integrationsController = {
           where: { id: existing.id },
           data: {
             status: "refunded",
-            metadata: {
-              ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
-                ? (existing.metadata as Record<string, unknown>)
-                : {}),
-              ...baseMeta,
-              refunded_at: new Date().toISOString(),
-            } as Prisma.InputJsonValue,
+            metadata: metadataWithRefundTxn(
+              existing.metadata,
+              {
+                ...baseMeta,
+                refunded_at: new Date().toISOString(),
+              },
+              externalOrderId,
+            ) as Prisma.InputJsonValue,
           },
         });
-        createdConversionId = existing.id;
-        attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
-        presellPageId = existing.presellId;
+        remember(existing);
         return "refunded";
       }
       if (existing.status !== "approved") {
@@ -291,14 +530,16 @@ export const integrationsController = {
           where: { id: existing.id },
           data: {
             status: "refunded",
-            metadata: {
-              ...(typeof existing.metadata === "object" && existing.metadata && !Array.isArray(existing.metadata)
-                ? (existing.metadata as Record<string, unknown>)
-                : {}),
-              ...baseMeta,
-              refunded_at: new Date().toISOString(),
-              refund_amount: amount != null ? amount.toString() : null,
-            } as Prisma.InputJsonValue,
+            metadata: metadataWithRefundTxn(
+              existing.metadata,
+              {
+                ...baseMeta,
+                refunded_at: new Date().toISOString(),
+                refund_kind: refundKind,
+                refund_amount: amount != null ? amount.toString() : null,
+              },
+              externalOrderId,
+            ) as Prisma.InputJsonValue,
           },
         }),
       ];
@@ -316,6 +557,12 @@ export const integrationsController = {
       presellPageId = existing.presellId;
       void retractConversionFromGoogleAds(existing.id).catch((err) =>
         console.error("[retractConversionFromGoogleAds]", err),
+      );
+      void retractConversionFromMetaCapi(existing.id).catch((err) =>
+        console.error("[retractConversionFromMetaCapi]", err),
+      );
+      void retractConversionFromTikTokEvents(existing.id).catch((err) =>
+        console.error("[retractConversionFromTikTokEvents]", err),
       );
       return "refunded";
     }
@@ -489,7 +736,7 @@ export const integrationsController = {
         }
       }
 
-      if (existing.status === "pending" && !approved && isPendingSaleStatus(statusRaw)) {
+      if (existing.status === "pending" && parsed.outcome.kind === "pending") {
         await systemPrisma.conversion.update({
           where: { id: existing.id },
           data: {
@@ -518,7 +765,7 @@ export const integrationsController = {
       return null;
     }
 
-    if (isNegativeSaleEvent(flat)) {
+    if (parsed.outcome.kind === "refund" || parsed.outcome.kind === "chargeback") {
       conversionResult = await applyRefund();
     } else {
       const upgraded = await upgradeOrRestateExisting();
@@ -528,7 +775,7 @@ export const integrationsController = {
         const attr = await resolveClickAttribution();
         if (attr.reason) unattributedReason = attr.reason;
         conversionResult = await createConversion(attr, "approved");
-      } else if (isPendingSaleStatus(statusRaw)) {
+      } else if (parsed.outcome.kind === "pending") {
         const attr = await resolveClickAttribution();
         if (attr.reason) unattributedReason = attr.reason;
         conversionResult = await createConversion(attr, "pending");
@@ -581,7 +828,9 @@ export const integrationsController = {
       conversionResult === "refunded" ||
       conversionResult === "already_refunded"
         ? "success"
-        : conversionResult === "skipped_not_approved" || conversionResult === "refund_not_found"
+          : conversionResult === "skipped_not_approved" ||
+              conversionResult === "refund_not_found" ||
+              conversionResult === "refund_ambiguous"
           ? "rejected"
           : "info";
 
@@ -589,7 +838,7 @@ export const integrationsController = {
       data: {
         userId: user.id,
         presellPageId,
-        platform: "affiliate_webhook",
+        platform,
         status: logStatus,
         message: unattributedReason
           ? `${conversionResult}:${unattributedReason}`
@@ -701,21 +950,16 @@ export const integrationsController = {
     }
 
     const token = createPostbackToken(userId);
+    if (!token) {
+      return res.status(503).json({ error: "JWT_SECRET não configurado no servidor." });
+    }
     const base = publicApiBaseFromRequest(req).replace(/\/+$/, "");
     const orderId = `clickora-test-${Date.now()}`;
     const u = new URL(`${base}/integrations/affiliate-webhook`);
     u.searchParams.set("token", token);
-    u.searchParams.set("platform", platform);
-    u.searchParams.set("status", "approved");
-    u.searchParams.set("orderid", orderId);
-    u.searchParams.set("amount", "1.00");
-    u.searchParams.set("cy", "USD");
-    // Cobrir aliases BuyGoods / SmartAdv / Digistore com o mesmo UUID do clique.
-    u.searchParams.set("subid", lastClick.id);
-    u.searchParams.set("subid1", lastClick.id);
-    u.searchParams.set("sub3", lastClick.id);
-    u.searchParams.set("cid", lastClick.id);
-    u.searchParams.set("clickora_click_id", lastClick.id);
+    for (const [key, value] of Object.entries(buildTestSaleQuery(platform, lastClick.id, orderId))) {
+      u.searchParams.set(key, value);
+    }
 
     let webhookBody: Record<string, unknown> = {};
     let httpStatus = 0;
@@ -1137,6 +1381,54 @@ export const integrationsController = {
       has_access_token: Boolean(user.tiktokEventsAccessToken?.trim()),
       tiktok_events_test_event_code: user.tiktokEventsTestEventCode ?? "",
       can_send: isTikTokEventsReadyForUser(user),
+    });
+  },
+
+  /** Segredos de postback. A leitura nunca devolve o valor, só se está guardado. */
+  async getAffiliateSecrets(req: Request, res: Response) {
+    const user = await prisma.user.findUnique({
+      where: { id: billingUserId(req) },
+      select: { jvzooIpnSecret: true, clickbankInsSecret: true },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+    res.json({
+      has_jvzoo_ipn_secret: Boolean(decryptSecretField(user.jvzooIpnSecret)),
+      has_clickbank_ins_secret: Boolean(decryptSecretField(user.clickbankInsSecret)),
+    });
+  },
+
+  async patchAffiliateSecrets(req: Request, res: Response) {
+    const schema = z.object({
+      jvzoo_ipn_secret: z.string().max(200).optional(),
+      clickbank_ins_secret: z.string().max(16).optional(),
+      clear_jvzoo_ipn_secret: z.boolean().optional(),
+      clear_clickbank_ins_secret: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const d = parsed.data;
+    const data: { jvzooIpnSecret?: string | null; clickbankInsSecret?: string | null } = {};
+    if (d.clear_jvzoo_ipn_secret) data.jvzooIpnSecret = null;
+    else if (d.jvzoo_ipn_secret?.trim()) data.jvzooIpnSecret = encryptSecretField(d.jvzoo_ipn_secret.trim());
+    if (d.clear_clickbank_ins_secret) data.clickbankInsSecret = null;
+    else if (d.clickbank_ins_secret?.trim()) {
+      data.clickbankInsSecret = encryptSecretField(d.clickbank_ins_secret.trim().slice(0, 16));
+    }
+    const userId = billingUserId(req);
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { id: userId }, data });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { jvzooIpnSecret: true, clickbankInsSecret: true },
+    });
+    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+    res.json({
+      ok: true,
+      has_jvzoo_ipn_secret: Boolean(decryptSecretField(user.jvzooIpnSecret)),
+      has_clickbank_ins_secret: Boolean(decryptSecretField(user.clickbankInsSecret)),
     });
   },
 

@@ -20,7 +20,7 @@ describe("buildOfferForwardParamKeys", () => {
     const keys = buildOfferForwardParamKeys({
       offerQueryForwardAllowlist: "sub1, txn_id , txn_id, var9",
     });
-    expect(keys).toEqual(["sub1", "sub2", "sub3", "txn_id", "var9"]);
+    expect(keys).toEqual(["sub1", "sub2", "txn_id", "var9"]);
   });
 });
 

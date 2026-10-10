@@ -447,7 +447,7 @@ export default function UrlBuilder() {
     "O visitante clica no anúncio; a rede substitui as macros pelos valores reais.",
     "A presell carrega com esses parâmetros — o tracking regista clique/impressão e guarda IDs no evento.",
     "No redirect para a oferta, o dclickora acrescenta clickora_click_id (UUID) ao URL do produto (ver também Integrações → Plataformas).",
-    "Em venda aprovada, o postback HTTP (webhook em Integrações) envia o mesmo identificador de clique (UUID em clickora_click_id / subid1 / aliases).",
+    "Em venda aprovada, o postback usa o contrato da rede escolhida em Integrações (não um dicionário único de aliases).",
     "A API valida o clique, cria a conversão em conversions e atualiza a presell.",
     "Com Google Ads ativo no Tracking, o gclid (ou gbraid/wbraid) guardado no clique pode ser enviado à API de conversões do Google.",
     "Com Microsoft/Bing, o msclkid fica no evento de clique; conversões por postback usam o webhook em Integrações (Microsoft Ads) com o mesmo msclkid quando a rede o enviar.",

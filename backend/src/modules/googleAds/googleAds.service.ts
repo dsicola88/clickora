@@ -489,7 +489,7 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
   }
 
   const flat = stringFieldsFromJson(conv.metadata);
-  const orderId = pickOrderIdFromPayload(flat) || conv.id;
+  const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const amount = conv.amount != null ? Number(conv.amount) : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
 
@@ -683,7 +683,7 @@ export async function restateConversionToGoogleAds(conversionId: string): Promis
   if (!creds) return;
 
   const flat = stringFieldsFromJson(conv.metadata);
-  const orderId = pickOrderIdFromPayload(flat) || conv.externalOrderId || conv.id;
+  const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const meta = (conv.click?.metadata || {}) as Record<string, unknown>;
   const gclid = typeof meta.gclid === "string" ? meta.gclid : null;
   const amount = conv.amount != null ? Number(conv.amount) : 0;
@@ -868,7 +868,7 @@ export async function retractConversionFromGoogleAds(conversionId: string): Prom
   }
 
   const flat = stringFieldsFromJson(conv.metadata);
-  const orderId = pickOrderIdFromPayload(flat) || conv.externalOrderId || conv.id;
+  const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const meta = (conv.click?.metadata || {}) as Record<string, unknown>;
   const gclid = typeof meta.gclid === "string" ? meta.gclid : null;
   const loginCustomerId = onlyDigits(user.googleAdsLoginCustomerId);

@@ -5,7 +5,20 @@ import { decryptSecretField } from "../../lib/fieldEncryption";
 import { eventSourceUrlFromClick, stringFieldsFromJson, tiktokTtpFromClickMetadata } from "../../lib/clickEventContext";
 import { notifyUserConversionSyncFailure } from "../../lib/syncFailureAlerts";
 
-const TIKTOK_EVENT_TRACK_URL = "https://business-api.tiktok.com/open_api/v1.3/event/track/";
+const TIKTOK_EVENT_TRACK_URL_LIVE = "https://business-api.tiktok.com/open_api/v1.3/event/track/";
+
+/** Em produção o destino é sempre a Events API. O mock local só entra com E2E_AD_MOCK=1 fora de production. */
+function tiktokEventTrackUrl(): string {
+  const override = process.env.TIKTOK_EVENTS_TRACK_URL?.trim();
+  if (
+    override &&
+    process.env.E2E_AD_MOCK === "1" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return override;
+  }
+  return TIKTOK_EVENT_TRACK_URL_LIVE;
+}
 
 export function isTikTokEventsReadyForUser(user: {
   tiktokEventsEnabled: boolean;
@@ -31,6 +44,7 @@ export async function sendTikTokPurchaseEvent(params: {
   pixelCode: string;
   accessToken: string;
   eventId: string;
+  eventName?: "Purchase" | "Refund";
   eventTimeSec: number;
   value: number;
   currency: string;
@@ -58,7 +72,7 @@ export async function sendTikTokPurchaseEvent(params: {
       : undefined;
 
   const dataRow: Record<string, unknown> = {
-    event: "Purchase",
+    event: params.eventName || "Purchase",
     event_id: params.eventId,
     event_time: params.eventTimeSec,
     user,
@@ -82,7 +96,7 @@ export async function sendTikTokPurchaseEvent(params: {
 
   let res: Response;
   try {
-    res = await fetch(TIKTOK_EVENT_TRACK_URL, {
+    res = await fetch(tiktokEventTrackUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -106,6 +120,24 @@ export async function sendTikTokPurchaseEvent(params: {
   return { ok: true, raw: json };
 }
 
+async function noteTikTokRefundBlocked(
+  conversionId: string,
+  prev: Record<string, unknown>,
+  reason: string,
+  field: "refund" | "partial_refund" = "refund",
+): Promise<void> {
+  await systemPrisma.conversion.update({
+    where: { id: conversionId },
+    data: {
+      tiktokEventsSyncDetail: {
+        ...prev,
+        [field]: "skipped",
+        [`${field}_error`]: reason,
+      } as Prisma.InputJsonValue,
+    },
+  });
+}
+
 async function markTikTokSkip(
   conversionId: string,
   code: string,
@@ -125,7 +157,24 @@ async function markTikTokSkip(
  * Após conversão aprovada (postback): envia Purchase para TikTok Events API se configurado.
  * Idempotente se `tiktokEventsSync === sent`.
  */
-export async function syncConversionToTikTokEvents(conversionId: string): Promise<void> {
+export async function retractConversionFromTikTokEvents(conversionId: string): Promise<void> {
+  return syncConversionToTikTokEvents(conversionId, "refund");
+}
+
+/** Reembolso parcial: envia Refund só do valor devolvido e mantém o Purchase em sent. */
+export async function reportPartialRefundToTikTokEvents(
+  conversionId: string,
+  refundAmount: number,
+  refundTxnId: string | null,
+): Promise<void> {
+  return syncConversionToTikTokEvents(conversionId, "partial", { refundAmount, refundTxnId });
+}
+
+export async function syncConversionToTikTokEvents(
+  conversionId: string,
+  mode: "purchase" | "refund" | "partial" = "purchase",
+  partial?: { refundAmount: number; refundTxnId: string | null },
+): Promise<void> {
   const conv = await systemPrisma.conversion.findUnique({
     where: { id: conversionId },
     include: {
@@ -134,9 +183,25 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
     },
   });
 
-  if (!conv || conv.status !== "approved") return;
-  if (conv.tiktokEventsSync === "sent") return;
+  if (!conv) return;
+  const prevDetail = (conv.tiktokEventsSyncDetail || {}) as Record<string, unknown>;
+  const partialIds = Array.isArray(prevDetail.partial_refund_ids)
+    ? prevDetail.partial_refund_ids.filter((id): id is string => typeof id === "string")
+    : [];
+  const partialKey = partial?.refundTxnId || (partial ? `amt:${partial.refundAmount}` : "");
+  if (mode === "partial") {
+    if (conv.status !== "approved" || conv.tiktokEventsSync !== "sent") return;
+    if (!partial || !(partial.refundAmount > 0) || partialIds.includes(partialKey)) return;
+  } else if (mode === "refund") {
+    if (conv.status !== "refunded") return;
+    if (prevDetail.refund === "sent") return;
+    if (conv.tiktokEventsSync !== "sent") return;
+  } else if (conv.status !== "approved" || conv.tiktokEventsSync === "sent") {
+    return;
+  }
+  const adMode = mode === "purchase" ? "purchase" : "refund";
   if (!conv.click) {
+    if (adMode === "refund") return;
     await markTikTokSkip(conv.id, "skipped_no_ttclid", {
       reason: "Conversão sem clique associado (não atribuída) — sem ttclid para Events API.",
     });
@@ -145,6 +210,7 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
 
   const user = conv.user;
   if (!isTikTokEventsReadyForUser(user)) {
+    if (adMode === "refund") return;
     await markTikTokSkip(conv.id, "skipped_disabled", {
       reason: "A integração TikTok (Events API) está inactiva ou faltam Pixel e token de acesso.",
     });
@@ -154,6 +220,15 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
   const pixelId = user.tiktokPixelId!.trim();
   const accessToken = decryptSecretField(user.tiktokEventsAccessToken)?.trim();
   if (!accessToken) {
+    if (adMode === "refund") {
+      await noteTikTokRefundBlocked(
+        conv.id,
+        prevDetail,
+        "token_ilegivel",
+        mode === "partial" ? "partial_refund" : "refund",
+      );
+      return;
+    }
     await markTikTokSkip(conv.id, "skipped_no_config", {
       reason: "Não foi possível ler o token do TikTok (confirme que está guardado e que ENCRYPTION_KEY não mudou).",
     });
@@ -164,6 +239,15 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
   const ttclid = typeof clickMeta.ttclid === "string" ? clickMeta.ttclid : null;
 
   if (!ttclid?.trim()) {
+    if (adMode === "refund") {
+      await noteTikTokRefundBlocked(
+        conv.id,
+        prevDetail,
+        "sem_ttclid",
+        mode === "partial" ? "partial_refund" : "refund",
+      );
+      return;
+    }
     await markTikTokSkip(conv.id, "skipped_no_ttclid", {
       reason:
         "O clique não contém «ttclid» no rastreio. Os anúncios TikTok requerem o parâmetro no URL da landing para atribuição e envio server-side.",
@@ -171,11 +255,15 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
     return;
   }
 
-  const amount = conv.amount != null ? Number(conv.amount) : 0;
+  const amount = mode === "partial" && partial
+    ? partial.refundAmount
+    : conv.amount != null
+      ? Number(conv.amount)
+      : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
   const eventTimeSec = Math.floor(conv.createdAt.getTime() / 1000);
   const flat = stringFieldsFromJson(conv.metadata);
-  const orderId = pickOrderIdFromPayload(flat) || conv.id;
+  const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const pageUrl = eventSourceUrlFromClick({
     referrer: conv.click.referrer,
     metadata: conv.click.metadata,
@@ -185,7 +273,8 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
   const result = await sendTikTokPurchaseEvent({
     pixelCode: pixelId,
     accessToken,
-    eventId: conv.id,
+    eventId: mode === "partial" ? `${conv.id}:partial:${partialKey}` : mode === "refund" ? `${conv.id}:refund` : conv.id,
+    eventName: adMode === "refund" ? "Refund" : "Purchase",
     eventTimeSec,
     value: Number.isFinite(amount) ? amount : 0,
     currency,
@@ -202,9 +291,25 @@ export async function syncConversionToTikTokEvents(conversionId: string): Promis
     await systemPrisma.conversion.update({
       where: { id: conv.id },
       data: {
-        tiktokEventsSync: "sent",
+        tiktokEventsSync: mode === "purchase" ? "sent" : conv.tiktokEventsSync,
         tiktokEventsSyncedAt: new Date(),
-        tiktokEventsSyncDetail: { ok: true, response: result.raw } as Prisma.InputJsonValue,
+        tiktokEventsSyncDetail: (mode === "partial"
+          ? { ...prevDetail, partial_refund: "sent", partial_refund_ids: [...partialIds, partialKey] }
+          : mode === "refund"
+          ? { ...prevDetail, refund: "sent", refund_response: result.raw }
+          : { ok: true, response: result.raw }) as Prisma.InputJsonValue,
+      },
+    });
+  } else if (mode === "refund" || mode === "partial") {
+    await systemPrisma.conversion.update({
+      where: { id: conv.id },
+      data: {
+        tiktokEventsSyncDetail: {
+          ...prevDetail,
+          ...(mode === "partial"
+            ? { partial_refund: "failed", partial_refund_error: result.error }
+            : { refund: "failed", refund_error: result.error }),
+        } as Prisma.InputJsonValue,
       },
     });
   } else {

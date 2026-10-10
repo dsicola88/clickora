@@ -7,6 +7,7 @@ import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { createPostbackToken, verifyPostbackToken } from "../lib/postbackToken";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
+import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePostback";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
@@ -97,6 +98,8 @@ const redirectSchema = z
      * Propaga rotator_id / rotator_arm_id para o clique da oferta.
      */
     parent_click_id: z.string().uuid().optional(),
+    /** Rede de afiliados desta oferta. Isola os parâmetros de clique (cid, subid, src, tid). */
+    network: z.string().max(64).optional(),
   })
   .merge(voluumStyleQuerySchema);
 
@@ -245,6 +248,21 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   return { referrer, source, medium, campaign, metadata };
 }
 
+async function affiliateNetworkForRedirect(args: {
+  queryNetwork?: string;
+  userId: string;
+  presellId: string;
+}): Promise<string | null> {
+  const fromQuery = args.queryNetwork?.trim();
+  if (fromQuery && canonicalPlatformId(fromQuery)) return fromQuery;
+  const camp = await systemPrisma.affiliateCampaign.findFirst({
+    where: { userId: args.userId, presellId: args.presellId, platform: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    select: { platform: true },
+  });
+  return camp?.platform?.trim() || fromQuery || null;
+}
+
 function expressWildcardPathSuffix(req: Request): string | undefined {
   const p = req.params as Record<string, string | undefined>;
   const t = p["0"];
@@ -281,6 +299,7 @@ export const trackController = {
       sub2: qSub2,
       sub3: qSub3,
       parent_click_id: parentClickIdRaw,
+      network: queryNetwork,
     } = parsed.data;
     const utm_term = realUtmDimensionBody(utmTermRaw);
     const utm_content = realUtmDimensionBody(utmContentRaw);
@@ -442,7 +461,12 @@ export const trackController = {
       campaign,
     });
 
-    const redirectTo = appendClickIdToAffiliateUrl(to, click.id);
+    const offerNetwork = await affiliateNetworkForRedirect({
+      queryNetwork,
+      userId: page.userId,
+      presellId: page.id,
+    });
+    const redirectTo = appendClickIdToAffiliateUrl(to, click.id, offerNetwork);
     return res.redirect(302, redirectTo);
   },
 
@@ -478,6 +502,7 @@ export const trackController = {
       sub2: rSub2,
       sub3: rSub3,
       access_code,
+      network: rotatorNetwork,
     } = q;
     const utm_term = realUtmDimensionBody(rotUtmTermRaw);
     const utm_content = realUtmDimensionBody(rotUtmContentRaw);
@@ -627,7 +652,12 @@ export const trackController = {
       campaign,
     });
 
-    const redirectTo = appendClickIdToAffiliateUrl(finalUrl, click.id);
+    const offerNetwork = await affiliateNetworkForRedirect({
+      queryNetwork: rotatorNetwork,
+      userId: rot.userId,
+      presellId: rot.contextPresellId,
+    });
+    const redirectTo = appendClickIdToAffiliateUrl(finalUrl, click.id, offerNetwork);
     return res.redirect(302, redirectTo);
   },
 
@@ -1335,6 +1365,9 @@ export const trackController = {
     const userId = billingUserId(req);
 
     const token = createPostbackToken(userId);
+    if (!token) {
+      return res.status(503).json({ error: "JWT_SECRET não configurado no servidor." });
+    }
     const apiBase = publicApiBaseFromRequest(req);
 
     res.json({

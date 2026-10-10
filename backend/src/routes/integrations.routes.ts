@@ -22,6 +22,8 @@ authed.get("/meta-capi", integrationsController.getMetaCapiSettings);
 authed.patch("/meta-capi", requireWorkspaceIntegrationsWrite, integrationsController.patchMetaCapiSettings);
 authed.get("/tiktok-events", integrationsController.getTiktokEventsSettings);
 authed.patch("/tiktok-events", requireWorkspaceIntegrationsWrite, integrationsController.patchTiktokEventsSettings);
+authed.get("/affiliate-secrets", integrationsController.getAffiliateSecrets);
+authed.patch("/affiliate-secrets", requireWorkspaceIntegrationsWrite, integrationsController.patchAffiliateSecrets);
 authed.post("/test-sale-email", requireWorkspaceIntegrationsWrite, integrationsController.testSaleNotificationEmail);
 authed.post(
   "/test-affiliate-postback",

@@ -1632,7 +1632,9 @@ export const analyticsController = {
       tracking_install: {
         user_id: userId,
         embed_js_url: `${apiBase}/track/v2/clickora.min.js`,
-        csv_upload_url: `${apiBase}/track/conversions/csv?token=${encodeURIComponent(postbackToken)}`,
+        csv_upload_url: postbackToken
+          ? `${apiBase}/track/conversions/csv?token=${encodeURIComponent(postbackToken)}`
+          : null,
         affiliate_webhook_path: "/integrations/affiliate-webhook",
         google_ads_postback_path: "/track/postback/google-ads",
       },

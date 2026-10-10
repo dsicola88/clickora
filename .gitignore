@@ -37,6 +37,9 @@ frontend/test-results/
 # Cópia local do construtor Lovable (código integrado em frontend/src/page-builder)
 build_dpa/
 
+# Postgres descartável da auditoria E2E local. Não é a base da Railway.
+.e2e-staging/
+
 # Secrets (nunca enviar para o GitHub)
 backend/.env
 backend/railway.env

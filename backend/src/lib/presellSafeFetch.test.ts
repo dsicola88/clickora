@@ -268,6 +268,72 @@ describe("proxy local com DNS simulado", () => {
     await Promise.all(closers.map((close) => close()));
   });
 
+  it("recusa no proxy real, sem socket, metadados, loopback, porta, credenciais e protocolo", async () => {
+    let hits = 0;
+    const listener = net.createServer((socket) => {
+      hits += 1;
+      socket.destroy();
+    });
+    await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", () => resolve()));
+    const listened = listener.address();
+    const listenedPort = typeof listened === "object" && listened ? listened.port : 0;
+    const proxy = await startPresellImportProxy();
+    closers.push(async () => {
+      await proxy.close();
+      await new Promise<void>((resolve) => listener.close(() => resolve()));
+    });
+
+    const connectStatus = (target: string) =>
+      new Promise<string>((resolve, reject) => {
+        const socket = net.connect(proxy.port, "127.0.0.1");
+        const timer = setTimeout(() => {
+          socket.destroy();
+          reject(new Error(`timeout ${target}`));
+        }, 2000);
+        socket.on("connect", () => {
+          socket.write(`CONNECT ${target} HTTP/1.1\r\nHost: ${target}\r\n\r\n`);
+        });
+        socket.once("data", (chunk) => {
+          clearTimeout(timer);
+          socket.end();
+          resolve(chunk.toString("utf8").split("\r\n")[0] || "");
+        });
+        socket.on("error", (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+      });
+
+    const metadata = await connectStatus("169.254.169.254:80");
+    const loopback = await connectStatus(`127.0.0.1:${listenedPort}`);
+    const sshPort = await connectStatus("example.com:22");
+    assert.match(metadata, /403/);
+    assert.match(loopback, /403/);
+    assert.match(sshPort, /403/);
+    assert.equal(hits, 0);
+
+    const blockedGets = [
+      "http://user:pass@example.com/",
+      "ftp://example.com/file",
+      "http://169.254.169.254/latest/meta-data",
+    ];
+    for (const path of blockedGets) {
+      const status = await new Promise<number>((resolve, reject) => {
+        const req = http.request({ host: "127.0.0.1", port: proxy.port, method: "GET", path }, (res) => {
+          res.resume();
+          resolve(res.statusCode || 0);
+        });
+        req.setTimeout(2000, () => {
+          req.destroy();
+          reject(new Error(`timeout ${path}`));
+        });
+        req.on("error", reject);
+        req.end();
+      });
+      assert.equal(status, 403, path);
+    }
+  });
+
   it("responde 403 sem abrir socket para um nome de metadados", async () => {
     let opened = false;
     const proxy = await startPresellImportProxy({
