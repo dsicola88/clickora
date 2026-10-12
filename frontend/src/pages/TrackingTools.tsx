@@ -79,6 +79,8 @@ function IpLookupPage() {
   const [ipLookup, setIpLookup] = useState<{
     ip: string;
     found: boolean;
+    network?: "CDN77" | null;
+    visitor_located?: boolean;
     message?: string;
     geo?: {
       country_code: string;
@@ -114,10 +116,14 @@ function IpLookupPage() {
       setIpLookup({
         ip: data.ip,
         found: data.found,
+        network: data.network ?? null,
+        visitor_located: data.visitor_located ?? data.found,
         message: data.message,
         geo: data.geo,
       });
-      if (data.found) toast.success("Localização obtida (base GeoLite2).");
+      if (data.network === "CDN77") {
+        toast.info("Nó CDN77. O país de quem acedeu não está neste IP.");
+      } else if (data.found) toast.success("Localização obtida (base GeoLite2).");
       else toast.info(data.message || "Sem dados para este IP.");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Falha ao consultar IP");
@@ -177,7 +183,51 @@ function IpLookupPage() {
             </div>
           </div>
 
-          {!ipLookup.found ? (
+          {ipLookup.network === "CDN77" ? (
+            <div className="rounded-xl border border-border/50 p-5 space-y-4 bg-card">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rede</p>
+                <p className="text-lg font-semibold text-foreground">CDN77 (AS60068)</p>
+              </div>
+              <p className="text-sm text-muted-foreground">{ipLookup.message}</p>
+              {ipLookup.geo ? (
+                <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-3 space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Leitura da base, posta de lado
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    {[
+                      {
+                        label: "País que a base marcou",
+                        value: `${countryDisplayLabel(ipLookup.geo.country_code)} (${ipLookup.geo.country_code})`,
+                      },
+                      { label: "Cidade", value: ipLookup.geo.city || "—" },
+                      { label: "Fuso horário", value: ipLookup.geo.timezone || "—" },
+                      {
+                        label: "Coordenadas (aprox.)",
+                        value:
+                          ipLookup.geo.latitude != null && ipLookup.geo.longitude != null
+                            ? `${ipLookup.geo.latitude.toFixed(4)}, ${ipLookup.geo.longitude.toFixed(4)}`
+                            : "—",
+                      },
+                      {
+                        label: "Precisão estimada (km)",
+                        value:
+                          ipLookup.geo.area_km != null && ipLookup.geo.area_km > 0
+                            ? String(ipLookup.geo.area_km)
+                            : "—",
+                      },
+                    ].map((row) => (
+                      <div key={row.label}>
+                        <p className="text-xs text-muted-foreground">{row.label}</p>
+                        <p className="font-medium text-foreground">{row.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : !ipLookup.found ? (
             <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-3">
               {ipLookup.message ??
                 "Sem dados de localização (rede privada, localhost ou IP sem entrada na base GeoLite)."}

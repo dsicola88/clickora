@@ -1,6 +1,6 @@
 import type { Request } from "express";
 import { CDN77_EDGE_PREFIXES } from "./cdn77Edges";
-import { countryIsoFromIp } from "./countryFromIp";
+import { countryIsoFromIp, geoLookupFromIp, type GeoIpLookupResult } from "./countryFromIp";
 
 function ipv4ToInt(ip: string): number | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip.trim().replace(/^::ffff:/i, ""));
@@ -66,6 +66,46 @@ export function resolveVisitorCountry(
 
 export function resolveVisitorCountryFromRequest(req: Request, ip: string | null | undefined): VisitorCountry {
   return resolveVisitorCountry(req.headers as Record<string, string | string[] | undefined>, ip);
+}
+
+export type IpToolLookup = {
+  found: boolean;
+  network: "CDN77" | null;
+  /** False quando o IP é um nó CDN77: a base geográfica não é o país de quem acedeu. */
+  visitor_located: boolean;
+  message: string | null;
+  geo: GeoIpLookupResult | null;
+};
+
+/**
+ * Rastrear IP. Num nó CDN77 a base GeoLite (muitas vezes Brasil, sem cidade,
+ * precisão de 1000 km) não é a localização de quem acedeu.
+ */
+export function lookupIpForTools(ip: string): IpToolLookup {
+  const geo = geoLookupFromIp(ip);
+  if (isCdn77EdgeIp(ip)) {
+    const reading = geo
+      ? `A base GeoLite marca este nó como ${geo.country_code}, fuso ${geo.timezone || "desconhecido"}, precisão ${geo.area_km > 0 ? `${geo.area_km} km` : "desconhecida"}${geo.city ? `, cidade ${geo.city}` : ", sem cidade"}.`
+      : "A base GeoLite não tem entrada para este nó.";
+    return {
+      found: true,
+      network: "CDN77",
+      visitor_located: false,
+      message: `Este IP é um nó da CDN77 (AS60068). Não é o endereço de quem acedeu, por isso o país dessa pessoa não se lê daqui. ${reading} Essa leitura fica de lado.`,
+      geo,
+    };
+  }
+  if (!geo) {
+    return {
+      found: false,
+      network: null,
+      visitor_located: false,
+      message:
+        "Sem dados de localização para este IP (rede privada, localhost ou a base GeoLite não tem entrada). Experimenta um IP público (ex.: 8.8.8.8).",
+      geo: null,
+    };
+  }
+  return { found: true, network: null, visitor_located: true, message: null, geo };
 }
 
 export function countrySourceMeta(source: VisitorCountrySource): Record<string, string> {

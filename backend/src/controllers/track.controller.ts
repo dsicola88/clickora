@@ -10,8 +10,7 @@ import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePostback";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
-import { geoLookupFromIp } from "../lib/countryFromIp";
-import { countrySourceMeta, resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
+import { countrySourceMeta, lookupIpForTools, resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
 import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
@@ -1447,17 +1446,8 @@ export const trackController = {
     if (!q) {
       return res.status(400).json({ error: "Indica um endereço IP (parâmetro q)." });
     }
-    const geo = geoLookupFromIp(q);
-    if (!geo) {
-      return res.json({
-        ok: true,
-        ip: q,
-        found: false,
-        message:
-          "Sem dados de localização para este IP (rede privada, localhost ou a base GeoLite não tem entrada). Experimenta um IP público (ex.: 8.8.8.8).",
-      });
-    }
-    return res.json({ ok: true, ip: q, found: true, geo });
+    const looked = lookupIpForTools(q);
+    return res.json({ ok: true, ip: q, ...looked });
   },
 
   async getPostbackAudit(req: Request, res: Response) {

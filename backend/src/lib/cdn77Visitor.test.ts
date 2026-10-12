@@ -6,6 +6,7 @@ import {
   cdn77VisitorCountryFromHeaders,
   isCdn77EdgeIp,
   locationForStoredClick,
+  lookupIpForTools,
   resolveVisitorCountry,
 } from "./cdn77Visitor";
 
@@ -14,6 +15,24 @@ function req(headers: Record<string, string>, remote: string): Request {
 }
 
 describe("CDN77 visitor country", () => {
+  it("152.233.47.66 é nó CDN77; o Brasil da base não é o país de quem acedeu", () => {
+    assert.equal(isCdn77EdgeIp("152.233.47.66"), true);
+    const looked = lookupIpForTools("152.233.47.66");
+    assert.equal(looked.network, "CDN77");
+    assert.equal(looked.visitor_located, false);
+    assert.equal(looked.geo?.country_code, "BR");
+    assert.match(looked.message ?? "", /CDN77/);
+    assert.match(looked.message ?? "", /fica de lado/);
+  });
+
+  it("um IP que não é nó continua a usar a base geográfica", () => {
+    const looked = lookupIpForTools("8.8.8.8");
+    assert.equal(looked.network, null);
+    assert.equal(looked.visitor_located, true);
+    assert.equal(looked.found, true);
+    assert.ok(looked.geo?.country_code);
+  });
+
   it("reconhece os nós que apareceram no relatório", () => {
     assert.equal(isCdn77EdgeIp("79.127.178.81"), true);
     assert.equal(isCdn77EdgeIp("46.151.194.130"), true);
