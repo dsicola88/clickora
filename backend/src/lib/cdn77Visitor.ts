@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { CDN77_EDGE_PREFIXES } from "./cdn77Edges";
 import { countryIsoFromIp, geoLookupFromIp, type GeoIpLookupResult } from "./countryFromIp";
+import { isFastlyEdgeIp } from "./fastlyEdges";
 
 function ipv4ToInt(ip: string): number | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip.trim().replace(/^::ffff:/i, ""));
@@ -68,33 +69,46 @@ export function resolveVisitorCountryFromRequest(req: Request, ip: string | null
   return resolveVisitorCountry(req.headers as Record<string, string | string[] | undefined>, ip);
 }
 
+export type EdgeNetworkName = "CDN77" | "Fastly";
+
 export type IpToolLookup = {
   found: boolean;
-  network: "CDN77" | null;
-  /** False quando o IP é um nó CDN77: a base geográfica não é o país de quem acedeu. */
+  network: EdgeNetworkName | null;
+  network_label: string | null;
+  /** False quando o IP é um nó de CDN: a base geográfica não é o país de quem acedeu. */
   visitor_located: boolean;
   message: string | null;
   geo: GeoIpLookupResult | null;
 };
 
+const EDGE_LABEL: Record<EdgeNetworkName, string> = {
+  CDN77: "CDN77 (AS60068)",
+  Fastly: "Fastly (AS54113)",
+};
+
+function edgeToolLookup(network: EdgeNetworkName, geo: GeoIpLookupResult | null): IpToolLookup {
+  const reading = geo
+    ? `A base GeoLite marca este nó como ${geo.country_code}, fuso ${geo.timezone || "desconhecido"}, precisão ${geo.area_km > 0 ? `${geo.area_km} km` : "desconhecida"}${geo.city ? `, cidade ${geo.city}` : ", sem cidade"}.`
+    : "A base GeoLite não tem entrada para este nó.";
+  return {
+    found: true,
+    network,
+    network_label: EDGE_LABEL[network],
+    visitor_located: false,
+    message: `Este IP é um nó da ${EDGE_LABEL[network]}. Não é o endereço de quem acedeu, por isso o país dessa pessoa não se lê daqui. ${reading} Essa leitura fica de lado.`,
+    geo,
+  };
+}
+
 /**
- * Rastrear IP. Num nó CDN77 a base GeoLite (muitas vezes Brasil, sem cidade,
- * precisão de 1000 km) não é a localização de quem acedeu.
+ * Rastrear IP. Num nó CDN77 ou Fastly a base GeoLite não é a localização
+ * de quem acedeu: o mesmo endereço aparece como Brasil, Suécia ou Estados Unidos
+ * conforme a base, e nenhuma dessas leituras é a pessoa.
  */
 export function lookupIpForTools(ip: string): IpToolLookup {
   const geo = geoLookupFromIp(ip);
-  if (isCdn77EdgeIp(ip)) {
-    const reading = geo
-      ? `A base GeoLite marca este nó como ${geo.country_code}, fuso ${geo.timezone || "desconhecido"}, precisão ${geo.area_km > 0 ? `${geo.area_km} km` : "desconhecida"}${geo.city ? `, cidade ${geo.city}` : ", sem cidade"}.`
-      : "A base GeoLite não tem entrada para este nó.";
-    return {
-      found: true,
-      network: "CDN77",
-      visitor_located: false,
-      message: `Este IP é um nó da CDN77 (AS60068). Não é o endereço de quem acedeu, por isso o país dessa pessoa não se lê daqui. ${reading} Essa leitura fica de lado.`,
-      geo,
-    };
-  }
+  if (isCdn77EdgeIp(ip)) return edgeToolLookup("CDN77", geo);
+  if (isFastlyEdgeIp(ip)) return edgeToolLookup("Fastly", geo);
   if (!geo) {
     return {
       found: false,
@@ -103,9 +117,10 @@ export function lookupIpForTools(ip: string): IpToolLookup {
       message:
         "Sem dados de localização para este IP (rede privada, localhost ou a base GeoLite não tem entrada). Experimenta um IP público (ex.: 8.8.8.8).",
       geo: null,
+      network_label: null,
     };
   }
-  return { found: true, network: null, visitor_located: true, message: null, geo };
+  return { found: true, network: null, network_label: null, visitor_located: true, message: null, geo };
 }
 
 export function countrySourceMeta(source: VisitorCountrySource): Record<string, string> {

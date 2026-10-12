@@ -120,7 +120,8 @@ export const trackingService = {
       ok: boolean;
       ip: string;
       found: boolean;
-      network?: "CDN77" | null;
+      network?: "CDN77" | "Fastly" | null;
+      network_label?: string | null;
       visitor_located?: boolean;
       message?: string;
       geo?: {

@@ -33,6 +33,23 @@ describe("CDN77 visitor country", () => {
     assert.ok(looked.geo?.country_code);
   });
 
+  it("146.75.146.1 é nó Fastly; a Suécia da base não é o país de quem clicou", () => {
+    const looked = lookupIpForTools("146.75.146.1");
+    assert.equal(looked.network, "Fastly");
+    assert.equal(looked.network_label, "Fastly (AS54113)");
+    assert.equal(looked.visitor_located, false);
+    assert.equal(looked.geo?.country_code, "SE");
+    assert.match(looked.message ?? "", /fica de lado/);
+    assert.equal(lookupIpForTools("151.101.1.1").network, "Fastly");
+  });
+
+  it("um IP de operadora continua com o país da base", () => {
+    const looked = lookupIpForTools("71.208.226.154");
+    assert.equal(looked.network, null);
+    assert.equal(looked.visitor_located, true);
+    assert.equal(looked.geo?.country_code, "US");
+  });
+
   it("reconhece os nós que apareceram no relatório", () => {
     assert.equal(isCdn77EdgeIp("79.127.178.81"), true);
     assert.equal(isCdn77EdgeIp("46.151.194.130"), true);

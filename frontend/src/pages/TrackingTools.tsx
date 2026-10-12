@@ -79,7 +79,8 @@ function IpLookupPage() {
   const [ipLookup, setIpLookup] = useState<{
     ip: string;
     found: boolean;
-    network?: "CDN77" | null;
+    network?: "CDN77" | "Fastly" | null;
+    network_label?: string | null;
     visitor_located?: boolean;
     message?: string;
     geo?: {
@@ -117,12 +118,13 @@ function IpLookupPage() {
         ip: data.ip,
         found: data.found,
         network: data.network ?? null,
+        network_label: data.network_label ?? null,
         visitor_located: data.visitor_located ?? data.found,
         message: data.message,
         geo: data.geo,
       });
-      if (data.network === "CDN77") {
-        toast.info("Nó CDN77. O país de quem acedeu não está neste IP.");
+      if (data.network) {
+        toast.info(`Nó ${data.network_label ?? data.network}. O país de quem acedeu não está neste IP.`);
       } else if (data.found) toast.success("Localização obtida (base GeoLite2).");
       else toast.info(data.message || "Sem dados para este IP.");
     } catch (e: unknown) {
@@ -183,11 +185,13 @@ function IpLookupPage() {
             </div>
           </div>
 
-          {ipLookup.network === "CDN77" ? (
+          {ipLookup.network ? (
             <div className="rounded-xl border border-border/50 p-5 space-y-4 bg-card">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rede</p>
-                <p className="text-lg font-semibold text-foreground">CDN77 (AS60068)</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {ipLookup.network_label ?? ipLookup.network}
+                </p>
               </div>
               <p className="text-sm text-muted-foreground">{ipLookup.message}</p>
               {ipLookup.geo ? (
