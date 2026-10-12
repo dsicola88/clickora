@@ -133,8 +133,8 @@ type GeoPlace = { country_code?: string | null; region?: string | null; city?: s
 
 /**
  * País, região e cidade para o relatório.
- * Nó CDN77 sem país do visitante: vazio. Não se usa a base geográfica do nó
- * (inventava CZ, UA, GB e cidades como Odesa).
+ * Nó CDN77 ou Fastly sem país do visitante: vazio. Não se usa a base geográfica do nó
+ * (inventava Brasil, Suécia, CZ, UA e cidades como Odesa).
  */
 export function locationForStoredClick(input: {
   ip: string | null | undefined;
@@ -147,7 +147,7 @@ export function locationForStoredClick(input: {
   if (fromVisitor) {
     return { country: input.storedCountry, region: null, city: null };
   }
-  if (isCdn77EdgeIp(input.ip) && !input.datacenter) {
+  if (isFastlyEdgeIp(input.ip) || (isCdn77EdgeIp(input.ip) && !input.datacenter)) {
     return { country: null, region: null, city: null };
   }
   const country =

@@ -17,6 +17,7 @@ import {
 } from "../modules/affiliateOps/costSync.service";
 import { geoLookupFromIp } from "../lib/countryFromIp";
 import { locationForStoredClick } from "../lib/cdn77Visitor";
+import { sqlVisitorCountry } from "../lib/edgeCountrySql";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
@@ -966,7 +967,7 @@ export const analyticsController = {
         Array<{ country: string; clicks: bigint; sales: bigint; revenue: unknown }>
       >(Prisma.sql`
         SELECT
-          COALESCE(NULLIF(UPPER(TRIM(te.country)), ''), '(sem país)') AS country,
+          COALESCE(${sqlVisitorCountry("te")}, '(sem país)') AS country,
           COUNT(*)::bigint AS clicks,
           COUNT(c.id)::bigint AS sales,
           COALESCE(SUM(c.amount), 0) AS revenue
@@ -1075,8 +1076,8 @@ export const analyticsController = {
       systemPrisma.$queryRaw<Array<{ country: string; checkouts: bigint }>>(Prisma.sql`
         SELECT
           COALESCE(
-            NULLIF(UPPER(TRIM(clk.country)), ''),
-            NULLIF(UPPER(TRIM(lead.country)), ''),
+            ${sqlVisitorCountry("clk")},
+            ${sqlVisitorCountry("lead")},
             '(sem país)'
           ) AS country,
           COUNT(*)::bigint AS checkouts

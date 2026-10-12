@@ -11,6 +11,7 @@ import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePos
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
 import { countrySourceMeta, lookupIpForTools, resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
+import { isFastlyEdgeIp } from "../lib/fastlyEdges";
 import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
@@ -265,8 +266,16 @@ async function affiliateNetworkForRedirect(args: {
   return camp?.platform?.trim() || fromQuery || null;
 }
 
-/** País do visitante. Nó CDN77 não herda o país da base geográfica. */
+/** País do visitante. Nó de CDN não herda o país da base geográfica. */
 function visitorClickPlace(req: Request, ip: string) {
+  if (isFastlyEdgeIp(ip)) {
+    return {
+      visitor: { country: null, source: "none" as const },
+      place: null,
+      country: null,
+      countryMeta: { ip_network: "Fastly" },
+    };
+  }
   const visitor = resolveVisitorCountryFromRequest(req, ip);
   const place = visitor.source === "cdn77" ? null : datacenterClickPlace(ip);
   const country = place?.country ?? visitor.country ?? null;

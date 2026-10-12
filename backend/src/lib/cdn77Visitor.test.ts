@@ -50,6 +50,17 @@ describe("CDN77 visitor country", () => {
     assert.equal(looked.geo?.country_code, "US");
   });
 
+  it("146.75.146.1 gravado como Suécia não entra como país de quem clicou", () => {
+    const looked = locationForStoredClick({
+      ip: "146.75.146.1",
+      storedCountry: "SE",
+      countrySource: null,
+      datacenter: null,
+      geo: { country_code: "SE", region: "", city: "" },
+    });
+    assert.deepEqual(looked, { country: null, region: null, city: null });
+  });
+
   it("reconhece os nós que apareceram no relatório", () => {
     assert.equal(isCdn77EdgeIp("79.127.178.81"), true);
     assert.equal(isCdn77EdgeIp("46.151.194.130"), true);

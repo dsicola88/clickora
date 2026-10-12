@@ -50,3 +50,13 @@ export function isFastlyEdgeIp(ip: string | null | undefined): boolean {
   if (n == null) return false;
   return FASTLY_PREFIXES.some(([base, bits]) => inPrefix(n, base, bits));
 }
+
+/** Intervalos [início, fim] inclusivos, para o relatório não usar o país gravado do nó. */
+export function fastlyPrefixBounds(): Array<readonly [number, number]> {
+  return FASTLY_PREFIXES.map(([base, bits]) => {
+    const start = ipv4ToInt(base);
+    if (start == null) return null;
+    const size = 2 ** (32 - bits);
+    return [start, (start + size - 1) >>> 0] as const;
+  }).filter((row): row is readonly [number, number] => row != null);
+}
