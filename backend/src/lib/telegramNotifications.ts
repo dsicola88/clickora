@@ -13,7 +13,7 @@ const TELEGRAM_USER_SELECT = {
 /** Nova venda (conversão criada no webhook de afiliados). */
 export function notifyTelegramSale(
   userId: string,
-  detail: { platform: string; amount?: string; currency?: string; conversionId?: string },
+  detail: { platform: string; amount?: string; currency?: string; conversionId?: string; linkedToClick?: boolean },
 ): void {
   void (async () => {
     const user = await systemPrisma.user.findUnique({
@@ -27,7 +27,8 @@ export function notifyTelegramSale(
     const lines = [
       "Nova venda (dclickora)",
       `Rede: ${detail.platform}`,
-      detail.amount != null ? `Valor: ${detail.amount} ${detail.currency || ""}`.trim() : null,
+      detail.amount != null ? `Comissão: ${detail.amount} ${detail.currency || ""}`.trim() : "Comissão: a rede não enviou o valor",
+      detail.linkedToClick === false ? "Clique: a rede não devolveu o clique" : null,
       detail.conversionId ? `Conversão: ${detail.conversionId}` : null,
     ].filter(Boolean);
     const r = await sendTelegram(token, chat, lines.join("\n"));

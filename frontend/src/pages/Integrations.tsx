@@ -327,8 +327,9 @@ export default function Integrations() {
                         browser perguntar, aceite as notificações — não precisa de configurar o telemóvel noutro sítio.
                       </li>
                       <li>
-                        Quando uma <strong className="font-medium text-foreground/90">venda for registada</strong>, deve
-                        receber um aviso (mesmo com o site em segundo plano).
+                        Quando uma <strong className="font-medium text-foreground/90">venda for aprovada</strong>, o aviso
+                        chega com o site fechado. Não é preciso estar na dclickora nem no Google. O e-mail da mesma venda
+                        configura-se em Postback.
                       </li>
                       <li>
                         Pode usar <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. Em alguns{" "}

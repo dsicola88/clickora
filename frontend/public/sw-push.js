@@ -21,7 +21,7 @@ self.addEventListener("push", function (event) {
         icon: "/favicon.svg",
         badge: "/favicon.svg",
         data: { url: data.url || "/resultados" },
-        tag: "dclickora-push",
+        tag: data.tag || "dclickora-push",
         renotify: true,
       });
     })(),

@@ -237,6 +237,8 @@ export type WebPushPayload = {
   body: string;
   /** Caminho relativo (ex. /resultados) ou URL absoluta */
   url?: string;
+  /** Identificador próprio de cada venda, para o aviso seguinte não apagar o anterior. */
+  tag?: string;
 };
 
 /**
@@ -259,6 +261,7 @@ export async function sendWebPushToUser(userId: string, payload: WebPushPayload)
     title: payload.title,
     body: payload.body,
     url: payload.url ?? "/resultados",
+    ...(payload.tag ? { tag: payload.tag } : {}),
   });
 
   const toRemove: string[] = [];

@@ -308,7 +308,7 @@ export default function Plataformas() {
               <p className="text-sm text-muted-foreground mt-1">
                 Siga os passos do cartão <strong className="text-foreground/90">Como configurar</strong> acima. Na conta{" "}
                 <strong className="text-foreground/90">{selected}</strong>, use o postback completo (com macros). Quando houver conversão, a rede
-                chama o dclickora e recebe um e-mail com o resumo do pedido.
+                chama a dclickora. A venda aprovada chega por e-mail mesmo com a conta fechada.
               </p>
             </div>
 
@@ -319,6 +319,8 @@ export default function Plataformas() {
               </Label>
               <p className="text-xs text-muted-foreground">
                 Opcional. Se vazio, usa o e-mail da conta: <span className="font-mono text-[11px]">{info.fallback_account_email}</span>
+                . A venda aprovada chega a esta caixa mesmo com a dclickora e o Google fechados. O aviso no telemóvel ou no
+                computador activa-se uma vez em Integrações.
               </p>
               <Input
                 type="email"

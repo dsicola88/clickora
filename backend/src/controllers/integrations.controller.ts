@@ -43,8 +43,8 @@ import {
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { effectiveAutoBlacklistThreshold } from "../lib/trackingGuardPolicy";
 import { sendTelegram } from "../lib/telegram";
-import { notifyTelegramPostbackWarning, notifyTelegramSale } from "../lib/telegramNotifications";
-import { notifyWebPushConversion } from "../lib/webPushNotifications";
+import { isApprovedSaleNotice } from "../lib/saleNotice";
+import { notifyApprovedSale } from "../lib/saleAlerts";
 import {
   ensureWebPushFromEnv,
   getVapidPublicKeyFromEnv,
@@ -618,17 +618,6 @@ export const integrationsController = {
         if (data.presellId) presellPageId = data.presellId;
         if (status === "pending") return "pending";
         if (data.attribution === "attributed") {
-          notifyTelegramSale(user!.id, {
-            platform,
-            amount: amount != null ? amount.toString() : undefined,
-            currency: currency ?? undefined,
-            conversionId: createdConv.id,
-          });
-          notifyWebPushConversion(user!.id, {
-            platform,
-            amount: amount != null ? amount.toString() : undefined,
-            currency: currency ?? undefined,
-          });
           void syncConversionToGoogleAds(createdConv.id).catch((err) =>
             console.error("[syncConversionToGoogleAds]", err),
           );
@@ -690,12 +679,6 @@ export const integrationsController = {
         attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
         presellPageId = existing.presellId;
         if (existing.attribution === "attributed") {
-          notifyTelegramSale(user!.id, {
-            platform,
-            amount: amount != null ? amount.toString() : undefined,
-            currency: currency ?? undefined,
-            conversionId: existing.id,
-          });
           void syncConversionToGoogleAds(existing.id).catch((err) =>
             console.error("[syncConversionToGoogleAds]", err),
           );
@@ -799,23 +782,17 @@ export const integrationsController = {
       received_at: new Date().toISOString(),
     };
 
-    const to = (user.saleNotifyEmail?.trim() || user.email).trim();
-    /** E-mail só em venda atribuída nova (ou pending→aprovada). */
-    const shouldEmail =
-      (conversionResult === "created" || conversionResult === "approved_from_pending") &&
-      Boolean(to) &&
-      Boolean(createdConversionId);
-    let mail: { sent: boolean; reason?: string } = { sent: false, reason: "skipped_not_attributed_sale" };
-    if (shouldEmail) {
-      const subject = `[dclickora] Venda atribuída — ${platform}`;
-      const text =
-        `Venda registada e ligada a um clique na dclickora.\n\n` +
-        `Plataforma: ${platform}\n` +
-        `Valor: ${amount != null ? `${amount} ${currency ?? ""}` : "—"}\n` +
-        `Encomenda: ${externalOrderId ?? "—"}\n` +
-        `Click ID: ${clickId ?? "—"}\n\n` +
-        `Ver Relatórios → Conversões (estado Google/Meta/TikTok).`;
-      mail = await sendTransactionalEmail({ to, subject, text });
+    let mail: { sent: boolean; reason?: string } = { sent: false, reason: "skipped_not_sale" };
+    if (isApprovedSaleNotice(conversionResult) && createdConversionId) {
+      mail = await notifyApprovedSale({
+        userId: user.id,
+        conversionId: createdConversionId,
+        platform,
+        amount: amount != null ? amount.toString() : null,
+        currency: currency ?? null,
+        orderId: externalOrderId ?? null,
+        linkedToClick: attribution === "attributed",
+      });
     }
 
     const logStatus =
@@ -847,17 +824,6 @@ export const integrationsController = {
         payload: payloadLog as Prisma.InputJsonValue,
       },
     });
-
-    if (
-      (approved || conversionResult === "approved_from_pending") &&
-      conversionResult === "created_unattributed"
-    ) {
-      notifyTelegramPostbackWarning(user.id, {
-        platform,
-        result: conversionResult,
-        clickId: clickId,
-      });
-    }
 
     return res.status(200).json({
       ok: true,
@@ -893,9 +859,9 @@ export const integrationsController = {
     const to = (user.saleNotifyEmail?.trim() || user.email).trim();
     const subject = "[dclickora] Teste de notificação de venda (webhook de afiliados)";
     const text =
-      "Este e-mail confirma que a configuração SMTP do servidor dclickora está a funcionar.\n\n" +
-      "Quando a rede de afiliados fizer postbacks de vendas aprovadas para o URL configurado em Plataformas, receberá notificações no mesmo endereço (ou no e-mail alternativo de alertas, se tiver definido um).\n" +
-      "Também pode receber avisos de falhas de sincronização com Google Ads, Meta ou TikTok, se tiver notificações de problemas activas (Telegram ou e-mail).\n";
+      "Este e-mail confirma que os alertas de venda da dclickora chegam a esta caixa.\n\n" +
+      "Quando a rede aprovar uma venda no postback, o resumo chega aqui mesmo com a dclickora e o Google fechados.\n" +
+      "O aviso no telemóvel ou no computador é outro canal: activa-se uma vez em Integrações, nesse aparelho.\n";
 
     const mail = await sendTransactionalEmail({ to, subject, text });
     if (!mail.sent) {
