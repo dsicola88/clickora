@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -118,7 +118,10 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { toggleSidebar, isMobile, setOpenMobile } = useSidebar();
 
+  const pathRef = useRef(path);
   useEffect(() => {
+    if (pathRef.current === path) return;
+    pathRef.current = path;
     if (isMobile) setOpenMobile(false);
   }, [path, isMobile, setOpenMobile]);
 

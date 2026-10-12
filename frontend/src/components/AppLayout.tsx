@@ -24,7 +24,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             )}
           >
             <SidebarTrigger
-              className="h-8 w-8"
+              className="h-11 w-11 md:h-8 md:w-8"
               title="Encolher / expandir menu"
               aria-label="Encolher ou expandir menu"
             />
