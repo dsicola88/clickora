@@ -1124,7 +1124,9 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
   }
 
   const chosen = accounts.find((a) => a.id === customerId);
-  if (customerId && !loginCustomerId && chosen?.kind === "needs_manager") {
+  if (chosen?.kind === "direct") {
+    loginCustomerId = null;
+  } else if (customerId && !loginCustomerId && chosen?.kind === "needs_manager") {
     loginCustomerId = await managerLoginForClient(client, creds.refreshToken, customerId, managers);
   }
 
@@ -1230,7 +1232,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     can_upload: isGoogleAdsClickUploadReadyForUser(updated),
     accounts_found: accounts.length,
     detail: conversionActionCreated
-      ? `Conta ${customerId} · ação «${CLICKORA_OFFLINE_ACTION_NAME}» criada · upload automático ON`
-      : `Conta ${customerId} · ação ${conversionActionId} · upload automático ON`,
+      ? `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : " (conta normal, sem MCC)"} · ação «${CLICKORA_OFFLINE_ACTION_NAME}» criada · upload automático ON`
+      : `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : " (conta normal, sem MCC)"} · ação ${conversionActionId} · upload automático ON`,
   };
 }

@@ -195,8 +195,12 @@ export default function GoogleAdsConnectPage() {
                 <div className="text-xs leading-relaxed">
                   <p className="font-semibold text-foreground">Pronto a operar</p>
                   <p className="text-muted-foreground mt-0.5">
-                    Conta {data?.google_ads_customer_id} · ação {data?.google_ads_conversion_action_id} · upload ON.
-                    Use o link da campanha com {"{gclid}"} e o postback da rede.
+                    Conta {data?.google_ads_customer_id}
+                    {data?.google_ads_login_customer_id
+                      ? ` via MCC ${data.google_ads_login_customer_id}`
+                      : " (conta normal, sem MCC)"}
+                    {" · "}ação {data?.google_ads_conversion_action_id} · upload ON. Use o link da campanha com {"{gclid}"} e
+                    o postback da rede.
                   </p>
                 </div>
               </div>
@@ -210,7 +214,7 @@ export default function GoogleAdsConnectPage() {
               ["OAuth", data?.has_refresh_token ? "Ligado" : "Pendente"],
               ["Customer ID", data?.google_ads_customer_id || "—"],
               ["Ação conversão", data?.google_ads_conversion_action_id || "—"],
-              ["MCC / login", data?.google_ads_login_customer_id || "—"],
+              ["MCC / login", data?.google_ads_login_customer_id || "Conta normal"],
               ["Upload após venda", data?.google_ads_enabled ? "Activo" : "Off"],
               ["Pode enviar", data?.can_upload ? "Sim" : "Não"],
             ].map(([k, v]) => (

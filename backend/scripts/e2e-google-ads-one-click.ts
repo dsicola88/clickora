@@ -199,7 +199,13 @@ async function main() {
   );
 
   const direct = await prisma.user.create({
-    data: { email: `e2e-gads-direct-${stamp}@clickora.test`, password: "x", fullName: "E2E direct", googleAdsRefreshToken: "direct-token" },
+    data: {
+      email: `e2e-gads-direct-${stamp}@clickora.test`,
+      password: "x",
+      fullName: "E2E direct",
+      googleAdsRefreshToken: "direct-token",
+      googleAdsLoginCustomerId: MANAGER,
+    },
   });
   const directBoot = await bootstrapGoogleAdsAfterOAuth(direct.id);
   record(
