@@ -38,9 +38,9 @@ import { SeoModal } from "./SeoModal";
 import { TrackingModal } from "./TrackingModal";
 
 const DEVICES: Array<{ id: DeviceType; Icon: typeof Monitor; label: string }> = [
-  { id: "desktop", Icon: Monitor, label: "Desktop" },
+  { id: "desktop", Icon: Monitor, label: "Computador" },
   { id: "tablet", Icon: Tablet, label: "Tablet" },
-  { id: "mobile", Icon: Smartphone, label: "Mobile" },
+  { id: "mobile", Icon: Smartphone, label: "Telemóvel" },
 ];
 
 const menuItem =
@@ -186,7 +186,7 @@ export function EditorTopbar() {
       </div>
 
       <div className="flex items-center justify-end gap-1">
-        <IconBtn label="Templates" onClick={() => setTemplatesOpen(true)}>
+        <IconBtn label="Modelos" onClick={() => setTemplatesOpen(true)}>
           <LayoutTemplate className="h-4 w-4" />
         </IconBtn>
         <IconBtn

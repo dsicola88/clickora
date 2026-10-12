@@ -128,7 +128,7 @@ export default function GoogleAdsConnectPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Google Ads"
-        subtitle="Um clique: ligar conta → sync de custos no P&L → vendas aprovadas enviadas à Google automaticamente."
+        subtitle="Um clique: ligar conta → sincronizar custos nos resultados → vendas aprovadas enviadas à Google automaticamente."
         meta={
           <>
             <ProStatusDot ok={Boolean(data?.api_env_configured)} label="API servidor" />
@@ -160,11 +160,14 @@ export default function GoogleAdsConnectPage() {
         >
           <div className="space-y-4 px-4 py-4">
             <ol className="space-y-2 text-xs text-muted-foreground list-decimal pl-4">
-              <li>Clique em «Ligar Google Ads» e autorize com a conta do Ads.</li>
+              <li>
+                Clique em «Ligar Google Ads» no Chrome e escolha a conta do Ads. Se a Google abrir «Chaves de
+                acesso», volte atrás: o Firefox neste Mac não cria essa chave e a ligação fica a meio.
+              </li>
               <li>A app escolhe a conta, cria/reutiliza a ação offline e activa o envio.</li>
               <li>
                 Já tem postback? Clique → compra → venda aprovada → Google recebe a conversão. Custos sincronizam no{" "}
-                <ProInlineLink to="/resultados">P&L</ProInlineLink>.
+                <ProInlineLink to="/resultados">Resultados</ProInlineLink>.
               </li>
             </ol>
 
@@ -219,11 +222,11 @@ export default function GoogleAdsConnectPage() {
           </ul>
           <div className="border-t border-border/60 px-4 py-3 flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/integracoes/automizer">Automizer / sync custos</Link>
+              <Link to="/integracoes/automizer">Automizer / sincronizar custos</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/resultados">
-                P&L <ExternalLink className="ml-1 h-3 w-3" />
+                Resultados <ExternalLink className="ml-1 h-3 w-3" />
               </Link>
             </Button>
           </div>

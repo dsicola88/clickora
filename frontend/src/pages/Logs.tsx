@@ -74,7 +74,7 @@ export default function Logs() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         centered
-        title="Logs"
+        title="Registos"
         description="Eventos de tracking da sua conta (cliques, impressões, conversões)."
       />
 
@@ -91,9 +91,14 @@ export default function Logs() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["Todas", "Core", "Conversão", "Acesso"].map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {[
+                  { value: "Todas", label: "Todas" },
+                  { value: "Core", label: "Principal" },
+                  { value: "Conversão", label: "Conversão" },
+                  { value: "Acesso", label: "Acesso" },
+                ].map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
                   </SelectItem>
                 ))}
               </SelectContent>

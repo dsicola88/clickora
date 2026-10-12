@@ -717,13 +717,13 @@ export function DpilotMetaWizardPage() {
             id="dpilot-wiz-meta-compliance"
             platform="meta"
             stepLabel="Passo 6 de 7"
-            title="Compliance e políticas Meta"
+            title="Regras e políticas da Meta"
             description="Declare categorias especiais quando aplicável; confirme leitura das políticas de anúncios."
           >
             <div className="grid gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4 dark:bg-amber-500/10">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="border-amber-500/50">
-                  Compliance
+                  Regras
                 </Badge>
                 <p className="text-sm font-medium">Categorias especiais de anúncios</p>
               </div>

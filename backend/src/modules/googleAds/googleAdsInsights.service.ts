@@ -7,7 +7,7 @@ import {
   type GoogleAdsReportingUnavailableCode,
   type GoogleAdsUserSettings,
 } from "./googleAds.service";
-import { humanizeGoogleAdsApiError } from "./googleAdsApiErrors";
+import { googleAdsErrorText } from "./googleAdsApiErrors";
 
 const DIGITS_ONLY = /^\d+$/;
 
@@ -203,8 +203,7 @@ export async function fetchGoogleAdsKeywordInsights(input: {
     out.sort((a, b) => b.impressions - a.impressions);
     return { ok: true, rows: out.slice(0, 2000) };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: humanizeGoogleAdsApiError(msg) };
+    return { ok: false, error: googleAdsErrorText(e) };
   }
 }
 
@@ -275,8 +274,7 @@ export async function fetchGoogleAdsSearchTermInsights(input: {
     out.sort((a, b) => b.impressions - a.impressions);
     return { ok: true, rows: out.slice(0, 2000) };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: humanizeGoogleAdsApiError(msg) };
+    return { ok: false, error: googleAdsErrorText(e) };
   }
 }
 
@@ -407,8 +405,7 @@ export async function fetchGoogleAdsDemographicInsights(input: {
       age: age.slice(0, 2000),
     };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: humanizeGoogleAdsApiError(msg) };
+    return { ok: false, error: googleAdsErrorText(e) };
   }
 }
 

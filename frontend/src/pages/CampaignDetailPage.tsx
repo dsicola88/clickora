@@ -28,7 +28,7 @@ import {
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
-  return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
+  return n.toLocaleString("pt-PT", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
 function statusLabel(s: string) {
@@ -83,7 +83,7 @@ export default function CampaignDetailPage() {
     mutationFn: async (amount: number | null) => {
       const { error } = await campaignsService.update(id!, {
         spend_amount: amount,
-        spend_currency: "EUR",
+        spend_currency: "USD",
       });
       if (error) throw new Error(error);
     },
@@ -216,7 +216,7 @@ export default function CampaignDetailPage() {
         <TabsList className="h-auto flex-wrap gap-1 bg-card border border-border/70 p-1">
           <TabsTrigger value="operacao">Operação</TabsTrigger>
           <TabsTrigger value="presell">Presell</TabsTrigger>
-          <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          <TabsTrigger value="tracking">Rastreio</TabsTrigger>
         </TabsList>
 
         <TabsContent value="operacao" className="mt-4 space-y-4">
@@ -245,7 +245,7 @@ export default function CampaignDetailPage() {
 
             <ProPanel
               title="Gasto manual"
-              description="Memo lifetime na ficha — não entra no lucro/ROAS do período. O P&L da conta usa só custo sincronizado (Google Ads)."
+              description="Valor acumulado na ficha — não entra no lucro/ROAS do período. Os resultados da conta usam só custo sincronizado (Google Ads)."
             >
               <div className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap gap-2 items-end">
@@ -286,7 +286,7 @@ export default function CampaignDetailPage() {
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   Preferível: sync em <ProInlineLink to="/integracoes/automizer">Automizer & custos</ProInlineLink>{" "}
-                  e leitura no <ProInlineLink to="/resultados">P&L</ProInlineLink>.
+                  e leitura em <ProInlineLink to="/resultados">Resultados</ProInlineLink>.
                 </p>
               </div>
             </ProPanel>
@@ -354,7 +354,7 @@ export default function CampaignDetailPage() {
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to={`/tracking/url-builder?utm_campaign=${encodeURIComponent(campaign.name)}`}>
-                  URL Builder <ExternalLink className="ml-1 h-3 w-3" />
+                  Construtor de URL <ExternalLink className="ml-1 h-3 w-3" />
                 </Link>
               </Button>
               <Collapsible open={advOpen} onOpenChange={setAdvOpen}>

@@ -206,7 +206,7 @@ const OPT_OVERLAY_STRENGTH = [
 
 const OPT_ENTRANCE = [
   { value: "none", label: "Nenhuma" },
-  { value: "fade-in", label: "Fade in" },
+  { value: "fade-in", label: "Aparecer" },
   { value: "fade-up", label: "Fade + subir (recomendado)" },
 ];
 

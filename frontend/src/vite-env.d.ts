@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_PUBLIC_SITE_ORIGIN?: string;
   /** OAuth Web client ID (Google Cloud Console) — igual a GOOGLE_OAUTH_CLIENT_ID na API */
   readonly VITE_GOOGLE_CLIENT_ID?: string;
+  /** Identificador do deploy. Igual a /version.json. */
+  readonly VITE_APP_RELEASE?: string;
 }
 
 interface ImportMeta {

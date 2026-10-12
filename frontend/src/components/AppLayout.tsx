@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <div className="flex min-h-svh w-full">
         <AppSidebar />
         <SidebarInset className="min-w-0 flex-1">
+          <AppUpdateNotice />
           <header
             className={cn(
               "sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",

@@ -110,7 +110,7 @@ export function DpilotGuardrailsScopeCard() {
         description:
           allowedNorm.length === 0
             ? "Sem lista de países nos guardrails — qualquer mercado ISO permitido nas campanhas (Google, Meta, TikTok)."
-            : "Novos planos só aceitam segmentações nestes países; palavras-chave bloqueadas aplicam-se sobretudo ao Search.",
+            : "Novos planos só aceitam segmentações nestes países; palavras-chave bloqueadas aplicam-se sobretudo à pesquisa.",
       });
       reload();
     } finally {
@@ -132,7 +132,7 @@ export function DpilotGuardrailsScopeCard() {
         </CardTitle>
         <CardDescription>
           Lista de país vazio = sem bloqueio geográfico específico neste projeto (dentro das regras de cada rede e do{" "}
-          <strong>teto diário</strong>). Keywords bloqueadas aplicam‑se sobretudo ao Search.
+          <strong>teto diário</strong>). Palavras-chave bloqueadas aplicam-se sobretudo à pesquisa.
         </CardDescription>
         {dailyPreview != null ? (
           <p className="text-xs text-muted-foreground pt-1">

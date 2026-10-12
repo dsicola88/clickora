@@ -43,7 +43,7 @@ function MfaVerifyForm({
     try {
       const { error } = await verifyMfa(mfaToken, trimmed);
       if (error) throw new Error(error);
-      toast.success("Login realizado com sucesso!");
+      toast.success("Sessão iniciada.");
       onSuccess();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Código incorrecto";
@@ -107,7 +107,7 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
         toast.message("Confirme o código MFA para continuar.");
         return;
       }
-      toast.success("Login realizado com sucesso!");
+      toast.success("Sessão iniciada.");
       onSuccess();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Erro ao fazer login";

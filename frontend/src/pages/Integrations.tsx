@@ -270,12 +270,12 @@ export default function Integrations() {
         <p className="text-sm font-medium text-foreground">Outras ligações no dclickora</p>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Postbacks em <strong className="font-medium text-foreground/90">Plataformas</strong>; ferramentas e macros em{" "}
-          <strong className="font-medium text-foreground/90">Tracking Tools</strong>.
+          <strong className="font-medium text-foreground/90">Ferramentas de rastreio</strong>.
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button variant="outline" size="sm" className="justify-between gap-2 sm:flex-1" asChild>
             <Link to="/tracking/tools">
-              Abrir Tracking Tools
+              Abrir ferramentas de rastreio
               <ArrowRight className="h-4 w-4 shrink-0 opacity-70" />
             </Link>
           </Button>

@@ -45,6 +45,14 @@ type MatchSel = "exact" | "phrase" | "broad";
 
 type StudioSnippetHeader = "Brands" | "Services" | "Types" | "Models" | "Destinations";
 
+const SNIPPET_HEADER_LABEL: Record<StudioSnippetHeader, string> = {
+  Brands: "Marcas",
+  Services: "Serviços",
+  Types: "Tipos",
+  Models: "Modelos",
+  Destinations: "Destinos",
+};
+
 const STUDIO_SNIPPET_HEADERS: StudioSnippetHeader[] = [
   "Brands",
   "Services",
@@ -540,7 +548,7 @@ export function DpilotGoogleCampaignStudioPage() {
       return;
     }
     if (headlines.length < 3 || descriptions.length < 2) {
-      toast.error("RSA: mínimo 3 títulos e 2 descrições.");
+      toast.error("Anúncio: mínimo 3 títulos e 2 descrições.");
       return;
     }
     const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
@@ -554,7 +562,7 @@ export function DpilotGoogleCampaignStudioPage() {
     });
     if (error) toast.error(error);
     else {
-      toast.success("Pedido RSA enviado.");
+      toast.success("Pedido de anúncio enviado.");
       await loadStudio();
       await reloadPaid();
     }
@@ -722,7 +730,7 @@ export function DpilotGoogleCampaignStudioPage() {
         return;
       }
       if (hLines.length < 3 || dLines.length < 2) {
-        toast.error(`Grupo «${ag.name}»: RSA precisa de pelo menos 3 títulos e 2 descrições (linhas).`);
+        toast.error(`Grupo «${ag.name}»: o anúncio precisa de pelo menos 3 títulos e 2 descrições (linhas).`);
         return;
       }
       if (lines.length < 1) {
@@ -749,7 +757,7 @@ export function DpilotGoogleCampaignStudioPage() {
     });
     if (error) toast.error(error);
     else {
-      toast.success("Rascunho gravado (keywords, RSA, negativas e extensões).");
+      toast.success("Rascunho gravado (palavras-chave, anúncio, negativas e extensões).");
       if (data?.studio) setStudio(data.studio);
       await reloadPaid();
     }
@@ -1156,7 +1164,7 @@ export function DpilotGoogleCampaignStudioPage() {
                   <AlertTitle>Rascunho</AlertTitle>
                   <AlertDescription>
                     Não há ligação a um ID de campanha na Google até publicar pela fila («Aplicações» / Autopilot).
-                    Keywords, RSA, negativas e extensões gravam‑se no rascunho com «Gravar rascunho completo» em Keywords e RSA,
+                    Palavras-chave, anúncios, negativas e extensões gravam-se no rascunho com «Gravar rascunho completo» em Palavras-chave e anúncios,
                     ou à parte na secção «Negativas e extensões».
                   </AlertDescription>
                 </Alert>
@@ -1184,7 +1192,7 @@ export function DpilotGoogleCampaignStudioPage() {
                           value={`${countNonEmptyLines(draftKwText[ag.id] ?? "")} linhas · ${matchTypeLabel(draftKwMatch[ag.id] ?? "phrase")}`}
                         />
                         <StudioSettingsRow
-                          label="RSA · destino · caminho"
+                          label="Anúncio · destino · caminho"
                           value={
                             <span className="block break-all">
                               <span className="font-mono text-xs">
@@ -1214,7 +1222,7 @@ export function DpilotGoogleCampaignStudioPage() {
                         }}
                       >
                         <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/25 px-3 py-2.5 text-left text-sm font-medium hover:bg-muted/40">
-                          <span>Editar palavras‑chave e textos RSA</span>
+                          <span>Editar palavras-chave e textos do anúncio</span>
                           <ChevronDown
                             className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/edit-kw:rotate-180"
                             aria-hidden
@@ -1344,11 +1352,11 @@ export function DpilotGoogleCampaignStudioPage() {
                             value={`${ag.keywords.length} na rede (${ag.keywords.filter((k) => k.status !== "paused").length} activas)`}
                           />
                           <StudioSettingsRow
-                            label="Anúncio RSA"
+                            label="Anúncio"
                             value={
                               ag.rsa[0]
                                 ? `${ag.rsa[0].headlines.length} títulos · ${ag.rsa[0].descriptions.length} descrições`
-                                : "Sem RSA neste grupo"
+                                : "Sem anúncio neste grupo"
                             }
                             subdued
                           />
@@ -1496,7 +1504,7 @@ export function DpilotGoogleCampaignStudioPage() {
                         </div>
 
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-2">Anúncio RSA</p>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Anúncio</p>
                           {rsa0 ? (
                             <div className="flex flex-col gap-6">
                               <GoogleAdsStudioRsaCreativeBlock
@@ -1545,7 +1553,7 @@ export function DpilotGoogleCampaignStudioPage() {
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground">Sem RSA neste grupo.</p>
+                            <p className="text-sm text-muted-foreground">Sem anúncio neste grupo.</p>
                           )}
                         </div>
                           </CollapsibleContent>
@@ -1658,19 +1666,19 @@ export function DpilotGoogleCampaignStudioPage() {
 
                 <Card className="border-muted-foreground/15 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Extensões Search (sitelinks, destaques, snippet)</CardTitle>
+                    <CardTitle className="text-base">Extensões de pesquisa (links do site, destaques, fragmento)</CardTitle>
                     <CardDescription>
-                      Ao nível da campanha (como na Google). Sitelinks: pelo menos <strong>2</strong> válidos (texto +
-                      URL https) para enviar; até <strong>{EXT_SITELINK_MAX_ROWS}</strong>. Descrições do sitelink são
+                      Ao nível da campanha (como na Google). Links do site: pelo menos <strong>2</strong> válidos (texto +
+                      URL https) para enviar; até <strong>{EXT_SITELINK_MAX_ROWS}</strong>. Descrições do link são
                       opcionais — se preencher uma, preencha as duas (regra da API). Destaques: até{" "}
-                      <strong>{EXT_CALLOUT_MAX}</strong> caracteres cada. Snippet: cabeçalho fixo Google + pelo menos{" "}
+                      <strong>{EXT_CALLOUT_MAX}</strong> caracteres cada. Fragmento: cabeçalho fixo da Google + pelo menos{" "}
                       <strong>{EXT_SNIPPET_MIN_ROWS}</strong> valores para substituir o gerado automaticamente.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-8 text-sm">
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Label className="text-base font-medium">Sitelinks</Label>
+                        <Label className="text-base font-medium">Links do site</Label>
                         <Button
                           type="button"
                           variant="link"
@@ -1678,11 +1686,11 @@ export function DpilotGoogleCampaignStudioPage() {
                           disabled={extSitelinkRows.length >= EXT_SITELINK_MAX_ROWS}
                           onClick={() => setExtSitelinkRows((rows) => [...rows, emptySitelinkRow()])}
                         >
-                          Adicionar sitelink
+                          Adicionar link do site
                         </Button>
                       </div>
                       <p className="text-[12px] text-muted-foreground">
-                        Para os sitelinks aparecerem na rede são necessários pelo menos 2 recursos; até{" "}
+                        Para os links do site aparecerem na rede são necessários pelo menos 2 recursos; até{" "}
                         {EXT_SITELINK_MAX_ROWS} para melhor desempenho.
                       </p>
                       <div className="space-y-4">
@@ -1693,7 +1701,7 @@ export function DpilotGoogleCampaignStudioPage() {
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="text-xs font-semibold text-muted-foreground">
-                                Sitelink {idx + 1}
+                                Link do site {idx + 1}
                               </span>
                               {extSitelinkRows.length > 2 ? (
                                 <Button
@@ -1711,7 +1719,7 @@ export function DpilotGoogleCampaignStudioPage() {
                             </div>
                             <div className="space-y-1.5">
                               <div className="flex justify-between gap-2">
-                                <Label className="font-normal">Texto do sitelink</Label>
+                                <Label className="font-normal">Texto do link</Label>
                                 <FieldCharCount cur={row.link_text.length} max={EXT_SITELINK_TEXT_MAX} />
                               </div>
                               <Input
@@ -1839,7 +1847,7 @@ export function DpilotGoogleCampaignStudioPage() {
                     <Separator />
 
                     <div className="space-y-3">
-                      <Label className="text-base font-medium">Snippet estruturado</Label>
+                      <Label className="text-base font-medium">Fragmento estruturado</Label>
                       <div className="space-y-3">
                         <div className="space-y-1.5 max-w-md">
                           <Label className="font-normal">Cabeçalho</Label>
@@ -1853,7 +1861,7 @@ export function DpilotGoogleCampaignStudioPage() {
                             <SelectContent>
                               {STUDIO_SNIPPET_HEADERS.map((h) => (
                                 <SelectItem key={h} value={h}>
-                                  {h}
+                                  {SNIPPET_HEADER_LABEL[h]}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1928,7 +1936,7 @@ export function DpilotGoogleCampaignStudioPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Orçamento e licitação</CardTitle>
                   <CardDescription>
-                    URL final e textos RSA ficam em «Keywords e RSA». Aqui ajusta orçamento diário, estratégia de
+                    URL final e textos dos anúncios ficam em «Palavras-chave e anúncios». Aqui ajusta orçamento diário, estratégia de
                     licitação (CPC, CPA, ROAS, maximizar conversões) e consulta métricas da rede quando a campanha já
                     existe na conta Google.
                   </CardDescription>
@@ -2269,7 +2277,7 @@ export function DpilotGoogleCampaignStudioPage() {
                           {ag.rsa.map((r) => (
                             <StudioSettingsRow
                               key={r.id}
-                              label="Anúncio RSA"
+                              label="Anúncio"
                               value={
                                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                   <BadgeEntityStatus s={r.status === "paused" ? "Pausado" : "Activo"} />
@@ -2449,7 +2457,7 @@ export function DpilotGoogleCampaignStudioPage() {
                         />
                       ) : null}
                       <p className="text-[10px] leading-snug text-muted-foreground">
-                        Combinação de exemplo (primeiros titulares e descrições). Na rede Google, o RSA roda variantes
+                        Combinação de exemplo (primeiros títulos e descrições). Na rede Google, o anúncio roda variantes
                         automaticamente.
                       </p>
                     </aside>

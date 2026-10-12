@@ -48,8 +48,7 @@ export default function Home() {
   const conversions = dash?.approved_sales_count ?? dash?.total_conversions ?? 0;
   const revenue = dash?.revenue ?? 0;
   const rate = dash?.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);
-  const currency =
-    dash?.media_buyer?.spend_currency || dash?.google_ads_metrics?.currency_code || "EUR";
+  const currency = "USD";
 
   if (isNew) {
     return (
@@ -152,7 +151,7 @@ export default function Home() {
 
       <Button variant="outline" className="gap-2" asChild>
         <Link to="/resultados">
-          Ver P&L
+          Ver resultados
           <ArrowRight className="h-4 w-4" />
         </Link>
       </Button>

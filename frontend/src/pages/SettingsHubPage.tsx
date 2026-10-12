@@ -51,7 +51,7 @@ export default function SettingsHubPage() {
               { to: "/tracking/rotadores", label: "Rotadores" },
               { to: "/tracking/tools", label: "Diagnóstico" },
               { to: "/tracking/blacklist", label: "IP e protecções" },
-              { to: "/tracking/logs", label: "Logs" },
+              { to: "/tracking/logs", label: "Registos" },
               { to: "/tracking/url-builder", label: "URL manual" },
               { to: "/aulas", label: "Aulas" },
               { to: "/ajuda", label: "Ajuda" },

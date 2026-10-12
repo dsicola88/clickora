@@ -1625,12 +1625,12 @@ export const analyticsController = {
     } else if (googleSpendLive != null && googleSpendLive > 0) {
       spend = Math.round(googleSpendLive * 100) / 100;
       spend_source = "google_ads";
-      spend_currency = google_ads_metrics?.currency_code ?? "EUR";
+      spend_currency = google_ads_metrics?.currency_code ?? "USD";
       spend_by_platform = { google_ads: spend };
     } else if (manualSpendTotal > 0) {
       manual_spend_lifetime = Math.round(manualSpendTotal * 100) / 100;
       spend_source = "manual";
-      spend_currency = "EUR";
+      spend_currency = "USD";
     }
 
     const mb = computePerf({
@@ -1652,7 +1652,7 @@ export const analyticsController = {
         code: "manual_spend_lifetime",
         severity: "warning",
         title: "Gasto manual fora do período",
-        detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "EUR"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período só usam gasto Google Ads do mesmo intervalo — actualize o gasto por campanha alinhado às datas ou ligue o Google Ads.`,
+        detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "USD"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período só usam gasto Google Ads do mesmo intervalo — actualize o gasto por campanha alinhado às datas ou ligue o Google Ads.`,
       });
     }
     let account_health: Awaited<ReturnType<typeof buildAccountHealth>> | null = null;
@@ -1713,8 +1713,8 @@ export const analyticsController = {
         mediaBuyerAlerts.unshift({
           code: "unattributed_sales",
           severity: "warning",
-          title: "Vendas sem atribuição",
-          detail: `${account_health.attribution.unattributed_sales} venda(s) aprovada(s) sem click ID — aparecem na receita mas não em keyword/campanha. Confirme subid/cid/sub3 no hoplink.`,
+          title: "Vendas sem campanha",
+          detail: `${account_health.attribution.unattributed_sales} venda(s) aprovada(s) entram na receita, mas não em campanha nem palavra-chave. O clique saiu para a oferta sem o identificador que a rede devolve.`,
         });
       }
     } catch (e) {

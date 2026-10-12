@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -56,11 +57,11 @@ const workNav: NavItem[] = [
   { title: "Presells", url: "/presells", icon: FileText },
   { title: "Campanhas", url: "/campanhas", icon: Megaphone },
   { title: "Pesquisa e anúncios", url: "/palavras-chave", icon: Search },
-  { title: "URL Builder", url: "/tracking/url-builder", icon: Link2 },
+  { title: "Construtor de URL", url: "/tracking/url-builder", icon: Link2 },
 ];
 
 const resultsNav: NavItem[] = [
-  { title: "P&L", url: "/resultados", icon: LayoutDashboard, end: true },
+  { title: "Resultados", url: "/resultados", icon: LayoutDashboard, end: true },
   { title: "Conversões", url: "/resultados/relatorios/conversoes", icon: ClipboardList, end: true },
   { title: "Relatórios", url: "/resultados/relatorios", icon: BarChart3, end: true },
 ];
@@ -115,7 +116,11 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const path = location.pathname;
   const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, isMobile, setOpenMobile } = useSidebar();
+
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [path, isMobile, setOpenMobile]);
 
   return (
     <>

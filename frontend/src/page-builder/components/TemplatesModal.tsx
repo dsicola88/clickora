@@ -48,7 +48,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
         <header className="flex items-center justify-between border-b border-editor-border px-5 py-4">
           <div className="flex items-center gap-2">
             <LayoutTemplate className="h-5 w-5 text-editor-accent" />
-            <h2 className="text-base font-semibold">Biblioteca de Templates</h2>
+            <h2 className="text-base font-semibold">Biblioteca de modelos</h2>
           </div>
           <button
             type="button"

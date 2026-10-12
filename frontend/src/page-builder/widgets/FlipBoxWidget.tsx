@@ -24,7 +24,7 @@ export interface FlipBoxContent {
 
 export function FlipBoxWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const c = widget.content as Partial<FlipBoxContent>;
-  const frontTitle = c.frontTitle ?? "Hover aqui";
+  const frontTitle = c.frontTitle ?? "Passe o rato";
   const frontSubtitle = c.frontSubtitle ?? "Veja mais detalhes";
   const frontIcon = c.frontIcon ?? "✨";
   const frontBg = c.frontBg ?? "#1f2937";

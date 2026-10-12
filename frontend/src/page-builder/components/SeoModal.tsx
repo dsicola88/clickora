@@ -122,7 +122,7 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
 
             <div>
               <BuilderImageUrlField
-                label="Open Graph image (og:image)"
+                label="Imagem de partilha (og:image)"
                 value={seo.ogImage ?? ""}
                 onChange={(v) => set("ogImage", v)}
                 placeholder="https://… ou Carregar do PC (recomendado 1200×630)"

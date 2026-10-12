@@ -84,7 +84,7 @@ export function AdminEntryRedirect() {
 }
 
 function formatMoneyCents(cents: number) {
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(cents / 100);
+  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
 function roleBadge(role: string) {

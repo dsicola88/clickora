@@ -622,7 +622,7 @@ export default function Plataformas() {
                   <p>
                     <strong className="text-foreground/90">Google Ads / Microsoft Ads</strong> usam outro fluxo (conversões por GCLID). Use{" "}
                     <Link to="/tracking/tools" className="text-primary inline-flex items-center gap-1 hover:underline">
-                      Tracking Tools <ExternalLink className="h-3 w-3" />
+                      Ferramentas de rastreio <ExternalLink className="h-3 w-3" />
                     </Link>
                     .
                   </p>

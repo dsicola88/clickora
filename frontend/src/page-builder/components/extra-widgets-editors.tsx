@@ -226,7 +226,7 @@ export function DateContentEditor({
         ]}
         onChange={(v) => setContent({ format: v })}
       />
-      <TextField label="Locale" value={(c.locale as string) ?? "pt-BR"} onChange={(v) => setContent({ locale: v })} />
+      <TextField label="Idioma" value={(c.locale as string) ?? "pt-BR"} onChange={(v) => setContent({ locale: v })} />
       <TextField label="Prefixo" value={(c.prefix as string) ?? ""} onChange={(v) => setContent({ prefix: v })} />
       <TextField label="Sufixo" value={(c.suffix as string) ?? ""} onChange={(v) => setContent({ suffix: v })} />
       <NumberField label="Tamanho (px)" value={(c.fontSize as number) ?? 16} onChange={(v) => setContent({ fontSize: v })} min={10} max={48} />
@@ -316,7 +316,7 @@ export function InfoBoxContentEditor({
         <TextField label="Texto do link" value={(c.ctaText as string) ?? ""} onChange={(v) => setContent({ ctaText: v })} />
         <TextField label="URL do link" value={(c.ctaHref as string) ?? ""} onChange={(v) => setContent({ ctaHref: v })} />
       </Section>
-      <Section title="Layout">
+      <Section title="Disposição">
         <SelectField
           label="Disposição"
           value={(c.layout as string) ?? "stacked"}

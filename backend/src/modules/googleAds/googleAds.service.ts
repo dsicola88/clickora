@@ -10,7 +10,9 @@ import {
   GOOGLE_ADS_REPORTING_PLATFORM_NOT_READY,
   GOOGLE_ADS_REPORTING_USER_CUSTOMER_ID_REQUIRED,
   GOOGLE_ADS_REPORTING_USER_OAUTH_REQUIRED,
+  googleAdsErrorText,
   humanizeGoogleAdsApiError,
+  plainGoogleAdsError,
 } from "./googleAdsApiErrors";
 
 const DIGITS_ONLY = /^\d+$/;
@@ -242,8 +244,7 @@ export async function fetchGoogleAdsAccountMetrics(input: {
       metrics: { impressions, clicks, conversions, cost_micros, currency_code },
     };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: humanizeGoogleAdsApiError(msg) };
+    return { ok: false, error: googleAdsErrorText(e) };
   }
 }
 
@@ -421,8 +422,7 @@ export async function uploadClickConversionToGoogleAds(
     }
     return { ok: true, raw: serial };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg, raw: e };
+    return { ok: false, error: googleAdsErrorText(e), raw: e };
   }
 }
 
@@ -658,7 +658,7 @@ export async function uploadConversionRestatementToGoogleAds(
     }
     return { ok: true, raw: serial };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = plainGoogleAdsError(e);
     return { ok: false, error: msg, raw: e };
   }
 }
@@ -825,7 +825,7 @@ export async function uploadConversionRetractionToGoogleAds(
     }
     return { ok: true, raw: serial };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = plainGoogleAdsError(e);
     return { ok: false, error: msg, raw: e };
   }
 }
@@ -931,6 +931,69 @@ export type GoogleAdsBootstrapResult = {
  * Após OAuth: escolhe conta Ads, garante ação UPLOAD_CLICKS, activa importação automática.
  * Minimiza passos manuais no Google Ads UI.
  */
+type AdsProbeClient = {
+  Customer: (opts: { customer_id: string; refresh_token: string; login_customer_id?: string }) => {
+    query: (gaql: string) => Promise<unknown>;
+  };
+};
+
+type ProbedAdsAccount = { id: string; name: string; kind: "manager" | "direct" | "needs_manager" };
+
+function managerLoginRequired(err: unknown): boolean {
+  const text = plainGoogleAdsError(err).toLowerCase();
+  return text.includes("login-customer-id") || text.includes("permission to access customer");
+}
+
+async function probeGoogleAdsAccounts(
+  client: AdsProbeClient,
+  refreshToken: string,
+  ids: string[],
+): Promise<ProbedAdsAccount[]> {
+  const accounts: ProbedAdsAccount[] = [];
+  for (const id of ids) {
+    try {
+      const customer = client.Customer({ customer_id: id, refresh_token: refreshToken });
+      const rows = (await customer.query(`
+        SELECT customer.id, customer.descriptive_name, customer.manager
+        FROM customer
+        LIMIT 1
+      `)) as Array<{ customer?: { descriptive_name?: string; manager?: boolean } }>;
+      const cust = rows?.[0]?.customer;
+      accounts.push({
+        id,
+        name: cust?.descriptive_name?.trim() || id,
+        kind: cust?.manager === true ? "manager" : "direct",
+      });
+    } catch (e) {
+      accounts.push({ id, name: id, kind: managerLoginRequired(e) ? "needs_manager" : "direct" });
+    }
+  }
+  return accounts;
+}
+
+async function managerLoginForClient(
+  client: AdsProbeClient,
+  refreshToken: string,
+  clientId: string,
+  managers: ProbedAdsAccount[],
+): Promise<string | null> {
+  if (managers.length === 1) return managers[0]!.id;
+  for (const manager of managers) {
+    try {
+      const customer = client.Customer({
+        customer_id: clientId,
+        refresh_token: refreshToken,
+        login_customer_id: manager.id,
+      });
+      await customer.query(`SELECT customer.id FROM customer LIMIT 1`);
+      return manager.id;
+    } catch {
+      /* tenta a gestora seguinte */
+    }
+  }
+  return null;
+}
+
 export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<GoogleAdsBootstrapResult> {
   const empty = (detail: string): GoogleAdsBootstrapResult => ({
     ok: false,
@@ -975,7 +1038,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
       if (Array.isArray(rn)) resourceNames = rn.map(String);
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = plainGoogleAdsError(e);
     return empty(`list_accounts_failed: ${humanizeGoogleAdsApiError(msg)}`);
   }
 
@@ -990,39 +1053,15 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     return empty("Nenhuma conta Google Ads acessível com este login.");
   }
 
-  type AccInfo = { id: string; name: string; manager: boolean };
-  const accounts: AccInfo[] = [];
-  for (const id of accessibleIds.slice(0, 25)) {
-    try {
-      const c = client.Customer({
-        customer_id: id,
-        refresh_token: creds.refreshToken,
-        ...(creds.loginCustomerId ? { login_customer_id: creds.loginCustomerId } : {}),
-      });
-      const rows = await c.query(`
-        SELECT customer.id, customer.descriptive_name, customer.manager
-        FROM customer
-        LIMIT 1
-      `);
-      const row = Array.isArray(rows) ? rows[0] : null;
-      const cust = row?.customer as { id?: unknown; descriptive_name?: string; manager?: boolean } | undefined;
-      accounts.push({
-        id,
-        name: cust?.descriptive_name?.trim() || id,
-        manager: cust?.manager === true,
-      });
-    } catch {
-      accounts.push({ id, name: id, manager: false });
-    }
-  }
+  const accounts = await probeGoogleAdsAccounts(client, creds.refreshToken, accessibleIds.slice(0, 25));
 
   let loginCustomerId: string | null = onlyDigits(user.googleAdsLoginCustomerId);
   let customerId: string | null = onlyDigits(user.googleAdsCustomerId);
+  const managers = accounts.filter((a) => a.kind === "manager");
+  const clients = accounts.filter((a) => a.kind !== "manager");
 
   if (!customerId) {
-    const nonManagers = accounts.filter((a) => !a.manager);
-    /** Várias contas cliente → não adivinhar; o utilizador escolhe no UI. */
-    if (nonManagers.length > 1 && !onlyDigits(user.googleAdsCustomerId)) {
+    if (clients.length > 1) {
       return {
         ok: false,
         customer_id: null,
@@ -1032,11 +1071,14 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
         enabled: false,
         can_upload: false,
         accounts_found: accounts.length,
-        detail: `Várias contas Ads (${nonManagers.length}). Indique o Customer ID da conta de anúncios e use «Re-sincronizar setup».`,
+        detail: `Várias contas Ads (${clients.length}). Indique o Customer ID da conta de anúncios e use «Re-sincronizar setup».`,
       };
     }
-    if (nonManagers.length > 0) {
-      customerId = nonManagers[0]!.id;
+    if (clients.length === 1) {
+      customerId = clients[0]!.id;
+      if (!loginCustomerId && clients[0]!.kind === "needs_manager") {
+        loginCustomerId = await managerLoginForClient(client, creds.refreshToken, customerId, managers);
+      }
     } else {
       const manager = accounts[0]!;
       loginCustomerId = manager.id;
@@ -1081,10 +1123,9 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     }
   }
 
-  /** Se a conta escolhida for manager e ainda não há login, usar como login e tentar cliente. */
-  const chosenMeta = accounts.find((a) => a.id === customerId);
-  if (chosenMeta?.manager && !loginCustomerId) {
-    loginCustomerId = customerId;
+  const chosen = accounts.find((a) => a.id === customerId);
+  if (customerId && !loginCustomerId && chosen?.kind === "needs_manager") {
+    loginCustomerId = await managerLoginForClient(client, creds.refreshToken, customerId, managers);
   }
 
   const customer = client.Customer({
@@ -1153,7 +1194,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
       conversionActionCreated = true;
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = plainGoogleAdsError(e);
     return {
       ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}`),
       accounts_found: accounts.length,

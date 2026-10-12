@@ -590,7 +590,7 @@ function WidgetStyleTab({
           {widget.type === "button" ? (
             <Section title="Sombra">
               <TextareaField
-                label="Box shadow (CSS)"
+                label="Sombra (CSS)"
                 value={widget.styles.boxShadow ?? ""}
                 onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
                 rows={2}
@@ -664,7 +664,7 @@ function ColumnPanel({
       badge="Coluna"
       badgeColor="var(--editor-column)"
       tabs={[
-        { id: "content", label: "Layout" },
+        { id: "content", label: "Disposição" },
         { id: "style", label: "Estilo" },
         { id: "advanced", label: "Avançado" },
       ]}
@@ -727,7 +727,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
       badge="Seção"
       badgeColor="var(--editor-section)"
       tabs={[
-        { id: "content", label: "Layout" },
+        { id: "content", label: "Disposição" },
         { id: "style", label: "Estilo" },
         { id: "advanced", label: "Avançado" },
       ]}
@@ -736,7 +736,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
     >
       {tab === "content" && (
         <>
-          <Section title="Layout">
+          <Section title="Disposição">
             <SelectField
               label="Largura do conteúdo"
               value={section.layout}
@@ -1133,7 +1133,7 @@ function AdvancedTab({
   return (
     <>
       {showLayout ? (
-        <Section title="Layout">
+        <Section title="Disposição">
           <TextField
             label={`Largura (${device})`}
             value={(resolveResponsive(styles.width, device) as string) ?? ""}
@@ -1448,7 +1448,7 @@ function FormContentEditor({
                 onChange={(v) => updateField(idx, { name: v.replace(/[^a-zA-Z0-9_]/g, "_") })}
               />
               <TextField
-                label="Placeholder"
+                label="Texto de exemplo"
                 value={field.placeholder ?? ""}
                 onChange={(v) => updateField(idx, { placeholder: v })}
               />
@@ -2557,10 +2557,10 @@ function AnimatedHeadlineContentEditor({
           label="Tipo"
           value={(content.animation as string) ?? "fade"}
           options={[
-            { value: "fade", label: "Fade (suave)" },
-            { value: "slide", label: "Slide (deslizar)" },
-            { value: "typed", label: "Typed (digitando)" },
-            { value: "highlight", label: "Highlight (destaque)" },
+            { value: "fade", label: "Aparecer (suave)" },
+            { value: "slide", label: "Deslizar" },
+            { value: "typed", label: "A escrever" },
+            { value: "highlight", label: "Destaque" },
           ]}
           onChange={(v) => setContent({ animation: v })}
         />
@@ -2751,7 +2751,7 @@ function CtaBoxContentEditor({
           onChange={(v) => setContent({ secondaryHref: v })}
         />
       </Section>
-      <Section title="Layout">
+      <Section title="Disposição">
         <SelectField
           label="Disposição"
           value={(content.layout as string) ?? "centered"}
@@ -2891,8 +2891,8 @@ function FlipBoxContentEditor({
           label="Gatilho do flip"
           value={(content.trigger as string) ?? "hover"}
           options={[
-            { value: "hover", label: "Hover (mouse)" },
-            { value: "click", label: "Click (toque)" },
+            { value: "hover", label: "Ao passar o rato" },
+            { value: "click", label: "Ao clicar" },
           ]}
           onChange={(v) => setContent({ trigger: v })}
         />

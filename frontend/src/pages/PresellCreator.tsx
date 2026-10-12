@@ -21,9 +21,9 @@ function isCreatorTab(s: string | undefined): s is CreatorTab {
 }
 
 const templates = [
-  { id: "vsl", name: "VSL (Video Sales Letter)", description: "Página com vídeo de vendas + CTA forte", color: "from-primary to-accent" },
-  { id: "dtc", name: "DTC (Direct to Consumer)", description: "Página direta com texto persuasivo", color: "from-success to-primary" },
-  { id: "tsl", name: "TSL (Text Sales Letter)", description: "Carta de vendas longa e detalhada", color: "from-warning to-destructive" },
+  { id: "vsl", name: "VSL (vídeo de vendas)", description: "Página com vídeo de vendas e chamada forte", color: "from-primary to-accent" },
+  { id: "dtc", name: "DTC (venda directa)", description: "Página directa com texto persuasivo", color: "from-success to-primary" },
+  { id: "tsl", name: "TSL (carta de vendas)", description: "Carta de vendas longa e detalhada", color: "from-warning to-destructive" },
 ];
 
 export default function PresellCreator() {
@@ -79,9 +79,9 @@ export default function PresellCreator() {
       <nav className="flex flex-wrap gap-2 mb-6" aria-label="Secções do criador">
         {(
           [
-            { seg: "templates" as const, label: "Templates", icon: Sparkles },
+            { seg: "templates" as const, label: "Modelos", icon: Sparkles },
             { seg: "editor" as const, label: "Editor", icon: FileText },
-            { seg: "preview" as const, label: "Preview", icon: Eye },
+            { seg: "preview" as const, label: "Pré-visualizar", icon: Eye },
           ] as const
         ).map(({ seg, label, icon: Icon }) => (
           <NavLink

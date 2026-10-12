@@ -139,7 +139,7 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   faq: {
     type: "faq",
-    label: "FAQ",
+    label: "Perguntas frequentes",
     category: "pro",
     icon: HelpCircle,
     Render: FaqWidget,
@@ -181,14 +181,14 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   ctaBox: {
     type: "ctaBox",
-    label: "CTA Box",
+    label: "Caixa de chamada",
     category: "pro",
     icon: Megaphone,
     Render: CtaBoxWidget,
   },
   flipBox: {
     type: "flipBox",
-    label: "Flip Box",
+    label: "Cartão giratório",
     category: "pro",
     icon: RotateCcw,
     Render: FlipBoxWidget,
@@ -244,7 +244,7 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   stickyVideo: {
     type: "stickyVideo",
-    label: "Vídeo sticky (VSL)",
+    label: "Vídeo fixo (VSL)",
     category: "media",
     icon: PictureInPicture,
     Render: StickyVideoWidget,
@@ -293,7 +293,7 @@ export const WIDGET_CATEGORIES: Array<{
   label: string;
 }> = [
   { id: "basic", label: "Básico" },
-  { id: "media", label: "Mídia" },
-  { id: "pro", label: "Pro" },
+  { id: "media", label: "Multimédia" },
+  { id: "pro", label: "Profissional" },
   { id: "advanced", label: "Avançado" },
 ];

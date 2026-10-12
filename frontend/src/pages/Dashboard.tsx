@@ -20,7 +20,7 @@ export default function Dashboard() {
     <div className={APP_PAGE_SHELL}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Painel</h1>
           <p className="text-muted-foreground mt-1">Visão geral da sua performance</p>
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function Dashboard() {
                 <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">Página</th>
                 <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">Cliques</th>
                 <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">CTR</th>
-                <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">Status</th>
+                <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">Estado</th>
                 <th className="text-right py-3 px-5 text-sm font-medium text-muted-foreground"></th>
               </tr>
             </thead>

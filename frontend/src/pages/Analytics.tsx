@@ -907,7 +907,7 @@ export default function Analytics() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Analytics"
+        title="Análises"
         description="Presells no dclickora e relatórios Google Ads (mesmo período por ecrã)."
       />
 

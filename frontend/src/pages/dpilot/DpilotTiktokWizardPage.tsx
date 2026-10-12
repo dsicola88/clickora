@@ -539,7 +539,7 @@ export function DpilotTiktokWizardPage() {
             id="dpilot-wiz-tiktok-compliance"
             platform="tiktok"
             stepLabel="Passo 6 de 7"
-            title="Compliance TikTok Ads"
+            title="Regras do TikTok Ads"
             description="Conversões e medição frequentemente dependem de pixel/app e de regras de conteúdo por sector."
           >
             <div className="grid gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4 dark:bg-amber-500/10">

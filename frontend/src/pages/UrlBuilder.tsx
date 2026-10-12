@@ -456,7 +456,7 @@ export default function UrlBuilder() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="URL Builder"
+        title="Construtor de URL"
         subtitle="Link da presell com UTMs e click IDs para colar no anúncio. O botão da página usa o hoplink (tracking no redirect)."
         actions={
           <Button

@@ -50,7 +50,7 @@ type ReportRow = {
   cvr: number | null;
 };
 
-function money(n: number | null | undefined, currency = "EUR") {
+function money(n: number | null | undefined, currency = "USD") {
   if (n == null || !Number.isFinite(n)) return "—";
   return n.toLocaleString("pt-PT", { style: "currency", currency, maximumFractionDigits: 2 });
 }
@@ -254,7 +254,7 @@ export default function ResultsOverviewPage() {
 
   const mb = data.media_buyer;
   const health = data.account_health;
-  const currency = mb?.spend_currency || data.google_ads_metrics?.currency_code || "EUR";
+  const currency = "USD";
   const clicks = data.total_clicks ?? 0;
   const impressions = data.total_impressions ?? 0;
   const conversions = data.approved_sales_count ?? data.total_conversions ?? 0;
@@ -283,13 +283,13 @@ export default function ResultsOverviewPage() {
 
   const showCheckouts = dim === "offers" || dim === "countries";
   const dimHint: Record<DimId, string> = {
-    offers: "Uma linha por presell. Visitantes = cliques qualificados. Checkouts só quando a rede envia o evento de funil — o hoplink não conta.",
-    campaigns: "Atribuição por utm_campaign (slug). Custo/ROAS só no topo da conta (sync) — gasto manual da ficha não entra aqui.",
-    keywords: "utm_term={keyword} · custo Google sincronizado do período quando disponível.",
-    adgroups: "utm_content={adgroupid} · custo por ad group sincronizado.",
-    countries: "País do visitante. Checkouts só com evento de funil da rede. Sem país gravado, a linha fica «(sem país)» — não se inventa.",
-    devices: "device do evento de clique. Sem custo por dispositivo.",
-    sources: "utm_source ou source do clique.",
+    offers: "Uma linha por página. Visitantes são cliques qualificados. Checkouts só entram quando a rede os envia.",
+    campaigns: "Agrupado pela campanha do anúncio. Custo e ROAS usam o gasto sincronizado do período.",
+    keywords: "Palavra-chave do anúncio. O custo aparece quando o Google Ads do período está ligado.",
+    adgroups: "Grupo de anúncios. O custo aparece quando o Google Ads do período está ligado.",
+    countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
+    devices: "Dispositivo do clique. O custo não é dividido por dispositivo.",
+    sources: "Origem do clique, por exemplo Google Ads.",
   };
 
   const exportCsv = () => {
@@ -390,11 +390,11 @@ export default function ResultsOverviewPage() {
         </Button>
         <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void refetch()} disabled={isFetching}>
           <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
+          Actualizar
         </Button>
         {cmp ? (
           <span className="text-[11px] text-muted-foreground">
-            Comp. {cmp.period.from}→{cmp.period.to}: {cmp.clicks} clk · {cmp.conversions} vend ·{" "}
+            Comparado com {cmp.period.from} → {cmp.period.to}: {cmp.clicks} visitantes · {cmp.conversions} vendas ·{" "}
             {money(cmp.revenue, currency)}
           </span>
         ) : null}
@@ -442,7 +442,11 @@ export default function ResultsOverviewPage() {
         <ProKpiCell
           label="Checkouts"
           value={(data.checkout_visitors ?? 0).toLocaleString("pt-PT")}
-          hint="Funil da rede, não o hoplink"
+          hint={
+            (data.checkout_visitors ?? 0) > 0
+              ? "Visitas ao checkout enviadas pela rede"
+              : "Entra quando a rede avisa o checkout. O que já está só no painel dela não é importado."
+          }
         />
         <ProKpiCell
           label="Conversões"
@@ -475,7 +479,7 @@ export default function ResultsOverviewPage() {
 
       <ProPanel
         title="Visitantes"
-        description="Cliques qualificados por dia. A linha de checkouts só aparece quando a rede enviou o evento de funil."
+        description="Visitantes qualificados por dia. A linha de checkouts aparece quando a rede envia esse evento."
       >
         {(data.chart_data ?? []).length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
@@ -537,11 +541,11 @@ export default function ResultsOverviewPage() {
           />
         ) : (
           <>
-            <div className="max-h-[min(62vh,720px)] overflow-auto">
-              <table className="w-full min-w-[920px] border-collapse">
+            <div className="max-h-[min(62vh,720px)] overflow-auto touch-pan-x">
+              <table className="w-full min-w-[720px] border-collapse sm:min-w-[920px]">
                 <thead>
                   <tr>
-                    <ProReportTh align="left">
+                    <ProReportTh align="left" className="left-0 z-20 min-w-[8.5rem] bg-muted">
                       {dim === "offers"
                         ? "Oferta"
                         : dim === "campaigns"
@@ -571,7 +575,7 @@ export default function ResultsOverviewPage() {
                 <tbody>
                   {activeRows.map((row) => (
                     <tr key={row.id} className="hover:bg-sky-500/[0.06]">
-                      <ProReportTd align="left" className="max-w-[280px]">
+                      <ProReportTd align="left" className="sticky left-0 z-10 max-w-[9.5rem] bg-card sm:max-w-[280px]">
                         {row.href ? (
                           <Link to={row.href} className="font-medium text-primary hover:underline truncate block">
                             {row.label}

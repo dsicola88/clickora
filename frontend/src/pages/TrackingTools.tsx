@@ -44,7 +44,7 @@ const navItems = [
 
 function ToolsSubNav() {
   return (
-    <nav className="mb-6 space-y-3" aria-label="Ferramentas de tracking">
+    <nav className="mb-6 space-y-3" aria-label="Ferramentas de rastreio">
       <p className="text-sm text-muted-foreground">
         Cada ferramenta tem o seu URL — pode marcar favoritos ou partilhar ligações directas sem mudar de página
         manualmente.
@@ -722,7 +722,7 @@ export default function TrackingTools() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Tracking Tools"
+        title="Ferramentas de rastreio"
         description="Diagnóstico (IP, GCLID, clique, postbacks); não substitui Relatórios nem Analytics."
       />
       <ToolsSubNav />

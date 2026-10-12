@@ -63,7 +63,7 @@ export function buildGoogleAdsAuthorizeUrl(state: string): { authorizeUrl: strin
     response_type: "code",
     scope: "https://www.googleapis.com/auth/adwords",
     access_type: "offline",
-    prompt: "consent",
+    prompt: "select_account",
     state,
   });
   return { authorizeUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` };

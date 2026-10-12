@@ -178,13 +178,13 @@ export default function SetupAssistantPage() {
       },
       {
         id: "clicks",
-        title: "4. Tracking — teste de clique",
+        title: "4. Rastreio — teste de clique",
         description:
           "Abre a presell pública, clica no botão da oferta (não no URL do formulário). Em Relatórios deve aparecer o clique.",
         status: clicks > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
           { to: "/tracking/relatorios/cliques", label: "Ver cliques" },
-          { to: "/resultados", label: "P&L" },
+          { to: "/resultados", label: "Resultados" },
         ],
         hint:
           clicks > 0
@@ -314,7 +314,7 @@ export default function SetupAssistantPage() {
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90">
               Não foi possível carregar métricas. Abra o{" "}
               <Link to="/resultados" className="font-medium underline underline-offset-2">
-                P&L
+                Resultados
               </Link>{" "}
               ou actualize.
             </p>

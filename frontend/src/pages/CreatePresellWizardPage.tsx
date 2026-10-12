@@ -360,7 +360,7 @@ export default function CreatePresellWizardPage() {
     { n: 1 as const, label: "Oferta" },
     { n: 2 as const, label: "Campanha" },
     { n: 3 as const, label: "Tipo e idioma" },
-    { n: 4 as const, label: "Tracking" },
+    { n: 4 as const, label: "Rastreio" },
     { n: 5 as const, label: "Publicar" },
   ];
 
@@ -671,7 +671,7 @@ export default function CreatePresellWizardPage() {
 
       {step === 4 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
-          <p className="font-semibold">Tracking</p>
+          <p className="font-semibold">Rastreio</p>
           {!mirrorFidelityOk ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-3 text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
               A presell ficou em <strong>rascunho</strong>. O link do anúncio só abre depois de a publicares em

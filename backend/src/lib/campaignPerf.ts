@@ -137,7 +137,7 @@ export function buildMediaBuyerAlerts(args: {
       severity: "info",
       title: "ROI incompleto",
       detail:
-        "Ligue o Google Ads (gasto do mesmo período) para ver lucro, ROAS e CPA. Gasto manual acumulado nas campanhas não entra neste cálculo.",
+        "Lucro, ROI e ROAS ficam em branco até haver custo do Google Ads no mesmo período. O gasto escrito à mão na campanha não entra neste cálculo.",
     });
   }
 

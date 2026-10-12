@@ -4,12 +4,12 @@ import { NumberField, SelectField, TextField, TextareaField } from "../PropertyC
 
 const ENTRANCE_OPTIONS = [
   { value: "none", label: "Nenhuma" },
-  { value: "fadeIn", label: "Fade in" },
-  { value: "zoomIn", label: "Zoom in" },
-  { value: "slideUp", label: "Slide (de baixo)" },
-  { value: "slideDown", label: "Slide (de cima)" },
-  { value: "slideLeft", label: "Slide (da direita)" },
-  { value: "slideRight", label: "Slide (da esquerda)" },
+  { value: "fadeIn", label: "Aparecer" },
+  { value: "zoomIn", label: "Aproximar" },
+  { value: "slideUp", label: "Deslizar (de baixo)" },
+  { value: "slideDown", label: "Deslizar (de cima)" },
+  { value: "slideLeft", label: "Deslizar (da direita)" },
+  { value: "slideRight", label: "Deslizar (da esquerda)" },
   { value: "bounceIn", label: "Bounce in" },
 ] as const;
 
@@ -72,7 +72,7 @@ export function ButtonWidgetEditor({
           <span className="font-mono text-[10px]">skewX(-4deg)</span>).
         </p>
         <TextareaField
-          label="Transform (CSS)"
+          label="Transformação (CSS)"
           value={(c.transform as string) ?? ""}
           onChange={(v) => setContent({ transform: v.trim() ? v : undefined })}
           rows={2}
@@ -124,7 +124,7 @@ export function ButtonWidgetEditor({
           placeholder="0 8px 24px rgba(0,0,0,0.2)"
         />
         <TextareaField
-          label="Transform"
+          label="Transformação"
           value={(c.hoverTransform as string) ?? ""}
           onChange={(v) => setContent({ hoverTransform: v.trim() ? v : undefined })}
           rows={2}

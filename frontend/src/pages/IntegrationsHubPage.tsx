@@ -70,7 +70,7 @@ export default function IntegrationsHubPage() {
           health ? (
             <>
               <ProStatusDot ok={health.score >= 85} label={`Saúde ${health.score}%`} />
-              <ProInlineLink to="/resultados">Ver no P&L</ProInlineLink>
+              <ProInlineLink to="/resultados">Ver nos resultados</ProInlineLink>
             </>
           ) : null
         }

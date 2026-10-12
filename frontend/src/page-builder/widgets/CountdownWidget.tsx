@@ -73,7 +73,7 @@ export function CountdownWidget({ widget, device }: { widget: WidgetNode; device
   const units: Array<{ value: number; label: string; show: boolean }> = [
     { value: parts.days, label: "Dias", show: showDays },
     { value: parts.hours, label: "Horas", show: true },
-    { value: parts.minutes, label: "Min", show: true },
+    { value: parts.minutes, label: "Min.", show: true },
     { value: parts.seconds, label: "Seg", show: true },
   ];
 

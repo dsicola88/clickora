@@ -83,7 +83,7 @@ export default function AffiliateAutomizerPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Automizer & custos"
-        subtitle="Pausa keywords Google sem receita postback · sync diário de custo para P&L. Dry-run primeiro."
+        subtitle="Pausa palavras-chave Google sem receita de postback · sincronização diária de custo para os resultados. Simule primeiro."
       />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
@@ -95,7 +95,7 @@ export default function AffiliateAutomizerPage() {
               Regra: gasto ≥ limiar + cliques ≥ mínimo + receita postback = 0 → pausa a keyword no Google Ads.
             </p>
             <p>
-              Comece com <strong className="text-foreground">dry-run</strong> (só regista o que pausaria). Depois desligue dry-run.
+              Comece em <strong className="text-foreground">simulação</strong> (só regista o que pausaria). Depois desligue a simulação.
             </p>
           </div>
         </div>
@@ -106,8 +106,8 @@ export default function AffiliateAutomizerPage() {
         </div>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <Label htmlFor="auto-dry">Dry-run (recomendado)</Label>
-            <p className="text-xs text-muted-foreground">Não pausa de verdade — só escreve no log.</p>
+            <Label htmlFor="auto-dry">Simulação (recomendado)</Label>
+            <p className="text-xs text-muted-foreground">Não pausa de verdade — só escreve no registo.</p>
           </div>
           <Switch id="auto-dry" checked={dryRun} disabled={locked} onCheckedChange={setDryRun} />
         </div>
@@ -147,7 +147,7 @@ export default function AffiliateAutomizerPage() {
         </div>
 
         <div className="space-y-1.5 border-t border-border/50 pt-4">
-          <Label>Meta Ads account ID (opcional — custo no ROAS)</Label>
+          <Label>ID da conta Meta Ads (opcional — custo no ROAS)</Label>
           <Input
             placeholder="act_123… ou só números"
             value={metaAct}
@@ -176,7 +176,7 @@ export default function AffiliateAutomizerPage() {
             disabled={locked || save.isPending}
             onClick={() => save.mutate({ sync_costs_now: true })}
           >
-            Sync custos agora
+            Sincronizar custos agora
           </Button>
           <Button
             variant="outline"
@@ -191,15 +191,15 @@ export default function AffiliateAutomizerPage() {
         </div>
       </section>
 
-      <ProPanel title="Auditoria" description="Últimas 30 acções (dry-run ou pause real).">
+      <ProPanel title="Auditoria" description="Últimas 30 acções (simulação ou pausa real).">
         {(data?.recent_logs?.length ?? 0) === 0 ? (
-          <ProEmpty title="Sem logs" detail="Active dry-run e corra o Automizer ou sync de custos." />
+          <ProEmpty title="Sem registos" detail="Active a simulação e corra o Automizer ou a sincronização de custos." />
         ) : (
           <ProTable>
             <thead>
               <tr>
                 <ProTh>Quando</ProTh>
-                <ProTh>Keyword</ProTh>
+                <ProTh>Palavra-chave</ProTh>
                 <ProTh>Acção</ProTh>
                 <ProTh>Modo</ProTh>
               </tr>
@@ -216,7 +216,7 @@ export default function AffiliateAutomizerPage() {
                     {l.reason ? <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[280px]">{l.reason}</p> : null}
                   </ProTd>
                   <ProTd className="text-[11px]">
-                    {l.dry_run ? "dry-run" : l.ok ? "real" : "erro"}
+                    {l.dry_run ? "simulação" : l.ok ? "real" : "erro"}
                   </ProTd>
                 </tr>
               ))}

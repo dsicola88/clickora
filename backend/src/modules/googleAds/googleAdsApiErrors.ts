@@ -19,6 +19,34 @@ export const GOOGLE_ADS_REPORTING_USER_CUSTOMER_ID_REQUIRED =
 
 const MAX_API_ERROR_LEN = 480;
 
+function readableErrorBits(value: unknown, depth = 0): string[] {
+  if (depth > 5 || value == null) return [];
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text || text === "[object Object]") return [];
+    return [text];
+  }
+  if (typeof value === "number" || typeof value === "boolean") return [];
+  if (Array.isArray(value)) return value.flatMap((item) => readableErrorBits(item, depth + 1));
+  if (typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const bits: string[] = [];
+  for (const key of ["message", "error", "errors", "failure", "details", "reason", "status"]) {
+    if (key in record) bits.push(...readableErrorBits(record[key], depth + 1));
+  }
+  return bits;
+}
+
+/** Texto legível de um erro da biblioteca Google Ads, que por vezes traz a mensagem como objecto. */
+export function plainGoogleAdsError(err: unknown): string {
+  const unique = [...new Set(readableErrorBits(err))];
+  return unique.slice(0, 3).join(" — ");
+}
+
+export function googleAdsErrorText(err: unknown): string {
+  return humanizeGoogleAdsApiError(plainGoogleAdsError(err));
+}
+
 /** Transforma mensagens técnicas da biblioteca/API em texto compreensível para o utilizador. */
 export function humanizeGoogleAdsApiError(raw: string): string {
   const t = raw.trim();
@@ -66,6 +94,10 @@ export function humanizeGoogleAdsApiError(raw: string): string {
     );
   }
 
+  if (!t || t === "[object object]" || /[\[\]{}]/.test(t)) {
+    return "Não foi possível obter o custo do Google Ads neste período. Volte a ligar a conta em Integrações → Google Ads e confirme o ID da conta.";
+  }
+
   const detail = t.length > MAX_API_ERROR_LEN ? `${t.slice(0, MAX_API_ERROR_LEN)}…` : t;
-  return `Não foi possível obter dados da Google Ads. Detalhe técnico: ${detail}`;
+  return `Não foi possível obter o custo do Google Ads neste período. ${detail}`;
 }

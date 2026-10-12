@@ -778,12 +778,12 @@ function MetaCapiIntegrationCard({
           <Share2 className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Meta — Conversions API (CAPI, servidor a servidor)</h3>
+          <h3 className="font-semibold text-card-foreground">Meta — API de conversões (CAPI, servidor a servidor)</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
             O envio duplicado do evento <span className="font-mono text-[11px]">Purchase</span> reforça o Pixel no browser, com o mesmo <span className="font-mono text-[11px]">event_id</span> da conversão, para
             deduplicação. O <span className="font-mono text-[11px]">fbclid</span> no URL do clique é exigido para atribuição; o <span className="font-mono text-[11px]">_fbp</span> (cookie) é opcional e melhora o emparelhamento.{" "}
             <a href={META_CAPI_DOC} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
-              Conversions API
+              API de conversões
             </a>
             {" · "}
             <a href={META_PIXEL_SETTINGS} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
@@ -828,7 +828,7 @@ function MetaCapiIntegrationCard({
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Token de acesso (Conversions API)</Label>
+          <Label className="text-xs">Token de acesso (API de conversões)</Label>
           <p className="text-[11px] text-muted-foreground leading-snug">
             Pixel <strong className="text-foreground/85">não</strong> é o mesmo identificador que o de Facebook Login: é o token de sistema / API de conversões gerado no contexto do Pixel (gestão de acessos, não partilhado
             publicamente).

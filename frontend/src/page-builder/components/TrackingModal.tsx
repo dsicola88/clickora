@@ -41,7 +41,7 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-editor-accent" />
             <div>
-              <h2 className="text-base font-semibold">Tracking & Analytics</h2>
+              <h2 className="text-base font-semibold">Rastreio e análises</h2>
               <p className="text-[11px] text-editor-fg-muted">
                 Aplica-se à rota pública /p/{`<slug>`} e ao HTML exportado
               </p>
@@ -71,7 +71,7 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
               />
             </div>
             <div>
-              <label className={labelCls}>Google Analytics 4 (Measurement ID)</label>
+              <label className={labelCls}>Google Analytics 4 (ID de medição)</label>
               <input
                 value={t.ga4Id ?? ""}
                 onChange={(e) => set("ga4Id", e.target.value.trim() || undefined)}
@@ -157,7 +157,7 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
             onClick={handleSave}
             className="rounded bg-editor-accent px-4 py-2 text-xs font-medium text-editor-accent-fg hover:opacity-90"
           >
-            Salvar tracking
+            Guardar rastreio
           </button>
         </footer>
       </div>

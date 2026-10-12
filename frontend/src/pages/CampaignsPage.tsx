@@ -19,7 +19,7 @@ import {
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
-  return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+  return n.toLocaleString("pt-PT", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
 function statusLabel(s: string) {
@@ -83,15 +83,15 @@ export default function CampaignsPage() {
         }
       />
 
-      <ProPanel title={`${data.length} campanha(s)`} description="Receita do período por slug · lucro/ROAS de conta no P&L (sync). Manual* = lifetime na ficha.">
+      <ProPanel title={`${data.length} campanha(s)`} description="Receita do período por slug · lucro/ROAS de conta em Resultados (sincronização). Manual* = valor acumulado na ficha.">
         <ProTable>
           <thead>
             <tr>
               <ProTh>Nome</ProTh>
               <ProTh>Estado</ProTh>
               <ProTh>Fonte</ProTh>
-              <ProTh align="right">Clk</ProTh>
-              <ProTh align="right">Conv</ProTh>
+              <ProTh align="right">Cliques</ProTh>
+              <ProTh align="right">Vendas</ProTh>
               <ProTh align="right">Receita</ProTh>
               <ProTh align="right">Manual*</ProTh>
               <ProTh align="right">EPC</ProTh>

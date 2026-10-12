@@ -226,7 +226,7 @@ export function DpilotGoogleWizardDetailsStepHeader() {
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Resumo: passo 1 = briefing para o plano e anúncios · passo 2 = tipo{" "}
-        <strong className="font-medium text-foreground">Search</strong> na publicação · abaixo = opções que a API Google
+        <strong className="font-medium text-foreground">Pesquisa (Search)</strong> na publicação · abaixo = opções que a API Google
         aplica ao leilão (orçamento, licitação, geo, idiomas).
       </p>
     </div>
