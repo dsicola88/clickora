@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 const itemClass =
-  "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+  "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:min-h-0";
 const itemActive =
   "bg-sidebar-primary/18 font-semibold text-sidebar-primary-foreground shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))]";
 
@@ -104,10 +104,10 @@ function NavRows({ items, path, collapsed }: { items: NavItem[]; path: string; c
 }
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   return (
     <Sidebar collapsible="icon">
-      <AppSidebarInner collapsed={state === "collapsed"} />
+      <AppSidebarInner collapsed={!isMobile && state === "collapsed"} />
     </Sidebar>
   );
 }
@@ -138,12 +138,12 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
           </NavLink>
           <button
             type="button"
-            onClick={toggleSidebar}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:inline-flex"
-            title={collapsed ? "Expandir menu" : "Encolher menu"}
-            aria-label={collapsed ? "Expandir menu" : "Encolher menu"}
+            onClick={() => (isMobile ? setOpenMobile(false) : toggleSidebar())}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:h-8 md:w-8"
+            title={isMobile ? "Fechar menu" : collapsed ? "Expandir menu" : "Encolher menu"}
+            aria-label={isMobile ? "Fechar menu" : collapsed ? "Expandir menu" : "Encolher menu"}
           >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            {isMobile || !collapsed ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
         </div>
       </SidebarHeader>
