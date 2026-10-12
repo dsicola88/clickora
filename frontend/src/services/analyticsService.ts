@@ -348,7 +348,7 @@ export const analyticsService = {
       tracking_conversion_revenue?: number;
       /** Plataformas distintas em metadata com pelo menos uma venda. */
       affiliate_platforms_count?: number;
-      chart_data: Array<{ date: string; clicks: number; impressions: number }>;
+      chart_data: Array<{ date: string; clicks: number; impressions: number; checkouts?: number }>;
       period?: { from: string; to: string; timezone?: string };
       compare?: {
         period: { from: string; to: string };
@@ -413,9 +413,22 @@ export const analyticsService = {
       } | null;
       google_ads_metrics_error?: string | null;
       clicks_by_country?: Array<{ country_code: string | null; clicks: number }>;
+      /** Leads com funnel_step=checkout. Não inclui o hoplink do clique. */
+      checkout_visitors?: number;
       country_performance?: Array<{
         country: string;
         clicks: number;
+        checkouts?: number;
+        sales: number;
+        revenue: number;
+        epc: number | null;
+        cvr: number | null;
+      }>;
+      offer_performance?: Array<{
+        presell_id: string | null;
+        offer: string;
+        clicks: number;
+        checkouts: number;
         sales: number;
         revenue: number;
         epc: number | null;

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Download, RefreshCw, Search } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/LoadingState";
@@ -10,6 +11,7 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { analyticsService } from "@/services/analyticsService";
 import { campaignsService } from "@/services/campaignsService";
 import { rangeLast14Days, previousPeriodOfSameLength } from "@/lib/dateRangePresets";
+import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { toast } from "sonner";
 import {
   PRO_PAGE_SHELL,
@@ -29,7 +31,7 @@ import {
   ProTotalStat,
 } from "@/components/enterprise/ProShell";
 
-type DimId = "campaigns" | "keywords" | "adgroups" | "countries" | "devices" | "sources";
+type DimId = "offers" | "countries" | "campaigns" | "keywords" | "adgroups" | "devices" | "sources";
 
 type ReportRow = {
   id: string;
@@ -37,6 +39,7 @@ type ReportRow = {
   sub?: string;
   href?: string;
   clicks: number;
+  checkouts?: number;
   sales: number;
   revenue: number;
   cost: number | null;
@@ -82,8 +85,8 @@ function roiOf(profit: number | null, cost: number | null): number | null {
 
 function deviceLabel(d: string) {
   const x = d.toLowerCase();
-  if (x === "mobile" || x === "mobile phone") return "Mobile";
-  if (x === "desktop") return "Desktop";
+  if (x === "mobile" || x === "mobile phone") return "Telemóvel";
+  if (x === "desktop") return "Computador";
   if (x === "tablet") return "Tablet";
   if (x === "(desconhecido)" || x === "unknown") return "Desconhecido";
   return d;
@@ -95,7 +98,7 @@ export default function ResultsOverviewPage() {
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [compare, setCompare] = useState<{ from: string; to: string } | null>(null);
-  const [dim, setDim] = useState<DimId>("keywords");
+  const [dim, setDim] = useState<DimId>("offers");
   const [q, setQ] = useState("");
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -123,7 +126,7 @@ export default function ResultsOverviewPage() {
 
   const rowsByDim = useMemo((): Record<DimId, ReportRow[]> => {
     if (!data) {
-      return { campaigns: [], keywords: [], adgroups: [], countries: [], devices: [], sources: [] };
+      return { offers: [], campaigns: [], keywords: [], adgroups: [], countries: [], devices: [], sources: [] };
     }
     const keywords: ReportRow[] = (data.keyword_performance ?? []).map((r) => ({
       id: r.keyword,
@@ -151,10 +154,11 @@ export default function ResultsOverviewPage() {
       epc: r.clicks > 0 ? Math.round((r.revenue / r.clicks) * 10000) / 10000 : null,
       cvr: r.clicks > 0 ? Math.round((r.sales / r.clicks) * 10000) / 100 : null,
     }));
-    const countries: ReportRow[] = (data.country_performance ?? []).map((r) => ({
-      id: r.country,
-      label: r.country,
+    const offers: ReportRow[] = (data.offer_performance ?? []).map((r) => ({
+      id: r.presell_id || r.offer,
+      label: r.offer,
       clicks: r.clicks,
+      checkouts: r.checkouts,
       sales: r.sales,
       revenue: r.revenue,
       cost: null,
@@ -164,6 +168,24 @@ export default function ResultsOverviewPage() {
       epc: r.epc,
       cvr: r.cvr,
     }));
+    const countries: ReportRow[] = (data.country_performance ?? []).map((r) => {
+      const iso = normalizeIsoCountryCode(r.country === "(sem país)" ? "" : r.country);
+      return {
+      id: r.country,
+      label: iso ? countryDisplayLabel(iso) : r.country,
+      sub: iso ?? undefined,
+      clicks: r.clicks,
+      checkouts: r.checkouts ?? 0,
+      sales: r.sales,
+      revenue: r.revenue,
+      cost: null,
+      profit: null,
+      roas: null,
+      roi: null,
+      epc: r.epc,
+      cvr: r.cvr,
+      };
+    });
     const devices: ReportRow[] = (data.device_performance ?? []).map((r) => ({
       id: r.device,
       label: deviceLabel(r.device),
@@ -217,6 +239,7 @@ export default function ResultsOverviewPage() {
       .sort((a, b) => b.revenue - a.revenue);
 
     return {
+      offers,
       campaigns: campaignRows,
       keywords,
       adgroups,
@@ -226,7 +249,7 @@ export default function ResultsOverviewPage() {
     };
   }, [data, campaigns]);
 
-  if (isLoading) return <LoadingState message="A carregar P&L…" />;
+  if (isLoading) return <LoadingState message="A carregar resultados…" />;
   if (isError || !data) return <ErrorState message="Não foi possível carregar resultados." onRetry={() => refetch()} />;
 
   const mb = data.media_buyer;
@@ -244,10 +267,11 @@ export default function ResultsOverviewPage() {
   const accountRoi = roiOf(mb?.profit ?? null, mb?.spend ?? null);
 
   const dimTabs: Array<{ id: DimId; label: string; count: number }> = [
-    { id: "campaigns", label: "Campanhas", count: rowsByDim.campaigns.length },
-    { id: "keywords", label: "Keywords", count: rowsByDim.keywords.length },
-    { id: "adgroups", label: "Ad groups", count: rowsByDim.adgroups.length },
+    { id: "offers", label: "Ofertas", count: rowsByDim.offers.length },
     { id: "countries", label: "Países", count: rowsByDim.countries.length },
+    { id: "campaigns", label: "Campanhas", count: rowsByDim.campaigns.length },
+    { id: "keywords", label: "Palavras-chave", count: rowsByDim.keywords.length },
+    { id: "adgroups", label: "Grupos de anúncios", count: rowsByDim.adgroups.length },
     { id: "devices", label: "Dispositivos", count: rowsByDim.devices.length },
     { id: "sources", label: "Fontes", count: rowsByDim.sources.length },
   ];
@@ -257,11 +281,13 @@ export default function ResultsOverviewPage() {
     return r.label.toLowerCase().includes(q.trim().toLowerCase());
   });
 
+  const showCheckouts = dim === "offers" || dim === "countries";
   const dimHint: Record<DimId, string> = {
+    offers: "Uma linha por presell. Visitantes = cliques qualificados. Checkouts só quando a rede envia o evento de funil — o hoplink não conta.",
     campaigns: "Atribuição por utm_campaign (slug). Custo/ROAS só no topo da conta (sync) — gasto manual da ficha não entra aqui.",
     keywords: "utm_term={keyword} · custo Google sincronizado do período quando disponível.",
     adgroups: "utm_content={adgroupid} · custo por ad group sincronizado.",
-    countries: "País do clique (GeoIP / header). Sem custo por país — só receita/EPC/CVR.",
+    countries: "País do visitante. Checkouts só com evento de funil da rede. Sem país gravado, a linha fica «(sem país)» — não se inventa.",
     devices: "device do evento de clique. Sem custo por dispositivo.",
     sources: "utm_source ou source do clique.",
   };
@@ -271,13 +297,14 @@ export default function ResultsOverviewPage() {
       toast.message("Sem linhas para exportar.");
       return;
     }
-    const headers = ["dimension", "clicks", "sales", "revenue", "cost", "profit", "roas", "roi", "epc", "cvr"];
+    const headers = ["dimension", "clicks", "checkouts", "sales", "revenue", "cost", "profit", "roas", "roi", "epc", "cvr"];
     const lines = [
       headers.join(","),
       ...activeRows.map((r) =>
         [
           JSON.stringify(r.label),
           r.clicks,
+          r.checkouts ?? "",
           r.sales,
           r.revenue,
           r.cost ?? "",
@@ -314,8 +341,8 @@ export default function ResultsOverviewPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="P&L"
-        subtitle="Tracker Search + postback · receita aprovada · lucro/ROAS só com custo sincronizado do período."
+        title="Resultados"
+        subtitle="Visitantes, checkouts da rede e vendas aprovadas. Lucro e ROAS só com custo sincronizado do período."
         meta={
           <>
             <span className="font-mono tabular-nums">
@@ -406,12 +433,16 @@ export default function ResultsOverviewPage() {
       ) : null}
 
       <ProKpiGrid>
-        <ProKpiCell label="Visitas" value={impressions.toLocaleString("pt-PT")} hint="Impressões / pageviews" />
         <ProKpiCell
-          label="Cliques"
+          label="Visitantes"
           value={clicks.toLocaleString("pt-PT")}
-          hint="Sem bots"
+          hint="Cliques qualificados"
           delta={deltaLabel(cmp?.delta.clicks_pct)}
+        />
+        <ProKpiCell
+          label="Checkouts"
+          value={(data.checkout_visitors ?? 0).toLocaleString("pt-PT")}
+          hint="Funil da rede, não o hoplink"
         />
         <ProKpiCell
           label="Conversões"
@@ -442,6 +473,35 @@ export default function ResultsOverviewPage() {
         />
       </ProKpiGrid>
 
+      <ProPanel
+        title="Visitantes"
+        description="Cliques qualificados por dia. A linha de checkouts só aparece quando a rede enviou o evento de funil."
+      >
+        {(data.chart_data ?? []).length === 0 ? (
+          <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
+        ) : (
+          <div className="h-52 w-full px-2 pb-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.chart_data ?? []} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis allowDecimals={false} width={32} tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(value, name) => [
+                    Number(value ?? 0).toLocaleString("pt-PT"),
+                    name === "checkouts" ? "Checkouts" : "Visitantes",
+                  ]}
+                />
+                <Area type="monotone" dataKey="clicks" name="clicks" stroke="#0284c7" fill="#0284c7" fillOpacity={0.16} strokeWidth={2} />
+                {(data.checkout_visitors ?? 0) > 0 ? (
+                  <Area type="monotone" dataKey="checkouts" name="checkouts" stroke="#0f766e" fill="#0f766e" fillOpacity={0.08} strokeWidth={1.5} />
+                ) : null}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </ProPanel>
+
       <section className="overflow-hidden rounded-lg border border-border/70 bg-card">
         <ProDimTabs tabs={dimTabs} value={dim} onChange={(id) => setDim(id as DimId)} />
 
@@ -457,7 +517,7 @@ export default function ResultsOverviewPage() {
           </div>
           <p className="flex-1 text-[10px] text-muted-foreground leading-snug min-w-[200px]">{dimHint[dim]}</p>
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportCsv} disabled={!activeRows.length}>
-            <Download className="h-3.5 w-3.5" /> Export
+            <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
         </div>
 
@@ -471,7 +531,7 @@ export default function ResultsOverviewPage() {
             }
             action={
               <Button size="sm" variant="outline" asChild>
-                <Link to="/tracking/url-builder">URL Builder</Link>
+                <Link to="/tracking/url-builder">Construtor de URL</Link>
               </Button>
             }
           />
@@ -482,20 +542,23 @@ export default function ResultsOverviewPage() {
                 <thead>
                   <tr>
                     <ProReportTh align="left">
-                      {dim === "campaigns"
+                      {dim === "offers"
+                        ? "Oferta"
+                        : dim === "campaigns"
                         ? "Campanha"
                         : dim === "keywords"
-                          ? "Keyword"
+                          ? "Palavra-chave"
                           : dim === "adgroups"
-                            ? "Ad group"
+                            ? "Grupo de anúncios"
                             : dim === "countries"
                               ? "País"
                               : dim === "devices"
                                 ? "Dispositivo"
                                 : "Fonte"}
                     </ProReportTh>
-                    <ProReportTh>Clk</ProReportTh>
-                    <ProReportTh>Conv</ProReportTh>
+                    <ProReportTh>Visitantes</ProReportTh>
+                    {showCheckouts ? <ProReportTh>Checkouts</ProReportTh> : null}
+                    <ProReportTh>Vendas</ProReportTh>
                     <ProReportTh>Receita</ProReportTh>
                     <ProReportTh>Custo</ProReportTh>
                     <ProReportTh>Lucro</ProReportTh>
@@ -513,14 +576,20 @@ export default function ResultsOverviewPage() {
                           <Link to={row.href} className="font-medium text-primary hover:underline truncate block">
                             {row.label}
                           </Link>
+                        ) : dim === "countries" && row.sub ? (
+                          <span className="inline-flex items-center gap-1.5 truncate" title={row.sub}>
+                            <span aria-hidden>{countryFlagEmoji(row.sub)}</span>
+                            <span className="truncate">{row.label}</span>
+                          </span>
                         ) : (
-                          <span className="font-mono text-[11px] truncate block" title={row.label}>
+                          <span className={dim === "offers" ? "truncate block font-medium" : "font-mono text-[11px] truncate block"} title={row.label}>
                             {row.label}
                           </span>
                         )}
                         {row.sub ? <span className="block text-[10px] text-muted-foreground">{row.sub}</span> : null}
                       </ProReportTd>
                       <ProReportTd>{row.clicks.toLocaleString("pt-PT")}</ProReportTd>
+                      {showCheckouts ? <ProReportTd>{(row.checkouts ?? 0).toLocaleString("pt-PT")}</ProReportTd> : null}
                       <ProReportTd>{row.sales.toLocaleString("pt-PT")}</ProReportTd>
                       <ProReportTd tone={row.revenue > 0 ? "positive" : undefined}>{money(row.revenue, currency)}</ProReportTd>
                       <ProReportTd tone="muted">{row.cost != null ? money(row.cost, currency) : "—"}</ProReportTd>
@@ -552,8 +621,14 @@ export default function ResultsOverviewPage() {
             </div>
 
             <ProTotalsBar>
-              <ProTotalStat label="Clk" value={totClicks.toLocaleString("pt-PT")} />
-              <ProTotalStat label="Conv" value={totSales.toLocaleString("pt-PT")} />
+              <ProTotalStat label="Visitantes" value={totClicks.toLocaleString("pt-PT")} />
+              {showCheckouts ? (
+                <ProTotalStat
+                  label="Checkouts"
+                  value={activeRows.reduce((s, r) => s + (r.checkouts ?? 0), 0).toLocaleString("pt-PT")}
+                />
+              ) : null}
+              <ProTotalStat label="Vendas" value={totSales.toLocaleString("pt-PT")} />
               <ProTotalStat label="Receita" value={money(totRev, currency)} tone="positive" />
               <ProTotalStat label="Custo" value={totCost != null ? money(totCost, currency) : "—"} />
               <ProTotalStat

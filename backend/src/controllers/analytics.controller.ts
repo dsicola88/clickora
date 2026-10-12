@@ -15,7 +15,8 @@ import {
   sumPersistedKeywordCosts,
   sumPersistedSpend,
 } from "../modules/affiliateOps/costSync.service";
-import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
+import { geoLookupFromIp } from "../lib/countryFromIp";
+import { locationForStoredClick } from "../lib/cdn77Visitor";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
@@ -80,10 +81,18 @@ function mapTrackingEventForApi(e: {
   const rawContent = typeof metadata.utm_content === "string" ? metadata.utm_content.trim() : "";
   const geo = geoLookupFromIp(e.ipAddress ?? null);
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
-  const datacenter = datacenterClickPlace(e.ipAddress);
-  const country = datacenter?.country ?? storedCountry ?? geo?.country_code ?? countryIsoFromIp(e.ipAddress ?? null);
-  const region = datacenter?.region ?? (geo?.region?.trim() || null);
-  const city = datacenter ? null : geo?.city?.trim() || null;
+  const fromCdnVisitor = metadata.country_source === "cdn77";
+  const datacenter = fromCdnVisitor ? null : datacenterClickPlace(e.ipAddress);
+  const located = locationForStoredClick({
+    ip: e.ipAddress,
+    storedCountry,
+    countrySource: metadata.country_source,
+    datacenter,
+    geo,
+  });
+  const country = located.country;
+  const region = located.region;
+  const city = located.city;
   const utm_campaign =
     (e.campaign && String(e.campaign).trim()) ||
     (typeof metadata.campaign === "string" && metadata.campaign.trim() ? metadata.campaign.trim() : null) ||
@@ -1062,6 +1071,92 @@ export const analyticsController = {
       `),
     ]);
 
+    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows] = await Promise.all([
+      systemPrisma.$queryRaw<Array<{ country: string; checkouts: bigint }>>(Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(UPPER(TRIM(clk.country)), ''),
+            NULLIF(UPPER(TRIM(lead.country)), ''),
+            '(sem país)'
+          ) AS country,
+          COUNT(*)::bigint AS checkouts
+        FROM tracking_events lead
+        LEFT JOIN tracking_events clk
+          ON clk.user_id = lead.user_id
+         AND clk.id::text = NULLIF(TRIM(COALESCE(lead.metadata->>'attributed_click_id', '')), '')
+        WHERE lead.user_id = ${userId}
+          AND lead.created_at >= ${rangeStart}
+          AND lead.created_at <= ${rangeEnd}
+          AND lead.event_type::text = 'lead'
+          AND lead.metadata->>'funnel_step' = 'checkout'
+          AND NOT COALESCE((lead.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((lead.metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1
+      `),
+      systemPrisma.$queryRaw<
+        Array<{ presell_id: string; offer: string; clicks: bigint; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(p.id::text, '') AS presell_id,
+          COALESCE(NULLIF(TRIM(p.title), ''), '(sem oferta)') AS offer,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN presell_pages p
+          ON p.id = te.presell_page_id
+         AND p.user_id = te.user_id
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1, 2
+        ORDER BY clicks DESC, sales DESC
+        LIMIT 40
+      `),
+      systemPrisma.$queryRaw<Array<{ presell_id: string; offer: string; checkouts: bigint }>>(Prisma.sql`
+        SELECT
+          COALESCE(p.id::text, '') AS presell_id,
+          COALESCE(NULLIF(TRIM(p.title), ''), '(sem oferta)') AS offer,
+          COUNT(*)::bigint AS checkouts
+        FROM tracking_events lead
+        LEFT JOIN tracking_events clk
+          ON clk.user_id = lead.user_id
+         AND clk.id::text = NULLIF(TRIM(COALESCE(lead.metadata->>'attributed_click_id', '')), '')
+        LEFT JOIN presell_pages p
+          ON p.id = COALESCE(clk.presell_page_id, lead.presell_page_id)
+         AND p.user_id = lead.user_id
+        WHERE lead.user_id = ${userId}
+          AND lead.created_at >= ${rangeStart}
+          AND lead.created_at <= ${rangeEnd}
+          AND lead.event_type::text = 'lead'
+          AND lead.metadata->>'funnel_step' = 'checkout'
+          AND NOT COALESCE((lead.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((lead.metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1, 2
+      `),
+      systemPrisma.$queryRaw<Array<{ day: Date; ct: bigint }>>(Prisma.sql`
+        SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+               COUNT(*)::bigint AS ct
+        FROM tracking_events
+        WHERE user_id = ${userId}
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND event_type::text = 'lead'
+          AND metadata->>'funnel_step' = 'checkout'
+          AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `),
+    ]);
+
     /** Colunas de integração em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
     type PipelineUser = {
       googleAdsEnabled: boolean;
@@ -1129,11 +1224,21 @@ export const analyticsController = {
       if (row.event_type === "impression") chartMap[date].impressions = n;
     }
 
+    const checkoutByDay = new Map<string, number>();
+    for (const row of checkoutDayRows) {
+      const date = row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
+      checkoutByDay.set(date, Number(row.ct));
+    }
+    for (const date of checkoutByDay.keys()) {
+      if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0 };
+    }
+
     const chart_data = Object.entries(chartMap)
       .map(([date, data]) => ({
         date,
         clicks: data.clicks,
         impressions: data.impressions,
+        checkouts: checkoutByDay.get(date) ?? 0,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -1166,19 +1271,72 @@ export const analyticsController = {
       }
     }
 
+    const checkoutByCountry = new Map(checkoutCountryRows.map((row) => [row.country, Number(row.checkouts)]));
     const country_performance = countryPerfRows.map((row) => {
       const clicksD = Number(row.clicks);
       const salesD = Number(row.sales);
       const revD = Number(row.revenue ?? 0);
+      const checkouts = checkoutByCountry.get(row.country) ?? 0;
+      checkoutByCountry.delete(row.country);
       return {
         country: row.country,
         clicks: clicksD,
+        checkouts,
         sales: salesD,
         revenue: Math.round(revD * 100) / 100,
         epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
         cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
       };
     });
+    for (const [country, checkouts] of checkoutByCountry) {
+      if (checkouts <= 0) continue;
+      country_performance.push({
+        country,
+        clicks: 0,
+        checkouts,
+        sales: 0,
+        revenue: 0,
+        epc: null,
+        cvr: null,
+      });
+    }
+    const checkout_visitors = country_performance.reduce((n, row) => n + row.checkouts, 0);
+
+    const checkoutByOffer = new Map(
+      checkoutOfferRows.map((row) => [row.presell_id || row.offer, { offer: row.offer, checkouts: Number(row.checkouts) }]),
+    );
+    const offer_performance = offerRows.map((row) => {
+      const clicksD = Number(row.clicks);
+      const salesD = Number(row.sales);
+      const revD = Number(row.revenue ?? 0);
+      const key = row.presell_id || row.offer;
+      const checkouts = checkoutByOffer.get(key)?.checkouts ?? 0;
+      checkoutByOffer.delete(key);
+      return {
+        presell_id: row.presell_id || null,
+        offer: row.offer,
+        clicks: clicksD,
+        checkouts,
+        sales: salesD,
+        revenue: Math.round(revD * 100) / 100,
+        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
+        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+      };
+    });
+    for (const [key, extra] of checkoutByOffer) {
+      if (extra.checkouts <= 0) continue;
+      offer_performance.push({
+        presell_id: key || null,
+        offer: extra.offer,
+        clicks: 0,
+        checkouts: extra.checkouts,
+        sales: 0,
+        revenue: 0,
+        epc: null,
+        cvr: null,
+      });
+    }
+    offer_performance.sort((a, b) => b.clicks - a.clicks || b.checkouts - a.checkouts || b.revenue - a.revenue);
 
     const device_performance = devicePerfRows.map((row) => {
       const clicksD = Number(row.clicks);
@@ -1661,7 +1819,9 @@ export const analyticsController = {
       google_ads_metrics,
       google_ads_metrics_error,
       clicks_by_country,
+      checkout_visitors,
       country_performance,
+      offer_performance,
       device_performance,
       source_performance,
       keyword_performance,

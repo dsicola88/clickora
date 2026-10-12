@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { systemPrisma } from "./prisma";
-import { countryIsoFromIp } from "./countryFromIp";
+import { countrySourceMeta, resolveVisitorCountry } from "./cdn77Visitor";
 import { assessClickQuality } from "./detectBot";
 import { formatDeviceLabel, parseUserAgent } from "./parseUserAgent";
 
@@ -146,6 +146,7 @@ export async function recordAffiliateFunnelStep(args: {
       ? clickMeta.redirect_to.trim()
       : null;
 
+  const visitor = resolveVisitorCountry(args.headers, ip);
   const { device, botMeta } = deviceAndBotMeta(ua, { headers: args.headers, ip });
   const platform = (args.platform || "affiliate").trim() || "affiliate";
 
@@ -158,7 +159,7 @@ export async function recordAffiliateFunnelStep(args: {
       medium: click?.medium ?? "funnel",
       campaign: click?.campaign ?? undefined,
       referrer: click?.referrer ?? args.referrer ?? undefined,
-      country: countryIsoFromIp(ip) ?? undefined,
+      country: visitor.country ?? undefined,
       ipAddress: ip ?? undefined,
       userAgent: ua || undefined,
       device,
@@ -168,6 +169,7 @@ export async function recordAffiliateFunnelStep(args: {
         attributed_click_id: click?.id ?? null,
         redirect_to: redirectTo,
         ...botMeta,
+        ...countrySourceMeta(visitor.source),
         ...(args.extraMeta || {}),
       } as Prisma.InputJsonValue,
     },

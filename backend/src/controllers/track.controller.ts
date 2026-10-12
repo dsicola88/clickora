@@ -10,7 +10,8 @@ import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePostback";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
-import { countryIsoFromIp, geoLookupFromIp } from "../lib/countryFromIp";
+import { geoLookupFromIp } from "../lib/countryFromIp";
+import { countrySourceMeta, resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
 import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
@@ -265,6 +266,14 @@ async function affiliateNetworkForRedirect(args: {
   return camp?.platform?.trim() || fromQuery || null;
 }
 
+/** País do visitante. Nó CDN77 não herda o país da base geográfica. */
+function visitorClickPlace(req: Request, ip: string) {
+  const visitor = resolveVisitorCountryFromRequest(req, ip);
+  const place = visitor.source === "cdn77" ? null : datacenterClickPlace(ip);
+  const country = place?.country ?? visitor.country ?? null;
+  return { visitor, place, country, countryMeta: countrySourceMeta(visitor.source) };
+}
+
 function expressWildcardPathSuffix(req: Request): string | undefined {
   const p = req.params as Record<string, string | undefined>;
   const t = p["0"];
@@ -342,6 +351,8 @@ export const trackController = {
     }
 
     const ip = extractClientIp(req);
+    const seen = visitorClickPlace(req, ip);
+    const place = seen.place;
     const userAgent = req.headers["user-agent"] || "";
     const guard = await enforceTrackingRules({
       ownerUserId: page.userId,
@@ -356,8 +367,7 @@ export const trackController = {
       console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
-    const place = datacenterClickPlace(ip);
-    if (countryOnCloakDenyList(page.settings, place?.country ?? countryIsoFromIp(ip))) {
+    if (countryOnCloakDenyList(page.settings, seen.country)) {
       console.warn("[track.redirect] país sem oferta", { presellId, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
@@ -403,7 +413,7 @@ export const trackController = {
           medium,
           campaign,
           referrer,
-          country: place?.country ?? countryIsoFromIp(ip) ?? undefined,
+          country: seen.country ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
@@ -423,7 +433,8 @@ export const trackController = {
             medium,
             campaign,
             ...(place ? {} : { redirect_to: to }),
-            ...datacenterClickMeta(ip),
+            ...(place ? datacenterClickMeta(ip) : {}),
+            ...seen.countryMeta,
             ...(sub1 ? { sub1 } : {}),
             ...(sub2 ? { sub2 } : {}),
             ...(sub3 ? { sub3 } : {}),
@@ -542,6 +553,9 @@ export const trackController = {
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
 
     const ip = extractClientIp(req);
+    const seen = visitorClickPlace(req, ip);
+    const place = seen.place;
+    const country = seen.country;
     const userAgent = req.headers["user-agent"] || "";
     const guard = await enforceTrackingRules({
       ownerUserId: rot.userId,
@@ -556,8 +570,6 @@ export const trackController = {
       console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
-    const place = datacenterClickPlace(ip);
-    const country = place?.country ?? countryIsoFromIp(ip) ?? null;
     if (place) {
       const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
       await systemPrisma.trackingEvent.create({
@@ -642,6 +654,7 @@ export const trackController = {
           ...rotPathMetaJson,
           ...rotVoluumMeta,
           ...rotBotMeta,
+          ...seen.countryMeta,
         } as Prisma.InputJsonValue,
       },
     });
@@ -698,8 +711,9 @@ export const trackController = {
       return sendTrackingPixelGif(res);
     }
 
+    const seen = visitorClickPlace(req, ip);
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
-    const metadataMerged = { ...attr.metadata, ...botMeta };
+    const metadataMerged = { ...attr.metadata, ...botMeta, ...seen.countryMeta };
     const metadata =
       Object.keys(metadataMerged).length > 0 ? (metadataMerged as Prisma.InputJsonValue) : undefined;
 
@@ -713,7 +727,7 @@ export const trackController = {
           medium: attr.medium || undefined,
           campaign: attr.campaign || undefined,
           referrer: attr.referrer || undefined,
-          country: countryIsoFromIp(ip) ?? undefined,
+          country: seen.country ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
@@ -782,6 +796,7 @@ export const trackController = {
       return res.status(guard.status).json({ error: guard.error });
     }
 
+    const seen = visitorClickPlace(req, ip);
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
     const click = await systemPrisma.$transaction(async (tx) => {
@@ -791,7 +806,7 @@ export const trackController = {
           presellPageId: presell_id,
           eventType: "click",
           source, medium, campaign, referrer,
-          country: countryIsoFromIp(ip) ?? undefined,
+          country: seen.country ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
@@ -810,6 +825,7 @@ export const trackController = {
             medium,
             campaign,
             ...botMeta,
+            ...seen.countryMeta,
           } as Prisma.InputJsonValue,
         },
       });
@@ -858,7 +874,9 @@ export const trackController = {
       return res.status(guard.status).json({ error: guard.error });
     }
 
+    const seen = visitorClickPlace(req, ip);
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
+    const impressionMeta = { ...botMeta, ...seen.countryMeta };
 
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
@@ -867,11 +885,11 @@ export const trackController = {
           presellPageId: presell_id,
           eventType: "impression",
           referrer,
-          country: countryIsoFromIp(ip) ?? undefined,
+          country: seen.country ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
-          metadata: Object.keys(botMeta).length ? (botMeta as Prisma.InputJsonValue) : undefined,
+          metadata: Object.keys(impressionMeta).length ? (impressionMeta as Prisma.InputJsonValue) : undefined,
         },
       }),
       systemPrisma.presellPage.update({
@@ -923,7 +941,8 @@ export const trackController = {
       if (existing) return res.json({ tracked: true, duplicate: true });
     }
 
-    const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa, { headers: req.headers as Record<string, string | string[] | undefined>, ip: extractClientIp(req) });
+    const seen = visitorClickPlace(req, evIp);
+    const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa, { headers: req.headers as Record<string, string | string[] | undefined>, ip: evIp });
     await systemPrisma.trackingEvent.create({
       data: {
         userId: page.userId,
@@ -933,7 +952,7 @@ export const trackController = {
         medium,
         campaign,
         referrer,
-        country: countryIsoFromIp(evIp) ?? undefined,
+        country: seen.country ?? undefined,
         device: evDevice,
         metadata: ({
           ...(metadata || {}),
@@ -945,6 +964,7 @@ export const trackController = {
           ttclid,
           msclkid,
           ...evBotMeta,
+          ...seen.countryMeta,
         }) as Prisma.InputJsonValue,
         ipAddress: evIp,
         userAgent: evUa,
@@ -1028,6 +1048,7 @@ export const trackController = {
     }
 
     const postbackIp = extractClientIp(req);
+    const postbackSeen = visitorClickPlace(req, postbackIp);
     const postbackUa = req.headers["user-agent"] || "";
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
@@ -1038,7 +1059,7 @@ export const trackController = {
           source: data.source || "google_ads",
           medium: data.medium || "cpc",
           campaign: data.campaign,
-          country: countryIsoFromIp(postbackIp) ?? undefined,
+          country: postbackSeen.country ?? undefined,
           ipAddress: postbackIp,
           userAgent: postbackUa,
           device: detectDevice(postbackUa),
@@ -1049,6 +1070,7 @@ export const trackController = {
             currency: data.currency.toUpperCase(),
             transaction_id: data.transaction_id,
             postback_origin: "google_ads",
+            ...postbackSeen.countryMeta,
           } as Prisma.InputJsonValue,
         },
       }),
@@ -1147,6 +1169,7 @@ export const trackController = {
     }
 
     const msIp = extractClientIp(req);
+    const msSeen = visitorClickPlace(req, msIp);
     const msUa = req.headers["user-agent"] || "";
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
@@ -1157,7 +1180,7 @@ export const trackController = {
           source: data.source || "microsoft_ads",
           medium: data.medium || "cpc",
           campaign: data.campaign,
-          country: countryIsoFromIp(msIp) ?? undefined,
+          country: msSeen.country ?? undefined,
           ipAddress: msIp,
           userAgent: msUa,
           device: detectDevice(msUa),
@@ -1168,6 +1191,7 @@ export const trackController = {
             currency: data.currency.toUpperCase(),
             transaction_id: data.transaction_id,
             postback_origin: "microsoft_ads",
+            ...msSeen.countryMeta,
           } as Prisma.InputJsonValue,
         },
       }),
@@ -1314,6 +1338,7 @@ export const trackController = {
       const numVal = Number.isFinite(value) ? value : 0;
 
       const csvIp = extractClientIp(req);
+      const csvSeen = visitorClickPlace(req, csvIp);
       const csvUa = req.headers["user-agent"] || "";
       await systemPrisma.$transaction([
         systemPrisma.trackingEvent.create({
@@ -1325,7 +1350,7 @@ export const trackController = {
             medium: "offline_csv",
             campaign: click.campaign,
             referrer: click.referrer,
-            country: countryIsoFromIp(csvIp) ?? undefined,
+            country: csvSeen.country ?? undefined,
             ipAddress: csvIp,
             userAgent: csvUa,
             device: detectDevice(csvUa),
@@ -1335,6 +1360,7 @@ export const trackController = {
               currency: "USD",
               transaction_id,
               postback_origin: "offline_csv",
+              ...csvSeen.countryMeta,
             } as Prisma.InputJsonValue,
           },
         }),

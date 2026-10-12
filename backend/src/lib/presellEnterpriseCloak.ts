@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { countryIsoFromIp } from "./countryFromIp";
 import { extractClientIp } from "./clientIp";
+import { resolveVisitorCountryFromRequest } from "./cdn77Visitor";
 
 export type CloakSettings = {
   enterpriseCloak?: boolean;
@@ -43,7 +43,7 @@ export function shouldServeCloakSafePage(
   settingsRaw: unknown,
 ): { cloak: true; reason: string } | { cloak: false } {
   const ip = extractClientIp(req);
-  const country = countryIsoFromIp(ip)?.toUpperCase();
+  const country = resolveVisitorCountryFromRequest(req, ip).country;
   if (countryOnCloakDenyList(settingsRaw, country)) {
     return { cloak: true, reason: `geo:${country}` };
   }

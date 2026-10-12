@@ -28,6 +28,7 @@ import {
 } from "../lib/presellEnterpriseCloak";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { extractClientIp } from "../lib/clientIp";
+import { resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { z } from "zod";
@@ -664,7 +665,8 @@ async function sendPublicPresell(
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));
   }
   const ip = extractClientIp(req);
-  if (datacenterClickPlace(ip)) {
+  const visitor = resolveVisitorCountryFromRequest(req, ip);
+  if (visitor.source !== "cdn77" && datacenterClickPlace(ip)) {
     console.info("[presell.public] página segura", { id: page.id, reason: "datacenter" });
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: "datacenter" }));
   }

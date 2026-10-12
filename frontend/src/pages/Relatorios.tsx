@@ -775,8 +775,9 @@ export default function Relatorios() {
   const TimezoneAlert = () => (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
       Horários dos eventos em UTC na API; nesta tabela vês a hora local do teu browser ({currentTime}).
-      O país é o do IP que abriu a página. Uma rede de datacenter ou VPN (por exemplo CDN77) aparece como
-      «Não qualificado»: pode ser VPN ou proxy, não conta como clique bom e não abre o hoplink.
+      O país é o do visitante. Se a visita passa pela CDN77, usa-se o país que a CDN viu no IP real, não o país do nó
+      (Paris, São Paulo ou Los Angeles). Sem esse dado a coluna fica vazia. Um IP que é só o nó, sem visitante, aparece como
+      «Não qualificado»: não conta como clique bom e não abre o hoplink.
     </div>
   );
 
@@ -830,7 +831,7 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL_PRO}>
       <ProPageHeader
         title="Relatórios"
-        subtitle="Eventos e conversões com o mesmo filtro de bots que o P&L. Separadores com URL próprio · export CSV."
+        subtitle="Eventos e conversões com o mesmo filtro de bots que os resultados. Separadores com URL próprio · exportar CSV."
       />
 
       <Tabs value={tab} onValueChange={(v) => navigate(`/resultados/relatorios/${v}`)}>
@@ -858,7 +859,8 @@ export default function Relatorios() {
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
             <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = Impressão (presell) ou{" "}
             <em>Checkout</em> / Lander (funil da rede). Tipo: <em>Pago</em> = GCLID/msclkid real;{" "}
-            <em>Ads (sem ID)</em> = UTM de rede sem ID real; <em>Orgânico</em> = sem sinais de ads. País/região via GeoIP.
+            <em>Ads (sem ID)</em> = UTM de rede sem ID real; <em>Orgânico</em> = sem sinais de ads. País é o do visitante.
+            Região só quando o IP não é um nó da CDN.
             Checkout da rede (BuyGoods Funnel Pixel, SmartAdv Event, etc.) só aparece depois de configurar o bloco Funil em
             Integrações → Postback — não inventamos Checkout Visitors.
           </p>
@@ -976,7 +978,7 @@ export default function Relatorios() {
                           Estado / região
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Status
+                          Situação
                         </th>
                       </tr>
                     </thead>
@@ -1189,7 +1191,7 @@ export default function Relatorios() {
                           Estado / região
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Status
+                          Situação
                         </th>
                       </tr>
                     </thead>

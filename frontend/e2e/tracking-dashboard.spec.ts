@@ -15,7 +15,7 @@ test.describe("tracking dashboard / P&L", () => {
 
     await page.goto("/tracking/dashboard");
     await expect(page).toHaveURL(/\/resultados\/?$/, { timeout: 15_000 });
-    await expect(page.getByRole("heading", { name: /^P&L$/ })).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole("heading", { name: /^Resultados$/ })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText(/Receita|Cliques|Keywords/i).first()).toBeVisible({ timeout: 15_000 });
   });
 });
