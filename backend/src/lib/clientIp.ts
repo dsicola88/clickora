@@ -4,7 +4,8 @@ import { isFastlyEdgeIp } from "./fastlyEdges";
 
 /**
  * Extrai o IP público do visitante atrás de Vercel → Railway / Cloudflare.
- * O browser não escolhe o IP: `X-Client-IP`, `X-Real-IP` e `True-Client-IP` são ignorados.
+ * O browser não escolhe o IP: `X-Client-IP` e `True-Client-IP` são ignorados.
+ * `X-Real-IP` só conta quando o hop que chegou é um nó CDN77: é o IP de quem clicou.
  * Numa cadeia `X-Forwarded-For`, conta o público mais à direita, sem o hop do socket.
  */
 
@@ -105,6 +106,18 @@ function unwrapTransitEdge(ip: string, xff: string): string {
   return (xff && visitorInFrontOfEdge(xff, ip)) || ip;
 }
 
+/**
+ * A CDN77 escreve o IP de quem clicou em X-Real-IP.
+ * Só vale quando o hop que chegou ao servidor é um nó CDN77.
+ * Um browser noutro IP não escolhe o endereço.
+ */
+function cdn77RealVisitorIp(req: Request, connectingIp: string): string | null {
+  if (!isCdn77EdgeIp(connectingIp)) return null;
+  const real = normalizeClientIp(headerFirst(req, "x-real-ip"));
+  if (!real || isPrivateOrLocalIp(real) || isTransitEdgeIp(real)) return null;
+  return real;
+}
+
 function rightmostPublic(csv: string, peer: string): string | null {
   const hop = normalizeClientIp(peer);
   const parts = forwardedParts(csv);
@@ -117,7 +130,8 @@ function rightmostPublic(csv: string, peer: string): string | null {
 
 /**
  * IP do visitante atrás de Railway / Vercel / Cloudflare.
- * `X-Client-IP`, `X-Real-IP` e `True-Client-IP` não escolhem o IP: o browser pode enviá-los.
+ * `X-Client-IP` e `True-Client-IP` não escolhem o IP: o browser pode enviá-los.
+ * `X-Real-IP` só entra se o hop observado ainda for um nó CDN77.
  * `X-Forwarded-For` só conta quando o último hop é o socket, ou quando o socket é privado.
  * `CF-Connecting-IP` (com `CF-Ray`) e `X-Vercel-Forwarded-For` só entram quando o XFF não tem o cliente
  * — o caso Vercel → Railway, em que o XFF é só o hop.
@@ -126,12 +140,18 @@ export function extractClientIp(req: Request): string {
   const peer = normalizeClientIp(req.socket?.remoteAddress || "");
   const xff = headerFirst(req, "x-forwarded-for");
   const fromXff = xff ? clientIpFromForwardedChain(xff, peer) : null;
-  if (fromXff) return unwrapTransitEdge(fromXff, xff);
+  if (fromXff) {
+    const unwrapped = unwrapTransitEdge(fromXff, xff);
+    return cdn77RealVisitorIp(req, unwrapped) || unwrapped;
+  }
 
   const xffParts = xff ? forwardedParts(xff) : [];
   const xffTail = xffParts[xffParts.length - 1] || "";
   const sawProxy = (peer && isPrivateOrLocalIp(peer)) || (peer && xffTail === peer);
-  if (!sawProxy) return unwrapTransitEdge(peer, xff);
+  if (!sawProxy) {
+    const unwrapped = unwrapTransitEdge(peer, xff);
+    return cdn77RealVisitorIp(req, unwrapped) || unwrapped;
+  }
 
   const cfRay = headerFirst(req, "cf-ray");
   if (cfRay) {
@@ -142,5 +162,6 @@ export function extractClientIp(req: Request): string {
   const vercel = rightmostPublic(headerFirst(req, "x-vercel-forwarded-for"), peer);
   if (vercel) return unwrapTransitEdge(vercel, xff);
 
-  return unwrapTransitEdge(peer, xff);
+  const unwrapped = unwrapTransitEdge(peer, xff);
+  return cdn77RealVisitorIp(req, unwrapped) || unwrapped;
 }

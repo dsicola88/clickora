@@ -102,6 +102,7 @@ export async function recordAffiliateFunnelStep(args: {
     medium: string | null;
     campaign: string | null;
     referrer: string | null;
+    country: string | null;
   } | null = null;
 
   const candidate = (args.clickIdCandidate || "").trim();
@@ -116,6 +117,7 @@ export async function recordAffiliateFunnelStep(args: {
         medium: true,
         campaign: true,
         referrer: true,
+        country: true,
       },
     });
   }
@@ -140,13 +142,22 @@ export async function recordAffiliateFunnelStep(args: {
     if (dup) return { recorded: false, duplicate: true, eventId: dup.id };
   }
 
+  const visitor = resolveVisitorCountry(args.headers, ip);
   const clickMeta = (click?.metadata || {}) as Record<string, unknown>;
+  const clickSource = clickMeta.country_source;
+  const clickCountry = (click?.country || "").trim().toUpperCase();
+  const fromClick =
+    !visitor.country &&
+    /^[A-Z]{2}$/.test(clickCountry) &&
+    (clickSource === "cdn77" || clickSource === "visitor_ip")
+      ? { country: clickCountry, source: clickSource === "cdn77" ? ("cdn77" as const) : ("geoip" as const) }
+      : null;
+  const country = visitor.country ?? fromClick?.country ?? null;
+  const countrySource = visitor.country ? visitor.source : (fromClick?.source ?? visitor.source);
   const redirectTo =
     typeof clickMeta.redirect_to === "string" && clickMeta.redirect_to.trim()
       ? clickMeta.redirect_to.trim()
       : null;
-
-  const visitor = resolveVisitorCountry(args.headers, ip);
   const { device, botMeta } = deviceAndBotMeta(ua, { headers: args.headers, ip });
   const platform = (args.platform || "affiliate").trim() || "affiliate";
 
@@ -159,7 +170,7 @@ export async function recordAffiliateFunnelStep(args: {
       medium: click?.medium ?? "funnel",
       campaign: click?.campaign ?? undefined,
       referrer: click?.referrer ?? args.referrer ?? undefined,
-      country: visitor.country ?? undefined,
+      country: country ?? undefined,
       ipAddress: ip ?? undefined,
       userAgent: ua || undefined,
       device,
@@ -169,7 +180,7 @@ export async function recordAffiliateFunnelStep(args: {
         attributed_click_id: click?.id ?? null,
         redirect_to: redirectTo,
         ...botMeta,
-        ...countrySourceMeta(visitor.source),
+        ...countrySourceMeta(countrySource),
         ...(args.extraMeta || {}),
       } as Prisma.InputJsonValue,
     },

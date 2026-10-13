@@ -179,6 +179,17 @@ describe("CDN77 visitor country", () => {
       "71.208.226.154",
     );
     assert.equal(country, "US");
+    const uk = resolveVisitorCountry({}, "81.2.69.142");
+    assert.equal(uk.country, "GB");
+    assert.equal(uk.source, "geoip");
+    const au = resolveVisitorCountry({}, "1.1.1.1");
+    assert.equal(au.country, "AU");
+    assert.equal(au.source, "geoip");
+    const ukViaCdn = resolveVisitorCountry(
+      { "x-forwarded-for": "152.233.47.66", "x-client-geo-country": "GB", "x-real-ip": "81.2.69.142" },
+      "81.2.69.142",
+    );
+    assert.deepEqual(ukViaCdn, { country: "GB", source: "cdn77" });
     assert.equal(countrySourceMeta("cdn77").country_source, "cdn77");
     assert.equal(countrySourceMeta("geoip").country_source, "visitor_ip");
     assert.deepEqual(countrySourceMeta("none"), {});
@@ -188,6 +199,13 @@ describe("CDN77 visitor country", () => {
         "8.8.8.8",
       ),
       null,
+    );
+    assert.equal(
+      cdn77VisitorCountryFromHeaders(
+        { "x-forwarded-for": "152.233.47.66, 100.64.1.8", "x-client-geo-country": "AU" },
+        "1.1.1.1",
+      ),
+      "AU",
     );
   });
 

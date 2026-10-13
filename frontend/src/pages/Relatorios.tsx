@@ -775,9 +775,9 @@ export default function Relatorios() {
   const TimezoneAlert = () => (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
       Horários dos eventos em UTC na API; nesta tabela vês a hora local do teu browser ({currentTime}).
-      O país é o de quem clicou, como na rede e no Google Ads. Se a visita passa pela CDN77, usa-se o país que a CDN
-      viu no IP real. Se o IP guardado é o da pessoa, usa-se o país desse IP. O país do nó não entra, nem cidade
-      estimada. Sem um desses dados a coluna fica vazia. Um IP que é só o nó, sem visitante, aparece como
+      O país é o de quem clicou. Reino Unido aparece como GB, Austrália como AU. Se a visita passa pela CDN77,
+      usa-se o país que a CDN viu no IP real, ou o país desse IP. O país do nó não entra, nem cidade estimada.
+      Sem o IP de quem clicou e sem o país da CDN, a coluna fica vazia. Um IP que é só o nó aparece como
       «Não qualificado»: não conta como clique bom e não abre o hoplink.
     </div>
   );

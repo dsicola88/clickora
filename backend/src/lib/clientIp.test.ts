@@ -107,6 +107,23 @@ describe("clientIp", () => {
     assert.equal(ip, "152.233.47.66");
   });
 
+  it("atrás do nó CDN77 o X-Real-IP é quem clicou", () => {
+    const uk = extractClientIp(
+      fakeReq(
+        { "x-forwarded-for": "152.233.47.66", "x-real-ip": "81.2.69.142" },
+        { remote: "10.0.0.8" },
+      ),
+    );
+    assert.equal(uk, "81.2.69.142");
+    const spoof = extractClientIp(
+      fakeReq(
+        { "x-forwarded-for": "203.0.113.10, 16.28.17.192", "x-real-ip": "81.2.69.142" },
+        { remote: "16.28.17.192" },
+      ),
+    );
+    assert.equal(spoof, "203.0.113.10");
+  });
+
   it("peer privado usa o último público do XFF", () => {
     const ip = extractClientIp(
       fakeReq({ "x-forwarded-for": "1.2.3.4, 203.0.113.10" }, { remote: "10.0.0.8" }),

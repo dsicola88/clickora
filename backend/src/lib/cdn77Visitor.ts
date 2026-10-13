@@ -45,10 +45,23 @@ function xffHops(headers: Record<string, string | string[] | undefined> | undefi
     .filter(Boolean);
 }
 
+function isPlatformTail(ip: string): boolean {
+  const m = /^(\d+)\.(\d+)\.\d+\.\d+$/.exec(ip);
+  if (!m) return false;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if (a === 10 || a === 127 || a === 0) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
 /**
  * A ligação chegou por um nó CDN77.
  * Só o último hop da cadeia conta: um browser não escolhe o país
- * metendo um nó falso a meio da lista.
+ * metendo um nó falso a meio da lista. Se a plataforma acrescenta
+ * um hop privado depois do nó, esse hop anterior também conta.
  */
 export function requestCameThroughCdn77(
   headers: Record<string, string | string[] | undefined> | undefined,
@@ -57,7 +70,9 @@ export function requestCameThroughCdn77(
   if (isCdn77EdgeIp(ip)) return true;
   const hops = xffHops(headers);
   const last = hops[hops.length - 1];
-  return isCdn77EdgeIp(last);
+  if (isCdn77EdgeIp(last)) return true;
+  const before = hops[hops.length - 2];
+  return Boolean(last && before && isPlatformTail(last) && isCdn77EdgeIp(before));
 }
 
 /**
