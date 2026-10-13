@@ -937,11 +937,39 @@ type AdsProbeClient = {
   };
 };
 
-type ProbedAdsAccount = { id: string; name: string; kind: "manager" | "direct" | "needs_manager" };
+type ProbedAdsAccount = { id: string; name: string; kind: "manager" | "direct" | "needs_manager" | "unknown" };
 
 function managerLoginRequired(err: unknown): boolean {
   const text = plainGoogleAdsError(err).toLowerCase();
-  return text.includes("login-customer-id") || text.includes("permission to access customer");
+  return (
+    text.includes("login-customer-id") ||
+    text.includes("permission to access customer") ||
+    text.includes("user doesn't have permission") ||
+    text.includes("permission_denied")
+  );
+}
+
+async function readCustomerProbe(
+  client: AdsProbeClient,
+  refreshToken: string,
+  id: string,
+  loginCustomerId?: string,
+): Promise<{ name: string; manager: boolean }> {
+  const customer = client.Customer({
+    customer_id: id,
+    refresh_token: refreshToken,
+    ...(loginCustomerId ? { login_customer_id: loginCustomerId } : {}),
+  });
+  const rows = (await customer.query(`
+    SELECT customer.id, customer.descriptive_name, customer.manager
+    FROM customer
+    LIMIT 1
+  `)) as Array<{ customer?: { descriptive_name?: string; manager?: boolean } }>;
+  const cust = rows?.[0]?.customer;
+  return {
+    name: cust?.descriptive_name?.trim() || id,
+    manager: cust?.manager === true,
+  };
 }
 
 async function probeGoogleAdsAccounts(
@@ -952,20 +980,24 @@ async function probeGoogleAdsAccounts(
   const accounts: ProbedAdsAccount[] = [];
   for (const id of ids) {
     try {
-      const customer = client.Customer({ customer_id: id, refresh_token: refreshToken });
-      const rows = (await customer.query(`
-        SELECT customer.id, customer.descriptive_name, customer.manager
-        FROM customer
-        LIMIT 1
-      `)) as Array<{ customer?: { descriptive_name?: string; manager?: boolean } }>;
-      const cust = rows?.[0]?.customer;
-      accounts.push({
-        id,
-        name: cust?.descriptive_name?.trim() || id,
-        kind: cust?.manager === true ? "manager" : "direct",
-      });
+      const row = await readCustomerProbe(client, refreshToken, id);
+      accounts.push({ id, name: row.name, kind: row.manager ? "manager" : "direct" });
     } catch (e) {
-      accounts.push({ id, name: id, kind: managerLoginRequired(e) ? "needs_manager" : "direct" });
+      if (!managerLoginRequired(e)) {
+        accounts.push({ id, name: id, kind: "unknown" });
+        continue;
+      }
+      try {
+        // Uma MCC muitas vezes só responde se o login-customer-id for o próprio ID.
+        const row = await readCustomerProbe(client, refreshToken, id, id);
+        if (row.manager) {
+          accounts.push({ id, name: row.name, kind: "manager" });
+        } else {
+          accounts.push({ id, name: row.name, kind: "needs_manager" });
+        }
+      } catch {
+        accounts.push({ id, name: id, kind: "needs_manager" });
+      }
     }
   }
   return accounts;
@@ -1058,7 +1090,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
   let loginCustomerId: string | null = onlyDigits(user.googleAdsLoginCustomerId);
   let customerId: string | null = onlyDigits(user.googleAdsCustomerId);
   const managers = accounts.filter((a) => a.kind === "manager");
-  const clients = accounts.filter((a) => a.kind !== "manager");
+  const clients = accounts.filter((a) => a.kind === "direct" || a.kind === "needs_manager");
 
   if (!customerId) {
     if (clients.length > 1) {
@@ -1130,17 +1162,38 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     loginCustomerId = await managerLoginForClient(client, creds.refreshToken, customerId, managers);
   }
 
-  const customer = client.Customer({
+  const loginAttempts: Array<string | null> = [];
+  const pushLogin = (id: string | null) => {
+    if (loginAttempts.some((item) => item === id)) return;
+    loginAttempts.push(id);
+  };
+  if (chosen?.kind === "needs_manager") {
+    for (const manager of managers) pushLogin(manager.id);
+    pushLogin(loginCustomerId);
+  } else {
+    pushLogin(loginCustomerId);
+    for (const manager of managers) pushLogin(manager.id);
+  }
+
+  let customer = client.Customer({
     customer_id: customerId!,
     refresh_token: creds.refreshToken,
-    ...(loginCustomerId ? { login_customer_id: loginCustomerId } : {}),
+    ...(loginAttempts[0] ? { login_customer_id: loginAttempts[0] } : {}),
   });
 
   let conversionActionId = onlyDigits(user.googleAdsConversionActionId);
   let conversionActionCreated = false;
+  let conversionError: unknown = null;
 
-  try {
-    const actions = await customer.query(`
+  for (const attempt of loginAttempts) {
+    customer = client.Customer({
+      customer_id: customerId!,
+      refresh_token: creds.refreshToken,
+      ...(attempt ? { login_customer_id: attempt } : {}),
+    });
+    loginCustomerId = attempt;
+    try {
+      const actions = await customer.query(`
       SELECT
         conversion_action.id,
         conversion_action.name,
@@ -1195,10 +1248,22 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
       conversionActionId = m[1];
       conversionActionCreated = true;
     }
-  } catch (e) {
-    const msg = plainGoogleAdsError(e);
+      conversionError = null;
+      break;
+    } catch (e) {
+      conversionError = e;
+      if (!managerLoginRequired(e)) break;
+    }
+  }
+
+  if (conversionError) {
+    const msg = plainGoogleAdsError(conversionError);
+    const hint =
+      managers.length > 0
+        ? " As contas gestoras deste login não desbloquearam a leitura."
+        : " Nenhuma conta gestora veio neste login. Se a conta está debaixo de uma MCC, indique o ID da gestora.";
     return {
-      ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}`),
+      ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}${hint}`),
       accounts_found: accounts.length,
       customer_id: customerId,
       login_customer_id: loginCustomerId,
@@ -1232,7 +1297,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     can_upload: isGoogleAdsClickUploadReadyForUser(updated),
     accounts_found: accounts.length,
     detail: conversionActionCreated
-      ? `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : " (conta normal, sem MCC)"} · ação «${CLICKORA_OFFLINE_ACTION_NAME}» criada · upload automático ON`
-      : `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : " (conta normal, sem MCC)"} · ação ${conversionActionId} · upload automático ON`,
+      ? `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : ". MCC não gravada"} · ação «${CLICKORA_OFFLINE_ACTION_NAME}» criada · upload automático ON`
+      : `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : ". MCC não gravada"} · ação ${conversionActionId} · upload automático ON`,
   };
 }

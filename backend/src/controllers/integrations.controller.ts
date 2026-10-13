@@ -1173,7 +1173,7 @@ export const integrationsController = {
       if (boot.ok) {
         void syncAdCostsForUser(userId, 14).catch((e) => console.warn("[bootstrapGoogleAds] cost sync", e));
       }
-      return res.status(boot.ok ? 200 : 422).json(boot);
+      return res.status(boot.ok ? 200 : 422).json(boot.ok ? boot : { ...boot, error: boot.detail });
     } catch (e) {
       console.error("[bootstrapGoogleAds]", e);
       return res.status(500).json({

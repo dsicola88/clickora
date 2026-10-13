@@ -122,7 +122,8 @@ export default function GoogleAdsConnectPage() {
   }
 
   const ready = Boolean(data?.can_upload && data.has_refresh_token);
-  const costsReady = Boolean(data?.has_refresh_token && data.google_ads_customer_id);
+  const linked = Boolean(data?.has_refresh_token && data.google_ads_customer_id);
+  const costsReady = linked;
 
   return (
     <div className={PRO_PAGE_SHELL}>
@@ -172,10 +173,20 @@ export default function GoogleAdsConnectPage() {
             </ol>
 
             <div className="flex flex-wrap gap-2">
-              <Button disabled={locked || connect.isPending} onClick={() => connect.mutate()} className="gap-2">
+              <Button disabled={locked || connect.isPending || linked} onClick={() => connect.mutate()} className="gap-2">
                 {connect.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Ligar Google Ads
+                {linked ? "Conta ligada" : "Ligar Google Ads"}
               </Button>
+              {linked ? (
+                <Button
+                  variant="outline"
+                  disabled={locked || connect.isPending}
+                  onClick={() => connect.mutate()}
+                  className="gap-2"
+                >
+                  Trocar conta
+                </Button>
+              ) : null}
               {data?.has_refresh_token ? (
                 <Button
                   variant="secondary"
@@ -193,14 +204,13 @@ export default function GoogleAdsConnectPage() {
               <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="text-xs leading-relaxed">
-                  <p className="font-semibold text-foreground">Pronto a operar</p>
+                  <p className="font-semibold text-foreground">Envio de vendas preparado</p>
                   <p className="text-muted-foreground mt-0.5">
-                    Conta {data?.google_ads_customer_id}
-                    {data?.google_ads_login_customer_id
-                      ? ` via MCC ${data.google_ads_login_customer_id}`
-                      : " (conta normal, sem MCC)"}
-                    {" · "}ação {data?.google_ads_conversion_action_id} · upload ON. Use o link da campanha com {"{gclid}"} e
-                    o postback da rede.
+                    {`Conta ${data?.google_ads_customer_id}${
+                      data?.google_ads_login_customer_id
+                        ? ` via MCC ${data.google_ads_login_customer_id}`
+                        : ". MCC não gravada"
+                    } · ação ${data?.google_ads_conversion_action_id} · upload ON. Estes são os dados gravados. O custo em Resultados só aparece se o Google aceitar a leitura desta conta.`}
                   </p>
                 </div>
               </div>
@@ -214,9 +224,9 @@ export default function GoogleAdsConnectPage() {
               ["OAuth", data?.has_refresh_token ? "Ligado" : "Pendente"],
               ["Customer ID", data?.google_ads_customer_id || "—"],
               ["Ação conversão", data?.google_ads_conversion_action_id || "—"],
-              ["MCC / login", data?.google_ads_login_customer_id || "Conta normal"],
+              ["MCC / login", data?.google_ads_login_customer_id || "Não gravada"],
               ["Upload após venda", data?.google_ads_enabled ? "Activo" : "Off"],
-              ["Pode enviar", data?.can_upload ? "Sim" : "Não"],
+              ["Dados de envio", data?.can_upload ? "Completos" : "Incompletos"],
             ].map(([k, v]) => (
               <li key={k} className="flex justify-between gap-3 px-4 py-2.5">
                 <span className="text-xs text-muted-foreground">{k}</span>
@@ -237,10 +247,14 @@ export default function GoogleAdsConnectPage() {
         </ProPanel>
       </div>
 
-      {data?.has_refresh_token && !data.google_ads_customer_id ? (
+      {data?.has_refresh_token && (!data.google_ads_customer_id || !data.google_ads_login_customer_id) ? (
         <ProPanel
           title="Escolher conta (só se o auto-detect falhar)"
-          description="Cole o Customer ID de 10 dígitos. Se aceder via MCC, preencha também o Login customer ID."
+          description={
+            data.google_ads_customer_id
+              ? "A conta de anúncios já está gravada. Se o Google recusar a leitura, cole aqui o ID da conta gestora (MCC)."
+              : "Cole o Customer ID de 10 dígitos. Se aceder via MCC, preencha também o Login customer ID."
+          }
         >
           <div className="grid gap-3 sm:grid-cols-2 px-4 py-4">
             <div className="space-y-1.5">

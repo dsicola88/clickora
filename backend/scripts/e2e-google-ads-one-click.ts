@@ -34,6 +34,10 @@ class GoogleAdsApi {
     const login = opts.login_customer_id || null;
     return {
       async query(gaql: string) {
+        if (opts.refresh_token === "mcc-self-token") {
+          if (opts.customer_id === MANAGER && login !== MANAGER) throw permissionError();
+          if (opts.customer_id === CLIENT && login !== MANAGER) throw permissionError();
+        }
         if (opts.customer_id === CLIENT && !login) throw permissionError();
         if (gaql.includes("customer.manager") || gaql.includes("customer.descriptive_name")) {
           if (opts.customer_id === MANAGER) {
@@ -212,6 +216,22 @@ async function main() {
     "conta directa não leva identificador de gestora",
     directBoot.ok === true && directBoot.customer_id === DIRECT && directBoot.login_customer_id == null,
     `customer=${directBoot.customer_id} login=${directBoot.login_customer_id ?? "vazio"} ${directBoot.detail}`,
+  );
+
+  const hiddenMcc = await prisma.user.create({
+    data: {
+      email: `e2e-gads-hidden-mcc-${stamp}@clickora.test`,
+      password: "x",
+      fullName: "E2E hidden mcc",
+      googleAdsRefreshToken: "mcc-self-token",
+      googleAdsCustomerId: CLIENT,
+    },
+  });
+  const hiddenBoot = await bootstrapGoogleAdsAfterOAuth(hiddenMcc.id);
+  record(
+    "gestora que só responde com o próprio id fica gravada",
+    hiddenBoot.ok === true && hiddenBoot.customer_id === CLIENT && hiddenBoot.login_customer_id === MANAGER,
+    `customer=${hiddenBoot.customer_id} login=${hiddenBoot.login_customer_id ?? "vazio"} ${hiddenBoot.detail}`,
   );
 
   const failed = results.filter((r) => !r.ok);
