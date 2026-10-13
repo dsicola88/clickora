@@ -93,6 +93,20 @@ describe("clientIp", () => {
     assert.equal(ip, "203.0.113.50");
   });
 
+  it("atrás de um nó CDN77 usa o IP do visitante, não o do nó", () => {
+    const ip = extractClientIp(
+      fakeReq({ "x-forwarded-for": "71.208.226.154, 152.233.47.66" }, { remote: "10.0.0.8" }),
+    );
+    assert.equal(ip, "71.208.226.154");
+  });
+
+  it("nó CDN77 sem hop de visitante continua a ser o nó", () => {
+    const ip = extractClientIp(
+      fakeReq({ "x-forwarded-for": "152.233.47.66" }, { remote: "10.0.0.8" }),
+    );
+    assert.equal(ip, "152.233.47.66");
+  });
+
   it("peer privado usa o último público do XFF", () => {
     const ip = extractClientIp(
       fakeReq({ "x-forwarded-for": "1.2.3.4, 203.0.113.10" }, { remote: "10.0.0.8" }),

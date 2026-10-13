@@ -267,20 +267,30 @@ async function affiliateNetworkForRedirect(args: {
   return camp?.platform?.trim() || fromQuery || null;
 }
 
-/** País do visitante. Nó de CDN não herda o país da base geográfica. */
+/**
+ * País gravado: o da CDN77, ou o do IP de quem clicou.
+ * O nó não tem país. routeCountry é o mesmo valor, para cloak e rotador.
+ */
 function visitorClickPlace(req: Request, ip: string) {
   if (isFastlyEdgeIp(ip)) {
     return {
       visitor: { country: null, source: "none" as const },
       place: null,
-      country: null,
+      country: null as string | null,
+      routeCountry: null as string | null,
       countryMeta: { ip_network: "Fastly" },
     };
   }
   const visitor = resolveVisitorCountryFromRequest(req, ip);
   const place = visitor.source === "cdn77" ? null : datacenterClickPlace(ip);
-  const country = place?.country ?? visitor.country ?? null;
-  return { visitor, place, country, countryMeta: countrySourceMeta(visitor.source) };
+  const country = visitor.country;
+  return {
+    visitor,
+    place,
+    country,
+    routeCountry: country,
+    countryMeta: countrySourceMeta(visitor.source),
+  };
 }
 
 function expressWildcardPathSuffix(req: Request): string | undefined {
@@ -376,7 +386,7 @@ export const trackController = {
       console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
-    if (countryOnCloakDenyList(page.settings, seen.country)) {
+    if (countryOnCloakDenyList(page.settings, seen.routeCountry)) {
       console.warn("[track.redirect] país sem oferta", { presellId, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
@@ -564,7 +574,7 @@ export const trackController = {
     const ip = extractClientIp(req);
     const seen = visitorClickPlace(req, ip);
     const place = seen.place;
-    const country = seen.country;
+    const country = seen.routeCountry;
     const userAgent = req.headers["user-agent"] || "";
     const guard = await enforceTrackingRules({
       ownerUserId: rot.userId,
@@ -590,7 +600,7 @@ export const trackController = {
           medium,
           campaign,
           referrer,
-          country: place.country ?? undefined,
+          country: undefined,
           ipAddress: ip,
           userAgent,
           device,
@@ -635,7 +645,7 @@ export const trackController = {
         medium,
         campaign,
         referrer,
-        country: country ?? undefined,
+        country: seen.country ?? undefined,
         ipAddress: ip,
         userAgent,
         device,

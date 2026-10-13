@@ -180,13 +180,13 @@ async function main() {
     bareRow ? `country=${bareRow.country || "vazio"} term=${bareRow.utm_term || "vazio"}` : "clique em falta",
   );
   record(
-    "cabeçalho de país num IP de casa é ignorado",
-    !!homeRow && homeRow.country === HOME_COUNTRY && homeRow.country !== "AO",
+    "cabeçalho de país num IP de casa é ignorado; fica o país desse IP",
+    !!homeRow && homeRow.country === HOME_COUNTRY && homeRow.country !== "AO" && !homeRow.region && !homeRow.city,
     homeRow ? `${homeRow.ip_address}=${homeRow.country}` : "clique em falta",
   );
   record(
-    "Londres fica não qualificado e sem checkout",
-    !!lonRow && lonRow.country === "GB" && lonRow.unqualified === true && !lonRow.checkout_page,
+    "Londres fica não qualificado, sem país inventado e sem checkout",
+    !!lonRow && lonRow.country == null && lonRow.unqualified === true && !lonRow.checkout_page,
     lonRow ? `country=${lonRow.country} unqualified=${lonRow.unqualified} to=${lonRow.checkout_page || "vazio"}` : "clique em falta",
   );
 

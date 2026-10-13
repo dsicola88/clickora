@@ -1,4 +1,6 @@
 import type { Request } from "express";
+import { isCdn77EdgeIp } from "./cdn77Visitor";
+import { isFastlyEdgeIp } from "./fastlyEdges";
 
 /**
  * Extrai o IP público do visitante atrás de Vercel → Railway / Cloudflare.
@@ -73,6 +75,36 @@ export function clientIpFromForwardedChain(csv: string, peer: string): string | 
   return null;
 }
 
+function isTransitEdgeIp(ip: string): boolean {
+  return isCdn77EdgeIp(ip) || isFastlyEdgeIp(ip);
+}
+
+/**
+ * A CDN põe o IP de quem clicou e o proxy acrescenta o nó no fim.
+ * O nó não é o visitante: usa-se o público anterior. Sem esse hop, fica o nó.
+ */
+function visitorInFrontOfEdge(csv: string, edgeIp: string): string | null {
+  const parts = forwardedParts(csv);
+  let edgeAt = -1;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (parts[i] === edgeIp) {
+      edgeAt = i;
+      break;
+    }
+  }
+  const start = edgeAt >= 0 ? edgeAt - 1 : parts.length - 1;
+  for (let i = start; i >= 0; i--) {
+    const ip = parts[i];
+    if (!isPrivateOrLocalIp(ip) && !isTransitEdgeIp(ip)) return ip;
+  }
+  return null;
+}
+
+function unwrapTransitEdge(ip: string, xff: string): string {
+  if (!ip || !isTransitEdgeIp(ip)) return ip;
+  return (xff && visitorInFrontOfEdge(xff, ip)) || ip;
+}
+
 function rightmostPublic(csv: string, peer: string): string | null {
   const hop = normalizeClientIp(peer);
   const parts = forwardedParts(csv);
@@ -94,21 +126,21 @@ export function extractClientIp(req: Request): string {
   const peer = normalizeClientIp(req.socket?.remoteAddress || "");
   const xff = headerFirst(req, "x-forwarded-for");
   const fromXff = xff ? clientIpFromForwardedChain(xff, peer) : null;
-  if (fromXff) return fromXff;
+  if (fromXff) return unwrapTransitEdge(fromXff, xff);
 
   const xffParts = xff ? forwardedParts(xff) : [];
   const xffTail = xffParts[xffParts.length - 1] || "";
   const sawProxy = (peer && isPrivateOrLocalIp(peer)) || (peer && xffTail === peer);
-  if (!sawProxy) return peer;
+  if (!sawProxy) return unwrapTransitEdge(peer, xff);
 
   const cfRay = headerFirst(req, "cf-ray");
   if (cfRay) {
     const cf = rightmostPublic(headerFirst(req, "cf-connecting-ip"), peer);
-    if (cf) return cf;
+    if (cf) return unwrapTransitEdge(cf, xff);
   }
 
   const vercel = rightmostPublic(headerFirst(req, "x-vercel-forwarded-for"), peer);
-  if (vercel) return vercel;
+  if (vercel) return unwrapTransitEdge(vercel, xff);
 
-  return peer;
+  return unwrapTransitEdge(peer, xff);
 }

@@ -14,10 +14,9 @@ const EDGE_BOUNDS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /**
- * País para agrupar no relatório.
- * Nó CDN77 ou Fastly sem país enviado pela CDN: vazio.
- * País calculado pela CDN77 (country_source) mantém-se.
- * Não se usa o país que a base geográfica gravou no nó.
+ * País no painel, igual à lista de cliques.
+ * CDN77: país do IP real. visitor_ip: país do IP de quem clicou, e só se não for nó.
+ * País antigo sem essa origem, ou país gravado no nó, não entra.
  */
 export function sqlVisitorCountry(alias: string): Prisma.Sql {
   if (!/^[a-z]+$/.test(alias)) throw new Error("alias de SQL inválido");
@@ -37,9 +36,10 @@ export function sqlVisitorCountry(alias: string): Prisma.Sql {
     ),
     " OR ",
   );
+  const isEdge = Prisma.sql`${ipNorm} ~ '^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$' AND (${edge})`;
   return Prisma.sql`CASE
     WHEN COALESCE(${meta}->>'country_source', '') = 'cdn77' THEN NULLIF(UPPER(TRIM(${country})), '')
-    WHEN ${ipNorm} ~ '^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$' AND (${edge}) THEN NULL
-    ELSE NULLIF(UPPER(TRIM(${country})), '')
+    WHEN COALESCE(${meta}->>'country_source', '') = 'visitor_ip' AND NOT (${isEdge}) THEN NULLIF(UPPER(TRIM(${country})), '')
+    ELSE NULL
   END`;
 }

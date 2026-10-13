@@ -119,13 +119,13 @@ function IpLookupPage() {
         found: data.found,
         network: data.network ?? null,
         network_label: data.network_label ?? null,
-        visitor_located: data.visitor_located ?? data.found,
+        visitor_located: data.visitor_located === true,
         message: data.message,
         geo: data.geo,
       });
       if (data.network) {
         toast.info(`Nó ${data.network_label ?? data.network}. O país de quem acedeu não está neste IP.`);
-      } else if (data.found) toast.success("Localização obtida (base GeoLite2).");
+      } else if (data.found) toast.info("Estimativa da base GeoLite2. Não entra nos relatórios.");
       else toast.info(data.message || "Sem dados para este IP.");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Falha ao consultar IP");
@@ -138,10 +138,10 @@ function IpLookupPage() {
   return (
     <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
       <p className="text-sm text-muted-foreground">
-        Consulta aproximada via <span className="text-foreground/90">GeoLite2</span> no servidor. Os dados são
-        indicativos (não substituem prova legal); cidade e coordenadas podem errar, sobretudo em IPs de operadoras ou
-        VPN. Em <span className="font-mono text-xs">IPv6</span> a base costuma ter só país, sem cidade. Para testar:{" "}
-        <span className="font-mono text-xs">8.8.8.8</span>.
+        Consulta da base <span className="text-foreground/90">GeoLite2</span>. É uma estimativa do endereço, não a
+        localização confirmada de uma pessoa, e não é o país que aparece nos relatórios. Cidade e coordenadas podem
+        estar erradas. Em <span className="font-mono text-xs">IPv6</span> a base costuma ter só país, sem cidade. Para
+        testar: <span className="font-mono text-xs">8.8.8.8</span>.
       </p>
       <div className="flex flex-col sm:flex-row items-end gap-4">
         <div className="space-y-2 flex-1">
@@ -246,12 +246,18 @@ function IpLookupPage() {
                   {countryFlagEmoji(ipLookup.geo.country_code)}
                 </span>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">País</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Estimativa da base
+                  </p>
                   <p className="text-lg font-semibold text-foreground">
                     {countryDisplayLabel(ipLookup.geo.country_code)}{" "}
                     <span className="text-sm font-mono font-normal text-muted-foreground">
                       ({ipLookup.geo.country_code})
                     </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {ipLookup.message ??
+                      "Estimativa da base GeoLite. Não é a localização confirmada de uma pessoa e não entra nos relatórios."}
                   </p>
                 </div>
               </div>

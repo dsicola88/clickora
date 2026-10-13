@@ -4,6 +4,7 @@ import type { Request } from "express";
 import { shouldServeCloakSafePage } from "./presellEnterpriseCloak";
 import {
   cdn77VisitorCountryFromHeaders,
+  countrySourceMeta,
   isCdn77EdgeIp,
   locationForStoredClick,
   lookupIpForTools,
@@ -25,12 +26,13 @@ describe("CDN77 visitor country", () => {
     assert.match(looked.message ?? "", /fica de lado/);
   });
 
-  it("um IP que não é nó continua a usar a base geográfica", () => {
+  it("um IP que não é nó devolve a estimativa da base, sem a tratar como visitante", () => {
     const looked = lookupIpForTools("8.8.8.8");
     assert.equal(looked.network, null);
-    assert.equal(looked.visitor_located, true);
+    assert.equal(looked.visitor_located, false);
     assert.equal(looked.found, true);
     assert.ok(looked.geo?.country_code);
+    assert.match(looked.message ?? "", /não entra nos relatórios/);
   });
 
   it("146.75.146.1 é nó Fastly; a Suécia da base não é o país de quem clicou", () => {
@@ -43,11 +45,12 @@ describe("CDN77 visitor country", () => {
     assert.equal(lookupIpForTools("151.101.1.1").network, "Fastly");
   });
 
-  it("um IP de operadora continua com o país da base", () => {
+  it("um IP de operadora fica na ferramenta como estimativa, não como país confirmado", () => {
     const looked = lookupIpForTools("71.208.226.154");
     assert.equal(looked.network, null);
-    assert.equal(looked.visitor_located, true);
+    assert.equal(looked.visitor_located, false);
     assert.equal(looked.geo?.country_code, "US");
+    assert.match(looked.message ?? "", /estimativa/i);
   });
 
   it("146.75.146.1 gravado como Suécia não entra como país de quem clicou", () => {
@@ -122,7 +125,15 @@ describe("CDN77 visitor country", () => {
     assert.deepEqual(angola, { country: "AO", region: null, city: null });
   });
 
-  it("o bloco de Londres sem visitante continua com o sítio do registo", () => {
+  it("152.233.20.102 é nó CDNEXT; o Brasil da base não é o país de quem acedeu", () => {
+    assert.equal(isCdn77EdgeIp("152.233.20.102"), true);
+    const looked = lookupIpForTools("152.233.20.102");
+    assert.equal(looked.network, "CDN77");
+    assert.equal(looked.visitor_located, false);
+    assert.equal(looked.geo?.country_code, "BR");
+  });
+
+  it("o bloco de Londres sem visitante não entra como país de quem clicou", () => {
     const london = locationForStoredClick({
       ip: "152.233.29.1",
       storedCountry: "GB",
@@ -130,7 +141,54 @@ describe("CDN77 visitor country", () => {
       datacenter: { country: "GB", region: "Londres" },
       geo: { country_code: "BR", region: "SP", city: "Sao Paulo" },
     });
-    assert.deepEqual(london, { country: "GB", region: "Londres", city: null });
+    assert.deepEqual(london, { country: null, region: null, city: null });
+  });
+
+  it("país antigo sem origem não entra; o país do IP do visitante entra, sem cidade", () => {
+    const invented = locationForStoredClick({
+      ip: "89.222.183.194",
+      storedCountry: "GB",
+      countrySource: null,
+      datacenter: null,
+      geo: { country_code: "RU", region: "MOS", city: "Krasnoarmeysk" },
+    });
+    assert.deepEqual(invented, { country: null, region: null, city: null });
+
+    const visitor = locationForStoredClick({
+      ip: "71.208.226.154",
+      storedCountry: "US",
+      countrySource: "visitor_ip",
+      datacenter: null,
+      geo: { country_code: "US", region: "TX", city: "Houston" },
+    });
+    assert.deepEqual(visitor, { country: "US", region: null, city: null });
+
+    const viaCdn = locationForStoredClick({
+      ip: "152.233.47.66",
+      storedCountry: "US",
+      countrySource: "cdn77",
+      datacenter: null,
+      geo: { country_code: "BR", region: "", city: "" },
+    });
+    assert.deepEqual(viaCdn, { country: "US", region: null, city: null });
+  });
+
+  it("país da CDN vale quando o último hop é o nó, mesmo que o IP guardado seja o do visitante", () => {
+    const country = cdn77VisitorCountryFromHeaders(
+      { "x-forwarded-for": "71.208.226.154, 152.233.47.66", "x-client-geo-country": "US" },
+      "71.208.226.154",
+    );
+    assert.equal(country, "US");
+    assert.equal(countrySourceMeta("cdn77").country_source, "cdn77");
+    assert.equal(countrySourceMeta("geoip").country_source, "visitor_ip");
+    assert.deepEqual(countrySourceMeta("none"), {});
+    assert.equal(
+      cdn77VisitorCountryFromHeaders(
+        { "x-forwarded-for": "71.208.226.154, 152.233.47.66, 8.8.8.8", "x-client-geo-country": "US" },
+        "8.8.8.8",
+      ),
+      null,
+    );
   });
 
   it("cloak usa o país do visitante, não o do nó", () => {

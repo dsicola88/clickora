@@ -1,5 +1,7 @@
 /**
  * Prefixos IPv4 anunciados por AS60068 (Datacamp / CDN77) em 12/10/2026.
+ * 152.233.20.0/23 é AS212238 (CDNEXT, também Datacamp): o mesmo tipo de nó.
+ * A GeoLite marca 152.233.20.102 como BR; o anúncio é em Berlim. Nenhum dos dois é o visitante.
  * Fonte: RIPE Stat announced-prefixes. São nós da CDN, não o IP do visitante.
  * A base geográfica destes IPs não é o país de quem clicou: o nó de Paris
  * aparecia como CZ, o de São Paulo como UA e o de Los Angeles como GB.
@@ -425,4 +427,5 @@ export const CDN77_EDGE_PREFIXES: ReadonlyArray<readonly [number, number]> = [
   [3563469824, 23],
   [3563470336, 24],
   [3563470592, 24],
+  [2565411840, 23],
 ];

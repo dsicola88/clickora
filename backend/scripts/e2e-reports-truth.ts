@@ -170,16 +170,16 @@ async function main() {
   const list = Array.isArray(events) ? events : [];
   const byIp = new Map(list.map((e) => [e.ip_address, e]));
 
-  function placeOk(ip: string, expected: ReturnType<typeof geoOf>) {
+  function placeOk(ip: string, expectedCountry: string | null) {
     const row = byIp.get(ip);
     if (!row) return false;
     const country = row.country ? row.country.toUpperCase() : null;
-    return country === expected.country && (row.city || null) === expected.city && (row.region || null) === expected.region;
+    return country === expectedCountry && !row.city && !row.region;
   }
 
   record(
-    "local do clique é o do IP, sem cidade por defeito",
-    list.length === 3 && placeOk(US_IP, us) && placeOk(CN_IP, cn) && placeOk(UNKNOWN_IP, unknown),
+    "país do clique é o do IP de quem entrou, sem cidade",
+    list.length === 3 && placeOk(US_IP, us.country) && placeOk(CN_IP, cn.country) && placeOk(UNKNOWN_IP, null),
     list
       .map((e) => `${e.ip_address}=${e.country || "sem país"}/${e.city || "sem cidade"}`)
       .join(" | ") || "sem eventos",
@@ -187,7 +187,7 @@ async function main() {
 
   const countries = new Map(dash.clicks_by_country.map((r) => [r.country_code, r.clicks]));
   record(
-    "mapa de países só tem os cliques feitos",
+    "painel e lista contam os mesmos países",
     countries.get(us.country) === 1 &&
       countries.get(cn.country) === 1 &&
       countries.get(null) === 1 &&
@@ -220,7 +220,7 @@ async function main() {
   const cnRow = after.country_performance.find((r) => r.country === cn.country);
   const noneRow = after.country_performance.find((r) => r.country === "(sem país)");
   record(
-    "uma venda de 12.50 no país do clique, as outras a zero",
+    "a venda de 12.50 fica no país de quem clicou",
     after.total_clicks === 3 &&
       after.total_impressions === 1 &&
       after.total_conversions === 1 &&
@@ -228,9 +228,8 @@ async function main() {
       usRow?.sales === 1 &&
       usRow.revenue === 12.5 &&
       cnRow?.sales === 0 &&
-      cnRow.revenue === 0 &&
-      noneRow?.sales === 0,
-    `conv=${after.total_conversions} rev=${after.revenue} US=${usRow?.sales}/${usRow?.revenue} CN=${cnRow?.sales} sem=${noneRow?.sales}`,
+      (noneRow == null || noneRow.sales === 0),
+    `conv=${after.total_conversions} rev=${after.revenue} US=${usRow?.sales}/${usRow?.revenue} CN=${cnRow?.sales}`,
   );
 
   const summary = await json(`/api/analytics?presell_id=${pageId}&detail=1`, { headers: auth });

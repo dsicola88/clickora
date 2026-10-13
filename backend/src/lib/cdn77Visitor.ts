@@ -38,16 +38,38 @@ function headerValue(headers: Record<string, string | string[] | undefined> | un
   return (raw || "").toString().trim();
 }
 
+function xffHops(headers: Record<string, string | string[] | undefined> | undefined): string[] {
+  return headerValue(headers, "x-forwarded-for")
+    .split(",")
+    .map((part) => part.trim().replace(/^::ffff:/i, ""))
+    .filter(Boolean);
+}
+
+/**
+ * A ligação chegou por um nó CDN77.
+ * Só o último hop da cadeia conta: um browser não escolhe o país
+ * metendo um nó falso a meio da lista.
+ */
+export function requestCameThroughCdn77(
+  headers: Record<string, string | string[] | undefined> | undefined,
+  ip: string | null | undefined,
+): boolean {
+  if (isCdn77EdgeIp(ip)) return true;
+  const hops = xffHops(headers);
+  const last = hops[hops.length - 1];
+  return isCdn77EdgeIp(last);
+}
+
 /**
  * País ISO do visitante que a CDN77 calcula a partir do IP real.
- * Só vale quando o IP observado é um nó CDN77. Um browser noutro IP não escolhe o país.
+ * Só vale quando a ligação chegou por um nó CDN77. Um browser noutro IP não escolhe o país.
  * XX / T1 não são países.
  */
 export function cdn77VisitorCountryFromHeaders(
   headers: Record<string, string | string[] | undefined> | undefined,
   ip: string | null | undefined,
 ): string | null {
-  if (!isCdn77EdgeIp(ip)) return null;
+  if (!requestCameThroughCdn77(headers, ip)) return null;
   const code = headerValue(headers, "x-client-geo-country").toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return null;
   if (code === "XX" || code === "T1") return null;
@@ -120,11 +142,20 @@ export function lookupIpForTools(ip: string): IpToolLookup {
       network_label: null,
     };
   }
-  return { found: true, network: null, network_label: null, visitor_located: true, message: null, geo };
+  return {
+    found: true,
+    network: null,
+    network_label: null,
+    visitor_located: false,
+    message:
+      "Isto é uma estimativa da base GeoLite para o endereço consultado. Não é a localização confirmada de uma pessoa e não entra nos relatórios.",
+    geo,
+  };
 }
 
 export function countrySourceMeta(source: VisitorCountrySource): Record<string, string> {
   if (source === "cdn77") return { country_source: "cdn77" };
+  if (source === "geoip") return { country_source: "visitor_ip" };
   return {};
 }
 
@@ -132,9 +163,10 @@ type DatacenterPlace = { country: string | null; region: string | null } | null;
 type GeoPlace = { country_code?: string | null; region?: string | null; city?: string | null } | null;
 
 /**
- * País, região e cidade para o relatório.
- * Nó CDN77 ou Fastly sem país do visitante: vazio. Não se usa a base geográfica do nó
- * (inventava Brasil, Suécia, CZ, UA e cidades como Odesa).
+ * País no relatório, a mesma leitura que a rede de afiliados faz do visitante.
+ * CDN77: o país que a CDN calculou no IP real.
+ * IP de quem clicou: o país desse IP, gravado na hora (country_source visitor_ip).
+ * Nó CDN ou país antigo sem essa origem: vazio. Não se publica cidade.
  */
 export function locationForStoredClick(input: {
   ip: string | null | undefined;
@@ -143,19 +175,12 @@ export function locationForStoredClick(input: {
   datacenter: DatacenterPlace;
   geo: GeoPlace;
 }): { country: string | null; region: string | null; city: string | null } {
-  const fromVisitor = input.countrySource === "cdn77" && input.storedCountry;
-  if (fromVisitor) {
-    return { country: input.storedCountry, region: null, city: null };
-  }
-  if (isFastlyEdgeIp(input.ip) || (isCdn77EdgeIp(input.ip) && !input.datacenter)) {
-    return { country: null, region: null, city: null };
-  }
-  const country =
-    input.datacenter?.country ??
-    input.storedCountry ??
-    (input.geo?.country_code ? String(input.geo.country_code).trim().toUpperCase() : null) ??
-    null;
-  const region = input.datacenter?.region ?? (input.geo?.region?.trim() || null);
-  const city = input.datacenter ? null : input.geo?.city?.trim() || null;
-  return { country, region, city };
+  void input.datacenter;
+  void input.geo;
+  const country = input.storedCountry?.trim().toUpperCase() || null;
+  if (!country) return { country: null, region: null, city: null };
+  if (input.countrySource === "cdn77") return { country, region: null, city: null };
+  if (isFastlyEdgeIp(input.ip) || isCdn77EdgeIp(input.ip)) return { country: null, region: null, city: null };
+  if (input.countrySource === "visitor_ip") return { country, region: null, city: null };
+  return { country: null, region: null, city: null };
 }

@@ -133,10 +133,10 @@ async function main() {
   const cdnRow = events.find((e) => e.ip_address === CDN77);
   const humanRow = events.find((e) => e.ip_address === HUMAN);
   record(
-    "relatório corrige BR para GB e explica a rede",
+    "relatório não usa o país do nó e explica a rede",
     !!cdnRow &&
-      cdnRow.country === "GB" &&
-      cdnRow.region === "Londres" &&
+      cdnRow.country == null &&
+      !cdnRow.region &&
       !cdnRow.city &&
       cdnRow.unqualified === true &&
       cdnRow.ip_network === "CDN77" &&
@@ -178,9 +178,9 @@ async function main() {
   const stored = db.find((r) => r.ipAddress === CDN77);
   const meta = (stored?.metadata || {}) as { exclude_from_kpi?: boolean; ip_quality?: string; redirect_to?: string };
   record(
-    "a base guarda GB, sem hoplink, fora do KPI",
+    "a base não grava o país do nó, sem hoplink, fora do KPI",
     db.length === 2 &&
-      stored?.country === "GB" &&
+      !stored?.country &&
       meta.exclude_from_kpi === true &&
       meta.ip_quality === "datacenter" &&
       !meta.redirect_to,
