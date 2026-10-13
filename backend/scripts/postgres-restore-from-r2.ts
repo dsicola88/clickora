@@ -57,7 +57,7 @@ async function main() {
   const restoreBin = (process.env.BACKUP_PG_RESTORE_BIN || "pg_restore").trim();
   const version = await run(restoreBin, ["--version"], process.env);
   const major = pgDumpMajor(version.stdout);
-  const serverMajor = Number(process.env.RESTORE_SERVER_MAJOR || "16");
+  const serverMajor = Number(process.env.RESTORE_SERVER_MAJOR || "18");
   if (major != null && !versionsCompatible(major, serverMajor)) throw new Error("versao_incompativel");
 
   const url = new URL(restoreUrl);

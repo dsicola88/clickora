@@ -2,7 +2,9 @@
 
 Este backup é independente das imagens. O bucket de media (`R2_BUCKET`) continua só com presells, favicons e avatares. O dump vai para outro bucket, privado, e a API não o executa.
 
-Enquanto as variáveis abaixo não existirem, o comando termina sem fazer nada e sem falhar. O backup automático fica **inativo**.
+Enquanto as variáveis abaixo não existirem no serviço de backup, o comando termina sem fazer nada e sem falhar.
+
+O bucket `dclickora-pg-backups` já existe: privado, classe Standard, localização automática na Europa Ocidental, acesso público desligado. O token `clickora-pg-backups` tem Object Read & Write só nesse bucket. As chaves ficam nas variáveis da Railway, não neste ficheiro.
 
 ## O que fica guardado
 
@@ -43,18 +45,17 @@ Só no serviço de backup, não no serviço da API. Token R2 com leitura e escri
 | `BACKUP_ALERT_WEBHOOK_URL` | Opcional. Recebe só `ok`, `backup_id`, `duration_ms` e `error_code`. |
 | `BACKUP_PG_DUMP_BIN` | Opcional. Tem de ser `pg_dump` 16 ou mais recente, igual ou acima do servidor. |
 
-O `pg_dump` desta máquina de desenvolvimento é o 14 e não chega para o Postgres 16. A imagem `backend/Dockerfile.backup` instala o cliente 16.
+O `pg_dump` desta máquina de desenvolvimento é o 14 e não chega para o servidor. A imagem do Postgres na Railway é `postgres-ssl:18`, por isso `backend/Dockerfile.backup` instala o cliente 18. Um cliente mais antigo recusa o dump.
 
 Sem `BACKUP_ALERT_WEBHOOK_URL`, o resultado sai numa linha JSON no stdout (`alert: unconfigured`). Não há outro aviso. Uma falha termina com código 1 nesse serviço e não reinicia a API.
 
-## Criar o bucket à mão
+## Serviço na Railway
 
-Não criar isto por código.
+O bucket e o token já estão criados. Falta um serviço à parte da API:
 
-1. Na Cloudflare, cria um bucket privado. Não ligues o endereço público.
-2. Cria um token R2 com Object Read & Write só nesse bucket.
-3. Na Railway, cria um serviço novo a partir de `backend/Dockerfile.backup`. Uma réplica. Cron, por exemplo `15 3 * * *`. O comando é o da imagem e corre uma vez.
-4. Preenche as variáveis. Confirma que `BACKUP_R2_BUCKET` não é o bucket das imagens.
+1. Imagem `backend/Dockerfile.backup`, uma réplica, cron `15 3 * * *`.
+2. Variáveis `BACKUP_*` só nesse serviço. `BACKUP_R2_BUCKET` tem de ser `dclickora-pg-backups`, nunca o bucket das imagens.
+3. `BACKUP_DATABASE_URL` aponta para a base por referência do serviço Postgres, sem copiar a senha para outro sítio.
 
 ## Restauro numa base isolada
 
@@ -69,7 +70,7 @@ BACKUP_PG_RESTORE_BIN=pg_restore \
 npx tsx scripts/postgres-restore-from-r2.ts
 ```
 
-O `pg_restore` tem de ser da versão 16 ou superior. O script confirma o SHA-256, recusa um ficheiro que não comece por `PGDMP` e, no fim, verifica se as tabelas esperadas existem.
+O `pg_restore` tem de ser da versão 18 ou superior, a mesma linha do servidor. O script confirma o SHA-256, recusa um ficheiro que não comece por `PGDMP` e, no fim, verifica se as tabelas esperadas existem.
 
 Perante corrupção ou apagão do Postgres: cria uma instância nova vazia, aponta `RESTORE_DATABASE_URL` para ela e corre o restauro do dump mais recente cujo sidecar coincida. A base antiga não é alterada por este comando. Compara o SHA-256 impresso com o ficheiro `.dump.sha256`.
 
