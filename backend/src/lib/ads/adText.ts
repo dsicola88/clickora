@@ -26,3 +26,29 @@ export function pathToken(value: string, max: number): string {
     .slice(0, max);
   return raw;
 }
+
+/** "CelluCare CelluCare" é o mesmo nome escrito duas vezes. Fica um. */
+export function canonicalProductName(raw: string): string {
+  const words = normalizeAdText(raw).split(" ").filter(Boolean);
+  if (words.length >= 2 && words.length % 2 === 0) {
+    const half = words.length / 2;
+    const left = words.slice(0, half).join(" ");
+    const right = words.slice(half).join(" ");
+    if (left.toLowerCase() === right.toLowerCase()) return canonicalProductName(left);
+  }
+  return words.join(" ");
+}
+
+/**
+ * Caminho do anúncio: o nome inteiro se couber em 15.
+ * Se não couber, a primeira palavra. Nunca corta uma palavra a meio.
+ */
+export function adPath(value: string, max: number): string {
+  const name = canonicalProductName(value);
+  const compact = pathToken(name, 80);
+  if (compact.length >= 2 && compact.length <= max) return compact;
+  const first = name.split(" ")[0] ?? "";
+  const token = pathToken(first, 80);
+  if (token.length >= 2 && token.length <= max) return token;
+  return "";
+}

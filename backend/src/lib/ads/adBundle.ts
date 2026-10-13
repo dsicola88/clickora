@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { KeywordItem } from "../keywordGenerator";
-import { adTextLength, normalizeAdText, pathToken } from "./adText";
+import { adPath, adTextLength, canonicalProductName, normalizeAdText } from "./adText";
+import { sentenceBelongsToProduct, winningDescriptions, winningHeadlines } from "./winningCopy";
 import { CALLOUT_MAX, GOOGLE_RSA } from "./platformSpecs";
 
 export const AD_PLATFORMS = ["google", "microsoft", "both"] as const;
@@ -399,7 +400,7 @@ function verifiedCallouts(input: AdGenerateInput): string[] {
 export function buildDeterministicBundle(input: AdGenerateInput, keywords: KeywordItem[]): AdBundle {
   const locale = localeFor(input.language, input.market);
   const bank = BANKS[locale];
-  const p = input.brand?.trim() || input.product.trim();
+  const p = canonicalProductName(input.brand?.trim() || input.product.trim());
   const limitations: string[] = [
     "Fallback determinístico: frases-modelo no idioma do mercado, não uma redação da IA.",
   ];
@@ -422,35 +423,21 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
       usedAngles.add(angle);
     }
   };
-  if (input.funnel === "TOP") {
-    pushLine(bank.details(p), "brand");
-    pushLine(bank.shortDetails, "brand");
-    pushLine(bank.official(p), "brand");
-  } else if (input.funnel === "MIDDLE") {
-    pushLine(bank.compare(p), "comparison");
-    pushLine(bank.shortCompare, "comparison");
-    pushLine(bank.details(p), "brand");
-  } else {
-    pushLine(bank.buy(p), "purchase");
-    pushLine(bank.official(p), "brand");
-    pushLine(bank.order(p), "purchase");
-    pushLine(bank.details(p), "brand");
-    pushLine(bank.neutralOpen, "purchase");
-    if (input.objective === "comparison") pushLine(bank.compare(p), "comparison");
+  for (const line of winningHeadlines(input, locale, maxH)) pushLine(line.text, line.angle);
+  for (const note of [input.offer_note, input.price_note]) {
+    if (!note || note.includes("?")) continue;
+    pushLine(note, "offer");
   }
-  const offerLine = [input.offer_note, input.price_note].find((note) => note && adTextLength(note) <= maxH);
-  if (offerLine) pushLine(offerLine, "offer");
   const facts = input.description ? factualSourceSentences(input.description) : null;
-  const headlineFact = facts?.usable.find((sentence) => adTextLength(sentence) <= maxH);
-  if (headlineFact) pushLine(headlineFact, "feature");
+  const usableForProduct = (facts?.usable ?? []).filter((sentence) => sentenceBelongsToProduct(sentence, p));
   if (facts?.confirm.length) {
     limitations.push("A descrição tem alegações por confirmar. Não entraram nos anúncios.");
   }
   if (facts?.dropped.length) {
     limitations.push("Parte da descrição foi ignorada: texto que tenta dar instruções, ou frases longas demais para copiar sem reescrever.");
   }
-  if (facts && !headlineFact && facts.usable.length) {
-    limitations.push("Há factos na descrição, mas nenhum cabe num título de 30 caracteres. Não foram reescritos.");
+  if (facts && facts.usable.length > usableForProduct.length) {
+    limitations.push("Há frases na descrição que falam de outro produto ou são perguntas. Não entraram no anúncio.");
   }
   if (headlineTexts.length < 3) {
     for (const c of [bank.shortBuy, bank.shortOfficial, bank.shortOrder]) {
@@ -474,17 +461,7 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
   skipped.push("público-alvo: não foi indicado");
   limitations.push(`Ângulos usados: ${[...usedAngles].join(", ") || "nenhum"}. Por preencher: ${skipped.join("; ")}.`);
 
-  const descTexts: string[] = [];
-  for (const sentence of facts?.usable ?? []) pushUnique(descTexts, sentence, GOOGLE_RSA.descriptionMax);
-  const descBank =
-    input.funnel === "TOP"
-      ? [bank.descInfo(p), bank.descSee(p), bank.descCompare(p), bank.descOrder(p)]
-      : input.funnel === "MIDDLE"
-        ? [bank.descCompare(p), bank.descSee(p), bank.descInfo(p), bank.descOrder(p)]
-        : [bank.descSee(p), bank.descOrder(p), bank.descCompare(p), bank.descInfo(p)];
-  for (const line of descBank) {
-    pushUnique(descTexts, line, GOOGLE_RSA.descriptionMax);
-  }
+  const descTexts = winningDescriptions(input, locale, usableForProduct, GOOGLE_RSA.descriptionMax);
 
   const destination = input.final_url || input.product_url || "";
   const sitelinks: SitelinkAsset[] = [
@@ -515,8 +492,8 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
     );
   }
 
-  const path1 = pathToken(p, 15);
-  const path2Wanted = input.objective === "comparison" || input.funnel === "MIDDLE" ? pathToken("compare", 15) : "";
+  const path1 = adPath(p, 15);
+  const path2Wanted = input.objective === "comparison" || input.funnel === "MIDDLE" ? adPath("compare", 15) : "";
   const path2 = path1 && path2Wanted !== path1 ? path2Wanted : "";
 
   return {
@@ -544,7 +521,7 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
           url: input.promotion.url || destination,
         }
       : null,
-    businessName: (input.brand || input.product).slice(0, 25),
+    businessName: p.slice(0, 25),
   };
 }
 

@@ -52,8 +52,8 @@ export function CreativePanels({
         {bundle.source === "deterministic" ? (
           <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
             {bundle.llmFailed
-              ? "A geração inteligente falhou. Isto é o fallback determinístico, não um anúncio novo da IA."
-              : "Fallback determinístico. Não é uma redação da IA. Pode editar antes de copiar."}
+              ? "Sem resposta da IA, o anúncio usa o modelo fixo: o mesmo nome do produto e só o preço, o desconto ou a garantia que a página trouxe."
+              : "Modelo fixo, sem redação da IA. Usa o nome do produto e só os factos confirmados. Pode editar antes de copiar."}
           </p>
         ) : null}
         <section className="rounded-md border border-border/60 px-3 py-2 text-sm">

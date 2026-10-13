@@ -187,6 +187,35 @@ describe("factos da descrição", () => {
   });
 });
 
+describe("anúncio do modelo fixo", () => {
+  it("nome repetido fica uma vez e uma pergunta de outro produto não entra", () => {
+    const keywords = buildDeterministicKeywords("CelluCare", "en");
+    const bundle = buildDeterministicBundle(
+      {
+        product: "CelluCare CelluCare",
+        language: "en",
+        market: "US",
+        platform: "google",
+        objective: "purchase",
+        funnel: "BOTTOM",
+        description:
+          "Place your order and get UP TO £150 OFF on the official website. Do I Have a Money-Back Guarantee If VISIVRA Doesn't Work for Me?",
+      },
+      keywords,
+    );
+    const blob = [...bundle.headlines.map((h) => h.text), ...bundle.descriptions.map((d) => d.text)].join("\n");
+    assert.equal(blob.includes("VISIVRA"), false);
+    assert.equal(blob.includes("Open the offer page"), false);
+    assert.equal(blob.includes("CelluCare CelluCare"), false);
+    assert.ok(bundle.headlines.some((h) => h.text === "CelluCare Official Site"));
+    assert.ok(bundle.headlines.some((h) => h.text === "Buy CelluCare"));
+    assert.match(blob, /£150/);
+    assert.equal(bundle.path1, "CelluCare");
+    assert.ok(bundle.headlines.every((h) => adTextLength(h.text) <= 30));
+    assert.ok(bundle.descriptions.every((d) => d.text.includes("CelluCare")));
+  });
+});
+
 describe("ângulos sem dados", () => {
   it("não inventa característica, público nem oferta", () => {
     const keywords = buildDeterministicKeywords("Nordic Lamp", "en");
