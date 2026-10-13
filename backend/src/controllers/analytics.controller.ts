@@ -27,6 +27,7 @@ import { decodeTimeIdCursor, encodeTimeIdCursor, whereOlderThanTimeIdCursor } fr
 import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
 import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents.service";
 import { billingUserId } from "../lib/requestContext";
+import { countPlanClicksThisMonth } from "../lib/planClickQuota";
 import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
 import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
 
@@ -1521,31 +1522,20 @@ export const analyticsController = {
       soft_cap: boolean;
     } = { used: 0, max: null, percent: null, over_limit: false, soft_cap: true };
     try {
-      const startOfMonth = new Date();
-      startOfMonth.setUTCDate(1);
-      startOfMonth.setUTCHours(0, 0, 0, 0);
-      const [usedRow, sub] = await Promise.all([
-        systemPrisma.$queryRaw<Array<{ cnt: bigint }>>(Prisma.sql`
-          SELECT COUNT(*)::bigint AS cnt
-          FROM tracking_events
-          WHERE user_id = ${userId}
-            AND event_type::text = 'click'
-            AND created_at >= ${startOfMonth}
-            AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
-              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
-        `),
+      const [used, sub] = await Promise.all([
+        countPlanClicksThisMonth(userId),
         systemPrisma.subscription.findUnique({
           where: { userId },
           include: { plan: { select: { maxClicksPerMonth: true } } },
         }),
       ]);
-      const used = Number(usedRow[0]?.cnt ?? 0);
       const max = sub?.plan?.maxClicksPerMonth ?? null;
-      const over = max != null && max > 0 && used >= max;
+      const over = max != null && used >= max;
       click_quota = {
         used,
         max,
-        percent: max != null && max > 0 ? Math.min(100, Math.round((used / max) * 1000) / 10) : null,
+        percent:
+          max == null ? null : max === 0 ? 100 : Math.min(100, Math.round((used / max) * 1000) / 10),
         over_limit: over,
         soft_cap: true,
       };

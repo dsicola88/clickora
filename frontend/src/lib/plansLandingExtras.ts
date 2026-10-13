@@ -192,11 +192,11 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   plans_section_label: "PLANOS",
   plans_section_title: "Escolha pelo que precisa agora",
   plans_section_subtitle:
-    "Compare presells, cliques e o que cada plano inclui. Os números são os limites da conta, não uma previsão de vendas. O plano grátis não pede cartão nesta página.",
+    "Compare o que cada plano inclui. O número de páginas é o máximo que a conta deixa criar. O número de cliques é a quota do mês no painel: o anúncio não é cortado ao passar essa quota. O plano grátis não pede cartão nesta página.",
   features: {
     title: "O que leva no mesmo dia",
     subtitle:
-      "A presell, as palavras-chave, os títulos do anúncio e o rastreio dos cliques. Sem WordPress e sem alojamento à parte. A venda entra quando a rede a confirma.",
+      "A presell, as palavras-chave, os títulos do anúncio e o rastreio dos cliques. Sem WordPress e sem alojamento à parte. A venda entra nos planos que recebem o aviso da rede.",
     cards: [
       {
         title: "A presell no ar, sem WordPress",
@@ -212,11 +212,11 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       },
       {
         title: "Cliques e vendas rastreados",
-        body: "O link do anúncio leva a campanha e a palavra-chave. Vê o clique quando chega. A venda aparece no mesmo painel quando a rede de afiliados envia o postback.",
+        body: "O link do anúncio leva a campanha e a palavra-chave. Vê o clique quando chega. A venda entra no painel nos planos que incluem o aviso da rede.",
       },
       {
-        title: "Onde vale a pena gastar",
-        body: "A campanha e a palavra-chave ficam ao lado da venda confirmada. Vê o que trouxe resultado e o que só gastou. A decisão de aumentar o orçamento é sua, com os dados juntos.",
+        title: "Campanha e venda juntas",
+        body: "A campanha e a palavra-chave ficam ao lado da venda confirmada, nos planos que recebem o aviso da rede. O custo do anúncio só entra quando o Google aceita a leitura.",
       },
       {
         title: "Uma conta, em vez de quatro ferramentas",
@@ -249,7 +249,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       {
         q: "Como funciona o pagamento Hotmart?",
         a:
-          "Nos planos pagos, o botão Assinar abre o checkout Hotmart quando o link está configurado. Depois do pagamento aprovado, o webhook ativa o plano se o e-mail da compra for o da conta Clickora. Se o link não estiver configurado, a página avisa em vez de redirecionar.",
+          "Nos planos pagos, o botão abre o checkout da Hotmart. Depois do pagamento aprovado, o plano activa se o e-mail da compra for o da conta. Se o checkout não estiver ligado, a página avisa.",
       },
       {
         q: "Preciso de WordPress ou de alojamento?",
@@ -362,12 +362,12 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
       "Exemplo da interface. Postback recebido de Hotmart, Digistore24, ClickBank, BuyGoods, JVZoo e SmartAdv.",
   },
   recommended_plan_type: "monthly",
-  recommended_note: "Inclui o postback: a venda entra no painel quando a rede a confirma.",
+  recommended_note: "O aviso de vendas e os anúncios seguem os interruptores de cada cartão.",
   free_limits_note: "Serve para testar o fluxo, não para uma campanha em escala.",
   plan_taglines: {
     free_trial: "Para experimentar o fluxo, com poucas páginas e poucos cliques.",
-    monthly: "Para quem já anuncia e precisa de registar as vendas.",
-    annual: "Para usar o ano inteiro, com domínio próprio.",
+    monthly: "Para quem já anuncia. O aviso de vendas segue o interruptor deste cartão.",
+    annual: "Para o ano inteiro. Domínios e anúncios seguem os números e os interruptores deste cartão.",
     quarterly: null,
   },
   theme: null,

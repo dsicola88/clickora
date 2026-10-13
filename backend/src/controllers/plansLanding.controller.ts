@@ -17,6 +17,12 @@ import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { isR2Configured, r2PublicUrl } from "../lib/r2Storage";
 import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
 import {
+  collectCommercialStrings,
+  freeTextEmbedsNumericQuota,
+  NUMERIC_QUOTA_IN_FREE_TEXT,
+  rewriteCommercialTree,
+} from "../lib/planCommercialText";
+import {
   DEFAULT_HERO_VISUAL,
   heroVisualPatchSchema,
   heroVisualPublic,
@@ -159,9 +165,9 @@ function mapRow(row: Row) {
     footer_text_align: row.footerTextAlign,
     footer_text_size: row.footerTextSize,
     updated_at: row.updatedAt.toISOString(),
-    plan_display_labels: mergePlanDisplayLabels(row.planDisplayLabels),
+    plan_display_labels: rewriteCommercialTree(mergePlanDisplayLabels(row.planDisplayLabels)),
     hero_visual: heroVisualPublic(row.heroVisual),
-    landing_extras: normalizeLandingExtras(row.landingExtras ?? null),
+    landing_extras: rewriteCommercialTree(normalizeLandingExtras(row.landingExtras ?? null)),
   };
 }
 
@@ -247,6 +253,20 @@ export const plansLandingController = {
     }
 
     const d = parsed.data;
+    if (d.plan_display_labels) {
+      const labels = rewriteCommercialTree(d.plan_display_labels);
+      if (collectCommercialStrings(labels).some((line) => freeTextEmbedsNumericQuota(line))) {
+        return res.status(400).json({ error: NUMERIC_QUOTA_IN_FREE_TEXT });
+      }
+      d.plan_display_labels = labels;
+    }
+    if (d.landing_extras) {
+      const extras = rewriteCommercialTree(d.landing_extras);
+      if (collectCommercialStrings(extras).some((line) => freeTextEmbedsNumericQuota(line))) {
+        return res.status(400).json({ error: NUMERIC_QUOTA_IN_FREE_TEXT });
+      }
+      d.landing_extras = extras;
+    }
     const existingBefore = await findPlansLandingDefaultAdmin();
     let planLabelsJson: Prisma.InputJsonValue | undefined;
     if (d.plan_display_labels !== undefined) {

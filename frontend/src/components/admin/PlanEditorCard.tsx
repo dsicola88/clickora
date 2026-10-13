@@ -9,6 +9,7 @@ import type { AdminPlanRow } from "@/types/api";
 import { adminService } from "@/services/adminService";
 import { toast } from "sonner";
 import { formatPlanPrice, mergeWithDefaultLabels } from "@/lib/planDisplayLabels";
+import { freeTextEmbedsNumericQuota, NUMERIC_QUOTA_IN_FREE_TEXT } from "@/lib/planCommercialText";
 
 type Props = {
   plan: AdminPlanRow;
@@ -92,6 +93,14 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
+    if (features.some((line) => freeTextEmbedsNumericQuota(line))) {
+      toast.error(NUMERIC_QUOTA_IN_FREE_TEXT);
+      return;
+    }
+    if (plan.type !== "free_trial" && price_cents === 0) {
+      toast.error("Um plano pago não pode ficar a zero. Preço zero só no plano grátis.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -136,16 +145,20 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
             <Input id={`n-${plan.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`p-${plan.id}`}>Preço (valor principal)</Label>
+            <Label htmlFor={`p-${plan.id}`}>Preço mostrado na página</Label>
             <Input
               id={`p-${plan.id}`}
               inputMode="decimal"
               value={priceInput}
               onChange={(e) => setPriceInput(e.target.value)}
             />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Este valor só muda o preço escrito no cartão. A Hotmart continua a cobrar o preço da oferta do botão.
+              Quem já tem o plano permanece nele, pelo valor contratado na Hotmart. Preço zero só é permitido no plano grátis.
+            </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mp-${plan.id}`}>Máx. presells (vazio = ilimitado)</Label>
+            <Label htmlFor={`mp-${plan.id}`}>Máx. páginas (vazio = sem máximo, 0 = nenhuma página nova)</Label>
             <Input
               id={`mp-${plan.id}`}
               placeholder="—"
@@ -154,16 +167,20 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-${plan.id}`}>Máx. cliques/mês (vazio = ilimitado)</Label>
+            <Label htmlFor={`mc-${plan.id}`}>Quota de cliques no mês (vazio = sem quota, 0 = quota zero)</Label>
             <Input
               id={`mc-${plan.id}`}
               placeholder="—"
               value={maxClicks}
               onChange={(e) => setMaxClicks(e.target.value)}
             />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Vazio e zero não são a mesma coisa. Vazio não tem máximo. Zero marca a quota como ultrapassada e o anúncio continua.
+              Mudar páginas, cliques, domínios ou interruptores aplica-se logo a quem já tem este plano. O que já foi criado não é apagado.
+            </p>
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor={`mcd-${plan.id}`}>Máx. domínios personalizados (0 = só HTML/dclickora)</Label>
+            <Label htmlFor={`mcd-${plan.id}`}>Máx. domínios próprios</Label>
             <Input
               id={`mcd-${plan.id}`}
               inputMode="numeric"
@@ -173,7 +190,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`f-${plan.id}`}>Lista «Também inclui» (uma linha por funcionalidade)</Label>
+          <Label htmlFor={`f-${plan.id}`}>Texto extra do cartão, uma linha por frase</Label>
           <Textarea
             id={`f-${plan.id}`}
             rows={6}
@@ -182,6 +199,9 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
             className="resize-y font-mono text-sm"
             placeholder="Ex.: Analytics completo&#10;Suporte prioritário"
           />
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Não escreva aqui quantas páginas, cliques ou domínios. Esses números estão nos campos acima e mudam no cartão quando os alterar.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`cta-${plan.id}`}>Texto do botão (opcional)</Label>

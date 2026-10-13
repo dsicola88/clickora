@@ -381,7 +381,7 @@ export const presellController = {
       include: { plan: true },
     });
 
-    if (sub?.plan.maxPresellPages && count >= sub.plan.maxPresellPages) {
+    if (sub?.plan.maxPresellPages != null && count >= sub.plan.maxPresellPages) {
       return res.status(403).json({ error: `Limite de ${sub.plan.maxPresellPages} páginas atingido. Faça upgrade do seu plano.` });
     }
 

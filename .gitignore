@@ -40,6 +40,9 @@ build_dpa/
 # Postgres descartável da auditoria E2E local. Não é a base da Railway.
 .e2e-staging/
 
+# Artefacto solto do Vite. Não faz parte da aplicação.
+frontend/vite.config.ts.timestamp-*.mjs
+
 # Secrets (nunca enviar para o GitHub)
 backend/.env
 backend/railway.env

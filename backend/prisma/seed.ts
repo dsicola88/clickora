@@ -57,24 +57,21 @@ async function ensureUsersIntegrationColumns() {
  * Linhas curtas e honestas nos cartões — quotas reais do seed; sem prometer ROI.
  */
 const PLAN_FEATURES_STARTER = [
-  "Até 3 presell pages · 1.000 cliques/mês (trial)",
-  "Tipos de presell no editor (dentro da quota) · Métricas no painel",
-  "Tracking de cliques/impressões · Branding dclickora pode aparecer no rodapé",
-  "Postback de afiliados: upgrade para Pro Mensal ou Pro Anual",
+  "Páginas e cliques deste plano são os números do cartão. Ao passar a quota de cliques, o anúncio continua.",
+  "A marca no rodapé segue o interruptor deste plano.",
+  "O aviso de vendas da rede segue o interruptor deste plano.",
 ];
 
 const PLAN_FEATURES_PRO = [
-  "Até 25 presell pages · 50.000 cliques/mês",
-  "Todos os tipos de presell no editor · Sem branding dclickora no rodapé",
-  "Tracking com UTMs/GCLID · País e dispositivo · Postback BuyGoods/SmartAdv/Digistore",
-  "Domínio personalizado: use Pro Anual (até 2) ou export HTML no Mensal",
+  "Páginas, cliques e domínios deste plano são os números do cartão.",
+  "Ao passar a quota de cliques, o anúncio continua.",
+  "A marca, o aviso de vendas e os anúncios seguem os interruptores deste plano.",
 ];
 
 const PLAN_FEATURES_PREMIUM = [
-  "Presells e cliques com quotas amplas (uso razoável) durante o ano",
-  "Até 2 domínios personalizados · Sem branding dclickora no rodapé",
-  "Postback de afiliados + mesmas ferramentas de tracking do Pro Mensal",
-  "Módulo de anúncios (Google/Meta/TikTok) com revisão humana — quando activo no plano",
+  "Páginas e cliques seguem os campos deste plano. Vazio significa sem máximo numérico.",
+  "Ao passar uma quota de cliques, o anúncio continua.",
+  "Domínios, marca, aviso de vendas e anúncios seguem este cartão.",
 ];
 
 function jsonFeatures(lines: string[]) {
@@ -133,20 +130,14 @@ async function main() {
   const plans = await Promise.all([
     prisma.plan.upsert({
       where: { id: "plan_free" },
-      update: {
-        name: "Starter",
-        maxCustomDomains: 0,
-        affiliateWebhookEnabled: false,
-        dpilotAdsEnabled: false,
-        features: jsonFeatures(PLAN_FEATURES_STARTER),
-      },
+      update: {},
       create: {
         id: "plan_free",
         name: "Starter",
         type: "free_trial",
         priceCents: 0,
         maxPresellPages: 3,
-        maxClicksPerMonth: 1000,
+        maxClicksPerMonth: 100,
         maxCustomDomains: 0,
         hasBranding: true,
         affiliateWebhookEnabled: false,
@@ -156,15 +147,7 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
-      update: {
-        name: "Pro Mensal",
-        priceCents: 2400,
-        maxCustomDomains: 1,
-        maxClicksPerMonth: 150000,
-        affiliateWebhookEnabled: true,
-        dpilotAdsEnabled: false,
-        features: jsonFeatures(PLAN_FEATURES_PRO),
-      },
+      update: {},
       create: {
         id: "plan_monthly",
         name: "Pro Mensal",
@@ -181,14 +164,7 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_annual" },
-      update: {
-        name: "Pro Anual",
-        priceCents: 19600,
-        maxCustomDomains: 2,
-        affiliateWebhookEnabled: true,
-        dpilotAdsEnabled: true,
-        features: jsonFeatures(PLAN_FEATURES_PREMIUM),
-      },
+      update: {},
       create: {
         id: "plan_annual",
         name: "Pro Anual",

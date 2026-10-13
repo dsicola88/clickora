@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma, { systemPrisma } from "../lib/prisma";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import { rewriteKnownStalePhrase } from "../lib/planCommercialText";
 import { billingUserId } from "../lib/requestContext";
 
 /** Sem `cta_label` — para BD antiga antes de `prisma migrate deploy` (evita P2022). */
@@ -101,7 +102,9 @@ export const plansController = {
             typeof (p as { dpilotAdsEnabled?: unknown }).dpilotAdsEnabled === "boolean"
               ? (p as { dpilotAdsEnabled: boolean }).dpilotAdsEnabled
               : false,
-          features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
+          features: Array.isArray(p.features)
+            ? p.features.map((x) => rewriteKnownStalePhrase(String(x)))
+            : [],
           cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
           /** Checkout Hotmart (ou URL pública); visitante pode ir direto sem login — o webhook ativa a assinatura. */
           checkout_url: external,
@@ -116,6 +119,30 @@ export const plansController = {
 
     const plan = await findUniquePlanById(plan_id);
     if (!plan) return res.status(404).json({ error: "Plano não encontrado" });
+
+    // Só o plano grátis a preço zero ativa aqui. Um plano pago a zero não abre sem a Hotmart.
+    if (plan.type === "free_trial" && plan.priceCents === 0) {
+      await prisma.subscription.upsert({
+        where: { userId: billingUserId(req) },
+        create: {
+          userId: billingUserId(req),
+          planId: plan_id,
+          status: "active",
+        },
+        update: {
+          planId: plan_id,
+          status: "active",
+        },
+      });
+      return res.json({ message: "Plano atualizado com sucesso" });
+    }
+
+    if (plan.priceCents <= 0) {
+      return res.status(409).json({
+        error:
+          "Este plano pago está sem preço na página. A adesão fica fechada até haver um preço e o checkout. Isto não altera quem já tem o plano.",
+      });
+    }
 
     // Planos pagos: checkout na Hotmart (ou URL configurada) — webhook ativa a assinatura
     if (plan.priceCents > 0) {
@@ -132,25 +159,9 @@ export const plansController = {
         checkout_url: null,
         checkout_mode: "unconfigured",
         message:
-          "Configure HOTMART_PRODUCT_URL ou HOTMART_PLAN_CHECKOUT_URLS no servidor (checkout Hotmart). Pagamento com cartão dentro da app (ex. Stripe) não está disponível nesta região — ver docs/PAGAMENTOS-ANGOLA.md",
+          "O checkout deste plano ainda não está ligado. Contacte o suporte.",
       });
     }
-
-    // Free plan — update directly
-    await prisma.subscription.upsert({
-      where: { userId: billingUserId(req) },
-      create: {
-        userId: billingUserId(req),
-        planId: plan_id,
-        status: "active",
-      },
-      update: {
-        planId: plan_id,
-        status: "active",
-      },
-    });
-
-    res.json({ message: "Plano atualizado com sucesso" });
   },
 
   async cancel(req: Request, res: Response) {

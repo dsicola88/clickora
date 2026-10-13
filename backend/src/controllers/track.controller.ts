@@ -20,6 +20,7 @@ import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
 import { billingUserId } from "../lib/requestContext";
+import { countPlanClicksThisMonth } from "../lib/planClickQuota";
 import {
   voluumStyleMetadata,
   voluumStyleMetadataFromExpressQuery,
@@ -1564,17 +1565,8 @@ async function validateOwnerCanTrack(userId: string): Promise<{ ok: true } | { o
     return { ok: false, status: 403, message: "Assinatura do proprietário está inativa." };
   }
 
-  if (owner.subscription?.plan.maxClicksPerMonth) {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const clicksThisMonth = await systemPrisma.trackingEvent.count({
-      where: {
-        userId,
-        eventType: "click",
-        createdAt: { gte: startOfMonth },
-      },
-    });
+  if (owner.subscription?.plan.maxClicksPerMonth != null) {
+    const clicksThisMonth = await countPlanClicksThisMonth(userId);
     /**
      * Soft-cap: nunca devolver 429 no track — ads a pagar não podem falhar no redirect.
      * O painel (click_quota) mostra overage; upgrade/alerta comercial trata o excesso.

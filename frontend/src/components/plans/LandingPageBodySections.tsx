@@ -6,7 +6,10 @@ import {
   Star,
   FileStack,
   Gauge,
+  Globe,
   Palette,
+  Bell,
+  Megaphone,
   Leaf,
   TrendingUp,
   Crown,
@@ -19,6 +22,7 @@ import {
   getPlanPriceSuffix,
   interpolatePlanLabelTemplate,
 } from "@/lib/planDisplayLabels";
+import { freeTextEmbedsNumericQuota } from "@/lib/planCommercialText";
 import {
   SalesLandingFaq,
   SalesLandingFeatures,
@@ -295,7 +299,9 @@ export function LandingPageBodySections({
                 const isRecommended =
                   Boolean(extras.recommended_plan_type?.trim()) && plan.type === extras.recommended_plan_type;
                 const tagline = planTagline(extras, plan.type);
-                const featureLines = (plan.features ?? []).map((feature) => feature.trim()).filter(Boolean);
+                const featureLines = (plan.features ?? [])
+                  .map((feature) => feature.trim())
+                  .filter((feature) => feature.length > 0 && !freeTextEmbedsNumericQuota(feature));
                 const accent = planVisualAccent(plan.type);
 
                 return (
@@ -450,6 +456,14 @@ export function LandingPageBodySections({
                             >
                               {formatPagesLimit(plan.max_presell_pages)}
                             </p>
+                            {(() => {
+                              const note = (plan.max_presell_pages != null ? lb.note_pages_cap : lb.note_pages_open)?.trim();
+                              return note ? (
+                                <p className={cn("mt-1 text-justify text-xs leading-snug hyphens-auto [text-align-last:start]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                                  {note}
+                                </p>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
@@ -476,11 +490,47 @@ export function LandingPageBodySections({
                             >
                               {formatClicksLimit(plan.max_clicks_per_month)}
                             </p>
+                            {(() => {
+                              const note = (plan.max_clicks_per_month != null ? lb.note_clicks_cap : lb.note_clicks_open)?.trim();
+                              return note ? (
+                                <p className={cn("mt-1 text-justify text-xs leading-snug hyphens-auto [text-align-last:start]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                                  {note}
+                                </p>
+                              ) : null;
+                            })()}
                             {plan.type === "free_trial" && extras.free_limits_note?.trim() ? (
                               <p className={cn("mt-1 text-justify text-xs leading-snug hyphens-auto [text-align-last:start]", salesDark ? "text-slate-500" : "text-muted-foreground")}>
                                 {extras.free_limits_note}
                               </p>
                             ) : null}
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={cn(
+                              "mt-0.5 rounded-lg p-1.5 shadow-sm",
+                              salesDark ? "bg-white" : "bg-background/80",
+                            )}
+                          >
+                            <Globe
+                              className={cn("h-4 w-4", !salesDark && "text-primary")}
+                              style={salesDark ? { color: salesThemed.accent } : undefined}
+                            />
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.label_domains}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-2xl font-bold tabular-nums",
+                                salesDark ? "text-slate-900" : "text-foreground",
+                              )}
+                            >
+                              {plan.max_custom_domains > 0
+                                ? plan.max_custom_domains.toLocaleString(numLocale)
+                                : lb.domains_none}
+                            </p>
                           </div>
                         </div>
                         <div
@@ -511,6 +561,48 @@ export function LandingPageBodySections({
                               )}
                             >
                               {plan.has_branding ? lb.branding_yes : lb.branding_no}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={cn(
+                              "mt-0.5 rounded-lg p-1.5 shadow-sm",
+                              salesDark ? "bg-white" : "bg-background/80",
+                            )}
+                          >
+                            <Bell
+                              className={cn("h-4 w-4", !salesDark && "text-primary")}
+                              style={salesDark ? { color: salesThemed.accent } : undefined}
+                            />
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.label_webhook}
+                            </p>
+                            <p className={cn("text-sm font-semibold", salesDark ? "text-slate-900" : "text-foreground")}>
+                              {plan.affiliate_webhook_enabled ? lb.webhook_yes : lb.webhook_no}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={cn(
+                              "mt-0.5 rounded-lg p-1.5 shadow-sm",
+                              salesDark ? "bg-white" : "bg-background/80",
+                            )}
+                          >
+                            <Megaphone
+                              className={cn("h-4 w-4", !salesDark && "text-primary")}
+                              style={salesDark ? { color: salesThemed.accent } : undefined}
+                            />
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", salesDark ? "text-slate-500" : "text-muted-foreground")}>
+                              {lb.label_ads}
+                            </p>
+                            <p className={cn("text-sm font-semibold", salesDark ? "text-slate-900" : "text-foreground")}>
+                              {plan.dpilot_ads_enabled ? lb.ads_yes : lb.ads_no}
                             </p>
                           </div>
                         </div>

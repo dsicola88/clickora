@@ -81,7 +81,7 @@ export default function Plans() {
         return;
       }
       toast.error(
-        "Checkout ainda não está configurado no servidor (ex.: HOTMART_PRODUCT_URL ou HOTMART_PLAN_CHECKOUT_URLS).",
+        "O checkout deste plano ainda não está ligado. Contacte o suporte.",
       );
       return;
     }

@@ -4,6 +4,11 @@ import { Prisma, type AppRole, type PlanType, type SubscriptionStatus } from "@p
 import { z } from "zod";
 import { prismaAdmin } from "../lib/prisma";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import {
+  freeTextEmbedsNumericQuota,
+  NUMERIC_QUOTA_IN_FREE_TEXT,
+  rewriteKnownStalePhrase,
+} from "../lib/planCommercialText";
 
 function parseDateInput(s: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
@@ -157,7 +162,9 @@ export const adminController = {
           "dpilotAdsEnabled" in p && typeof (p as { dpilotAdsEnabled?: unknown }).dpilotAdsEnabled === "boolean"
             ? (p as { dpilotAdsEnabled: boolean }).dpilotAdsEnabled
             : false,
-        features: Array.isArray(p.features) ? p.features.map((x) => String(x)) : [],
+        features: Array.isArray(p.features)
+          ? p.features.map((x) => rewriteKnownStalePhrase(String(x)))
+          : [],
         cta_label: "ctaLabel" in p ? (p.ctaLabel ?? null) : null,
       })),
     );
@@ -301,6 +308,17 @@ export const adminController = {
     if (!existing) return res.status(404).json({ error: "Plano não encontrado" });
 
     const p = parsed.data;
+    if (p.price_cents === 0 && existing.type !== "free_trial") {
+      return res.status(400).json({
+        error:
+          "Um plano pago não pode ficar a zero. Preço zero só no plano grátis. O preço deste ecrã não muda o valor cobrado na Hotmart.",
+      });
+    }
+
+    const features = p.features?.map((line) => rewriteKnownStalePhrase(line));
+    if (features?.some((line) => freeTextEmbedsNumericQuota(line))) {
+      return res.status(400).json({ error: NUMERIC_QUOTA_IN_FREE_TEXT });
+    }
     if (
       p.name === undefined &&
       p.price_cents === undefined &&
@@ -329,7 +347,7 @@ export const adminController = {
           ? { affiliateWebhookEnabled: p.affiliate_webhook_enabled }
           : {}),
         ...(p.dpilot_ads_enabled !== undefined ? { dpilotAdsEnabled: p.dpilot_ads_enabled } : {}),
-        ...(p.features !== undefined ? { features: p.features } : {}),
+        ...(features !== undefined ? { features } : {}),
         ...(p.cta_label !== undefined ? { ctaLabel: p.cta_label } : {}),
       },
     });
