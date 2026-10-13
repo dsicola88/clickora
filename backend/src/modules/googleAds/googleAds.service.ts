@@ -1167,12 +1167,18 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     if (loginAttempts.some((item) => item === id)) return;
     loginAttempts.push(id);
   };
-  if (chosen?.kind === "needs_manager") {
+  if (chosen?.kind === "needs_manager" || chosen?.kind === "unknown") {
     for (const manager of managers) pushLogin(manager.id);
+    for (const other of accounts) {
+      if (other.id !== customerId) pushLogin(other.id);
+    }
     pushLogin(loginCustomerId);
   } else {
     pushLogin(loginCustomerId);
     for (const manager of managers) pushLogin(manager.id);
+    for (const other of accounts) {
+      if (other.id !== customerId) pushLogin(other.id);
+    }
   }
 
   let customer = client.Customer({
@@ -1258,10 +1264,11 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
 
   if (conversionError) {
     const msg = plainGoogleAdsError(conversionError);
+    const others = accounts.filter((a) => a.id !== customerId).length;
     const hint =
-      managers.length > 0
-        ? " As contas gestoras deste login não desbloquearam a leitura."
-        : " Nenhuma conta gestora veio neste login. Se a conta está debaixo de uma MCC, indique o ID da gestora.";
+      others > 0
+        ? ` Este login vê mais ${others} conta(s) e nenhuma desbloqueou a leitura.`
+        : " Este login só vê esta conta. Se ela está debaixo de uma MCC, indique o ID da gestora.";
     return {
       ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}${hint}`),
       accounts_found: accounts.length,

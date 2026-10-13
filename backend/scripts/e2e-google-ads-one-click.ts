@@ -38,6 +38,10 @@ class GoogleAdsApi {
           if (opts.customer_id === MANAGER && login !== MANAGER) throw permissionError();
           if (opts.customer_id === CLIENT && login !== MANAGER) throw permissionError();
         }
+        if (opts.refresh_token === "mcc-blind-token") {
+          if (opts.customer_id === MANAGER) throw permissionError();
+          if (opts.customer_id === CLIENT && login !== MANAGER) throw permissionError();
+        }
         if (opts.customer_id === CLIENT && !login) throw permissionError();
         if (gaql.includes("customer.manager") || gaql.includes("customer.descriptive_name")) {
           if (opts.customer_id === MANAGER) {
@@ -232,6 +236,22 @@ async function main() {
     "gestora que só responde com o próprio id fica gravada",
     hiddenBoot.ok === true && hiddenBoot.customer_id === CLIENT && hiddenBoot.login_customer_id === MANAGER,
     `customer=${hiddenBoot.customer_id} login=${hiddenBoot.login_customer_id ?? "vazio"} ${hiddenBoot.detail}`,
+  );
+
+  const blindMcc = await prisma.user.create({
+    data: {
+      email: `e2e-gads-blind-mcc-${stamp}@clickora.test`,
+      password: "x",
+      fullName: "E2E blind mcc",
+      googleAdsRefreshToken: "mcc-blind-token",
+      googleAdsCustomerId: CLIENT,
+    },
+  });
+  const blindBoot = await bootstrapGoogleAdsAfterOAuth(blindMcc.id);
+  record(
+    "outra conta do login desbloqueia a leitura mesmo sem parecer gestora",
+    blindBoot.ok === true && blindBoot.customer_id === CLIENT && blindBoot.login_customer_id === MANAGER,
+    `customer=${blindBoot.customer_id} login=${blindBoot.login_customer_id ?? "vazio"} ${blindBoot.detail}`,
   );
 
   const failed = results.filter((r) => !r.ok);
