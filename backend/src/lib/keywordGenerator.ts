@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalProductName } from "./ads/adText";
 
 export const KEYWORD_INTENTS = [
   "BUY",
@@ -488,7 +489,7 @@ function phrasesFor(lang: KeywordLanguageCode, p: string): PhraseSet {
 }
 
 export function buildDeterministicKeywords(product: string, language: KeywordLanguageCode): KeywordItem[] {
-  const p = normalizeKeywordText(product).replace(/[^\p{L}\p{N}\s-]/gu, "").trim();
+  const p = canonicalProductName(normalizeKeywordText(product).replace(/[^\p{L}\p{N}\s-]/gu, "").trim());
   if (p.length < 2) return [];
   const set = phrasesFor(language, p);
   const raw: unknown[] = [];

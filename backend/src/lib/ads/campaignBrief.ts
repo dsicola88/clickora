@@ -3,7 +3,7 @@ import type { KeywordItem } from "../keywordGenerator";
 import { safeImportFetch } from "../presellSafeFetch";
 import { PresellImportBlockedError } from "../presellImportSsrf";
 import type { AdGenerateInput } from "./adBundle";
-import { extractProductPageFacts, htmlToPlainText, type PageFact } from "./productPageFacts";
+import { extractProductPageFacts, htmlToPlainText, type PageFact, type ProductPageFacts } from "./productPageFacts";
 
 export const AFFILIATE_PLATFORMS = [
   "digistore24",
@@ -119,6 +119,37 @@ function isHtml(contentType: string | undefined, body: Buffer): boolean {
   return /<html|<!doctype|<title/i.test(start);
 }
 
+function isPublicWebUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local")) return false;
+    if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function commercialScore(facts: ProductPageFacts): number {
+  return Number(Boolean(facts.priceNote)) + Number(Boolean(facts.guaranteeNote)) + Number(Boolean(facts.promotionPercent));
+}
+
+/** Segunda leitura, já com JavaScript, quando o HTML inicial não traz preço, garantia nem desconto. */
+async function readRenderedPage(url: string, language: string): Promise<string | null> {
+  if (!isPublicWebUrl(url) || process.env.PRESELL_DISABLE_PLAYWRIGHT === "1") return null;
+  try {
+    const { acceptLanguageForPresellImport, fetchRenderedPageBundle } = await import("../presellFoldBrowser");
+    const rendered = await fetchRenderedPageBundle(url, acceptLanguageForPresellImport(language));
+    const html = rendered.html?.slice(0, 400_000) ?? "";
+    if (htmlToPlainText(html).length < 40) return null;
+    return html;
+  } catch {
+    return null;
+  }
+}
+
 async function readPage(url: string): Promise<string> {
   try {
     const res = await safeImportFetch({
@@ -150,9 +181,23 @@ export async function prepareCampaignInput(brief: CampaignBrief): Promise<{ inpu
     html = brief.page_text;
     pageStatus = "pasted";
   } else {
-    html = await readPage(brief.product_url);
+    try {
+      html = await readPage(brief.product_url);
+    } catch (error) {
+      const rendered = await readRenderedPage(brief.product_url, brief.language);
+      if (!rendered) throw error;
+      html = rendered;
+    }
   }
-  const extracted = extractProductPageFacts(html);
+  const extractedFirst = extractProductPageFacts(html, brief.product);
+  let extracted = extractedFirst;
+  if (pageStatus === "fetched" && commercialScore(extractedFirst) === 0) {
+    const rendered = await readRenderedPage(brief.product_url, brief.language);
+    if (rendered) {
+      const again = extractProductPageFacts(rendered, brief.product);
+      if (commercialScore(again) > 0) extracted = again;
+    }
+  }
   const input: AdGenerateInput = {
     product: brief.product,
     language: brief.language,

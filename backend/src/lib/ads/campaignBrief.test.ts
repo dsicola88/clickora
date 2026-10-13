@@ -29,6 +29,25 @@ describe("extractProductPageFacts", () => {
   });
 });
 
+describe("extractProductPageFacts produto", () => {
+  it("ignora a frase de outro produto e lê 77% mesmo sem a palavra off", () => {
+    const html = `
+      <p>Do I have a money-back guarantee if VISIVRA doesn't work for me? 180 day money-back guarantee.</p>
+      <p>CelluCare costs $49 today.</p>
+      <p>CelluCare includes a 180 day money-back guarantee.</p>
+      <p>77%</p>
+      <p>100% natural ingredients.</p>
+      <img alt="CelluCare only £39">
+    `;
+    const facts = extractProductPageFacts(html, "CelluCare");
+    assert.match(facts.priceNote ?? "", /CelluCare costs \$49/);
+    assert.equal(/VISIVRA/i.test(facts.priceNote ?? ""), false);
+    assert.equal(/VISIVRA/i.test(facts.guaranteeNote ?? ""), false);
+    assert.match(facts.guaranteeNote ?? "", /180 day money-back/i);
+    assert.equal(facts.promotionPercent, "77");
+  });
+});
+
 describe("prepareCampaignInput", () => {
   it("usa só o texto colado quando a página não é consultada", async () => {
     const prepared = await prepareCampaignInput({

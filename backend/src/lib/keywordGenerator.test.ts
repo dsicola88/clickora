@@ -170,4 +170,10 @@ describe("generateKeywordsForInput", () => {
       if (prev !== undefined) process.env.OPENAI_API_KEY = prev;
     }
   });
+
+  it("não repete o nome do produto nas palavras-chave", () => {
+    const keywords = buildDeterministicKeywords("CelluCare CelluCare", "en");
+    assert.equal(keywords.some((k) => /cellucare cellucare/i.test(k.keyword)), false);
+    assert.ok(keywords.some((k) => /buy cellucare/i.test(k.keyword)));
+  });
 });
