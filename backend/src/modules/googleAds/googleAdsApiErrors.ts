@@ -7,15 +7,15 @@
 
 /** Variáveis GOOGLE_ADS_* em falta no servidor — não pedir ao utilizador final que «configure a API». */
 export const GOOGLE_ADS_REPORTING_PLATFORM_NOT_READY =
-  "Os relatórios Google Ads ainda não estão ativos neste ambiente. Se a sua subscrição incluir esta funcionalidade, contacte o suporte ou o administrador da plataforma.";
+  "O custo do Google Ads ainda não está disponível. Se o seu plano incluir esta função, contacte o suporte.";
 
 /** Utilizador ainda não autorizou a app junto da Google. */
 export const GOOGLE_ADS_REPORTING_USER_OAUTH_REQUIRED =
-  "Para ver estes relatórios, ligue primeiro a sua conta Google em «Resumo e guia» → Google Ads (utilize «Ligar com Google»).";
+  "Para ver o custo, ligue primeiro a conta Google em Integrações → Google Ads.";
 
 /** Customer ID em falta no perfil do utilizador. */
 export const GOOGLE_ADS_REPORTING_USER_CUSTOMER_ID_REQUIRED =
-  "Para ver estes relatórios, indique o Customer ID da sua conta Google Ads em «Resumo e guia» → Google Ads.";
+  "Para ver o custo, indique o número da conta Google Ads em Integrações → Google Ads.";
 
 const MAX_API_ERROR_LEN = 480;
 
@@ -52,18 +52,18 @@ export function humanizeGoogleAdsApiError(raw: string): string {
   const t = raw.trim();
   const lower = t.toLowerCase();
   if (!t) {
-    return "A Google Ads API não indicou o motivo do erro. Tente novamente dentro de alguns minutos.";
+    return "O Google não indicou o motivo. Tente de novo dentro de alguns minutos.";
   }
 
   if (lower.includes("invalid_grant") || lower.includes("unauthenticated") || /\b401\b/.test(lower)) {
-    return "A autorização Google expirou ou foi revogada. Volte a ligar a conta em «Resumo e guia» → Google Ads.";
+    return "A autorização Google expirou. Volte a ligar a conta em Integrações → Google Ads.";
   }
   if (
     lower.includes("permission_denied") ||
     lower.includes("user doesn't have permission") ||
     (lower.includes("403") && lower.includes("permission"))
   ) {
-    return "Não tem permissão para consultar esta conta Google Ads. Confirme o acesso do utilizador, o gestor de contas (MCC / login customer) e o nível do developer token.";
+    return "O Google não deixou ler esta conta. Confirme que a conta de anúncios é sua. Se usa uma conta que gere as outras, indique o número dela.";
   }
   if (
     lower.includes("resource_exhausted") ||
@@ -71,16 +71,16 @@ export function humanizeGoogleAdsApiError(raw: string): string {
     lower.includes("rate exceeded") ||
     lower.includes("too many requests")
   ) {
-    return "O limite de pedidos à Google Ads foi atingido. Aguarde alguns minutos e tente novamente.";
+    return "O Google pediu uma pausa porque houve pedidos a mais. Aguarde alguns minutos e tente de novo.";
   }
   if (lower.includes("deadline_exceeded") || lower.includes("timeout") || lower.includes("etimedout")) {
-    return "O pedido à Google Ads excedeu o tempo limite. Tente novamente.";
+    return "O Google demorou demasiado a responder. Tente de novo.";
   }
   if (lower.includes("invalid_customer") || lower.includes("customer not found")) {
-    return "O Customer ID não foi encontrado ou não está acessível com estas credenciais. Verifique o ID em «Resumo e guia».";
+    return "Não encontrámos esta conta de anúncios com a autorização que ligou. Confirme o número em Integrações → Google Ads.";
   }
   if (lower.includes("developer_token") && (lower.includes("not approved") || lower.includes("provisional"))) {
-    return "O developer token ainda não tem o nível de acesso necessário. Consulte o estado do token na Google Ads API Center.";
+    return "A leitura de custos ainda não está disponível. Contacte o suporte.";
   }
 
   /** Resposta Axios/gRPC tratada de forma incorrecta por versões da biblioteca — não é o erro real da Google. */
@@ -89,13 +89,12 @@ export function humanizeGoogleAdsApiError(raw: string): string {
     (lower.includes("reading 'get'") || lower.includes('reading "get"'))
   ) {
     return (
-      "A ligação à Google Ads falhou (resposta inesperada). Confirme a internet, volte a autorizar em «Resumo e guia» → Google Ads, " +
-      "verifique o Customer ID e tente de novo em alguns minutos. Se persistir, o servidor pode estar a receber um erro da Google que não foi interpretado — contacte o suporte com a hora do pedido."
+      "A ligação ao Google Ads falhou. Volte a ligar a conta em Integrações → Google Ads e tente de novo dentro de alguns minutos. Se continuar, contacte o suporte."
     );
   }
 
   if (!t || t === "[object object]" || /[\[\]{}]/.test(t)) {
-    return "Não foi possível obter o custo do Google Ads neste período. Volte a ligar a conta em Integrações → Google Ads e confirme o ID da conta.";
+    return "Não foi possível obter o custo do Google Ads neste período. Volte a ligar a conta em Integrações → Google Ads e confirme o número da conta.";
   }
 
   const detail = t.length > MAX_API_ERROR_LEN ? `${t.slice(0, MAX_API_ERROR_LEN)}…` : t;

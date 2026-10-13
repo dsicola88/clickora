@@ -66,9 +66,9 @@ function xNum(n: number | null | undefined) {
 }
 
 function spendSourceLabel(src: string | undefined) {
-  if (src === "persisted") return "Sync período";
-  if (src === "google_ads") return "Google Ads API";
-  if (src === "manual") return "Manual (fora do ROAS)";
+  if (src === "persisted") return "Custo do período";
+  if (src === "google_ads") return "Google Ads";
+  if (src === "manual") return "Escrito à mão";
   return "Sem custo";
 }
 
@@ -284,7 +284,7 @@ export default function ResultsOverviewPage() {
   const showCheckouts = dim === "offers" || dim === "countries";
   const dimHint: Record<DimId, string> = {
     offers: "Uma linha por página. Visitantes são cliques qualificados. Checkouts só entram quando a rede os envia.",
-    campaigns: "Agrupado pela campanha do anúncio. Custo e ROAS usam o gasto sincronizado do período.",
+    campaigns: "Agrupado pela campanha do anúncio. Custo e retorno usam o gasto do período.",
     keywords: "Palavra-chave do anúncio. O custo aparece quando o Google Ads do período está ligado.",
     adgroups: "Grupo de anúncios. O custo aparece quando o Google Ads do período está ligado.",
     countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
@@ -297,7 +297,7 @@ export default function ResultsOverviewPage() {
       toast.message("Sem linhas para exportar.");
       return;
     }
-    const headers = ["dimension", "clicks", "checkouts", "sales", "revenue", "cost", "profit", "roas", "roi", "epc", "cvr"];
+    const headers = ["nome", "visitantes", "checkouts", "vendas", "receita", "custo", "lucro", "retorno_do_gasto", "retorno", "por_visita", "taxa_de_venda"];
     const lines = [
       headers.join(","),
       ...activeRows.map((r) =>
@@ -323,7 +323,7 @@ export default function ResultsOverviewPage() {
     a.download = `pnl_${dim}_${from}_${to}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("CSV exportado");
+    toast.success("Ficheiro descarregado");
   };
 
   const totClicks = activeRows.reduce((s, r) => s + r.clicks, 0);
@@ -342,17 +342,17 @@ export default function ResultsOverviewPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Resultados"
-        subtitle="Visitantes, checkouts da rede e vendas aprovadas. Lucro e ROAS só com custo sincronizado do período."
+        subtitle="Visitantes, checkouts e vendas aprovadas. Lucro e retorno só entram quando há custo do período."
         meta={
           <>
             <span className="font-mono tabular-nums">
               {from} → {to}
             </span>
-            <span>UTC</span>
+            <span>Hora universal</span>
             {isFetching ? <span>A actualizar…</span> : null}
             {health ? <ProStatusDot ok={health.score >= 85} label={`Saúde ${health.score}%`} /> : null}
             {attr && attr.approved_sales > 0 ? (
-              <ProStatusDot ok={attr.unattributed_sales === 0} label={`Atribuição ${attr.attribution_rate ?? 0}%`} />
+              <ProStatusDot ok={attr.unattributed_sales === 0} label={`Vendas com clique ${attr.attribution_rate ?? 0}%`} />
             ) : null}
             <ProStatusDot
               ok={mb?.spend_source === "persisted" || mb?.spend_source === "google_ads"}
@@ -403,7 +403,7 @@ export default function ResultsOverviewPage() {
       {health && health.score < 100 && health.checks.some((c) => !c.ok) ? (
         <ProPanel
           title="Operações"
-          description="Só o que falta para confiar no ROAS."
+          description="O que falta para o retorno ficar completo."
           actions={<ProInlineLink to="/integracoes">Integrações</ProInlineLink>}
         >
           <div className="grid gap-0 sm:grid-cols-2 lg:grid-cols-4">
@@ -451,7 +451,7 @@ export default function ResultsOverviewPage() {
         <ProKpiCell
           label="Conversões"
           value={conversions.toLocaleString("pt-PT")}
-          hint="Postback aprovado"
+          hint="Venda aprovada"
           delta={deltaLabel(cmp?.delta.conversions_pct)}
         />
         <ProKpiCell
@@ -466,14 +466,14 @@ export default function ResultsOverviewPage() {
           tone={mb?.profit != null ? (mb.profit >= 0 ? "positive" : "negative") : "muted"}
         />
         <ProKpiCell
-          label="ROI"
+          label="Retorno"
           value={accountRoi != null ? pct(accountRoi) : "—"}
           tone={accountRoi != null ? (accountRoi >= 0 ? "positive" : "negative") : "muted"}
         />
         <ProKpiCell
-          label="ROAS / EPC / CVR"
+          label="Retorno do gasto"
           value={mb?.roas != null ? xNum(mb.roas) : "—"}
-          hint={`${money(mb?.epc ?? null, currency)} EPC · ${pct(rate)} CVR${ctr != null ? ` · ${pct(ctr)} CTR` : ""}`}
+          hint={`${money(mb?.epc ?? null, currency)} por visita · ${pct(rate)} de vendas${ctr != null ? ` · ${pct(ctr)} de cliques` : ""}`}
         />
       </ProKpiGrid>
 
@@ -530,7 +530,7 @@ export default function ResultsOverviewPage() {
             title={clicks > 0 ? "Sem linhas nesta dimensão" : "Sem tráfego no período"}
             detail={
               clicks > 0
-                ? "Macros/UTMs em falta ou filtro sem match. Confirme o URL do anúncio."
+                ? "Falta o nome da campanha no link do anúncio, ou o filtro não encontrou linhas. Confirme o endereço do anúncio."
                 : "Publique a presell, cole o link rastreado e espere cliques reais."
             }
             action={
@@ -566,10 +566,10 @@ export default function ResultsOverviewPage() {
                     <ProReportTh>Receita</ProReportTh>
                     <ProReportTh>Custo</ProReportTh>
                     <ProReportTh>Lucro</ProReportTh>
-                    <ProReportTh>ROI</ProReportTh>
-                    <ProReportTh>ROAS</ProReportTh>
-                    <ProReportTh>CVR</ProReportTh>
-                    <ProReportTh>EPC</ProReportTh>
+                    <ProReportTh>Retorno</ProReportTh>
+                    <ProReportTh>Retorno do gasto</ProReportTh>
+                    <ProReportTh>Taxa de venda</ProReportTh>
+                    <ProReportTh>Por visita</ProReportTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -641,13 +641,13 @@ export default function ResultsOverviewPage() {
                 tone={totProfit != null ? (totProfit >= 0 ? "positive" : "negative") : undefined}
               />
               <ProTotalStat
-                label="ROI"
+                label="Retorno"
                 value={pct(totRoi)}
                 tone={totRoi != null ? (totRoi >= 0 ? "positive" : "negative") : undefined}
               />
-              <ProTotalStat label="ROAS" value={xNum(totRoas)} />
-              <ProTotalStat label="CVR" value={pct(totCvr)} />
-              <ProTotalStat label="EPC" value={money(totEpc, currency)} />
+              <ProTotalStat label="Retorno do gasto" value={xNum(totRoas)} />
+              <ProTotalStat label="Taxa de venda" value={pct(totCvr)} />
+              <ProTotalStat label="Por visita" value={money(totEpc, currency)} />
               <span className="ml-auto text-[10px] text-zinc-500">{activeRows.length} linhas</span>
             </ProTotalsBar>
           </>
@@ -656,8 +656,8 @@ export default function ResultsOverviewPage() {
 
       {mb?.manual_spend_lifetime != null && mb.spend_source === "manual" ? (
         <p className="text-[11px] text-muted-foreground px-0.5">
-          Gasto manual acumulado {money(mb.manual_spend_lifetime, currency)} — não entra no ROAS da conta.{" "}
-          <ProInlineLink to="/integracoes/automizer">Sync custos</ProInlineLink>
+          Gasto escrito à mão {money(mb.manual_spend_lifetime, currency)} — não entra no retorno da conta.{" "}
+          <ProInlineLink to="/integracoes/automizer">Actualizar custos</ProInlineLink>
         </p>
       ) : null}
     </div>

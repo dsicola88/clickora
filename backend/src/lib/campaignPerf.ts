@@ -135,9 +135,9 @@ export function buildMediaBuyerAlerts(args: {
     alerts.push({
       code: "no_spend",
       severity: "info",
-      title: "ROI incompleto",
+      title: "Retorno incompleto",
       detail:
-        "Lucro, ROI e ROAS ficam em branco até haver custo do Google Ads no mesmo período. O gasto escrito à mão na campanha não entra neste cálculo.",
+        "Lucro e retorno ficam em branco até haver custo do Google Ads no mesmo período. O valor escrito à mão na campanha não entra neste cálculo.",
     });
   }
 

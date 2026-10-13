@@ -55,14 +55,14 @@ async function adsCustomer(user: GoogleAdsUserSettings) {
     return {
       ok: false as const,
       error:
-        "Faltam credenciais para a Google Ads API (OAuth ou variáveis GOOGLE_ADS_* no servidor). Consulte «Resumo e guia» ou o administrador do sistema.",
+        "A ligação ao Google Ads ainda não está disponível. Contacte o suporte.",
     };
   }
   const customerId = onlyDigits(user.googleAdsCustomerId);
   if (!customerId || !DIGITS_ONLY.test(customerId)) {
     return {
       ok: false as const,
-      error: "O Customer ID não é válido. Utilize apenas números, sem hífenes, tal como na Google Ads.",
+      error: "O número da conta não é válido. Use só os dígitos, sem hífenes, como aparece no Google Ads.",
     };
   }
   const login = onlyDigits(user.googleAdsLoginCustomerId);

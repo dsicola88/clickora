@@ -429,9 +429,9 @@ export default function Integrations() {
                   <CloudUpload className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="font-semibold text-foreground">Google Ads — conversões offline (CSV)</p>
+                  <p className="font-semibold text-foreground">Google Ads — enviar vendas</p>
                   <p className="text-sm text-muted-foreground">
-                    URL assinada para importar GCLID e valores no Google Ads.
+                    Endereço para enviar as vendas ao Google Ads.
                   </p>
                 </div>
               </div>
@@ -489,7 +489,7 @@ export default function Integrations() {
 
               <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-5">
                 <li>
-                  O ficheiro para o Google Ads (GCLID) gera-se em{" "}
+                  O ficheiro das vendas para o Google Ads gera-se em{" "}
                   <strong className="text-foreground/90">Meu rastreamento</strong> ou em{" "}
                   <strong className="text-foreground/90">Relatórios → Conversões</strong>, com o nome exacto da acção em
                   Conversões na conta Google.

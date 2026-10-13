@@ -74,7 +74,7 @@ export default function AffiliateAutomizerPage() {
   if (isLoading) {
     return (
       <div className={PRO_PAGE_SHELL}>
-        <LoadingState message="A carregar Automizer…" />
+        <LoadingState message="A carregar custos automáticos…" />
       </div>
     );
   }
@@ -82,8 +82,8 @@ export default function AffiliateAutomizerPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Automizer & custos"
-        subtitle="Pausa palavras-chave Google sem receita de postback · sincronização diária de custo para os resultados. Simule primeiro."
+        title="Custos automáticos"
+        subtitle="Pausa palavras-chave sem vendas e actualiza o custo em Resultados. Comece em simulação."
       />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
@@ -92,7 +92,7 @@ export default function AffiliateAutomizerPage() {
           <Zap className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground space-y-1">
             <p>
-              Regra: gasto ≥ limiar + cliques ≥ mínimo + receita postback = 0 → pausa a keyword no Google Ads.
+              Regra: gasto acima do limite, visitas acima do mínimo e nenhuma venda. A palavra-chave fica em pausa no Google Ads.
             </p>
             <p>
               Comece em <strong className="text-foreground">simulação</strong> (só regista o que pausaria). Depois desligue a simulação.
@@ -101,7 +101,7 @@ export default function AffiliateAutomizerPage() {
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="auto-on">Activar Automizer</Label>
+          <Label htmlFor="auto-on">Activar pausa automática</Label>
           <Switch id="auto-on" checked={enabled} disabled={locked} onCheckedChange={setEnabled} />
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -147,24 +147,24 @@ export default function AffiliateAutomizerPage() {
         </div>
 
         <div className="space-y-1.5 border-t border-border/50 pt-4">
-          <Label>ID da conta Meta Ads (opcional — custo no ROAS)</Label>
+          <Label>Número da conta Meta (opcional)</Label>
           <Input
-            placeholder="act_123… ou só números"
+            placeholder="Número da conta de anúncios"
             value={metaAct}
             disabled={locked}
             onChange={(e) => setMetaAct(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Usa o mesmo access token da Meta CAPI com permissão ads_read.</p>
+          <p className="text-xs text-muted-foreground">Usa a mesma ligação da Meta, com permissão para ler anúncios.</p>
         </div>
         <div className="space-y-1.5">
-          <Label>TikTok Advertiser ID (opcional)</Label>
+          <Label>Número da conta TikTok (opcional)</Label>
           <Input
             placeholder="ID numérico"
             value={ttAdv}
             disabled={locked}
             onChange={(e) => setTtAdv(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Requer token Marketing API (não só Events).</p>
+          <p className="text-xs text-muted-foreground">Precisa da ligação de anúncios do TikTok.</p>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
@@ -176,14 +176,14 @@ export default function AffiliateAutomizerPage() {
             disabled={locked || save.isPending}
             onClick={() => save.mutate({ sync_costs_now: true })}
           >
-            Sincronizar custos agora
+            Actualizar custos agora
           </Button>
           <Button
             variant="outline"
             disabled={locked || save.isPending || !enabled}
             onClick={() => save.mutate({ run_automizer_now: true })}
           >
-            Correr Automizer agora
+            Aplicar pausas agora
           </Button>
           <Button variant="ghost" asChild>
             <Link to="/integracoes">Voltar</Link>
@@ -191,9 +191,9 @@ export default function AffiliateAutomizerPage() {
         </div>
       </section>
 
-      <ProPanel title="Auditoria" description="Últimas 30 acções (simulação ou pausa real).">
+      <ProPanel title="Histórico" description="Últimas 30 acções, em simulação ou de verdade.">
         {(data?.recent_logs?.length ?? 0) === 0 ? (
-          <ProEmpty title="Sem registos" detail="Active a simulação e corra o Automizer ou a sincronização de custos." />
+          <ProEmpty title="Sem registos" detail="Active a simulação e aplique as pausas, ou actualize os custos." />
         ) : (
           <ProTable>
             <thead>

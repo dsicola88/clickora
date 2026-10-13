@@ -267,7 +267,7 @@ export default function Relatorios() {
       return;
     }
     if (selectedConversionIds.length === 0) {
-      toast.error("Selecione pelo menos uma linha com GCLID.");
+      toast.error("Seleccione pelo menos uma venda com clique do Google.");
       return;
     }
     setExporting("google-ads");
@@ -707,11 +707,11 @@ export default function Relatorios() {
   const syncLabel = (sync: string | null) => {
     if (sync === "sent") return { ok: true, text: "Enviado" };
     if (!sync || sync === "skipped_pending") return { ok: false, text: "Pendente" };
-    if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem fbclid" };
-    if (sync === "skipped_no_ttclid") return { ok: false, text: "Sem ttclid" };
-    if (sync === "skipped_no_gclid") return { ok: false, text: "Sem gclid" };
-    if (sync === "skipped_disabled") return { ok: false, text: "Inactivo" };
-    if (sync === "skipped_no_config") return { ok: false, text: "Config. incompleta" };
+    if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem clique Meta" };
+    if (sync === "skipped_no_ttclid") return { ok: false, text: "Sem clique TikTok" };
+    if (sync === "skipped_no_gclid") return { ok: false, text: "Sem clique Google" };
+    if (sync === "skipped_disabled") return { ok: false, text: "Desligado" };
+    if (sync === "skipped_no_config") return { ok: false, text: "Conta por ligar" };
     if (sync === "failed") return { ok: false, text: "Erro API" };
     return { ok: false, text: sync };
   };
@@ -802,7 +802,7 @@ export default function Relatorios() {
               </Select>
             </div>
             <div className="space-y-2 flex-1 min-w-[160px]">
-              <Label>Filtrar por texto (Click ID / GCLID / palavra-chave)</Label>
+              <Label>Filtrar por texto (clique, palavra-chave)</Label>
               <Input
                 placeholder="Opcional"
                 value={gclidFilter}
@@ -847,22 +847,20 @@ export default function Relatorios() {
           </TabsTrigger>
           <TabsTrigger
             value="sem-gclid"
-            title="Conversões sem Click ID (GCLID / gbraid / wbraid)"
+            title="Vendas sem o identificador do clique no Google"
             className="shrink-0 max-w-[200px] sm:max-w-none text-left leading-tight"
           >
-            Sem Click ID
+            Sem clique Google
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="acessos" className="mt-6 space-y-4">
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = Impressão (presell) ou{" "}
-            <em>Checkout</em> / Lander (funil da rede). Tipo: <em>Pago</em> = GCLID/msclkid real;{" "}
-            <em>Ads (sem ID)</em> = UTM de rede sem ID real; <em>Orgânico</em> = sem sinais de ads. País é o do visitante.
-            Região só quando o IP não é um nó da CDN.
-            Checkout da rede (BuyGoods Funnel Pixel, SmartAdv Event, etc.) só aparece depois de configurar o bloco Funil em
-            Integrações → Postback — não inventamos Checkout Visitors.
+            <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = abertura da página ou{" "}
+            <em>Checkout</em>. Tipo: <em>Pago</em> = clique de anúncio; <em>Ads (sem ID)</em> = anúncio sem o
+            identificador do clique; <em>Orgânico</em> = sem anúncio. País é o do visitante.
+            O checkout da rede só aparece depois de configurar o aviso de vendas em Integrações.
           </p>
           <TimezoneAlert />
           <DateFilters />
@@ -945,15 +943,15 @@ export default function Relatorios() {
                           Palavra chave
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha UTM
+                          Campanha
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio (content)
+                          Anúncio
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="SO · browser (User-Agent)">
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="Sistema e navegador">
                           Dispositivo
                         </th>
                         <th
@@ -1032,7 +1030,7 @@ export default function Relatorios() {
                                 }`}
                                 title={
                                   row.type === "Ads (sem ID)"
-                                    ? "UTM/rede de ads sem GCLID real (teste manual ou macros não substituídas)"
+                                    ? "Anúncio sem o identificador do clique (teste ou link incompleto)"
                                     : undefined
                                 }
                               >
@@ -1152,21 +1150,21 @@ export default function Relatorios() {
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">IP</th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Click ID
+                          Clique
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Palavra chave
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha UTM
+                          Campanha
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio (content)
+                          Anúncio
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="SO · browser (User-Agent)">
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="Sistema e navegador">
                           Dispositivo
                         </th>
                         <th
@@ -1242,7 +1240,7 @@ export default function Relatorios() {
                                 }`}
                                 title={
                                   row.type === "Ads (sem ID)"
-                                    ? "UTM/rede de ads sem GCLID real (teste manual ou macros não substituídas)"
+                                    ? "Anúncio sem o identificador do clique (teste ou link incompleto)"
                                     : undefined
                                 }
                               >
@@ -1315,7 +1313,7 @@ export default function Relatorios() {
               <div className="border-b border-border bg-muted/20 px-4 py-3">
                 <p className="text-sm font-medium text-foreground">Resumo por campanha (período filtrado)</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Usa o nome da campanha UTM; se não houver, o nome enviado pela plataforma de afiliados (postback).
+                  Usa o nome da campanha do anúncio. Se não houver, usa o nome enviado pela rede.
                 </p>
               </div>
               <div className="overflow-x-auto">
@@ -1446,7 +1444,7 @@ export default function Relatorios() {
                 ) : null}
                 {!conversionsQuery.isLoading && conversionsQuery.isSuccess && !periodHasGclidConversions ? (
                   <p className="text-xs text-muted-foreground pt-3 border-t border-border/60">
-                    Neste período não há conversões com GCLID; o upload manual no Google Ads não se aplica a estas linhas.
+                    Neste período não há vendas com clique do Google. O ficheiro manual não se aplica a estas linhas.
                   </p>
                 ) : null}
               </div>
@@ -1470,14 +1468,14 @@ export default function Relatorios() {
                             checked={allConvPageSelected}
                             disabled={convPageSelectableIds.length === 0 || exportBusy}
                             onCheckedChange={() => toggleConvPageSelection()}
-                            aria-label="Seleccionar todas com GCLID nesta página"
+                            aria-label="Seleccionar as vendas com clique do Google nesta página"
                           />
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Data
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Click ID
+                          Clique
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
@@ -1489,7 +1487,7 @@ export default function Relatorios() {
                           Origem (fonte/meio/campanha)
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha UTM
+                          Campanha
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Anúncio (utm_content)
@@ -1540,8 +1538,8 @@ export default function Relatorios() {
                                   disabled={!row.gclid?.trim() || exportBusy}
                                   title={
                                     row.gclid?.trim()
-                                      ? "Incluir no ficheiro GCLID para Google Ads"
-                                      : "Sem GCLID no clique — use apenas cliques com etiquetagem automática (GCLID)"
+                                      ? "Incluir no ficheiro para o Google Ads"
+                                      : "Esta venda não tem clique do Google"
                                   }
                                   onCheckedChange={(v) => {
                                     if (!row.gclid?.trim()) return;
@@ -1554,8 +1552,8 @@ export default function Relatorios() {
                                   }}
                                   aria-label={
                                     row.gclid?.trim()
-                                      ? "Seleccionar conversão para exportação Google Ads"
-                                      : "Conversão sem GCLID"
+                                      ? "Seleccionar venda para o ficheiro do Google Ads"
+                                      : "Venda sem clique do Google"
                                   }
                                 />
                               </td>
@@ -1663,7 +1661,7 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Conversões em que o clique não tem identificador Google (gclid / gbraid / wbraid).
+                Vendas cujo clique não tem o identificador do Google.
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                 <Button
@@ -1679,7 +1677,7 @@ export default function Relatorios() {
                   }
                   title={
                     noGclidQuery.isSuccess && !canExportNoGclid
-                      ? "Não há conversões sem Click ID neste período."
+                      ? "Não há vendas sem clique do Google neste período."
                       : undefined
                   }
                   onClick={() => void handleExportCsv("no-gclid")}
@@ -1718,7 +1716,7 @@ export default function Relatorios() {
                           Data
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Click ID
+                          Clique
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
@@ -1730,10 +1728,10 @@ export default function Relatorios() {
                           Origem
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha UTM
+                          Campanha
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio (content)
+                          Anúncio
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Palavra-chave

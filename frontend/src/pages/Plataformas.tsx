@@ -190,17 +190,16 @@ export default function Plataformas() {
     return (
       <div className={PRO_PAGE_SHELL}>
         <ProPageHeader
-          title="Postback"
-          subtitle="URL para a rede notificar vendas aprovadas no dclickora."
+          title="Vendas da rede"
+          subtitle="Endereço para a rede avisar as vendas aprovadas."
         />
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
           <p className="flex items-center gap-2 font-medium">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-            Webhook de afiliados não está activo no seu plano
+            O aviso de vendas da rede não está activo no seu plano
           </p>
           <p className="text-muted-foreground leading-relaxed text-xs">
-            O URL de postback e a documentação por rede estão disponíveis nos planos que incluem esta funcionalidade.
-            Um administrador pode também activar a opção «Webhook de afiliados» no seu plano no painel de administração.
+            O endereço e as instruções por rede estão nos planos que incluem esta função.
           </p>
           <Button variant="secondary" size="sm" asChild>
             <Link to="/planos">Ver planos e preços</Link>
@@ -225,8 +224,8 @@ export default function Plataformas() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Postback"
-        subtitle="Vendas por postback · funil (Checkout) só quando a rede dispara pixel ou Event — sem inventar métricas."
+        title="Vendas da rede"
+        subtitle="A rede avisa cada venda aprovada. O checkout só aparece quando a rede o envia."
       />
 
       {intLocked ? (

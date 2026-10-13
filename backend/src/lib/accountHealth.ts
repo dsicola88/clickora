@@ -103,16 +103,16 @@ export async function buildAccountHealth(args: {
       detail:
         campaignTracked > 0
           ? `${campaignTracked} campanha(s) activa(s) com presell`
-          : "Crie uma campanha e copie o URL do anúncio (UTMs + macros).",
+          : "Crie uma campanha e copie o endereço do anúncio.",
       href: "/campanhas",
     },
     {
       id: "postback_plan",
       ok: webhookOk,
-      title: "Postback no plano",
+      title: "Aviso de vendas no plano",
       detail: webhookOk
-        ? "O plano permite webhooks de afiliado"
-        : "O plano actual não inclui postback — actualize o plano ou contacte suporte.",
+        ? "O plano permite receber vendas da rede"
+        : "O plano actual não recebe vendas da rede. Actualize o plano ou contacte o suporte.",
       href: "/planos",
     },
     {
@@ -121,8 +121,8 @@ export async function buildAccountHealth(args: {
       title: "Vendas da rede",
       detail:
         anySale > 0
-          ? "Já há vendas aprovadas via postback"
-          : "Configure o URL de postback em Integrações → Vendas da rede e faça uma venda de teste.",
+          ? "Já há vendas aprovadas da rede"
+          : "Configure o aviso de vendas em Integrações → Vendas da rede e faça uma venda de teste.",
       href: "/integracoes/postback",
     },
     {
@@ -130,37 +130,37 @@ export async function buildAccountHealth(args: {
       ok: googleOk,
       title: "Google Ads (custo do período)",
       detail: googleOk
-        ? "OAuth + customer ID prontos para ROAS"
-        : "Ligue o Google Ads em Integrações → Google Ads (1 clique).",
+        ? "Conta Google ligada. O retorno só aparece se o Google deixar ler o custo."
+        : "Ligue o Google Ads em Integrações → Google Ads.",
       href: "/integracoes/google-ads",
     },
     {
       id: "cost_sync",
       ok: costOk,
-      title: "Sync de custos",
+      title: "Custos do período",
       detail: costOk
-        ? `Último sync ${last_cost_sync_at ? new Date(last_cost_sync_at).toLocaleString("pt-PT") : ""}`
-        : "Ainda sem custo diário — ligue Google Ads ou use «Sync custos» no Automizer.",
+        ? `Última actualização ${last_cost_sync_at ? new Date(last_cost_sync_at).toLocaleString("pt-PT") : ""}`
+        : "Ainda sem custo do período. Ligue o Google Ads ou actualize os custos.",
       href: "/integracoes/automizer",
     },
     {
       id: "attribution",
       ok: approved === 0 || (attribution_rate != null && attribution_rate >= 80),
-      title: "Atribuição de vendas",
+      title: "Vendas ligadas ao clique",
       detail:
         approved === 0
-          ? "Sem vendas no período — normal em arranque"
-          : `${attributed}/${approved} atribuídas (${attribution_rate ?? 0}%) · ${unattr} órfã(s)`,
+          ? "Sem vendas no período."
+          : `${attributed} de ${approved} vendas estão ligadas a um clique (${attribution_rate ?? 0}%). ${unattr} sem clique.`,
       href: "/resultados/conversoes",
     },
     {
       id: "macros",
       ok: macroClicksInPeriod === 0,
-      title: "Macros ValueTrack",
+      title: "Link do anúncio",
       detail:
         macroClicksInPeriod === 0
-          ? "Sem {keyword}/{adgroupid} literais no período"
-          : `${macroClicksInPeriod} clique(s) com macros não substituídas (testes manuais?)`,
+          ? "Os links do período trazem a palavra-chave e o anúncio."
+          : `${macroClicksInPeriod} clique(s) chegaram com o link por preencher. Confirme o endereço do anúncio.`,
       href: "/tracking/url-builder",
     },
   ];

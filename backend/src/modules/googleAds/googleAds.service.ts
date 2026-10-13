@@ -174,7 +174,7 @@ export async function fetchGoogleAdsAccountMetrics(input: {
     return {
       ok: false,
       error:
-        "Faltam credenciais para a Google Ads API (OAuth ou variáveis GOOGLE_ADS_* no servidor). Consulte «Resumo e guia» ou o administrador do sistema.",
+        "A ligação ao Google Ads ainda não está disponível. Contacte o suporte.",
     };
   }
 
@@ -461,7 +461,7 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
   const actionId = user.googleAdsConversionActionId?.trim();
   if (!customerId || !actionId) {
     await markGoogleAdsSkip(conv.id, "skipped_no_config", {
-      reason: "Indique o ID da conta Google Ads e o ID numérico da acção de conversão nas definições.",
+      reason: "Indique o número da conta Google Ads em Integrações → Google Ads.",
     });
     return;
   }
@@ -470,7 +470,7 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
   if (!creds) {
     await markGoogleAdsSkip(conv.id, "skipped_no_config", {
       reason:
-        "Faltam credenciais de API: variáveis GOOGLE_ADS_* no servidor, OAuth (refresh token) e developer token. Consulte a documentação ou o administrador do sistema.",
+        "A ligação ao Google Ads ainda não está disponível. Contacte o suporte.",
     });
     return;
   }
@@ -1112,7 +1112,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
         enabled: false,
         can_upload: false,
         accounts_found: accounts.length,
-        detail: `Várias contas Ads (${clients.map((account) => account.id).join(", ")}). Indique o Customer ID da conta de anúncios e use «Re-sincronizar setup».`,
+        detail: `Encontrámos várias contas de anúncios (${clients.map((account) => account.id).join(", ")}). Indique o número da conta e use «Actualizar ligação».`,
       };
     }
     if (clients.length === 1) {
@@ -1155,7 +1155,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
       if (!customerId) {
         return {
           ...empty(
-            "Conta gestora (MCC) ligada, mas sem conta cliente acessível. Escolha uma conta de anúncios no Google Ads e volte a ligar.",
+            "Ligou uma conta que gere outras, mas não há conta de anúncios acessível. Escolha a conta onde estão os anúncios e volte a ligar.",
           ),
           accounts_found: accounts.length,
           login_customer_id: loginCustomerId,
@@ -1277,12 +1277,12 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     const visible = accounts.map((a) => a.id).join(", ") || "nenhuma";
     const seen = accounts.some((a) => a.id === customerId);
     const hint = !seen
-      ? ` A conta ${customerId} não está neste login Google. Contas visíveis: ${visible}.`
+      ? ` A conta ${customerId} não está na conta Google que ligou. Contas que esta autorização vê: ${visible}.`
       : others.length > 0
-        ? ` Este login vê mais ${others.length} conta(s) e nenhuma desbloqueou a leitura. Contas: ${visible}.`
-        : " Este login só vê esta conta. Se ela está debaixo de uma MCC, indique o ID da gestora.";
+        ? ` Esta autorização vê mais ${others.length} conta(s) e nenhuma permitiu a leitura. Contas: ${visible}.`
+        : " Esta autorização só vê esta conta. Se os anúncios estão numa conta gerida por outra, indique o número dessa conta gestora.";
     return {
-      ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}${hint}`),
+      ...empty(`${humanizeGoogleAdsApiError(msg)}${hint}`),
       accounts_found: accounts.length,
       customer_id: customerId,
       login_customer_id: loginCustomerId,
@@ -1315,8 +1315,8 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     enabled: true,
     can_upload: isGoogleAdsClickUploadReadyForUser(updated),
     accounts_found: accounts.length,
-    detail: conversionActionCreated
-      ? `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : ". MCC não gravada"} · ação «${CLICKORA_OFFLINE_ACTION_NAME}» criada · upload automático ON`
-      : `Conta ${customerId}${loginCustomerId ? ` via MCC ${loginCustomerId}` : ". MCC não gravada"} · ação ${conversionActionId} · upload automático ON`,
+    detail: `Conta ${customerId}${
+      loginCustomerId ? `. Conta gestora ${loginCustomerId}` : ". Conta gestora não indicada"
+    }. O envio das vendas está activo.`,
   };
 }

@@ -141,9 +141,9 @@ function isGoogleAdsInsightsUnavailableCode(code: string | null | undefined): bo
 function isGoogleAdsReportingSetupMessage(message: string): boolean {
   const t = message.trim();
   return (
-    t.startsWith("Os relatórios Google Ads ainda não estão ativos neste ambiente") ||
-    t.startsWith("Para ver estes relatórios, ligue primeiro") ||
-    t.startsWith("Para ver estes relatórios, indique o Customer ID") ||
+    t.startsWith("O custo do Google Ads ainda não está disponível") ||
+    t.startsWith("Para ver o custo, ligue primeiro") ||
+    t.startsWith("Para ver o custo, indique o número da conta") ||
     t.startsWith("Não é possível obter estes relatórios:")
   );
 }
@@ -545,12 +545,12 @@ function GoogleAdsInsightsPanel() {
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
                   {errCode === "google_ads_platform_not_configured"
-                    ? "Relatórios Google Ads indisponíveis neste ambiente"
+                    ? "O custo do Google Ads ainda não está disponível"
                     : errCode === "google_ads_oauth_required"
                       ? "Ligue a sua conta Google"
                       : errCode === "google_ads_customer_id_required"
-                        ? "Indique o Customer ID da conta"
-                        : "Configuração Google Ads necessária"}
+                        ? "Indique o número da conta"
+                        : "Falta ligar o Google Ads"}
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{errMsg}</p>
                 {errCode === "google_ads_platform_not_configured" ? (
