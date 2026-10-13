@@ -1264,10 +1264,13 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
 
   if (conversionError) {
     const msg = plainGoogleAdsError(conversionError);
-    const others = accounts.filter((a) => a.id !== customerId).length;
-    const hint =
-      others > 0
-        ? ` Este login vê mais ${others} conta(s) e nenhuma desbloqueou a leitura.`
+    const others = accounts.filter((a) => a.id !== customerId);
+    const visible = accounts.map((a) => a.id).join(", ") || "nenhuma";
+    const seen = accounts.some((a) => a.id === customerId);
+    const hint = !seen
+      ? ` A conta ${customerId} não está neste login Google. Contas visíveis: ${visible}.`
+      : others.length > 0
+        ? ` Este login vê mais ${others.length} conta(s) e nenhuma desbloqueou a leitura. Contas: ${visible}.`
         : " Este login só vê esta conta. Se ela está debaixo de uma MCC, indique o ID da gestora.";
     return {
       ...empty(`conversion_action_failed: ${humanizeGoogleAdsApiError(msg)}${hint}`),
