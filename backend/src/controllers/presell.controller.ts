@@ -112,7 +112,7 @@ const importFromUrlSchema = z.object({
 
 export const presellController = {
   async getPublicById(req: Request, res: Response) {
-    res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     const id = req.params.id;
     /** Rota pública sem JWT / ALS — usar systemPrisma com filtro explícito por id. */
     const page = await systemPrisma.presellPage.findFirst({
@@ -149,7 +149,7 @@ export const presellController = {
    * No dclickora.com / localhost / preview Vercel usa-se sempre GET /presells/id/:uuid.
    */
   async getPublicBySlug(req: Request, res: Response) {
-    res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     const raw = req.params.slug;
     const slug = typeof raw === "string" ? decodeURIComponent(raw) : "";
     if (!slug || slug.length > 200) {
@@ -199,7 +199,7 @@ export const presellController = {
    * Se `custom_domains.root_presell_id` estiver definido, usa essa; senão a mais recentemente atualizada.
    */
   async getRootPresellForHost(req: Request, res: Response) {
-    res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     const host = getRequestHostname(req);
     if (!host || isMainOrPreviewHostname(host)) {
       return res.status(404).json({ error: "Indisponível neste host.", code: "ROOT_PRESELL_MAIN_HOST" });

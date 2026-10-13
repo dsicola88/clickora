@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useInsertionEffect,
@@ -33,7 +35,11 @@ import {
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
-import { PublicBuilderPresellView } from "@/components/presell/PublicBuilderPresellView";
+const PublicBuilderPresellView = lazy(() =>
+  import("@/components/presell/PublicBuilderPresellView").then((m) => ({
+    default: m.PublicBuilderPresellView,
+  })),
+);
 import { getTrackApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
 import {
   getPublicPresellPrefetchResult,
@@ -998,15 +1004,17 @@ export default function PublicPresell() {
           aria-hidden
           data-presell-inject="body-start"
         />
-        <PublicBuilderPresellView
-          doc={builderDoc}
-          trackOfferHref={href || undefined}
-          offerUrl={
-            affiliateLink.trim() && affiliateLink.trim() !== "#"
-              ? affiliateLink.trim()
-              : undefined
-          }
-        />
+        <Suspense fallback={null}>
+          <PublicBuilderPresellView
+            doc={builderDoc}
+            trackOfferHref={href || undefined}
+            offerUrl={
+              affiliateLink.trim() && affiliateLink.trim() !== "#"
+                ? affiliateLink.trim()
+                : undefined
+            }
+          />
+        </Suspense>
       </div>
     );
   }

@@ -32,25 +32,11 @@ export function ImportedPageMirrorIframe({
     const el = ref.current;
     if (!el) return;
     try {
-      const doc = el.contentDocument;
-      const b = doc?.body;
-      const root = doc?.documentElement;
-      const h = Math.max(
-        480,
-        Math.min(
-          48_000,
-          Math.ceil(
-            Math.max(
-              b?.scrollHeight ?? 0,
-              root?.scrollHeight ?? 0,
-              b?.offsetHeight ?? 0,
-              root?.offsetHeight ?? 0,
-              480,
-            ) + 48,
-          ),
-        ),
-      );
-      setHeight(h);
+      const b = el.contentDocument?.body;
+      // Só o conteúdo. A altura do <html> acompanha o iframe e, se entrar na conta, cresce até ao tecto.
+      const contentH = Math.max(b?.scrollHeight ?? 0, b?.offsetHeight ?? 0, 480);
+      const next = Math.min(48_000, Math.ceil(contentH + 8));
+      setHeight((prev) => (Math.abs(prev - next) <= 2 ? prev : next));
     } catch {
       setHeight(2600);
     }

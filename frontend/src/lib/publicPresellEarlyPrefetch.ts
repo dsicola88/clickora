@@ -6,6 +6,24 @@ import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 
 const inflight = new Map<string, Promise<Presell | null>>();
 
+type EarlyPresell = { param: string; promise: Promise<Presell | null> };
+
+function takeEarlyHtmlPrefetch(param: string): Promise<Presell | null> | null {
+  if (typeof window === "undefined") return null;
+  const early = (window as Window & { __clickoraPresellEarly?: EarlyPresell }).__clickoraPresellEarly;
+  if (!early || early.param !== param) return null;
+  return early.promise.then((data) => {
+    if (data) {
+      try {
+        applyEarlyPresellShareImageHints(data);
+      } catch {
+        /* ignore */
+      }
+    }
+    return data;
+  });
+}
+
 function upsertMeta(attrName: "name" | "property", key: string, value: string) {
   const sel = attrName === "name" ? `meta[name="${key}"]` : `meta[property="${key}"]`;
   let el = document.querySelector(sel) as HTMLMetaElement | null;
@@ -71,7 +89,6 @@ async function fetchPublicPresellJson(param: string): Promise<Presell | null> {
     try {
       const res = await fetch(url, {
         credentials: "omit",
-        cache: "no-store",
         headers: { Accept: "application/json" },
       });
       if (!res.ok) {
@@ -104,7 +121,7 @@ export function startPublicPresellPrefetchFromLocation(): void {
 export function startPublicPresellPrefetchForParam(param: string): void {
   const p = param.trim();
   if (!p || inflight.has(p)) return;
-  inflight.set(p, fetchPublicPresellJson(p));
+  inflight.set(p, takeEarlyHtmlPrefetch(p) ?? fetchPublicPresellJson(p));
 }
 
 /**

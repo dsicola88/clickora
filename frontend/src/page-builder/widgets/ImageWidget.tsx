@@ -2,6 +2,7 @@ import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import { useInlineEdit } from "../inline-edit";
+import { useClaimLcpMedia } from "../lcp-media";
 
 export function ImageWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const src = (widget.content.src as string) ?? "";
@@ -11,15 +12,17 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
   const css = stylesToCssWidgetContent(widget.styles, device);
   const { width, height, ...wrapperRest } = css;
   const editing = Boolean(useInlineEdit());
-
   const hasSrc = src.trim().length > 0;
+  const priority = useClaimLcpMedia(hasSrc);
 
   const inner = hasSrc ? (
     <img
       src={src}
       alt={alt}
       style={{ width, height, maxWidth: "100%", display: "block" }}
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      decoding="async"
+      fetchPriority={priority ? "high" : "auto"}
     />
   ) : (
     <div

@@ -7,12 +7,48 @@
     <meta name="theme-color" content="#0f172a" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap"
+    />
     <script>
       (function () {
         try {
           var p = location.pathname || "";
           if (/^\/p\/[^/]+/.test(p)) {
             document.title = "\u00A0";
+            try {
+              var host = location.hostname;
+              if (host !== "localhost" && host !== "127.0.0.1") {
+                var seg = "";
+                try {
+                  seg = decodeURIComponent((p.split("/")[2] || "").replace(/\/+$/, ""));
+                } catch (e2) {
+                  seg = (p.split("/")[2] || "").replace(/\/+$/, "");
+                }
+                if (seg) {
+                  var isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg);
+                  var apiPath = isUuid
+                    ? "/api/public/presells/id/" + encodeURIComponent(seg)
+                    : "/api/public/presells/slug/" + encodeURIComponent(seg);
+                  window.__clickoraPresellEarly = {
+                    param: seg,
+                    promise: fetch(apiPath, {
+                      credentials: "omit",
+                      headers: { Accept: "application/json" },
+                    })
+                      .then(function (r) {
+                        return r.ok ? r.json() : null;
+                      })
+                      .catch(function () {
+                        return null;
+                      }),
+                  };
+                }
+              }
+            } catch (e3) {}
             document
               .querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')
               .forEach(function (el) {

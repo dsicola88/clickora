@@ -14,8 +14,33 @@ export function ensureMirrorResponsiveBaseHtml(html: string): string {
   return html.replace(/<head\b[^>]*>/i, (open) => `${open}${MIRROR_RESPONSIVE_STYLE_IN_HEAD}`);
 }
 
+/** A primeira imagem do clone entra já; as seguintes só quando se aproximam do ecrã. */
+export function deferMirrorImagesBelowFold(html: string): string {
+  let seen = 0;
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    seen += 1;
+    if (/\bloading\s*=/i.test(tag)) return tag;
+    const attrs =
+      seen === 1
+        ? ' loading="eager" fetchpriority="high" decoding="async"'
+        : ' loading="lazy" decoding="async"';
+    return tag.replace(/<img\b/i, `<img${attrs}`);
+  });
+}
+
 export function buildMirrorSrcDocWithTrackHref(srcDoc: string, trackHref: string): string {
   const escaped = escapeHtmlAttrHref(trackHref);
   const filled = srcDoc.split(CLICKORA_MIRROR_TRACK_MARKER).join(escaped);
-  return ensureMirrorResponsiveBaseHtml(filled);
+  return preconnectMirrorImageHost(deferMirrorImagesBelowFold(ensureMirrorResponsiveBaseHtml(filled)));
+}
+
+function preconnectMirrorImageHost(html: string): string {
+  const match = html.match(/<img\b[^>]*\bsrc=["'](https:\/\/[^/"']+)/i);
+  const origin = match?.[1];
+  if (!origin || html.includes(`rel="preconnect" href="${origin}"`)) return html;
+  const tag = `<link rel="preconnect" href="${origin}" crossorigin>`;
+  if (/<head\b[^>]*>/i.test(html)) {
+    return html.replace(/<head\b[^>]*>/i, (open) => `${open}${tag}`);
+  }
+  return html;
 }

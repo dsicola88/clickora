@@ -69,7 +69,7 @@ class ApiClient {
         headers: isFormData ? this.getFormDataHeaders(headers) : this.getHeaders(headers),
         body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
         signal,
-        ...(isPublicPresellGet ? { cache: "no-store" as RequestCache } : {}),
+        ...(isPublicPresellGet ? { cache: "default" as RequestCache } : {}),
       });
 
       if (!response.ok) {

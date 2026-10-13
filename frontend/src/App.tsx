@@ -8,48 +8,67 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingFavicon } from "@/components/BrandingFavicon";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppLayout } from "@/components/AppLayout";
-import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
-import Home from "./pages/Home";
-import PresellDashboard from "./pages/PresellDashboard";
-import PresellManualPagesPage from "./pages/PresellManualPagesPage";
-import PresellCreator from "./pages/PresellCreator";
-import Plataformas from "./pages/Plataformas";
-import Relatorios from "./pages/Relatorios";
-import Analytics from "./pages/Analytics";
-import Rotadores from "./pages/Rotadores";
-import TrackingTools from "./pages/TrackingTools";
-import Blacklist from "./pages/Blacklist";
-import UrlBuilder from "./pages/UrlBuilder";
-import Integrations from "./pages/Integrations";
-import Settings from "./pages/Settings";
-import Logs from "./pages/Logs";
-import Plans from "./pages/Plans";
-import { LandingRoot } from "./components/LandingRoot";
-import AdminPanel, { AdminEntryRedirect } from "./pages/AdminPanel";
-import Account from "./pages/Account";
-import NotFound from "./pages/NotFound";
-import PublicPresell from "./pages/PublicPresell";
-import IntentConversionPage from "./pages/IntentConversionPage";
-import AffiliateGuidePage from "./pages/AffiliateGuidePage";
-import InAppUserGuidePage from "./pages/InAppUserGuidePage";
-import SetupAssistantPage from "./pages/SetupAssistantPage";
-import { DpilotPaidApp } from "./pages/dpilot/DpilotPaidApp";
-import LegalPrivacyPage from "./pages/LegalPrivacyPage";
-import LegalTermsPage from "./pages/LegalTermsPage";
-import ResultsOverviewPage from "./pages/ResultsOverviewPage";
-import CampaignsPage from "./pages/CampaignsPage";
-import CampaignDetailPage from "./pages/CampaignDetailPage";
-import CreatePresellWizardPage from "./pages/CreatePresellWizardPage";
-import IntegrationsHubPage from "./pages/IntegrationsHubPage";
-import GoogleAdsConnectPage from "./pages/GoogleAdsConnectPage";
-import SettingsHubPage from "./pages/SettingsHubPage";
-import AffiliateAutomizerPage from "./pages/AffiliateAutomizerPage";
-import KeywordsPage from "./pages/KeywordsPage";
-import LessonsPage from "./pages/LessonsPage";
 
+const AppLayout = lazy(() =>
+  import("@/components/AppLayout").then((m) => ({ default: m.AppLayout })),
+);
+const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Home = lazy(() => import("./pages/Home"));
+const PresellDashboard = lazy(() => import("./pages/PresellDashboard"));
+const PresellManualPagesPage = lazy(() => import("./pages/PresellManualPagesPage"));
+const PresellCreator = lazy(() => import("./pages/PresellCreator"));
+const Plataformas = lazy(() => import("./pages/Plataformas"));
+const Relatorios = lazy(() => import("./pages/Relatorios"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Rotadores = lazy(() => import("./pages/Rotadores"));
+const TrackingTools = lazy(() => import("./pages/TrackingTools"));
+const Blacklist = lazy(() => import("./pages/Blacklist"));
+const UrlBuilder = lazy(() => import("./pages/UrlBuilder"));
+const Integrations = lazy(() => import("./pages/Integrations"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Logs = lazy(() => import("./pages/Logs"));
+const Plans = lazy(() => import("./pages/Plans"));
+const LandingRoot = lazy(() =>
+  import("./components/LandingRoot").then((m) => ({ default: m.LandingRoot })),
+);
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const AdminEntryRedirect = lazy(() =>
+  import("./pages/AdminPanel").then((m) => ({ default: m.AdminEntryRedirect })),
+);
+const Account = lazy(() => import("./pages/Account"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PublicPresell = lazy(() => import("./pages/PublicPresell"));
+const IntentConversionPage = lazy(() => import("./pages/IntentConversionPage"));
+const AffiliateGuidePage = lazy(() => import("./pages/AffiliateGuidePage"));
+const InAppUserGuidePage = lazy(() => import("./pages/InAppUserGuidePage"));
+const SetupAssistantPage = lazy(() => import("./pages/SetupAssistantPage"));
+const DpilotPaidApp = lazy(() =>
+  import("./pages/dpilot/DpilotPaidApp").then((m) => ({ default: m.DpilotPaidApp })),
+);
+const LegalPrivacyPage = lazy(() => import("./pages/LegalPrivacyPage"));
+const LegalTermsPage = lazy(() => import("./pages/LegalTermsPage"));
+const ResultsOverviewPage = lazy(() => import("./pages/ResultsOverviewPage"));
+const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
+const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
+const CreatePresellWizardPage = lazy(() => import("./pages/CreatePresellWizardPage"));
+const IntegrationsHubPage = lazy(() => import("./pages/IntegrationsHubPage"));
+const GoogleAdsConnectPage = lazy(() => import("./pages/GoogleAdsConnectPage"));
+const SettingsHubPage = lazy(() => import("./pages/SettingsHubPage"));
+const AffiliateAutomizerPage = lazy(() => import("./pages/AffiliateAutomizerPage"));
+const KeywordsPage = lazy(() => import("./pages/KeywordsPage"));
+const LessonsPage = lazy(() => import("./pages/LessonsPage"));
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
+
+function RouteFallback() {
+  const path = typeof window !== "undefined" ? window.location.pathname : "";
+  if (path.startsWith("/p/")) return null;
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      A carregar…
+    </div>
+  );
+}
 
 function BrandingFaviconGate() {
   const { pathname } = useLocation();
@@ -140,6 +159,7 @@ const App = () => (
         <BrowserRouter>
           <BrandingFaviconGate />
           <AuthProvider>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/privacidade" element={<LegalPrivacyPage />} />
@@ -185,6 +205,7 @@ const App = () => (
                 }
               />
             </Routes>
+            </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

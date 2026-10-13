@@ -2,6 +2,7 @@ import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types
 import { resolveResponsive } from "../store";
 import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WIDGET_REGISTRY } from "../widget-registry";
+import { LcpMediaScope } from "../lcp-media";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { WidgetInlineStyle } from "../widget-custom-css";
 
@@ -18,16 +19,18 @@ export function PageRenderer({
   device?: DeviceType;
 }) {
   return (
-    <div
-      style={{
-        background: doc.settings.background ?? "#ffffff",
-        minHeight: "100%",
-      }}
-    >
-      {doc.sections.map((section) => (
-        <SectionRender key={section.id} section={section} device={device} />
-      ))}
-    </div>
+    <LcpMediaScope>
+      <div
+        style={{
+          background: doc.settings.background ?? "#ffffff",
+          minHeight: "100%",
+        }}
+      >
+        {doc.sections.map((section) => (
+          <SectionRender key={section.id} section={section} device={device} />
+        ))}
+      </div>
+    </LcpMediaScope>
   );
 }
 
