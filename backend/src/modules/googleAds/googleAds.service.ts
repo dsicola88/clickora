@@ -1092,6 +1092,15 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
   const managers = accounts.filter((a) => a.kind === "manager");
   const clients = accounts.filter((a) => a.kind === "direct" || a.kind === "needs_manager");
 
+  if (customerId && !accounts.some((account) => account.id === customerId)) {
+    customerId = null;
+    loginCustomerId = null;
+    await systemPrisma.user.update({
+      where: { id: userId },
+      data: { googleAdsCustomerId: null, googleAdsLoginCustomerId: null },
+    });
+  }
+
   if (!customerId) {
     if (clients.length > 1) {
       return {
@@ -1103,7 +1112,7 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
         enabled: false,
         can_upload: false,
         accounts_found: accounts.length,
-        detail: `Várias contas Ads (${clients.length}). Indique o Customer ID da conta de anúncios e use «Re-sincronizar setup».`,
+        detail: `Várias contas Ads (${clients.map((account) => account.id).join(", ")}). Indique o Customer ID da conta de anúncios e use «Re-sincronizar setup».`,
       };
     }
     if (clients.length === 1) {

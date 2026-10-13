@@ -65,7 +65,12 @@ export default function GoogleAdsConnectPage() {
       void qc.invalidateQueries({ queryKey: ["integrations", "google-ads"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
     } else if (st === "error") {
-      toast.error(params.get("reason") || "Falha no OAuth Google Ads");
+      const reason = params.get("reason") || "";
+      toast.error(
+        reason === "no_refresh_token"
+          ? "O Google não devolveu a autorização permanente. Volte a escolher a conta e aceite o acesso."
+          : reason || "Falha no OAuth Google Ads",
+      );
     }
     setParams({}, { replace: true });
   }, [params, setParams, qc]);

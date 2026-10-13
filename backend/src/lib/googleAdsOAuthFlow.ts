@@ -47,9 +47,25 @@ export function getGoogleAdsOAuthRedirectUri(): string {
   return `${base}/integrations/google-ads/oauth/callback`;
 }
 
+function isLocalFrontend(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+/** Origem para onde o browser volta depois do Google. Em produção nunca manda para localhost. */
 export function getPrimaryFrontendOrigin(): string {
-  const raw = process.env.FRONTEND_URL?.split(",")[0]?.trim();
-  if (raw) return raw.replace(/\/$/, "");
+  const parts = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((part) => part.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  const publicOrigin = parts.find((origin) => origin.startsWith("https://") && !isLocalFrontend(origin));
+  if (publicOrigin) return publicOrigin;
+  if (process.env.NODE_ENV === "production") return "https://www.dclickora.com";
+  if (parts[0]) return parts[0];
   return "http://localhost:8080";
 }
 
@@ -63,7 +79,7 @@ export function buildGoogleAdsAuthorizeUrl(state: string): { authorizeUrl: strin
     response_type: "code",
     scope: "https://www.googleapis.com/auth/adwords",
     access_type: "offline",
-    prompt: "select_account",
+    prompt: "consent select_account",
     state,
   });
   return { authorizeUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` };
