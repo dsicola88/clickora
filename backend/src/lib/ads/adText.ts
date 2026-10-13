@@ -39,6 +39,19 @@ export function canonicalProductName(raw: string): string {
   return words.join(" ");
 }
 
+/** Nome no anúncio: «visivra33» fica «Visivra33». Não muda uma marca que já tem maiúsculas. */
+export function adDisplayName(raw: string): string {
+  const name = canonicalProductName(raw);
+  return name
+    .split(" ")
+    .map((word) => {
+      const first = word.charAt(0);
+      if (!first || first !== first.toLowerCase()) return word;
+      return first.toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
 /**
  * Caminho do anúncio: o nome inteiro se couber em 15.
  * Se não couber, a primeira palavra. Nunca corta uma palavra a meio.

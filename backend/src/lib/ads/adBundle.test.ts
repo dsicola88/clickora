@@ -214,6 +214,30 @@ describe("anúncio do modelo fixo", () => {
     assert.ok(bundle.headlines.every((h) => adTextLength(h.text) <= 30));
     assert.ok(bundle.descriptions.every((d) => d.text.includes("CelluCare")));
   });
+
+  it("não publica um resto de preço e escreve a marca como no anúncio", () => {
+    const keywords = buildDeterministicKeywords("visivra33", "en");
+    const bundle = buildDeterministicBundle(
+      {
+        product: "visivra33",
+        language: "en",
+        market: "US",
+        platform: "google",
+        objective: "purchase",
+        funnel: "BOTTOM",
+        offer_note: "You save $2.00(",
+      },
+      keywords,
+    );
+    const lines = [...bundle.headlines.map((h) => h.text), ...bundle.descriptions.map((d) => d.text), ...bundle.callouts.map((c) => c.text)];
+    assert.equal(lines.some((line) => line.includes("(")), false);
+    assert.equal(lines.some((line) => /see visivra33 details/i.test(line)), false);
+    assert.ok(bundle.headlines.some((h) => h.text === "Visivra33 Official Site"));
+    assert.ok(bundle.headlines.some((h) => h.text === "Buy Here on Official Website"));
+    assert.ok(bundle.headlines.some((h) => h.text === "Save $2.00"));
+    assert.ok(bundle.descriptions.length >= 3);
+    assert.ok(bundle.descriptions.every((d) => /official website/i.test(d.text)));
+  });
 });
 
 describe("ângulos sem dados", () => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { KeywordItem } from "../keywordGenerator";
-import { adPath, adTextLength, canonicalProductName, normalizeAdText } from "./adText";
+import { adPath, adDisplayName, adTextLength, normalizeAdText } from "./adText";
 import { sentenceBelongsToProduct, winningDescriptions, winningHeadlines } from "./winningCopy";
 import { CALLOUT_MAX, GOOGLE_RSA } from "./platformSpecs";
 
@@ -392,6 +392,7 @@ function verifiedCallouts(input: AdGenerateInput): string[] {
   const out: string[] = [];
   for (const note of notes) {
     const text = normalizeAdText(note);
+    if (/[()[\]]/.test(text)) continue;
     if (adTextLength(text) > 0 && adTextLength(text) <= CALLOUT_MAX) out.push(text);
   }
   return out;
@@ -400,7 +401,7 @@ function verifiedCallouts(input: AdGenerateInput): string[] {
 export function buildDeterministicBundle(input: AdGenerateInput, keywords: KeywordItem[]): AdBundle {
   const locale = localeFor(input.language, input.market);
   const bank = BANKS[locale];
-  const p = canonicalProductName(input.brand?.trim() || input.product.trim());
+  const p = adDisplayName(input.brand?.trim() || input.product.trim());
   const limitations: string[] = [
     "Fallback determinístico: frases-modelo no idioma do mercado, não uma redação da IA.",
   ];
@@ -424,10 +425,6 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
     }
   };
   for (const line of winningHeadlines(input, locale, maxH)) pushLine(line.text, line.angle);
-  for (const note of [input.offer_note, input.price_note]) {
-    if (!note || note.includes("?")) continue;
-    pushLine(note, "offer");
-  }
   const facts = input.description ? factualSourceSentences(input.description) : null;
   const usableForProduct = (facts?.usable ?? []).filter((sentence) => sentenceBelongsToProduct(sentence, p));
   if (facts?.confirm.length) {

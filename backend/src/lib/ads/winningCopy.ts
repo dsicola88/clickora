@@ -1,5 +1,5 @@
 import type { AdGenerateInput, AdAngle, LocaleId } from "./adBundle";
-import { adTextLength, canonicalProductName, normalizeAdText } from "./adText";
+import { adTextLength, adDisplayName, canonicalProductName, normalizeAdText } from "./adText";
 
 export type WinningLine = { text: string; angle: AdAngle };
 
@@ -45,14 +45,17 @@ export function offerSignals(input: AdGenerateInput): OfferSignals {
   const percentMatch = text.match(/\b(\d{1,2})\s*%\s*(?:off|desconto|discount)\b/i);
   const percent = /^\d{1,2}$/.test(percentFromPromo) ? percentFromPromo : percentMatch?.[1] ?? null;
 
-  const save = text.match(new RegExp(`\\b((?:up to\\s+)?${MONEY})\\s+off\\b`, "i"));
+  const saveOff = text.match(new RegExp(`\\b((?:up to\\s+)?${MONEY})\\s+off\\b`, "i"));
+  const saveVerb = text.match(new RegExp(`\\b(?:you\\s+)?(?:save|poup[ae]|ahorr[ae]|spare)\\s+(${MONEY})`, "i"));
+  const saveRaw = saveOff?.[1] || saveVerb?.[1] || "";
+  const saveAmount = saveRaw ? normalizeAdText(saveRaw.match(new RegExp(MONEY, "i"))?.[0] || "") : null;
   const days = text.match(/\b(\d{1,3})\s*(?:day|days|dia|dias)\b/i);
   const guaranteeDays = days && /money[-\s]?back|guarantee|garantia|reembolso/i.test(text) ? days[1] : null;
 
   return {
     price,
     percent,
-    saveAmount: save?.[1] ? normalizeAdText(save[1]) : null,
+    saveAmount: saveAmount || null,
     guaranteeDays,
   };
 }
@@ -60,6 +63,7 @@ export function offerSignals(input: AdGenerateInput): OfferSignals {
 function fit(value: string, max: number): string | null {
   const text = normalizeAdText(value);
   if (!text || adTextLength(text) > max) return null;
+  if (/[()[\]]/.test(text)) return null;
   return text;
 }
 
@@ -114,21 +118,21 @@ const BANKS: Record<Lang, Bank> = {
   en: {
     official: (p) => `${p} Official Site`,
     buy: (p) => `Buy ${p}`,
-    order: (p) => `Order ${p} Online`,
-    details: (p) => `See ${p} Details`,
+    order: (p) => `Buy Here on Official Website`,
+    details: (p) => `${p} Official Website`,
     compare: (p) => `Compare ${p}`,
     purchaseOfficial: (p) => `Purchase ${p} Official`,
     officialShort: "Official Site",
     buyShort: "Buy Online",
-    orderShort: "Order Online",
+    orderShort: "Order on Official Website",
     descBuy: (p) => `Buy ${p} now on the official website.`,
-    descOrder: (p) => `Order ${p} on the official website before you buy.`,
-    descPrice: (p, price) => `Order ${p} on the official website for ${price}.`,
-    descPercent: (p, percent) => `Buy ${p} on the official website with ${percent}% off.`,
-    descSave: (p, amount) => `Buy ${p} on the official website and save ${amount}.`,
-    descGuarantee: (p, days) => `${days}-day money-back guarantee on ${p}. Order on the official website.`,
+    descOrder: (p) => `Order ${p} here on the official website today.`,
+    descPrice: (p, price) => `Order ${p} on the official website for only ${price}.`,
+    descPercent: (p, percent) => `Buy ${p} on the official website with ${percent}% off today.`,
+    descSave: (p, amount) => `Buy ${p} here on the official website and save ${amount}.`,
+    descGuarantee: (p, days) => `${days}-day money-back guarantee. Order ${p} on the official website.`,
     just: (p, price) => `${p} Just ${price}`,
-    percent: (p, n) => `${p} ${n}% Off`,
+    percent: (p, n) => `${p} ${n}% Off Today`,
     percentToday: (n) => `Get ${n}% Off Today`,
     save: (amount) => `Save ${amount}`,
     guarantee: (days) => `${days} Day Money Back`,
@@ -254,7 +258,7 @@ function pushFit(out: WinningLine[], value: string, angle: AdAngle, max: number)
 
 export function winningHeadlines(input: AdGenerateInput, locale: LocaleId, max: number): WinningLine[] {
   const bank = BANKS[langOf(locale)];
-  const p = canonicalProductName(input.brand?.trim() || input.product);
+  const p = adDisplayName(input.brand?.trim() || input.product);
   const signals = offerSignals(input);
   const funnel = input.funnel;
   const out: WinningLine[] = [];
@@ -278,6 +282,7 @@ export function winningHeadlines(input: AdGenerateInput, locale: LocaleId, max: 
             [bank.order(p), "purchase"],
             [bank.purchaseOfficial(p), "purchase"],
             [bank.details(p), "brand"],
+            [`【${p}】 Official Site`, "brand"],
           ];
   for (const [text, angle] of named) pushFit(out, text, angle as AdAngle, max);
   if (signals.price) pushFit(out, bank.just(p, signals.price), "offer", max);
@@ -285,7 +290,10 @@ export function winningHeadlines(input: AdGenerateInput, locale: LocaleId, max: 
     pushFit(out, bank.percent(p, signals.percent), "offer", max);
     pushFit(out, bank.percentToday(signals.percent), "offer", max);
   }
-  if (signals.saveAmount) pushFit(out, bank.save(signals.saveAmount), "offer", max);
+  if (signals.saveAmount) {
+    pushFit(out, bank.save(signals.saveAmount), "offer", max);
+    pushFit(out, `Buy Here and Save ${signals.saveAmount}`, "offer", max);
+  }
   if (signals.guaranteeDays) pushFit(out, bank.guarantee(signals.guaranteeDays), "offer", max);
   if (out.length < 3) {
     for (const [text, angle] of [
@@ -302,10 +310,9 @@ export function winningHeadlines(input: AdGenerateInput, locale: LocaleId, max: 
 
 export function winningDescriptions(input: AdGenerateInput, locale: LocaleId, extraSentences: string[], max: number): string[] {
   const bank = BANKS[langOf(locale)];
-  const full = canonicalProductName(input.brand?.trim() || input.product);
+  const full = adDisplayName(input.brand?.trim() || input.product);
   const short = full.split(" ")[0] || full;
   const signals = offerSignals(input);
-  const names = full === short ? [full] : [full, short];
   const out: string[] = [];
   const add = (value: string) => {
     const text = fit(value, max);
@@ -313,17 +320,17 @@ export function winningDescriptions(input: AdGenerateInput, locale: LocaleId, ex
     if (out.some((line) => line.toLowerCase() === text.toLowerCase())) return;
     out.push(text);
   };
-  for (const name of names) {
-    if (out.length >= 2) break;
-    add(bank.descBuy(name));
-    add(bank.descOrder(name));
+  add(bank.descBuy(full));
+  add(bank.descOrder(full));
+  if (langOf(locale) === "en") add(`Purchase ${full} on the official website.`);
+  if (out.length < 2 && short !== full) {
+    add(bank.descBuy(short));
+    add(bank.descOrder(short));
   }
-  for (const name of names) {
-    if (signals.price) add(bank.descPrice(name, signals.price));
-    if (signals.percent) add(bank.descPercent(name, signals.percent));
-    if (signals.saveAmount) add(bank.descSave(name, signals.saveAmount));
-    if (signals.guaranteeDays) add(bank.descGuarantee(name, signals.guaranteeDays));
-  }
+  if (signals.price) add(bank.descPrice(full, signals.price));
+  if (signals.percent) add(bank.descPercent(full, signals.percent));
+  if (signals.saveAmount) add(bank.descSave(full, signals.saveAmount));
+  if (signals.guaranteeDays) add(bank.descGuarantee(full, signals.guaranteeDays));
   for (const sentence of extraSentences) {
     if (!sentenceBelongsToProduct(sentence, full)) continue;
     add(sentence);
