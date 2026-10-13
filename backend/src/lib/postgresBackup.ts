@@ -342,7 +342,7 @@ export async function dumpDatabase(args: {
     child.stderr?.on("data", (chunk) => {
       stderr = redactSecrets(`${stderr}${chunk.toString()}`, [password, args.databaseUrl]).slice(0, 500);
     });
-    child.on("error", (error) => {
+    child.on("error", (error: NodeJS.ErrnoException) => {
       clearInterval(timer);
       reject(new Error(error.code === "ENOENT" ? "pg_dump_ausente" : "falha"));
     });
