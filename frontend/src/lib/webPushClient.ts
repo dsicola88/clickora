@@ -13,6 +13,45 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 const SW_PATH = "/sw-push.js";
 
+export type PhonePushSupport = "ready" | "ios-home" | "unsupported";
+
+/** O iPhone só mostra o cartão numa app do ecrã principal, não dentro do Safari ou do Chrome. */
+export function classifyPhonePush(input: {
+  secure: boolean;
+  ios: boolean;
+  standalone: boolean;
+  hasServiceWorker: boolean;
+  hasNotification: boolean;
+  hasPushManager: boolean;
+}): PhonePushSupport {
+  if (!input.secure) return "unsupported";
+  if (input.ios && !input.standalone) return "ios-home";
+  if (!input.hasServiceWorker || !input.hasNotification || !input.hasPushManager) {
+    return input.ios ? "ios-home" : "unsupported";
+  }
+  return "ready";
+}
+
+export function currentPhonePushSupport(): PhonePushSupport {
+  if (typeof window === "undefined") return "unsupported";
+  const nav = navigator as Navigator & { standalone?: boolean };
+  const ua = nav.userAgent || "";
+  const ios =
+    /iPad|iPhone|iPod/.test(ua) || (nav.platform === "MacIntel" && nav.maxTouchPoints > 1);
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    nav.standalone === true;
+  return classifyPhonePush({
+    secure: window.isSecureContext,
+    ios,
+    standalone,
+    hasServiceWorker: "serviceWorker" in navigator,
+    hasNotification: "Notification" in window,
+    hasPushManager: "PushManager" in window,
+  });
+}
+
 /** Indica se este browser já tem subscrição push activa (mesmo dispositivo). */
 export async function hasLocalWebPushSubscription(): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -33,8 +72,19 @@ export async function hasLocalWebPushSubscription(): Promise<boolean> {
  * @returns true se ficou subscrito com sucesso
  */
 export async function subscribeToWebPush(): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-    return { ok: false, error: "Este browser não suporta avisos no ecrã." };
+  const support = currentPhonePushSupport();
+  if (support === "ios-home") {
+    return {
+      ok: false,
+      error:
+        "No iPhone o aviso não abre dentro do Safari nem do Chrome. Adiciona a dclickora ao ecrã principal e abre esse ícone.",
+    };
+  }
+  if (support === "unsupported") {
+    return {
+      ok: false,
+      error: "Este browser não instala avisos. No Android, abre a dclickora no Chrome e toca em Ativar.",
+    };
   }
 
   const perm = await Notification.requestPermission();
@@ -56,10 +106,25 @@ export async function subscribeToWebPush(): Promise<{ ok: true } | { ok: false; 
 
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(cfg.vapid_public_key),
-    });
+    try {
+      const key = urlBase64ToUint8Array(cfg.vapid_public_key);
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer,
+      });
+    } catch (e) {
+      const name = e instanceof DOMException ? e.name : "";
+      if (name === "NotAllowedError") {
+        return {
+          ok: false,
+          error: "O telemóvel bloqueou as notificações. Ativa-as nas definições do browser para a dclickora.",
+        };
+      }
+      return {
+        ok: false,
+        error: "O telemóvel não concluiu o aviso. Confirma a internet e tenta outra vez.",
+      };
+    }
   }
 
   const json = sub.toJSON();

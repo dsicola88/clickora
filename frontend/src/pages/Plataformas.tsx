@@ -41,7 +41,7 @@ import {
   setSaleChimeSound,
   type SaleChimeId,
 } from "@/lib/saleChime";
-import { hasLocalWebPushSubscription, subscribeToWebPush } from "@/lib/webPushClient";
+import { currentPhonePushSupport, hasLocalWebPushSubscription, subscribeToWebPush } from "@/lib/webPushClient";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 
 export default function Plataformas() {
@@ -56,6 +56,7 @@ export default function Plataformas() {
   const [emailField, setEmailField] = useState("");
   const [chime, setChime] = useState<SaleChimeId>(() => saleChimeSound());
   const [phonePushOn, setPhonePushOn] = useState<boolean | null>(null);
+  const phoneSupport = useMemo(() => currentPhonePushSupport(), []);
   const chimeSynced = useRef(false);
   const [copied, setCopied] = useState(false);
   const [copiedExample, setCopiedExample] = useState(false);
@@ -433,16 +434,35 @@ export default function Plataformas() {
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 O cartão diz <strong className="font-medium text-foreground/90">Nova venda aprovada!</strong> e traz o
-                produto e a comissão que a rede enviou. Sai do servidor, por isso chega com dados móveis ou Wi-Fi, mesmo
-                com o browser fechado, depois de ativar neste aparelho. No iPhone, o Safari pode pedir o site no ecrã
-                inicial.
+                produto e a comissão que a rede enviou. O e-mail chega na mesma, sem este passo.
               </p>
+              {phoneSupport === "ios-home" ? (
+                <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
+                  <li>No Safari, toca em <strong className="font-medium text-foreground/90">Partilhar</strong>.</li>
+                  <li>
+                    Escolhe <strong className="font-medium text-foreground/90">Adicionar ao Ecrã Principal</strong>.
+                  </li>
+                  <li>
+                    Abre o ícone <strong className="font-medium text-foreground/90">dclickora</strong> e toca em Ativar.
+                    O Safari e o Chrome do iPhone não mostram o cartão dentro do separador.
+                  </li>
+                </ol>
+              ) : phoneSupport === "unsupported" ? (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Este browser não instala avisos no ecrã. No Android, abre a dclickora no Chrome e toca em Ativar.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Toca em Ativar e aceita as notificações. Com dados móveis ou Wi-Fi, o cartão aparece mesmo com o
+                  browser fechado.
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant="secondary"
                   className="gap-2"
-                  disabled={intLocked || phonePushOn === true || activatePhone.isPending}
+                  disabled={intLocked || phoneSupport !== "ready" || phonePushOn === true || activatePhone.isPending}
                   onClick={() => activatePhone.mutate()}
                 >
                   {activatePhone.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}

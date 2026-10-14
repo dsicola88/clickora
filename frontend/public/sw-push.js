@@ -16,15 +16,19 @@ self.addEventListener("push", function (event) {
       } catch {
         /* ignore */
       }
-      await self.registration.showNotification(data.title, {
+      const options = {
         body: data.body,
-        icon: "/favicon.svg",
-        badge: "/favicon.svg",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
         data: { url: data.url || "/resultados" },
         tag: data.tag || "dclickora-push",
         renotify: true,
-        vibrate: data.chime ? [90, 40, 90, 40, 180] : undefined,
-      });
+      };
+      try {
+        await self.registration.showNotification(data.title, data.chime ? { ...options, vibrate: [90, 40, 90, 40, 180] } : options);
+      } catch {
+        await self.registration.showNotification(data.title, options);
+      }
       if (data.chime) {
         const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
         for (const client of windows) {
