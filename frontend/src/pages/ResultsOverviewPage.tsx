@@ -479,7 +479,7 @@ export default function ResultsOverviewPage() {
 
       <ProPanel
         title="Visitantes e vendas"
-        description="A área azul são os visitantes. A barra laranja é a comissão da venda aprovada. A dica mostra visitas, conversões e comissão."
+        description="A área azul são os visitantes, com o contorno em cada dia. A barra verde é a comissão da venda aprovada. A dica mostra visitas, conversões e comissão."
       >
         {(data.chart_data ?? []).length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
@@ -487,15 +487,30 @@ export default function ResultsOverviewPage() {
           <div className="h-72 w-full px-2 pb-3">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data.chart_data ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
-                <YAxis yAxisId="visitors" allowDecimals={false} width={32} tick={{ fontSize: 10 }} />
+                <CartesianGrid stroke="#cbd5e1" strokeDasharray="" vertical horizontal />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#334155" }}
+                  tickFormatter={(v: string) => v.slice(5)}
+                  axisLine={{ stroke: "#334155", strokeWidth: 1 }}
+                  tickLine={{ stroke: "#334155" }}
+                />
+                <YAxis
+                  yAxisId="visitors"
+                  allowDecimals={false}
+                  width={32}
+                  tick={{ fontSize: 10, fill: "#334155" }}
+                  axisLine={{ stroke: "#334155", strokeWidth: 1 }}
+                  tickLine={{ stroke: "#334155" }}
+                />
                 {(data.chart_data ?? []).some((point) => (point.sale_revenue ?? 0) > 0) ? (
                   <YAxis
                     yAxisId="sales"
                     orientation="right"
                     width={44}
-                    tick={{ fontSize: 10, fill: "#EA580C" }}
+                    tick={{ fontSize: 10, fill: "#15803d" }}
+                    axisLine={{ stroke: "#166534", strokeWidth: 1 }}
+                    tickLine={{ stroke: "#166534" }}
                     tickFormatter={(v: number) =>
                       Number(v).toLocaleString("pt-PT", { maximumFractionDigits: 0 })
                     }
@@ -524,7 +539,7 @@ export default function ResultsOverviewPage() {
                         <p className="text-foreground">
                           Conversões: {(row.conversions ?? 0).toLocaleString("pt-PT")}
                         </p>
-                        <p className="font-medium text-[#EA580C]">
+                        <p className="font-medium text-[#15803d]">
                           Comissão: {money(row.sale_revenue ?? 0, currency)}
                         </p>
                       </div>
@@ -533,24 +548,28 @@ export default function ResultsOverviewPage() {
                 />
                 <Area
                   yAxisId="visitors"
-                  type="monotone"
+                  type="linear"
                   dataKey="clicks"
                   name="clicks"
-                  stroke="#0284c7"
+                  stroke="#0369a1"
                   fill="#0284c7"
-                  fillOpacity={0.16}
+                  fillOpacity={0.18}
                   strokeWidth={2}
+                  strokeLinejoin="miter"
+                  dot={false}
+                  activeDot={{ r: 3, stroke: "#0369a1", strokeWidth: 1, fill: "#ffffff" }}
                 />
                 {(data.checkout_visitors ?? 0) > 0 ? (
                   <Area
                     yAxisId="visitors"
-                    type="monotone"
+                    type="linear"
                     dataKey="checkouts"
                     name="checkouts"
                     stroke="#0f766e"
                     fill="#0f766e"
                     fillOpacity={0.08}
                     strokeWidth={1.5}
+                    strokeLinejoin="miter"
                   />
                 ) : null}
                 {(data.chart_data ?? []).some((point) => (point.sale_revenue ?? 0) > 0) ? (
@@ -558,8 +577,10 @@ export default function ResultsOverviewPage() {
                     yAxisId="sales"
                     dataKey="sale_revenue"
                     name="sale_revenue"
-                    fill="#EA580C"
-                    radius={[3, 3, 0, 0]}
+                    fill="#16a34a"
+                    stroke="#166534"
+                    strokeWidth={1}
+                    radius={0}
                     maxBarSize={22}
                   />
                 ) : null}
