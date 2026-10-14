@@ -66,6 +66,7 @@ describe("som de venda", () => {
   it("aceita os sons e ignora um nome desconhecido", () => {
     expect(parseSaleChimeId("kaching")).toBe("kaching");
     expect(parseSaleChimeId("chaching")).toBe("chaching");
+    expect(parseSaleChimeId("registradora")).toBe("registradora");
     expect(parseSaleChimeId("moedas")).toBe("moedas");
     expect(parseSaleChimeId("chuva")).toBe("chuva");
     expect(parseSaleChimeId("sino")).toBe("sino");

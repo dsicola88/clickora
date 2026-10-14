@@ -63,7 +63,7 @@ export interface User {
   created_at: string;
   /** E-mail para alertas de venda (postback de afiliados). Vazio = usa `email`. */
   sale_notify_email?: string;
-  /** Som de venda com a app aberta: kaching | chaching | moedas | chuva | sino. */
+  /** Som de venda com a app aberta: kaching | chaching | registradora | moedas | chuva | sino. */
   sale_chime?: string;
 }
 

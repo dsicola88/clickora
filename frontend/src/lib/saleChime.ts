@@ -6,8 +6,9 @@ const SOUND_KEY = "dclickora-sale-chime-sound";
 const CLAIM_KEY = "dclickora-sale-chime-last";
 
 export const SALE_CHIMES = [
-  { id: "kaching", label: "Ka-ching", hint: "Caixa registadora" },
+  { id: "kaching", label: "Ka-ching", hint: "Toque curto" },
   { id: "chaching", label: "Cha-ching", hint: "Mais agudo e curto" },
+  { id: "registradora", label: "Caixa registadora", hint: "Efeito sonoro da gaveta" },
   { id: "moedas", label: "Moedas", hint: "Moedas na gaveta" },
   { id: "chuva", label: "Moedas a entrar", hint: "Chuva de moedas, como nas plataformas de afiliados" },
   { id: "sino", label: "Sino de venda", hint: "Três notas de venda fechada" },
@@ -200,11 +201,48 @@ function coinDrop(ctx: AudioContext, master: GainNode, freq: number, start: numb
   bell(ctx, master, freq * 2.4, start, 0.028, peak * 0.22, "triangle");
 }
 
+function drawerSlide(ctx: AudioContext, master: GainNode, start: number): void {
+  const now = ctx.currentTime;
+  const len = Math.max(1, Math.floor(ctx.sampleRate * 0.38));
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    const t = i / len;
+    data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * t);
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.Q.value = 0.8;
+  filter.frequency.setValueAtTime(1600, now + start);
+  filter.frequency.exponentialRampToValueAtTime(220, now + start + 0.32);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now + start);
+  gain.gain.exponentialRampToValueAtTime(0.38, now + start + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + start + 0.36);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(master);
+  src.start(now + start);
+  src.stop(now + start + 0.4);
+}
+
 function startChime(ctx: AudioContext, id: SaleChimeId): void {
   const now = ctx.currentTime;
   const master = ctx.createGain();
   master.gain.setValueAtTime(0.9, now);
   master.connect(ctx.destination);
+
+  if (id === "registradora") {
+    drawerClick(ctx, master, 0);
+    bell(ctx, master, 1480, 0.02, 0.55, 0.46, "sine");
+    bell(ctx, master, 2210, 0.02, 0.28, 0.16, "triangle");
+    drawerSlide(ctx, master, 0.06);
+    drawerClick(ctx, master, 0.4);
+    bell(ctx, master, 988, 0.42, 0.22, 0.18, "sine");
+    return;
+  }
 
   if (id === "chaching") {
     drawerClick(ctx, master, 0);
