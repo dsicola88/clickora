@@ -41,6 +41,7 @@ export function scorePresellProductImageUrl(url: string): number {
   penal(/\/(testimonial|testimonials|reviews?|avatar|avatars|team|people|faces|customers)\//i, 45);
   penal(/\b(quote|verified[_-]?buyer|five[_-]?star|rating[_-]?star)\b/i, 25);
   penal(/\b(logo|logos|brandmark|favicon|sprite|payment[_-]?icon|trust[_-]?badge|badge[_-]?icon)\b/i, 50);
+  penal(/\b(visa|mastercard|american[\s_-]?express|discover|amex|paypal|cards?\.webp|payment|social-default|placeholder|blank|spacer|seal|badge)\b/i, 80);
   penal(/\b(icon|ico|glyph|spacer|pixel\.gif|1x1)\b/i, 35);
   penal(/(32x32|40x40|48x48|56x56|64x64|96x96|100x100|128x128)/, 40);
   penal(/(?:[?&/_-])(?:w|width|h|height)=?(?:16|20|24|32|40|48|56|64|80|96|100|120)(?:[^0-9]|$)/, 30);
@@ -52,9 +53,26 @@ export function scorePresellProductImageUrl(url: string): number {
   return score;
 }
 
+/** Faixa de pagamento, selo ou imagem genérica. Não é foto do produto. */
+export function isPresellDecorImage(url: string): boolean {
+  let u = url;
+  try {
+    u = decodeURIComponent(url);
+  } catch {
+    u = url;
+  }
+  u = u.toLowerCase();
+  if (/\.svg(?:$|\?)/i.test(u)) return true;
+  return /\b(visa|mastercard|american[\s_-]?express|discover|amex|paypal|cards?\.webp|payment[_-]?(?:icon|badge|method)|social-default|placeholder|blank|spacer|1x1|favicon|trust[_-]?badge|guarantee|logo)\b/i.test(
+    u,
+  );
+}
+
 export function rankPresellProductImages(urls: string[]): string[] {
-  if (urls.length <= 1) return urls;
-  const entries = urls.map((url, index) => ({
+  const photos = urls.filter((url) => !isPresellDecorImage(url));
+  const list = photos.length > 0 ? photos : urls;
+  if (list.length <= 1) return list;
+  const entries = list.map((url, index) => ({
     url,
     index,
     score: scorePresellProductImageUrl(url),

@@ -69,6 +69,7 @@ import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { cn } from "@/lib/utils";
 import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
+import { looksLikeVariantCode, presellHeadline } from "@/lib/presellDisplayName";
 import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
@@ -411,7 +412,7 @@ function ImportedMirrorProductSpotlight({
   ctaText: string;
   language: string;
 }) {
-  const { src: mainSrc, onError: heroImgOnError } = usePresellHeroImageWithFallback(
+  const { src: mainSrc, onError: heroImgOnError, effectiveIndex } = usePresellHeroImageWithFallback(
     productImages,
     storefrontMainIdx,
   );
@@ -451,16 +452,16 @@ function ImportedMirrorProductSpotlight({
                 useTintedTheme && "focus-visible:ring-white/90",
                 !useDarkTheme && !useTintedTheme && "focus-visible:ring-orange-500/80",
                 useDarkTheme &&
-                  (i === storefrontMainIdx
+                  (i === effectiveIndex
                     ? "border-amber-400 ring-2 ring-amber-400/40 shadow-md"
                     : "border-white/20 opacity-90 hover:opacity-100"),
                 useTintedTheme &&
-                  (i === storefrontMainIdx
+                  (i === effectiveIndex
                     ? "border-white ring-2 ring-white/55 shadow-md"
                     : "border-white/45 opacity-95 hover:opacity-100"),
                 !useDarkTheme &&
                   !useTintedTheme &&
-                  (i === storefrontMainIdx
+                  (i === effectiveIndex
                     ? "border-orange-500 ring-2 ring-orange-500/35 shadow-sm"
                     : "border-border/60 opacity-90 hover:opacity-100"),
               )}
@@ -911,7 +912,12 @@ export default function PublicPresell() {
   );
   const importedClone =
     importMirrorSrcDocRaw.length > 800 || content.importMode === "mirror";
-  const title = importedClone ? productLabelEarly || titleRaw : titleRaw;
+  const title = presellHeadline({
+    importedClone,
+    productName: productLabelEarly,
+    contentTitle: titleRaw,
+    pageTitle: page.title || "",
+  });
   const subtitle = importedClone ? "" : subtitleRaw;
   const salesText = importedClone ? "" : salesTextRaw;
   const ctaText = (content.ctaText as string) || "Quero Aproveitar Agora";
@@ -971,13 +977,19 @@ export default function PublicPresell() {
   const showImportedMirror = false;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
-  const productNameLabel = plainTextFromMaybeHtml(
+  const productNameRaw = plainTextFromMaybeHtml(
     typeof content.productName === "string"
       ? content.productName.trim()
       : typeof (content as { product_name?: unknown }).product_name === "string"
         ? String((content as { product_name: string }).product_name).trim()
         : "",
   );
+  const productNameLabel =
+    productNameRaw &&
+    !looksLikeVariantCode(productNameRaw) &&
+    productNameRaw.toLowerCase() !== title.toLowerCase()
+      ? productNameRaw
+      : "";
   const ratingFromSource = content.ratingFromSource === true;
   const showStorefrontRating =
     ratingFromSource &&
@@ -1177,7 +1189,7 @@ export default function PublicPresell() {
                             onClick={() => setStorefrontMainIdx(i)}
                             className={cn(
                               "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/90",
-                              i === storefrontMainIdx
+                              i === heroImageFallback.effectiveIndex
                                 ? "border-amber-400 ring-2 ring-amber-400/35 shadow-sm"
                                 : "border-white/15 opacity-90 hover:opacity-100",
                             )}
@@ -1322,7 +1334,7 @@ export default function PublicPresell() {
                             onClick={() => setStorefrontMainIdx(i)}
                             className={cn(
                               "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90",
-                              i === storefrontMainIdx
+                              i === heroImageFallback.effectiveIndex
                                 ? "border-white ring-2 ring-white/50 shadow-md"
                                 : "border-white/40 opacity-95 hover:opacity-100",
                             )}
@@ -1397,10 +1409,28 @@ export default function PublicPresell() {
             </section>
           </>
         ) : (
-          <section className="relative overflow-hidden border-b border-border/40 bg-background">
-            <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-6 sm:pt-10 pb-10 md:pb-14">
+          <>
+            <header className="sticky top-0 z-40 border-b border-white/10 bg-[#1b1e27]">
+              <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+                <span className="min-w-0 truncate text-lg font-extrabold uppercase tracking-[0.14em] text-white sm:text-2xl">
+                  {title}
+                </span>
+                <a
+                  href={href}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-xs font-bold text-white shadow-md sm:px-4 sm:text-sm",
+                    !ctaEnabled && "pointer-events-none opacity-50",
+                  )}
+                >
+                  {ctaText}
+                  <span aria-hidden>→</span>
+                </a>
+              </div>
+            </header>
+            <section className="relative overflow-hidden bg-gradient-to-br from-[#0a5ea8] via-[#0a3f86] to-[#07264f] text-white">
+            <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-12 md:pb-16">
               {interactiveKind ? (
-                <div className="mb-8 text-center max-w-3xl mx-auto">
+                <div className="mb-8 text-center max-w-3xl mx-auto text-white [&_label]:text-white [&_p]:text-white/80">
                   <PresellGateFields
                     gateKind={interactiveKind}
                     language={uiLang}
@@ -1410,36 +1440,34 @@ export default function PublicPresell() {
                 </div>
               ) : null}
 
-              <div className="grid md:grid-cols-[minmax(0,1.22fr)_minmax(0,0.88fr)] gap-8 lg:gap-10 items-start">
-                <div className="space-y-4 md:sticky md:top-6">
-                  <div className="rounded-2xl border border-slate-200/90 dark:border-border/60 bg-white dark:bg-card shadow-sm p-2 sm:p-3">
-                    <PresellProductHero
-                      src={heroImageFallback.src}
-                      onError={heroImageFallback.onError}
-                      alt={primarySeoLabel}
-                      tone="light"
-                      emphasis="primary"
-                    />
-                  </div>
+              <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
+                <div className="order-2 md:order-1">
+                  <PresellProductHero
+                    src={heroImageFallback.src}
+                    onError={heroImageFallback.onError}
+                    alt={title || primarySeoLabel}
+                    tone="plain"
+                    emphasis="showcase"
+                  />
                   {productImages.length > 1 ? (
-                    <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+                    <div className="mt-4 flex gap-3 overflow-x-auto pb-1 snap-x">
                       {productImages.map((src, i) => (
                         <button
                           key={`${i}-${src.slice(0, 48)}`}
                           type="button"
                           onClick={() => setStorefrontMainIdx(i)}
                           className={cn(
-                            "shrink-0 snap-start rounded-lg border-2 overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/80",
-                            i === storefrontMainIdx
-                              ? "border-orange-500 ring-2 ring-orange-500/30 shadow-sm"
-                              : "border-border/60 opacity-90 hover:opacity-100",
+                            "shrink-0 snap-start overflow-hidden rounded-xl border-2 bg-white/95 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                            i === heroImageFallback.effectiveIndex
+                              ? "border-orange-400 shadow-lg"
+                              : "border-white/30 opacity-90 hover:opacity-100",
                           )}
                           aria-label={`Imagem ${i + 1}`}
                         >
                           <PresellSecondaryImage
                             src={src}
                             alt=""
-                            className="h-20 w-20 sm:h-24 sm:w-24 object-cover"
+                            className="h-16 w-16 bg-white object-contain sm:h-20 sm:w-20"
                           />
                         </button>
                       ))}
@@ -1447,32 +1475,29 @@ export default function PublicPresell() {
                   ) : null}
                 </div>
 
-                <div className="text-left space-y-4 lg:space-y-5 pt-1 md:pt-2">
-                  {productNameLabel ? (
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {productNameLabel}
-                    </p>
-                  ) : null}
-                  <h1 className="text-2xl sm:text-3xl lg:text-[2.2rem] font-serif font-bold tracking-tight text-foreground leading-tight break-words">
+                <div className="order-1 md:order-2 text-center md:text-left">
+                  <h1 className="font-sans text-5xl font-extrabold leading-[0.95] tracking-tight text-white break-words sm:text-6xl lg:text-7xl">
                     {title}
                   </h1>
                   {showStorefrontRating ? (
-                    <StorefrontRatingRow
-                      value={String(content.ratingValue)}
-                      stars={Number(content.ratingStars)}
-                    />
+                    <div className="mt-4 flex justify-center md:justify-start">
+                      <StorefrontRatingRow
+                        value={String(content.ratingValue)}
+                        stars={Number(content.ratingStars)}
+                      />
+                    </div>
                   ) : null}
                   {subtitle ? (
-                    <p className="text-base text-muted-foreground leading-relaxed">{subtitle}</p>
+                    <p className="mt-4 text-lg leading-relaxed text-white/85 sm:text-xl">{subtitle}</p>
                   ) : null}
-                  <div className="pt-1">
+                  <div className="mt-8">
                     <PresellCta href={href} disabled={!ctaEnabled} surface="commerce" stretch>
                       {ctaText}
                     </PresellCta>
+                    <p className="mt-4 text-sm leading-relaxed text-white/75">
+                      {getPresellUiStrings(uiLang).midCta}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/50 pt-4">
-                    {getPresellUiStrings(uiLang).midCta}
-                  </p>
                 </div>
               </div>
 
@@ -1504,6 +1529,7 @@ export default function PublicPresell() {
               ) : null}
             </div>
           </section>
+          </>
         )
       ) : !showImportedMirror ? (
         <section
@@ -1706,6 +1732,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
+      {storefrontLayout && !showSalesLetterSection ? null : (
       <section
         id={storefrontMirrorLightBody && !showSalesLetterSection ? "presell-story" : undefined}
         className={cn(
@@ -1763,6 +1790,7 @@ export default function PublicPresell() {
           ) : null}
         </div>
       </section>
+      )}
     </>
   );
 

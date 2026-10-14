@@ -81,7 +81,7 @@ export function CookieConsentModal({
 
   return (
     <div
-      className="fixed inset-0 z-[520] flex items-end justify-center p-3 sm:p-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      className="fixed inset-0 z-[520] flex items-end justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cookie-policy-title"
@@ -96,13 +96,13 @@ export function CookieConsentModal({
       />
       <div
         data-testid="presell-cookie-card"
-        className="relative z-10 mb-1 w-full max-w-[min(100%,32rem)] cursor-pointer rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-2xl"
+        className="relative z-10 mb-1 w-full max-w-md cursor-pointer rounded-2xl border border-border/60 bg-card px-4 py-4 shadow-2xl sm:px-5"
         onClick={() => goToOffer("dismiss")}
       >
-        <h2 id="cookie-policy-title" className="text-xl font-bold text-foreground tracking-tight">
+        <h2 id="cookie-policy-title" className="text-lg font-bold text-foreground tracking-tight">
           {L.cookieTitle}
         </h2>
-        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{L.cookieBody}</p>
+        <p className="mt-2 text-sm leading-snug text-muted-foreground">{L.cookieBody}</p>
         {policyUrl ? (
           <button
             type="button"
@@ -112,7 +112,7 @@ export function CookieConsentModal({
             {L.cookiePolicy}
           </button>
         ) : null}
-        <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
+        <div className="mt-4 flex flex-row gap-3">
           <Button
             type="button"
             variant="outline"
@@ -129,7 +129,7 @@ export function CookieConsentModal({
             {L.cookieAllow}
           </Button>
         </div>
-        <p className="mt-6 text-center text-xs text-muted-foreground">{L.cookieFooter}</p>
+        <p className="mt-3 text-center text-[11px] text-muted-foreground">{L.cookieFooter}</p>
       </div>
     </div>
   );

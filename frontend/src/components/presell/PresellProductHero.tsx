@@ -44,7 +44,7 @@ export function PresellSecondaryImage({
 }
 
 type Tone = "dark" | "tint" | "light" | "plain";
-type Emphasis = "primary" | "support";
+type Emphasis = "primary" | "support" | "showcase";
 
 type Props = {
   src: string;
@@ -90,11 +90,13 @@ export function PresellProductHero({
 
   const stageClass = cn(
     "presell-product-stage relative w-full overflow-hidden rounded-xl",
-    emphasis === "primary" ? "min-h-[min(58vh,640px)]" : "min-h-[min(36vh,380px)]",
-    tone === "dark" && "bg-black/30",
-    tone === "tint" && "bg-white/50",
-    tone === "light" && "bg-slate-50/90 dark:bg-muted/25",
-    tone === "plain" && "bg-white/70 dark:bg-card/40",
+    emphasis === "showcase" && "min-h-[220px] sm:min-h-[min(46vh,520px)] bg-transparent",
+    emphasis === "primary" && "min-h-[min(58vh,640px)]",
+    emphasis === "support" && "min-h-[min(36vh,380px)]",
+    emphasis !== "showcase" && tone === "dark" && "bg-black/30",
+    emphasis !== "showcase" && tone === "tint" && "bg-white/50",
+    emphasis !== "showcase" && tone === "light" && "bg-white dark:bg-muted/25",
+    emphasis !== "showcase" && tone === "plain" && "bg-white/70 dark:bg-card/40",
   );
 
   if (!src || (exhausted && step >= candidates.length - 1 && !current)) {
@@ -123,11 +125,20 @@ export function PresellProductHero({
         onError={handleError}
         onLoad={(e) => {
           const img = e.currentTarget;
-          if (img.naturalWidth > 0 && img.naturalWidth < 280) {
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+          const paymentStrip = h > 0 && w / h >= 3.4 && h < 240;
+          const tinyIcon = w > 0 && w < 140 && h < 140;
+          const smallTile = w > 0 && w <= 520 && h <= 520;
+          if (paymentStrip || tinyIcon || smallTile) {
+            handleError();
+            return;
+          }
+          if (w > 0 && w < 280) {
             console.warn("[presell] imagem principal com resolução baixa", {
               src: current,
-              width: img.naturalWidth,
-              height: img.naturalHeight,
+              width: w,
+              height: h,
             });
           }
         }}
@@ -135,7 +146,7 @@ export function PresellProductHero({
         loading="eager"
         decoding="async"
         ref={(node) => {
-          node?.setAttribute("fetchpriority", emphasis === "primary" ? "high" : "auto");
+          node?.setAttribute("fetchpriority", emphasis === "support" ? "auto" : "high");
         }}
         sizes={emphasis === "primary" ? "(min-width: 1024px) 58vw, 100vw" : "(min-width: 768px) 42rem, 100vw"}
       />
