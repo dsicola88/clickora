@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Plug, ShieldCheck, LineChart, Zap, Megaphone } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { playSaleChime, saleChimeEnabled, setSaleChimeEnabled } from "@/lib/saleChime";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +25,7 @@ import {
 export default function IntegrationsHubPage() {
   const { user, isSuperAdmin } = useAuth();
   const dpilot = userCanAccessDpilotAds(user, isSuperAdmin);
+  const [saleChimeOn, setSaleChimeOn] = useState(() => saleChimeEnabled());
   const range = useMemo(() => rangeLast14Days(), []);
 
   const { data: dash } = useQuery({
@@ -113,6 +118,37 @@ export default function IntegrationsHubPage() {
         </ProPanel>
 
         <div className="space-y-3">
+          <div className="rounded-lg border border-border/70 bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Som de venda</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                  Ligado. O som escolhe-se em Postback, junto do e-mail. O e-mail e o cartão do telemóvel saem com o browser fechado.
+                </p>
+              </div>
+              <Switch
+                checked={saleChimeOn}
+                onCheckedChange={(on) => {
+                  setSaleChimeEnabled(on);
+                  setSaleChimeOn(on);
+                }}
+                aria-label="Som de venda"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!saleChimeOn}
+              onClick={() => {
+                void playSaleChime().then((ok) => {
+                  if (!ok) toast.error("O browser bloqueou o som. Clique outra vez em Ouvir agora.");
+                });
+              }}
+            >
+              Ouvir agora
+            </Button>
+          </div>
           <Link
             to="/integracoes/postback"
             className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"

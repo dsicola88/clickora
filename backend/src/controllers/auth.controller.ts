@@ -50,6 +50,7 @@ type SerialUser = {
   workspaceId: string;
   avatarUrl: string | null;
   saleNotifyEmail: string | null;
+  saleChime?: string | null;
   createdAt: Date;
   updatedAt: Date;
   mfaEnabled?: boolean;
@@ -95,6 +96,7 @@ export function serializeUser(
     avatar_url: publicAvatarUrl(req, user),
     created_at: user.createdAt.toISOString(),
     sale_notify_email: user.saleNotifyEmail ?? "",
+    sale_chime: user.saleChime || "kaching",
     mfa_enabled: Boolean((user as { mfaEnabled?: boolean }).mfaEnabled),
     plan: plan
       ? {

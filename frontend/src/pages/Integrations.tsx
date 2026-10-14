@@ -30,6 +30,7 @@ import {
   unsubscribeFromWebPush,
   hasLocalWebPushSubscription,
 } from "@/lib/webPushClient";
+import { playSaleChime, saleChimeEnabled, setSaleChimeEnabled } from "@/lib/saleChime";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
@@ -186,6 +187,7 @@ export default function Integrations() {
 
   /** null = a sincronizar com o browser; só este dispositivo (PushManager). */
   const [localPushOn, setLocalPushOn] = useState<boolean | null>(null);
+  const [saleChimeOn, setSaleChimeOn] = useState(() => saleChimeEnabled());
 
   useEffect(() => {
     let cancelled = false;
@@ -413,6 +415,39 @@ export default function Integrations() {
                     >
                       {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       Testar
+                    </Button>
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Som de venda</p>
+                        <p className="text-sm text-muted-foreground">
+                          Com a dclickora aberta, a venda toca o som escolhido em Postback, junto do e-mail. Já vem ligado.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={saleChimeOn}
+                        disabled={intLocked}
+                        onCheckedChange={(on) => {
+                          setSaleChimeEnabled(on);
+                          setSaleChimeOn(on);
+                        }}
+                        aria-label="Som de venda"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      disabled={intLocked || !saleChimeOn}
+                      onClick={() => {
+                        void playSaleChime().then((ok) => {
+                          if (!ok) toast.error("O browser bloqueou o som. Clique outra vez em Ouvir agora.");
+                        });
+                      }}
+                    >
+                      Ouvir agora
                     </Button>
                   </div>
                 </>

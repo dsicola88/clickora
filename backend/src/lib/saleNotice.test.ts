@@ -15,6 +15,7 @@ describe("aviso de venda", () => {
   it("diz a comissão e que o clique ficou ligado", () => {
     const notice = buildSaleNotice({
       platform: "BuyGoods",
+      product: "visivra_tsl2",
       amount: "21.85",
       currency: "USD",
       orderId: "ORD-1",
@@ -22,16 +23,20 @@ describe("aviso de venda", () => {
       resultsUrl: "https://www.dclickora.com/resultados/relatorios/conversoes",
     });
     assert.match(notice.subject, /Venda — BuyGoods/);
-    assert.match(notice.text, /Comissão: 21\.85 USD/);
+    assert.match(notice.text, /Produto: visivra_tsl2/);
+    assert.match(notice.text, /Comissão: 21,85 USD/);
     assert.match(notice.text, /ligada a um clique/);
-    assert.match(notice.html, /21\.85 USD/);
+    assert.match(notice.text, /conta fechada/);
+    assert.match(notice.html, /21,85 USD/);
     assert.doesNotMatch(notice.text, /comprador/i);
-    assert.match(notice.pushBody, /BuyGoods · 21\.85 USD/);
+    assert.equal(notice.pushTitle, "Nova venda aprovada!");
+    assert.match(notice.pushBody, /visivra_tsl2 · Comissão: 21,85 USD/);
   });
 
   it("não inventa comissão nem um clique que a rede não enviou", () => {
     const notice = buildSaleNotice({
       platform: "MaxWeb",
+      product: "{PRODUCT_CODENAME}",
       amount: null,
       currency: null,
       orderId: null,
@@ -39,8 +44,11 @@ describe("aviso de venda", () => {
       resultsUrl: "https://www.dclickora.com/resultados/relatorios/conversoes",
     });
     assert.match(notice.subject, /sem clique/);
+    assert.match(notice.text, /não enviou o produto/);
+    assert.doesNotMatch(notice.text, /PRODUCT_CODENAME/);
     assert.match(notice.text, /não enviou a comissão/);
     assert.match(notice.text, /não devolveu o clique/);
+    assert.equal(notice.pushTitle, "Nova venda aprovada!");
     assert.match(notice.pushBody, /sem clique/);
   });
 });

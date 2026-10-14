@@ -209,34 +209,42 @@ async function main() {
 
   const before = sentMails.length;
   const sale = await postSale({
+    platform: "MaxWeb",
     clickora_click_id: clickId,
     amount: "21.85",
     currency: "USD",
     status: "approved",
     order_id: `ord-${stamp}`,
+    product: "visivra_tsl2",
   });
   await waitFor("push e telegram da venda", () => pushes.length >= 1 && telegramHits.length >= 1);
   const mail = sentMails[sentMails.length - 1];
-  const push = JSON.parse(pushes[0] || "{}") as { title?: string; body?: string; tag?: string };
+  const push = JSON.parse(pushes[0] || "{}") as { title?: string; body?: string; tag?: string; chime?: boolean };
   record(
     "venda aprovada avisa por e-mail sem sessão",
     sale.status === 200 &&
       sale.body.conversion === "created" &&
       sale.body.email_sent === true &&
       mail?.to === alertEmail &&
-      mail.subject?.includes("BuyGoods") === false &&
-      (mail.text || "").includes("21.85 USD") &&
+      (mail.subject || "").includes("MaxWeb") &&
+      (mail.subject || "").includes("BuyGoods") === false &&
+      (mail.text || "").includes("Produto: visivra_tsl2") &&
+      (mail.text || "").includes("Comissão: 21,85 USD") &&
       (mail.text || "").includes("ligada a um clique") &&
+      (mail.text || "").includes("conta fechada") &&
       mail.to !== accountEmail,
     `to=${mail?.to} sent=${sale.body.email_sent} note=${sale.body.email_note || ""}`,
   );
   record(
-    "o mesmo aparelho recebe o aviso e o Telegram a comissão",
-    push.title === "Nova venda na dclickora" &&
-      (push.body || "").includes("21.85 USD") &&
+    "o telemóvel e o Telegram recebem o produto e a comissão",
+    push.title === "Nova venda aprovada!" &&
+      (push.body || "").includes("visivra_tsl2") &&
+      (push.body || "").includes("Comissão: 21,85 USD") &&
+      push.chime === true &&
       (push.tag || "").startsWith("sale-") &&
       telegramHits[0]?.chat_id === "4242" &&
-      (telegramHits[0]?.text || "").includes("Comissão: 21.85 USD"),
+      (telegramHits[0]?.text || "").includes("Produto: visivra_tsl2") &&
+      (telegramHits[0]?.text || "").includes("Comissão: 21,85 USD"),
     `push=${push.body || ""} tg=${(telegramHits[0]?.text || "").split("\n")[0]}`,
   );
 
@@ -278,17 +286,19 @@ async function main() {
     "pendente que passa a aprovada avisa uma vez",
     approved.body.conversion === "approved_from_pending" &&
       approved.body.email_sent === true &&
-      (sentMails.at(-1)?.text || "").includes("4 USD") &&
+      (sentMails.at(-1)?.text || "").includes("4,00 USD") &&
       pushes.length === 2 &&
       pushes[1] !== pushes[0],
     `conversion=${approved.body.conversion} pushes=${pushes.length}`,
   );
 
   const loose = await postSale({
+    platform: "MaxWeb",
     amount: "9.00",
     currency: "USD",
     status: "approved",
     order_id: `loose-${stamp}`,
+    product: "{PRODUCT_CODENAME}",
   });
   await waitFor("aviso sem clique", () => sentMails.length >= before + 3);
   record(
@@ -296,6 +306,8 @@ async function main() {
     loose.body.conversion === "created_unattributed" &&
       loose.body.email_sent === true &&
       (sentMails.at(-1)?.subject || "").includes("sem clique") &&
+      (sentMails.at(-1)?.text || "").includes("não enviou o produto") &&
+      (sentMails.at(-1)?.text || "").includes("PRODUCT_CODENAME") === false &&
       (sentMails.at(-1)?.text || "").includes("não devolveu o clique"),
     `conversion=${loose.body.conversion} subject=${sentMails.at(-1)?.subject}`,
   );

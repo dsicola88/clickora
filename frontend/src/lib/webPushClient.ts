@@ -33,8 +33,13 @@ export async function hasLocalWebPushSubscription(): Promise<boolean> {
  * @returns true se ficou subscrito com sucesso
  */
 export async function subscribeToWebPush(): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return { ok: false, error: "Este browser não suporta Web Push." };
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return { ok: false, error: "Este browser não suporta avisos no ecrã." };
+  }
+
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") {
+    return { ok: false, error: "Permissão de notificações recusada. Ative nas definições do browser." };
   }
 
   const { data: cfg, error: cfgErr } = await integrationsService.getWebPushConfig();
@@ -48,11 +53,6 @@ export async function subscribeToWebPush(): Promise<{ ok: true } | { ok: false; 
 
   const reg = await navigator.serviceWorker.register(SW_PATH, { scope: "/" });
   await navigator.serviceWorker.ready;
-
-  const perm = await Notification.requestPermission();
-  if (perm !== "granted") {
-    return { ok: false, error: "Permissão de notificações recusada. Ative nas definições do browser." };
-  }
 
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {

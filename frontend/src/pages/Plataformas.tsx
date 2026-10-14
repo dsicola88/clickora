@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Mail,
+  Bell,
   Link2,
   AlertCircle,
   ExternalLink,
@@ -32,6 +33,15 @@ import {
   getAffiliatePostbackPreset,
 } from "@/lib/marketingPlatforms";
 import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
+import {
+  parseSaleChimeId,
+  playSaleChime,
+  SALE_CHIMES,
+  saleChimeSound,
+  setSaleChimeSound,
+  type SaleChimeId,
+} from "@/lib/saleChime";
+import { hasLocalWebPushSubscription, subscribeToWebPush } from "@/lib/webPushClient";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 
 export default function Plataformas() {
@@ -44,6 +54,9 @@ export default function Plataformas() {
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState("BuyGoods");
   const [emailField, setEmailField] = useState("");
+  const [chime, setChime] = useState<SaleChimeId>(() => saleChimeSound());
+  const [phonePushOn, setPhonePushOn] = useState<boolean | null>(null);
+  const chimeSynced = useRef(false);
   const [copied, setCopied] = useState(false);
   const [copiedExample, setCopiedExample] = useState(false);
   const [copiedFunnel, setCopiedFunnel] = useState<null | "checkout" | "lander" | "checkout_event">(null);
@@ -77,17 +90,36 @@ export default function Plataformas() {
     }
   }, [info, user?.sale_notify_email]);
 
+  useEffect(() => {
+    if (chimeSynced.current) return;
+    const fromServer = parseSaleChimeId(info?.sale_chime);
+    if (!fromServer) return;
+    chimeSynced.current = true;
+    setChime(fromServer);
+    setSaleChimeSound(fromServer);
+  }, [info?.sale_chime]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void hasLocalWebPushSubscription().then((on) => {
+      if (!cancelled) setPhonePushOn(on);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const trimmed = emailField.trim();
       if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
         throw new Error("E-mail inválido.");
       }
-      const { error: err } = await integrationsService.patchNotificationEmail(trimmed);
+      const { error: err } = await integrationsService.patchNotificationEmail(trimmed, chime);
       if (err) throw new Error(err);
     },
     onSuccess: async () => {
-      toast.success("E-mail de notificação guardado.");
+      toast.success("E-mail e som de venda guardados.");
       await queryClient.invalidateQueries({ queryKey: ["integrations-affiliate-webhook-info"] });
       await refreshUser();
     },
@@ -102,6 +134,29 @@ export default function Plataformas() {
     },
     onSuccess: (data) => {
       toast.success(`E-mail de teste enviado para ${data?.sent_to ?? "o destino configurado"}.`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const activatePhone = useMutation({
+    mutationFn: async () => {
+      const r = await subscribeToWebPush();
+      if (!r.ok) throw new Error(r.error);
+    },
+    onSuccess: () => {
+      setPhonePushOn(true);
+      toast.success("Este telemóvel passa a mostrar a venda no ecrã, mesmo com o browser fechado.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const testPhone = useMutation({
+    mutationFn: async () => {
+      const { error: err } = await integrationsService.testWebPush();
+      if (err) throw new Error(err);
+    },
+    onSuccess: () => {
+      toast.success("Aviso enviado. Pode fechar o browser: o cartão fica no telemóvel.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -318,8 +373,7 @@ export default function Plataformas() {
               </Label>
               <p className="text-xs text-muted-foreground">
                 Opcional. Se vazio, usa o e-mail da conta: <span className="font-mono text-[11px]">{info.fallback_account_email}</span>
-                . A venda aprovada chega a esta caixa mesmo com a dclickora e o Google fechados. O aviso no telemóvel ou no
-                computador activa-se uma vez em Integrações.
+                . O servidor envia este e-mail quando a rede aprova a venda, com o separador e o navegador fechados.
               </p>
               <Input
                 type="email"
@@ -335,8 +389,75 @@ export default function Plataformas() {
                 disabled={intLocked || saveMutation.isPending}
               >
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Guardar e-mail
+                Guardar e-mail e som
               </Button>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="font-semibold">Som da venda</Label>
+              <p className="text-xs text-muted-foreground">
+                Toque num som para o ouvir. Com a dclickora aberta, a venda usa o som escolhido. No telemóvel bloqueado,
+                o aparelho mostra o cartão e toca o som de notificação do sistema.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Som da venda">
+                {SALE_CHIMES.map((item) => {
+                  const selectedSound = chime === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selectedSound}
+                      disabled={intLocked}
+                      onClick={() => {
+                        setChime(item.id);
+                        setSaleChimeSound(item.id);
+                        void playSaleChime(item.id);
+                      }}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                        selectedSound ? "border-primary bg-primary/10" : "border-border/60 hover:bg-muted/40"
+                      }`}
+                    >
+                      <span className="block text-sm font-medium text-foreground">{item.label}</span>
+                      <span className="block text-xs text-muted-foreground">{item.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-border/60 bg-muted/15 px-4 py-3">
+              <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                Aviso no ecrã do telemóvel
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                O cartão diz <strong className="font-medium text-foreground/90">Nova venda aprovada!</strong> e traz o
+                produto e a comissão que a rede enviou. Sai do servidor, por isso chega com dados móveis ou Wi-Fi, mesmo
+                com o browser fechado, depois de ativar neste aparelho. No iPhone, o Safari pode pedir o site no ecrã
+                inicial.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={intLocked || phonePushOn === true || activatePhone.isPending}
+                  onClick={() => activatePhone.mutate()}
+                >
+                  {activatePhone.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                  {phonePushOn ? "Este telemóvel já recebe os avisos" : "Ativar neste telemóvel"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={intLocked || !phonePushOn || testPhone.isPending}
+                  onClick={() => testPhone.mutate()}
+                >
+                  {testPhone.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Enviar aviso de teste
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2 rounded-xl border-2 border-primary/40 bg-primary/[0.06] p-4">

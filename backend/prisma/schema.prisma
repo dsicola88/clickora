@@ -95,6 +95,8 @@ model User {
   avatarUrl   String?  @map("avatar_url")
   /** E-mail opcional para alertas de venda (postback de afiliados). Se vazio, usa `email`. */
   saleNotifyEmail String? @map("sale_notify_email")
+  /** Som com a app aberta: kaching | chaching | moedas | sino. */
+  saleChime String? @map("sale_chime")
   /** Segredo JVZIPN da conta (cverify). Cifrado com ENCRYPTION_KEY quando existir. */
   jvzooIpnSecret String? @map("jvzoo_ipn_secret") @db.Text
   /** Secret key do Instant Notification Service da ClickBank (até 16 caracteres). */

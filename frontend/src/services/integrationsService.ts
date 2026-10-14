@@ -15,6 +15,7 @@ export const integrationsService = {
     return apiClient.get<{
       hook_url: string;
       sale_notify_email: string;
+      sale_chime?: string;
       fallback_account_email: string;
       smtp_configured: boolean;
       funnel?: {
@@ -35,10 +36,11 @@ export const integrationsService = {
     }>("/integrations/affiliate-webhook-info");
   },
 
-  async patchNotificationEmail(sale_notify_email: string) {
-    return apiClient.patch<{ ok: boolean; sale_notify_email: string }>("/integrations/notification-email", {
-      sale_notify_email,
-    });
+  async patchNotificationEmail(sale_notify_email: string, sale_chime?: string) {
+    return apiClient.patch<{ ok: boolean; sale_notify_email: string; sale_chime?: string }>(
+      "/integrations/notification-email",
+      { sale_notify_email, ...(sale_chime ? { sale_chime } : {}) },
+    );
   },
 
   async testSaleEmail() {

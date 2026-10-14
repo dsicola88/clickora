@@ -19,6 +19,7 @@ export async function notifyApprovedSale(input: {
   userId: string;
   conversionId: string;
   platform: string;
+  product?: string | null;
   amount: string | null;
   currency: string | null;
   orderId: string | null;
@@ -26,6 +27,7 @@ export async function notifyApprovedSale(input: {
 }): Promise<{ sent: boolean; reason?: string }> {
   const notice = buildSaleNotice({
     platform: input.platform,
+    product: input.product,
     amount: input.amount,
     currency: input.currency,
     orderId: input.orderId,
@@ -35,6 +37,7 @@ export async function notifyApprovedSale(input: {
 
   notifyTelegramSale(input.userId, {
     platform: input.platform,
+    product: input.product,
     amount: input.amount ?? undefined,
     currency: input.currency ?? undefined,
     conversionId: input.conversionId,
@@ -46,6 +49,7 @@ export async function notifyApprovedSale(input: {
     body: notice.pushBody,
     url: "/resultados/relatorios/conversoes",
     tag: `sale-${input.conversionId}`,
+    chime: true,
   }).catch((err) => console.warn("[sale push]", input.userId, err));
 
   const user = await systemPrisma.user.findUnique({

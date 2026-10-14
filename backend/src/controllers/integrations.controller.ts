@@ -65,6 +65,7 @@ import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
+  sale_chime: z.enum(["kaching", "chaching", "moedas", "sino"]).optional(),
 });
 
 async function subscriptionPlanForWebhookGate(userId: string) {
@@ -88,7 +89,7 @@ export const integrationsController = {
     }
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { saleNotifyEmail: true, email: true },
+      select: { saleNotifyEmail: true, saleChime: true, email: true },
     });
     if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
 
@@ -110,6 +111,7 @@ export const integrationsController = {
     res.json({
       hook_url,
       sale_notify_email: user.saleNotifyEmail ?? "",
+      sale_chime: user.saleChime ?? "kaching",
       fallback_account_email: user.email,
       smtp_configured: isTransactionalEmailConfigured(),
       funnel: {
@@ -788,6 +790,7 @@ export const integrationsController = {
         userId: user.id,
         conversionId: createdConversionId,
         platform,
+        product: parsed.product,
         amount: amount != null ? amount.toString() : null,
         currency: currency ?? null,
         orderId: externalOrderId ?? null,
@@ -859,9 +862,11 @@ export const integrationsController = {
     const to = (user.saleNotifyEmail?.trim() || user.email).trim();
     const subject = "[dclickora] Teste de notificação de venda (webhook de afiliados)";
     const text =
-      "Este e-mail confirma que os alertas de venda da dclickora chegam a esta caixa.\n\n" +
-      "Quando a rede aprovar uma venda no postback, o resumo chega aqui mesmo com a dclickora e o Google fechados.\n" +
-      "O aviso no telemóvel ou no computador é outro canal: activa-se uma vez em Integrações, nesse aparelho.\n";
+      "Este e-mail confirma que os alertas de venda da dclickora chegam a esta caixa.\n" +
+      "Não é uma venda.\n\n" +
+      "Quando a rede aprovar uma venda, este e-mail e o cartão do telemóvel trazem o produto e a comissão que a rede enviar.\n" +
+      "Chegam com dados móveis ou Wi-Fi, mesmo com o browser fechado.\n" +
+      "O cartão do telemóvel activa-se uma vez em Integrações → Postback, nesse aparelho.\n";
 
     const mail = await sendTransactionalEmail({ to, subject, text });
     if (!mail.sent) {
@@ -1406,14 +1411,24 @@ export const integrationsController = {
     }
 
     const raw = parsed.data.sale_notify_email;
-    const value = raw === "" || raw === undefined ? null : raw;
+    const data: { saleNotifyEmail?: string | null; saleChime?: string } = {};
+    if (raw !== undefined) data.saleNotifyEmail = raw === "" ? null : raw;
+    if (parsed.data.sale_chime) data.saleChime = parsed.data.sale_chime;
 
-    await prisma.user.update({
-      where: { id: billingUserId(req) },
-      data: { saleNotifyEmail: value },
+    const userId = billingUserId(req);
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { id: userId }, data });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { saleNotifyEmail: true, saleChime: true },
     });
 
-    return res.json({ ok: true, sale_notify_email: value ?? "" });
+    return res.json({
+      ok: true,
+      sale_notify_email: user?.saleNotifyEmail ?? "",
+      sale_chime: user?.saleChime ?? "kaching",
+    });
   },
 
   async getTelegramSettings(req: Request, res: Response) {
@@ -1639,9 +1654,11 @@ export const integrationsController = {
       });
     }
     await sendWebPushToUser(userId, {
-      title: "Teste dclickora",
-      body: "Se viu isto no telemóvel ou no computador, o Web Push está a funcionar.",
-      url: "/tracking/integrations",
+      title: "Nova venda aprovada!",
+      body: "Teste da dclickora. Numa venda real, a comissão que a rede enviar aparece aqui.",
+      url: "/resultados/relatorios/conversoes",
+      tag: `sale-test-${Date.now()}`,
+      chime: true,
     });
     return res.json({ ok: true });
   },

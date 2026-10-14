@@ -1,6 +1,7 @@
 import { systemPrisma } from "./prisma";
 import { sendTelegram } from "./telegram";
 import { decryptSecretField } from "./fieldEncryption";
+import { formatSaleCommission, saleNoticePlatform, saleNoticeProduct } from "./saleNotice";
 
 const TELEGRAM_USER_SELECT = {
   telegramBotToken: true,
@@ -13,7 +14,14 @@ const TELEGRAM_USER_SELECT = {
 /** Nova venda (conversão criada no webhook de afiliados). */
 export function notifyTelegramSale(
   userId: string,
-  detail: { platform: string; amount?: string; currency?: string; conversionId?: string; linkedToClick?: boolean },
+  detail: {
+    platform: string;
+    product?: string | null;
+    amount?: string;
+    currency?: string;
+    conversionId?: string;
+    linkedToClick?: boolean;
+  },
 ): void {
   void (async () => {
     const user = await systemPrisma.user.findUnique({
@@ -24,10 +32,12 @@ export function notifyTelegramSale(
     const token = decryptSecretField(user.telegramBotToken)?.trim();
     const chat = user.telegramChatId?.trim();
     if (!token || !chat) return;
+    const product = saleNoticeProduct(detail.product);
     const lines = [
-      "Nova venda (dclickora)",
-      `Rede: ${detail.platform}`,
-      detail.amount != null ? `Comissão: ${detail.amount} ${detail.currency || ""}`.trim() : "Comissão: a rede não enviou o valor",
+      "Nova venda aprovada!",
+      `Rede: ${saleNoticePlatform(detail.platform)}`,
+      `Produto: ${product || "a rede não enviou o produto"}`,
+      `Comissão: ${formatSaleCommission(detail.amount ?? null, detail.currency ?? null)}`,
       detail.linkedToClick === false ? "Clique: a rede não devolveu o clique" : null,
       detail.conversionId ? `Conversão: ${detail.conversionId}` : null,
     ].filter(Boolean);

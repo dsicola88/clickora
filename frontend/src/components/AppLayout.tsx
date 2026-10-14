@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
+import { SaleChimeListener } from "@/components/SaleChimeListener";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-svh w-full">
+        <SaleChimeListener />
         <AppSidebar />
         <SidebarInset className="min-w-0 flex-1">
           <AppUpdateNotice />

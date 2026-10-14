@@ -23,7 +23,14 @@ self.addEventListener("push", function (event) {
         data: { url: data.url || "/resultados" },
         tag: data.tag || "dclickora-push",
         renotify: true,
+        vibrate: data.chime ? [90, 40, 90, 40, 180] : undefined,
       });
+      if (data.chime) {
+        const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const client of windows) {
+          client.postMessage({ type: "dclickora-sale-chime", id: data.tag || "" });
+        }
+      }
     })(),
   );
 });

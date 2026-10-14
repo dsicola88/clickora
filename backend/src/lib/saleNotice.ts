@@ -5,6 +5,8 @@ export function isApprovedSaleNotice(result: string): boolean {
 
 export type SaleNoticeInput = {
   platform: string;
+  /** Código do produto que a rede enviou. Vazio ou macro `{…}` não se inventa. */
+  product?: string | null;
   amount: string | null;
   currency: string | null;
   orderId: string | null;
@@ -20,9 +22,14 @@ export type SaleNotice = {
   pushBody: string;
 };
 
-function money(amount: string | null, currency: string | null): string {
-  if (!amount) return "A rede não enviou a comissão";
-  return `${amount}${currency ? ` ${currency}` : ""}`;
+/** Comissão tal como a rede a enviou. Sem valor, não se inventa um número. */
+export function formatSaleCommission(amount: string | null, currency: string | null): string {
+  if (!amount?.trim()) return "A rede não enviou a comissão";
+  const n = Number(amount.trim().replace(",", "."));
+  const cur = (currency || "").trim().toUpperCase();
+  if (!Number.isFinite(n)) return `${amount.trim()}${cur ? ` ${cur}` : ""}`;
+  const formatted = n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return cur ? `${formatted} ${cur}` : formatted;
 }
 
 function escapeHtml(s: string): string {
@@ -33,13 +40,39 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+const PLATFORM_LABEL: Record<string, string> = {
+  maxweb: "MaxWeb",
+  buygoods: "BuyGoods",
+  smartadv: "SmartAdv",
+  digistore24: "Digistore24",
+  hotmart: "Hotmart",
+  clickbank: "ClickBank",
+  warriorplus: "WarriorPlus",
+  jvzoo: "JVZoo",
+};
+
+/** Nome da rede no aviso. O identificador interno passa a MaxWeb, BuyGoods, etc. */
+export function saleNoticePlatform(raw: string | null | undefined): string {
+  const value = (raw || "").trim();
+  if (!value) return "rede";
+  return PLATFORM_LABEL[value.toLowerCase()] || value;
+}
+
+/** Código de produto da rede. Uma macro por substituir não conta como produto. */
+export function saleNoticeProduct(raw: string | null | undefined): string | null {
+  const value = (raw || "").trim();
+  if (!value || /[{}]/.test(value)) return null;
+  return value.slice(0, 120);
+}
+
 /**
- * Texto do aviso de venda. A comissão é o valor que a rede enviou no postback.
+ * Texto do aviso de venda. A comissão e o produto são os que a rede enviou no postback.
  * Não inclui dados do comprador.
  */
 export function buildSaleNotice(input: SaleNoticeInput): SaleNotice {
-  const platform = input.platform.trim() || "rede";
-  const commission = money(input.amount, input.currency);
+  const platform = saleNoticePlatform(input.platform);
+  const commission = formatSaleCommission(input.amount, input.currency);
+  const product = saleNoticeProduct(input.product) || "A rede não enviou o produto";
   const order = input.orderId?.trim() || "—";
   const linkLine = input.linkedToClick
     ? "A venda ficou ligada a um clique."
@@ -53,6 +86,7 @@ export function buildSaleNotice(input: SaleNoticeInput): SaleNotice {
     "Este aviso chega ao e-mail mesmo com a conta fechada.",
     "",
     `Rede: ${platform}`,
+    `Produto: ${product}`,
     `Comissão: ${commission}`,
     `Encomenda: ${order}`,
     linkLine,
@@ -68,6 +102,7 @@ export function buildSaleNotice(input: SaleNoticeInput): SaleNotice {
 <p style="margin:0 0 16px;font-size:14px;line-height:1.45;color:#334155">A rede confirmou a venda. Este e-mail chega mesmo com a dclickora fechada.</p>
 <table style="border-collapse:collapse;font-size:14px;line-height:1.4">
 ${row("Rede", platform)}
+${row("Produto", product)}
 ${row("Comissão", commission)}
 ${row("Encomenda", order)}
 ${row("Clique", input.linkedToClick ? "Ligado" : "A rede não devolveu o clique")}
@@ -76,14 +111,14 @@ ${row("Clique", input.linkedToClick ? "Ligado" : "A rede não devolveu o clique"
 </div>`;
 
   const pushBody = input.linkedToClick
-    ? `${platform} · ${commission}`
-    : `${platform} · ${commission} · sem clique`;
+    ? `${product} · Comissão: ${commission}`
+    : `${product} · Comissão: ${commission} · sem clique`;
 
   return {
     subject,
     text,
     html,
-    pushTitle: "Nova venda na dclickora",
+    pushTitle: "Nova venda aprovada!",
     pushBody,
   };
 }

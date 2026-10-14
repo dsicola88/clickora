@@ -8,6 +8,7 @@ const prisma = systemPrisma;
 /** Mesmo SQL que migrations/repair — se migrate deploy falhar ou imagem antiga, o seed não rebenta com P2022. */
 const USERS_INTEGRATION_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sale_notify_email" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sale_chime" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_refresh_token" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_enabled" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "google_ads_customer_id" TEXT`,
