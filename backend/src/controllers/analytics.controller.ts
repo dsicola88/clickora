@@ -1157,9 +1157,10 @@ export const analyticsController = {
         GROUP BY 1
         ORDER BY 1 ASC
       `),
-      systemPrisma.$queryRaw<Array<{ day: Date; ct: bigint }>>(Prisma.sql`
+      systemPrisma.$queryRaw<Array<{ day: Date; ct: bigint; rev: unknown }>>(Prisma.sql`
         SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
-               COUNT(*)::bigint AS ct
+               COUNT(*)::bigint AS ct,
+               COALESCE(SUM(amount), 0) AS rev
         FROM conversions
         WHERE user_id = ${userId}
           AND created_at >= ${rangeStart}
@@ -1252,10 +1253,14 @@ export const analyticsController = {
       const date = row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
       checkoutByDay.set(date, Number(row.ct));
     }
-    const conversionByDay = new Map<string, number>();
+    const conversionByDay = new Map<string, { count: number; revenue: number }>();
     for (const row of conversionDayRows) {
       const date = row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
-      conversionByDay.set(date, Number(row.ct));
+      const revenue = Number(row.rev ?? 0);
+      conversionByDay.set(date, {
+        count: Number(row.ct),
+        revenue: Number.isFinite(revenue) ? Math.round(revenue * 100) / 100 : 0,
+      });
     }
     for (const date of [...checkoutByDay.keys(), ...conversionByDay.keys()]) {
       if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0, conversions: 0 };
@@ -1267,7 +1272,8 @@ export const analyticsController = {
         clicks: data.clicks,
         impressions: data.impressions,
         checkouts: checkoutByDay.get(date) ?? 0,
-        conversions: conversionByDay.get(date) ?? 0,
+        conversions: conversionByDay.get(date)?.count ?? 0,
+        sale_revenue: conversionByDay.get(date)?.revenue ?? 0,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Download, RefreshCw, Search } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/LoadingState";
@@ -478,32 +478,71 @@ export default function ResultsOverviewPage() {
       </ProKpiGrid>
 
       <ProPanel
-        title="Visitantes"
-        description="Visitantes qualificados por dia. A linha de vendas é a venda aprovada. A de checkouts aparece quando a rede envia esse evento."
+        title="Visitantes e vendas"
+        description="A área azul são os visitantes. A barra verde é a comissão da venda aprovada e sobe na sua própria escala, como na rede."
       >
         {(data.chart_data ?? []).length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
         ) : (
-          <div className="h-52 w-full px-2 pb-3">
+          <div className="h-72 w-full px-2 pb-3">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.chart_data ?? []} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <ComposedChart data={data.chart_data ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
-                <YAxis allowDecimals={false} width={32} tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="visitors" allowDecimals={false} width={32} tick={{ fontSize: 10 }} />
+                {(data.chart_data ?? []).some((point) => (point.sale_revenue ?? 0) > 0) ? (
+                  <YAxis
+                    yAxisId="sales"
+                    orientation="right"
+                    width={44}
+                    tick={{ fontSize: 10, fill: "#15803d" }}
+                    tickFormatter={(v: number) =>
+                      Number(v).toLocaleString("pt-PT", { maximumFractionDigits: 0 })
+                    }
+                  />
+                ) : null}
                 <Tooltip
-                  formatter={(value, name) => [
-                    Number(value ?? 0).toLocaleString("pt-PT"),
-                    name === "checkouts" ? "Checkouts" : name === "conversions" ? "Vendas" : "Visitantes",
-                  ]}
+                  formatter={(value, name) => {
+                    const n = Number(value ?? 0);
+                    if (name === "sale_revenue") return [money(n, currency), "Comissão"];
+                    if (name === "checkouts") return [n.toLocaleString("pt-PT"), "Checkouts"];
+                    if (name === "conversions") return [n.toLocaleString("pt-PT"), "Vendas"];
+                    return [n.toLocaleString("pt-PT"), "Visitantes"];
+                  }}
                 />
-                <Area type="monotone" dataKey="clicks" name="clicks" stroke="#0284c7" fill="#0284c7" fillOpacity={0.16} strokeWidth={2} />
+                <Area
+                  yAxisId="visitors"
+                  type="monotone"
+                  dataKey="clicks"
+                  name="clicks"
+                  stroke="#0284c7"
+                  fill="#0284c7"
+                  fillOpacity={0.16}
+                  strokeWidth={2}
+                />
                 {(data.checkout_visitors ?? 0) > 0 ? (
-                  <Area type="monotone" dataKey="checkouts" name="checkouts" stroke="#0f766e" fill="#0f766e" fillOpacity={0.08} strokeWidth={1.5} />
+                  <Area
+                    yAxisId="visitors"
+                    type="monotone"
+                    dataKey="checkouts"
+                    name="checkouts"
+                    stroke="#0f766e"
+                    fill="#0f766e"
+                    fillOpacity={0.08}
+                    strokeWidth={1.5}
+                  />
                 ) : null}
-                {(data.chart_data ?? []).some((point) => (point.conversions ?? 0) > 0) ? (
-                  <Area type="monotone" dataKey="conversions" name="conversions" stroke="#b45309" fill="#b45309" fillOpacity={0.12} strokeWidth={2} />
+                {(data.chart_data ?? []).some((point) => (point.sale_revenue ?? 0) > 0) ? (
+                  <Bar
+                    yAxisId="sales"
+                    dataKey="sale_revenue"
+                    name="sale_revenue"
+                    fill="#16a34a"
+                    radius={[3, 3, 0, 0]}
+                    maxBarSize={22}
+                  />
                 ) : null}
-              </AreaChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}
