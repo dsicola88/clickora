@@ -479,7 +479,7 @@ export default function ResultsOverviewPage() {
 
       <ProPanel
         title="Visitantes e vendas"
-        description="A área azul são os visitantes. A barra verde é a comissão da venda aprovada e sobe na sua própria escala, como na rede."
+        description="A área azul são os visitantes. A barra laranja é a comissão da venda aprovada. A dica mostra visitas, conversões e comissão."
       >
         {(data.chart_data ?? []).length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
@@ -495,19 +495,40 @@ export default function ResultsOverviewPage() {
                     yAxisId="sales"
                     orientation="right"
                     width={44}
-                    tick={{ fontSize: 10, fill: "#15803d" }}
+                    tick={{ fontSize: 10, fill: "#EA580C" }}
                     tickFormatter={(v: number) =>
                       Number(v).toLocaleString("pt-PT", { maximumFractionDigits: 0 })
                     }
                   />
                 ) : null}
                 <Tooltip
-                  formatter={(value, name) => {
-                    const n = Number(value ?? 0);
-                    if (name === "sale_revenue") return [money(n, currency), "Comissão"];
-                    if (name === "checkouts") return [n.toLocaleString("pt-PT"), "Checkouts"];
-                    if (name === "conversions") return [n.toLocaleString("pt-PT"), "Vendas"];
-                    return [n.toLocaleString("pt-PT"), "Visitantes"];
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const row = payload[0]?.payload as {
+                      clicks?: number;
+                      checkouts?: number;
+                      conversions?: number;
+                      sale_revenue?: number;
+                    };
+                    return (
+                      <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-md">
+                        <p className="mb-1 font-medium text-foreground">{String(label ?? "")}</p>
+                        <p className="text-[#0284c7]">
+                          Visitantes: {(row.clicks ?? 0).toLocaleString("pt-PT")}
+                        </p>
+                        {(data.checkout_visitors ?? 0) > 0 ? (
+                          <p className="text-[#0f766e]">
+                            Checkouts: {(row.checkouts ?? 0).toLocaleString("pt-PT")}
+                          </p>
+                        ) : null}
+                        <p className="text-foreground">
+                          Conversões: {(row.conversions ?? 0).toLocaleString("pt-PT")}
+                        </p>
+                        <p className="font-medium text-[#EA580C]">
+                          Comissão: {money(row.sale_revenue ?? 0, currency)}
+                        </p>
+                      </div>
+                    );
                   }}
                 />
                 <Area
@@ -537,7 +558,7 @@ export default function ResultsOverviewPage() {
                     yAxisId="sales"
                     dataKey="sale_revenue"
                     name="sale_revenue"
-                    fill="#16a34a"
+                    fill="#EA580C"
                     radius={[3, 3, 0, 0]}
                     maxBarSize={22}
                   />
