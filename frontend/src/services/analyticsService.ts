@@ -348,7 +348,7 @@ export const analyticsService = {
       tracking_conversion_revenue?: number;
       /** Plataformas distintas em metadata com pelo menos uma venda. */
       affiliate_platforms_count?: number;
-      chart_data: Array<{ date: string; clicks: number; impressions: number; checkouts?: number }>;
+      chart_data: Array<{ date: string; clicks: number; impressions: number; checkouts?: number; conversions?: number }>;
       period?: { from: string; to: string; timezone?: string };
       compare?: {
         period: { from: string; to: string };

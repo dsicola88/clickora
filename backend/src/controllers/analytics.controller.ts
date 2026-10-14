@@ -1073,7 +1073,7 @@ export const analyticsController = {
       `),
     ]);
 
-    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows] = await Promise.all([
+    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows, conversionDayRows, unattributedSaleRow] = await Promise.all([
       systemPrisma.$queryRaw<Array<{ country: string; checkouts: bigint }>>(Prisma.sql`
         SELECT
           COALESCE(
@@ -1157,6 +1157,27 @@ export const analyticsController = {
         GROUP BY 1
         ORDER BY 1 ASC
       `),
+      systemPrisma.$queryRaw<Array<{ day: Date; ct: bigint }>>(Prisma.sql`
+        SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+               COUNT(*)::bigint AS ct
+        FROM conversions
+        WHERE user_id = ${userId}
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND status = 'approved'
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `),
+      systemPrisma.$queryRaw<Array<{ sales: bigint; revenue: unknown }>>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS sales,
+               COALESCE(SUM(amount), 0) AS revenue
+        FROM conversions
+        WHERE user_id = ${userId}
+          AND created_at >= ${rangeStart}
+          AND created_at <= ${rangeEnd}
+          AND status = 'approved'
+          AND click_id IS NULL
+      `),
     ]);
 
     /** Colunas de integração em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
@@ -1216,11 +1237,11 @@ export const analyticsController = {
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
     const conversion_rate = clicks > 0 ? (conversions / clicks) * 100 : 0;
 
-    const chartMap: Record<string, { clicks: number; impressions: number }> = {};
+    const chartMap: Record<string, { clicks: number; impressions: number; conversions: number }> = {};
     for (const row of chartRows) {
       const date =
         row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
-      if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0 };
+      if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0, conversions: 0 };
       const n = Number(row.ct);
       if (row.event_type === "click") chartMap[date].clicks = n;
       if (row.event_type === "impression") chartMap[date].impressions = n;
@@ -1231,8 +1252,13 @@ export const analyticsController = {
       const date = row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
       checkoutByDay.set(date, Number(row.ct));
     }
-    for (const date of checkoutByDay.keys()) {
-      if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0 };
+    const conversionByDay = new Map<string, number>();
+    for (const row of conversionDayRows) {
+      const date = row.day instanceof Date ? row.day.toISOString().split("T")[0] : String(row.day).slice(0, 10);
+      conversionByDay.set(date, Number(row.ct));
+    }
+    for (const date of [...checkoutByDay.keys(), ...conversionByDay.keys()]) {
+      if (!chartMap[date]) chartMap[date] = { clicks: 0, impressions: 0, conversions: 0 };
     }
 
     const chart_data = Object.entries(chartMap)
@@ -1241,6 +1267,7 @@ export const analyticsController = {
         clicks: data.clicks,
         impressions: data.impressions,
         checkouts: checkoutByDay.get(date) ?? 0,
+        conversions: conversionByDay.get(date) ?? 0,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -1339,6 +1366,26 @@ export const analyticsController = {
       });
     }
     offer_performance.sort((a, b) => b.clicks - a.clicks || b.checkouts - a.checkouts || b.revenue - a.revenue);
+    const unattributedSales = Number(unattributedSaleRow[0]?.sales ?? 0);
+    const unattributedRevenue = Number(unattributedSaleRow[0]?.revenue ?? 0);
+    if (unattributedSales > 0) {
+      const loose = offer_performance.find((row) => row.offer === "(sem oferta)");
+      if (loose) {
+        loose.sales += unattributedSales;
+        loose.revenue = Math.round((loose.revenue + unattributedRevenue) * 100) / 100;
+      } else {
+        offer_performance.push({
+          presell_id: null,
+          offer: "(sem oferta)",
+          clicks: 0,
+          checkouts: 0,
+          sales: unattributedSales,
+          revenue: Math.round(unattributedRevenue * 100) / 100,
+          epc: null,
+          cvr: null,
+        });
+      }
+    }
 
     const device_performance = devicePerfRows.map((row) => {
       const clicksD = Number(row.clicks);

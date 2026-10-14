@@ -479,7 +479,7 @@ export default function ResultsOverviewPage() {
 
       <ProPanel
         title="Visitantes"
-        description="Visitantes qualificados por dia. A linha de checkouts aparece quando a rede envia esse evento."
+        description="Visitantes qualificados por dia. A linha de vendas é a venda aprovada. A de checkouts aparece quando a rede envia esse evento."
       >
         {(data.chart_data ?? []).length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
@@ -493,12 +493,15 @@ export default function ResultsOverviewPage() {
                 <Tooltip
                   formatter={(value, name) => [
                     Number(value ?? 0).toLocaleString("pt-PT"),
-                    name === "checkouts" ? "Checkouts" : "Visitantes",
+                    name === "checkouts" ? "Checkouts" : name === "conversions" ? "Vendas" : "Visitantes",
                   ]}
                 />
                 <Area type="monotone" dataKey="clicks" name="clicks" stroke="#0284c7" fill="#0284c7" fillOpacity={0.16} strokeWidth={2} />
                 {(data.checkout_visitors ?? 0) > 0 ? (
                   <Area type="monotone" dataKey="checkouts" name="checkouts" stroke="#0f766e" fill="#0f766e" fillOpacity={0.08} strokeWidth={1.5} />
+                ) : null}
+                {(data.chart_data ?? []).some((point) => (point.conversions ?? 0) > 0) ? (
+                  <Area type="monotone" dataKey="conversions" name="conversions" stroke="#b45309" fill="#b45309" fillOpacity={0.12} strokeWidth={2} />
                 ) : null}
               </AreaChart>
             </ResponsiveContainer>

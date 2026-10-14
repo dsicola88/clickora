@@ -14,22 +14,25 @@ function platformFromUrl(destUrl: string, platform?: string | null): string | nu
 
 /**
  * Acrescenta o UUID do clique ao URL da oferta.
- * Escreve sempre `clickora_click_id` e só os parâmetros da rede reconhecida
- * (host ou `platform`). Não substitui um parâmetro que a oferta já traz.
+ * Escreve sempre `clickora_click_id` e o parâmetro da rede reconhecida.
+ * Num domínio desconhecido escreve `subid`, que é o que a MaxWeb e a BuyGoods devolvem.
+ * Não substitui um parâmetro que a oferta já traz.
  */
 export function appendClickIdToAffiliateUrl(destUrl: string, clickId: string, platform?: string | null): string {
   const platformId = platformFromUrl(destUrl, platform);
+  const keys = outboundClickKeys(platformId);
+  const networkKeys = keys.length > 0 ? keys : ["subid"];
   try {
     const u = new URL(destUrl);
     u.searchParams.set("clickora_click_id", clickId);
-    for (const key of outboundClickKeys(platformId)) {
+    for (const key of networkKeys) {
       if (!u.searchParams.has(key)) u.searchParams.set(key, clickId);
     }
     return u.toString();
   } catch {
     const sep = destUrl.includes("?") ? "&" : "?";
     const parts = [`clickora_click_id=${encodeURIComponent(clickId)}`];
-    for (const key of outboundClickKeys(platformId)) {
+    for (const key of networkKeys) {
       const re = new RegExp(`(?:^|[?&])${key}=`, "i");
       if (!re.test(destUrl)) parts.push(`${key}=${encodeURIComponent(clickId)}`);
     }

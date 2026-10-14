@@ -5,15 +5,23 @@ import { appendClickIdToAffiliateUrl } from "./appendClickIdToUrl";
 describe("appendClickIdToAffiliateUrl", () => {
   const uuid = "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee";
 
-  it("em domínio desconhecido só escreve clickora_click_id", () => {
+  it("em domínio desconhecido escreve subid, que a MaxWeb devolve", () => {
     const out = appendClickIdToAffiliateUrl("https://offer.test/buy?a=1", uuid);
     const u = new URL(out);
     assert.equal(u.searchParams.get("a"), "1");
     assert.equal(u.searchParams.get("clickora_click_id"), uuid);
+    assert.equal(u.searchParams.get("subid"), uuid);
     assert.equal(u.searchParams.get("cid"), null);
-    assert.equal(u.searchParams.get("subid"), null);
     assert.equal(u.searchParams.get("sub3"), null);
     assert.equal(u.searchParams.get("s1"), null);
+  });
+
+  it("um hop MaxWeb num domínio próprio recebe subid", () => {
+    const out = appendClickIdToAffiliateUrl("https://mwebkivo.com/go?a=1", uuid);
+    const u = new URL(out);
+    assert.equal(u.searchParams.get("subid"), uuid);
+    assert.equal(u.searchParams.get("clickora_click_id"), uuid);
+    assert.equal(u.searchParams.get("cid"), null);
   });
 
   it("Digistore recebe cid e sid1, não subid", () => {
