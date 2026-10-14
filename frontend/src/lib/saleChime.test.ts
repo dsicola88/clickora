@@ -63,10 +63,11 @@ describe("som de venda", () => {
     expect(off.previousId).toBe("venda-2");
   });
 
-  it("aceita os quatro sons e ignora um nome desconhecido", () => {
+  it("aceita os sons e ignora um nome desconhecido", () => {
     expect(parseSaleChimeId("kaching")).toBe("kaching");
     expect(parseSaleChimeId("chaching")).toBe("chaching");
     expect(parseSaleChimeId("moedas")).toBe("moedas");
+    expect(parseSaleChimeId("chuva")).toBe("chuva");
     expect(parseSaleChimeId("sino")).toBe("sino");
     expect(parseSaleChimeId("pix")).toBeNull();
   });

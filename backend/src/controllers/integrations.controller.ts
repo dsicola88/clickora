@@ -65,7 +65,7 @@ import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
-  sale_chime: z.enum(["kaching", "chaching", "moedas", "sino"]).optional(),
+  sale_chime: z.enum(["kaching", "chaching", "moedas", "chuva", "sino"]).optional(),
 });
 
 async function subscriptionPlanForWebhookGate(userId: string) {

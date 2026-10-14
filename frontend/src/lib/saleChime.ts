@@ -9,14 +9,15 @@ export const SALE_CHIMES = [
   { id: "kaching", label: "Ka-ching", hint: "Caixa registadora" },
   { id: "chaching", label: "Cha-ching", hint: "Mais agudo e curto" },
   { id: "moedas", label: "Moedas", hint: "Moedas na gaveta" },
+  { id: "chuva", label: "Moedas a entrar", hint: "Chuva de moedas, como nas plataformas de afiliados" },
   { id: "sino", label: "Sino de venda", hint: "Três notas de venda fechada" },
 ] as const;
 
 export type SaleChimeId = (typeof SALE_CHIMES)[number]["id"];
 
 export function parseSaleChimeId(value: string | null | undefined): SaleChimeId | null {
-  if (value === "kaching" || value === "chaching" || value === "moedas" || value === "sino") return value;
-  return null;
+  const found = SALE_CHIMES.find((sound) => sound.id === value);
+  return found ? found.id : null;
 }
 
 export function saleChimeSound(): SaleChimeId {
@@ -170,6 +171,35 @@ function drawerClick(ctx: AudioContext, master: GainNode, start: number): void {
   noise.stop(now + start + 0.06);
 }
 
+function metalTick(ctx: AudioContext, master: GainNode, start: number, peak: number): void {
+  const now = ctx.currentTime;
+  const len = Math.max(1, Math.floor(ctx.sampleRate * 0.012));
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 3400;
+  filter.Q.value = 6;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now + start);
+  gain.gain.exponentialRampToValueAtTime(peak, now + start + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + start + 0.018);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(master);
+  src.start(now + start);
+  src.stop(now + start + 0.025);
+}
+
+function coinDrop(ctx: AudioContext, master: GainNode, freq: number, start: number, peak: number): void {
+  metalTick(ctx, master, start, peak * 0.55);
+  bell(ctx, master, freq, start, 0.05, peak, "sine");
+  bell(ctx, master, freq * 2.4, start, 0.028, peak * 0.22, "triangle");
+}
+
 function startChime(ctx: AudioContext, id: SaleChimeId): void {
   const now = ctx.currentTime;
   const master = ctx.createGain();
@@ -188,6 +218,31 @@ function startChime(ctx: AudioContext, id: SaleChimeId): void {
   if (id === "moedas") {
     const notes = [1568, 2093, 1760, 2349, 1976, 2637];
     notes.forEach((freq, i) => bell(ctx, master, freq, 0.045 * i, 0.11, 0.2, "sine"));
+    return;
+  }
+
+  if (id === "chuva") {
+    const coins: Array<[number, number, number]> = [
+      [2860, 0, 0.14],
+      [3520, 0.05, 0.13],
+      [2140, 0.09, 0.15],
+      [3980, 0.12, 0.12],
+      [2680, 0.15, 0.16],
+      [3340, 0.18, 0.14],
+      [1920, 0.21, 0.15],
+      [3720, 0.24, 0.13],
+      [2460, 0.27, 0.16],
+      [3180, 0.3, 0.14],
+      [1740, 0.34, 0.15],
+      [3560, 0.38, 0.12],
+      [2280, 0.43, 0.14],
+      [3020, 0.49, 0.13],
+      [1880, 0.56, 0.12],
+      [2640, 0.64, 0.11],
+      [1560, 0.74, 0.1],
+    ];
+    for (const [freq, start, peak] of coins) coinDrop(ctx, master, freq, start, peak);
+    bell(ctx, master, 420, 0.78, 0.22, 0.08, "sine");
     return;
   }
 
