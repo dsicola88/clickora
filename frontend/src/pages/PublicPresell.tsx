@@ -903,9 +903,17 @@ export default function PublicPresell() {
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
 
-  const title = plainTextFromMaybeHtml((content.title as string) || page.title);
-  const subtitle = plainTextFromMaybeHtml((content.subtitle as string) || "");
-  const salesText = (content.salesText as string) || "";
+  const titleRaw = plainTextFromMaybeHtml((content.title as string) || page.title);
+  const subtitleRaw = plainTextFromMaybeHtml((content.subtitle as string) || "");
+  const salesTextRaw = (content.salesText as string) || "";
+  const productLabelEarly = plainTextFromMaybeHtml(
+    typeof content.productName === "string" ? content.productName.trim() : "",
+  );
+  const importedClone =
+    importMirrorSrcDocRaw.length > 800 || content.importMode === "mirror";
+  const title = importedClone ? productLabelEarly || titleRaw : titleRaw;
+  const subtitle = importedClone ? "" : subtitleRaw;
+  const salesText = importedClone ? "" : salesTextRaw;
   const ctaText = (content.ctaText as string) || "Quero Aproveitar Agora";
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
@@ -960,7 +968,7 @@ export default function PublicPresell() {
    * O espelho importado mantém-se visível com o aviso de cookies.
    * A folha fica em baixo; fechar não troca a landing pelo modelo React nem sai para a oferta.
    */
-  const showImportedMirror = mirrorEligible && !mirrorUseTemplateFallback;
+  const showImportedMirror = false;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameLabel = plainTextFromMaybeHtml(

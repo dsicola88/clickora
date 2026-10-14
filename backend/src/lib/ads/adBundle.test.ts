@@ -207,7 +207,8 @@ describe("anúncio do modelo fixo", () => {
     assert.equal(blob.includes("VISIVRA"), false);
     assert.equal(blob.includes("Open the offer page"), false);
     assert.equal(blob.includes("CelluCare CelluCare"), false);
-    assert.ok(bundle.headlines.some((h) => h.text === "CelluCare Official Site"));
+    assert.ok(bundle.headlines.some((h) => h.text === "CelluCare Offer"));
+    assert.equal(bundle.headlines.some((h) => /official/i.test(h.text)), false);
     assert.ok(bundle.headlines.some((h) => h.text === "Buy CelluCare"));
     assert.match(blob, /£150/);
     assert.equal(bundle.path1, "CelluCare");
@@ -232,11 +233,12 @@ describe("anúncio do modelo fixo", () => {
     const lines = [...bundle.headlines.map((h) => h.text), ...bundle.descriptions.map((d) => d.text), ...bundle.callouts.map((c) => c.text)];
     assert.equal(lines.some((line) => line.includes("(")), false);
     assert.equal(lines.some((line) => /see visivra33 details/i.test(line)), false);
-    assert.ok(bundle.headlines.some((h) => h.text === "Visivra33 Official Site"));
-    assert.ok(bundle.headlines.some((h) => h.text === "Buy Here on Official Website"));
+    assert.equal(lines.some((line) => /official/i.test(line)), false);
+    assert.ok(bundle.headlines.some((h) => h.text === "Visivra33 Offer"));
+    assert.ok(bundle.headlines.some((h) => h.text === "See the Offer"));
     assert.ok(bundle.headlines.some((h) => h.text === "Save $2.00"));
     assert.ok(bundle.descriptions.length >= 3);
-    assert.ok(bundle.descriptions.every((d) => /official website/i.test(d.text)));
+    assert.ok(bundle.descriptions.every((d) => /offer/i.test(d.text)));
   });
 });
 

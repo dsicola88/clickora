@@ -66,36 +66,27 @@ export function classifyPresellImport(args: {
 
   if (hasMirror) {
     notes.push(
-      "Espelho renderizado guardado. O iframe da presell não executa o JavaScript da origem: vídeo, galerias e preços que só aparecem por script podem faltar. Isto não é uma cópia fiel.",
+      "A página original não é copiada. A presell fica com o nome, as imagens e só o preço que estava escrito. Não se apresenta como o site da marca.",
     );
+  }
+  if (hasMirror || (titleOk && (hasImages || hasCopy))) {
     const blocks: string[] = [];
-    if (args.browser !== "rendered") {
-      blocks.push("O espelho não veio de uma renderização concluída no browser.");
-    }
     if (!titleOk) {
       blocks.push("O título é genérico, curto ou de uma página de exemplo. Isso não chega para publicar.");
-    }
-    if ((args.headingCount ?? 0) < 1) {
-      blocks.push("Não há um título de secção principal na página.");
     }
     if (!hasImages) {
       blocks.push("Não há uma imagem de produto extraída da origem.");
     }
-    if (!hasCopy) {
-      blocks.push("O texto principal extraído da origem é curto. O modelo de locale não conta como conteúdo.");
-    }
-    if (!args.hasPrice && !args.hasSourceCta) {
-      blocks.push(
-        "Não há preço nem uma chamada de compra escrita na página. Muitos links, imagens ou parágrafos não provam uma oferta.",
-      );
+    if (!hasCopy && !args.hasPrice && !args.hasSourceCta) {
+      blocks.push("Não há texto, preço nem uma chamada de compra escritos na página.");
     }
     if (blocks.length > 0) {
       notes.push(...blocks);
-      notes.push("O espelho fica guardado em rascunho. A publicação automática não ocorreu.");
-      return { mode: "mirror", publishable: false, notes };
+      notes.push("A presell fica em rascunho. A página original não foi publicada.");
+      return { mode: "template", publishable: false, notes };
     }
-    notes.push("A publicação automática passou as verificações de título, texto, imagem e prova de oferta.");
-    return { mode: "mirror", publishable: true, notes };
+    notes.push("Presell própria, com os dados lidos na origem. Não é um clone da página do vendedor.");
+    return { mode: "template", publishable: true, notes };
   }
 
   if (titleOk && (hasImages || hasCopy)) {

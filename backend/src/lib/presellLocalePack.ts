@@ -38,16 +38,16 @@ export function normalizeImporterLang(raw: string | undefined): string {
 
 const RICH: Record<string, RichLocalePack> = {
   en: {
-    subtitleFallback: "Key information from the official offer page",
-    cta: "Order Now",
-    sectionWhy: "Why it matters",
-    sectionWhat: "What you will find on the official page",
-    sectionFromPage: "More from the offer",
-    bullet1: "Transparent offer and conditions on the official site.",
-    bullet2: "You can review everything before completing your purchase.",
-    bullet3: "Focus on practical results you can evaluate with calm.",
-    urgency: "Availability and conditions may change — check the official page.",
-    richFooter: "Continue on the official page for full details, pricing, and secure checkout.",
+    subtitleFallback: "See today's offer.",
+    cta: "See the offer",
+    sectionWhy: "Before you continue",
+    sectionWhat: "On the next page",
+    sectionFromPage: "From the offer page",
+    bullet1: "The product name and the pictures are ready.",
+    bullet2: "The current price is on the next page.",
+    bullet3: "You choose after you see the offer.",
+    urgency: "The current price is on the next page.",
+    richFooter: "See the current price.",
   },
   es: {
     subtitleFallback: "Información clave de la página oficial de la oferta",
@@ -62,16 +62,16 @@ const RICH: Record<string, RichLocalePack> = {
     richFooter: "Continúa en la página oficial para precios completos y pago seguro.",
   },
   "pt-BR": {
-    subtitleFallback: "Informações da página oficial da oferta",
-    cta: "Quero aproveitar agora",
-    sectionWhy: "Por que isso importa",
-    sectionWhat: "O que você encontra na página oficial",
-    sectionFromPage: "Mais da oferta",
-    bullet1: "Oferta e condições explicadas com transparência no site oficial.",
-    bullet2: "Você pode revisar todas as informações antes de concluir a compra.",
-    bullet3: "Foco em resultados práticos que você pode avaliar com calma.",
-    urgency: "Disponibilidade e condições podem mudar — confira na página oficial.",
-    richFooter: "Continue na página oficial para preços completos e checkout seguro.",
+    subtitleFallback: "Veja a oferta de hoje.",
+    cta: "Ver a oferta",
+    sectionWhy: "Antes de continuar",
+    sectionWhat: "Na página seguinte",
+    sectionFromPage: "Na página da oferta",
+    bullet1: "O nome e as imagens do produto já estão prontos.",
+    bullet2: "O preço atual está na página seguinte.",
+    bullet3: "A decisão fica depois de ver a oferta.",
+    urgency: "O preço atual está na página seguinte.",
+    richFooter: "Veja o preço atual.",
   },
   de: {
     subtitleFallback: "Wichtige Informationen von der offiziellen Angebotsseite",
@@ -276,9 +276,9 @@ export function socialProofFallback(language: string): string {
 export function officialBuyCta(language: string): string {
   const k = normalizeImporterLang(language);
   const m: Record<string, string> = {
-    en: "Buy on the Official Website",
+    en: "See the offer",
     es: "Comprar en el sitio oficial",
-    "pt-BR": "Comprar no site oficial",
+    "pt-BR": "Ver a oferta",
     de: "Auf der offiziellen Website kaufen",
     fr: "Acheter sur le site officiel",
     it: "Acquista sul sito ufficiale",
@@ -298,9 +298,9 @@ export function referencePriceLineRich(lang: string, price: string): string {
   const k = normalizeImporterLang(lang);
   if (!price) return "";
   const m: Record<string, string> = {
-    en: `\n\nReference price on the official page: ${price}.`,
+    en: `\n\nPrice written on the offer page: ${price}.`,
     es: `\n\nReferencia de precio en la página oficial: ${price}.`,
-    "pt-BR": `\n\nReferência de valor na página oficial: ${price}.`,
+    "pt-BR": `\n\nPreço escrito na página da oferta: ${price}.`,
     de: `\n\nReferenzpreis auf der offiziellen Seite: ${price}.`,
     fr: `\n\nPrix de référence sur la page officielle : ${price}.`,
     it: `\n\nPrezzo di riferimento sulla pagina ufficiale: ${price}.`,
@@ -320,9 +320,9 @@ export function referencePriceLineCompact(lang: string, price: string): string {
   const k = normalizeImporterLang(lang);
   if (!price) return "";
   const m: Record<string, string> = {
-    en: `Offer reference on the official page: ${price}.`,
+    en: `Price written on the offer page: ${price}.`,
     es: `Referencia de precio en la página oficial: ${price}.`,
-    "pt-BR": `Referência de valor na página oficial: ${price}.`,
+    "pt-BR": `Preço escrito na página da oferta: ${price}.`,
     de: `Referenzangebot auf der offiziellen Seite: ${price}.`,
     fr: `Référence d’offre sur la page officielle : ${price}.`,
     it: `Riferimento offerta sulla pagina ufficiale: ${price}.`,

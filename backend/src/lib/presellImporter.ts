@@ -1150,6 +1150,14 @@ function pickSubtitle(
   return locale.subtitleFallback;
 }
 
+/** Presell própria. Não copia o texto da página do vendedor nem se apresenta como o site da marca. */
+function buildOriginalPresellCopy(args: { language: string; productName: string; price: string }): string {
+  const locale = localePack(args.language);
+  const name = args.productName.trim();
+  const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
+  return [name, locale.subtitleFallback, locale.richFooter, priceLine].filter(Boolean).join("\n\n");
+}
+
 /** Página longa (ex.: Neotonics): texto denso parecido com a oferta. */
 function buildRichSalesText(
   paragraphs: string[],
@@ -1374,17 +1382,6 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   const headings = extractHeadings(foldHtml).filter((h) => !isPlaceholderHeading(h));
   const paragraphs = extractParagraphs(foldHtml);
-  const listItems = extractListItemsFromHtml(foldHtml);
-
-  const ogDescription = extractMeta(html, "og:description");
-  const metaDescription = extractMeta(html, "description");
-  let description = cleanText(ogDescription || metaDescription || "");
-  if (isGarbageDescription(description)) {
-    description = paragraphs[0] || "";
-  }
-  if (isGarbageDescription(description)) {
-    description = firstSentences(paragraphs.slice(0, 3).join(" "), 500);
-  }
 
   const price = detectPrice(html);
   let images = extractProductImages(html, finalUrl, foldHtml);
@@ -1409,22 +1406,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   }
   const video_url = extractVideoUrl(foldHtml, finalUrl);
 
-  const metaTitleForHero = ogTitle || titleTag;
-  const heroTitle = pickHeroTitle(headings, productName, metaTitleForHero);
-  const subtitle = pickSubtitle(headings, heroTitle, description, locale, metaTitleForHero);
-
-  const joinedLen = paragraphs.join("").length;
-  const sales_text =
-    joinedLen >= 900
-      ? buildRichSalesText(paragraphs, locale, price, language)
-      : buildCompactSalesText({
-          language,
-          productName,
-          description: description || productName,
-          price,
-          paragraphs,
-          listItems,
-        });
+  const sales_text = buildOriginalPresellCopy({ language, productName, price });
 
   const discount = extractDiscountSignals(html, language);
 
@@ -1436,7 +1418,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     headingCount: headings.length,
     hasPrice: price.trim().length > 0,
     hasSourceCta: sourceHasCommercialCta(htmlToSearchableText(html)),
-    title: heroTitle,
+    title: productName,
     browser: browserStatus,
   });
   const import_notes = browserDetail ? [...classified.notes, browserDetail] : classified.notes;
@@ -1447,8 +1429,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   return {
     product_name: productName,
-    title: heroTitle,
-    subtitle,
+    title: productName,
+    subtitle: locale.subtitleFallback,
     sales_text,
     cta_text: locale.cta,
     images,
@@ -1459,7 +1441,6 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     official_buy_cta: officialBuyCta(language),
     ...discount,
     ...(video_url ? { video_url } : {}),
-    ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
     import_notes,
     import_mode: classified.mode,
     publishable: classified.publishable,

@@ -4,7 +4,7 @@ import { classifyPresellImport } from "./presellImportMode";
 import { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImporter";
 
 describe("classifyPresellImport", () => {
-  it("não publica um espelho longo sem preço nem chamada de compra", () => {
+  it("não publica a página original, mesmo sem preço", () => {
     const out = classifyPresellImport({
       mirrorChars: 20_000,
       imageCount: 12,
@@ -16,10 +16,10 @@ describe("classifyPresellImport", () => {
       title: "StopWatt Official",
       browser: "rendered",
     });
-    assert.equal(out.mode, "mirror");
-    assert.equal(out.publishable, false);
-    assert.match(out.notes.join(" "), /não é uma cópia fiel/i);
-    assert.match(out.notes.join(" "), /não provam uma oferta/i);
+    assert.equal(out.mode, "template");
+    assert.equal(out.publishable, true);
+    assert.match(out.notes.join(" "), /não é copiada/i);
+    assert.match(out.notes.join(" "), /não é um clone/i);
   });
 
   it("publica o espelho só com título, imagem, texto e prova de oferta", () => {
@@ -34,9 +34,9 @@ describe("classifyPresellImport", () => {
       title: "StopWatt Official",
       browser: "rendered",
     });
-    assert.equal(out.mode, "mirror");
+    assert.equal(out.mode, "template");
     assert.equal(out.publishable, true);
-    assert.match(out.notes.join(" "), /não é uma cópia fiel/i);
+    assert.match(out.notes.join(" "), /não é um clone/i);
   });
 
   it("mantém Example Domain em rascunho mesmo com espelho e preço", () => {
@@ -51,7 +51,7 @@ describe("classifyPresellImport", () => {
       title: "Example Domain",
       browser: "rendered",
     });
-    assert.equal(out.mode, "mirror");
+    assert.equal(out.mode, "template");
     assert.equal(out.publishable, false);
     assert.match(out.notes.join(" "), /genérico/i);
   });
@@ -65,8 +65,9 @@ describe("classifyPresellImport", () => {
       browser: "unavailable",
     });
     assert.equal(out.mode, "template");
-    assert.equal(out.publishable, false);
+    assert.equal(out.publishable, true);
     assert.match(out.notes.join(" "), /Chromium não está disponível/);
+    assert.match(out.notes.join(" "), /não é um clone/i);
   });
 
   it("marca importação incompleta sem título útil nem imagem", () => {
