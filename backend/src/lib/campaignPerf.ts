@@ -12,6 +12,19 @@ export function campaignUtmSlug(name: string): string {
   return s || "campanha";
 }
 
+/** «Visivra2» casa com o produto «visivra_tsl2» que a rede devolve. Um nome curto não casa. */
+export function campaignProductStem(name: string): string {
+  const stem = campaignUtmSlug(name).replace(/-/g, "").replace(/\d+$/g, "");
+  return stem.length >= 5 ? stem : "";
+}
+
+export function saleProductMatchesCampaign(product: string | null | undefined, campaignName: string): boolean {
+  const stem = campaignProductStem(campaignName);
+  const raw = (product || "").trim();
+  if (!stem || !raw || /[{}]/.test(raw)) return false;
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "").startsWith(stem);
+}
+
 export type CampaignPerf = {
   clicks: number;
   conversions: number;
@@ -57,6 +70,7 @@ export async function loadCampaignPerf(args: {
 }): Promise<CampaignPerf> {
   const slug = campaignUtmSlug(args.campaignName);
   const name = args.campaignName.trim();
+  const productStem = campaignProductStem(args.campaignName);
 
   const fromSql = args.from ? Prisma.sql`AND created_at >= ${args.from}` : Prisma.empty;
   const toSql = args.to ? Prisma.sql`AND created_at <= ${args.to}` : Prisma.empty;
@@ -95,6 +109,14 @@ export async function loadCampaignPerf(args: {
         OR LOWER(TRIM(COALESCE(te.campaign, ''))) = LOWER(${name})
         OR LOWER(TRIM(COALESCE(te.metadata->>'utm_campaign', ''))) = LOWER(${slug})
         OR LOWER(TRIM(COALESCE(te.metadata->>'utm_campaign', ''))) = LOWER(${name})
+        OR (
+          c.click_id IS NULL
+          AND NULLIF(TRIM(COALESCE(c.campaign, '')), '') IS NULL
+          AND ${productStem} <> ''
+          AND COALESCE(c.metadata->>'product', '') !~ '[{}]'
+          AND LOWER(REGEXP_REPLACE(COALESCE(c.metadata->>'product', ''), '[^a-zA-Z0-9]', '', 'g'))
+              LIKE ${productStem} || '%'
+        )
       )
   `);
 

@@ -2,13 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildMediaBuyerAlerts,
+  campaignProductStem,
   campaignUtmSlug,
   computePerf,
+  saleProductMatchesCampaign,
 } from "./campaignPerf";
 
 test("campaignUtmSlug normaliza acentos e espaços", () => {
   assert.equal(campaignUtmSlug("Oferta Verão PT"), "oferta-verao-pt");
   assert.equal(campaignUtmSlug("Neotonics Google Ads"), "neotonics-google-ads");
+});
+
+test("o produto da rede casa com a campanha e a macro não casa", () => {
+  assert.equal(campaignProductStem("Visivra2"), "visivra");
+  assert.equal(saleProductMatchesCampaign("visivra_tsl2", "Visivra2"), true);
+  assert.equal(saleProductMatchesCampaign("visivra_tsl2", "Yusleep"), false);
+  assert.equal(saleProductMatchesCampaign("yusleep", "Sleep"), false);
+  assert.equal(saleProductMatchesCampaign("{PRODUCT_CODENAME}", "Visivra2"), false);
+  assert.equal(saleProductMatchesCampaign("visivra_tsl2", "Ab"), false);
 });
 
 test("computePerf calcula ROAS, CPA, EPC e lucro", () => {
