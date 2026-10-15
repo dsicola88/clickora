@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
-import { useInlineEdit } from "../inline-edit";
+import { useBuilderSurface } from "../builder-surface";
+import { cookieBannerUsesPageOverlay } from "../cookieBannerOverlay";
 import { resolveCookieBannerCopy } from "../cookieBannerCopy";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 
@@ -56,23 +57,25 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const position = c.position ?? "bottom-right";
   const backdrop = c.backdrop !== false;
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
-  const editing = Boolean(useInlineEdit());
+  const inBuilder = useBuilderSurface();
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     setDismissed(readDismissed(storageKey));
   }, [storageKey]);
 
+  const usesOverlay = cookieBannerUsesPageOverlay({ inBuilder, variant, dismissed });
+
   useEffect(() => {
-    if (variant !== "modal" || editing || dismissed || !backdrop) return;
+    if (!usesOverlay || !backdrop) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [variant, editing, dismissed, backdrop]);
+  }, [usesOverlay, backdrop]);
 
-  const visible = editing || !dismissed;
+  const visible = inBuilder || !dismissed;
 
   const dismiss = () => {
     writeDismissed(storageKey);
@@ -141,12 +144,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       </p>
       <button
         type="button"
-        onClick={dismiss}
+        onClick={inBuilder ? undefined : dismiss}
         style={{
           display: "block",
           width: "100%",
           border: "none",
-          cursor: "pointer",
+          cursor: inBuilder ? "default" : "pointer",
           background: accentColor,
           color: "#ffffff",
           fontWeight: 800,
@@ -161,14 +164,14 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       </button>
       <button
         type="button"
-        onClick={dismiss}
+        onClick={inBuilder ? undefined : dismiss}
         style={{
           display: "block",
           width: "100%",
           marginTop: 12,
           border: "none",
           background: "transparent",
-          cursor: "pointer",
+          cursor: inBuilder ? "default" : "pointer",
           color: "#64748b",
           fontSize: 13,
           fontWeight: 500,
@@ -177,11 +180,28 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       >
         {declineLabel}
       </button>
+      {inBuilder ? (
+        <p style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.45, color: "#94a3b8" }}>
+          No editor isto não cobre a página. Na presell publicada o visitante vê o aviso à frente da oferta.
+        </p>
+      ) : null}
     </aside>
   );
 
-  if (variant === "corner") {
-    return <div style={stylesToCssWidgetContent(widget.styles, device)}>{card}</div>;
+  if (!usesOverlay) {
+    return (
+      <div
+        data-testid="builder-cookie-inline"
+        style={{
+          ...stylesToCssWidgetContent(widget.styles, device),
+          display: "flex",
+          justifyContent: "center",
+          padding: inBuilder ? "16px 8px 24px" : undefined,
+        }}
+      >
+        {card}
+      </div>
+    );
   }
 
   return (

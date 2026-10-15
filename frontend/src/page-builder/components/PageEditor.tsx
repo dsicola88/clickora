@@ -11,6 +11,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { BuilderSurfaceProvider } from "../builder-surface";
 import { useParams } from "react-router-dom";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
@@ -321,21 +322,23 @@ export function PageEditor() {
   );
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={collisionDetection}
-      onDragStart={handleDragStart}
-      onDragCancel={() => setDragLabel(null)}
-      onDragEnd={handleDragEnd}
-    >
-      {workspace}
-      <DragOverlay dropAnimation={null}>
-        {dragLabel ? (
-          <div className="rounded-md bg-editor-accent px-3 py-2 text-xs font-semibold text-editor-accent-fg shadow-xl">
-            {dragLabel}
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    <BuilderSurfaceProvider>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={handleDragStart}
+        onDragCancel={() => setDragLabel(null)}
+        onDragEnd={handleDragEnd}
+      >
+        {workspace}
+        <DragOverlay dropAnimation={null}>
+          {dragLabel ? (
+            <div className="rounded-md bg-editor-accent px-3 py-2 text-xs font-semibold text-editor-accent-fg shadow-xl">
+              {dragLabel}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </BuilderSurfaceProvider>
   );
 }
