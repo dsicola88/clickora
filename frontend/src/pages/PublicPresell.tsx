@@ -1153,7 +1153,11 @@ export default function PublicPresell() {
     );
     return (
       <PresellPublicLocaleProvider language={uiLang}>
-        <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-white pb-12">
+        <div
+          className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-0 ${
+            generationNiche === "black" ? "bg-slate-50" : "bg-white pb-12"
+          }`}
+        >
           <PresellMarketingOverlays
             pageId={page.id}
             settings={settings}

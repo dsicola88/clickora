@@ -40,7 +40,7 @@ describe("buildEditablePageDocument", () => {
     expect(cookie.content.overlayOpacity).toBe(28);
   });
 
-  it("black cookies: artigo + CTA na página; cookie só desbloqueia (sem hoplink)", () => {
+  it("black cookies: portal estruturado; cookie só desbloqueia (sem hoplink)", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -56,20 +56,25 @@ describe("buildEditablePageDocument", () => {
       },
     });
     expect(doc.settings.maxContentWidth).toBe(720);
-    const media = doc.sections[0].columns[0].widgets[0];
+    expect(doc.settings.background).toBe("#f8fafc");
+    expect(doc.sections[0].columns[0].widgets[0].type).toBe("html");
+    expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("StopWatt");
+    const media = doc.sections[1].columns[0].widgets[0];
     expect(media.type).toBe("image");
     expect(media.content.hero).toBe(false);
     expect(media.content.src).toBe("https://cdn.example/pack.jpg");
-    const bodyTypes = doc.sections[1].columns[0].widgets.map((w) => w.type);
-    expect(bodyTypes).toEqual(["heading", "heading", "text", "button"]);
-    const headline = String(doc.sections[1].columns[0].widgets[1].content.text).toLowerCase();
+    const bodyTypes = doc.sections[2].columns[0].widgets.map((w) => w.type);
+    expect(bodyTypes).toEqual(["heading", "heading", "text"]);
+    const headline = String(doc.sections[2].columns[0].widgets[1].content.text).toLowerCase();
     expect(headline).toContain("stopwatt");
     expect(headline).not.toContain("milagrosa");
-    const bodyHtml = String(doc.sections[1].columns[0].widgets[2].content.html).toLowerCase();
+    const bodyHtml = String(doc.sections[2].columns[0].widgets[2].content.html).toLowerCase();
     expect(bodyHtml).not.toContain("milagrosa");
     expect(bodyHtml).toContain("official");
-    expect(doc.sections[1].columns[0].widgets[3].content.href).toBe("https://offer.example/buy");
-    const cookie = doc.sections[2].columns[0].widgets[0];
+    const ctaTypes = doc.sections[3].columns[0].widgets.map((w) => w.type);
+    expect(ctaTypes).toEqual(["text", "button"]);
+    expect(doc.sections[3].columns[0].widgets[1].content.href).toBe("https://offer.example/buy");
+    const cookie = doc.sections[4].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
     expect(cookie.content.offerHref || "").toBe("");
     const baked = bakePublicOfferHrefs(
@@ -147,7 +152,10 @@ describe("buildEditablePageDocument", () => {
         generationNiche: "black",
       },
     });
-    expect(doc.sections[0].columns[0].widgets[0].content.src).toBe(png);
+    const image = doc.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "image");
+    expect(image?.content.src).toBe(png);
   });
 
   it("não inventa foto nem botão quando esses dados não existem", () => {
@@ -156,11 +164,12 @@ describe("buildEditablePageDocument", () => {
       type: "review",
       content: { title: "Só um título" },
     });
-    const types = doc.sections[0].columns[0].widgets.map((w) => w.type);
-    expect(types[0]).toBe("heading");
-    expect(types).not.toContain("image");
-    expect(types).not.toContain("button");
-    expect(types).not.toContain("cookieBanner");
+    const all = doc.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets));
+    expect(all.some((w) => w.type === "html")).toBe(true);
+    expect(all.some((w) => w.type === "heading")).toBe(true);
+    expect(all.some((w) => w.type === "image")).toBe(false);
+    expect(all.some((w) => w.type === "button")).toBe(false);
+    expect(all.some((w) => w.type === "cookieBanner")).toBe(false);
   });
 
   it("usa o HTML do espelho como primeira dobra quando o import guardou a página", () => {
@@ -253,9 +262,14 @@ describe("buildEditablePageDocument", () => {
       },
     );
     expect(resolved.settings.maxContentWidth).toBe(720);
-    expect(resolved.sections[0].columns[0].widgets[0].content.hero).toBe(false);
-    expect(String(resolved.sections[1].columns[0].widgets[1].content.text).toLowerCase()).toContain(
-      "stopwatt",
-    );
+    expect(resolved.sections[0].columns[0].widgets[0].type).toBe("html");
+    const image = resolved.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "image");
+    expect(image?.content.hero).toBe(false);
+    const headline = resolved.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "heading" && w.content.tag === "h1");
+    expect(String(headline?.content.text).toLowerCase()).toContain("stopwatt");
   });
 });
