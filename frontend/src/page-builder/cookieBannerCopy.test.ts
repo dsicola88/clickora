@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveCookieBannerCopy } from "./cookieBannerCopy";
+import {
+  clampCookieOverlayBlur,
+  clampCookieOverlayOpacity,
+  resolveCookieBannerCopy,
+} from "./cookieBannerCopy";
 
 describe("cookie banner language", () => {
   it("traduz o texto de stock para o idioma da página", () => {
@@ -14,8 +18,8 @@ describe("cookie banner language", () => {
       "pt-BR",
     );
     expect(copy.followsLanguage).toBe(true);
-    expect(copy.title).toBe("Valorizamos a sua privacidade");
-    expect(copy.allowLabel).toBe("Aceitar tudo");
+    expect(copy.title).toBe("Política de cookies");
+    expect(copy.allowLabel).toBe("Permitir");
     expect(copy.policyLabel).toBe("Política de cookies");
   });
 
@@ -30,5 +34,27 @@ describe("cookie banner language", () => {
     const copy = resolveCookieBannerCopy({ title: "We Value Your Privacy" }, "es");
     expect(copy.title).toBe("Valoramos tu privacidad");
     expect(copy.allowLabel).toBe("Aceptar todo");
+  });
+
+  it("followLanguage false grava o texto editado", () => {
+    const copy = resolveCookieBannerCopy(
+      {
+        title: "Cookie Policy",
+        allowLabel: "Sim",
+        footerNote: "Nota da marca",
+        followLanguage: false,
+      },
+      "pt-BR",
+    );
+    expect(copy.followsLanguage).toBe(false);
+    expect(copy.title).toBe("Cookie Policy");
+    expect(copy.allowLabel).toBe("Sim");
+    expect(copy.footerNote).toBe("Nota da marca");
+  });
+
+  it("limita a escuridão e o blur do overlay", () => {
+    expect(clampCookieOverlayOpacity(28)).toBe(28);
+    expect(clampCookieOverlayOpacity(200)).toBe(70);
+    expect(clampCookieOverlayBlur(-1)).toBe(0);
   });
 });

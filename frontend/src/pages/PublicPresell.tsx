@@ -977,8 +977,8 @@ export default function PublicPresell() {
     content.generationNiche === "white" ||
     content.generation_niche === "black" ||
     content.generation_niche === "white";
-  /** Black e white: espelho 1:1 quando o import Playwright guardou HTML (cookies/desconto/review por cima). Fantasma não usa espelho. */
-  const showImportedMirror = mirrorEligible && !isGhostPage;
+  /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
+  const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameRaw = plainTextFromMaybeHtml(
@@ -1072,12 +1072,13 @@ export default function PublicPresell() {
     );
   }
 
-  if (generationNiche === "black" && !isGhostPage) {
+  if (!isGhostPage) {
     const visualDoc = bakePublicOfferHrefs(
       resolvePresellPageDocument(page.content, {
         title: page.title,
         type: page.type,
         videoUrl: page.video_url,
+        language: uiLang || page.language,
         content: content as Record<string, unknown>,
       }),
       href,
@@ -1102,6 +1103,20 @@ export default function PublicPresell() {
             </div>
           </section>
         ) : null}
+        {isMirrorChromePresellType(page.type) ? (
+          <MirrorTypeChrome
+            type={page.type}
+            ctaText={ctaText}
+            href={href}
+            ctaEnabled={ctaEnabled}
+            ratingValue={ratingFromSource ? ratingValue : ""}
+            ratingStars={ratingFromSource ? ratingStars : 0}
+            productLabel={productNameLabel || title}
+            videoUrl={showVideo ? page.video_url : null}
+            language={uiLang}
+            className={isDiscount ? "top-[5.25rem]" : undefined}
+          />
+        ) : null}
         <Suspense fallback={null}>
           <PublicBuilderPresellView
             doc={visualDoc}
@@ -1109,7 +1124,30 @@ export default function PublicPresell() {
             offerUrl={offerUrl}
           />
         </Suspense>
-        <PresellTrustFooter language={uiLang} cookiePolicyUrl={cookiePolicyUrl} />
+        <PresellTrustFooter
+          language={uiLang}
+          cookiePolicyUrl={cookiePolicyUrl}
+          portalMode={generationNiche === "black"}
+          privacyPolicyUrl={
+            typeof settings.privacyPolicyUrl === "string" ? settings.privacyPolicyUrl : undefined
+          }
+          termsUrl={typeof settings.termsUrl === "string" ? settings.termsUrl : undefined}
+          businessName={typeof settings.businessName === "string" ? settings.businessName : undefined}
+          operatorDocument={
+            typeof settings.operatorDocument === "string"
+              ? settings.operatorDocument
+              : typeof settings.cnpj === "string"
+                ? settings.cnpj
+                : undefined
+          }
+          supportEmail={
+            typeof settings.supportEmail === "string"
+              ? settings.supportEmail
+              : typeof settings.contactEmail === "string"
+                ? settings.contactEmail
+                : undefined
+          }
+        />
       </>
     );
     return (
@@ -1168,7 +1206,7 @@ export default function PublicPresell() {
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
-          navigateOnAccept={generationNiche === "black"}
+          navigateOnAccept={gateKind === "cookies"}
         />
       ) : null}
 

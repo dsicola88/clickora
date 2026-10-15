@@ -410,6 +410,9 @@ function WidgetContentTab({
     case "html":
       return (
         <Section title="HTML">
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+            Clique no canvas para editar o texto da oferta. Também pode colar ou ajustar o HTML aqui.
+          </p>
           <TextareaField
             label="Código HTML"
             value={(c.code as string) ?? ""}

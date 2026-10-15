@@ -151,6 +151,12 @@ export default function CreatePresellWizardPage() {
         affiliate_link: offer,
         generation_niche: generationNiche,
       });
+      if (imported.error || !imported.data) {
+        throw new Error(
+          imported.error ||
+            "Não foi possível ler a página do produto. Cole o URL público da sales page (não o checkout).",
+        );
+      }
 
       const buildContent = (typeForPage: string) => {
         let content: Record<string, unknown>;
@@ -158,12 +164,12 @@ export default function CreatePresellWizardPage() {
         let mirrorOk = false;
         const pageTitle = titleSeed.slice(0, 200);
 
-        if (!imported.error && imported.data) {
+        if (imported.data) {
           const data = imported.data;
           const isDiscount = isDiscountPresellType(typeForPage);
           const hasMirror =
             typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
-          /** Publica com título/imagens/texto reais. O espelho HTML já não é obrigatório (a página não é clone). */
+          /** White publica o visual da origem (espelho). Black publica o artigo informativo com fotos reais. */
           mirrorOk = data.publishable === true;
           const importedTitle = String(data.title || data.product_name || "").trim();
           const titleLooksWeak =
@@ -210,28 +216,13 @@ export default function CreatePresellWizardPage() {
               video_url = embed;
             }
           }
-        } else {
-          content = {
-            title: titleSeed,
-            subtitle: "",
-            salesText: "Clique no botão abaixo para ver a oferta.",
-            ctaText: "Ver oferta",
-            affiliateLink: offer,
-            productName: titleSeed,
-            productImages: [],
-            sourceUrl: offer,
-            generationNiche,
-          };
-          if (isVideoPresellType(typeForPage) && manualYoutubeUrl.trim()) {
-            const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
-            if (embed) video_url = embed;
-          }
         }
 
         content.pageDocument = buildEditablePageDocument({
           title: pageTitle,
           type: typeForPage,
           videoUrl: video_url,
+          language,
           content,
         });
 
@@ -549,7 +540,11 @@ export default function CreatePresellWizardPage() {
             ) : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="product-page">Página do produto a clonar (visual)</Label>
+            <Label htmlFor="product-page">
+              {generationNiche === "black"
+                ? "Página do produto (nome, fotos — sem clonar claims)"
+                : "Página do produto (fidelidade visual)"}
+            </Label>
             <Input
               id="product-page"
               placeholder="https://… sales page (opcional — se vazio usa o hoplink)"
@@ -557,8 +552,9 @@ export default function CreatePresellWizardPage() {
               onChange={(e) => setProductPageUrl(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              A dclickora espelha esta página (Playwright). O hoplink acima continua a ser o destino
-              rastreado dos CTAs. Use a sales page pública — não a página de checkout.
+              {generationNiche === "black"
+                ? "Black: usamos nome e imagens. O texto público é informativo (Google/Bing) — a sales page agressiva não vai para o anúncio. O hoplink fica no gate."
+                : "White: a página segue o visual do produto. Em cookies o hoplink fica no aviso; nos outros tipos o CTA do tipo. Use a sales page pública, não o checkout."}
             </p>
           </div>
           <Button

@@ -98,7 +98,7 @@ export function PresellTrustFooter({
               <a href={mail} className="underline underline-offset-2 hover:text-white">
                 {contactEmail}
               </a>
-              . {portal.completeOperator}
+              .
             </p>
           ) : null}
           <nav

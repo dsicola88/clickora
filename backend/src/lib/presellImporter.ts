@@ -1582,7 +1582,12 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   subtitle = pickSubtitle(headings, heroHeading, metaDescription, locale, titleTag || ogTitle || "");
   cta_text = fromPageCta || locale.cta;
 
-  if (sourceChars >= 900 || bodyParagraphs.length >= 5) {
+  if (generationNiche === "black") {
+    sales_text = buildOriginalPresellCopy({ language, productName, price });
+    if (subtitle === locale.subtitleFallback && metaDescription.length > 20) {
+      subtitle = firstSentences(metaDescription, 220);
+    }
+  } else if (sourceChars >= 900 || bodyParagraphs.length >= 5) {
     sales_text = buildRichSalesText(bodyParagraphs, locale, price, language);
   } else if (sourceChars >= 120 || listItems.length >= 2 || paragraphs.length >= 2) {
     sales_text = buildCompactSalesText({
@@ -1593,11 +1598,6 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
       paragraphs: bodyParagraphs.length ? bodyParagraphs : paragraphs,
       listItems,
     });
-  } else if (generationNiche === "black") {
-    sales_text = buildOriginalPresellCopy({ language, productName, price });
-    if (subtitle === locale.subtitleFallback && metaDescription.length > 20) {
-      subtitle = firstSentences(metaDescription, 220);
-    }
   } else {
     sales_text = buildCompactSalesText({
       language,

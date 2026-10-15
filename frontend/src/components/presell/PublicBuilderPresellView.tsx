@@ -47,10 +47,8 @@ export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Prop
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
         return;
       }
-      const el = e.target;
-      if (!(el instanceof Element)) return;
-      const a = el.closest("a");
-      if (!a || !(a instanceof HTMLAnchorElement)) return;
+      const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
+      if (!a) return;
       const hrefAttr = (a.getAttribute("href") || "").trim();
       const marked = a.getAttribute("data-clickora-offer") === "1";
       const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");

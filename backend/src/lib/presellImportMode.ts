@@ -76,17 +76,17 @@ export function classifyPresellImport(args: {
     notes.push(
       niche === "white"
         ? "Modo white: espelho visual da sales page (sem JavaScript da origem). CTAs rastreados apontam para o teu hoplink."
-        : "Modo black: espelho visual da sales page + o tipo escolhido (cookies, desconto, review, fantasma…). CTAs rastreados no hoplink.",
+        : "Modo black: a sales page agressiva não é copiada para o anúncio. Só nome e fotos da origem; texto informativo (Google/Bing).",
     );
   } else if (niche === "black") {
     notes.push(
-      "Modo black: hero com imagens e textos lidos na origem; overlays de conversão conforme o tipo. Sem espelho Playwright — instale Chromium ou tente outro URL.",
+      "Modo black: página informativa à prova de bloqueio com imagens da origem. Sem clonar claims da oferta. Sem espelho Playwright no anúncio.",
     );
   } else {
     notes.push("Modo white: textos e subtítulo extraídos da página; espelho indisponível nesta importação.");
   }
   if (niche === "black") {
-    notes.push("Black: escolha só o tipo (cookie, desconto, VSL…) — a aparência segue o produto na medida do import.");
+    notes.push("Black: o hoplink fica no gate (cookies, desconto…). Não invente contacto — vem da origem quando existir.");
   } else {
     notes.push("White: copy e políticas alinhadas ao produtor; tipos agressivos ocultos no assistente.");
   }
