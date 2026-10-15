@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  coercePresellTypeForNiche,
   defaultPresellTypeForNiche,
   isPresellTypeAllowedForNiche,
   normalizePresellGenerationNiche,
@@ -22,6 +23,13 @@ describe("presellGenerationNiche", () => {
   it("default de tipo por nicho", () => {
     assert.equal(defaultPresellTypeForNiche("black"), "cookies");
     assert.equal(defaultPresellTypeForNiche("white"), "tsl");
+  });
+
+  it("coerce troca tipos proibidos no white", () => {
+    assert.equal(coercePresellTypeForNiche("fantasma", "white"), "tsl");
+    assert.equal(coercePresellTypeForNiche("idade", "white"), "tsl");
+    assert.equal(coercePresellTypeForNiche("cookies", "white"), "cookies");
+    assert.equal(coercePresellTypeForNiche("fantasma", "black"), "fantasma");
   });
 });
 
