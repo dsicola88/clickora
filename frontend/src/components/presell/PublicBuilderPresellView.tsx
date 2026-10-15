@@ -20,13 +20,23 @@ type Props = {
   trackOfferHref?: string;
   /** Hoplink em `content.affiliateLink` — CTAs com este destino passam pelo tracker. */
   offerUrl?: string;
+  /**
+   * Gates interativos (idade, país, captcha…): enquanto incompletos,
+   * bloqueia qualquer navegação para a oferta no documento.
+   */
+  interactionLocked?: boolean;
 };
 
 /**
  * Vista pública do editor manual. Intercepta cliques no hoplink para passar por `/track/r/`
  * (contagem + `clickora_click_id`); links internos / mailto / tel / outras URLs ficam intactos.
  */
-export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Props) {
+export function PublicBuilderPresellView({
+  doc,
+  trackOfferHref,
+  offerUrl,
+  interactionLocked = false,
+}: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,7 +49,6 @@ export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Prop
   useEffect(() => {
     const track = (trackOfferHref ?? "").trim();
     const offerNorm = offerUrl ? normalizeComparableUrl(offerUrl) : null;
-    if (!track || !offerNorm) return;
     const root = rootRef.current;
     if (!root) return;
 
@@ -52,29 +61,39 @@ export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Prop
       const hrefAttr = (a.getAttribute("href") || "").trim();
       const marked = a.getAttribute("data-clickora-offer") === "1";
       const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");
+
+      const isOfferIntent = (() => {
+        if (marked) return true;
+        if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) return false;
+        if (!offerNorm) return false;
+        try {
+          const absolute = new URL(hrefAttr, window.location.href).href;
+          const linkNorm = normalizeComparableUrl(absolute);
+          return Boolean(linkNorm && linkNorm === offerNorm);
+        } catch {
+          return false;
+        }
+      })();
+
+      if (!isOfferIntent) return;
+
+      if (interactionLocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      if (!track) return;
+
       if (marked && hashOnly) {
         e.preventDefault();
         e.stopPropagation();
         window.location.assign(track);
         return;
       }
-      if (
-        hashOnly ||
-        hrefAttr.startsWith("mailto:") ||
-        hrefAttr.startsWith("tel:")
-      ) {
+      if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) {
         return;
       }
-      let absolute: string;
-      try {
-        absolute = new URL(hrefAttr, window.location.href).href;
-      } catch {
-        return;
-      }
-      const linkNorm = normalizeComparableUrl(absolute);
-      if (!linkNorm) return;
-      if (!marked && linkNorm !== offerNorm) return;
-
       e.preventDefault();
       e.stopPropagation();
       window.location.assign(track);
@@ -82,10 +101,19 @@ export function PublicBuilderPresellView({ doc, trackOfferHref, offerUrl }: Prop
 
     root.addEventListener("click", onClick, true);
     return () => root.removeEventListener("click", onClick, true);
-  }, [trackOfferHref, offerUrl]);
+  }, [trackOfferHref, offerUrl, interactionLocked]);
 
   return (
-    <div ref={rootRef} data-clickora-builder-public="1">
+    <div
+      ref={rootRef}
+      data-clickora-builder-public="1"
+      data-interaction-locked={interactionLocked ? "1" : undefined}
+      className={
+        interactionLocked
+          ? "[&_a]:pointer-events-none [&_a]:opacity-50 [&_button]:pointer-events-none [&_button]:opacity-50"
+          : undefined
+      }
+    >
       <PageRenderer doc={doc} device="desktop" />
     </div>
   );
