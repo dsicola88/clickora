@@ -1,5 +1,5 @@
 /**
- * Auditoria E2E do fluxo presell: conta → rascunho (wizard-like) → editor (builder) → publicar → página pública.
+ * Auditoria E2E do fluxo presell: import Black/White → conta → rascunho → editor (builder) → publicar → página pública.
  *
  * Uso (API local + Postgres de teste):
  *   DATABASE_URL=postgresql://clickora:clickora@127.0.0.1:5435/clickora_e2e \
@@ -36,14 +36,19 @@ type Json = Record<string, unknown>;
 
 async function req(
   path: string,
-  init: RequestInit & { token?: string } = {},
+  init: RequestInit & { token?: string; timeoutMs?: number } = {},
 ): Promise<{ status: number; json: Json }> {
+  const { timeoutMs = 60_000, token, ...rest } = init;
   const headers: Record<string, string> = {
-    ...(init.headers as Record<string, string>),
+    ...(rest.headers as Record<string, string>),
   };
-  if (init.token) headers.Authorization = `Bearer ${init.token}`;
-  if (init.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-  const r = await fetch(`${API}${path}`, { ...init, headers, signal: AbortSignal.timeout(60_000) });
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (rest.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+  const r = await fetch(`${API}${path}`, {
+    ...rest,
+    headers,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   const text = await r.text();
   let json: Json = {};
   try {
@@ -91,6 +96,36 @@ function log(step: string, ok: boolean, detail: string) {
   if (!ok) process.exitCode = 1;
 }
 
+async function auditImportNiche(token: string, niche: "black" | "white"): Promise<Json> {
+  const imp = await req("/presells/import-from-url", {
+    method: "POST",
+    token,
+    timeoutMs: 180_000,
+    body: JSON.stringify({
+      product_url: OFFER,
+      affiliate_link: OFFER,
+      language: "en",
+      generation_niche: niche,
+    }),
+  });
+  const generation = String(imp.json.generation_niche || "");
+  const salesLen = String(imp.json.sales_text || "").length;
+  const mirrorLen = String(imp.json.import_mirror_src_doc || "").length;
+  const publishable = imp.json.publishable === true;
+  const ok =
+    imp.status === 200 &&
+    generation === niche &&
+    publishable &&
+    salesLen >= 80 &&
+    mirrorLen >= 800;
+  log(
+    `import_${niche}`,
+    ok,
+    `POST import-from-url → ${imp.status} · niche=${generation} · sales=${salesLen} · mirror=${mirrorLen} · publishable=${publishable}`,
+  );
+  return imp.json;
+}
+
 async function main() {
   console.log(`\n=== Presell flow E2E audit ===\nAPI=${API}\n`);
 
@@ -115,6 +150,9 @@ async function main() {
   log("register", reg.status === 201 && Boolean(token), `POST /auth/register → ${reg.status}`);
   assert.ok(token, "token ausente");
 
+  const importBlack = await auditImportNiche(token, "black");
+  const importWhite = await auditImportNiche(token, "white");
+
   const settings = {
     businessName: "E2E Flow Operator",
     contactEmail: email,
@@ -129,6 +167,7 @@ async function main() {
     "Não prometemos resultados médicos. Confirme preço e garantia no site oficial. " +
     "Podemos receber comissão por indicação. Compare alternativas antes de comprar.";
 
+  const blackImages = Array.isArray(importBlack.images) ? (importBlack.images as string[]) : [];
   const created = await req("/presells", {
     method: "POST",
     token,
@@ -140,15 +179,21 @@ async function main() {
       language: "pt-BR",
       status: "draft",
       content: {
-        title: "Tea",
-        productName: "Tea",
-        subtitle: "Conteúdo informativo independente",
-        sales_text: salesText,
-        cta_text: "Continuar para a página oficial da oferta",
+        title: String(importBlack.title || "Tea"),
+        productName: String(importBlack.product_name || "Tea"),
+        subtitle: String(importBlack.subtitle || "Conteúdo informativo independente"),
+        salesText: String(importBlack.sales_text || salesText),
+        ctaText: String(importBlack.cta_text || "Continuar para a página oficial da oferta"),
         affiliateLink: OFFER,
-        productImages: [
-          "https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg",
-        ],
+        generationNiche: "black",
+        policyUrls: importBlack.policy_urls ?? {},
+        importMode: importBlack.import_mode,
+        ...(typeof importBlack.import_mirror_src_doc === "string" && importBlack.import_mirror_src_doc.length > 0
+          ? { importMirrorSrcDoc: importBlack.import_mirror_src_doc }
+          : {}),
+        productImages: blackImages.length
+          ? blackImages.slice(0, 6)
+          : ["https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg"],
       },
       settings,
     }),
@@ -213,6 +258,54 @@ async function main() {
   const blob = JSON.stringify(pubGet.json.content || {});
   const hasHeadline = blob.includes(HEADLINE);
   log("public_content", hasHeadline, hasHeadline ? "headline do editor visível na API pública" : "headline em falta");
+
+  const whiteSlug = `e2e-white-${Date.now().toString(36)}`;
+  const whiteImages = Array.isArray(importWhite.images) ? (importWhite.images as string[]) : [];
+  const whiteCreate = await req("/presells", {
+    method: "POST",
+    token,
+    body: JSON.stringify({
+      title: "E2E Tea White",
+      slug: whiteSlug,
+      type: "tsl",
+      category: "sem",
+      language: "en",
+      status: "published",
+      content: {
+        title: String(importWhite.title || "Tea"),
+        productName: String(importWhite.product_name || "Tea"),
+        subtitle: String(importWhite.subtitle || ""),
+        salesText: String(importWhite.sales_text || ""),
+        ctaText: String(importWhite.cta_text || "Continue"),
+        affiliateLink: OFFER,
+        generationNiche: "white",
+        policyUrls: importWhite.policy_urls ?? {},
+        importMode: importWhite.import_mode,
+        ...(typeof importWhite.import_mirror_src_doc === "string" && importWhite.import_mirror_src_doc.length > 0
+          ? { importMirrorSrcDoc: importWhite.import_mirror_src_doc }
+          : {}),
+        productImages: whiteImages.slice(0, 6),
+      },
+      settings,
+    }),
+  });
+  const whiteId = String(whiteCreate.json.id || "");
+  log(
+    "white_publish_create",
+    whiteCreate.status === 201 && Boolean(whiteId),
+    `POST presell white+import → ${whiteCreate.status}`,
+  );
+
+  const whitePub = whiteId ? await req(`/public/presells/id/${whiteId}`) : { status: 0, json: {} };
+  const whiteContent = JSON.stringify(whitePub.json.content || {});
+  const whiteNicheOk =
+    whitePub.status === 200 &&
+    (whiteContent.includes('"generationNiche":"white"') || whiteContent.includes('"generation_niche":"white"'));
+  log(
+    "white_public_niche",
+    whiteNicheOk,
+    whiteNicheOk ? "generationNiche=white na API pública" : `GET público → ${whitePub.status}`,
+  );
 
   console.log("\n--- resumo ---");
   if (process.exitCode) {
