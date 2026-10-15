@@ -40,7 +40,7 @@ describe("buildEditablePageDocument", () => {
     expect(cookie.content.overlayOpacity).toBe(28);
   });
 
-  it("black cookies: artigo informativo, foto, hoplink só no aviso", () => {
+  it("black cookies: artigo alinhado, sem hero viewport, hoplink só no aviso", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -55,12 +55,21 @@ describe("buildEditablePageDocument", () => {
         generationNiche: "black",
       },
     });
-    const types = doc.sections[0].columns[0].widgets.map((w) => w.type);
-    expect(types).toEqual(["image", "heading", "text"]);
-    expect(types).not.toContain("button");
-    expect(String(doc.sections[0].columns[0].widgets[1].content.text).toLowerCase()).toContain("stopwatt");
-    expect(String(doc.sections[0].columns[0].widgets[1].content.text).toLowerCase()).not.toContain("milagrosa");
-    const cookie = doc.sections[1].columns[0].widgets[0];
+    expect(doc.settings.maxContentWidth).toBe(720);
+    const media = doc.sections[0].columns[0].widgets[0];
+    expect(media.type).toBe("image");
+    expect(media.content.hero).toBe(false);
+    expect(media.content.src).toBe("https://cdn.example/pack.jpg");
+    const bodyTypes = doc.sections[1].columns[0].widgets.map((w) => w.type);
+    expect(bodyTypes).toEqual(["heading", "heading", "text"]);
+    expect(bodyTypes).not.toContain("button");
+    const headline = String(doc.sections[1].columns[0].widgets[1].content.text).toLowerCase();
+    expect(headline).toContain("stopwatt");
+    expect(headline).not.toContain("milagrosa");
+    const bodyHtml = String(doc.sections[1].columns[0].widgets[2].content.html).toLowerCase();
+    expect(bodyHtml).not.toContain("milagrosa");
+    expect(bodyHtml).toContain("official");
+    const cookie = doc.sections[2].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
     expect(cookie.content.offerHref).toBe("https://offer.example/buy");
   });
@@ -186,16 +195,52 @@ describe("buildEditablePageDocument", () => {
     );
   });
 
-  it("reusa o documento guardado em vez de inventar outra dobra", () => {
+  it("white: reusa o documento guardado em vez de inventar outra dobra", () => {
     const stored = buildEditablePageDocument({
       title: "A",
       type: "cookies",
-      content: { title: "Guardado", generationNiche: "black" },
+      content: { title: "Guardado", generationNiche: "white", productImages: ["https://cdn.example/a.jpg"] },
     });
     const resolved = resolvePresellPageDocument(
       { pageDocument: stored },
-      { title: "B", type: "cookies", content: { title: "Outro" } },
+      {
+        title: "B",
+        type: "cookies",
+        content: {
+          title: "Outro",
+          generationNiche: "white",
+          productImages: ["https://cdn.example/b.jpg"],
+        },
+      },
     );
-    expect(String(resolved.sections[0].columns[0].widgets[0].content.text)).toMatch(/Guardado/);
+    expect(String(resolved.sections[0].columns[1].widgets[0].content.text)).toMatch(/Guardado/);
+  });
+
+  it("black: regenera o artigo limpo mesmo com documento antigo guardado", () => {
+    const stored = buildEditablePageDocument({
+      title: "A",
+      type: "cookies",
+      content: { title: "Velho", generationNiche: "white", productImages: ["https://cdn.example/old.jpg"] },
+    });
+    const resolved = resolvePresellPageDocument(
+      { pageDocument: stored },
+      {
+        title: "B",
+        type: "cookies",
+        language: "en",
+        content: {
+          title: "StopWatt",
+          productName: "StopWatt",
+          generationNiche: "black",
+          productImages: ["https://cdn.example/pack.jpg"],
+          affiliateLink: "https://offer.example/buy",
+        },
+      },
+    );
+    expect(resolved.settings.maxContentWidth).toBe(720);
+    expect(resolved.sections[0].columns[0].widgets[0].content.hero).toBe(false);
+    expect(String(resolved.sections[1].columns[0].widgets[1].content.text).toLowerCase()).toContain(
+      "stopwatt",
+    );
   });
 });

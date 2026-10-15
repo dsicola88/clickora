@@ -92,6 +92,108 @@ function heroImageWidget(src: string, alt: string, offer = "", isHero = true): W
   return image;
 }
 
+/** Foto do produto em artigo black — sem banda hero de viewport inteira. */
+function articleProductPhoto(src: string, alt: string, offer = ""): WidgetNode {
+  const image = createWidget("image");
+  image.content = { ...image.content, src, alt, link: offer, hero: false };
+  image.styles = {
+    ...image.styles,
+    width: { desktop: "360px" },
+    align: { desktop: "center" },
+    margin: { desktop: { top: 0, right: 0, bottom: 8, left: 0, unit: "px" } },
+  };
+  return image;
+}
+
+function articleKicker(text: string): WidgetNode {
+  const heading = createWidget("heading");
+  heading.content = { ...heading.content, text, tag: "p" };
+  const typo = heading.styles.typography;
+  if (typo?.desktop) {
+    heading.styles.typography = {
+      ...typo,
+      desktop: {
+        ...typo.desktop,
+        textAlign: "left",
+        fontSize: 13,
+        fontWeight: 600,
+        lineHeight: 1.4,
+        letterSpacing: 0.4,
+        textTransform: "uppercase",
+      },
+    };
+  }
+  heading.styles.color = "#64748b";
+  heading.styles.margin = {
+    desktop: { top: 0, right: 0, bottom: 10, left: 0, unit: "px" },
+  };
+  return heading;
+}
+
+function articleTitle(text: string): WidgetNode {
+  const heading = createWidget("heading");
+  heading.content = { ...heading.content, text, tag: "h1" };
+  const typo = heading.styles.typography;
+  if (typo?.desktop) {
+    heading.styles.typography = {
+      ...typo,
+      desktop: {
+        ...typo.desktop,
+        textAlign: "left",
+        fontSize: 32,
+        fontWeight: 700,
+        lineHeight: 1.25,
+        letterSpacing: -0.3,
+      },
+    };
+  }
+  heading.styles.color = "#0f172a";
+  heading.styles.margin = {
+    desktop: { top: 0, right: 0, bottom: 18, left: 0, unit: "px" },
+  };
+  return heading;
+}
+
+function articleBodyHtml(article: {
+  intro: string;
+  pillarsTitle: string;
+  pillars: { title: string; body: string }[];
+  productNote: string;
+}): string {
+  const pillars = article.pillars
+    .map(
+      (p) =>
+        `<div style="margin:0 0 1.35rem 0">` +
+        `<p style="margin:0 0 0.4rem 0;font-weight:700;color:#0f172a;font-size:1.05rem;line-height:1.4">${escapeHtml(p.title)}</p>` +
+        `<p style="margin:0;color:#475569;font-size:1rem;line-height:1.7">${escapeHtml(p.body)}</p>` +
+        `</div>`,
+    )
+    .join("");
+  return (
+    `<p style="margin:0 0 1.5rem 0;color:#334155;font-size:1.05rem;line-height:1.75">${escapeHtml(article.intro)}</p>` +
+    `<h2 style="margin:0 0 1rem 0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.35">${escapeHtml(article.pillarsTitle)}</h2>` +
+    pillars +
+    `<aside style="margin:1.75rem 0 0 0;padding:1rem 1.15rem;background:#f8fafc;border-left:3px solid #94a3b8;color:#475569;font-size:0.98rem;line-height:1.7">${escapeHtml(article.productNote)}</aside>`
+  );
+}
+
+function articleCopy(html: string): WidgetNode {
+  const text = createWidget("text");
+  text.content = { ...text.content, html };
+  const typo = text.styles.typography;
+  if (typo?.desktop) {
+    text.styles.typography = {
+      ...typo,
+      desktop: { ...typo.desktop, textAlign: "left", fontSize: 17, lineHeight: 1.7 },
+    };
+  }
+  text.styles.color = "#334155";
+  text.styles.margin = {
+    desktop: { top: 0, right: 0, bottom: 8, left: 0, unit: "px" },
+  };
+  return text;
+}
+
 function sanitizeImportedHtml(html: string, keepStylesheets = false): string {
   let out = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -297,34 +399,79 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       salesText: asString(content.salesText),
       ctaText: cta,
     });
-    const stacked: WidgetNode[] = [];
-    if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
+    const offerLink = cookieType ? "" : offer;
+
+    if (hero) {
+      const media = createSection(1);
+      media.layout = "full";
+      media.contentWidth = 720;
+      media.styles = {
+        ...media.styles,
+        padding: { desktop: { top: 36, right: 24, bottom: 8, left: 24, unit: "px" } },
+        background: "#ffffff",
+      };
+      media.columns[0].widgets = [articleProductPhoto(hero, alt, offerLink)];
+      sections.push(media);
+    }
+
     if (videoUrl) {
       const video = createWidget("video");
       video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
-      stacked.push(video);
+      const vidSec = createSection(1);
+      vidSec.contentWidth = 720;
+      vidSec.styles = {
+        ...vidSec.styles,
+        padding: { desktop: { top: 8, right: 24, bottom: 8, left: 24, unit: "px" } },
+        background: "#ffffff",
+      };
+      vidSec.columns[0].widgets = [video];
+      sections.push(vidSec);
     }
-    stacked.push(foldHeading(article.headline, "left"));
-    const parts = [
-      `<p>${escapeHtml(article.intro)}</p>`,
-      ...article.pillars.map((p) => `<p><strong>${escapeHtml(p.title)}</strong><br />${escapeHtml(p.body)}</p>`),
-      `<p>${escapeHtml(article.productNote)}</p>`,
+
+    const bodyWidgets: WidgetNode[] = [
+      articleKicker(article.kicker),
+      articleTitle(article.headline),
+      articleCopy(articleBodyHtml(article)),
     ];
-    stacked.push(foldCopy(parts.join("")));
-    if (!cookieType && cta && offer) {
+    if (!cookieType && offer) {
       const button = createWidget("button");
-      button.content = { ...button.content, text: article.ctaLabel || cta, href: offer, target: "_self" };
-      stacked.push(button);
+      button.content = {
+        ...button.content,
+        text: article.ctaLabel || cta || "Continuar",
+        href: offer,
+        target: "_self",
+      };
+      button.styles.margin = {
+        desktop: { top: 20, right: 0, bottom: 0, left: 0, unit: "px" },
+      };
+      bodyWidgets.push(button);
     }
-    stacked.push(...extraPhotos);
-    const section = createSection(1);
-    section.styles = {
-      ...section.styles,
-      padding: { desktop: { top: 28, right: 20, bottom: 48, left: 20, unit: "px" } },
+
+    const articleSec = createSection(1);
+    articleSec.layout = "full";
+    articleSec.contentWidth = 720;
+    articleSec.styles = {
+      ...articleSec.styles,
+      padding: { desktop: { top: 12, right: 28, bottom: 40, left: 28, unit: "px" } },
       background: "#ffffff",
     };
-    section.columns[0].widgets = stacked;
-    if (stacked.length) sections.push(section);
+    articleSec.columns[0].widgets = bodyWidgets;
+    sections.push(articleSec);
+
+    if (restImages.length) {
+      const galleryWidgets = restImages
+        .slice(0, 2)
+        .map((src) => articleProductPhoto(src, alt, offerLink));
+      const gallery = createSection(1);
+      gallery.contentWidth = 720;
+      gallery.styles = {
+        ...gallery.styles,
+        padding: { desktop: { top: 0, right: 28, bottom: 36, left: 28, unit: "px" } },
+        background: "#ffffff",
+      };
+      gallery.columns[0].widgets = galleryWidgets;
+      sections.push(gallery);
+    }
   } else {
     const stacked: WidgetNode[] = [];
     if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
@@ -356,17 +503,23 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     sections,
     settings: {
       background: "#ffffff",
-      maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : 860,
+      maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : white ? 860 : 720,
     },
     updatedAt: Date.now(),
   };
 }
 
-/** Documento guardado no conteúdo, senão o mesmo documento que o editor reconstrói. */
+/**
+ * White: reutiliza o documento guardado (espelho/edição).
+ * Black: regenera o artigo limpo — layouts antigos com hero viewport ficavam desalinhados.
+ */
 export function resolvePresellPageDocument(
   stored: unknown,
   source: EditablePresellSource,
 ): PageDocument {
+  if (!isWhiteNiche(source.content || {})) {
+    return buildEditablePageDocument(source);
+  }
   return parsePresellBuilderPageDocument(stored) ?? buildEditablePageDocument(source);
 }
 
