@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 
 const PAGE_ID = "33333333-3333-4333-8333-333333333333";
 const HEADLINE = "E2E Builder — título editado";
@@ -93,10 +93,17 @@ test.describe("presell builder — página pública", () => {
       },
     };
 
-    await page.route("**/public/presells/**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) }),
+    const fulfill = (route: Route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    await page.route("**/public/presells/**", fulfill);
+    await page.route("**/api/public/presells/**", fulfill);
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title>",
+      }),
     );
-    await page.route("**/track/**", (route) => route.fulfill({ status: 204, body: "" }));
 
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
@@ -109,9 +116,9 @@ test.describe("presell builder — página pública", () => {
 
     const cta = page.getByRole("link", { name: /Continuar para a página oficial/i }).first();
     await expect(cta).toBeVisible();
-    const href = decodeURIComponent((await cta.getAttribute("href")) || "");
-    expect(href).toContain("gclid=e2e-gclid");
-    expect(href).toContain("/track/");
+    await cta.click();
+    await expect(page).toHaveURL(/\/track\//);
+    expect(decodeURIComponent(page.url())).toContain("gclid=e2e-gclid");
     expect(errors).toEqual([]);
   });
 });

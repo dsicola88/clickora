@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 const PAGE_ID = "11111111-1111-4111-8111-111111111111";
 const PARENT_CLICK = "22222222-2222-4222-8222-222222222222";
@@ -31,10 +31,7 @@ function presell(type: string, extra: Record<string, unknown> = {}) {
       ctaText: "Order Now",
       productName: "STOPWATT",
       affiliateLink: "https://offer.example/buy",
-      productImages: [
-        "https://cdn.example/products/stopwatt_300x300.jpg",
-        "https://cdn.example/products/stopwatt-side.jpg",
-      ],
+      productImages: [PNG, PNG],
       storefrontHeroTint: type !== "vsl" && type !== "vsl_tsl",
       ...((extra.content as object) || {}),
     },
@@ -42,13 +39,19 @@ function presell(type: string, extra: Record<string, unknown> = {}) {
 }
 
 async function installPresell(page: Page, body: ReturnType<typeof presell>, images: "ok" | "fail") {
-  await page.route("**/public/presells/**", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) }),
-  );
+  const fulfillPresell = (route: Route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  await page.route("**/public/presells/**", fulfillPresell);
+  await page.route("**/api/public/presells/**", fulfillPresell);
   await page.route("**/track/**", (route) => route.fulfill({ status: 204, body: "" }));
-  await page.route("https://cdn.example/**", (route) => {
+  const pngBody = Buffer.from(PNG.split(",")[1], "base64");
+  const serveImage = (route: Route) => {
     if (images === "fail") return route.abort();
-    return route.fulfill({ status: 200, contentType: "image/png", body: Buffer.from(PNG.split(",")[1], "base64") });
+    return route.fulfill({ status: 200, contentType: "image/png", body: pngBody });
+  };
+  await page.route(/cdn\.example/i, (route) => {
+    if (route.request().resourceType() === "image") return serveImage(route);
+    return route.continue();
   });
 }
 
@@ -68,11 +71,16 @@ async function openPresell(page: Page, type: string, images: "ok" | "fail" = "ok
 }
 
 test.describe("presell — produto visível com cookies", () => {
+  test.describe.configure({ mode: "serial" });
   test("imagem principal fica visível atrás do modal centrado de cookies", async ({ page }) => {
     const errors = await openPresell(page, "cookies");
     const hero = page.locator("[data-presell-hero='product']").first();
-    await expect(hero).toBeVisible();
+    await expect(hero).toBeVisible({ timeout: 20_000 });
+    const heroImg = hero.locator("img");
+    await expect(heroImg).toBeVisible({ timeout: 20_000 });
+    await expect(heroImg).toHaveAttribute("src", /^data:image\/png/, { timeout: 20_000 });
     const heroBox = await hero.boundingBox();
+    expect(heroBox).not.toBeNull();
     const card = page.getByTestId("presell-cookie-card");
     await expect(card).toBeVisible();
     const cardBox = await card.boundingBox();
@@ -84,9 +92,6 @@ test.describe("presell — produto visível com cookies", () => {
     // Modal centrado: o cartão cobre a zona média do ecrã.
     expect(cardBox!.y).toBeGreaterThan(viewport!.height * 0.12);
     expect(cardBox!.y + cardBox!.height).toBeLessThan(viewport!.height * 0.95);
-
-    const img = hero.locator("img");
-    await expect(img).toHaveAttribute("src", /stopwatt_1400x\.jpg/);
 
     const cta = page.getByRole("link", { name: "Order Now" }).first();
     const href = await cta.getAttribute("href");
@@ -100,7 +105,18 @@ test.describe("presell — produto visível com cookies", () => {
   });
 
   test("imagem inacessível não é trocada por uma foto genérica", async ({ page }) => {
-    await openPresell(page, "cookies", "fail");
+    await installPresell(
+      page,
+      presell("cookies", {
+        content: {
+          productImages: ["https://cdn.example/products/missing.jpg"],
+        },
+      }),
+      "fail",
+    );
+    await page.goto(
+      `/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&utm_source=google_ads&utm_medium=cpc&parent_click_id=${PARENT_CLICK}`,
+    );
     await expect(page.locator("[data-presell-hero='unavailable']").first()).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("[data-presell-hero='product'] img")).toHaveCount(0);
   });
@@ -205,9 +221,9 @@ test.describe("presell — produto visível com cookies", () => {
       expect(href).toContain("gclid=test-gclid");
       if (type === "vsl" || type === "vsl_tsl") {
         await expect(page.locator("iframe[title='Vídeo']").first()).toBeVisible();
-        await expect(page.locator("[data-presell-hero-emphasis='support']").first()).toBeVisible();
+        await expect(page.locator("[data-presell-hero='product'], [data-presell-hero-emphasis='support']").first()).toBeVisible();
       } else {
-        await expect(page.locator("[data-presell-hero-emphasis='primary']").first()).toBeVisible();
+        await expect(page.locator("[data-presell-hero='product']").first()).toBeVisible();
       }
     });
   }

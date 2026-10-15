@@ -63,9 +63,13 @@ describe("wizard E2E publish gate", () => {
 
   it("presell builder (pageDocument) passa gate com texto visível no editor", () => {
     const article =
-      "Conteúdo informativo independente sobre Tea. Não somos o fabricante. " +
-      "Podemos receber comissão por indicação. Confirme preço e garantia no site oficial. " +
-      "Compare alternativas e leia o rótulo antes de comprar.";
+      "Conteúdo informativo independente sobre Tea. Não somos o fabricante, não processamos pagamentos. " +
+      "O que deve confirmar no site oficial: identidade do vendedor, preço, envio e garantia. " +
+      "Composição e avisos devem ser lidos no site e no rótulo do fabricante — não inventamos essas informações. " +
+      "Podemos receber comissão por indicação, sem custo extra para o leitor. " +
+      "Use o botão para abrir a página oficial da oferta e verificar todas as condições antes de comprar. " +
+      "Confirme contacto, prazo de entrega e política de devolução no destino. " +
+      "Esta análise existe para comparar o que está escrito com o que o vendedor mostra.";
     const signals = extractPresellSignals({
       title: "Tea",
       type: "builder",

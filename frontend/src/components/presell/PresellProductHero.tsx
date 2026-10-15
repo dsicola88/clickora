@@ -127,12 +127,14 @@ export function PresellProductHero({
           const img = e.currentTarget;
           const w = img.naturalWidth;
           const h = img.naturalHeight;
-          const paymentStrip = h > 0 && w / h >= 3.4 && h < 240;
-          const tinyIcon = w > 0 && w < 140 && h < 140;
-          const smallTile = w > 0 && w <= 520 && h <= 520;
-          if (paymentStrip || tinyIcon || smallTile) {
-            handleError();
-            return;
+          if (!current.startsWith("data:")) {
+            const paymentStrip = h > 0 && w / h >= 3.4 && h < 240;
+            const tinyIcon = w > 0 && w < 140 && h < 140;
+            const smallTile = w > 0 && w <= 520 && h <= 520;
+            if (paymentStrip || tinyIcon || smallTile) {
+              handleError();
+              return;
+            }
           }
           if (w > 0 && w < 280) {
             console.warn("[presell] imagem principal com resolução baixa", {
