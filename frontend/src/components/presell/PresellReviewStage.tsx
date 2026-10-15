@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Monitor, Pencil, Smartphone, Tablet, X } from "lucide-react";
+import { Check, Copy, Megaphone, Monitor, Pencil, Smartphone, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { presellService } from "@/services/presellService";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
@@ -31,6 +31,7 @@ type Props = {
   copied: boolean;
   onCopy: () => void;
   onEdit: () => void;
+  onAdvertise?: () => void;
   onClose: () => void;
 };
 
@@ -48,6 +49,7 @@ export function PresellReviewStage({
   copied,
   onCopy,
   onEdit,
+  onAdvertise,
   onClose,
 }: Props) {
   const [device, setDevice] = useState<Device>("desktop");
@@ -167,6 +169,16 @@ export function PresellReviewStage({
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           Copiar URL
         </button>
+        {onAdvertise ? (
+          <button
+            type="button"
+            onClick={onAdvertise}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-editor-border px-2.5 text-xs font-medium text-editor-fg hover:bg-editor-panel-2"
+          >
+            <Megaphone className="h-3.5 w-3.5" />
+            Anunciar no Google Ads
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onEdit}

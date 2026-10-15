@@ -506,6 +506,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       declineLabel: "Manage Preferences",
       policyLabel: "Cookie Policy",
       policyUrl: "/privacidade",
+      offerHref: "",
       accentColor: "#2563eb",
       variant: "modal",
       backdrop: true,

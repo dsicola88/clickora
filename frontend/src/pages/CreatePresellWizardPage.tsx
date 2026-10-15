@@ -32,10 +32,13 @@ import { PresellReviewStage } from "@/components/presell/PresellReviewStage";
 import {
   PRESELL_NICHE_OPTIONS,
   applyImportedPolicyToSettings,
+  applyImportedSourceIdentity,
   coercePresellTypeForNiche,
   defaultAbPresellTypeB,
   type PresellGenerationNiche,
 } from "@/lib/presellGenerationNiche";
+import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
+import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -225,6 +228,13 @@ export default function CreatePresellWizardPage() {
           }
         }
 
+        content.pageDocument = buildEditablePageDocument({
+          title: pageTitle,
+          type: typeForPage,
+          videoUrl: video_url,
+          content,
+        });
+
         return { content, video_url, mirrorOk, pageTitle };
       };
 
@@ -237,20 +247,37 @@ export default function CreatePresellWizardPage() {
         (typeof user?.sale_notify_email === "string" && user.sale_notify_email.trim()) ||
         (typeof user?.email === "string" ? user.email.trim() : "") ||
         "";
-      if (!operatorName || !operatorEmail) {
+      if (generationNiche !== "black" && (!operatorName || !operatorEmail)) {
         throw new Error(
           "Para publicar sem bloqueio no Google Ads, indique o nome real do operador e um e-mail de contacto válidos (sem dados inventados).",
         );
       }
       const policyFromImport = imported.data?.policy_urls;
+      const identityFromSource = {
+        businessName: imported.data?.source_business_name || imported.data?.product_name,
+        contactEmail: imported.data?.source_contact_email,
+      };
+      const settingsBase =
+        generationNiche === "black"
+          ? applyImportedSourceIdentity(
+              {
+                cookiePolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
+                privacyPolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
+                termsUrl: "/termos",
+              },
+              identityFromSource,
+            )
+          : {
+              cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              termsUrl: "/termos",
+              businessName: operatorName,
+              contactEmail: operatorEmail,
+              ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
+            };
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
-          cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-          privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-          termsUrl: "/termos",
-          businessName: operatorName,
-          contactEmail: operatorEmail,
-          ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
+          ...settingsBase,
           affiliateDisclosure:
             "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si. Não somos o fabricante nem processamos o pagamento.",
           minAge: minAge.trim() || "18",
@@ -696,6 +723,15 @@ export default function CreatePresellWizardPage() {
             ) : null}
           </div>
 
+          {generationNiche === "black" ? (
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
+              <p className="text-sm font-medium text-foreground">Identidade (nicho black)</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Nome, e-mail e políticas vêm da página original do produto. Não há preenchimento manual — evita dados
+                inventados e fugas. Pode editar textos e imagens depois no editor.
+              </p>
+            </div>
+          ) : (
           <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Identidade do operador (obrigatório para Google Ads)</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -731,10 +767,11 @@ export default function CreatePresellWizardPage() {
               />
             </div>
           </div>
+          )}
 
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Opções do tipo</p>
-            {presellType === "cookies" ? (
+            {presellType === "cookies" && generationNiche !== "black" ? (
               <div className="space-y-2">
                 <Label htmlFor="cookiePolicy">URL política de cookies (opcional)</Label>
                 <Input
@@ -817,18 +854,18 @@ export default function CreatePresellWizardPage() {
           ) : null}
           <ul className="space-y-2 text-sm">
             {[
-              ["Cliques no anúncio", "Automáticos (UTMs + click ID no redirect)"],
-              ["Click ID na oferta", "Inserido em subid / sub3 / cid"],
+              ["Cliques no anúncio", "Já no link — gclid/UTMs e redirect /track, sem pixel extra"],
+              ["Click ID na oferta", "Já no hoplink (subid / cid da rede reconhecida)"],
               [
-                "Postback (vendas)",
-                "Pendente — configure BuyGoods / SmartAdv / Digistore",
+                "Vendas no painel",
+                "Uma vez: colar o URL de postback na BuyGoods / SmartAdv / Digistore (não no anúncio)",
               ],
               ["Página", mirrorFidelityOk ? "Publicada e pronta para o anúncio" : "Rascunho — editar antes de anunciar"],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-3 border-b border-border/40 py-2">
                 <span className="text-muted-foreground">{k}</span>
                 <span className="inline-flex items-center gap-1.5 font-medium text-right max-w-[60%]">
-                  {k === "Postback (vendas)" || (k === "Página" && !mirrorFidelityOk) ? (
+                  {k === "Vendas no painel" || (k === "Página" && !mirrorFidelityOk) ? (
                     <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
                   ) : (
                     <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -839,10 +876,12 @@ export default function CreatePresellWizardPage() {
             ))}
           </ul>
           <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-3 text-xs text-muted-foreground leading-relaxed">
-            <p className="font-medium text-foreground mb-1">Para vendas aparecerem no painel</p>
+            <p className="font-medium text-foreground mb-1">O link do anúncio já rastreia o clique</p>
             <p>
-              Em <strong className="text-foreground/90">Integrações → Vendas da rede (Postback)</strong>, escolha a
-              plataforma, copie o URL com macros e cole no postback da rede.
+              Não acrescente pixels nem parâmetros à mão. O visitante chega com o gclid da Google; o CTA e os cookies
+              passam por <span className="font-mono">/track</span> e o ID vai na oferta. Vendas no painel: em{" "}
+              <strong className="text-foreground/90">Integrações → Postback</strong> copie o URL uma vez para a rede
+              de afiliados.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -857,6 +896,15 @@ export default function CreatePresellWizardPage() {
             <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
               Continuar
             </Button>
+            {mirrorFidelityOk && tracked ? (
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={() => navigate(dpilotAdsHandoffHref(tracked))}
+              >
+                Anunciar no Google Ads
+              </Button>
+            ) : null}
           </div>
         </div>
       )}
@@ -872,6 +920,9 @@ export default function CreatePresellWizardPage() {
           copied={copied}
           onCopy={() => void copy()}
           onEdit={() => navigate(`/presell/builder/${reviewVariant === "b" && presellIdB ? presellIdB : presellId}`)}
+          onAdvertise={
+            mirrorFidelityOk && tracked ? () => navigate(dpilotAdsHandoffHref(tracked)) : undefined
+          }
           onClose={() => navigate("/presells")}
         />
       ) : null}

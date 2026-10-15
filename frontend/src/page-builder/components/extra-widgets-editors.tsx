@@ -91,6 +91,12 @@ export function CookieBannerContentEditor({
         onChange={(v) => setContent({ policyUrl: v })}
         placeholder="/privacidade"
       />
+      <TextField
+        label="Link da oferta (Accept All na página publicada)"
+        value={(c.offerHref as string) ?? ""}
+        onChange={(v) => setContent({ offerHref: v })}
+        placeholder="https://… ou deixe o hoplink da presell"
+      />
       <ColorField
         label="Cor do botão Aceitar"
         value={(c.accentColor as string) ?? "#2563eb"}
@@ -120,7 +126,8 @@ export function CookieBannerContentEditor({
         onChange={(v) => setContent({ storageKey: v })}
       />
       <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-        No editor o aviso fica sempre visível para editar. Na página pública some após Aceitar / Preferências.
+        No editor o aviso não cobre o canvas. Na página publicada, se o link da oferta estiver preenchido (nicho
+        black), Accept All e a política vão para esse URL rastreado — sem fuga. Sem link, o aviso só fecha.
       </p>
     </Section>
   );

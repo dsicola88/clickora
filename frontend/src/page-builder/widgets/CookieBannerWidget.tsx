@@ -22,6 +22,8 @@ export interface CookieBannerContent {
   backdrop: boolean;
   /** false = textos editados à mão. Ausente ou true com título de stock = idioma da página. */
   followLanguage?: boolean;
+  /** Na página publicada o Accept All vai para este URL (hoplink). Vazio = só fecha o aviso. */
+  offerHref?: string;
 }
 
 function readDismissed(key: string): boolean {
@@ -57,6 +59,8 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const position = c.position ?? "bottom-right";
   const backdrop = c.backdrop !== false;
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
+  const offerHref = (c.offerHref ?? "").trim();
+  const lockToOffer = Boolean(offerHref && offerHref !== "#");
   const inBuilder = useBuilderSurface();
   const [dismissed, setDismissed] = useState(false);
 
@@ -91,7 +95,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       role="dialog"
       aria-modal={variant === "modal" ? true : undefined}
       aria-label={title}
-      data-testid="builder-cookie-banner"
+      data-testid={usesOverlay ? "presell-cookie-card" : "builder-cookie-banner"}
       data-variant={variant}
       style={{
         ...(variant === "modal"
@@ -142,6 +146,33 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         </a>
         .
       </p>
+      {!inBuilder && lockToOffer ? (
+        <a
+          href={offerHref}
+          data-clickora-offer="1"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.assign(offerHref);
+          }}
+          style={{
+            display: "block",
+            width: "100%",
+            boxSizing: "border-box",
+            textAlign: "center",
+            textDecoration: "none",
+            background: accentColor,
+            color: "#ffffff",
+            fontWeight: 800,
+            fontSize: 14,
+            letterSpacing: 0.06,
+            textTransform: "uppercase",
+            padding: "14px 18px",
+            borderRadius: 10,
+          }}
+        >
+          {allowLabel}
+        </a>
+      ) : (
       <button
         type="button"
         onClick={inBuilder ? undefined : dismiss}
@@ -162,6 +193,30 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       >
         {allowLabel}
       </button>
+      )}
+      {!inBuilder && lockToOffer ? (
+        <a
+          href={offerHref}
+          data-clickora-offer="1"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.assign(offerHref);
+          }}
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: 12,
+            textAlign: "center",
+            textDecoration: "none",
+            color: "#64748b",
+            fontSize: 13,
+            fontWeight: 500,
+            padding: 6,
+          }}
+        >
+          {declineLabel}
+        </a>
+      ) : (
       <button
         type="button"
         onClick={inBuilder ? undefined : dismiss}
@@ -180,6 +235,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       >
         {declineLabel}
       </button>
+      )}
       {inBuilder ? (
         <p style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.45, color: "#94a3b8" }}>
           No editor isto não cobre a página. Na presell publicada o visitante vê o aviso à frente da oferta.
@@ -221,6 +277,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         {backdrop ? (
           <div
             aria-hidden
+            data-testid="presell-cookie-backdrop"
             style={{
               position: "absolute",
               inset: 0,

@@ -5,7 +5,7 @@ import {
   isPresellTypeAllowedForNiche,
   normalizePresellGenerationNiche,
 } from "./presellGenerationNiche";
-import { extractPolicyUrlsFromHtml } from "./presellImporter";
+import { extractPolicyUrlsFromHtml, extractSourceIdentityFromHtml } from "./presellImporter";
 
 describe("presellGenerationNiche", () => {
   it("normaliza para black por defeito", () => {
@@ -34,5 +34,18 @@ describe("extractPolicyUrlsFromHtml", () => {
     const out = extractPolicyUrlsFromHtml(html, "https://shop.example/sales");
     assert.equal(out.privacy, "https://shop.example/legal/privacy");
     assert.equal(out.terms, "https://shop.example/terms");
+  });
+});
+
+describe("extractSourceIdentityFromHtml", () => {
+  it("lê og:site_name e mailto do mesmo host", () => {
+    const html = `
+      <meta property="og:site_name" content="StopWatt Official">
+      <a href="mailto:noreply@wixpress.com">skip</a>
+      <a href="mailto:support@shop.example">Contact</a>
+    `;
+    const out = extractSourceIdentityFromHtml(html, "https://shop.example/sales");
+    assert.equal(out.businessName, "StopWatt Official");
+    assert.equal(out.contactEmail, "support@shop.example");
   });
 });

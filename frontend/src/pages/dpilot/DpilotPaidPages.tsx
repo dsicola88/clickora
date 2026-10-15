@@ -1497,7 +1497,11 @@ export function DpilotLandingsPage() {
         title="Páginas de destino"
       />
       <Card className="mt-4">
-        <CardContent className="pt-6 text-sm text-muted-foreground">
+        <CardContent className="pt-6 space-y-3 text-sm text-muted-foreground">
+          <p>
+            A URL final do anúncio é a presell publicada. Em Presells, use o megafone ou «Anunciar no Google Ads»
+            depois de gerar a página — o assistente abre já com esse link.
+          </p>
           <Button asChild>
             <Link to="/presell/dashboard">Abrir minhas presells / landings</Link>
           </Button>

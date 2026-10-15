@@ -63,20 +63,24 @@ export function cookieConsentNavigation(
 export function CookieConsentModal({
   language,
   policyUrl,
-  redirectHref: _redirectHref,
-  fallbackHref: _fallbackHref,
+  redirectHref,
+  fallbackHref,
   accepted,
   onAccept,
+  navigateOnAccept = false,
 }: {
   language: string;
   policyUrl: string;
-  /** Mantido por API estável; o accept já não redireciona. */
   redirectHref: string;
   fallbackHref?: string;
   accepted: boolean;
   onAccept?: () => void;
+  /** Nicho black: Accept All e a política vão para o hoplink rastreado (sem fuga). */
+  navigateOnAccept?: boolean;
 }) {
   const L = getPresellUiStrings(language);
+  const offerDest = cookieConsentNavigation("allow", redirectHref, fallbackHref);
+  const offerUrl = offerDest.kind === "assign" ? offerDest.url : "";
   useEffect(() => {
     if (accepted) return;
     const prev = document.body.style.overflow;
@@ -88,8 +92,13 @@ export function CookieConsentModal({
   if (accepted) return null;
 
   const accept = () => {
+    if (navigateOnAccept && offerUrl) {
+      window.location.assign(offerUrl);
+      return;
+    }
     onAccept?.();
   };
+  const policyHref = navigateOnAccept && offerUrl ? offerUrl : policyUrl;
 
   return (
     <div
@@ -115,13 +124,13 @@ export function CookieConsentModal({
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
           {L.cookieBody}
-          {policyUrl ? (
+          {policyHref ? (
             <>
               {" "}
               <a
-                href={policyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={policyHref}
+                target={navigateOnAccept ? undefined : "_blank"}
+                rel={navigateOnAccept ? undefined : "noopener noreferrer"}
                 className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
                 onClick={(e) => e.stopPropagation()}
               >

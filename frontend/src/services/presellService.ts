@@ -111,6 +111,8 @@ export const presellService = {
         refund?: string;
         shipping?: string;
       };
+      source_business_name?: string;
+      source_contact_email?: string;
     }>("/presells/import-from-url", payload);
   },
 

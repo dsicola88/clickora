@@ -85,6 +85,19 @@ export function applyImportedPolicyToSettings(
   return next;
 }
 
+export function applyImportedSourceIdentity(
+  settings: Record<string, unknown>,
+  identity: { businessName?: string; contactEmail?: string } | undefined,
+): Record<string, unknown> {
+  if (!identity) return settings;
+  const next = { ...settings };
+  const name = identity.businessName?.trim();
+  const email = identity.contactEmail?.trim();
+  if (name) next.businessName = name;
+  if (email) next.contactEmail = email;
+  return next;
+}
+
 /** Segunda variante A/B — distinta da primeira, respeitando o nicho. */
 export function defaultAbPresellTypeB(typeA: string, niche: PresellGenerationNiche): string {
   if (niche === "white") {

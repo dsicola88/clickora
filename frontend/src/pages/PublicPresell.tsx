@@ -35,6 +35,7 @@ import {
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 const PublicBuilderPresellView = lazy(() =>
   import("@/components/presell/PublicBuilderPresellView").then((m) => ({
@@ -1071,6 +1072,86 @@ export default function PublicPresell() {
     );
   }
 
+  if (generationNiche === "black" && !isGhostPage) {
+    const visualDoc = bakePublicOfferHrefs(
+      resolvePresellPageDocument(page.content, {
+        title: page.title,
+        type: page.type,
+        videoUrl: page.video_url,
+        content: content as Record<string, unknown>,
+      }),
+      href,
+      affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
+      cookiePolicyUrl,
+    );
+    const mirrorHtmlFold =
+      visualDoc.sections[0]?.columns[0]?.widgets[0]?.type === "html";
+    const offerUrl =
+      affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : undefined;
+    const inner = (
+      <>
+        {interactiveKind ? (
+          <section className="sticky top-0 z-[35] w-full border-b border-border/60 bg-muted/95 px-3 py-5 sm:px-4 backdrop-blur-md">
+            <div className="mx-auto max-w-3xl text-center">
+              <PresellGateFields
+                gateKind={interactiveKind}
+                language={uiLang}
+                settings={settings}
+                onPayload={handleFieldPayload}
+              />
+            </div>
+          </section>
+        ) : null}
+        <Suspense fallback={null}>
+          <PublicBuilderPresellView
+            doc={visualDoc}
+            trackOfferHref={href || undefined}
+            offerUrl={offerUrl}
+          />
+        </Suspense>
+        <PresellTrustFooter language={uiLang} cookiePolicyUrl={cookiePolicyUrl} />
+      </>
+    );
+    return (
+      <PresellPublicLocaleProvider language={uiLang}>
+        <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-white pb-12">
+          <PresellMarketingOverlays
+            pageId={page.id}
+            settings={settings}
+            trackHref={href}
+            language={uiLang}
+            suppressWhileCookieGate={gateKind === "cookies"}
+          />
+          {mirrorHtmlFold ? null : (
+            <PresellLanguageSelector override={override} onModeChange={setMode} />
+          )}
+          <div
+            ref={bodyCodeMountRef}
+            className="sr-only pointer-events-none absolute h-0 w-0 overflow-hidden"
+            aria-hidden
+            data-presell-inject="body-start"
+          />
+          {isDiscount ? (
+            <DiscountPresellOverlay
+              language={uiLang}
+              headline={discountHeadline}
+              socialProof={socialProofLine.trim()}
+              ratingValue={ratingFromSource ? ratingValue : ""}
+              ratingStars={ratingFromSource ? ratingStars : 0}
+              initialTimerSeconds={urgencyTimerSeconds === 649 ? 0 : urgencyTimerSeconds}
+              ctaText={ctaText}
+              href={href}
+            >
+              {inner}
+            </DiscountPresellOverlay>
+          ) : (
+            inner
+          )}
+        </div>
+      </PresellPublicLocaleProvider>
+    );
+  }
+
   const sourceUrlRaw = typeof content.sourceUrl === "string" ? content.sourceUrl.trim() : "";
   const cookieConsentFallbackHref =
     affiliateLink.trim() && affiliateLink.trim() !== "#"
@@ -1087,6 +1168,7 @@ export default function PublicPresell() {
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
+          navigateOnAccept={generationNiche === "black"}
         />
       ) : null}
 
@@ -1459,7 +1541,6 @@ export default function PublicPresell() {
                 </a>
               </div>
             </header>
-            {/* Só header + frasco — o miolo bridge foi removido (Ads). */}
             <section className="relative overflow-hidden bg-gradient-to-br from-[#0a5ea8] via-[#0a3f86] to-[#07264f] text-white">
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 pb-10 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
                 {interactiveKind ? (
