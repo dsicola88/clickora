@@ -8,7 +8,7 @@ const CLAIM_KEY = "dclickora-sale-chime-last";
 export const SALE_CHIMES = [
   { id: "kaching", label: "Ka-ching", hint: "Toque curto" },
   { id: "chaching", label: "Cha-ching", hint: "Mais agudo e curto" },
-  { id: "registradora", label: "Caixa registadora", hint: "Efeito sonoro da gaveta" },
+  { id: "registradora", label: "Caixa registadora", hint: "Efeito sonoro real, alto" },
   { id: "moedas", label: "Moedas", hint: "Moedas na gaveta" },
   { id: "chuva", label: "Moedas a entrar", hint: "Chuva de moedas, como nas plataformas de afiliados" },
   { id: "sino", label: "Sino de venda", hint: "Três notas de venda fechada" },
@@ -318,9 +318,35 @@ export function installSaleChimeUnlock(): () => void {
   };
 }
 
+const SAMPLE_SRC: Partial<Record<SaleChimeId, string>> = {
+  registradora: "/sounds/caixa-registradora.wav",
+};
+
+let sampleEl: HTMLAudioElement | null = null;
+
+async function playRecordedSample(url: string): Promise<boolean> {
+  try {
+    if (!sampleEl) sampleEl = new Audio();
+    sampleEl.pause();
+    sampleEl.currentTime = 0;
+    sampleEl.src = url;
+    sampleEl.volume = 1;
+    sampleEl.preload = "auto";
+    await sampleEl.play();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Toca o som escolhido. O browser só deixa sair depois de um clique na página. */
 export async function playSaleChime(id?: SaleChimeId): Promise<boolean> {
   const sound = id ?? saleChimeSound();
+  const recorded = SAMPLE_SRC[sound];
+  if (recorded) {
+    const ok = await playRecordedSample(recorded);
+    if (ok) return true;
+  }
   const ctx = audioContext();
   if (!ctx) return false;
   if (ctx.state !== "running") {

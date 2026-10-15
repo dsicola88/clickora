@@ -73,6 +73,7 @@ import { looksLikeVariantCode, presellHeadline } from "@/lib/presellDisplayName"
 import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
+import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -1035,6 +1036,7 @@ export default function PublicPresell() {
             }
           />
         </Suspense>
+        <PresellTrustFooter language={uiLang} cookiePolicyUrl={cookiePolicyUrl} />
       </div>
     );
   }
@@ -1736,7 +1738,7 @@ export default function PublicPresell() {
       <section
         id={storefrontMirrorLightBody && !showSalesLetterSection ? "presell-story" : undefined}
         className={cn(
-          "max-w-3xl mx-auto px-3 sm:px-4 pb-12 sm:pb-16 pt-6 sm:pt-8",
+          "max-w-3xl mx-auto px-3 sm:px-4 pb-6 sm:pb-8 pt-6 sm:pt-8",
           storefrontMirrorLightBody && "bg-slate-50/80 scroll-mt-14",
         )}
       >
@@ -1791,6 +1793,13 @@ export default function PublicPresell() {
         </div>
       </section>
       )}
+      <PresellTrustFooter
+        language={uiLang}
+        cookiePolicyUrl={cookiePolicyUrl}
+        tone={
+          useDarkMirrorStorefront ? "dark" : storefrontMirrorLightBody ? "slate" : "light"
+        }
+      />
     </>
   );
 

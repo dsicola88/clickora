@@ -82,6 +82,15 @@ export type PresellUiStrings = {
   footerBrandingPrefix: string;
   /** Texto após o link da marca (geralmente vazio). */
   footerBrandingSuffix: string;
+  /** Transparência Google Ads: relação comercial / afiliado, sem se passar pela marca. */
+  trustDisclosure: string;
+  /** Quem opera a página / o que é esta landing. */
+  trustAbout: string;
+  trustNavLabel: string;
+  trustPrivacy: string;
+  trustTerms: string;
+  trustContact: string;
+  trustContactLine: string;
   discountUrgency: string;
   discountSocial: string;
   presentationLabel: string;

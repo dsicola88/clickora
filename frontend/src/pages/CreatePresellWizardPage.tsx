@@ -155,7 +155,8 @@ export default function CreatePresellWizardPage() {
           const isDiscount = isDiscountPresellType(typeForPage);
           const hasMirror =
             typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
-          mirrorOk = data.publishable === true && hasMirror;
+          /** Publica com título/imagens/texto reais. O espelho HTML já não é obrigatório (a página não é clone). */
+          mirrorOk = data.publishable === true;
           content = {
             title: data.title,
             subtitle: data.subtitle,
@@ -215,7 +216,7 @@ export default function CreatePresellWizardPage() {
       };
 
       const settings: Record<string, unknown> = {
-        cookiePolicyUrl: cookiePolicyUrl.trim() || undefined,
+        cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
         minAge: minAge.trim() || "18",
       };
 
@@ -326,13 +327,15 @@ export default function CreatePresellWizardPage() {
         toast.success("A/B criado: 2 landers + rotador 50/50");
       } else if (mirrorOk) {
         toast.success(
-          "Presell publicada. O visitante não executa o JavaScript da página original; a captura é estática.",
+          "Presell publicada com o nome, as fotos e o link da oferta. Não é um clone da página da marca.",
         );
         if (importNotes.length > 0) toast.warning(importNotes.join(" "));
       } else if (importNotes.length > 0) {
         toast.warning(importNotes.join(" "));
       } else {
-        toast.warning("Presell em rascunho — a importação não produziu um espelho. Edite antes de anunciar.");
+        toast.warning(
+          "Presell em rascunho — faltam título, imagens ou texto reais. Complete e publique antes de anunciar.",
+        );
       }
     },
     onError: (e: Error) => {

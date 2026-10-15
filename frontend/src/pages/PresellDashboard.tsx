@@ -539,7 +539,7 @@ export default function PresellDashboard() {
   const buildPresellSettingsPayload = (): PresellSettings => ({
     ...(configSettings as PresellSettings),
     headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
-    cookiePolicyUrl: typeOptions.cookiePolicyUrl,
+    cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
     minAge: typeOptions.minAge,
   });
 
@@ -702,8 +702,10 @@ export default function PresellDashboard() {
       });
       if (data.import_notes?.length) {
         toast.warning(data.import_notes.join(" "));
-      } else if (!(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200)) {
-        toast.warning("Presell em rascunho — o espelho da página original não foi gerado.");
+      } else if (data.publishable !== true) {
+        toast.warning(
+          "Presell em rascunho — faltam título, imagens ou texto reais da oferta. Complete e publique.",
+        );
       }
     } catch (e) {
       toastErrorFromCatch(e, "Erro ao criar página.");
