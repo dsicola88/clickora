@@ -125,6 +125,17 @@ describe("presell compliance engine", () => {
     assert.equal(canPublishForAds(ev.gate), false);
   });
 
+  it("5b. nicho black não exige contacto manual (identidade da origem)", () => {
+    const signals = baseSignals({
+      generationNiche: "black",
+      hasBusinessIdentity: false,
+      businessName: null,
+      contactEmail: null,
+    });
+    const ev = evaluateCompliance({ signals, destination: destOk() });
+    assert.equal(result("CT-002", ev).status, "PASS");
+  });
+
   it("6. unsourced health/study claim WARN CL-003", () => {
     const signals = baseSignals({
       claimsText: "Estudos comprovam eficácia sem link",

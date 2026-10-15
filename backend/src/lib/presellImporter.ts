@@ -88,6 +88,9 @@ export type ImportPresellResult = {
   import_mirror_src_doc?: string;
   generation_niche: PresellGenerationNiche;
   policy_urls: ImportedPolicyUrls;
+  /** Identidade lida na sales page (nicho black — sem preenchimento manual). */
+  source_business_name?: string;
+  source_contact_email?: string;
 };
 
 const DEFAULT_UA =
@@ -1328,6 +1331,40 @@ export function extractPolicyUrlsFromHtml(html: string, pageUrl: string): Import
   return out;
 }
 
+const SKIP_SOURCE_EMAIL =
+  /noreply|no-reply|privacy@|cookie|sentry|wixpress|cloudflare|googlemail|clickora|dclickora|example\.com$/i;
+
+/** Nome e e-mail visíveis na origem — para o nicho black não inventar contacto. */
+export function extractSourceIdentityFromHtml(
+  html: string,
+  pageUrl: string,
+): { businessName?: string; contactEmail?: string } {
+  const siteName = extractMeta(html, "og:site_name").trim() || extractMeta(html, "application-name").trim();
+  let host = "";
+  try {
+    host = new URL(pageUrl).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    host = "";
+  }
+  const found: string[] = [];
+  const re = /mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const email = (m[1] || "").toLowerCase();
+    if (!email || SKIP_SOURCE_EMAIL.test(email)) continue;
+    if (found.includes(email)) continue;
+    found.push(email);
+  }
+  const sameHost = found.find((email) => host && email.endsWith(`@${host}`));
+  const contactEmail = sameHost || found[0];
+  const businessName =
+    siteName && !/clickora|dclickora/i.test(siteName) ? siteName : undefined;
+  return {
+    ...(businessName ? { businessName } : {}),
+    ...(contactEmail ? { contactEmail } : {}),
+  };
+}
+
 function extractCommercialCtaLabel(html: string, language: string): string | null {
   const re = /<(?:a|button)\b[^>]*>([\s\S]{2,120}?)<\/(?:a|button)>/gi;
   let m: RegExpExecArray | null;
@@ -1573,6 +1610,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   }
 
   const policy_urls = extractPolicyUrlsFromHtml(html, finalUrl);
+  const sourceIdentity = extractSourceIdentityFromHtml(html, finalUrl);
 
   const discount = extractDiscountSignals(html, language);
 
@@ -1618,6 +1656,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     publishable: classified.publishable,
     generation_niche: generationNiche,
     policy_urls,
+    ...(sourceIdentity.businessName ? { source_business_name: sourceIdentity.businessName } : {}),
+    ...(sourceIdentity.contactEmail ? { source_contact_email: sourceIdentity.contactEmail } : {}),
     ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
   };
 }

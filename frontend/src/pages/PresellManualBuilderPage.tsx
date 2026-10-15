@@ -164,12 +164,15 @@ export default function PresellManualBuilderPage() {
       const storageKey = `clickora:builder:${routeId}`;
       let doc = stored;
       if (data.type !== "builder") {
-        doc = readVisualDraft(storageKey) ?? buildEditablePageDocument({
-          title: data.title,
-          type: data.type,
-          videoUrl: data.video_url,
-          content: (data.content || {}) as Record<string, unknown>,
-        });
+        doc =
+          stored ??
+          readVisualDraft(storageKey) ??
+          buildEditablePageDocument({
+            title: data.title,
+            type: data.type,
+            videoUrl: data.video_url,
+            content: (data.content || {}) as Record<string, unknown>,
+          });
         setAwaitingVisualPublish(true);
       } else {
         setAwaitingVisualPublish(false);

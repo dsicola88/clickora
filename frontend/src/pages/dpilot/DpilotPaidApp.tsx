@@ -30,20 +30,25 @@ function DpilotIndexRedirect() {
   const [searchParams] = useSearchParams();
   const [to, setTo] = useState<string | "wait" | "empty">("wait");
   const qp = searchParams.get("project");
+  const landing = searchParams.get("landing");
   useEffect(() => {
     void (async () => {
-      if (qp && UUID_RE.test(qp)) {
-        setTo(`/tracking/dpilot/p/${qp}/visao`);
+      const { data } = await paidAdsService.listProjects();
+      const first = data?.projects?.[0]?.id;
+      const project = qp && UUID_RE.test(qp) ? qp : first;
+      if (!project) {
+        setTo("empty");
         return;
       }
-      const { data } = await paidAdsService.listProjects();
-      if (data?.projects?.[0]) {
-        setTo(`/tracking/dpilot/p/${data.projects[0].id}/visao`);
-      } else {
-        setTo("empty");
+      if (landing?.trim()) {
+        const q = new URLSearchParams();
+        q.set("landing", landing.trim());
+        setTo(`/tracking/dpilot/p/${project}/campanhas/nova?${q.toString()}`);
+        return;
       }
+      setTo(`/tracking/dpilot/p/${project}/visao`);
     })();
-  }, [qp]);
+  }, [qp, landing]);
   if (to === "wait") {
     return <p className="text-sm text-muted-foreground px-4 py-10">A carregar módulo de anúncios…</p>;
   }

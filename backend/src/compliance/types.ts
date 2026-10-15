@@ -121,6 +121,7 @@ export type PresellComplianceSignals = {
   offerHost: string | null;
   pageHostHint: string | null;
   contentFingerprint: string;
+  generationNiche: "black" | "white" | null;
 };
 
 export type EvaluateComplianceInput = {

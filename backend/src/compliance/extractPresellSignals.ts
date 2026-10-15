@@ -254,6 +254,12 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
     offerHost: hostOf(affiliateLink),
     pageHostHint: input.pageHostHint ? asString(input.pageHostHint).toLowerCase() : null,
     contentFingerprint: createHash("sha256").update(fingerprintPayload).digest("hex").slice(0, 32),
+    generationNiche:
+      content.generationNiche === "white" || content.generation_niche === "white"
+        ? "white"
+        : content.generationNiche === "black" || content.generation_niche === "black"
+          ? "black"
+          : null,
   };
 }
 

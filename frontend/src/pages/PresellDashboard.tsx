@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   ChevronLeft,
   ChevronRight,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,6 +60,7 @@ import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
@@ -1257,6 +1259,7 @@ export default function PresellDashboard() {
                 presellId={editingId}
                 configSettings={configSettings}
                 setConfigSettings={setConfigSettings}
+                lockIdentityFromSource={formData.generationNiche === "black"}
               />
             )}
 
@@ -1575,6 +1578,22 @@ export default function PresellDashboard() {
                       >
                         <Eye className="h-4 w-4" />
                       </a>
+                      {page.status === "published" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(
+                              dpilotAdsHandoffHref(
+                                getPublicPresellFullUrl(customDomains, page.custom_domain_id, page),
+                              ),
+                            )
+                          }
+                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="Anunciar esta URL no Google Ads"
+                        >
+                          <Megaphone className="h-4 w-4" />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => handleCopyHtml(page)}

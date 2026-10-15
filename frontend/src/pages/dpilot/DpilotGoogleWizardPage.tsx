@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { parseDpilotLandingQuery } from "@/lib/dpilotPresellHandoff";
 import { Check, CircleDashed, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -92,9 +93,10 @@ function Field({
 export function DpilotGoogleWizardPage() {
   const { projectId } = useDpilotPaid();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const base = `/tracking/dpilot/p/${projectId}`;
 
-  const [landingUrl, setLandingUrl] = useState("");
+  const [landingUrl, setLandingUrl] = useState(() => parseDpilotLandingQuery(searchParams));
   const [offer, setOffer] = useState("");
   const [objective, setObjective] = useState(DEFAULT_LEADS_OBJECTIVE);
   const [dailyBudget, setDailyBudget] = useState("25");
@@ -645,7 +647,11 @@ export function DpilotGoogleWizardPage() {
           >
             <Field
               label="URL da landing page"
-              hint="Cola o URL — a IA lê a página automaticamente e preenche os campos abaixo. Tudo é editável."
+              hint={
+                parseDpilotLandingQuery(searchParams)
+                  ? "Veio da presell que acabou de publicar. A extracção lê essa página; confirme a oferta antes de gerar o plano."
+                  : "Cola o URL — a extracção lê a página e preenche os campos abaixo. Tudo é editável."
+              }
             >
               <Input
                 id="g-wiz-landing"

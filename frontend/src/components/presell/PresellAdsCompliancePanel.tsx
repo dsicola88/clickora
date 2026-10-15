@@ -22,6 +22,8 @@ type Props = {
   setConfigSettings: React.Dispatch<React.SetStateAction<PresellConfigSettings>>;
   affiliateDisclosureInContent?: string;
   onAffiliateDisclosureChange?: (value: string) => void;
+  /** Nicho black: identidade não se preenche à mão. */
+  lockIdentityFromSource?: boolean;
 };
 
 function gateLabel(
@@ -102,6 +104,7 @@ export function PresellAdsCompliancePanel({
   setConfigSettings,
   affiliateDisclosureInContent,
   onAffiliateDisclosureChange,
+  lockIdentityFromSource = false,
 }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -224,6 +227,12 @@ export function PresellAdsCompliancePanel({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {lockIdentityFromSource ? (
+          <div className="sm:col-span-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Nicho black: nome e contacto vêm da página original. Não preencha à mão.
+          </div>
+        ) : (
+          <>
         <div className="space-y-1.5">
           <Label htmlFor="compliance-business">Identidade / responsável</Label>
           <Input
@@ -243,6 +252,8 @@ export function PresellAdsCompliancePanel({
             placeholder="email@exemplo.com"
           />
         </div>
+          </>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="compliance-privacy">Política de privacidade (URL)</Label>
           <Input

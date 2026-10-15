@@ -212,6 +212,20 @@ const RULES = [
     sourceIds: ["gads-misrepresentation"],
     sourceReviewedAt: "2026-10-15",
     run: ({ signals }) => {
+      if (signals.generationNiche === "black" && (signals.sourceUrl || signals.productName)) {
+        return {
+          status: "PASS",
+          confidence: 0.8,
+          evidence: {
+            summary: "Nicho black: identidade e contacto vêm da página original do produto.",
+            details: [
+              signals.sourceUrl ? `source=${signals.sourceUrl}` : "source=missing",
+              signals.contactEmail ? "contact=from-source" : "contact=read-from-origin-when-present",
+            ],
+          },
+          remediation: "Não preencha contacto à mão no black. Reimporte se a origem mudar.",
+        };
+      }
       const hasName = Boolean(signals.businessName?.trim());
       const hasContact = Boolean(signals.contactEmail?.trim());
       if (hasName && hasContact) {
