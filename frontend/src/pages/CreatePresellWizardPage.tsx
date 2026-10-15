@@ -39,6 +39,8 @@ import {
 } from "@/lib/presellGenerationNiche";
 import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
+import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
+import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -275,6 +277,11 @@ export default function CreatePresellWizardPage() {
         },
         policyFromImport,
       );
+      const uid = user?.id;
+      if (uid) {
+        const embed = `<script src="${getTrackApiBaseUrl().replace(/\/$/, "")}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
+        settings.headerCode = mergeClickoraTrackingIntoHeader(String(settings.headerCode ?? ""), embed);
+      }
 
       const a = buildContent(type);
       setGenPhase("publish");
@@ -848,6 +855,43 @@ export default function CreatePresellWizardPage() {
               Presells.
             </div>
           ) : null}
+
+          {tracked ? (
+            <div
+              className="rounded-xl border border-emerald-600/30 bg-emerald-600/5 p-4 space-y-3"
+              data-testid="presell-final-ads-url"
+            >
+              <div>
+                <p className="text-sm font-semibold text-foreground">URL final para o Google Ads</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Link completo da presell com UTMs, gclid e rastreamento — copie e cole no campo{" "}
+                  <strong className="text-foreground/90">URL final</strong> do anúncio. Não acrescente parâmetros à
+                  mão.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-background px-3 py-2.5">
+                <p className="break-all font-mono text-[11px] sm:text-xs leading-relaxed text-foreground/90 select-all">
+                  {tracked}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="w-full sm:w-auto gap-2"
+                size="lg"
+                disabled={!mirrorFidelityOk}
+                onClick={() => void copy()}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "URL copiada" : "Copiar URL completa para o Ads"}
+              </Button>
+              {!mirrorFidelityOk ? (
+                <p className="text-[11px] text-amber-800 dark:text-amber-200">
+                  Publique a página primeiro — em rascunho o link ainda não está no ar.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <ul className="space-y-2 text-sm">
             {[
               ["Cliques no anúncio", "Já no link — gclid/UTMs e redirect /track, sem pixel extra"],
@@ -884,13 +928,13 @@ export default function CreatePresellWizardPage() {
             <Button variant="outline" asChild>
               <Link to="/integracoes/postback">Configurar postback agora</Link>
             </Button>
-            {!mirrorFidelityOk && presellId ? (
+            {presellId ? (
               <Button variant="outline" asChild>
-                <Link to="/presells">Editar presell</Link>
+                <Link to={`/presell/builder/${presellId}`}>Editar presell</Link>
               </Button>
             ) : null}
             <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
-              Continuar
+              Continuar / Rever
             </Button>
             {mirrorFidelityOk && tracked ? (
               <Button
