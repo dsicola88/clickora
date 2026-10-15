@@ -21,23 +21,19 @@ import {
   Columns3,
   ChevronUp,
   ChevronDown,
+  Blocks,
+  LayoutTemplate,
 } from "lucide-react";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
+import { SECTION_LAYOUTS } from "../section-layouts";
+import { BlocksModal } from "./BlocksModal";
+import { TemplatesModal } from "./TemplatesModal";
 
 const DEVICE_WIDTHS: Record<DeviceType, string> = {
   desktop: "100%",
   tablet: "768px",
   mobile: "390px",
 };
-
-const SECTION_LAYOUTS: Array<{ label: string; widths: number[] }> = [
-  { label: "1", widths: [100] },
-  { label: "2", widths: [50, 50] },
-  { label: "3", widths: [33, 34, 33] },
-  { label: "4", widths: [25, 25, 25, 25] },
-  { label: "1/3", widths: [33, 67] },
-  { label: "2/3", widths: [67, 33] },
-];
 
 export function Canvas() {
   const doc = useBuilder((s) => s.doc);
@@ -46,6 +42,8 @@ export function Canvas() {
   const select = useBuilder((s) => s.select);
   const addSectionLayout = useBuilder((s) => s.addSectionLayout);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [blocksOpen, setBlocksOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!layoutOpen) return;
@@ -82,7 +80,11 @@ export function Canvas() {
           onClick={(e) => e.stopPropagation()}
         >
           {doc.sections.length === 0 ? (
-            <EmptyCanvasDropZone onAdd={() => addSectionLayout([100])} />
+            <EmptyCanvasDropZone
+              onAddLayout={(widths) => addSectionLayout(widths)}
+              onOpenBlocks={() => setBlocksOpen(true)}
+              onOpenTemplates={() => setTemplatesOpen(true)}
+            />
           ) : (
             doc.sections.map((section, idx) => (
               <SectionView
@@ -147,11 +149,21 @@ export function Canvas() {
         </div>
       </div>
       {menu && !preview ? <CanvasContextMenu menu={menu} onClose={() => setMenu(null)} /> : null}
+      <BlocksModal open={blocksOpen} onClose={() => setBlocksOpen(false)} />
+      <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
     </div>
   );
 }
 
-function EmptyCanvasDropZone({ onAdd }: { onAdd: () => void }) {
+function EmptyCanvasDropZone({
+  onAddLayout,
+  onOpenBlocks,
+  onOpenTemplates,
+}: {
+  onAddLayout: (widths: number[]) => void;
+  onOpenBlocks: () => void;
+  onOpenTemplates: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: "canvas:empty",
     data: { kind: "canvas-empty" },
@@ -159,26 +171,64 @@ function EmptyCanvasDropZone({ onAdd }: { onAdd: () => void }) {
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-h-[60vh] flex-col items-center justify-center gap-4 p-12 text-center transition-colors ${
+      className={`flex min-h-[70vh] flex-col items-center justify-center gap-5 p-8 text-center transition-colors sm:p-12 ${
         isOver ? "bg-rose-50" : "bg-white"
       }`}
     >
-      <div className="rounded-full bg-slate-100 p-6">
-        <Columns3 className="h-10 w-10 text-slate-400" />
+      <div className="rounded-full bg-slate-100 p-5">
+        <Columns3 className="h-9 w-9 text-slate-400" />
       </div>
-      <div>
-        <h3 className="mb-1 text-lg font-semibold text-slate-900">Comece a página</h3>
-        <p className="max-w-sm text-sm text-slate-500">
-          Escolha uma estrutura ou arraste um elemento da esquerda para aqui.
+      <div className="max-w-lg">
+        <h3 className="mb-1 text-lg font-semibold text-slate-900">Monte a página do zero</h3>
+        <p className="text-sm leading-relaxed text-slate-500">
+          Fluxo tipo Elementor: escolha a estrutura de colunas, arraste widgets da esquerda e estilize no
+          painel direito. Ou use blocos / modelo e edite tudo depois.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="flex items-center gap-2 rounded-md bg-editor-accent px-4 py-2 text-sm font-medium text-editor-accent-fg hover:opacity-90"
-      >
-        <Plus className="h-4 w-4" /> Secção de uma coluna
-      </button>
+
+      <div className="w-full max-w-md">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Estrutura da primeira secção
+        </p>
+        <div className="grid grid-cols-4 gap-2">
+          {SECTION_LAYOUTS.map((layout) => (
+            <button
+              key={layout.label}
+              type="button"
+              title={layout.title}
+              onClick={() => onAddLayout(layout.widths)}
+              className="flex h-14 flex-col items-center justify-center gap-1 rounded-md border border-slate-200 px-1.5 hover:border-editor-accent hover:bg-slate-50"
+            >
+              <span className="flex h-7 w-full items-stretch gap-0.5 px-0.5">
+                {layout.widths.map((w, i) => (
+                  <span key={i} className="rounded-sm bg-slate-300" style={{ flex: w }} />
+                ))}
+              </span>
+              <span className="text-[9px] font-medium text-slate-500">{layout.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenBlocks}
+          className="inline-flex items-center gap-2 rounded-md bg-editor-accent px-4 py-2 text-sm font-medium text-editor-accent-fg hover:opacity-90"
+        >
+          <Blocks className="h-4 w-4" /> Blocos DTC
+        </button>
+        <button
+          type="button"
+          onClick={onOpenTemplates}
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-editor-accent"
+        >
+          <LayoutTemplate className="h-4 w-4" /> Modelos
+        </button>
+      </div>
+      <p className="max-w-sm text-[11px] text-slate-400">
+        Também pode arrastar «Menu», «Botão», «Lista com ícones» ou «Banner de cookies» da barra esquerda.
+      </p>
     </div>
   );
 }
@@ -214,6 +264,9 @@ function SectionView({
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
   const bgVideo = (section.backgroundVideoUrl ?? "").trim();
   const hasBgVideo = bgVideo.length > 0;
+  const isStickyOrFixed =
+    resolveResponsive(section.styles.position, device) === "sticky" ||
+    resolveResponsive(section.styles.position, device) === "fixed";
   const widths =
     liveWidths ?? section.columns.map((c) => resolveResponsive(c.widthPercent, device) ?? 100);
   const direction = sectionDirectionFor(section.flex?.direction, device, section.columns.length);
@@ -221,11 +274,22 @@ function SectionView({
 
   return (
     <div
-      className={`group/section relative ${!preview ? "transition-shadow" : ""}`}
+      className={`group/section ${isStickyOrFixed ? "" : "relative"} ${!preview ? "transition-shadow" : ""}`}
+      data-header={isStickyOrFixed ? "1" : undefined}
       onContextMenu={(event) => onContextMenu(event, { kind: "section", id: section.id })}
       style={{
         ...sectionStyle,
-        ...(hasBgVideo ? { position: "relative", overflow: "hidden" as const } : {}),
+        ...(hasBgVideo && !isStickyOrFixed
+          ? { position: "relative", overflow: "hidden" as const }
+          : {}),
+        ...(isStickyOrFixed
+          ? {
+              position: sectionStyle.position ?? "sticky",
+              top: sectionStyle.top ?? 0,
+              zIndex: sectionStyle.zIndex ?? 200,
+              width: "100%",
+            }
+          : {}),
       }}
       onClick={(e) => {
         if (preview) return;
@@ -498,7 +562,11 @@ function StaticWidget({ widget, device }: { widget: WidgetNode; device: DeviceTy
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
   return (
-    <div className={wcls || undefined} id={wid || undefined} style={shell}>
+    <div
+      className={wcls || undefined}
+      id={wid || undefined}
+      style={{ ...shell, minWidth: shell.flexShrink === 0 ? "auto" : 0 }}
+    >
       <WidgetInlineStyle widget={widget} />
       <def.Render widget={widget} device={device} />
     </div>
@@ -582,7 +650,10 @@ function EditableWidget({
       ref={widget.type === "container" ? undefined : setDropRef}
       className={`group/widget relative${wcls ? ` ${wcls}` : ""}${isDragging ? " opacity-40" : ""}`}
       id={wid || undefined}
-      style={shell}
+      style={{
+        ...shell,
+        minWidth: containerId ? (shell.flexShrink === 0 ? "auto" : 0) : shell.minWidth,
+      }}
       onClick={(e) => {
         e.stopPropagation();
         select({

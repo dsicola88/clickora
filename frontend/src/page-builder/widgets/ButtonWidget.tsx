@@ -1,8 +1,24 @@
-import type { CSSProperties } from "react";
+import type { ComponentType, CSSProperties } from "react";
+import * as Icons from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import { useInlineEdit } from "../inline-edit";
+
+function resolveLucideIcon(name: string): ComponentType<{ size?: number; color?: string; style?: CSSProperties }> | null {
+  const raw = name.trim();
+  if (!raw) return null;
+  const pascal = raw.includes("-")
+    ? raw
+        .split("-")
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join("")
+    : raw.charAt(0).toUpperCase() + raw.slice(1);
+  const Comp = (Icons as unknown as Record<string, ComponentType<{ size?: number; color?: string; style?: CSSProperties }>>)[
+    pascal
+  ];
+  return Comp ?? null;
+}
 
 function sanitizeClassId(id: string): string {
   return id.replace(/[^a-zA-Z0-9]/g, "_");
@@ -109,6 +125,19 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
   const rawHref = String(c.href ?? "").trim();
   const placeholderHref = !rawHref || rawHref === "#" || rawHref.startsWith("#");
   const openBlank = c.target === "_blank";
+  const iconName = String(c.iconName ?? "").trim();
+  const iconPosition = (c.iconPosition as string) === "left" ? "left" : "right";
+  const iconSize =
+    typeof c.iconSize === "number" && c.iconSize > 0
+      ? c.iconSize
+      : Math.max(14, Math.round(((widget.styles.typography?.desktop?.fontSize as number) || 16) * 0.95));
+  const IconComp = resolveLucideIcon(iconName);
+  const rowStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  };
 
   return (
     <div style={{ display: "flex", justifyContent: alignToFlexJustify(align) }}>
@@ -121,22 +150,27 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
           <button
             type="button"
             className={`lovBtn_${sid}`}
-            style={btnStyle}
-            contentEditable
-            suppressContentEditableWarning
+            style={{ ...btnStyle, ...rowStyle }}
             onClick={(e) => e.preventDefault()}
-            onBlur={(e) => {
-              const next = e.currentTarget.textContent ?? "";
-              if (next !== text) commit({ text: next });
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                e.currentTarget.blur();
-              }
-            }}
           >
-            {text}
+            {IconComp && iconPosition === "left" ? <IconComp size={iconSize} aria-hidden /> : null}
+            <span
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                const next = e.currentTarget.textContent ?? "";
+                if (next !== text) commit({ text: next });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
+            >
+              {text}
+            </span>
+            {IconComp && iconPosition === "right" ? <IconComp size={iconSize} aria-hidden /> : null}
           </button>
         ) : (
           <a
@@ -145,9 +179,11 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
             rel={openBlank ? "noopener noreferrer" : undefined}
             data-clickora-offer={placeholderHref ? "1" : undefined}
             className={`lovBtn_${sid}`}
-            style={{ ...btnStyle, display: "inline-block", textDecoration: "none" }}
+            style={{ ...btnStyle, ...rowStyle, textDecoration: "none" }}
           >
-            {text}
+            {IconComp && iconPosition === "left" ? <IconComp size={iconSize} aria-hidden /> : null}
+            <span>{text}</span>
+            {IconComp && iconPosition === "right" ? <IconComp size={iconSize} aria-hidden /> : null}
           </a>
         )}
       </div>

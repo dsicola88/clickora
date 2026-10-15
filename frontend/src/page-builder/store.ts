@@ -67,6 +67,8 @@ interface BuilderState {
   addSection: (columnCount?: number, atIndex?: number) => string;
   /** Secção com larguras explícitas (ex.: [67, 33]). Uma só entrada no histórico. */
   addSectionLayout: (widths: number[], atIndex?: number) => string;
+  /** Reaplica a estrutura de colunas numa secção existente (widgets extras vão para a última coluna). */
+  applySectionLayout: (sectionId: string, widths: number[]) => void;
   /** Insere um widget da paleta na seleção atual, ou numa secção nova. */
   insertPaletteWidget: (type: WidgetType) => void;
   removeSection: (sectionId: string) => void;
@@ -353,7 +355,11 @@ export const useBuilder = create<BuilderState>((set, get) => {
       const cols = safe.length > 0 ? safe : [100];
       const section = createSection(cols.length);
       section.columns.forEach((c, i) => {
-        c.widthPercent = { desktop: cols[i] ?? Math.floor(100 / cols.length) };
+        c.widthPercent = {
+          desktop: cols[i] ?? Math.floor(100 / cols.length),
+          tablet: cols.length > 1 ? 100 : cols[i],
+          mobile: 100,
+        };
       });
       mutate((doc) => {
         if (atIndex == null) doc.sections.push(section);
@@ -361,6 +367,26 @@ export const useBuilder = create<BuilderState>((set, get) => {
       });
       return section.id;
     },
+    applySectionLayout: (sectionId, widths) =>
+      mutate((doc) => {
+        const s = findSection(doc, sectionId);
+        if (!s) return;
+        const target = widths.filter((n) => n > 0);
+        const cols = target.length > 0 ? target : [100];
+        while (s.columns.length < cols.length) {
+          s.columns.push(createColumn(cols[s.columns.length] ?? 25));
+        }
+        while (s.columns.length > cols.length) {
+          const removed = s.columns.pop();
+          if (removed && s.columns.length > 0) {
+            s.columns[s.columns.length - 1].widgets.push(...removed.widgets);
+          }
+        }
+        s.columns.forEach((c, i) => {
+          const pct = cols[i] ?? Math.floor(100 / cols.length);
+          c.widthPercent = { desktop: pct, tablet: cols.length > 1 ? 100 : pct, mobile: 100 };
+        });
+      }),
     insertPaletteWidget: (type) => {
       const place = (sectionId: string, columnId: string) => {
         const widgetId = get().addWidget(sectionId, columnId, type);

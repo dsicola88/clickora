@@ -3,13 +3,20 @@ import { EXPORTED_HTML_SCRIPT_ID } from "./document-import";
 import type { PageDocument } from "./types";
 import { PageRenderer } from "./components/PageRenderer";
 import { buildTrackingBodyScripts, buildTrackingHeadScripts } from "./tracking";
+import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
+import { htmlLangForLocale, normalizePresellLocale } from "@/lib/presellUiStrings";
 
 /**
  * Build a fully self-contained HTML document for download or external hosting.
  * Server-renders the React tree and embeds it in a minimal shell with full SEO meta tags.
  */
-export function exportPageToHtml(doc: PageDocument): string {
-  const body = renderToStaticMarkup(<PageRenderer doc={doc} device="desktop" />);
+export function exportPageToHtml(doc: PageDocument, language?: string): string {
+  const body = renderToStaticMarkup(
+    <PresellPublicLocaleProvider language={language}>
+      <PageRenderer doc={doc} device="desktop" />
+    </PresellPublicLocaleProvider>,
+  );
+  const htmlLang = language ? htmlLangForLocale(normalizePresellLocale(language)) : "pt-BR";
   const seo = doc.seo ?? {};
   const title = seo.title || doc.name || "Página";
   const description = seo.description ?? "";
@@ -69,7 +76,7 @@ export function exportPageToHtml(doc: PageDocument): string {
   const embeddedDocJson = JSON.stringify(doc).replace(/</g, "\\u003c");
 
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${htmlLang}">
 <head>
   ${metaTags.join("\n  ")}
   <style>
@@ -77,9 +84,10 @@ export function exportPageToHtml(doc: PageDocument): string {
     html, body { margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; color: #1a1a1a; }
     img { max-width: 100%; height: auto; }
+    section[data-header="1"] { position: sticky; top: 0; z-index: 100; width: 100%; background: inherit; }
     @media (max-width: 768px) {
       section > div { flex-direction: column !important; }
-      section > div > div { flex-basis: 100% !important; }
+      section > div > div { flex-basis: 100% !important; width: 100% !important; max-width: 100% !important; }
     }
   </style>
   ${trackingHead}

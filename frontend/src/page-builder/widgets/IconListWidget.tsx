@@ -16,9 +16,12 @@ export function IconListWidget({ widget, device }: { widget: WidgetNode; device:
   const items = (Array.isArray(c.items) ? c.items : []) as IconListItem[];
   const iconSize = typeof c.iconSize === "number" ? c.iconSize : 22;
   const iconColor = (c.iconColor as string) ?? "#e63946";
+  const iconBg = typeof c.iconBg === "string" && c.iconBg.trim() ? c.iconBg.trim() : `${iconColor}14`;
   const gap = typeof c.gap === "number" ? c.gap : 16;
   const titleColor = (c.titleColor as string) ?? "#0f172a";
   const descColor = (c.descColor as string) ?? "#64748b";
+  const iconShape = (c.iconShape as string) === "rounded" ? "rounded" : "circle";
+  const iconRadius = iconShape === "circle" ? "50%" : 12;
 
   const outer = stylesToCssWidgetContent(widget.styles, device);
 
@@ -59,8 +62,8 @@ export function IconListWidget({ widget, device }: { widget: WidgetNode; device:
                   flexShrink: 0,
                   width: Math.max(40, iconSize + 20),
                   height: Math.max(40, iconSize + 20),
-                  borderRadius: 12,
-                  background: `${iconColor}14`,
+                  borderRadius: iconRadius,
+                  background: iconBg,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

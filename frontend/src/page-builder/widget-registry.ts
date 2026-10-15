@@ -34,8 +34,10 @@ import {
   Newspaper,
   Info,
   LayoutGrid,
+  Cookie,
 } from "lucide-react";
 import { ContainerWidget } from "./widgets/ContainerWidget";
+import { CookieBannerWidget } from "./widgets/CookieBannerWidget";
 import { HeadingWidget } from "./widgets/HeadingWidget";
 import { TextWidget } from "./widgets/TextWidget";
 import { ImageWidget } from "./widgets/ImageWidget";
@@ -283,6 +285,13 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
     category: "pro",
     icon: Info,
     Render: InfoBoxWidget,
+  },
+  cookieBanner: {
+    type: "cookieBanner",
+    label: "Cookies (modal/canto)",
+    category: "basic",
+    icon: Cookie,
+    Render: CookieBannerWidget,
   },
 };
 

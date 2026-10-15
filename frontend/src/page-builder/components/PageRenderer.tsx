@@ -43,11 +43,27 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
   const bgVideo = (section.backgroundVideoUrl ?? "").trim();
   const hasBgVideo = bgVideo.length > 0;
 
+  const isStickyOrFixed =
+    resolveResponsive(section.styles.position, device) === "sticky" ||
+    resolveResponsive(section.styles.position, device) === "fixed";
+
   return (
     <section
+      data-stack={section.columns.length > 1 ? "1" : "0"}
+      data-header={isStickyOrFixed ? "1" : undefined}
       style={{
         ...sectionStyle,
-        ...(hasBgVideo ? { position: "relative", overflow: "hidden" as const } : {}),
+        ...(hasBgVideo && !isStickyOrFixed
+          ? { position: "relative", overflow: "hidden" as const }
+          : {}),
+        ...(isStickyOrFixed
+          ? {
+              position: sectionStyle.position ?? "sticky",
+              top: sectionStyle.top ?? "0",
+              zIndex: sectionStyle.zIndex ?? 100,
+              width: "100%",
+            }
+          : {}),
       }}
     >
       {hasBgVideo ? <SectionBackgroundVideo rawUrl={bgVideo} pointerEventsNone /> : null}

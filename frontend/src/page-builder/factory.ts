@@ -489,12 +489,31 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       ],
       iconSize: 22,
       iconColor: "#e63946",
+      iconShape: "circle",
       gap: 16,
       titleColor: "#0f172a",
       descColor: "#64748b",
     },
     styles: {
       padding: r(spacing(0, 0, 0, 0)),
+    },
+  }),
+  cookieBanner: () => ({
+    content: {
+      title: "We Value Your Privacy",
+      body: "We use cookies to enhance your browsing experience and analyze site traffic. By clicking Accept All, you consent to our use of cookies. Learn more in our",
+      allowLabel: "ACCEPT ALL",
+      declineLabel: "Manage Preferences",
+      policyLabel: "Cookie Policy",
+      policyUrl: "/privacidade",
+      accentColor: "#2563eb",
+      variant: "modal",
+      backdrop: true,
+      position: "bottom-right",
+      storageKey: "clickora-cookie-banner",
+    },
+    styles: {
+      margin: r(spacing(0, 0, 0, 0)),
     },
   }),
   backToTop: () => ({
@@ -612,14 +631,14 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     content: {
       direction: "row",
       justify: "flex-start",
-      align: "stretch",
-      wrap: "wrap",
+      align: "center",
+      wrap: "nowrap",
       gap: 16,
       widgets: [],
     },
     styles: {
-      padding: r(spacing(8, 8, 8, 8)),
-      margin: r(spacing(0, 0, 12, 0)),
+      padding: r(spacing(0, 0, 0, 0)),
+      margin: r(spacing(0, 0, 0, 0)),
     },
   }),
 };

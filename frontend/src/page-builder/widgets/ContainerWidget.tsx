@@ -22,10 +22,10 @@ export function containerFlexStyle(content: Partial<ContainerContent>): CSSPrope
     flexDirection: content.direction ?? "row",
     justifyContent: content.justify ?? "flex-start",
     alignItems: content.align ?? "stretch",
-    flexWrap: content.wrap ?? "wrap",
+    flexWrap: content.wrap ?? "nowrap",
     gap: `${content.gap ?? 16}px`,
     width: "100%",
-    minHeight: 48,
+    minHeight: 0,
   };
 }
 
@@ -99,8 +99,14 @@ function PublicContainer({
         const def = WIDGET_REGISTRY[child.type];
         if (!def) return null;
         const shell = stylesToCssWidgetShell(child.styles, device);
+        const noShrink = shell.flexShrink === 0;
         return (
-          <div key={child.id} id={child.cssId?.trim() || undefined} className={child.cssClasses?.trim() || undefined} style={{ ...shell, minWidth: 0 }}>
+          <div
+            key={child.id}
+            id={child.cssId?.trim() || undefined}
+            className={child.cssClasses?.trim() || undefined}
+            style={{ ...shell, minWidth: noShrink ? "auto" : 0 }}
+          >
             <WidgetInlineStyle widget={child} />
             <def.Render widget={child} device={device} />
           </div>

@@ -18,6 +18,8 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
   const commit = useInlineEdit();
+  const shrink = resolveResponsive(widget.styles.flexShrink, device);
+  const grow = resolveResponsive(widget.styles.flexGrow, device);
 
   const rel =
     linkTarget === "_blank"
@@ -31,7 +33,12 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
   const frame = {
     display: "flex" as const,
     justifyContent: alignToFlexJustify(align),
-    width: "100%",
+    width: css.width ?? "100%",
+    maxWidth: "100%",
+    minWidth: shrink === 0 ? "auto" : 0,
+    flexShrink: shrink ?? 1,
+    flexGrow: grow,
+    whiteSpace: shrink === 0 ? ("nowrap" as const) : undefined,
   };
 
   if (commit) {

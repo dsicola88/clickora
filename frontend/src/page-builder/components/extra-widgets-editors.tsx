@@ -5,6 +5,7 @@ import {
   TextField,
   TextareaField,
 } from "./PropertyControls";
+import { cookieBannerFollowsPageLanguage } from "../cookieBannerCopy";
 
 function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
@@ -16,6 +17,112 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
       ) : null}
       <div className="space-y-3">{children}</div>
     </div>
+  );
+}
+
+export function CookieBannerContentEditor({
+  content: c,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  const followsLanguage = cookieBannerFollowsPageLanguage({
+    title: typeof c.title === "string" ? c.title : undefined,
+    followLanguage: typeof c.followLanguage === "boolean" ? c.followLanguage : undefined,
+  });
+  return (
+    <Section title="Consentimento de cookies">
+      <SelectField
+        label="Textos"
+        value={followsLanguage ? "locale" : "custom"}
+        options={[
+          { value: "locale", label: "Seguir o idioma da página" },
+          { value: "custom", label: "Texto próprio" },
+        ]}
+        onChange={(v) => setContent({ followLanguage: v === "locale" })}
+      />
+      <SelectField
+        label="Estilo"
+        value={(c.variant as string) ?? "modal"}
+        options={[
+          { value: "modal", label: "Modal centrado (recomendado Ads)" },
+          { value: "corner", label: "Canto flutuante" },
+        ]}
+        onChange={(v) => setContent({ variant: v })}
+      />
+      {followsLanguage ? (
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+          Título, texto, botões e política seguem o idioma da página. Mude para «Texto próprio» para escrever à mão.
+        </p>
+      ) : (
+        <>
+          <TextField
+            label="Título"
+            value={(c.title as string) ?? ""}
+            onChange={(v) => setContent({ title: v, followLanguage: false })}
+          />
+          <TextareaField
+            label="Texto (antes do link da política)"
+            value={(c.body as string) ?? ""}
+            onChange={(v) => setContent({ body: v, followLanguage: false })}
+            rows={4}
+          />
+          <TextField
+            label="Botão aceitar"
+            value={(c.allowLabel as string) ?? "ACCEPT ALL"}
+            onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
+          />
+          <TextField
+            label="Preferências / recusar"
+            value={(c.declineLabel as string) ?? "Manage Preferences"}
+            onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
+          />
+          <TextField
+            label="Texto do link da política"
+            value={(c.policyLabel as string) ?? "Cookie Policy"}
+            onChange={(v) => setContent({ policyLabel: v, followLanguage: false })}
+          />
+        </>
+      )}
+      <TextField
+        label="URL da política"
+        value={(c.policyUrl as string) ?? "/privacidade"}
+        onChange={(v) => setContent({ policyUrl: v })}
+        placeholder="/privacidade"
+      />
+      <ColorField
+        label="Cor do botão Aceitar"
+        value={(c.accentColor as string) ?? "#2563eb"}
+        onChange={(v) => setContent({ accentColor: v })}
+      />
+      <SelectField
+        label="Fundo escurecido (modal)"
+        value={c.backdrop === false ? "off" : "on"}
+        options={[
+          { value: "on", label: "Sim (blur)" },
+          { value: "off", label: "Não" },
+        ]}
+        onChange={(v) => setContent({ backdrop: v === "on" })}
+      />
+      <SelectField
+        label="Posição (só canto)"
+        value={(c.position as string) ?? "bottom-right"}
+        options={[
+          { value: "bottom-right", label: "Canto inferior direito" },
+          { value: "bottom-left", label: "Canto inferior esquerdo" },
+        ]}
+        onChange={(v) => setContent({ position: v })}
+      />
+      <TextField
+        label="Chave localStorage"
+        value={(c.storageKey as string) ?? "clickora-cookie-banner"}
+        onChange={(v) => setContent({ storageKey: v })}
+      />
+      <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+        No editor o aviso fica sempre visível para editar. Na página pública some após Aceitar / Preferências.
+      </p>
+    </Section>
   );
 }
 

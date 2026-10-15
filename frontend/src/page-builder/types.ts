@@ -35,6 +35,7 @@ export type WidgetType =
   | "navMenu"
   | "ticker"
   | "infoBox"
+  | "cookieBanner"
   | "container";
 
 export interface PageSeo {
@@ -110,6 +111,8 @@ export interface ResponsiveStyles {
   align?: ResponsiveValue<"left" | "center" | "right">;
   visibility?: ResponsiveValue<boolean>;
   position?: ResponsiveValue<"static" | "relative" | "absolute" | "fixed" | "sticky">;
+  /** Offset CSS `top` (ex.: "0" / "0px") — necessário para sticky/fixed. */
+  top?: ResponsiveValue<string>;
   zIndex?: ResponsiveValue<number>;
   alignSelf?: ResponsiveValue<"auto" | "flex-start" | "center" | "flex-end" | "stretch">;
   order?: ResponsiveValue<number>;

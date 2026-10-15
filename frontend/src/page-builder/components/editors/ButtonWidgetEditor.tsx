@@ -63,6 +63,28 @@ export function ButtonWidgetEditor({
           ]}
           onChange={(v) => setContent({ target: v })}
         />
+        <TextField
+          label="Ícone (lucide, opcional)"
+          value={(c.iconName as string) ?? ""}
+          onChange={(v) => setContent({ iconName: v.trim() ? v : undefined })}
+          placeholder="ShoppingCart, check, arrow-right…"
+        />
+        <SelectField
+          label="Posição do ícone"
+          value={(c.iconPosition as string) ?? "right"}
+          options={[
+            { value: "left", label: "Esquerda" },
+            { value: "right", label: "Direita" },
+          ]}
+          onChange={(v) => setContent({ iconPosition: v })}
+        />
+        <NumberField
+          label="Tamanho do ícone (px)"
+          value={(c.iconSize as number) ?? 16}
+          onChange={(v) => setContent({ iconSize: v })}
+          min={12}
+          max={40}
+        />
       </PanelSection>
 
       <PanelSection title="Estado normal — transformação e transição">

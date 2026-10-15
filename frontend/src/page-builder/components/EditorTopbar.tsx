@@ -21,7 +21,9 @@ import {
   FolderOpen,
   MoreHorizontal,
   FileJson,
+  Blocks,
 } from "lucide-react";
+import { BlocksModal } from "./BlocksModal";
 import type { DeviceType } from "../types";
 import {
   DropdownMenu,
@@ -69,6 +71,7 @@ export function EditorTopbar() {
 
   const [nameDraft, setNameDraft] = useState(doc.name);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [blocksOpen, setBlocksOpen] = useState(false);
   const [pagesLibraryOpen, setPagesLibraryOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
@@ -186,6 +189,9 @@ export function EditorTopbar() {
       </div>
 
       <div className="flex items-center justify-end gap-1">
+        <IconBtn label="Blocos (do zero)" onClick={() => setBlocksOpen(true)}>
+          <Blocks className="h-4 w-4" />
+        </IconBtn>
         <IconBtn label="Modelos" onClick={() => setTemplatesOpen(true)}>
           <LayoutTemplate className="h-4 w-4" />
         </IconBtn>
@@ -277,6 +283,7 @@ export function EditorTopbar() {
         </DropdownMenu>
       </div>
 
+      <BlocksModal open={blocksOpen} onClose={() => setBlocksOpen(false)} />
       <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <PagesLibraryModal open={pagesLibraryOpen} onClose={() => setPagesLibraryOpen(false)} />
       {!presellEmbed ? <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} /> : null}

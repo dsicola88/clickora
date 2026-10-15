@@ -1,5 +1,7 @@
 import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createSection, createWidget, id } from "./factory";
+import { buildSectionsFromRecipe } from "./section-blocks";
+import { presellNeotonicsTemplate, presellNitricBoostTemplate } from "./templates.dtcOffers";
 
 export interface TemplateDefinition {
   id: string;
@@ -15,30 +17,40 @@ function w<T extends Record<string, unknown>>(
   type: WidgetNode["type"],
   content: T,
   styles: WidgetNode["styles"] = {},
+  extra?: Pick<WidgetNode, "cssId" | "cssClasses">,
 ): WidgetNode {
   const base = createWidget(type);
   return {
     ...base,
     content: { ...base.content, ...content },
     styles: { ...base.styles, ...styles },
+    ...extra,
   };
 }
 
-/** Build a section with columns + widgets. */
+/** Build a section with columns + widgets. Optional per-column width %. */
 function s(
   columnsWidgets: WidgetNode[][],
   sectionStyles: SectionNode["styles"] = {},
   layout: SectionNode["layout"] = "boxed",
+  columnWidths?: number[],
+  extras?: Partial<Pick<SectionNode, "contentWidth" | "columnGap" | "flex" | "backgroundVideoUrl">>,
 ): SectionNode {
   const sec = createSection(columnsWidgets.length);
   sec.layout = layout;
   sec.styles = { ...sec.styles, ...sectionStyles };
+  if (extras?.contentWidth != null) sec.contentWidth = extras.contentWidth;
+  if (extras?.columnGap) sec.columnGap = extras.columnGap;
+  if (extras?.flex) sec.flex = extras.flex;
+  if (extras?.backgroundVideoUrl) sec.backgroundVideoUrl = extras.backgroundVideoUrl;
+  const n = columnsWidgets.length;
   sec.columns = columnsWidgets.map((widgets, i) => {
-    const col = createColumn(Math.floor(100 / columnsWidgets.length));
+    const pct =
+      columnWidths?.[i] ??
+      (n > 0 ? Math.floor(100 / n) : 100);
+    const col = createColumn(pct);
     col.widgets = widgets;
-    if (i === 0 && columnsWidgets.length === 1) {
-      // single-col, leave default
-    }
+    col.widthPercent = { desktop: pct, tablet: n > 1 ? 100 : pct, mobile: 100 };
     return col;
   });
   return sec;
@@ -2064,11 +2076,26 @@ const leadTrustSplitTemplate: TemplateDefinition = {
   ],
 };
 
+/** Presell Visivra-style — menu, hero, selos, benefícios, CTA amarelo, cookie modal — tudo editável. */
+const presellDtcVisionTemplate: TemplateDefinition = {
+  id: "presell-dtc-vision",
+  name: "Presell — Visivra DTC (completo)",
+  category: "presell",
+  description:
+    "Réplica editável ponta a ponta: menu branco + Order Now, hero produto, selos de confiança, benefícios com checks, barras azuis, CTA amarelo e cookie modal Accept All",
+  thumbnail: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80",
+  build: () => buildSectionsFromRecipe(),
+};
+
+
 export const TEMPLATES: TemplateDefinition[] = [
   landingPageTemplate,
   landingNavHeroTemplate,
   landingProDarkTemplate,
   landingMotionTabsTemplate,
+  presellDtcVisionTemplate,
+  presellNitricBoostTemplate,
+  presellNeotonicsTemplate,
   presellTemplate,
   presellInfoTrioTemplate,
   presellAuthorityTemplate,

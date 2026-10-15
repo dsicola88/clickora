@@ -148,6 +148,7 @@ export function stylesToCss(
   const height = resolveResponsive(styles.height, device);
   const visible = resolveResponsive(styles.visibility, device);
   const position = resolveResponsive(styles.position, device);
+  const top = resolveResponsive(styles.top, device);
   const zIndex = resolveResponsive(styles.zIndex, device);
   const alignSelf = resolveResponsive(styles.alignSelf, device);
   const order = resolveResponsive(styles.order, device);
@@ -167,6 +168,8 @@ export function stylesToCss(
   };
 
   if (position) css.position = position;
+  if (top) css.top = top;
+  else if (position === "sticky" || position === "fixed") css.top = "0";
   if (zIndex !== undefined && zIndex !== null && !Number.isNaN(zIndex)) css.zIndex = zIndex;
   if (alignSelf) css.alignSelf = alignSelf;
   if (order !== undefined && order !== null && !Number.isNaN(order)) css.order = order;

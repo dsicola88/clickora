@@ -35,6 +35,7 @@ import {
 } from "./PropertyControls";
 import {
   BackToTopContentEditor,
+  CookieBannerContentEditor,
   DateContentEditor,
   InfoBoxContentEditor,
   PhoneCallContentEditor,
@@ -462,6 +463,8 @@ function WidgetContentTab({
       return <TickerContentEditor content={c} setContent={setContent} />;
     case "infoBox":
       return <InfoBoxContentEditor content={c} setContent={setContent} />;
+    case "cookieBanner":
+      return <CookieBannerContentEditor content={c} setContent={setContent} />;
     case "container":
       return (
         <Section title="Contentor">
@@ -718,6 +721,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
     setTab("content");
   }, [section.id]);
   const updateSection = useBuilder((s) => s.updateSection);
+  const applySectionLayout = useBuilder((s) => s.applySectionLayout);
   const setStyles = (patch: Partial<BaseStyles & ResponsiveStyles>) =>
     updateSection(section.id, { styles: { ...section.styles, ...patch } });
 
@@ -736,6 +740,37 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
     >
       {tab === "content" && (
         <>
+          <Section title="Estrutura de colunas">
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+              Altere o layout como no Elementor. Widgets de colunas removidas passam para a última coluna.
+            </p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(
+                [
+                  { label: "1", widths: [100] },
+                  { label: "2", widths: [50, 50] },
+                  { label: "3", widths: [33, 34, 33] },
+                  { label: "4", widths: [25, 25, 25, 25] },
+                  { label: "1/3", widths: [33, 67] },
+                  { label: "2/3", widths: [67, 33] },
+                  { label: "20/60", widths: [20, 60, 20] },
+                  { label: "45/55", widths: [45, 55] },
+                ] as const
+              ).map((layout) => (
+                <button
+                  key={layout.label}
+                  type="button"
+                  title={layout.widths.join(" / ")}
+                  onClick={() => applySectionLayout(section.id, [...layout.widths])}
+                  className="flex h-10 items-center gap-0.5 rounded-md border border-editor-border px-1 hover:border-editor-accent"
+                >
+                  {layout.widths.map((w, i) => (
+                    <span key={i} className="h-5 rounded-sm bg-editor-panel-2" style={{ flex: w }} />
+                  ))}
+                </button>
+              ))}
+            </div>
+          </Section>
           <Section title="Disposição">
             <SelectField
               label="Largura do conteúdo"
@@ -1161,8 +1196,8 @@ function AdvancedTab({
               { value: "static", label: "Padrão (static)" },
               { value: "relative", label: "Relativa" },
               { value: "absolute", label: "Absoluta" },
-              { value: "fixed", label: "Fixa" },
-              { value: "sticky", label: "Sticky" },
+              { value: "fixed", label: "Fixa (viewport)" },
+              { value: "sticky", label: "Sticky (barra de menu)" },
             ]}
             onChange={(v) =>
               onStyles({
@@ -1171,8 +1206,22 @@ function AdvancedTab({
                   device,
                   v as NonNullable<typeof styles.position>["desktop"],
                 ),
+                ...((v === "sticky" || v === "fixed") &&
+                !resolveResponsive(styles.top, device)
+                  ? { top: setResponsive(styles.top, device, "0") }
+                  : {}),
               })
             }
+          />
+          <TextField
+            label={`Top (${device}) — sticky/fixo`}
+            value={(resolveResponsive(styles.top, device) as string) ?? ""}
+            onChange={(v) => {
+              const t = v.trim();
+              if (!t) onStyles({ top: undefined });
+              else onStyles({ top: setResponsive(styles.top, device, t) });
+            }}
+            placeholder="0"
           />
           <TextField
             label={`Z-index (${device})`}
@@ -2261,6 +2310,20 @@ function IconListContentEditor({
           label="Cor do ícone"
           value={(content.iconColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ iconColor: v })}
+        />
+        <ColorField
+          label="Fundo do círculo"
+          value={(content.iconBg as string) ?? ""}
+          onChange={(v) => setContent({ iconBg: v })}
+        />
+        <SelectField
+          label="Forma do ícone"
+          value={(content.iconShape as string) ?? "circle"}
+          options={[
+            { value: "circle", label: "Círculo" },
+            { value: "rounded", label: "Arredondado" },
+          ]}
+          onChange={(v) => setContent({ iconShape: v })}
         />
         <ColorField
           label="Cor do título"
