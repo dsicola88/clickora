@@ -12,13 +12,13 @@ export const PRESELL_NICHE_OPTIONS: {
     id: "black",
     name: "Black (promessas fortes)",
     description:
-      "Saúde, emagrecimento, desempenho e ofertas agressivas. Página informativa à prova de bloqueio: não clona claims da sales page. O hoplink fica no gate (cookies, desconto…) — não no corpo.",
+      "Saúde, emagrecimento, desempenho e ofertas agressivas. Portal informativo Ads-safe (não clona claims). Cookie só desbloqueia o artigo; o hoplink fica no CTA da página. Gates (idade, país…) bloqueiam o CTA até estarem válidos. Identidade do afiliado obrigatória.",
   },
   {
     id: "white",
     name: "White (produtos leves)",
     description:
-      "Gadgets, reviews, ofertas sem claims médicos. Visual fiel ao produto; políticas Google/Bing. Em cookies o hoplink fica no aviso; nos outros tipos vale o CTA do tipo. Sem fantasma nem gates de idade/sexo.",
+      "Gadgets, reviews, ofertas sem claims médicos. Visual fiel ao produto. Em cookies o hoplink fica no aviso; nos outros tipos vale o CTA do tipo. Sem fantasma nem gates de idade/sexo/país/captcha.",
   },
 ];
 

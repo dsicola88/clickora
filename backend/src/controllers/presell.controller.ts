@@ -32,6 +32,10 @@ import { resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { assertPublishAllowed, runPresellComplianceAudit } from "../compliance/service";
+import {
+  coercePresellTypeForNiche,
+  normalizePresellGenerationNiche,
+} from "../lib/presellGenerationNiche";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -400,6 +404,11 @@ export const presellController = {
         pageHint: parsed.data.slug,
       });
       contentPayload = reconciled.content;
+      const niche = normalizePresellGenerationNiche(
+        contentPayload.generationNiche ?? contentPayload.generation_niche,
+      );
+      contentPayload.generationNiche = niche;
+      const safeType = coercePresellTypeForNiche(parsed.data.type || "cookies", niche);
 
       const requestedStatus = parsed.data.status || "draft";
       page = await prisma.presellPage.create({
@@ -407,7 +416,7 @@ export const presellController = {
           userId,
           title: parsed.data.title,
           slug: parsed.data.slug,
-          type: parsed.data.type || "cookies",
+          type: safeType,
           category: parsed.data.category,
           language: parsed.data.language || "pt",
           content: contentPayload as Prisma.InputJsonValue,
@@ -473,10 +482,24 @@ export const presellController = {
       mirrorRehosted = reconciled.rehosted;
     }
 
+    const contentForNiche =
+      nextContent ||
+      (page.content && typeof page.content === "object" && !Array.isArray(page.content)
+        ? (page.content as Record<string, unknown>)
+        : {});
+    const niche = normalizePresellGenerationNiche(
+      contentForNiche.generationNiche ?? contentForNiche.generation_niche,
+    );
+    if (nextContent) {
+      nextContent.generationNiche = niche;
+    }
+    const requestedType = typeof req.body.type === "string" ? req.body.type : page.type;
+    const safeType = coercePresellTypeForNiche(requestedType || "cookies", niche);
+
     const data: Record<string, unknown> = {
       ...(req.body.title && { title: req.body.title }),
       ...(req.body.slug && { slug: req.body.slug }),
-      ...(req.body.type && { type: req.body.type }),
+      type: safeType,
       ...(req.body.category !== undefined && { category: req.body.category }),
       ...(req.body.language && { language: req.body.language }),
       ...(nextContent && { content: nextContent as Prisma.InputJsonValue }),
