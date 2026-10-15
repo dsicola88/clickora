@@ -670,7 +670,7 @@ export default function PublicPresell() {
   const apiBase = useMemo(() => getTrackApiBaseUrl(), []);
 
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
-  const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: true });
+  const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: false });
 
   const { resolved: uiLang, setMode, override } = usePresellUiLanguage(page?.id, page?.language);
 
@@ -681,8 +681,9 @@ export default function PublicPresell() {
 
   useEffect(() => {
     setCookieAccepted(false);
-    setFieldGate({ params: {}, ctaEnabled: true });
-  }, [page?.id, setCookieAccepted]);
+    // Gates interativos começam bloqueados até PresellGateFields reportar válido.
+    setFieldGate({ params: {}, ctaEnabled: !getInteractiveGateKind(page?.type || "") });
+  }, [page?.id, page?.type, setCookieAccepted]);
 
   const [storefrontMainIdx, setStorefrontMainIdx] = useState(0);
   useEffect(() => {
@@ -786,7 +787,8 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: Allow, Fechar e o fundo seguem para a oferta. Os CTAs da página usam o mesmo href.
+    // Cookies: o modal só desbloqueia a leitura (black) ou leva à oferta (white).
+    // CTAs do documento: cookies não bloqueiam; gates interativos sim até estarem válidos.
     if (gk === "cookies") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
@@ -1084,6 +1086,7 @@ export default function PublicPresell() {
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
+      { unlockCookieOnly: generationNiche === "black" },
     );
     const mirrorHtmlFold =
       visualDoc.sections[0]?.columns[0]?.widgets[0]?.type === "html";
@@ -1122,6 +1125,7 @@ export default function PublicPresell() {
             doc={visualDoc}
             trackOfferHref={href || undefined}
             offerUrl={offerUrl}
+            interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
           />
         </Suspense>
         <PresellTrustFooter
@@ -1152,7 +1156,11 @@ export default function PublicPresell() {
     );
     return (
       <PresellPublicLocaleProvider language={uiLang}>
-        <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-white pb-12">
+        <div
+          className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-0 ${
+            generationNiche === "black" ? "bg-slate-50" : "bg-white pb-12"
+          }`}
+        >
           <PresellMarketingOverlays
             pageId={page.id}
             settings={settings}

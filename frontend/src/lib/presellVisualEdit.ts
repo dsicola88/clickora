@@ -92,6 +92,163 @@ function heroImageWidget(src: string, alt: string, offer = "", isHero = true): W
   return image;
 }
 
+/** Foto do produto em artigo black — sem banda hero de viewport inteira. */
+function articleProductPhoto(src: string, alt: string, offer = ""): WidgetNode {
+  const image = createWidget("image");
+  image.content = { ...image.content, src, alt, link: offer, hero: false };
+  image.styles = {
+    ...image.styles,
+    width: { desktop: "360px" },
+    align: { desktop: "center" },
+    margin: { desktop: { top: 0, right: 0, bottom: 8, left: 0, unit: "px" } },
+  };
+  return image;
+}
+
+function articleKicker(text: string): WidgetNode {
+  const heading = createWidget("heading");
+  heading.content = { ...heading.content, text, tag: "p" };
+  const typo = heading.styles.typography;
+  if (typo?.desktop) {
+    heading.styles.typography = {
+      ...typo,
+      desktop: {
+        ...typo.desktop,
+        textAlign: "left",
+        fontSize: 13,
+        fontWeight: 600,
+        lineHeight: 1.4,
+        letterSpacing: 0.4,
+        textTransform: "uppercase",
+      },
+    };
+  }
+  heading.styles.color = "#64748b";
+  heading.styles.margin = {
+    desktop: { top: 0, right: 0, bottom: 10, left: 0, unit: "px" },
+  };
+  return heading;
+}
+
+function articleTitle(text: string): WidgetNode {
+  const heading = createWidget("heading");
+  heading.content = { ...heading.content, text, tag: "h1" };
+  const typo = heading.styles.typography;
+  if (typo?.desktop) {
+    heading.styles.typography = {
+      ...typo,
+      desktop: {
+        ...typo.desktop,
+        textAlign: "left",
+        fontSize: 32,
+        fontWeight: 700,
+        lineHeight: 1.25,
+        letterSpacing: -0.3,
+      },
+    };
+  }
+  heading.styles.color = "#0f172a";
+  heading.styles.margin = {
+    desktop: { top: 0, right: 0, bottom: 18, left: 0, unit: "px" },
+  };
+  return heading;
+}
+
+function articleBodyHtml(article: {
+  intro: string;
+  pillarsTitle: string;
+  pillars: { title: string; body: string }[];
+}): string {
+  const pillars = article.pillars
+    .map(
+      (p) =>
+        `<div style="margin:0 0 1.4rem 0;padding:0 0 0 0">` +
+        `<p style="margin:0 0 0.35rem 0;font-weight:700;color:#0f172a;font-size:1.06rem;line-height:1.4">${escapeHtml(p.title)}</p>` +
+        `<p style="margin:0;color:#475569;font-size:1rem;line-height:1.7">${escapeHtml(p.body)}</p>` +
+        `</div>`,
+    )
+    .join("");
+  return (
+    `<p style="margin:0 0 1.6rem 0;color:#334155;font-size:1.06rem;line-height:1.75">${escapeHtml(article.intro)}</p>` +
+    `<h2 style="margin:0 0 1.1rem 0;font-size:1.2rem;font-weight:700;color:#0f172a;line-height:1.35">${escapeHtml(article.pillarsTitle)}</h2>` +
+    pillars
+  );
+}
+
+function articleCopy(html: string): WidgetNode {
+  const text = createWidget("text");
+  text.content = { ...text.content, html };
+  const typo = text.styles.typography;
+  if (typo?.desktop) {
+    text.styles.typography = {
+      ...typo,
+      desktop: { ...typo.desktop, textAlign: "left", fontSize: 17, lineHeight: 1.7 },
+    };
+  }
+  text.styles.color = "#334155";
+  text.styles.margin = {
+    desktop: { top: 0, right: 0, bottom: 8, left: 0, unit: "px" },
+  };
+  return text;
+}
+
+/** Barra superior do portal black — marca + CTA opcional. */
+function portalHeaderWidget(brand: string, ctaLabel: string, offer: string): WidgetNode {
+  const html = createWidget("html");
+  const cta =
+    offer && ctaLabel
+      ? `<a href="${escapeHtml(offer)}" data-clickora-offer="1" style="display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:6px;background:#ea580c;color:#fff;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">${escapeHtml(ctaLabel)}</a>`
+      : "";
+  html.content = {
+    ...html.content,
+    code:
+      `<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 22px;background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif">` +
+      `<strong style="font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">${escapeHtml(brand)}</strong>` +
+      cta +
+      `</header>`,
+  };
+  return html;
+}
+
+function portalCtaNote(note: string): WidgetNode {
+  const text = createWidget("text");
+  text.content = {
+    ...text.content,
+    html: `<p style="margin:0 0 1rem 0;color:#475569;font-size:0.98rem;line-height:1.7">${escapeHtml(note)}</p>`,
+  };
+  const typo = text.styles.typography;
+  if (typo?.desktop) {
+    text.styles.typography = {
+      ...typo,
+      desktop: { ...typo.desktop, textAlign: "left", fontSize: 16, lineHeight: 1.7 },
+    };
+  }
+  text.styles.color = "#475569";
+  return text;
+}
+
+function portalOfferButton(label: string, offer: string): WidgetNode {
+  const button = createWidget("button");
+  button.content = { ...button.content, text: label, href: offer, target: "_self" };
+  button.styles = {
+    ...button.styles,
+    color: "#ffffff",
+    background: "#ea580c",
+    align: { desktop: "center" },
+    padding: { desktop: { top: 14, right: 28, bottom: 14, left: 28, unit: "px" } },
+    border: { width: 0, style: "solid", color: "#000000", radius: 8 },
+    margin: { desktop: { top: 4, right: 0, bottom: 0, left: 0, unit: "px" } },
+  };
+  const typo = button.styles.typography;
+  if (typo?.desktop) {
+    button.styles.typography = {
+      ...typo,
+      desktop: { ...typo.desktop, fontSize: 16, fontWeight: 700, textAlign: "center" },
+    };
+  }
+  return button;
+}
+
 function sanitizeImportedHtml(html: string, keepStylesheets = false): string {
   let out = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -236,7 +393,10 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   }
 
   const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, cookieType ? "" : offer, false));
-  const cookie = cookieType ? offerCookie(offer, policyHrefFromContent(content), source.language) : null;
+  // White cookies: Aceitar → oferta. Black: Aceitar só desbloqueia o artigo; CTA vai à oferta.
+  const cookie = cookieType
+    ? offerCookie(white ? offer : "", policyHrefFromContent(content), source.language)
+    : null;
 
   const sections: ReturnType<typeof createSection>[] = [];
   const mirrorFold = white
@@ -297,34 +457,94 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       salesText: asString(content.salesText),
       ctaText: cta,
     });
-    const stacked: WidgetNode[] = [];
-    if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
+    const ctaLabel = article.ctaLabel || cta || "Continuar";
+    const offerLink = cookieType ? "" : offer;
+
+    const headerSec = createSection(1);
+    headerSec.layout = "full";
+    headerSec.contentWidth = 960;
+    headerSec.styles = {
+      ...headerSec.styles,
+      padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+      background: "#0f172a",
+    };
+    // Cookies: sem CTA no header (Aceitar só desbloqueia). Outros tipos: CTA no header + corpo.
+    headerSec.columns[0].widgets = [
+      portalHeaderWidget(alt, ctaLabel, cookieType ? "" : offer),
+    ];
+    sections.push(headerSec);
+
+    if (hero) {
+      const media = createSection(1);
+      media.layout = "full";
+      media.contentWidth = 720;
+      media.styles = {
+        ...media.styles,
+        padding: { desktop: { top: 28, right: 24, bottom: 4, left: 24, unit: "px" } },
+        background: "#f8fafc",
+      };
+      media.columns[0].widgets = [articleProductPhoto(hero, alt, offerLink)];
+      sections.push(media);
+    }
+
     if (videoUrl) {
       const video = createWidget("video");
       video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
-      stacked.push(video);
+      const vidSec = createSection(1);
+      vidSec.contentWidth = 720;
+      vidSec.styles = {
+        ...vidSec.styles,
+        padding: { desktop: { top: 8, right: 24, bottom: 8, left: 24, unit: "px" } },
+        background: "#f8fafc",
+      };
+      vidSec.columns[0].widgets = [video];
+      sections.push(vidSec);
     }
-    stacked.push(foldHeading(article.headline, "left"));
-    const parts = [
-      `<p>${escapeHtml(article.intro)}</p>`,
-      ...article.pillars.map((p) => `<p><strong>${escapeHtml(p.title)}</strong><br />${escapeHtml(p.body)}</p>`),
-      `<p>${escapeHtml(article.productNote)}</p>`,
-    ];
-    stacked.push(foldCopy(parts.join("")));
-    if (!cookieType && cta && offer) {
-      const button = createWidget("button");
-      button.content = { ...button.content, text: article.ctaLabel || cta, href: offer, target: "_self" };
-      stacked.push(button);
-    }
-    stacked.push(...extraPhotos);
-    const section = createSection(1);
-    section.styles = {
-      ...section.styles,
-      padding: { desktop: { top: 28, right: 20, bottom: 48, left: 20, unit: "px" } },
+
+    const articleSec = createSection(1);
+    articleSec.layout = "full";
+    articleSec.contentWidth = 720;
+    articleSec.styles = {
+      ...articleSec.styles,
+      padding: { desktop: { top: 20, right: 28, bottom: 12, left: 28, unit: "px" } },
       background: "#ffffff",
     };
-    section.columns[0].widgets = stacked;
-    if (stacked.length) sections.push(section);
+    articleSec.columns[0].widgets = [
+      articleKicker(article.kicker),
+      articleTitle(article.headline),
+      articleCopy(articleBodyHtml(article)),
+    ];
+    sections.push(articleSec);
+
+    if (offer) {
+      const ctaSec = createSection(1);
+      ctaSec.layout = "boxed";
+      ctaSec.contentWidth = 680;
+      ctaSec.styles = {
+        ...ctaSec.styles,
+        padding: { desktop: { top: 22, right: 24, bottom: 24, left: 24, unit: "px" } },
+        margin: { desktop: { top: 8, right: 20, bottom: 36, left: 20, unit: "px" } },
+        background: "#ffffff",
+        border: { width: 1, style: "solid", color: "#e2e8f0", radius: 12 },
+      };
+      ctaSec.columns[0].widgets = [portalCtaNote(article.productNote), portalOfferButton(ctaLabel, offer)];
+      sections.push(ctaSec);
+    }
+
+    if (restImages.length) {
+      const galleryWidgets = restImages
+        .slice(0, 2)
+        .map((src) => articleProductPhoto(src, alt, offerLink));
+      const gallery = createSection(1);
+      gallery.contentWidth = 720;
+      gallery.styles = {
+        ...gallery.styles,
+        padding: { desktop: { top: 0, right: 28, bottom: 36, left: 28, unit: "px" } },
+        background: "#f8fafc",
+      };
+      gallery.columns[0].widgets = galleryWidgets;
+      sections.push(gallery);
+    }
   } else {
     const stacked: WidgetNode[] = [];
     if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
@@ -350,25 +570,51 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     sections.push(gate);
   }
 
+  const sourcePageTitle =
+    asString(content.sourcePageTitle) || asString(content.source_page_title) || title;
+  const favicon =
+    asString(content.faviconUrl) || asString(content.favicon_url) || hero || "";
+  const description = asString(content.subtitle) || asString(content.metaDescription);
+
   return {
     id: id("page_"),
     name: title || asString(source.title) || "Presell",
     sections,
     settings: {
-      background: "#ffffff",
-      maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : 860,
+      background: mirrorFold.length > 80 || productFold || white ? "#ffffff" : "#f8fafc",
+      maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : white ? 860 : 720,
+    },
+    seo: {
+      title: sourcePageTitle,
+      ...(description ? { description } : {}),
+      ...(hero ? { ogImage: hero } : {}),
+      ...(favicon ? { favicon } : {}),
     },
     updatedAt: Date.now(),
   };
 }
 
-/** Documento guardado no conteúdo, senão o mesmo documento que o editor reconstrói. */
+/**
+ * White: reutiliza o documento guardado (espelho/edição).
+ * Black: regenera o artigo limpo — layouts antigos com hero viewport ficavam desalinhados.
+ */
 export function resolvePresellPageDocument(
   stored: unknown,
   source: EditablePresellSource,
 ): PageDocument {
+  if (!isWhiteNiche(source.content || {})) {
+    return buildEditablePageDocument(source);
+  }
   return parsePresellBuilderPageDocument(stored) ?? buildEditablePageDocument(source);
 }
+
+export type BakePublicOfferOptions = {
+  /**
+   * Black Ads: cookie só desbloqueia o portal informativo.
+   * White: cookie pode levar à oferta e remove botões duplicados.
+   */
+  unlockCookieOnly?: boolean;
+};
 
 /** Na pública, o hoplink e o marcador do espelho passam a `/track/r/`. */
 export function bakePublicOfferHrefs(
@@ -376,11 +622,13 @@ export function bakePublicOfferHrefs(
   trackHref: string,
   affiliateHref = "",
   policyHref = "",
+  options: BakePublicOfferOptions = {},
 ): PageDocument {
   const clone = JSON.parse(JSON.stringify(doc)) as PageDocument;
   const href = trackHref.trim() || affiliateHref.trim();
   const policy = policyHref.trim();
   const affiliate = affiliateHref.trim();
+  const unlockCookieOnly = Boolean(options.unlockCookieOnly);
   const cookieGate = clone.sections.some((section) =>
     section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
   );
@@ -402,14 +650,19 @@ export function bakePublicOfferHrefs(
         if (cookieGate && widget.type === "image") {
           widget.content = { ...widget.content, link: "" };
         }
-        if (policy && widget.type === "cookieBanner") {
-          widget.content = { ...widget.content, policyUrl: policy };
+        if (widget.type === "cookieBanner") {
+          const next: Record<string, unknown> = { ...widget.content };
+          if (policy) next.policyUrl = policy;
+          if (unlockCookieOnly) next.offerHref = "";
+          widget.content = next;
         }
       }
     }
   }
-  if (href) pointOfferButtonsAt(clone, href, affiliate || undefined);
-  if (cookieGate) {
+  if (href) {
+    pointOfferButtonsAt(clone, href, affiliate || undefined, { assignCookieOffer: !unlockCookieOnly });
+  }
+  if (cookieGate && !unlockCookieOnly) {
     for (const section of clone.sections) {
       for (const column of section.columns) {
         column.widgets = column.widgets.filter((widget) => widget.type !== "button");
@@ -430,10 +683,16 @@ function comparableUrl(raw: string): string {
 }
 
 /** O botão principal segue o link da oferta da barra. Um botão único desatualizado também. */
-export function pointOfferButtonsAt(doc: PageDocument, offerUrl: string, previousOffer?: string): PageDocument {
+export function pointOfferButtonsAt(
+  doc: PageDocument,
+  offerUrl: string,
+  previousOffer?: string,
+  options: { assignCookieOffer?: boolean } = {},
+): PageDocument {
   const offer = offerUrl.trim();
   if (!offer) return doc;
   const previous = previousOffer ? comparableUrl(previousOffer) : "";
+  const assignCookieOffer = options.assignCookieOffer !== false;
   const widgets = doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets));
   const buttons = widgets.filter((widget) => widget.type === "button");
   for (const button of buttons) {
@@ -445,12 +704,18 @@ export function pointOfferButtonsAt(doc: PageDocument, offerUrl: string, previou
       button.content = { ...button.content, href: offer };
     }
   }
-  for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
-    const href = asString(cookie.content.offerHref);
-    const empty = !href || href === "#" || href.startsWith("#");
-    const wasOffer = Boolean(previous) && comparableUrl(href) === previous;
-    if (empty || wasOffer) {
-      cookie.content = { ...cookie.content, offerHref: offer };
+  if (assignCookieOffer) {
+    for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
+      const href = asString(cookie.content.offerHref);
+      const empty = !href || href === "#" || href.startsWith("#");
+      const wasOffer = Boolean(previous) && comparableUrl(href) === previous;
+      if (empty || wasOffer) {
+        cookie.content = { ...cookie.content, offerHref: offer };
+      }
+    }
+  } else {
+    for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
+      cookie.content = { ...cookie.content, offerHref: "" };
     }
   }
   return doc;

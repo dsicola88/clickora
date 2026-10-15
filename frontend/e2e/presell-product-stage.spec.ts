@@ -72,8 +72,13 @@ async function openPresell(page: Page, type: string, images: "ok" | "fail" = "ok
 
 test.describe("presell — produto visível com cookies", () => {
   test.describe.configure({ mode: "serial" });
-  test("imagem principal fica visível atrás do modal centrado de cookies", async ({ page }) => {
-    const errors = await openPresell(page, "cookies");
+  test("white cookies: imagem hero + Accept All com hoplink rastreado", async ({ page }) => {
+    await installPresell(page, presell("cookies", { content: { generationNiche: "white" } }), "ok");
+    const errors: string[] = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+    await page.goto(
+      `/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&utm_source=google_ads&utm_medium=cpc&parent_click_id=${PARENT_CLICK}`,
+    );
     const hero = page.locator("[data-presell-hero='product']").first();
     await expect(hero).toBeVisible({ timeout: 20_000 });
     const heroImg = hero.locator("img");
@@ -89,12 +94,13 @@ test.describe("presell — produto visível com cookies", () => {
     expect(cardBox).toBeTruthy();
     expect(viewport).toBeTruthy();
     expect(heroBox!.height).toBeGreaterThan(viewport!.height * 0.45);
-    // Modal centrado: o cartão cobre a zona média do ecrã.
     expect(cardBox!.y).toBeGreaterThan(viewport!.height * 0.12);
     expect(cardBox!.y + cardBox!.height).toBeLessThan(viewport!.height * 0.95);
 
     await expect(page.getByRole("link", { name: "Order Now" })).toHaveCount(0);
-    const cta = page.getByTestId("presell-cookie-card").getByRole("link", { name: /^(allow|permitir|accept all|aceitar tudo)$/i });
+    const cta = page.getByTestId("presell-cookie-card").getByRole("link", {
+      name: /^(allow|permitir|accept all|aceitar tudo)$/i,
+    });
     const href = await cta.getAttribute("href");
     expect(href).toBeTruthy();
     const decoded = decodeURIComponent(href!);
@@ -103,6 +109,26 @@ test.describe("presell — produto visível com cookies", () => {
     expect(decoded).toContain("parent_click_id=" + PARENT_CLICK);
     expect(decoded).toContain("https://offer.example/buy");
     expect(errors).toEqual([]);
+  });
+
+  test("black cookies: portal sem hero viewport; Accept desbloqueia (não vai à oferta)", async ({
+    page,
+  }) => {
+    await installPresell(page, presell("cookies", { content: { generationNiche: "black" } }), "ok");
+    await page.goto(
+      `/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&utm_source=google_ads&utm_medium=cpc&parent_click_id=${PARENT_CLICK}`,
+    );
+    const card = page.getByTestId("presell-cookie-card");
+    await expect(card).toBeVisible();
+    // Sem banda hero de viewport inteira
+    await expect(page.locator("[data-presell-hero='product']")).toHaveCount(0);
+    const allowBtn = card.getByRole("button", {
+      name: /^(allow|permitir|accept all|aceitar tudo)$/i,
+    });
+    await expect(allowBtn).toBeVisible();
+    await allowBtn.click();
+    await expect(card).toBeHidden({ timeout: 5000 });
+    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
   });
 
   test("imagem inacessível não é trocada por uma foto genérica", async ({ page }) => {
@@ -138,21 +164,6 @@ test.describe("presell — produto visível com cookies", () => {
     });
   }
 
-  test("no black Accept All segue o hoplink rastreado", async ({ page }) => {
-    await openPresell(page, "cookies");
-    await page.route("**/track/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
-      }),
-    );
-    await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
-    await page.getByTestId("presell-cookie-card").getByRole("link", { name: /^(allow|permitir|accept all|aceitar tudo)$/i }).click();
-    await expect(page).toHaveURL(/\/track\//);
-    expect(decodeURIComponent(page.url())).toContain("gclid=test-gclid");
-  });
-
   test("no white cookies Accept All também segue o hoplink", async ({ page }) => {
     await installPresell(page, presell("cookies", { content: { generationNiche: "white" } }), "ok");
     await page.goto(
@@ -171,7 +182,10 @@ test.describe("presell — produto visível com cookies", () => {
   });
 
   test("clicar no fundo não fecha nem navega", async ({ page }) => {
-    await openPresell(page, "cookies");
+    await installPresell(page, presell("cookies", { content: { generationNiche: "white" } }), "ok");
+    await page.goto(
+      `/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&utm_source=google_ads&utm_medium=cpc&parent_click_id=${PARENT_CLICK}`,
+    );
     await page.getByTestId("presell-cookie-backdrop").click({ position: { x: 12, y: 12 }, force: true });
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));

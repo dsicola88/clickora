@@ -14,12 +14,16 @@ import {
 } from "@/components/ui/select";
 import { PresellBuilderEmbedProvider } from "@/contexts/PresellBuilderEmbedContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
-import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import {
+  parsePresellBuilderPageDocument,
+  parsePresellEditorWorkingDocument,
+  pickPresellEditorDocument,
+} from "@/lib/presellBuilderContent";
 import { buildEditablePageDocument, pointOfferButtonsAt } from "@/lib/presellVisualEdit";
 import type { PageDocument } from "@/page-builder/types";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
@@ -89,9 +93,12 @@ export default function PresellManualBuilderPage() {
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    const base = getApiBaseUrl().replace(/\/$/, "");
+    const base = getTrackApiBaseUrl().replace(/\/$/, "");
     return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
   }, [user?.id]);
+  const contentRef = useRef<Record<string, unknown>>({});
+  const pageTypeRef = useRef("builder");
+  const lastCloudDocJsonRef = useRef("");
 
   const trackingHealthScore = useMemo(
     () =>
@@ -160,33 +167,39 @@ export default function PresellManualBuilderPage() {
         navigate("/presell/dashboard", { replace: true });
         return;
       }
-      const stored = parsePresellBuilderPageDocument(data.content);
+      const c = (data.content || {}) as Record<string, unknown>;
+      contentRef.current = { ...c };
+      pageTypeRef.current = data.type || "builder";
       const storageKey = `clickora:builder:${routeId}`;
-      let doc = stored;
-      if (data.type !== "builder") {
-        doc =
-          stored ??
-          readVisualDraft(storageKey) ??
-          buildEditablePageDocument({
-            title: data.title,
-            type: data.type,
-            videoUrl: data.video_url,
-            content: (data.content || {}) as Record<string, unknown>,
-          });
-        setAwaitingVisualPublish(true);
-      } else {
-        setAwaitingVisualPublish(false);
+      setPageBuilderStorageKey(storageKey);
+      const publishedDoc = parsePresellBuilderPageDocument(c);
+      const workingDoc = parsePresellEditorWorkingDocument(c);
+      const localDoc = readVisualDraft(storageKey);
+      let doc = pickPresellEditorDocument({
+        published: publishedDoc,
+        working: workingDoc,
+        local: localDoc,
+      });
+      if (!doc) {
+        doc = buildEditablePageDocument({
+          title: data.title,
+          type: data.type,
+          videoUrl: data.video_url,
+          language: data.language,
+          content: c,
+        });
       }
+      setAwaitingVisualPublish(data.type !== "builder");
       if (!doc || !Array.isArray(doc.sections)) {
         toast.error("Documento do editor em falta ou inválido.");
         navigate("/presell/dashboard", { replace: true });
         return;
       }
       useBuilder.getState().hydrateDocument(doc);
+      lastCloudDocJsonRef.current = JSON.stringify(useBuilder.getState().doc);
       setSlugDraft(data.slug);
       setCategory(data.category || "sem");
       setLanguage(normalizePresellLocale(data.language));
-      const c = (data.content || {}) as Record<string, unknown>;
       setAffiliateDraft(String(c.affiliateLink ?? ""));
       loadedOfferRef.current = String(c.affiliateLink ?? "");
       setCustomDomainId(data.custom_domain_id ?? "");
@@ -255,15 +268,20 @@ export default function PresellManualBuilderPage() {
       useBuilder.getState().hydrateDocument(doc);
       loadedOfferRef.current = affiliate;
 
+      const keepType = routeId ? pageTypeRef.current || "builder" : "builder";
       const content: Record<string, unknown> = {
+        ...contentRef.current,
         pageDocument: doc,
+        editorWorkingDocument: doc,
         affiliateLink: affiliate,
       };
+      contentRef.current = content;
+      lastCloudDocJsonRef.current = JSON.stringify(doc);
 
       const payload: Partial<Presell> = {
         title: doc.name.trim() || "Presell manual",
         slug,
-        type: "builder",
+        type: keepType,
         category,
         language,
         content,
@@ -319,6 +337,43 @@ export default function PresellManualBuilderPage() {
   });
 
   const canSaveToAccount = userCanWritePresells(user);
+  const affiliateDraftRef = useRef(affiliateDraft);
+  affiliateDraftRef.current = affiliateDraft;
+
+  useEffect(() => {
+    if (!editorReady || !routeId || !canSaveToAccount) return;
+    let timer: number | undefined;
+    let inflight = false;
+    const unsub = useBuilder.subscribe((state, prev) => {
+      if (prev && state.doc === prev.doc) return;
+      const json = JSON.stringify(state.doc);
+      if (json === lastCloudDocJsonRef.current) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (inflight) return;
+        inflight = true;
+        const doc = useBuilder.getState().doc;
+        const snapshot = JSON.stringify(doc);
+        const affiliate =
+          affiliateDraftRef.current.trim() || String(contentRef.current.affiliateLink ?? "");
+        const content: Record<string, unknown> = {
+          ...contentRef.current,
+          editorWorkingDocument: doc,
+          affiliateLink: affiliate || contentRef.current.affiliateLink,
+        };
+        void presellService.update(routeId, { content, language }).then(({ error }) => {
+          inflight = false;
+          if (error) return;
+          lastCloudDocJsonRef.current = snapshot;
+          contentRef.current = content;
+        });
+      }, 1400);
+    });
+    return () => {
+      unsub();
+      window.clearTimeout(timer);
+    };
+  }, [editorReady, routeId, canSaveToAccount, language]);
 
   const embedValue = useMemo(
     () => ({

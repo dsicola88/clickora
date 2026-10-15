@@ -24,6 +24,13 @@
           var p = location.pathname || "";
           if (/^\/p\/[^/]+/.test(p)) {
             document.title = "\u00A0";
+            document
+              .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+              .forEach(function (el) {
+                el.parentNode && el.parentNode.removeChild(el);
+              });
+            var appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+            if (appTitle && appTitle.parentNode) appTitle.parentNode.removeChild(appTitle);
             try {
               var host = location.hostname;
               if (host !== "localhost" && host !== "127.0.0.1") {

@@ -193,6 +193,12 @@ export default function CreatePresellWizardPage() {
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,
             ...(hasMirror ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
+            ...(typeof data.source_page_title === "string" && data.source_page_title.trim()
+              ? { sourcePageTitle: data.source_page_title.trim() }
+              : {}),
+            ...(typeof data.favicon_url === "string" && data.favicon_url.trim()
+              ? { faviconUrl: data.favicon_url.trim() }
+              : {}),
             importMode: data.import_mode,
             ...(data.rating_from_source
               ? {
@@ -240,9 +246,9 @@ export default function CreatePresellWizardPage() {
         (typeof user?.sale_notify_email === "string" && user.sale_notify_email.trim()) ||
         (typeof user?.email === "string" ? user.email.trim() : "") ||
         "";
-      if (generationNiche !== "black" && (!operatorName || !operatorEmail)) {
+      if (generationNiche === "black" && (!operatorName || !operatorEmail)) {
         throw new Error(
-          "Para publicar sem bloqueio no Google Ads, indique o nome real do operador e um e-mail de contacto válidos (sem dados inventados).",
+          "No nicho black (Google/Bing Ads), indique o seu nome real de afiliado/operador e um e-mail de contacto válidos — sem inventar CNPJ, marca nem e-mail.",
         );
       }
       const policyFromImport = imported.data?.policy_urls;
@@ -250,24 +256,25 @@ export default function CreatePresellWizardPage() {
         businessName: imported.data?.source_business_name || imported.data?.product_name,
         contactEmail: imported.data?.source_contact_email,
       };
+      // Black: identidade do afiliado intermediário (obrigatória). White: dados da página espelhada.
       const settingsBase =
         generationNiche === "black"
-          ? applyImportedSourceIdentity(
+          ? {
+              cookiePolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
+              privacyPolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
+              termsUrl: "/termos",
+              businessName: operatorName,
+              contactEmail: operatorEmail,
+              ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
+            }
+          : applyImportedSourceIdentity(
               {
                 cookiePolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
                 privacyPolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
                 termsUrl: "/termos",
               },
               identityFromSource,
-            )
-          : {
-              cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-              privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-              termsUrl: "/termos",
-              businessName: operatorName,
-              contactEmail: operatorEmail,
-              ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
-            };
+            );
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
           ...settingsBase,
@@ -560,7 +567,7 @@ export default function CreatePresellWizardPage() {
             />
             <p className="text-xs text-muted-foreground">
               {generationNiche === "black"
-                ? "Black: usamos nome e imagens. O texto público é informativo (Google/Bing) — a sales page agressiva não vai para o anúncio. O hoplink fica no gate."
+                ? "Black: portal informativo (Google/Bing). O cookie só desbloqueia o artigo; o hoplink fica no botão «site oficial». A sales page agressiva não vai para o anúncio."
                 : "White: a página segue o visual do produto. Em cookies o hoplink fica no aviso; nos outros tipos o CTA do tipo. Use a sales page pública, não o checkout."}
             </p>
           </div>
@@ -727,54 +734,56 @@ export default function CreatePresellWizardPage() {
           </div>
 
           {generationNiche === "black" ? (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
-              <p className="text-sm font-medium text-foreground">Identidade (nicho black)</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Nome, e-mail e políticas vêm da página original do produto. Não há preenchimento manual — evita dados
-                inventados e fugas. Pode editar textos e imagens depois no editor.
+            <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">
+                Identidade do operador (obrigatório para Google Ads)
               </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Use apenas dados verdadeiros do afiliado intermediário — não se passe pelo fabricante. Não invente
+                CNPJ, marca nem e-mail: a analista do Google bloqueia informação fictícia no rodapé e nas políticas.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="bizName">Nome do responsável / empresa</Label>
+                <Input
+                  id="bizName"
+                  placeholder={user?.name || "O seu nome ou razão social"}
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bizEmail">E-mail de contacto público</Label>
+                <Input
+                  id="bizEmail"
+                  type="email"
+                  placeholder={user?.email || "voce@dominio.com"}
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bizDoc">CNPJ / CPF / NIF (opcional — só se for real)</Label>
+                <Input
+                  id="bizDoc"
+                  placeholder="Deixe vazio se ainda não tiver"
+                  value={operatorDocument}
+                  onChange={(e) => setOperatorDocument(e.target.value)}
+                />
+              </div>
             </div>
           ) : (
-          <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
-            <p className="text-sm font-medium text-foreground">Identidade do operador (obrigatório para Google Ads)</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Use apenas dados verdadeiros. Não invente CNPJ, marca nem e-mail — a analista do Google bloqueia
-              informação fictícia no rodapé e nas políticas.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="bizName">Nome do responsável / empresa</Label>
-              <Input
-                id="bizName"
-                placeholder={user?.name || "O seu nome ou razão social"}
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-              />
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
+              <p className="text-sm font-medium text-foreground">Identidade (nicho white)</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                A página espelha a oferta original — nome e políticas vêm do site do produto. Sem preenchimento
+                manual de operador no white.
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bizEmail">E-mail de contacto público</Label>
-              <Input
-                id="bizEmail"
-                type="email"
-                placeholder={user?.email || "voce@dominio.com"}
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bizDoc">CNPJ / CPF / NIF (opcional — só se for real)</Label>
-              <Input
-                id="bizDoc"
-                placeholder="Deixe vazio se ainda não tiver"
-                value={operatorDocument}
-                onChange={(e) => setOperatorDocument(e.target.value)}
-              />
-            </div>
-          </div>
           )}
 
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Opções do tipo</p>
-            {presellType === "cookies" && generationNiche !== "black" ? (
+            {presellType === "cookies" && generationNiche === "black" ? (
               <div className="space-y-2">
                 <Label htmlFor="cookiePolicy">URL política de cookies (opcional)</Label>
                 <Input
@@ -784,6 +793,10 @@ export default function CreatePresellWizardPage() {
                   value={cookiePolicyUrl}
                   onChange={(e) => setCookiePolicyUrl(e.target.value)}
                 />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  No black, «Aceitar» só abre o portal informativo — a oferta fica no botão da página (como afiliado
+                  intermediário).
+                </p>
               </div>
             ) : null}
             {["idade", "idade_sexo", "idade_pais"].includes(presellType) ? (

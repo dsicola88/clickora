@@ -229,7 +229,7 @@ export function PresellAdsCompliancePanel({
       <div className="grid gap-3 sm:grid-cols-2">
         {lockIdentityFromSource ? (
           <div className="sm:col-span-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            Nicho black: nome e contacto vêm da página original. Não preencha à mão.
+            Nicho white: nome e contacto vêm da página original do produto. No black, preencha a identidade real do afiliado/operador.
           </div>
         ) : (
           <>

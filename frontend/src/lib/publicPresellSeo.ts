@@ -3,6 +3,7 @@ import type { Presell } from "@/types/api";
 import {
   getPresellSeoPrimaryTitle,
   getPresellProductLabel,
+  looksLikeAppBrandTitle,
   resolvePublicPresellDocumentTitle,
 } from "@/lib/publicPresellDocumentTitle";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
@@ -50,6 +51,98 @@ export function resolvePublicPresellOgImageUrl(page: Presell): string | undefine
   return ranked[0]?.trim();
 }
 
+function htmlTagAttr(tag: string, name: string): string {
+  const re = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i");
+  const m = tag.match(re);
+  return (m?.[1] || m?.[2] || m?.[3] || "").trim();
+}
+
+function absolutizeAgainst(href: string, base: string): string {
+  const t = href.trim();
+  if (!t || /^(javascript|vbscript):/i.test(t)) return "";
+  try {
+    return new URL(t, base).href;
+  } catch {
+    return "";
+  }
+}
+
+/** Ícone da origem (ou da foto do produto) — nunca o favicon da app. */
+export function extractIconHrefFromHtml(html: string, baseUrl = ""): string {
+  const t = html.trim();
+  if (t.length < 20) return "";
+  let base = baseUrl;
+  const baseTag = t.match(/<base\b[^>]*>/i);
+  if (baseTag) {
+    const href = htmlTagAttr(baseTag[0], "href");
+    const abs = href ? absolutizeAgainst(href, baseUrl || "https://example.invalid/") : "";
+    if (abs && !abs.includes("example.invalid")) base = abs;
+  }
+  const re = /<link\b[^>]*>/gi;
+  let best = "";
+  let bestScore = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t)) !== null) {
+    const tag = m[0];
+    const rel = htmlTagAttr(tag, "rel").toLowerCase();
+    if (!rel || rel.includes("mask-icon")) continue;
+    if (!/\bicon\b/.test(rel) && !rel.includes("apple-touch")) continue;
+    const abs = absolutizeAgainst(htmlTagAttr(tag, "href"), base);
+    if (!abs || !/^https?:\/\//i.test(abs)) continue;
+    if (looksLikeAppBrandTitle(abs) || /\/favicon\.svg(\?|$)/i.test(abs)) continue;
+    let score = 10;
+    if (rel.includes("apple-touch")) score += 40;
+    if (/\.png(\?|$)/i.test(abs)) score += 22;
+    if (/\.webp(\?|$)/i.test(abs)) score += 16;
+    if (/\.jpe?g(\?|$)/i.test(abs)) score += 12;
+    if (/\.ico(\?|$)/i.test(abs)) score += 6;
+    const sizes = htmlTagAttr(tag, "sizes");
+    const sizeN = Number.parseInt(sizes, 10);
+    if (sizeN >= 180) score += 28;
+    else if (sizeN >= 64) score += 16;
+    if (score > bestScore) {
+      bestScore = score;
+      best = abs;
+    }
+  }
+  return best;
+}
+
+function mimeForIconHref(href: string): string {
+  const p = href.split("?")[0].toLowerCase();
+  if (p.endsWith(".svg")) return "image/svg+xml";
+  if (p.endsWith(".png")) return "image/png";
+  if (p.endsWith(".webp")) return "image/webp";
+  if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "image/jpeg";
+  if (p.endsWith(".gif")) return "image/gif";
+  if (p.endsWith(".ico")) return "image/x-icon";
+  return "";
+}
+
+/** Favicon público: SEO do editor → import → ícone no espelho → foto do produto. */
+export function resolvePublicPresellFaviconUrl(page: Presell): string | undefined {
+  const c = (page.content || {}) as Record<string, unknown>;
+  const doc = parsePresellBuilderPageDocument(page.content);
+  const fromSeo = String(doc?.seo?.favicon ?? "").trim();
+  if (fromSeo && !looksLikeAppBrandTitle(fromSeo) && !/\/favicon\.svg(\?|$)/i.test(fromSeo)) {
+    return fromSeo;
+  }
+  const stored = String(c.faviconUrl ?? c.favicon_url ?? "").trim();
+  if (stored && !looksLikeAppBrandTitle(stored) && !/\/favicon\.svg(\?|$)/i.test(stored)) {
+    return stored;
+  }
+  const source = String(c.sourceUrl ?? c.source_url ?? "").trim();
+  const mirror =
+    typeof c.importMirrorSrcDoc === "string"
+      ? c.importMirrorSrcDoc
+      : typeof c.import_mirror_src_doc === "string"
+        ? c.import_mirror_src_doc
+        : "";
+  const fromMirror = extractIconHrefFromHtml(mirror, source);
+  if (fromMirror) return fromMirror;
+  return resolvePublicPresellOgImageUrl(page);
+}
+
 export function toAbsolutePageUrl(pathOrUrl: string): string {
   const t = pathOrUrl.trim();
   if (!t) return t;
@@ -80,11 +173,15 @@ export type PublicPresellHeadSnapshot = {
   twitterTitle: string | null;
   twitterDescription: string | null;
   twitterImage: string | null;
+  appleAppTitle: string | null;
+  originalIconHtml: string[];
 };
 
 function attr(sel: string): string | null {
   return document.querySelector(sel)?.getAttribute("content");
 }
+
+const APP_ICON_SEL = 'link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]';
 
 export function capturePublicPresellHeadSnapshot(): PublicPresellHeadSnapshot {
   return {
@@ -101,6 +198,10 @@ export function capturePublicPresellHeadSnapshot(): PublicPresellHeadSnapshot {
     twitterTitle: attr('meta[name="twitter:title"]'),
     twitterDescription: attr('meta[name="twitter:description"]'),
     twitterImage: attr('meta[name="twitter:image"]'),
+    appleAppTitle: attr('meta[name="apple-mobile-web-app-title"]'),
+    originalIconHtml: [...document.querySelectorAll<HTMLLinkElement>(APP_ICON_SEL)]
+      .filter((el) => el.getAttribute("data-presell-icon") !== "1")
+      .map((el) => el.outerHTML),
   };
 }
 
@@ -165,6 +266,46 @@ function removeJsonLd() {
   document.querySelector('script[type="application/ld+json"][data-presell-seo]')?.remove();
 }
 
+function restorePresellIcons(s: PublicPresellHeadSnapshot) {
+  document.querySelectorAll('link[data-presell-icon="1"]').forEach((el) => el.remove());
+  document.querySelectorAll(APP_ICON_SEL).forEach((el) => {
+    if (el.getAttribute("data-presell-icon") === "1") return;
+    el.remove();
+  });
+  if (s.originalIconHtml.length > 0) {
+    for (const html of s.originalIconHtml) {
+      document.head.insertAdjacentHTML("beforeend", html);
+    }
+  } else {
+    const fallback = document.createElement("link");
+    fallback.rel = "icon";
+    fallback.href = "/favicon.svg";
+    fallback.type = "image/svg+xml";
+    document.head.appendChild(fallback);
+  }
+  restoreMeta("name", "apple-mobile-web-app-title", s.appleAppTitle);
+}
+
+function applyPresellProductIcons(href: string, shortName: string) {
+  const abs = toAbsolutePageUrl(href);
+  if (!abs) return;
+  document.querySelectorAll(APP_ICON_SEL).forEach((el) => el.remove());
+  const type = mimeForIconHref(abs);
+  const icon = document.createElement("link");
+  icon.rel = "icon";
+  icon.href = abs;
+  if (type) icon.type = type;
+  icon.setAttribute("data-presell-icon", "1");
+  document.head.appendChild(icon);
+  const apple = document.createElement("link");
+  apple.rel = "apple-touch-icon";
+  apple.href = abs;
+  apple.setAttribute("sizes", "180x180");
+  apple.setAttribute("data-presell-icon", "1");
+  document.head.appendChild(apple);
+  if (shortName) setMetaName("apple-mobile-web-app-title", shortName.slice(0, 40));
+}
+
 export function restorePublicPresellHeadSnapshot(s: PublicPresellHeadSnapshot) {
   removeJsonLd();
   document.querySelector('link[rel="canonical"][data-presell-seo]')?.remove();
@@ -181,6 +322,7 @@ export function restorePublicPresellHeadSnapshot(s: PublicPresellHeadSnapshot) {
   restoreMeta("name", "twitter:title", s.twitterTitle);
   restoreMeta("name", "twitter:description", s.twitterDescription);
   restoreMeta("name", "twitter:image", s.twitterImage);
+  restorePresellIcons(s);
 }
 
 /**
@@ -204,10 +346,13 @@ export function applyPublicPresellHeadMetadata(page: Presell): () => void {
   const description = resolvePublicPresellMetaDescription(page);
   const ogImageRaw = resolvePublicPresellOgImageUrl(page);
   const ogImageAbs = ogImageRaw ? toAbsolutePageUrl(ogImageRaw) : "";
+  const faviconRaw = resolvePublicPresellFaviconUrl(page);
   const robots = robotsDirective(page);
   const primary = getPresellSeoPrimaryTitle(page);
+  const productLabel = getPresellProductLabel(page);
 
   document.title = title;
+  if (faviconRaw) applyPresellProductIcons(faviconRaw, productLabel);
   setMetaName("description", description);
   setMetaName("robots", robots);
   setMetaProperty("og:type", "website");

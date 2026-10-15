@@ -2,7 +2,11 @@ import {
   buildExportDocumentTitle,
   getPresellSeoPrimaryTitle,
 } from "@/lib/publicPresellDocumentTitle";
-import { resolvePublicPresellMetaDescription, resolvePublicPresellOgImageUrl } from "@/lib/publicPresellSeo";
+import {
+  resolvePublicPresellFaviconUrl,
+  resolvePublicPresellMetaDescription,
+  resolvePublicPresellOgImageUrl,
+} from "@/lib/publicPresellSeo";
 import { resolveApiUrl } from "@/lib/apiOrigin";
 import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
@@ -737,6 +741,7 @@ ${footerCode ? `${footerCode}\n` : ""}`;
   const docTitle = buildExportDocumentTitle(page, opts.publicPageUrl);
   const metaDesc = resolvePublicPresellMetaDescription(page);
   const ogImageRaw = resolvePublicPresellOgImageUrl(page);
+  const faviconRaw = resolvePublicPresellFaviconUrl(page);
   const ogImageAbs = (() => {
     if (!ogImageRaw?.trim()) return "";
     try {
@@ -760,9 +765,17 @@ ${footerCode ? `${footerCode}\n` : ""}`;
     ...(ogImageAbs ? { image: ogImageAbs } : {}),
   }).replace(/</g, "\\u003c");
 
+  const faviconAbs = (() => {
+    if (!faviconRaw?.trim()) return "";
+    try {
+      return new URL(faviconRaw.trim(), exportCanonical).href;
+    } catch {
+      return faviconRaw.trim();
+    }
+  })();
   const seoBlock = `<meta name="description" content="${escapeHtml(metaDesc)}" />
 <meta name="robots" content="${escapeAttr(robotsExport)}" />
-<link rel="canonical" href="${escapeAttr(exportCanonical)}" />
+${faviconAbs ? `<link rel="icon" href="${escapeAttr(faviconAbs)}" />\n<link rel="apple-touch-icon" href="${escapeAttr(faviconAbs)}" sizes="180x180" />\n` : ""}<link rel="canonical" href="${escapeAttr(exportCanonical)}" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${escapeHtml(docTitle)}" />
 <meta property="og:description" content="${escapeHtml(metaDesc)}" />

@@ -91,6 +91,10 @@ export type ImportPresellResult = {
   /** Identidade lida na sales page (nicho black — sem preenchimento manual). */
   source_business_name?: string;
   source_contact_email?: string;
+  /** `<title>` / `og:title` completo da origem (separador e Google). */
+  source_page_title?: string;
+  /** Favicon / apple-touch absoluto da origem. */
+  favicon_url?: string;
 };
 
 const DEFAULT_UA =
@@ -167,6 +171,66 @@ function extractMeta(html: string, name: string) {
 function extractTagText(html: string, tag: string) {
   const match = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
   return stripTags(match?.[1] || "");
+}
+
+function htmlTagAttr(tag: string, name: string): string {
+  const re = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i");
+  const m = tag.match(re);
+  return cleanText(m?.[1] || m?.[2] || m?.[3] || "");
+}
+
+function absolutizeImportUrl(href: string, pageUrl: string): string {
+  const t = href.trim();
+  if (!t || /^(javascript|vbscript|data):/i.test(t)) return "";
+  try {
+    return new URL(t, pageUrl).href;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Favicon / apple-touch da sales page — para o separador e o Google não usarem o ícone da app.
+ * Prefere PNG/apple-touch (legível a 32px) a um .ico minúsculo.
+ */
+export function extractFaviconUrlFromHtml(html: string, pageUrl: string): string {
+  let base = pageUrl;
+  const baseTag = html.match(/<base\b[^>]*>/i);
+  if (baseTag) {
+    const href = htmlTagAttr(baseTag[0], "href");
+    const abs = href ? absolutizeImportUrl(href, pageUrl) : "";
+    if (abs) base = abs;
+  }
+  const re = /<link\b[^>]*>/gi;
+  let best = "";
+  let bestScore = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const rel = htmlTagAttr(tag, "rel").toLowerCase();
+    if (!rel || rel.includes("mask-icon")) continue;
+    if (!/\bicon\b/.test(rel) && !rel.includes("apple-touch")) continue;
+    const abs = absolutizeImportUrl(htmlTagAttr(tag, "href"), base);
+    if (!abs || !/^https?:\/\//i.test(abs)) continue;
+    if (GARBAGE_META.test(abs) || /\/favicon\.svg(\?|$)/i.test(abs)) continue;
+    let score = 10;
+    if (rel.includes("apple-touch")) score += 40;
+    if (/\.png(\?|$)/i.test(abs)) score += 22;
+    if (/\.webp(\?|$)/i.test(abs)) score += 16;
+    if (/\.jpe?g(\?|$)/i.test(abs)) score += 12;
+    if (/\.ico(\?|$)/i.test(abs)) score += 6;
+    if (/\.svg(\?|$)/i.test(abs)) score += 4;
+    const sizes = htmlTagAttr(tag, "sizes");
+    const sizeN = Number.parseInt(sizes, 10);
+    if (sizeN >= 180) score += 28;
+    else if (sizeN >= 64) score += 16;
+    else if (sizeN >= 32) score += 8;
+    if (score > bestScore) {
+      bestScore = score;
+      best = abs;
+    }
+  }
+  return best;
 }
 
 /**
@@ -1525,6 +1589,14 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const titleTag = extractTagText(html, "title");
   const ogTitle = extractMeta(html, "og:title");
   const h1 = extractTagText(html, "h1");
+  const sourcePageTitleRaw = cleanText(ogTitle || titleTag);
+  const source_page_title =
+    sourcePageTitleRaw &&
+    !GARBAGE_META.test(sourcePageTitleRaw) &&
+    !isGenericImportTitle(sourcePageTitleRaw)
+      ? sourcePageTitleRaw.slice(0, 120)
+      : "";
+  const favicon_url = extractFaviconUrlFromHtml(html, finalUrl);
 
   let productName = splitBrandFromPageTitle(ogTitle || titleTag || "");
   if (!productName || GARBAGE_META.test(productName) || isGenericImportTitle(productName)) {
@@ -1658,6 +1730,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     policy_urls,
     ...(sourceIdentity.businessName ? { source_business_name: sourceIdentity.businessName } : {}),
     ...(sourceIdentity.contactEmail ? { source_contact_email: sourceIdentity.contactEmail } : {}),
+    ...(source_page_title ? { source_page_title } : {}),
+    ...(favicon_url ? { favicon_url } : {}),
     ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
   };
 }

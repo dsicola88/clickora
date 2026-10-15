@@ -691,6 +691,12 @@ export default function PresellDashboard() {
           ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
             ? { importMirrorSrcDoc: data.import_mirror_src_doc }
             : {}),
+          ...(typeof data.source_page_title === "string" && data.source_page_title.trim()
+            ? { sourcePageTitle: data.source_page_title.trim() }
+            : {}),
+          ...(typeof data.favicon_url === "string" && data.favicon_url.trim()
+            ? { faviconUrl: data.favicon_url.trim() }
+            : {}),
           importMode: data.import_mode,
           /** Extraído da página do produto — usado no layout tipo loja (estrelas). */
           ...(data.rating_from_source
@@ -1191,11 +1197,11 @@ export default function PresellDashboard() {
                 ) : null}
 
                 <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
-                  <span className="font-medium text-card-foreground">Favicon:</span> em presells automáticas o ícone do
-                  separador segue o domínio onde a página abre. Para definir favicon por URL (como em geradores externos),
-                  use o <span className="font-medium text-foreground/90">Editor manual</span> (SEO) ou acrescente uma tag{" "}
-                  <code className="text-[10px] bg-background px-1 rounded">&lt;link rel=&quot;icon&quot; …&gt;</code> em «Código
-                  no head» abaixo.
+                  <span className="font-medium text-card-foreground">Favicon e título:</span> na página pública o
+                  separador usa o ícone e o nome do produto (importados da sales page ou a foto do produto) — não o da
+                  app. O Google mostra o ícone do <span className="font-medium text-foreground/90">domínio</span>; para o
+                  resultado parecer o site oficial, publique num domínio personalizado. Pode ainda definir URL no{" "}
+                  <span className="font-medium text-foreground/90">Editor</span> (SEO).
                 </p>
               </div>
             ) : null}
@@ -1249,7 +1255,7 @@ export default function PresellDashboard() {
                 presellId={editingId}
                 configSettings={configSettings}
                 setConfigSettings={setConfigSettings}
-                lockIdentityFromSource={formData.generationNiche === "black"}
+                lockIdentityFromSource={formData.generationNiche === "white"}
               />
             )}
 
