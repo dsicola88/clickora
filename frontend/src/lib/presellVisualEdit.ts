@@ -158,22 +158,20 @@ function articleBodyHtml(article: {
   intro: string;
   pillarsTitle: string;
   pillars: { title: string; body: string }[];
-  productNote: string;
 }): string {
   const pillars = article.pillars
     .map(
       (p) =>
-        `<div style="margin:0 0 1.35rem 0">` +
-        `<p style="margin:0 0 0.4rem 0;font-weight:700;color:#0f172a;font-size:1.05rem;line-height:1.4">${escapeHtml(p.title)}</p>` +
+        `<div style="margin:0 0 1.4rem 0;padding:0 0 0 0">` +
+        `<p style="margin:0 0 0.35rem 0;font-weight:700;color:#0f172a;font-size:1.06rem;line-height:1.4">${escapeHtml(p.title)}</p>` +
         `<p style="margin:0;color:#475569;font-size:1rem;line-height:1.7">${escapeHtml(p.body)}</p>` +
         `</div>`,
     )
     .join("");
   return (
-    `<p style="margin:0 0 1.5rem 0;color:#334155;font-size:1.05rem;line-height:1.75">${escapeHtml(article.intro)}</p>` +
-    `<h2 style="margin:0 0 1rem 0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.35">${escapeHtml(article.pillarsTitle)}</h2>` +
-    pillars +
-    `<aside style="margin:1.75rem 0 0 0;padding:1rem 1.15rem;background:#f8fafc;border-left:3px solid #94a3b8;color:#475569;font-size:0.98rem;line-height:1.7">${escapeHtml(article.productNote)}</aside>`
+    `<p style="margin:0 0 1.6rem 0;color:#334155;font-size:1.06rem;line-height:1.75">${escapeHtml(article.intro)}</p>` +
+    `<h2 style="margin:0 0 1.1rem 0;font-size:1.2rem;font-weight:700;color:#0f172a;line-height:1.35">${escapeHtml(article.pillarsTitle)}</h2>` +
+    pillars
   );
 }
 
@@ -192,6 +190,63 @@ function articleCopy(html: string): WidgetNode {
     desktop: { top: 0, right: 0, bottom: 8, left: 0, unit: "px" },
   };
   return text;
+}
+
+/** Barra superior do portal black — marca + CTA opcional. */
+function portalHeaderWidget(brand: string, ctaLabel: string, offer: string): WidgetNode {
+  const html = createWidget("html");
+  const cta =
+    offer && ctaLabel
+      ? `<a href="${escapeHtml(offer)}" data-clickora-offer="1" style="display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:6px;background:#ea580c;color:#fff;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">${escapeHtml(ctaLabel)}</a>`
+      : "";
+  html.content = {
+    ...html.content,
+    code:
+      `<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 22px;background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif">` +
+      `<strong style="font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">${escapeHtml(brand)}</strong>` +
+      cta +
+      `</header>`,
+  };
+  return html;
+}
+
+function portalCtaNote(note: string): WidgetNode {
+  const text = createWidget("text");
+  text.content = {
+    ...text.content,
+    html: `<p style="margin:0 0 1rem 0;color:#475569;font-size:0.98rem;line-height:1.7">${escapeHtml(note)}</p>`,
+  };
+  const typo = text.styles.typography;
+  if (typo?.desktop) {
+    text.styles.typography = {
+      ...typo,
+      desktop: { ...typo.desktop, textAlign: "left", fontSize: 16, lineHeight: 1.7 },
+    };
+  }
+  text.styles.color = "#475569";
+  return text;
+}
+
+function portalOfferButton(label: string, offer: string): WidgetNode {
+  const button = createWidget("button");
+  button.content = { ...button.content, text: label, href: offer, target: "_self" };
+  button.styles = {
+    ...button.styles,
+    color: "#ffffff",
+    background: "#ea580c",
+    align: { desktop: "center" },
+    padding: { desktop: { top: 14, right: 28, bottom: 14, left: 28, unit: "px" } },
+    border: { width: 0, style: "solid", color: "#000000", radius: 8 },
+    margin: { desktop: { top: 4, right: 0, bottom: 0, left: 0, unit: "px" } },
+  };
+  const typo = button.styles.typography;
+  if (typo?.desktop) {
+    button.styles.typography = {
+      ...typo,
+      desktop: { ...typo.desktop, fontSize: 16, fontWeight: 700, textAlign: "center" },
+    };
+  }
+  return button;
 }
 
 function sanitizeImportedHtml(html: string, keepStylesheets = false): string {
@@ -402,7 +457,19 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       salesText: asString(content.salesText),
       ctaText: cta,
     });
+    const ctaLabel = article.ctaLabel || cta || "Continuar";
     const offerLink = cookieType ? "" : offer;
+
+    const headerSec = createSection(1);
+    headerSec.layout = "full";
+    headerSec.contentWidth = 960;
+    headerSec.styles = {
+      ...headerSec.styles,
+      padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+      background: "#0f172a",
+    };
+    headerSec.columns[0].widgets = [portalHeaderWidget(alt, ctaLabel, offer)];
+    sections.push(headerSec);
 
     if (hero) {
       const media = createSection(1);
@@ -410,8 +477,8 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       media.contentWidth = 720;
       media.styles = {
         ...media.styles,
-        padding: { desktop: { top: 36, right: 24, bottom: 8, left: 24, unit: "px" } },
-        background: "#ffffff",
+        padding: { desktop: { top: 28, right: 24, bottom: 4, left: 24, unit: "px" } },
+        background: "#f8fafc",
       };
       media.columns[0].widgets = [articleProductPhoto(hero, alt, offerLink)];
       sections.push(media);
@@ -425,29 +492,10 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       vidSec.styles = {
         ...vidSec.styles,
         padding: { desktop: { top: 8, right: 24, bottom: 8, left: 24, unit: "px" } },
-        background: "#ffffff",
+        background: "#f8fafc",
       };
       vidSec.columns[0].widgets = [video];
       sections.push(vidSec);
-    }
-
-    const bodyWidgets: WidgetNode[] = [
-      articleKicker(article.kicker),
-      articleTitle(article.headline),
-      articleCopy(articleBodyHtml(article)),
-    ];
-    if (offer) {
-      const button = createWidget("button");
-      button.content = {
-        ...button.content,
-        text: article.ctaLabel || cta || "Continuar",
-        href: offer,
-        target: "_self",
-      };
-      button.styles.margin = {
-        desktop: { top: 20, right: 0, bottom: 0, left: 0, unit: "px" },
-      };
-      bodyWidgets.push(button);
     }
 
     const articleSec = createSection(1);
@@ -455,11 +503,30 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     articleSec.contentWidth = 720;
     articleSec.styles = {
       ...articleSec.styles,
-      padding: { desktop: { top: 12, right: 28, bottom: 40, left: 28, unit: "px" } },
+      padding: { desktop: { top: 20, right: 28, bottom: 12, left: 28, unit: "px" } },
       background: "#ffffff",
     };
-    articleSec.columns[0].widgets = bodyWidgets;
+    articleSec.columns[0].widgets = [
+      articleKicker(article.kicker),
+      articleTitle(article.headline),
+      articleCopy(articleBodyHtml(article)),
+    ];
     sections.push(articleSec);
+
+    if (offer) {
+      const ctaSec = createSection(1);
+      ctaSec.layout = "boxed";
+      ctaSec.contentWidth = 680;
+      ctaSec.styles = {
+        ...ctaSec.styles,
+        padding: { desktop: { top: 22, right: 24, bottom: 24, left: 24, unit: "px" } },
+        margin: { desktop: { top: 8, right: 20, bottom: 36, left: 20, unit: "px" } },
+        background: "#ffffff",
+        border: { width: 1, style: "solid", color: "#e2e8f0", radius: 12 },
+      };
+      ctaSec.columns[0].widgets = [portalCtaNote(article.productNote), portalOfferButton(ctaLabel, offer)];
+      sections.push(ctaSec);
+    }
 
     if (restImages.length) {
       const galleryWidgets = restImages
@@ -470,7 +537,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       gallery.styles = {
         ...gallery.styles,
         padding: { desktop: { top: 0, right: 28, bottom: 36, left: 28, unit: "px" } },
-        background: "#ffffff",
+        background: "#f8fafc",
       };
       gallery.columns[0].widgets = galleryWidgets;
       sections.push(gallery);
@@ -505,7 +572,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     name: title || asString(source.title) || "Presell",
     sections,
     settings: {
-      background: "#ffffff",
+      background: mirrorFold.length > 80 || productFold || white ? "#ffffff" : "#f8fafc",
       maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : white ? 860 : 720,
     },
     updatedAt: Date.now(),
