@@ -1084,6 +1084,7 @@ export default function PublicPresell() {
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
+      { unlockCookieOnly: generationNiche === "black" },
     );
     const mirrorHtmlFold =
       visualDoc.sections[0]?.columns[0]?.widgets[0]?.type === "html";
