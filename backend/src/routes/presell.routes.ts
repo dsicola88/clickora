@@ -1,10 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
 import { presellController } from "../controllers/presell.controller";
+import { presellComplianceController } from "../controllers/presellCompliance.controller";
 import { authenticate } from "../middleware/authenticate";
 import { tenantIsolation } from "../middleware/tenantIsolation";
 import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 import { presellBuilderMediaUpload } from "../lib/presellBuilderMediaUpload";
+import { complianceAuditLimiter } from "../middleware/rateLimiters";
 
 export const presellRouter = Router();
 
@@ -25,12 +27,20 @@ function handleBuilderMediaUpload(req: Request, res: Response, next: NextFunctio
 
 presellRouter.get("/", presellController.getAll);
 presellRouter.get("/count", presellController.getCount);
+presellRouter.get("/compliance/rules", presellComplianceController.getRules);
 presellRouter.post("/import-from-url", presellController.importFromUrl);
 presellRouter.post(
   "/builder-media",
   handleBuilderMediaUpload,
   presellController.uploadBuilderMedia,
 );
+presellRouter.get("/:id/compliance", presellComplianceController.getLatest);
+presellRouter.post(
+  "/:id/compliance/audit",
+  complianceAuditLimiter,
+  presellComplianceController.runAudit,
+);
+presellRouter.post("/:id/compliance/decisions", presellComplianceController.decide);
 presellRouter.get("/:id", presellController.getById);
 presellRouter.post("/", presellController.create);
 presellRouter.put("/:id", presellController.update);

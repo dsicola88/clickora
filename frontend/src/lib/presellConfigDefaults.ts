@@ -33,4 +33,10 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   cloakSafeBody: "",
   /** ISO country codes separados por vírgula (ex.: CN,RU) — esses países vêem a safe page. */
   cloakGeoDeny: "",
+  /** Conformidade publicitária — identidade e privacidade (não inventar dados). */
+  businessName: "",
+  contactEmail: "",
+  privacyPolicyUrl: "",
+  cookiePolicyUrl: "",
+  affiliateDisclosure: "",
 };

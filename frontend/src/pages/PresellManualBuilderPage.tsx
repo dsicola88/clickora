@@ -222,7 +222,7 @@ export default function PresellManualBuilderPage() {
         language: "pt-BR",
         content,
         settings: buildSettingsPayload(),
-        status: "published",
+        status: "draft",
         ...(hasVerifiedCustomDomain && customDomainId
           ? { custom_domain_id: customDomainId }
           : {}),
@@ -231,15 +231,28 @@ export default function PresellManualBuilderPage() {
       if (routeId) {
         const { data: updated, error } = await presellService.update(routeId, payload);
         if (error) throw new Error(error);
+        // Republicar só após gate de conformidade no servidor.
+        const { error: pubErr } = await presellService.toggleStatus(routeId, "published");
+        if (pubErr) throw new Error(pubErr);
         return updated;
       }
       const { data: created, error } = await presellService.create(payload);
       if (error) throw new Error(error);
+      if (created?.id) {
+        const { data: published, error: pubErr } = await presellService.toggleStatus(created.id, "published");
+        if (pubErr) {
+          throw new Error(
+            pubErr ||
+              "Presell guardada em rascunho. Corrija a conformidade publicitária antes de publicar.",
+          );
+        }
+        return published || created;
+      }
       return created;
     },
     onSuccess: async (saved) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success(routeId ? "Presell atualizada." : "Presell publicada.");
+      toast.success(routeId ? "Presell atualizada." : "Presell guardada.");
       if (!routeId && saved?.id) {
         const publicUrl = getPublicPresellFullUrl(customDomains, saved.custom_domain_id ?? null, {
           id: saved.id,

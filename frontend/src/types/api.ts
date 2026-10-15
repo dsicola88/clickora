@@ -118,6 +118,14 @@ export interface Presell {
   custom_domain_id?: string | null;
   settings: Record<string, unknown>;
   tracking: Record<string, unknown>;
+  /** Gate de conformidade publicitária (verificações internas). */
+  compliance_gate?:
+    | "unchecked"
+    | "checking"
+    | "needs_review"
+    | "blocked"
+    | "ready_for_review";
+  last_compliance_audit_at?: string | null;
   created_at: string;
   updated_at: string;
   /** Só API pública: `true` = mostrar crédito dclickora no rodapé (plano com branding). */

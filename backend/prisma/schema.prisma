@@ -37,6 +37,18 @@ enum PresellStatus {
   archived
 }
 
+/**
+ * Gate de conformidade publicitária (verificações internas Clickora).
+ * Independente de PresellStatus — `ready_for_review` ≠ aprovação Google/Microsoft.
+ */
+enum PresellComplianceGate {
+  unchecked
+  checking
+  needs_review
+  blocked
+  ready_for_review
+}
+
 enum EventType {
   click
   impression
@@ -188,6 +200,8 @@ model User {
   apiKeys              ApiKey[]
   tenantBranding       TenantBranding?
   keywordResearches    KeywordResearch[]
+  complianceAudits     PresellComplianceAudit[]
+  complianceDecisions  PresellComplianceDecision[]
 
   /** Módulo anúncios (ex-Dpiloto) — dados escopados ao dono da conta (tenant). */
   paidAdsProjects              PaidAdsProject[]
@@ -364,6 +378,12 @@ model PresellPage {
   updatedAt   DateTime      @updatedAt @map("updated_at")
   /** Domínio público preferido para links desta presell; nulo = usar domínio padrão da conta. */
   customDomainId String?  @map("custom_domain_id")
+  /** Estado das verificações internas de conformidade publicitária. */
+  complianceGate PresellComplianceGate @default(unchecked) @map("compliance_gate")
+  lastComplianceAuditAt DateTime? @map("last_compliance_audit_at")
+  lastComplianceAuditId String?   @map("last_compliance_audit_id")
+  /** Fingerprint do conteúdo na última auditoria — invalida gate se o conteúdo mudar. */
+  contentFingerprint String? @map("content_fingerprint") @db.VarChar(64)
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   customDomain   CustomDomain?   @relation("DomainPresellLinks", fields: [customDomainId], references: [id], onDelete: SetNull)
@@ -375,13 +395,60 @@ model PresellPage {
   affiliateCampaigns AffiliateCampaign[]
   /** Presells usadas como contexto de relatório/conversão em rotadores de tráfego. */
   trafficRotatorsAsContext TrafficRotator[] @relation("RotatorContextPresell")
+  complianceAudits PresellComplianceAudit[]
+  complianceDecisions PresellComplianceDecision[]
 
   @@unique([userId, slug])
   @@index([userId])
   @@index([status])
   @@index([userId, status])
   @@index([customDomainId])
+  @@index([complianceGate])
   @@map("presell_pages")
+}
+
+/** Resultado persistido de uma auditoria de conformidade (Google Ads / Microsoft Advertising). */
+model PresellComplianceAudit {
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  presellId          String   @map("presell_id")
+  rulesVersion       String   @map("rules_version") @db.VarChar(64)
+  gate               String   @db.VarChar(32)
+  googleGate         String   @map("google_gate") @db.VarChar(32)
+  microsoftGate      String   @map("microsoft_gate") @db.VarChar(32)
+  contentFingerprint String   @map("content_fingerprint") @db.VarChar(64)
+  results            Json
+  disclaimer         String   @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell PresellPage @relation(fields: [presellId], references: [id], onDelete: Cascade)
+  decisions PresellComplianceDecision[]
+
+  @@index([userId, presellId, createdAt])
+  @@index([presellId, createdAt])
+  @@map("presell_compliance_audits")
+}
+
+/** Decisões humanas sobre falsos positivos / contestações (com auditoria). */
+model PresellComplianceDecision {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  presellId       String   @map("presell_id")
+  auditId         String   @map("audit_id")
+  ruleId          String   @map("rule_id") @db.VarChar(32)
+  decision        String   @db.VarChar(32)
+  reason          String   @db.Text
+  decidedByUserId String   @map("decided_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell PresellPage             @relation(fields: [presellId], references: [id], onDelete: Cascade)
+  audit   PresellComplianceAudit  @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([presellId, createdAt])
+  @@index([userId, ruleId])
+  @@map("presell_compliance_decisions")
 }
 
 /**

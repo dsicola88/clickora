@@ -74,6 +74,8 @@ import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
+import { PresellTypeFrame } from "@/components/presell/PresellTypeFrame";
+import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -943,6 +945,7 @@ export default function PublicPresell() {
   const showVideo = isVideoPresellType(page.type) && !!page.video_url;
   const showVslFallback = isVideoPresellType(page.type) && !page.video_url;
   const hideHeroImageForVslFallback = showVslFallback;
+  const typeTheme = getPresellTypeTheme(page.type);
   const isVslLayout = isVideoPresellType(page.type);
   const showSalesLetterSection =
     textBlocks.length > 0 && !isVslOnlyPresellType(page.type);
@@ -1070,6 +1073,7 @@ export default function PublicPresell() {
           ratingStars={ratingStars}
           productLabel={productNameLabel || title}
           videoUrl={showVideo ? page.video_url : null}
+          language={uiLang}
           className={isDiscount ? "top-[5.25rem]" : undefined}
         />
       ) : null}
@@ -1535,13 +1539,15 @@ export default function PublicPresell() {
         )
       ) : !showImportedMirror ? (
         <section
-          className={
-            isVslLayout
-              ? "relative overflow-hidden border-b border-border/30 bg-gradient-to-b from-slate-950 via-slate-900/95 to-background text-foreground"
-              : "relative overflow-hidden bg-gradient-to-b from-violet-100/90 via-violet-50/40 to-background dark:from-violet-950/30 dark:via-violet-950/10 dark:to-background border-b border-border/30"
-          }
+          className={cn(
+            "relative overflow-hidden border-b border-border/30",
+            typeTheme.heroBg,
+          )}
         >
-          <div className="w-full max-w-[min(100%,72rem)] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-8 sm:pt-10 md:pt-12 pb-10 md:pb-14 text-center space-y-5 sm:space-y-6 md:space-y-8">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent dark:from-white/5" aria-hidden />
+          <div className="relative w-full max-w-[min(100%,72rem)] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-8 sm:pt-10 md:pt-12 pb-10 md:pb-14 text-center space-y-5 sm:space-y-6 md:space-y-8">
+            <PresellTypeFrame type={page.type} language={uiLang} variant="hero" />
+
             {interactiveKind ? (
               <PresellGateFields
                 gateKind={interactiveKind}
@@ -1552,7 +1558,7 @@ export default function PublicPresell() {
             ) : null}
 
             {heroImage && !hideHeroImageForVslFallback ? (
-              <div className="rounded-2xl bg-white/60 dark:bg-card/50 p-2 sm:p-3 shadow-sm border border-border/40 mx-auto w-full max-w-4xl">
+              <div className="rounded-2xl bg-white/70 dark:bg-card/50 p-2 sm:p-3 shadow-md border border-border/40 mx-auto w-full max-w-4xl ring-1 ring-black/5">
                 <PresellProductHero
                   src={heroImageFallback.src}
                   onError={heroImageFallback.onError}
@@ -1679,6 +1685,12 @@ export default function PublicPresell() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {!showImportedMirror ? (
+        <div className="mx-auto max-w-3xl px-4 pt-6 md:pt-8">
+          <PresellTypeFrame type={page.type} language={uiLang} variant="aside" />
+        </div>
       ) : null}
 
       {showSalesLetterSection && !showImportedMirror ? (

@@ -217,6 +217,9 @@ export default function CreatePresellWizardPage() {
 
       const settings: Record<string, unknown> = {
         cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+        privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+        affiliateDisclosure:
+          "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si.",
         minAge: minAge.trim() || "18",
       };
 
@@ -239,6 +242,13 @@ export default function CreatePresellWizardPage() {
         ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
       } as never);
       if (errA || !pageA) throw new Error(errA || "Falha ao criar presell");
+      const complianceBlocked = Boolean((pageA as { compliance_blocked?: boolean }).compliance_blocked);
+      if (complianceBlocked) {
+        toast.warning(
+          "Presell criada em rascunho: a conformidade publicitária impede a publicação automática. Abra a página e corrija os problemas — a aprovação final depende do Google/Microsoft.",
+          { duration: 10000 },
+        );
+      }
 
       let pageB: typeof pageA | null = null;
       let rotatorUrl: string | null = null;
@@ -300,12 +310,23 @@ export default function CreatePresellWizardPage() {
       return {
         page: pageA,
         pageB,
-        mirrorOk: a.mirrorOk,
+        /** Import OK e servidor efectivamente publicou (não ficou draft por conformidade). */
+        mirrorOk: a.mirrorOk && pageA.status === "published" && !complianceBlocked,
+        importPublishable: a.mirrorOk,
+        complianceBlocked,
         rotatorUrl,
         importNotes: imported.data?.import_notes ?? [],
       };
     },
-    onSuccess: async ({ page, pageB, mirrorOk, rotatorUrl, importNotes }) => {
+    onSuccess: async ({
+      page,
+      pageB,
+      mirrorOk,
+      importPublishable,
+      complianceBlocked,
+      rotatorUrl,
+      importNotes,
+    }) => {
       setGenPhase("idle");
       setPresellId(page.id);
       setPresellIdB(pageB?.id ?? null);
@@ -330,8 +351,17 @@ export default function CreatePresellWizardPage() {
           "Presell publicada com o nome, as fotos e o link da oferta. Não é um clone da página da marca.",
         );
         if (importNotes.length > 0) toast.warning(importNotes.join(" "));
+      } else if (complianceBlocked) {
+        toast.warning(
+          "Importação ok, mas a conformidade publicitária manteve a página em rascunho. Edite e publique em Presells.",
+          { duration: 10000 },
+        );
       } else if (importNotes.length > 0) {
         toast.warning(importNotes.join(" "));
+      } else if (importPublishable) {
+        toast.warning(
+          "A presell ficou em rascunho. Abra Presells, complete a conformidade e publique antes de anunciar.",
+        );
       } else {
         toast.warning(
           "Presell em rascunho — faltam título, imagens ou texto reais. Complete e publique antes de anunciar.",

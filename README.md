@@ -44,7 +44,8 @@ Configuração Vercel + Railway, variáveis `VITE_PUBLIC_API_URL`, CORS e checkl
 Passo a passo frontend ↔ backend e login/CORS: **[docs/ENV-SETUP.md](docs/ENV-SETUP.md)**.  
 Imagens (presells, favicon, landing) na Cloudflare — guia simples: **[docs/IMAGENS-E-ARMAZENAMENTO.md](docs/IMAGENS-E-ARMAZENAMENTO.md)**.  
 O que os números significam (sem mentir): **[docs/METRICAS-HONESTAS.md](docs/METRICAS-HONESTAS.md)**.  
-Para afiliados Google Ads + redes: **[docs/AFILIADO-PROFISSIONAL.md](docs/AFILIADO-PROFISSIONAL.md)**.
+Para afiliados Google Ads + redes: **[docs/AFILIADO-PROFISSIONAL.md](docs/AFILIADO-PROFISSIONAL.md)**.  
+Conformidade preventiva de presells (Google Ads / Microsoft Advertising — verificações internas, sem garantia de aprovação): **[docs/compliance/README.md](docs/compliance/README.md)**.
 
 ## Requisitos
 

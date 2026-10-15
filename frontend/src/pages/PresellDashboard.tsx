@@ -65,6 +65,7 @@ import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/l
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { MirrorHtmlEditor } from "@/components/presell/MirrorHtmlEditor";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
+import { PresellAdsCompliancePanel } from "@/components/presell/PresellAdsCompliancePanel";
 import {
   PresellRastreamentoScriptCard,
   PresellCliquesPorPaisCard,
@@ -198,9 +199,18 @@ export default function PresellDashboard() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Presell["status"] }) =>
-      presellService.toggleStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["presells"] }),
+    mutationFn: async ({ id, status }: { id: string; status: Presell["status"] }) => {
+      const { data, error } = await presellService.toggleStatus(id, status);
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["presells"] });
+      toast.success("Estado atualizado.");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Não foi possível alterar o estado (verifique a conformidade).");
+    },
   });
 
   const createMutation = useMutation({
@@ -1193,6 +1203,14 @@ export default function PresellDashboard() {
                   : null
               }
             />
+
+            {(isEditing || creatorStep === 3) && (
+              <PresellAdsCompliancePanel
+                presellId={editingId}
+                configSettings={configSettings}
+                setConfigSettings={setConfigSettings}
+              />
+            )}
 
             {isEditing ? (
               <MirrorHtmlEditor

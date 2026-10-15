@@ -31,6 +31,7 @@ import { extractClientIp } from "../lib/clientIp";
 import { resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
+import { assertPublishAllowed, runPresellComplianceAudit } from "../compliance/service";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -399,6 +400,7 @@ export const presellController = {
       });
       contentPayload = reconciled.content;
 
+      const requestedStatus = parsed.data.status || "draft";
       page = await prisma.presellPage.create({
         data: {
           userId,
@@ -411,10 +413,35 @@ export const presellController = {
           videoUrl: parsed.data.video_url,
           settings: (parsed.data.settings || {}) as Prisma.InputJsonValue,
           tracking: (parsed.data.tracking || {}) as Prisma.InputJsonValue,
-          status: parsed.data.status || "draft",
+          status: "draft",
+          complianceGate: "unchecked",
           ...customDomainIdField,
         },
       });
+
+      if (requestedStatus === "published") {
+        const gate = await assertPublishAllowed({ page, runIfStale: true });
+        if (!gate.ok) {
+          // Página criada em draft — não publicar. 201 para o cliente poder abrir o editor.
+          return res.status(201).json({
+            ...mapPresell(page),
+            compliance_blocked: true,
+            compliance: gate.body,
+            message:
+              "A página foi criada em rascunho. Foram detetados problemas que impedem a publicação. A aprovação final depende da plataforma publicitária.",
+          });
+        }
+        page = await systemPrisma.presellPage.update({
+          where: { id: page.id },
+          data: { status: "published" },
+        });
+      } else {
+        // Auditoria preventiva assíncrona-light (inline) para Draft — não bloqueia create.
+        void runPresellComplianceAudit({
+          presell: page,
+          skipDestinationProbe: true,
+        }).catch(() => undefined);
+      }
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         return res.status(409).json({ error: "Já existe uma página com esse slug." });
@@ -471,6 +498,18 @@ export const presellController = {
       }
     }
 
+    // Conteúdo/destino alterado invalida a gate até nova auditoria.
+    if (
+      nextContent ||
+      req.body.settings ||
+      req.body.title ||
+      req.body.tracking ||
+      req.body.video_url !== undefined
+    ) {
+      data.complianceGate = "unchecked";
+      data.contentFingerprint = null;
+    }
+
     const updated = await systemPrisma.presellPage.update({
       where: { id: page.id },
       data: data as Prisma.PresellPageUpdateInput,
@@ -483,6 +522,26 @@ export const presellController = {
         await systemPrisma.customDomain.updateMany({
           where: { id: oldId, rootPresellId: page.id },
           data: { rootPresellId: null },
+        });
+      }
+    }
+
+    // Se já estava publicada, republicação exige nova auditoria — forçar paused até revalidar.
+    if (
+      page.status === "published" &&
+      (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)
+    ) {
+      const gate = await assertPublishAllowed({ page: updated, runIfStale: true });
+      if (!gate.ok) {
+        const paused = await systemPrisma.presellPage.update({
+          where: { id: updated.id },
+          data: { status: "paused" },
+        });
+        return res.status(403).json({
+          ...gate.body,
+          ...mapPresell(paused),
+          message:
+            "A página foi pausada após alterações relevantes. Corrija a conformidade e publique novamente.",
         });
       }
     }
@@ -551,6 +610,13 @@ export const presellController = {
       where: { id: req.params.id, userId: billingUserId(req) },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+
+    if (status === "published") {
+      const gate = await assertPublishAllowed({ page, runIfStale: true });
+      if (!gate.ok) {
+        return res.status(gate.status).json(gate.body);
+      }
+    }
 
     const updated = await systemPrisma.presellPage.update({
       where: { id: page.id },
@@ -643,6 +709,8 @@ function mapPresell(p: PresellPage) {
     custom_domain_id: p.customDomainId ?? null,
     settings: p.settings,
     tracking: p.tracking,
+    compliance_gate: p.complianceGate ?? "unchecked",
+    last_compliance_audit_at: p.lastComplianceAuditAt?.toISOString?.() ?? null,
     created_at: p.createdAt?.toISOString?.() || p.createdAt,
     updated_at: p.updatedAt?.toISOString?.() || p.updatedAt,
   };

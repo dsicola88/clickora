@@ -23,3 +23,17 @@ export const keywordGenerateLimiter = rateLimit({
   validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
   message: { error: "Demasiadas gerações. Tente novamente dentro de alguns minutos." },
 });
+
+/** Auditoria de conformidade (probe de destino) — por conta. */
+export const complianceAuditLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const u = req.user;
+    return u?.tenantUserId || u?.userId || req.ip || "anon";
+  },
+  validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+  message: { error: "Demasiadas auditorias. Tente novamente dentro de alguns minutos." },
+});

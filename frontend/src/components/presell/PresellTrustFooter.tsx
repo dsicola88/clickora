@@ -39,7 +39,21 @@ export function PresellTrustFooter({ language, tone = "light", className, cookie
       className={cn("w-full max-w-3xl mx-auto px-3 sm:px-4 pb-10 pt-2", className)}
       dir={rtl ? "rtl" : "ltr"}
     >
-      <div className={cn("rounded-2xl border px-4 py-5 sm:px-6 sm:py-6 space-y-3 text-left", border)}>
+      <div
+        className={cn(
+          "rounded-2xl border px-4 py-5 sm:px-6 sm:py-6 space-y-3 text-left shadow-sm",
+          border,
+          tone === "dark" ? "bg-white/[0.03]" : tone === "slate" ? "bg-slate-50/80" : "bg-muted/20",
+        )}
+      >
+        <p
+          className={cn(
+            "text-[10px] font-semibold uppercase tracking-[0.16em]",
+            tone === "dark" ? "text-slate-500" : "text-muted-foreground/80",
+          )}
+        >
+          {s.trustNavLabel}
+        </p>
         <p className={cn("text-xs sm:text-sm leading-relaxed", text)}>{s.trustDisclosure}</p>
         <p className={cn("text-xs sm:text-sm leading-relaxed", text)}>{s.trustAbout}</p>
         <nav

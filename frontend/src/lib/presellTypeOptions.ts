@@ -1,5 +1,7 @@
 /**
  * Opções de «Tipo de presell» no assistente — alinhadas ao comportamento real em `PublicPresell` / `presellTypeMeta`.
+ * Cada tipo tem identidade visual própria e enquadramento de transparência (políticas de destino).
+ * Não promete aprovação Google/Microsoft nem “antibloqueio”.
  */
 
 export type PresellTypeDefinition = {
@@ -21,135 +23,126 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
   {
     id: "gate-cookies",
     label: "Entrada e consentimento",
-    hint: "Camada antes do visitante ver a oferta — útil para fluxos tipo anunciante e requisitos de consentimento.",
+    hint: "Camadas claras de privacidade e consentimento — reforçam transparência antes da oferta.",
     types: [
       {
         id: "cookies",
         name: "Cookies (consentimento)",
         description:
-          "Modal de política de cookies. Permitir, fechar, o texto do cartão, a política ou o clique fora seguem para o link rastreado. Sem destino, o modal permanece.",
+          "Modal profissional de cookies e privacidade. Fluxo explícito para o visitante; ideal quando a campanha exige consentimento visível.",
       },
       {
         id: "fantasma",
-        name: "Fantasma (redirect no primeiro gesto)",
+        name: "Fantasma (redirect no 1.º gesto)",
         description:
-          "A página carrega e, no primeiro movimento do rato, toque ou scroll, redireciona de imediato para a oferta. Interação mínima; usa só onde as regras da rede e a tua compliance o permitirem.",
+          "Redireciona no primeiro movimento. Risco elevado nas políticas de destino (bridge/cloaking). Use só com revisão humana e redes que o permitam — não é “antibloqueio”.",
       },
     ],
   },
   {
     id: "pagina-oferta",
-    label: "Página de oferta (conteúdo importado)",
-    hint: "Layout claro com texto e imagens vindos do URL do produto; CTAs rastreados pela Clickora.",
+    label: "Página de oferta (editorial)",
+    hint: "Layouts distintos com valor próprio, divulgação de afiliado e CTA rastreado. Orientados a políticas de conteúdo original.",
     types: [
       {
         id: "tsl",
         name: "TSL — Text Sales Letter",
         description:
-          "Com espelho 1:1 activo: clone da sales page + barra TSL e CTA rastreado. Sem espelho: carta de vendas em texto (blocos importados, imagens, CTAs). Sem vídeo obrigatório no topo.",
+          "Carta de vendas editorial: leitura longa, contexto e decisão consciente. Com espelho: clone + chrome TSL. Sem espelho: tipografia e blocos profissionais.",
       },
       {
         id: "dtc",
         name: "DTC — Direct to Consumer",
         description:
-          "Com espelho 1:1: clone + chrome DTC (decisão rápida). Sem espelho: hero compacto tipo vitrine com cópia persuasiva. Ideal para ofertas de conversão directa.",
+          "Vitrine directa e limpa: produto, proposta e passo no site do vendedor. Ideal para conversão com transparência (não se apresenta como fabricante).",
       },
       {
         id: "review",
         name: "Review / análise",
         description:
-          "Com espelho 1:1: clone + selo Review e rating quando existir. Sem espelho: layout de análise/crítica da oferta antes do checkout.",
+          "Enquadramento de análise independente. Rating só quando veio da origem. Reforça que não é o site oficial da marca.",
       },
       {
         id: "desconto",
         name: "Desconto + urgência",
         description:
-          "Faixa de urgência e modal de desconto. O botão, o fechar e o clique fora vão para a oferta rastreada. Sem destino, o modal permanece.",
+          "Faixa e modal de promoção. Só usa descontos escritos na origem — sem inventar preços. Confirmação final no vendedor.",
       },
     ],
   },
   {
     id: "video",
     label: "Vídeo de vendas (VSL)",
-    hint: "Topo escuro focado em vídeo; o vídeo é detetado no import quando o HTML o expõe, ou podes colar URL (ex. YouTube) abaixo.",
+    hint: "Hero escuro cinematográfico; vídeo + transparência. Sem claims médicos inventados.",
     types: [
       {
         id: "vsl",
-        name: "VSL — só vídeo (sem carta longa em baixo)",
+        name: "VSL — foco no vídeo",
         description:
-          "Com espelho 1:1: clone + barra VSL com leitor de vídeo (se houver URL). Sem espelho: layout escuro VSL; a carta longa não se repete abaixo. Foco: ver e clicar.",
+          "Composição escura centrada no vídeo. Sem carta longa abaixo. Visitante vê, decide e confirma no destino.",
       },
       {
         id: "vsl_tsl",
         name: "VSL + TSL (combo)",
         description:
-          "Com espelho 1:1: clone + chrome VSL+TSL e vídeo no topo se disponível. Sem espelho: hero vídeo + carta completa abaixo.",
+          "Vídeo no topo + carta editorial abaixo. Duas camadas de valor próprio antes do checkout do comerciante.",
       },
     ],
   },
   {
     id: "gates-form",
-    label: "Qualificação (formulário antes do CTA)",
-    hint: "O botão principal para a oferta só fica ativo depois de o visitante preencher o campo pedido.",
+    label: "Qualificação (antes do CTA)",
+    hint: "Gates limpos e profissionais: só pedem o necessário. Depois o visitante segue para a oferta no vendedor.",
     types: [
       {
         id: "sexo",
         name: "Sexo",
-        description:
-          "Pergunta de sexo antes de liberar o CTA. Segmenta a experiência ou cumpre requisitos de anúncios sensíveis a demografia.",
+        description: "Qualificação demográfica curta antes do CTA — útil para anúncios sensíveis a perfil.",
       },
       {
         id: "idade",
         name: "Idade",
-        description:
-          "O visitante indica a idade; podes definir idade mínima nas opções. CTA desativado até a resposta ser válida.",
+        description: "Confirmação de idade mínima configurável. CTA só após resposta válida.",
       },
       {
         id: "idade_sexo",
         name: "Idade + sexo",
-        description:
-          "Idade (mínima configurável) e sexo antes de liberar o CTA — comum quando a rede ou a oferta exige os dois.",
+        description: "Dois passos de qualificação quando a rede ou a oferta exige ambos.",
       },
       {
         id: "idade_pais",
         name: "Idade + país",
-        description:
-          "Idade mínima e país antes do link da oferta; útil para envio, moeda ou mensagem geo-específica.",
+        description: "Idade e país antes do destino — alinhado a envio, elegibilidade ou geo.",
       },
       {
         id: "sexo_pais",
         name: "Sexo + país",
-        description: "Sexo e país antes do CTA.",
+        description: "Perfil e localização antes do link da oferta.",
       },
       {
         id: "grupo_homem",
         name: "Grupo etário — homem",
-        description:
-          "Seleção de faixa etária para público masculino antes do redirect para a oferta.",
+        description: "Faixas etárias para público masculino, apresentação clara antes do redirect.",
       },
       {
         id: "grupo_mulher",
         name: "Grupo etário — mulher",
-        description:
-          "Seleção de faixa etária para público feminino antes do redirect para a oferta.",
+        description: "Faixas etárias para público feminino, apresentação clara antes do redirect.",
       },
       {
         id: "pais",
         name: "País",
-        description:
-          "Escolha de país antes do CTA. Útil para ofertas com envio, moeda ou mensagem geo-específica.",
+        description: "Escolha de país com UI limpa — moeda, envio ou mensagem geo-específica.",
       },
       {
         id: "captcha",
         name: "Captcha",
-        description:
-          "Pequeno desafio anti-bot antes de ativar o link da oferta; reduz cliques inválidos em campanhas expostas a tráfego de baixa qualidade.",
+        description: "Verificação humana discreta para reduzir cliques inválidos sem parecer phishing.",
       },
       {
         id: "modelos",
         name: "Modelos (curadoria)",
-        description:
-          "Gate com escolha de «modelos» ou variantes apresentadas antes de seguir para o destino — comum em ofertas com várias apresentações visuais.",
+        description: "Escolha de apresentação/variante antes do destino — útil em ofertas com várias faces.",
       },
     ],
   },
