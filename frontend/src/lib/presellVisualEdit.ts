@@ -468,7 +468,10 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
       background: "#0f172a",
     };
-    headerSec.columns[0].widgets = [portalHeaderWidget(alt, ctaLabel, offer)];
+    // Cookies: sem CTA no header (Aceitar só desbloqueia). Outros tipos: CTA no header + corpo.
+    headerSec.columns[0].widgets = [
+      portalHeaderWidget(alt, ctaLabel, cookieType ? "" : offer),
+    ];
     sections.push(headerSec);
 
     if (hero) {

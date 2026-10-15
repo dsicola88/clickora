@@ -1249,7 +1249,7 @@ export default function PresellDashboard() {
                 presellId={editingId}
                 configSettings={configSettings}
                 setConfigSettings={setConfigSettings}
-                lockIdentityFromSource={formData.generationNiche === "black"}
+                lockIdentityFromSource={formData.generationNiche === "white"}
               />
             )}
 
