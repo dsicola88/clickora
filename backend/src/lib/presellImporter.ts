@@ -7,7 +7,12 @@ import {
   referencePriceLineRich,
 } from "./presellLocalePack";
 import { acceptLanguageForPresellImport, fetchRenderedPageBundle, type BrowserRenderStatus } from "./presellFoldBrowser";
-import { classifyPresellImport, sourceHasCommercialCta, type PresellImportMode } from "./presellImportMode";
+import {
+  classifyPresellImport,
+  isGenericImportTitle,
+  sourceHasCommercialCta,
+  type PresellImportMode,
+} from "./presellImportMode";
 import { assertExternalProductUrl, IMPORT_MAX_HTML_BYTES, PresellImportBlockedError } from "./presellImportSsrf";
 import { safeImportFetch } from "./presellSafeFetch";
 
@@ -1150,12 +1155,35 @@ function pickSubtitle(
   return locale.subtitleFallback;
 }
 
-/** Presell própria. Não copia o texto da página do vendedor nem se apresenta como o site da marca. */
+/**
+ * Presell própria. Não copia o texto do vendedor.
+ * O corpo tem de ter texto original suficiente para a conformidade Ads (não é só nome + botão).
+ */
 function buildOriginalPresellCopy(args: { language: string; productName: string; price: string }): string {
   const locale = localePack(args.language);
-  const name = args.productName.trim();
+  const name = args.productName.trim() || "Produto";
   const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
-  return [name, locale.subtitleFallback, locale.richFooter, priceLine].filter(Boolean).join("\n\n");
+  return `${name}
+
+${locale.subtitleFallback}
+
+${locale.sectionWhy}
+• ${locale.bullet3}
+• ${locale.bullet1}
+• ${locale.bullet2}
+
+${locale.sectionWhat}
+• ${locale.bullet1}
+• ${locale.bullet2}
+• ${locale.richFooter}
+
+${locale.sectionFromPage}
+• ${locale.bullet3}
+• ${locale.urgency}
+• ${locale.richFooter}
+
+${priceLine}
+${locale.urgency}`.trim();
 }
 
 /** Página longa (ex.: Neotonics): texto denso parecido com a oferta. */
@@ -1370,11 +1398,15 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const h1 = extractTagText(html, "h1");
 
   let productName = splitBrandFromPageTitle(ogTitle || titleTag || "");
-  if (!productName || GARBAGE_META.test(productName)) {
-    productName = splitBrandFromPageTitle(h1) || brandFromHost;
+  if (!productName || GARBAGE_META.test(productName) || isGenericImportTitle(productName)) {
+    const fromH1 = splitBrandFromPageTitle(h1);
+    productName =
+      (fromH1 && !isGenericImportTitle(fromH1) ? fromH1 : "") ||
+      brandFromHost ||
+      productName;
   }
-  if (GARBAGE_META.test(productName)) {
-    productName = brandFromHost;
+  if (GARBAGE_META.test(productName) || isGenericImportTitle(productName)) {
+    productName = brandFromHost || productName;
   }
 
   /** Conteúdo visível da primeira dobra — texto, listas, imagens inline e vídeo no hero. Metadados vêm do HTML completo. */

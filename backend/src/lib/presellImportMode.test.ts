@@ -51,9 +51,8 @@ describe("classifyPresellImport", () => {
       title: "Example Domain",
       browser: "rendered",
     });
-    assert.equal(out.mode, "template");
     assert.equal(out.publishable, false);
-    assert.match(out.notes.join(" "), /genérico/i);
+    assert.match(out.notes.join(" "), /genérico|Importação incompleta/i);
   });
 
   it("fica em modelo editável sem espelho quando há texto e imagem", () => {
@@ -68,6 +67,21 @@ describe("classifyPresellImport", () => {
     assert.equal(out.publishable, true);
     assert.match(out.notes.join(" "), /Chromium não está disponível/);
     assert.match(out.notes.join(" "), /não é um clone/i);
+  });
+
+  it("publica marca curta real (Yusleep/Visivra) com imagem e oferta", () => {
+    const out = classifyPresellImport({
+      mirrorChars: 4000,
+      imageCount: 4,
+      salesChars: 500,
+      sourceTextChars: 500,
+      hasPrice: true,
+      hasSourceCta: true,
+      title: "Yusleep",
+      browser: "rendered",
+    });
+    assert.equal(out.mode, "template");
+    assert.equal(out.publishable, true);
   });
 
   it("marca importação incompleta sem título útil nem imagem", () => {

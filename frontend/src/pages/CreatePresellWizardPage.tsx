@@ -157,13 +157,18 @@ export default function CreatePresellWizardPage() {
             typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 200;
           /** Publica com título/imagens/texto reais. O espelho HTML já não é obrigatório (a página não é clone). */
           mirrorOk = data.publishable === true;
+          const importedTitle = String(data.title || data.product_name || "").trim();
+          const titleLooksWeak =
+            importedTitle.length < 3 ||
+            /^(home|welcome|example domain|document|nova presell|new page)$/i.test(importedTitle);
+          const resolvedTitle = titleLooksWeak ? pageTitle : importedTitle || pageTitle;
           content = {
-            title: data.title,
+            title: resolvedTitle,
             subtitle: data.subtitle,
             salesText: data.sales_text,
             ctaText: isDiscount ? data.official_buy_cta : data.cta_text,
             affiliateLink: data.affiliate_link || offer,
-            productName: data.product_name,
+            productName: titleLooksWeak ? pageTitle : data.product_name || resolvedTitle,
             productImages: data.images,
             sourceUrl: data.source_url || productPage,
             storefrontTheme: data.storefront_theme,
