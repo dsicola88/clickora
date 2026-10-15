@@ -29,3 +29,8 @@ export function isPresellTypeAllowedForNiche(typeId: string, niche: PresellGener
 export function defaultPresellTypeForNiche(niche: PresellGenerationNiche): string {
   return niche === "white" ? "tsl" : "cookies";
 }
+
+/** White: troca tipos excluídos pelo default do nicho. Black: mantém o tipo. */
+export function coercePresellTypeForNiche(typeId: string, niche: PresellGenerationNiche): string {
+  return isPresellTypeAllowedForNiche(typeId, niche) ? typeId : defaultPresellTypeForNiche(niche);
+}
