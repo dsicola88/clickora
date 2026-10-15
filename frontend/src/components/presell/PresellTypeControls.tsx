@@ -40,7 +40,10 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Allow, Fechar e o fundo seguem para a oferta. Sem destino, o modal permanece. */
+/**
+ * Resolve destino da oferta (ex.: Continuar para a oferta).
+ * O consentimento em si não navega — só os botões do modal são interativos.
+ */
 export function cookieConsentNavigation(
   _action: "allow" | "dismiss",
   redirectHref: string,
@@ -53,83 +56,95 @@ export function cookieConsentNavigation(
   return { kind: "assign", url };
 }
 
-/** Folha de cookies obrigatória: Allow, Fechar e o fundo vão à oferta. Sem destino, não fecha. */
+/**
+ * Consentimento de cookies: página bloqueada (só botões do cartão clicáveis).
+ * Aceitar libera a presell; o fundo não navega nem fecha o modal.
+ */
 export function CookieConsentModal({
   language,
   policyUrl,
-  redirectHref,
-  fallbackHref,
+  redirectHref: _redirectHref,
+  fallbackHref: _fallbackHref,
   accepted,
+  onAccept,
 }: {
   language: string;
   policyUrl: string;
-  /** URL rastreada da oferta. Qualquer ação (Allow, Fechar ou o fundo) navega. */
+  /** Mantido por API estável; o accept já não redireciona. */
   redirectHref: string;
-  /** Ex.: hoplink cru ou sourceUrl quando `redirectHref` ainda não está disponível. */
   fallbackHref?: string;
   accepted: boolean;
-  /** Mantido por compatibilidade. Sem destino o modal não fecha. */
   onAccept?: () => void;
 }) {
   const L = getPresellUiStrings(language);
+  useEffect(() => {
+    if (accepted) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [accepted]);
   if (accepted) return null;
 
-  const goToOffer = (action: "allow" | "dismiss") => {
-    const next = cookieConsentNavigation(action, redirectHref, fallbackHref);
-    if (next.kind === "assign") window.location.assign(next.url);
+  const accept = () => {
+    onAccept?.();
   };
 
   return (
     <div
-      className="fixed inset-0 z-[520] flex items-end justify-center p-3 sm:p-6"
+      className="fixed inset-0 z-[520] flex items-center justify-center p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cookie-policy-title"
       data-testid="presell-cookie-sheet"
     >
-      <button
-        type="button"
+      {/* Fundo inerte: bloqueia a página; não é botão nem navega. */}
+      <div
         data-testid="presell-cookie-backdrop"
-        className="absolute inset-0 cursor-pointer border-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent p-0"
-        aria-label={L.cookieAllow}
-        onClick={() => goToOffer("dismiss")}
+        className="absolute inset-0 bg-slate-950/55 backdrop-blur-[6px]"
+        aria-hidden="true"
       />
       <div
         data-testid="presell-cookie-card"
-        className="relative z-10 mb-1 w-full max-w-md cursor-pointer rounded-2xl border border-border/60 bg-card px-4 py-4 shadow-2xl sm:px-5"
-        onClick={() => goToOffer("dismiss")}
+        className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/20 bg-white px-6 py-7 text-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="cookie-policy-title" className="text-lg font-bold text-foreground tracking-tight">
+        <h2 id="cookie-policy-title" className="text-xl font-bold tracking-tight text-slate-950">
           {L.cookieTitle}
         </h2>
-        <p className="mt-2 text-sm leading-snug text-muted-foreground">{L.cookieBody}</p>
-        {policyUrl ? (
-          <button
-            type="button"
-            className="mt-3 inline-block text-sm font-medium text-primary underline underline-offset-4 hover:opacity-90"
-            onClick={() => goToOffer("dismiss")}
-          >
-            {L.cookiePolicy}
-          </button>
-        ) : null}
-        <div className="mt-4 flex flex-row gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="sm:flex-1 border-border bg-background hover:bg-muted"
-            onClick={() => goToOffer("dismiss")}
-          >
-            {L.cookieClose}
-          </Button>
-          <Button
-            type="button"
-            className="sm:flex-1 bg-orange-500 text-white hover:bg-orange-600 border-0 shadow-md"
-            onClick={() => goToOffer("allow")}
-          >
-            {L.cookieAllow}
-          </Button>
-        </div>
-        <p className="mt-3 text-center text-[11px] text-muted-foreground">{L.cookieFooter}</p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          {L.cookieBody}
+          {policyUrl ? (
+            <>
+              {" "}
+              <a
+                href={policyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {L.cookiePolicy}
+              </a>
+              .
+            </>
+          ) : null}
+        </p>
+        <Button
+          type="button"
+          className="mt-6 h-12 w-full border-0 bg-blue-600 text-sm font-semibold uppercase tracking-wide text-white shadow-md hover:bg-blue-700"
+          onClick={accept}
+        >
+          {L.cookieAllow}
+        </Button>
+        <button
+          type="button"
+          className="mt-3 block w-full text-center text-sm text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
+          onClick={accept}
+        >
+          {L.cookieClose}
+        </button>
       </div>
     </div>
   );

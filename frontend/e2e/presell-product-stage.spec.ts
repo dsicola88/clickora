@@ -68,7 +68,7 @@ async function openPresell(page: Page, type: string, images: "ok" | "fail" = "ok
 }
 
 test.describe("presell — produto visível com cookies", () => {
-  test("imagem principal ocupa o palco e o cartão de cookies fica por baixo", async ({ page }) => {
+  test("imagem principal fica visível atrás do modal centrado de cookies", async ({ page }) => {
     const errors = await openPresell(page, "cookies");
     const hero = page.locator("[data-presell-hero='product']").first();
     await expect(hero).toBeVisible();
@@ -81,8 +81,9 @@ test.describe("presell — produto visível com cookies", () => {
     expect(cardBox).toBeTruthy();
     expect(viewport).toBeTruthy();
     expect(heroBox!.height).toBeGreaterThan(viewport!.height * 0.45);
-    expect(heroBox!.y + heroBox!.height / 2).toBeLessThan(cardBox!.y);
-    expect(cardBox!.y + cardBox!.height).toBeGreaterThan(viewport!.height - 48);
+    // Modal centrado: o cartão cobre a zona média do ecrã.
+    expect(cardBox!.y).toBeGreaterThan(viewport!.height * 0.12);
+    expect(cardBox!.y + cardBox!.height).toBeLessThan(viewport!.height * 0.95);
 
     const img = hero.locator("img");
     await expect(img).toHaveAttribute("src", /stopwatt_1400x\.jpg/);
@@ -120,54 +121,25 @@ test.describe("presell — produto visível com cookies", () => {
     });
   }
 
-  test("fechar cookies vai ao rastreio", async ({ page }) => {
+  test("aceitar cookies libera a página sem redirecionar", async ({ page }) => {
     await openPresell(page, "cookies");
-    await page.route("**/track/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
-      }),
-    );
-    await page.getByTestId("presell-cookie-card").getByRole("button", { name: "Close" }).click();
-    await expect(page).toHaveURL(/\/track\//);
-  });
-
-  test("clicar fora dos cookies vai ao rastreio", async ({ page }) => {
-    await openPresell(page, "cookies");
-    await page.route("**/track/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
-      }),
-    );
-    await page.getByTestId("presell-cookie-backdrop").click({ position: { x: 12, y: 12 } });
-    await expect(page).toHaveURL(/\/track\//);
-  });
-
-  test("aceitar cookies vai ao rastreio e o voltar regressa à presell", async ({ page }) => {
-    await openPresell(page, "cookies");
-    await page.route("**/track/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
-      }),
-    );
-    await page.getByRole("button", { name: "Allow" }).click();
-    await expect(page).toHaveURL(/\/track\//);
-    const tracked = new URL(page.url());
-    expect(tracked.searchParams.get("gclid")).toBe("test-gclid");
-    expect(tracked.searchParams.get("sub1")).toBe("kw-1");
-    expect(tracked.searchParams.get("parent_click_id")).toBe(PARENT_CLICK);
-    expect(tracked.searchParams.get("to")).toContain("https://offer.example/buy");
-    await page.goBack();
+    await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
+    await page.getByRole("button", { name: "Accept All" }).click();
+    await expect(page.getByTestId("presell-cookie-card")).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const cta = page.getByRole("link", { name: "Order Now" }).first();
+    await expect(cta).toBeVisible();
   });
 
-  test("o espelho importado permanece visível com a folha de cookies", async ({ page }) => {
+  test("clicar no fundo não fecha nem navega", async ({ page }) => {
+    await openPresell(page, "cookies");
+    await page.getByTestId("presell-cookie-backdrop").click({ position: { x: 12, y: 12 }, force: true });
+    await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
+  });
+
+  test("o espelho importado permanece visível com o modal de cookies", async ({ page }) => {
     const mirror = `<!doctype html><html><body><h1>StopWatt official page</h1><img src="${PNG}" alt="StopWatt unit" width="800" height="800"><p>${"The unit sits between the outlet and the appliance. ".repeat(12)}</p></body></html>`;
     await installPresell(page, presell("cookies", { content: { importMirrorSrcDoc: mirror } }), "ok");
     await page.goto(`/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&parent_click_id=${PARENT_CLICK}`);
@@ -175,15 +147,9 @@ test.describe("presell — produto visível com cookies", () => {
     await expect(frame.getByRole("heading", { name: "StopWatt official page" })).toBeVisible();
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
     await expect(page.locator("[data-presell-hero='product']")).toHaveCount(0);
-    await page.route("**/track/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
-      }),
-    );
-    await page.getByTestId("presell-cookie-card").getByRole("button", { name: "Close" }).click();
-    await expect(page).toHaveURL(/\/track\//);
+    await page.getByRole("button", { name: "Accept All" }).click();
+    await expect(page.getByTestId("presell-cookie-card")).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
   });
 
   test("fechar o desconto vai ao rastreio", async ({ page }) => {

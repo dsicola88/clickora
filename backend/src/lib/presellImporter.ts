@@ -1163,27 +1163,21 @@ function buildOriginalPresellCopy(args: { language: string; productName: string;
   const locale = localePack(args.language);
   const name = args.productName.trim() || "Produto";
   const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
+  // Texto próprio, sem repetir as mesmas frases em três secções.
   return `${name}
 
 ${locale.subtitleFallback}
 
 ${locale.sectionWhy}
-• ${locale.bullet3}
 • ${locale.bullet1}
 • ${locale.bullet2}
+• ${locale.bullet3}
 
 ${locale.sectionWhat}
-• ${locale.bullet1}
-• ${locale.bullet2}
 • ${locale.richFooter}
-
-${locale.sectionFromPage}
-• ${locale.bullet3}
 • ${locale.urgency}
-• ${locale.richFooter}
 
-${priceLine}
-${locale.urgency}`.trim();
+${priceLine}`.trim();
 }
 
 /** Página longa (ex.: Neotonics): texto denso parecido com a oferta. */
@@ -1238,13 +1232,14 @@ function buildCompactSalesText(args: {
   const template = `${intro}
 
 ${locale.sectionWhy}
-• ${locale.bullet3}
-
-${locale.sectionWhat}
 • ${locale.bullet1}
 • ${locale.bullet2}
+• ${locale.bullet3}
 
-${extraBullets.length ? `${locale.sectionFromPage}\n${extraBullets.map((b) => `• ${b}`).join("\n")}\n\n` : ""}${priceLine}
+${extraBullets.length ? `${locale.sectionFromPage}\n${extraBullets.map((b) => `• ${b}`).join("\n")}\n\n` : ""}${locale.sectionWhat}
+• ${locale.richFooter}
+
+${priceLine}
 ${locale.urgency}`.trim();
 
   return template;

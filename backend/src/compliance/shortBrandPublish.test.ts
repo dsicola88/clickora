@@ -14,24 +14,16 @@ describe("short brand publish path", () => {
   it("original compact copy + mirror passes Ads gate", () => {
     const sales = `Yusleep
 
-See today's offer.
+A clear look at the offer before you decide on the merchant site.
 
-Before you continue
-• You choose after you see the offer.
-• The product name and the pictures are ready.
-• The current price is on the next page.
+What this page covers
+• Product name and photos come from the merchant listing — not invented here.
+• Final price, shipping and guarantees are confirmed only on the seller’s checkout.
+• You stay in control: continue only if the offer still makes sense for you.
 
-On the next page
-• The product name and the pictures are ready.
-• The current price is on the next page.
-• See the current price.
-
-From the offer page
-• You choose after you see the offer.
-• The current price is on the next page.
-• See the current price.
-
-The current price is on the next page.`;
+What happens next
+• This page is independent of the brand and does not process payments.
+• Availability and terms can change — verify details on the official offer page.`;
     const signals = extractPresellSignals({
       title: "Yusleep",
       type: "cookies",

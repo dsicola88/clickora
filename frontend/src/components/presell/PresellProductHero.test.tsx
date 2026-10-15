@@ -52,7 +52,7 @@ describe("PresellProductHero", () => {
 });
 
 describe("CookieConsentModal", () => {
-  it("ancora o cartão em baixo para deixar o produto visível", () => {
+  it("centra o cartão e bloqueia a página; só os botões aceitam", () => {
     render(
       <CookieConsentModal
         language="en"
@@ -63,10 +63,11 @@ describe("CookieConsentModal", () => {
       />,
     );
     const sheet = screen.getByTestId("presell-cookie-sheet");
-    expect(sheet.className).toContain("items-end");
-    expect(sheet.className).not.toContain("items-center");
+    expect(sheet.className).toContain("items-center");
     expect(screen.getByTestId("presell-cookie-card")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Cookie Policy" })).toBeTruthy();
+    expect(screen.getByTestId("presell-cookie-backdrop").tagName).toBe("DIV");
+    expect(screen.getByRole("heading", { name: "We Value Your Privacy" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Accept All" })).toBeTruthy();
   });
 });
 
