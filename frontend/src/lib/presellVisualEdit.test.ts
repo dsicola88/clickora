@@ -40,7 +40,7 @@ describe("buildEditablePageDocument", () => {
     expect(cookie.content.overlayOpacity).toBe(28);
   });
 
-  it("black cookies: artigo alinhado, sem hero viewport, hoplink só no aviso", () => {
+  it("black cookies: artigo + CTA na página; cookie só desbloqueia (sem hoplink)", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -61,17 +61,32 @@ describe("buildEditablePageDocument", () => {
     expect(media.content.hero).toBe(false);
     expect(media.content.src).toBe("https://cdn.example/pack.jpg");
     const bodyTypes = doc.sections[1].columns[0].widgets.map((w) => w.type);
-    expect(bodyTypes).toEqual(["heading", "heading", "text"]);
-    expect(bodyTypes).not.toContain("button");
+    expect(bodyTypes).toEqual(["heading", "heading", "text", "button"]);
     const headline = String(doc.sections[1].columns[0].widgets[1].content.text).toLowerCase();
     expect(headline).toContain("stopwatt");
     expect(headline).not.toContain("milagrosa");
     const bodyHtml = String(doc.sections[1].columns[0].widgets[2].content.html).toLowerCase();
     expect(bodyHtml).not.toContain("milagrosa");
     expect(bodyHtml).toContain("official");
+    expect(doc.sections[1].columns[0].widgets[3].content.href).toBe("https://offer.example/buy");
     const cookie = doc.sections[2].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
-    expect(cookie.content.offerHref).toBe("https://offer.example/buy");
+    expect(cookie.content.offerHref || "").toBe("");
+    const baked = bakePublicOfferHrefs(
+      doc,
+      "https://app.example/track/r/x",
+      "https://offer.example/buy",
+      "https://brand.example/privacy",
+      { unlockCookieOnly: true },
+    );
+    const bakedCookie = baked.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "cookieBanner");
+    expect(bakedCookie?.content.offerHref || "").toBe("");
+    const bakedButton = baked.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "button");
+    expect(bakedButton?.content.href).toBe("https://app.example/track/r/x");
   });
 
   it("ignora ícones e fotos repetidas e deixa a primeira imagem como capa", () => {

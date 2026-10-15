@@ -338,7 +338,10 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   }
 
   const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, cookieType ? "" : offer, false));
-  const cookie = cookieType ? offerCookie(offer, policyHrefFromContent(content), source.language) : null;
+  // White cookies: Aceitar → oferta. Black: Aceitar só desbloqueia o artigo; CTA vai à oferta.
+  const cookie = cookieType
+    ? offerCookie(white ? offer : "", policyHrefFromContent(content), source.language)
+    : null;
 
   const sections: ReturnType<typeof createSection>[] = [];
   const mirrorFold = white
@@ -433,7 +436,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       articleTitle(article.headline),
       articleCopy(articleBodyHtml(article)),
     ];
-    if (!cookieType && offer) {
+    if (offer) {
       const button = createWidget("button");
       button.content = {
         ...button.content,
@@ -523,17 +526,27 @@ export function resolvePresellPageDocument(
   return parsePresellBuilderPageDocument(stored) ?? buildEditablePageDocument(source);
 }
 
+export type BakePublicOfferOptions = {
+  /**
+   * Black Ads: cookie só desbloqueia o portal informativo.
+   * White: cookie pode levar à oferta e remove botões duplicados.
+   */
+  unlockCookieOnly?: boolean;
+};
+
 /** Na pública, o hoplink e o marcador do espelho passam a `/track/r/`. */
 export function bakePublicOfferHrefs(
   doc: PageDocument,
   trackHref: string,
   affiliateHref = "",
   policyHref = "",
+  options: BakePublicOfferOptions = {},
 ): PageDocument {
   const clone = JSON.parse(JSON.stringify(doc)) as PageDocument;
   const href = trackHref.trim() || affiliateHref.trim();
   const policy = policyHref.trim();
   const affiliate = affiliateHref.trim();
+  const unlockCookieOnly = Boolean(options.unlockCookieOnly);
   const cookieGate = clone.sections.some((section) =>
     section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
   );
@@ -555,14 +568,19 @@ export function bakePublicOfferHrefs(
         if (cookieGate && widget.type === "image") {
           widget.content = { ...widget.content, link: "" };
         }
-        if (policy && widget.type === "cookieBanner") {
-          widget.content = { ...widget.content, policyUrl: policy };
+        if (widget.type === "cookieBanner") {
+          const next: Record<string, unknown> = { ...widget.content };
+          if (policy) next.policyUrl = policy;
+          if (unlockCookieOnly) next.offerHref = "";
+          widget.content = next;
         }
       }
     }
   }
-  if (href) pointOfferButtonsAt(clone, href, affiliate || undefined);
-  if (cookieGate) {
+  if (href) {
+    pointOfferButtonsAt(clone, href, affiliate || undefined, { assignCookieOffer: !unlockCookieOnly });
+  }
+  if (cookieGate && !unlockCookieOnly) {
     for (const section of clone.sections) {
       for (const column of section.columns) {
         column.widgets = column.widgets.filter((widget) => widget.type !== "button");
@@ -583,10 +601,16 @@ function comparableUrl(raw: string): string {
 }
 
 /** O botão principal segue o link da oferta da barra. Um botão único desatualizado também. */
-export function pointOfferButtonsAt(doc: PageDocument, offerUrl: string, previousOffer?: string): PageDocument {
+export function pointOfferButtonsAt(
+  doc: PageDocument,
+  offerUrl: string,
+  previousOffer?: string,
+  options: { assignCookieOffer?: boolean } = {},
+): PageDocument {
   const offer = offerUrl.trim();
   if (!offer) return doc;
   const previous = previousOffer ? comparableUrl(previousOffer) : "";
+  const assignCookieOffer = options.assignCookieOffer !== false;
   const widgets = doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets));
   const buttons = widgets.filter((widget) => widget.type === "button");
   for (const button of buttons) {
@@ -598,12 +622,18 @@ export function pointOfferButtonsAt(doc: PageDocument, offerUrl: string, previou
       button.content = { ...button.content, href: offer };
     }
   }
-  for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
-    const href = asString(cookie.content.offerHref);
-    const empty = !href || href === "#" || href.startsWith("#");
-    const wasOffer = Boolean(previous) && comparableUrl(href) === previous;
-    if (empty || wasOffer) {
-      cookie.content = { ...cookie.content, offerHref: offer };
+  if (assignCookieOffer) {
+    for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
+      const href = asString(cookie.content.offerHref);
+      const empty = !href || href === "#" || href.startsWith("#");
+      const wasOffer = Boolean(previous) && comparableUrl(href) === previous;
+      if (empty || wasOffer) {
+        cookie.content = { ...cookie.content, offerHref: offer };
+      }
+    }
+  } else {
+    for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
+      cookie.content = { ...cookie.content, offerHref: "" };
     }
   }
   return doc;
