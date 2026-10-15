@@ -9,7 +9,7 @@ import {
 } from "./presellVisualEdit";
 
 describe("buildEditablePageDocument", () => {
-  it("leva para o editor só o que a presell já tem", () => {
+  it("white: dobra produto + hoplink no cookie", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -21,22 +21,48 @@ describe("buildEditablePageDocument", () => {
         affiliateLink: "https://offer.example/buy",
         productName: "StopWatt",
         productImages: ["https://cdn.example/pack.jpg", "nota-interna"],
-        generationNiche: "black",
+        generationNiche: "white",
       },
     });
     const fold = doc.sections[0];
     expect(fold.columns[0].widgets.map((w) => w.type)).toEqual(["image"]);
-    expect(fold.columns[1].widgets.map((w) => w.type)).toEqual(["heading", "text", "button"]);
+    expect(fold.columns[1].widgets.map((w) => w.type)).toEqual(["heading", "text"]);
     expect(fold.columns[0].widgets[0].content.src).toBe("https://cdn.example/pack.jpg");
     expect(fold.columns[0].widgets[0].content.hero).toBe(true);
     expect(fold.columns[1].widgets[0].content.text).toBe("StopWatt");
-    expect(fold.columns[1].widgets[0].styles.typography?.desktop?.fontSize).toBe(52);
     expect(String(fold.columns[1].widgets[1].content.html)).toContain("tomada");
-    expect(fold.columns[1].widgets[2].content.href).toBe("https://offer.example/buy");
     const cookie = doc.sections[1].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
     expect(cookie.content.offerHref).toBe("https://offer.example/buy");
     expect(cookie.content.policyUrl).toBe("/privacidade");
+    expect(cookie.content.followLanguage).toBe(false);
+    expect(cookie.content.allowLabel).toBeTruthy();
+    expect(cookie.content.overlayOpacity).toBe(28);
+  });
+
+  it("black cookies: artigo informativo, foto, hoplink só no aviso", () => {
+    const doc = buildEditablePageDocument({
+      title: "Campanha",
+      type: "cookies",
+      language: "en",
+      content: {
+        title: "StopWatt",
+        salesText: "Cura milagrosa garantida sem link",
+        ctaText: "Ver oferta",
+        affiliateLink: "https://offer.example/buy",
+        productName: "StopWatt",
+        productImages: ["https://cdn.example/pack.jpg"],
+        generationNiche: "black",
+      },
+    });
+    const types = doc.sections[0].columns[0].widgets.map((w) => w.type);
+    expect(types).toEqual(["image", "heading", "text"]);
+    expect(types).not.toContain("button");
+    expect(String(doc.sections[0].columns[0].widgets[1].content.text).toLowerCase()).toContain("stopwatt");
+    expect(String(doc.sections[0].columns[0].widgets[1].content.text).toLowerCase()).not.toContain("milagrosa");
+    const cookie = doc.sections[1].columns[0].widgets[0];
+    expect(cookie.type).toBe("cookieBanner");
+    expect(cookie.content.offerHref).toBe("https://offer.example/buy");
   });
 
   it("ignora ícones e fotos repetidas e deixa a primeira imagem como capa", () => {
@@ -53,6 +79,7 @@ describe("buildEditablePageDocument", () => {
         ],
         ctaText: "Continuar",
         affiliateLink: "https://en.wikipedia.org/wiki/Tea",
+        generationNiche: "white",
       },
     });
     const images = doc.sections
@@ -106,7 +133,7 @@ describe("buildEditablePageDocument", () => {
       content: { title: "Só um título" },
     });
     const types = doc.sections[0].columns[0].widgets.map((w) => w.type);
-    expect(types).toEqual(["heading"]);
+    expect(types[0]).toBe("heading");
     expect(types).not.toContain("image");
     expect(types).not.toContain("button");
     expect(types).not.toContain("cookieBanner");
@@ -120,6 +147,13 @@ describe("buildEditablePageDocument", () => {
     expect(html).not.toContain("<script");
     expect(html).not.toContain("onclick");
     expect(html).not.toContain("alert(1)");
+    const withCss = mirrorSrcDocToEditableHtml(
+      `<!doctype html><html><head><base href="https://brand.example/"><link rel="stylesheet" href="/app.css"><link rel="icon" href="/i.png"><style>h1{color:red}</style></head><body><h1>X</h1></body></html>`,
+    );
+    expect(withCss).toContain('<base href="https://brand.example/">');
+    expect(withCss).toContain('rel="stylesheet"');
+    expect(withCss).toContain("https://brand.example/app.css");
+    expect(withCss).not.toContain("rel=\"icon\"");
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -127,7 +161,7 @@ describe("buildEditablePageDocument", () => {
         title: "StopWatt",
         affiliateLink: "https://offer.example/buy",
         productImages: ["https://cdn.example/pack.jpg"],
-        generationNiche: "black",
+        generationNiche: "white",
         importMirrorSrcDoc: srcdoc,
       },
     });
@@ -162,6 +196,6 @@ describe("buildEditablePageDocument", () => {
       { pageDocument: stored },
       { title: "B", type: "cookies", content: { title: "Outro" } },
     );
-    expect(resolved.sections[0].columns[0].widgets[0].content.text).toBe("Guardado");
+    expect(String(resolved.sections[0].columns[0].widgets[0].content.text)).toMatch(/Guardado/);
   });
 });

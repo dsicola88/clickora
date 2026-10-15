@@ -10,15 +10,15 @@ export const PRESELL_NICHE_OPTIONS: {
 }[] = [
   {
     id: "black",
-    name: "Black (conversão)",
+    name: "Black (promessas fortes)",
     description:
-      "Escolhe o tipo (cookies, desconto, review, fantasma…). A página copia 70–100% o visual do produto; o overlay é o teu funil.",
+      "Saúde, emagrecimento, desempenho e ofertas agressivas. Página informativa à prova de bloqueio: não clona claims da sales page. O hoplink fica no gate (cookies, desconto…) — não no corpo.",
   },
   {
     id: "white",
-    name: "White (alinhada ao produto)",
+    name: "White (produtos leves)",
     description:
-      "Mesma fidelidade visual e textos do produtor; sem fantasma nem gates agressivos — ideal para redes exigentes.",
+      "Gadgets, reviews, ofertas sem claims médicos. Visual fiel ao produto; políticas Google/Bing. Em cookies o hoplink fica no aviso; nos outros tipos vale o CTA do tipo. Sem fantasma nem gates de idade/sexo.",
   },
 ];
 

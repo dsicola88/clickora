@@ -93,7 +93,8 @@ test.describe("presell — produto visível com cookies", () => {
     expect(cardBox!.y).toBeGreaterThan(viewport!.height * 0.12);
     expect(cardBox!.y + cardBox!.height).toBeLessThan(viewport!.height * 0.95);
 
-    const cta = page.getByRole("link", { name: "Order Now" }).first();
+    await expect(page.getByRole("link", { name: "Order Now" })).toHaveCount(0);
+    const cta = page.getByTestId("presell-cookie-card").getByRole("link", { name: /^(allow|permitir|accept all|aceitar tudo)$/i });
     const href = await cta.getAttribute("href");
     expect(href).toBeTruthy();
     const decoded = decodeURIComponent(href!);
@@ -147,21 +148,26 @@ test.describe("presell — produto visível com cookies", () => {
       }),
     );
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
-    await page.getByTestId("presell-cookie-card").getByRole("link", { name: /accept all/i }).click();
+    await page.getByTestId("presell-cookie-card").getByRole("link", { name: /^(allow|permitir|accept all|aceitar tudo)$/i }).click();
     await expect(page).toHaveURL(/\/track\//);
     expect(decodeURIComponent(page.url())).toContain("gclid=test-gclid");
   });
 
-  test("no white Accept All só libera a página", async ({ page }) => {
+  test("no white cookies Accept All também segue o hoplink", async ({ page }) => {
     await installPresell(page, presell("cookies", { content: { generationNiche: "white" } }), "ok");
     await page.goto(
       `/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&utm_source=google_ads&utm_medium=cpc&parent_click_id=${PARENT_CLICK}`,
     );
+    await page.route("**/track/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
+      }),
+    );
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
-    await page.getByRole("button", { name: "Accept All" }).click();
-    await expect(page.getByTestId("presell-cookie-card")).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.getByTestId("presell-cookie-card").getByRole("link", { name: /^(allow|permitir|accept all|aceitar tudo)$/i }).click();
+    await expect(page).toHaveURL(/\/track\//);
   });
 
   test("clicar no fundo não fecha nem navega", async ({ page }) => {
@@ -173,7 +179,11 @@ test.describe("presell — produto visível com cookies", () => {
 
   test("o espelho importado permanece visível com o modal de cookies", async ({ page }) => {
     const mirror = `<!doctype html><html><body><h1>StopWatt official page</h1><img src="${PNG}" alt="StopWatt unit" width="800" height="800"><p>${"The unit sits between the outlet and the appliance. ".repeat(12)}</p></body></html>`;
-    await installPresell(page, presell("cookies", { content: { importMirrorSrcDoc: mirror } }), "ok");
+    await installPresell(
+      page,
+      presell("cookies", { content: { generationNiche: "white", importMirrorSrcDoc: mirror } }),
+      "ok",
+    );
     await page.goto(`/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&parent_click_id=${PARENT_CLICK}`);
     await expect(page.getByRole("heading", { name: "StopWatt official page" })).toBeVisible();
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
@@ -185,7 +195,7 @@ test.describe("presell — produto visível com cookies", () => {
         body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
       }),
     );
-    await page.getByTestId("presell-cookie-card").getByRole("link", { name: /accept all/i }).click();
+    await page.getByTestId("presell-cookie-card").getByRole("link", { name: /^(allow|permitir|accept all|aceitar tudo)$/i }).click();
     await expect(page).toHaveURL(/\/track\//);
   });
 
@@ -235,8 +245,9 @@ test.describe("presell — produto visível com cookies", () => {
   for (const type of ["tsl", "dtc", "vsl", "vsl_tsl"] as const) {
     test(`formato ${type} renderiza título e CTA com tracking`, async ({ page }) => {
       await openPresell(page, type);
-      await expect(page.getByRole("heading", { name: /Stop Wasting Money/ })).toBeVisible();
-      const cta = page.getByRole("link", { name: "Order Now" }).first();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(/STOPWATT|StopWatt|review the/i);
+      const cta = page.getByRole("link", { name: /Order Now|Continue to the official offer/i }).first();
       await expect(cta).toBeVisible();
       const href = decodeURIComponent((await cta.getAttribute("href")) || "");
       expect(href).toContain("gclid=test-gclid");

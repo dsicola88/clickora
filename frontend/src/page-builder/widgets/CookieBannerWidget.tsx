@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
 import { useBuilderSurface } from "../builder-surface";
 import { cookieBannerUsesPageOverlay } from "../cookieBannerOverlay";
-import { resolveCookieBannerCopy } from "../cookieBannerCopy";
+import {
+  clampCookieOverlayBlur,
+  clampCookieOverlayOpacity,
+  resolveCookieBannerCopy,
+} from "../cookieBannerCopy";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
+import { useInlineEdit } from "../inline-edit";
 
 export interface CookieBannerContent {
   title: string;
@@ -13,6 +19,7 @@ export interface CookieBannerContent {
   declineLabel: string;
   policyLabel: string;
   policyUrl: string;
+  footerNote?: string;
   accentColor: string;
   /** modal = overlay centrado (tipo Ads); corner = canto flutuante */
   variant: "modal" | "corner";
@@ -20,6 +27,8 @@ export interface CookieBannerContent {
   storageKey: string;
   /** Escurece/blur o fundo no modo modal */
   backdrop: boolean;
+  overlayOpacity?: number;
+  overlayBlur?: number;
   /** false = textos editados à mão. Ausente ou true com título de stock = idioma da página. */
   followLanguage?: boolean;
   /** Na página publicada o Accept All vai para este URL (hoplink). Vazio = só fecha o aviso. */
@@ -44,20 +53,57 @@ function writeDismissed(key: string) {
   }
 }
 
+function CookieText({
+  field,
+  value,
+  style,
+}: {
+  field: string;
+  value: string;
+  style?: CSSProperties;
+}) {
+  const commit = useInlineEdit();
+  if (!commit) return <span style={style}>{value}</span>;
+  return (
+    <span
+      style={style}
+      contentEditable
+      suppressContentEditableWarning
+      onMouseDown={(event) => event.stopPropagation()}
+      onBlur={(event) => {
+        const next = event.currentTarget.textContent ?? "";
+        if (next !== value) commit({ [field]: next, followLanguage: false });
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
 export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const c = widget.content as Partial<CookieBannerContent>;
   const pageLanguage = usePresellPublicLocale();
+  const commit = useInlineEdit();
   const copy = resolveCookieBannerCopy(c, pageLanguage);
   const title = copy.title;
   const body = copy.body;
   const allowLabel = copy.allowLabel;
   const declineLabel = copy.declineLabel;
   const policyLabel = copy.policyLabel;
+  const footerNote = copy.footerNote;
   const policyUrl = (c.policyUrl ?? "/privacidade").trim() || "/privacidade";
   const accentColor = c.accentColor ?? "#2563eb";
   const variant = c.variant === "corner" ? "corner" : "modal";
   const position = c.position ?? "bottom-right";
   const backdrop = c.backdrop !== false;
+  const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
+  const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
   const offerHref = (c.offerHref ?? "").trim();
   const lockToOffer = Boolean(offerHref && offerHref !== "#");
@@ -84,6 +130,11 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const dismiss = () => {
     writeDismissed(storageKey);
     setDismissed(true);
+  };
+
+  const saveCopy = (field: string, next: string) => {
+    if (!commit) return;
+    commit({ [field]: next, followLanguage: false });
   };
 
   if (!visible) {
@@ -132,113 +183,193 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           letterSpacing: -0.2,
         }}
       >
-        {title}
+        {commit ? (
+          <span
+            contentEditable
+            suppressContentEditableWarning
+            onMouseDown={(event) => event.stopPropagation()}
+            onBlur={(event) => {
+              const next = event.currentTarget.textContent ?? "";
+              if (next !== title) saveCopy("title", next);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+            }}
+          >
+            {title}
+          </span>
+        ) : (
+          title
+        )}
       </p>
       <p style={{ margin: "0 0 18px", fontSize: 14, lineHeight: 1.6, color: "#475569" }}>
-        {body}{" "}
-        <a
-          href={policyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
-        >
-          {policyLabel}
-        </a>
+        {commit ? (
+          <span
+            contentEditable
+            suppressContentEditableWarning
+            onMouseDown={(event) => event.stopPropagation()}
+            onBlur={(event) => {
+              const next = event.currentTarget.textContent ?? "";
+              if (next !== body) saveCopy("body", next);
+            }}
+          >
+            {body}
+          </span>
+        ) : (
+          body
+        )}{" "}
+        {commit ? (
+          <CookieText
+            field="policyLabel"
+            value={policyLabel}
+            style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
+          />
+        ) : (
+          <a
+            href={policyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
+          >
+            {policyLabel}
+          </a>
+        )}
         .
       </p>
-      {!inBuilder && lockToOffer ? (
-        <a
-          href={offerHref}
-          data-clickora-offer="1"
-          onClick={(e) => {
-            e.preventDefault();
-            window.location.assign(offerHref);
-          }}
-          style={{
-            display: "block",
-            width: "100%",
-            boxSizing: "border-box",
-            textAlign: "center",
-            textDecoration: "none",
-            background: accentColor,
-            color: "#ffffff",
-            fontWeight: 800,
-            fontSize: 14,
-            letterSpacing: 0.06,
-            textTransform: "uppercase",
-            padding: "14px 18px",
-            borderRadius: 10,
-          }}
-        >
-          {allowLabel}
-        </a>
-      ) : (
-      <button
-        type="button"
-        onClick={inBuilder ? undefined : dismiss}
+      <div
         style={{
-          display: "block",
-          width: "100%",
-          border: "none",
-          cursor: inBuilder ? "default" : "pointer",
-          background: accentColor,
-          color: "#ffffff",
-          fontWeight: 800,
-          fontSize: 14,
-          letterSpacing: 0.06,
-          textTransform: "uppercase",
-          padding: "14px 18px",
-          borderRadius: 10,
+          display: "flex",
+          gap: 12,
+          alignItems: "stretch",
         }}
       >
-        {allowLabel}
-      </button>
-      )}
-      {!inBuilder && lockToOffer ? (
-        <a
-          href={offerHref}
-          data-clickora-offer="1"
-          onClick={(e) => {
-            e.preventDefault();
-            window.location.assign(offerHref);
-          }}
-          style={{
-            display: "block",
-            width: "100%",
-            marginTop: 12,
-            textAlign: "center",
-            textDecoration: "none",
-            color: "#64748b",
-            fontSize: 13,
-            fontWeight: 500,
-            padding: 6,
-          }}
-        >
-          {declineLabel}
-        </a>
-      ) : (
-      <button
-        type="button"
-        onClick={inBuilder ? undefined : dismiss}
-        style={{
-          display: "block",
-          width: "100%",
-          marginTop: 12,
-          border: "none",
-          background: "transparent",
-          cursor: inBuilder ? "default" : "pointer",
-          color: "#64748b",
-          fontSize: 13,
-          fontWeight: 500,
-          padding: 6,
-        }}
-      >
-        {declineLabel}
-      </button>
-      )}
+        {!inBuilder && lockToOffer ? (
+          <a
+            href={offerHref}
+            data-clickora-offer="1"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.assign(offerHref);
+            }}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxSizing: "border-box",
+              textAlign: "center",
+              textDecoration: "none",
+              background: accentColor,
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: 15,
+              padding: "12px 16px",
+              borderRadius: 999,
+            }}
+          >
+            {allowLabel}
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={inBuilder ? undefined : dismiss}
+            style={{
+              flex: 1,
+              border: "none",
+              cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+              background: accentColor,
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: 15,
+              padding: "12px 16px",
+              borderRadius: 999,
+            }}
+          >
+            {commit ? (
+              <CookieText field="allowLabel" value={allowLabel} style={{ color: "#ffffff", fontWeight: 700 }} />
+            ) : (
+              allowLabel
+            )}
+          </button>
+        )}
+        {!inBuilder && lockToOffer ? (
+          <a
+            href={offerHref}
+            data-clickora-offer="1"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.assign(offerHref);
+            }}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              textDecoration: "none",
+              color: "#334155",
+              fontWeight: 600,
+              fontSize: 15,
+              padding: "12px 16px",
+              borderRadius: 999,
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+            }}
+          >
+            {declineLabel}
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={inBuilder ? undefined : dismiss}
+            style={{
+              flex: 1,
+              cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+              color: "#334155",
+              fontWeight: 600,
+              fontSize: 15,
+              padding: "12px 16px",
+              borderRadius: 999,
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+            }}
+          >
+            {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
+          </button>
+        )}
+      </div>
+      {footerNote || commit ? (
+        <p style={{ margin: "14px 0 0", fontSize: 12, lineHeight: 1.4, color: "#94a3b8", textAlign: "center" }}>
+          {commit ? (
+            <span
+              contentEditable
+              suppressContentEditableWarning
+              onMouseDown={(event) => event.stopPropagation()}
+              onBlur={(event) => {
+                const next = event.currentTarget.textContent ?? "";
+                if (next !== footerNote) saveCopy("footerNote", next);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+            >
+              {footerNote}
+            </span>
+          ) : (
+            footerNote
+          )}
+        </p>
+      ) : null}
       {inBuilder ? (
         <p style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.45, color: "#94a3b8" }}>
-          No editor isto não cobre a página. Na presell publicada o visitante vê o aviso à frente da oferta.
+          Clique nos textos para editar. O fundo escuro e os botões também estão no painel à direita. Na página
+          publicada o aviso cobre a oferta.
         </p>
       ) : null}
     </aside>
@@ -260,35 +391,38 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     );
   }
 
-  return (
-    <div style={stylesToCssWidgetContent(widget.styles, device)}>
-      <div
-        data-testid="builder-cookie-modal-root"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9995,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 16,
-        }}
-      >
-        {backdrop ? (
-          <div
-            aria-hidden
-            data-testid="presell-cookie-backdrop"
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(15, 23, 42, 0.55)",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
-            }}
-          />
-        ) : null}
-        {card}
-      </div>
+  const overlay = (
+    <div
+      data-testid="builder-cookie-modal-root"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9995,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      {backdrop ? (
+        <div
+          aria-hidden
+          data-testid="presell-cookie-backdrop"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `rgba(15, 23, 42, ${overlayOpacity / 100})`,
+            backdropFilter: overlayBlur > 0 ? `blur(${overlayBlur}px)` : "none",
+            WebkitBackdropFilter: overlayBlur > 0 ? `blur(${overlayBlur}px)` : "none",
+          }}
+        />
+      ) : null}
+      {card}
     </div>
   );
+
+  if (typeof document !== "undefined") {
+    return createPortal(overlay, document.body);
+  }
+  return overlay;
 }

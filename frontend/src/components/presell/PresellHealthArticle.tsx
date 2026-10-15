@@ -6,13 +6,15 @@ type Props = {
   article: HealthArticle;
   href: string;
   ctaEnabled: boolean;
+  /** Em tipo cookies o hoplink fica só no aviso — o artigo não leva botão de oferta. */
+  showCta?: boolean;
   className?: string;
 };
 
 /**
  * Miolo editorial estilo portal de saúde — texto corrido, sem bridge de preço/CTA spam.
  */
-export function PresellHealthArticle({ article, href, ctaEnabled, className }: Props) {
+export function PresellHealthArticle({ article, href, ctaEnabled, showCta = true, className }: Props) {
   return (
     <article
       id="presell-story"
@@ -50,12 +52,16 @@ export function PresellHealthArticle({ article, href, ctaEnabled, className }: P
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-6 sm:px-7 sm:py-8 mb-8">
-        <p className="text-[15px] sm:text-base leading-relaxed text-slate-700 mb-6">{article.productNote}</p>
+        <p className={cn("text-[15px] sm:text-base leading-relaxed text-slate-700", showCta && "mb-6")}>
+          {article.productNote}
+        </p>
+        {showCta ? (
         <div className="flex justify-center sm:justify-start">
           <PresellCta href={href} disabled={!ctaEnabled} surface="commerce">
             {article.ctaLabel}
           </PresellCta>
         </div>
+        ) : null}
       </section>
     </article>
   );

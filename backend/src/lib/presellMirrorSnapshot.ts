@@ -30,6 +30,8 @@ const COMMERCE_HOST_MARKERS = [
   "whop.com",
   "gumroad.com",
   "lemonsqueezy.com",
+  "mwebinsight.com",
+  "mwebdatawatch.com",
 ];
 
 function hostLooksLikeCommerceOrCheckout(hostname: string): boolean {
@@ -389,9 +391,24 @@ export function finalizeMirrorSrcDocForImport(
 
   root.querySelectorAll("a").forEach((a) => {
     const href = a.getAttribute("href");
-    if (!href || href.startsWith("#") || href.trim().toLowerCase().startsWith("javascript:")) {
+    const label = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""}`;
+    const offerCta =
+      /order\s*now|buy\s*now|add to cart|comprar agora|shop now|checkout|get started with/i.test(label);
+    if (!href || href.trim().toLowerCase().startsWith("javascript:")) {
+      if (offerCta) {
+        a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);
+        a.setAttribute("target", "_top");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
       return;
     }
+    if (href.startsWith("#") && offerCta) {
+      a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);
+      a.setAttribute("target", "_top");
+      a.setAttribute("rel", "noopener noreferrer");
+      return;
+    }
+    if (href.startsWith("#")) return;
     let abs: URL;
     try {
       abs = new URL(href, base);
@@ -400,7 +417,7 @@ export function finalizeMirrorSrcDocForImport(
     }
     a.setAttribute("target", "_top");
     a.setAttribute("rel", "noopener noreferrer");
-    if (mirrorUrlShouldUseTrackMarker(abs, hosts)) {
+    if (mirrorUrlShouldUseTrackMarker(abs, hosts) || offerCta) {
       a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);
     } else {
       a.setAttribute("href", abs.href);

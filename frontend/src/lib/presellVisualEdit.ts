@@ -3,6 +3,8 @@ import type { PageDocument, WidgetNode } from "@/page-builder/types";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { CLICKORA_MIRROR_TRACK_MARKER } from "@/lib/presellMirrorMarkers";
 import { getPresellGateKind } from "@/lib/presellTypeMeta";
+import { resolveHealthArticle } from "@/lib/presellHealthArticle";
+import { getPresellUiStrings } from "@/lib/presellUiStrings";
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -70,6 +72,7 @@ export type EditablePresellSource = {
   title: string;
   type?: string;
   videoUrl?: string | null;
+  language?: string | null;
   content: Record<string, unknown>;
 };
 
@@ -89,12 +92,17 @@ function heroImageWidget(src: string, alt: string, offer = "", isHero = true): W
   return image;
 }
 
-function sanitizeImportedHtml(html: string): string {
-  return html
+function sanitizeImportedHtml(html: string, keepStylesheets = false): string {
+  let out = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<link\b[^>]*>/gi, "")
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/\b(?:href|src)\s*=\s*(['"])\s*javascript:[^'"]*\1/gi, "");
+  if (keepStylesheets) {
+    out = out.replace(/<link\b(?![^>]*rel\s*=\s*['"][^'"]*stylesheet)[^>]*>/gi, "");
+  } else {
+    out = out.replace(/<link\b[^>]*>/gi, "");
+  }
+  return out;
 }
 
 function policyHrefFromContent(content: Record<string, unknown>): string {
@@ -107,15 +115,46 @@ function policyHrefFromContent(content: Record<string, unknown>): string {
   return "/privacidade";
 }
 
-/** Estilos + corpo do espelho — a dobra original, editável no HTML widget. */
+function attrUrl(tag: string, attr: string): string {
+  const m = tag.match(new RegExp(`${attr}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i"));
+  return (m?.[2] ?? m?.[3] ?? "").trim();
+}
+
+function absolutizeHref(href: string, base: string): string {
+  if (!href || /^(https?:|data:|mailto:|tel:|#)/i.test(href)) return href;
+  try {
+    return new URL(href, base).href;
+  } catch {
+    return href;
+  }
+}
+
+function withAbsoluteAttr(tag: string, attr: string, base: string): string {
+  const raw = attrUrl(tag, attr);
+  if (!raw) return tag;
+  const abs = absolutizeHref(raw, base);
+  if (abs === raw) return tag;
+  return tag.replace(
+    new RegExp(`${attr}\\s*=\\s*("(?:[^"]*)"|'(?:[^']*)')`, "i"),
+    `${attr}="${abs.replace(/"/g, "&quot;")}"`,
+  );
+}
+
+/** CSS da origem (base + stylesheets + <style>) e o corpo — visual fiel no HTML widget. */
 export function mirrorSrcDocToEditableHtml(srcdoc: string): string {
   const raw = srcdoc.trim();
   if (!raw) return "";
-  const styles = [...raw.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join("\n");
+  const baseTag = raw.match(/<base\b[^>]*>/i)?.[0] ?? "";
+  const baseHref = attrUrl(baseTag, "href") || "";
+  const links = [...raw.matchAll(/<link\b[^>]*>/gi)]
+    .map((m) => m[0])
+    .filter((tag) => /rel\s*=\s*["'][^"']*stylesheet/i.test(tag))
+    .map((tag) => (baseHref ? withAbsoluteAttr(tag, "href", baseHref) : tag));
+  const styleTags = [...raw.matchAll(/<style\b[^>]*>[\s\S]*?<\/style>/gi)].map((m) => m[0]).join("\n");
   let body = raw.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? raw;
-  const css = sanitizeImportedHtml(styles).trim();
   body = sanitizeImportedHtml(body);
-  return `${css ? `<style>${css}</style>` : ""}${body}`.trim();
+  const head = sanitizeImportedHtml(`${baseTag}${links.join("")}${styleTags}`, true);
+  return `${head}${body}`.trim();
 }
 
 function foldHeading(title: string, align: "left" | "center"): WidgetNode {
@@ -144,10 +183,20 @@ function foldCopy(html: string): WidgetNode {
   return text;
 }
 
-function offerCookie(offer: string, policyHref: string): WidgetNode {
+function offerCookie(offer: string, policyHref: string, language?: string | null): WidgetNode {
   const cookie = createWidget("cookieBanner");
+  const L = getPresellUiStrings(language || "en");
   cookie.content = {
     ...cookie.content,
+    title: L.cookieTitle,
+    body: L.cookieBody,
+    allowLabel: L.cookieAllow,
+    declineLabel: L.cookieClose,
+    policyLabel: L.cookiePolicy,
+    footerNote: L.cookieFooter,
+    followLanguage: false,
+    overlayOpacity: 28,
+    overlayBlur: 2,
     ...(offer ? { offerHref: offer } : {}),
     policyUrl: policyHref || "/privacidade",
   };
@@ -155,8 +204,8 @@ function offerCookie(offer: string, policyHref: string): WidgetNode {
 }
 
 /**
- * Documento do editor a partir do que a presell já tem.
- * Black: primeira dobra com foto grande + título grande (como a origem). Tudo editável.
+ * White: dobra fiel ao produto (espelho ou foto+texto).
+ * Black: artigo informativo — sem clonar claims da oferta; hoplink só no gate de cookies.
  */
 export function buildEditablePageDocument(source: EditablePresellSource): PageDocument {
   const content = source.content || {};
@@ -168,32 +217,33 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   const alt = asString(content.productName) || title || "Produto";
   const [hero, ...restImages] = images;
   const videoUrl = asString(source.videoUrl);
-  const blackFold = !isWhiteNiche(content) && Boolean(hero);
+  const white = isWhiteNiche(content);
+  const cookieType = getPresellGateKind(source.type || "") === "cookies";
+  const productFold = white && Boolean(hero);
   const copyWidgets: WidgetNode[] = [];
 
-  if (title) copyWidgets.push(foldHeading(title, blackFold ? "left" : "center"));
+  if (title) copyWidgets.push(foldHeading(title, productFold ? "left" : "center"));
   if (html) copyWidgets.push(foldCopy(html));
   if (videoUrl) {
     const video = createWidget("video");
     video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
     copyWidgets.push(video);
   }
-  if (cta && offer) {
+  if (cta && offer && !cookieType) {
     const button = createWidget("button");
     button.content = { ...button.content, text: cta, href: offer, target: "_self" };
     copyWidgets.push(button);
   }
 
-  const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, offer, false));
-  const cookie =
-    getPresellGateKind(source.type || "") === "cookies"
-      ? offerCookie(isWhiteNiche(content) ? "" : offer, policyHrefFromContent(content))
-      : null;
+  const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, cookieType ? "" : offer, false));
+  const cookie = cookieType ? offerCookie(offer, policyHrefFromContent(content), source.language) : null;
 
   const sections: ReturnType<typeof createSection>[] = [];
-  const mirrorFold = mirrorSrcDocToEditableHtml(
-    asString(content.importMirrorSrcDoc) || asString(content.import_mirror_src_doc),
-  );
+  const mirrorFold = white
+    ? mirrorSrcDocToEditableHtml(
+        asString(content.importMirrorSrcDoc) || asString(content.import_mirror_src_doc),
+      )
+    : "";
 
   if (mirrorFold.length > 80) {
     const htmlW = createWidget("html");
@@ -215,7 +265,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       vidSec.columns[0].widgets = [video];
       sections.push(vidSec);
     }
-  } else if (blackFold && hero) {
+  } else if (productFold && hero) {
     const fold = createSection(2);
     fold.layout = "full";
     fold.contentWidth = 1200;
@@ -226,7 +276,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     };
     fold.columns[0].widthPercent = { desktop: 58, tablet: 100, mobile: 100 };
     fold.columns[1].widthPercent = { desktop: 42, tablet: 100, mobile: 100 };
-    fold.columns[0].widgets = [heroImageWidget(hero, alt, offer)];
+    fold.columns[0].widgets = [heroImageWidget(hero, alt, cookieType ? "" : offer)];
     fold.columns[1].widgets = copyWidgets;
     sections.push(fold);
     if (extraPhotos.length) {
@@ -239,9 +289,45 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       gallery.columns[0].widgets = extraPhotos;
       sections.push(gallery);
     }
+  } else if (!white) {
+    const article = resolveHealthArticle({
+      content,
+      productName: alt,
+      language: source.language || asString(content.language) || "pt-BR",
+      salesText: asString(content.salesText),
+      ctaText: cta,
+    });
+    const stacked: WidgetNode[] = [];
+    if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
+    if (videoUrl) {
+      const video = createWidget("video");
+      video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
+      stacked.push(video);
+    }
+    stacked.push(foldHeading(article.headline, "left"));
+    const parts = [
+      `<p>${escapeHtml(article.intro)}</p>`,
+      ...article.pillars.map((p) => `<p><strong>${escapeHtml(p.title)}</strong><br />${escapeHtml(p.body)}</p>`),
+      `<p>${escapeHtml(article.productNote)}</p>`,
+    ];
+    stacked.push(foldCopy(parts.join("")));
+    if (!cookieType && cta && offer) {
+      const button = createWidget("button");
+      button.content = { ...button.content, text: article.ctaLabel || cta, href: offer, target: "_self" };
+      stacked.push(button);
+    }
+    stacked.push(...extraPhotos);
+    const section = createSection(1);
+    section.styles = {
+      ...section.styles,
+      padding: { desktop: { top: 28, right: 20, bottom: 48, left: 20, unit: "px" } },
+      background: "#ffffff",
+    };
+    section.columns[0].widgets = stacked;
+    if (stacked.length) sections.push(section);
   } else {
     const stacked: WidgetNode[] = [];
-    if (hero) stacked.push(heroImageWidget(hero, alt, offer));
+    if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
     stacked.push(...copyWidgets, ...extraPhotos);
     const section = createSection(1);
     section.styles = {
@@ -270,7 +356,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     sections,
     settings: {
       background: "#ffffff",
-      maxContentWidth: mirrorFold.length > 80 ? 1200 : blackFold ? 1140 : 860,
+      maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : 860,
     },
     updatedAt: Date.now(),
   };
@@ -295,6 +381,9 @@ export function bakePublicOfferHrefs(
   const href = trackHref.trim() || affiliateHref.trim();
   const policy = policyHref.trim();
   const affiliate = affiliateHref.trim();
+  const cookieGate = clone.sections.some((section) =>
+    section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
+  );
   for (const section of clone.sections) {
     for (const column of section.columns) {
       for (const widget of column.widgets) {
@@ -304,11 +393,14 @@ export function bakePublicOfferHrefs(
             code: widget.content.code.split(CLICKORA_MIRROR_TRACK_MARKER).join(href || CLICKORA_MIRROR_TRACK_MARKER),
           };
         }
-        if (href && widget.type === "image") {
+        if (href && widget.type === "image" && !cookieGate) {
           const link = asString(widget.content.link);
           if (!link || link === "#" || (affiliate && comparableUrl(link) === comparableUrl(affiliate))) {
             widget.content = { ...widget.content, link: href };
           }
+        }
+        if (cookieGate && widget.type === "image") {
+          widget.content = { ...widget.content, link: "" };
         }
         if (policy && widget.type === "cookieBanner") {
           widget.content = { ...widget.content, policyUrl: policy };
@@ -317,6 +409,13 @@ export function bakePublicOfferHrefs(
     }
   }
   if (href) pointOfferButtonsAt(clone, href, affiliate || undefined);
+  if (cookieGate) {
+    for (const section of clone.sections) {
+      for (const column of section.columns) {
+        column.widgets = column.widgets.filter((widget) => widget.type !== "button");
+      }
+    }
+  }
   return clone;
 }
 

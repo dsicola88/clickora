@@ -199,7 +199,25 @@ export async function fetchRenderedPageBundle(
           const asAttr = (el.getAttribute("as") || "").toLowerCase();
           if (asAttr === "script") return;
           /** Mantém stylesheet, icon, preconnect, preload font. */
-          if (rel.includes("stylesheet") || rel === "preconnect" || rel === "preload" || rel.includes("icon") || !rel) {
+          if (rel.includes("stylesheet")) {
+            const href = el.href || "";
+            let dumped = "";
+            try {
+              for (const sheet of document.styleSheets) {
+                if (href && sheet.href === href) {
+                  dumped = [...sheet.cssRules].map((r) => r.cssText).join("\\n");
+                  break;
+                }
+              }
+            } catch (_) {}
+            if (dumped.length > 40) {
+              parts.push("<style data-clickora-css=\\"1\\">" + dumped + "</style>");
+              return;
+            }
+            parts.push(el.outerHTML);
+            return;
+          }
+          if (rel === "preconnect" || rel === "preload" || rel.includes("icon") || !rel) {
             parts.push(el.outerHTML);
             return;
           }

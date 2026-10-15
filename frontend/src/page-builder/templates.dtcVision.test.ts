@@ -80,7 +80,8 @@ describe("presell-dtc-vision template (Visivra ponta a ponta)", () => {
   it("cookieBanner modal e botão com ícone têm defaults editáveis", () => {
     const cookie = createWidget("cookieBanner");
     expect(cookie.content.variant).toBe("modal");
-    expect(String(cookie.content.declineLabel)).toMatch(/Manage Preferences/i);
+    expect(String(cookie.content.declineLabel)).toMatch(/Close/i);
+    expect(cookie.content.followLanguage).toBe(false);
 
     const btn = createWidget("button");
     expect(btn.type).toBe("button");

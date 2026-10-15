@@ -66,8 +66,8 @@ describe("CookieConsentModal", () => {
     expect(sheet.className).toContain("items-center");
     expect(screen.getByTestId("presell-cookie-card")).toBeTruthy();
     expect(screen.getByTestId("presell-cookie-backdrop").tagName).toBe("DIV");
-    expect(screen.getByRole("heading", { name: "We Value Your Privacy" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Accept All" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Cookie Policy" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Allow" })).toBeTruthy();
   });
 });
 

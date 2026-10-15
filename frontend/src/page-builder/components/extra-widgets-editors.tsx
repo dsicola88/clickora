@@ -5,7 +5,8 @@ import {
   TextField,
   TextareaField,
 } from "./PropertyControls";
-import { cookieBannerFollowsPageLanguage } from "../cookieBannerCopy";
+import { cookieBannerFollowsPageLanguage, resolveCookieBannerCopy } from "../cookieBannerCopy";
+import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 
 function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
@@ -27,18 +28,31 @@ export function CookieBannerContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const pageLanguage = usePresellPublicLocale();
   const followsLanguage = cookieBannerFollowsPageLanguage({
     title: typeof c.title === "string" ? c.title : undefined,
     followLanguage: typeof c.followLanguage === "boolean" ? c.followLanguage : undefined,
   });
+  const copy = resolveCookieBannerCopy(
+    {
+      title: typeof c.title === "string" ? c.title : undefined,
+      body: typeof c.body === "string" ? c.body : undefined,
+      allowLabel: typeof c.allowLabel === "string" ? c.allowLabel : undefined,
+      declineLabel: typeof c.declineLabel === "string" ? c.declineLabel : undefined,
+      policyLabel: typeof c.policyLabel === "string" ? c.policyLabel : undefined,
+      footerNote: typeof c.footerNote === "string" ? c.footerNote : undefined,
+      followLanguage: typeof c.followLanguage === "boolean" ? c.followLanguage : undefined,
+    },
+    pageLanguage,
+  );
   return (
     <Section title="Consentimento de cookies">
       <SelectField
         label="Textos"
         value={followsLanguage ? "locale" : "custom"}
         options={[
+          { value: "custom", label: "Texto próprio (editável)" },
           { value: "locale", label: "Seguir o idioma da página" },
-          { value: "custom", label: "Texto próprio" },
         ]}
         onChange={(v) => setContent({ followLanguage: v === "locale" })}
       />
@@ -51,40 +65,37 @@ export function CookieBannerContentEditor({
         ]}
         onChange={(v) => setContent({ variant: v })}
       />
-      {followsLanguage ? (
-        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          Título, texto, botões e política seguem o idioma da página. Mude para «Texto próprio» para escrever à mão.
-        </p>
-      ) : (
-        <>
-          <TextField
-            label="Título"
-            value={(c.title as string) ?? ""}
-            onChange={(v) => setContent({ title: v, followLanguage: false })}
-          />
-          <TextareaField
-            label="Texto (antes do link da política)"
-            value={(c.body as string) ?? ""}
-            onChange={(v) => setContent({ body: v, followLanguage: false })}
-            rows={4}
-          />
-          <TextField
-            label="Botão aceitar"
-            value={(c.allowLabel as string) ?? "ACCEPT ALL"}
-            onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
-          />
-          <TextField
-            label="Preferências / recusar"
-            value={(c.declineLabel as string) ?? "Manage Preferences"}
-            onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
-          />
-          <TextField
-            label="Texto do link da política"
-            value={(c.policyLabel as string) ?? "Cookie Policy"}
-            onChange={(v) => setContent({ policyLabel: v, followLanguage: false })}
-          />
-        </>
-      )}
+      <TextField
+        label="Título"
+        value={copy.title}
+        onChange={(v) => setContent({ title: v, followLanguage: false })}
+      />
+      <TextareaField
+        label="Texto (antes do link da política)"
+        value={copy.body}
+        onChange={(v) => setContent({ body: v, followLanguage: false })}
+        rows={4}
+      />
+      <TextField
+        label="Botão aceitar"
+        value={copy.allowLabel}
+        onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
+      />
+      <TextField
+        label="Botão fechar"
+        value={copy.declineLabel}
+        onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
+      />
+      <TextField
+        label="Texto do link da política"
+        value={copy.policyLabel}
+        onChange={(v) => setContent({ policyLabel: v, followLanguage: false })}
+      />
+      <TextField
+        label="Rodapé do aviso"
+        value={copy.footerNote}
+        onChange={(v) => setContent({ footerNote: v, followLanguage: false })}
+      />
       <TextField
         label="URL da política"
         value={(c.policyUrl as string) ?? "/privacidade"}
@@ -92,7 +103,7 @@ export function CookieBannerContentEditor({
         placeholder="/privacidade"
       />
       <TextField
-        label="Link da oferta (Accept All na página publicada)"
+        label="Link da oferta (Permitir / Fechar na página publicada)"
         value={(c.offerHref as string) ?? ""}
         onChange={(v) => setContent({ offerHref: v })}
         placeholder="https://… ou deixe o hoplink da presell"
@@ -106,10 +117,24 @@ export function CookieBannerContentEditor({
         label="Fundo escurecido (modal)"
         value={c.backdrop === false ? "off" : "on"}
         options={[
-          { value: "on", label: "Sim (blur)" },
+          { value: "on", label: "Sim" },
           { value: "off", label: "Não" },
         ]}
         onChange={(v) => setContent({ backdrop: v === "on" })}
+      />
+      <NumberField
+        label="Escuridão do fundo (%)"
+        value={typeof c.overlayOpacity === "number" ? c.overlayOpacity : 28}
+        onChange={(v) => setContent({ overlayOpacity: v })}
+        min={0}
+        max={70}
+      />
+      <NumberField
+        label="Desfoque do fundo (px)"
+        value={typeof c.overlayBlur === "number" ? c.overlayBlur : 2}
+        onChange={(v) => setContent({ overlayBlur: v })}
+        min={0}
+        max={12}
       />
       <SelectField
         label="Posição (só canto)"
@@ -126,8 +151,8 @@ export function CookieBannerContentEditor({
         onChange={(v) => setContent({ storageKey: v })}
       />
       <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-        No editor o aviso não cobre o canvas. Na página publicada, se o link da oferta estiver preenchido (nicho
-        black), Accept All e a política vão para esse URL rastreado — sem fuga. Sem link, o aviso só fecha.
+        Título, corpo, botões e rodapé editam-se aqui ou no canvas. O fundo escuro só aparece na página publicada.
+        Permitir e Fechar seguem o hoplink rastreado; o link da política continua a ser a política.
       </p>
     </Section>
   );
