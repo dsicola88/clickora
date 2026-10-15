@@ -1,4 +1,5 @@
 import type { BrowserRenderStatus } from "./presellFoldBrowser";
+import type { PresellGenerationNiche } from "./presellGenerationNiche";
 
 /** Modo explícito. `mirror` não é uma cópia 1:1: o visitante não executa o JavaScript da origem. */
 export type PresellImportMode = "mirror" | "template" | "incomplete";
@@ -46,8 +47,10 @@ export function classifyPresellImport(args: {
   headingCount?: number;
   hasPrice?: boolean;
   hasSourceCta?: boolean;
+  generationNiche?: PresellGenerationNiche;
 }): ClassifiedPresellImport {
   const notes: string[] = [];
+  const niche = args.generationNiche ?? "black";
   const titleOk = !isGenericImportTitle(args.title);
   const hasImages = args.imageCount > 0;
   const hasCopy = (args.sourceTextChars ?? args.salesChars) >= SOURCE_TEXT_MIN;
@@ -71,8 +74,21 @@ export function classifyPresellImport(args: {
 
   if (hasMirror) {
     notes.push(
-      "A página original não é copiada. A presell fica com o nome, as imagens e só o preço que estava escrito. Não se apresenta como o site da marca.",
+      niche === "white"
+        ? "Modo white: espelho visual da sales page (sem JavaScript da origem). CTAs rastreados apontam para o teu hoplink."
+        : "Modo black: espelho visual da sales page + o tipo escolhido (cookies, desconto, review, fantasma…). CTAs rastreados no hoplink.",
     );
+  } else if (niche === "black") {
+    notes.push(
+      "Modo black: hero com imagens e textos lidos na origem; overlays de conversão conforme o tipo. Sem espelho Playwright — instale Chromium ou tente outro URL.",
+    );
+  } else {
+    notes.push("Modo white: textos e subtítulo extraídos da página; espelho indisponível nesta importação.");
+  }
+  if (niche === "black") {
+    notes.push("Black: escolha só o tipo (cookie, desconto, VSL…) — a aparência segue o produto na medida do import.");
+  } else {
+    notes.push("White: copy e políticas alinhadas ao produtor; tipos agressivos ocultos no assistente.");
   }
   const hasOfferSignal = Boolean(args.hasPrice || args.hasSourceCta || hasCopy || hasMirror);
   if (titleOk && (hasImages || hasOfferSignal)) {

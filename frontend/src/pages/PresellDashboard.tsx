@@ -72,6 +72,12 @@ import {
   usePresellAnalyticsDashboardQuery,
 } from "@/components/presell/PresellScriptAnalyticsPanel";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
+import {
+  PRESELL_NICHE_OPTIONS,
+  applyImportedPolicyToSettings,
+  coercePresellTypeForNiche,
+  type PresellGenerationNiche,
+} from "@/lib/presellGenerationNiche";
 import { getPresellTypeLabel, getPresellTypeOption } from "@/lib/presellTypeOptions";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
 import {
@@ -265,6 +271,7 @@ export default function PresellDashboard() {
     pageName: "",
     pageSlug: "",
     presellType: "cookies",
+    generationNiche: "black" as PresellGenerationNiche,
     language: "pt-BR",
     /** URL da página de vendas que o servidor importa (clone do conteúdo). */
     productLink: "",
@@ -482,7 +489,7 @@ export default function PresellDashboard() {
           toast.error("Documento do editor em falta.");
           return;
         }
-        html = exportPageToHtml(doc);
+        html = exportPageToHtml(doc, data.language);
       } else {
         html = buildPresellStandaloneHtml(data, {
           apiBase: getTrackApiBaseUrl(),
@@ -519,7 +526,7 @@ export default function PresellDashboard() {
           toast.error("Documento do editor em falta.");
           return;
         }
-        html = exportPageToHtml(doc);
+        html = exportPageToHtml(doc, data.language);
       } else {
         html = buildPresellStandaloneHtml(data, {
           apiBase: getTrackApiBaseUrl(),
@@ -639,6 +646,7 @@ export default function PresellDashboard() {
         product_url: importUrl,
         language: formData.language,
         affiliate_link: formData.affiliateLink.trim(),
+        generation_niche: formData.generationNiche,
       });
 
       if (error || !data) {
@@ -682,6 +690,8 @@ export default function PresellDashboard() {
           productName: data.product_name,
           productImages: data.images,
           sourceUrl: data.source_url,
+          generationNiche: data.generation_niche,
+          policyUrls: data.policy_urls,
           /** Espelho visual para landings escuras (detetado no import). */
           storefrontTheme: data.storefront_theme,
           storefrontHeroTint: data.storefront_hero_tint,
@@ -707,7 +717,7 @@ export default function PresellDashboard() {
               }
             : {}),
         },
-        settings: buildPresellSettingsPayload(),
+        settings: applyImportedPolicyToSettings(buildPresellSettingsPayload(), data.policy_urls),
         status: data.publishable === true ? "published" : "draft",
       });
       if (data.import_notes?.length) {
@@ -898,6 +908,43 @@ export default function PresellDashboard() {
                   <p className="text-xs text-muted-foreground">Só para te organizares na lista — não é o link do anúncio.</p>
                 </div>
 
+                <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
+                  <div>
+                    <Label className="text-foreground">Gerador de presell — nicho</Label>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      Escolhe como a IA lê o link do produto. Black mantém o funil agressivo; White aproxima-se da
+                      sales page (texto, políticas e espelho visual).
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {PRESELL_NICHE_OPTIONS.map((opt) => {
+                      const active = formData.generationNiche === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              generationNiche: opt.id,
+                              presellType: coercePresellTypeForNiche(prev.presellType, opt.id),
+                            }))
+                          }
+                          className={cn(
+                            "rounded-lg border px-3 py-3 text-left transition-colors",
+                            active
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                              : "border-border/70 bg-card hover:border-primary/40",
+                          )}
+                        >
+                          <p className="text-sm font-semibold text-foreground">{opt.name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{opt.description}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="productLink">1) Página do produto a clonar</Label>
                   <Input
@@ -963,6 +1010,7 @@ export default function PresellDashboard() {
                     id="presell-type-select"
                     value={formData.presellType}
                     onValueChange={(v) => updateField("presellType", v)}
+                    generationNiche={formData.generationNiche}
                   />
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     Abre a lista, usa a <span className="font-medium text-foreground/80">pesquisa</span> para filtrar (ex. «VSL»,
@@ -1228,6 +1276,7 @@ export default function PresellDashboard() {
                     const { data, error } = await presellService.importFromUrl({
                       product_url: url,
                       language: formData.language,
+                      generation_niche: formData.generationNiche,
                       affiliate_link: formData.affiliateLink.trim() || undefined,
                     });
                     if (error || !data) {
@@ -1492,6 +1541,16 @@ export default function PresellDashboard() {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
+                      {canWritePresells ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/presell/builder/${page.id}`)}
+                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="Editor visual — imagens, textos e posições"
+                        >
+                          <LayoutGrid className="h-4 w-4" />
+                        </button>
+                      ) : null}
                       {canWritePresells ? (
                         <button
                           type="button"

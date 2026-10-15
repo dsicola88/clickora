@@ -353,4 +353,70 @@ describe("presell compliance engine", () => {
     const ev = evaluateCompliance({ signals: baseSignals(), destination: null });
     assert.equal(result("DT-002", ev).status, "NOT_CHECKED");
   });
+
+  it("counts visible editor text, images and affiliate disclosure", () => {
+    const article = [
+      "Esta página é um conteúdo informativo independente sobre Tea.",
+      "Não somos o fabricante, não processamos pagamentos e não substituímos a ficha técnica.",
+      "O que deve confirmar no site oficial: identidade do vendedor, preço, envio e garantia.",
+      "Composição e avisos devem ser lidos no site e no rótulo do fabricante.",
+      "Use o botão para abrir a página oficial da oferta e verificar todas as condições antes de comprar.",
+      "Podemos receber comissão por indicação, sem custo extra para o leitor.",
+      "Confirme o contacto, o prazo de entrega e a política de devolução no destino.",
+      "Esta análise existe para comparar o que está escrito com o que o vendedor mostra.",
+    ].join(" ");
+    const signals = extractPresellSignals({
+      title: "Tea",
+      type: "builder",
+      language: "pt-BR",
+      content: {
+        affiliateLink: "https://example.com/oferta-preview",
+        pageDocument: {
+          sections: [
+            {
+              columns: [
+                {
+                  widgets: [
+                    { type: "image", content: { src: "https://upload.wikimedia.org/tea.jpg" } },
+                    { type: "heading", content: { text: "Tea — edição real" } },
+                    { type: "text", content: { html: `<p>${article}</p>` } },
+                    { type: "button", content: { text: "Continuar para a página oficial da oferta" } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      settings: {
+        businessName: "Preview E2E",
+        contactEmail: "preview-e2e-1510@clickora.test",
+      },
+    });
+    assert.ok(signals.wordCount >= 80, `words=${signals.wordCount}`);
+    assert.equal(signals.imageCount, 1);
+    assert.equal(signals.hasAffiliateDisclosure, true);
+    assert.equal(isThinBridgePage(signals), false);
+    const ev = evaluateCompliance({ signals, destination: destOk() });
+    assert.notEqual(result("OC-001", ev).status, "FAIL");
+    assert.notEqual(result("OC-002", ev).status, "FAIL");
+    assert.equal(result("CT-001", ev).status, "PASS");
+    assert.equal(result("CT-002", ev).status, "PASS");
+    assert.equal(result("CT-003", ev).status, "PASS");
+  });
+
+  it("negated manufacturer disclaimer does not fail CT-003", () => {
+    const denied = evaluateCompliance({
+      signals: baseSignals({
+        claimsText: "Não somos o fabricante. Esta página não é o site oficial do fabricante.",
+      }),
+      destination: destOk(),
+    });
+    assert.equal(result("CT-003", denied).status, "PASS");
+    const claimed = evaluateCompliance({
+      signals: baseSignals({ claimsText: "Somos o fabricante oficial deste produto." }),
+      destination: destOk(),
+    });
+    assert.equal(result("CT-003", claimed).status, "FAIL");
+  });
 });

@@ -3,9 +3,13 @@
  * de saúde inventadas (bloqueio típico no Google Ads).
  */
 
+import { HEALTH_ARTICLE_PACKS } from "./presellHealthArticle.locales";
+import { normalizePresellLocale } from "./presellUiStrings";
+
 export type HealthArticlePillar = { title: string; body: string };
 
 export type HealthArticle = {
+  kicker: string;
   headline: string;
   intro: string;
   pillarsTitle: string;
@@ -34,33 +38,49 @@ export function isThinBridgeSalesText(salesText: string | null | undefined): boo
   return uniqueLines.size > 0 && uniqueLines.size <= 4 && t.length < 420;
 }
 
+const FALLBACK_PRODUCT_NAME: Record<ReturnType<typeof normalizePresellLocale>, string> = {
+  en: "this product",
+  es: "este producto",
+  "pt-BR": "este produto",
+  de: "dieses Produkt",
+  fr: "ce produit",
+  it: "questo prodotto",
+  pl: "ten produkt",
+  tr: "bu ürün",
+  hi: "यह उत्पाद",
+  ar: "هذا المنتج",
+  nl: "dit product",
+  sv: "denna produkt",
+  no: "dette produktet",
+  da: "dette produkt",
+};
+
+function fillName(template: string, name: string): string {
+  return template.replaceAll("{name}", name);
+}
+
 /**
- * Artigo portal PT-BR: só factos verificáveis sobre o papel da página.
+ * Artigo portal no idioma da página: só factos verificáveis sobre o papel da página.
  * Não inventa composição, benefícios clínicos nem “especialistas”.
  */
-export function buildPtBrHealthPortalArticle(productName: string): HealthArticle {
-  const name = productName.trim() || "este produto";
+export function buildHealthPortalArticle(productName: string, language: string | undefined): HealthArticle {
+  const locale = normalizePresellLocale(language);
+  const pack = HEALTH_ARTICLE_PACKS[locale];
+  const safeName = productName.trim() || FALLBACK_PRODUCT_NAME[locale];
   return {
-    headline: `Como avaliar a oferta de ${name} com transparência`,
-    intro: `Esta página é um conteúdo informativo independente sobre ${name}. Não somos o fabricante, não processamos pagamentos e não substituímos a ficha técnica, o rótulo nem o atendimento do vendedor. O objetivo é ajudar o visitante a decidir com calma antes de seguir para o site da oferta.`,
-    pillarsTitle: "O que deve confirmar no site oficial",
-    pillars: [
-      {
-        title: "Identidade do vendedor",
-        body: "Confirme o nome comercial, contacto e políticas publicadas no destino da oferta antes de concluir qualquer compra.",
-      },
-      {
-        title: "Preço, envio e garantia",
-        body: "Valores, prazos, devoluções e condições de pagamento só são válidos quando apresentados no checkout oficial do comerciante.",
-      },
-      {
-        title: "Composição e avisos do produto",
-        body: "Ingredientes, modo de uso e avisos de saúde devem ser lidos na página e no rótulo do fabricante — esta página não reproduz nem inventa essas informações.",
-      },
-    ],
-    productNote: `Se quiser conhecer a proposta comercial de ${name}, utilize o botão abaixo para abrir a página oficial da oferta. Podemos receber comissão por indicação caso uma compra seja efetuada — sem custo adicional para si.`,
-    ctaLabel: "Continuar para a página oficial da oferta",
+    kicker: pack.kicker,
+    headline: fillName(pack.headline, safeName),
+    intro: fillName(pack.intro, safeName),
+    pillarsTitle: pack.pillarsTitle,
+    pillars: pack.pillars.map((p) => ({ title: p.title, body: p.body })),
+    productNote: fillName(pack.productNote, safeName),
+    ctaLabel: pack.ctaLabel,
   };
+}
+
+/** Compatível com o template português já usado nos testes. */
+export function buildPtBrHealthPortalArticle(productName: string): HealthArticle {
+  return buildHealthPortalArticle(productName, "pt-BR");
 }
 
 export function healthArticleToSalesText(article: HealthArticle): string {
@@ -116,7 +136,7 @@ export function resolveHealthArticle(args: {
   const intro = asString(c.articleIntro || c.healthIntro);
   const pillarsTitle = asString(c.articlePillarsTitle || c.healthPillarsTitle);
   const productNote = asString(c.articleProductNote || c.healthProductNote);
-  const base = buildPtBrHealthPortalArticle(args.productName);
+  const base = buildHealthPortalArticle(args.productName, args.language);
 
   const structuredOk =
     headline &&
@@ -133,6 +153,7 @@ export function resolveHealthArticle(args: {
 
   if (structuredOk && pillars) {
     return {
+      kicker: base.kicker,
       headline,
       intro,
       pillarsTitle: pillarsTitle || base.pillarsTitle,

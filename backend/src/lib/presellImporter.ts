@@ -20,13 +20,25 @@ import { safeImportFetch } from "./presellSafeFetch";
 export { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImportSsrf";
 import { buildMirrorSrcDocFromParts, finalizeMirrorSrcDocForImport } from "./presellMirrorSnapshot";
 import { rehostMirrorImagesToR2 } from "./presellMirrorRehost";
+import {
+  normalizePresellGenerationNiche,
+  type PresellGenerationNiche,
+} from "./presellGenerationNiche";
 
 type ImportPresellInput = {
   productUrl: string;
   language?: string;
   affiliateLink?: string;
+  generationNiche?: PresellGenerationNiche | string;
   /** Para rehost de imagens do espelho no R2 (opcional). */
   userId?: string;
+};
+
+export type ImportedPolicyUrls = {
+  privacy?: string;
+  terms?: string;
+  refund?: string;
+  shipping?: string;
 };
 
 export type ImportStorefrontTheme = "dark_commerce" | "default";
@@ -74,6 +86,8 @@ export type ImportPresellResult = {
    * Links do mesmo host que o hoplink são trocados por marcador substituível no cliente pelo `/track/r/`.
    */
   import_mirror_src_doc?: string;
+  generation_niche: PresellGenerationNiche;
+  policy_urls: ImportedPolicyUrls;
 };
 
 const DEFAULT_UA =
@@ -1263,6 +1277,70 @@ ${locale.urgency}`.trim();
   return template;
 }
 
+function resolveImportHref(href: string, baseUrl: string): string | null {
+  try {
+    const u = new URL(href.trim(), baseUrl);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+const POLICY_LINK_HINTS: { key: keyof ImportedPolicyUrls; re: RegExp }[] = [
+  {
+    key: "privacy",
+    re: /\b(privacy|privacidade|política de privacidade|privacy policy|datenschutz)\b/i,
+  },
+  {
+    key: "terms",
+    re: /\b(terms of (service|use)|termos de uso|termos e condi|terms & conditions|conditions générales)\b/i,
+  },
+  {
+    key: "refund",
+    re: /\b(refund|return policy|money.?back|devolu|reembolso|política de devolu)\b/i,
+  },
+  {
+    key: "shipping",
+    re: /\b(shipping|envio|entrega|delivery|frete)\b/i,
+  },
+];
+
+/** Links de políticas visíveis na sales page (modo white). */
+export function extractPolicyUrlsFromHtml(html: string, pageUrl: string): ImportedPolicyUrls {
+  const out: ImportedPolicyUrls = {};
+  const re = /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const href = m[1]?.trim();
+    if (!href || href.startsWith("#") || /^javascript:/i.test(href)) continue;
+    const label = stripTags(m[2] || "").replace(/\s+/g, " ").trim();
+    if (label.length < 4 || label.length > 120) continue;
+    const abs = resolveImportHref(href, pageUrl);
+    if (!abs) continue;
+    for (const { key, re: hint } of POLICY_LINK_HINTS) {
+      if (out[key]) continue;
+      if (hint.test(label) || hint.test(href)) {
+        out[key] = abs;
+      }
+    }
+  }
+  return out;
+}
+
+function extractCommercialCtaLabel(html: string, language: string): string | null {
+  const re = /<(?:a|button)\b[^>]*>([\s\S]{2,120}?)<\/(?:a|button)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const label = stripTags(m[1] || "").replace(/\s+/g, " ").trim();
+    if (label.length < 4 || label.length > 64) continue;
+    if (NOISE_P.test(label) || isPlaceholderHeading(label)) continue;
+    if (sourceHasCommercialCta(label)) return label;
+  }
+  void language;
+  return null;
+}
+
 function htmlLooksLikeWrongProduct(html: string, pageUrl: string): boolean {
   let host: string;
   try {
@@ -1287,6 +1365,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   assertExternalProductUrl(input.productUrl);
 
   const language = input.language || "pt-BR";
+  const generationNiche = normalizePresellGenerationNiche(input.generationNiche);
   const acceptLang = acceptLanguageForPresellImport(language);
 
   let fetched: Awaited<ReturnType<typeof safeImportFetch>>;
@@ -1451,7 +1530,49 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   }
   const video_url = extractVideoUrl(foldHtml, finalUrl);
 
-  const sales_text = buildOriginalPresellCopy({ language, productName, price });
+  const metaDescription =
+    extractMeta(html, "description") || extractMeta(html, "og:description") || "";
+  const listItems = extractListItemsFromHtml(foldHtml);
+  const bodyParagraphs = extractParagraphs(html.slice(0, Math.min(html.length, 280_000)));
+  const heroHeading = headings[0] || h1 || productName;
+
+  let sales_text: string;
+  let subtitle: string;
+  let cta_text: string;
+
+  const sourceChars = bodyParagraphs.join(" ").length;
+  const fromPageCta = extractCommercialCtaLabel(foldHtml, language);
+  subtitle = pickSubtitle(headings, heroHeading, metaDescription, locale, titleTag || ogTitle || "");
+  cta_text = fromPageCta || locale.cta;
+
+  if (sourceChars >= 900 || bodyParagraphs.length >= 5) {
+    sales_text = buildRichSalesText(bodyParagraphs, locale, price, language);
+  } else if (sourceChars >= 120 || listItems.length >= 2 || paragraphs.length >= 2) {
+    sales_text = buildCompactSalesText({
+      language,
+      productName,
+      description: metaDescription,
+      price,
+      paragraphs: bodyParagraphs.length ? bodyParagraphs : paragraphs,
+      listItems,
+    });
+  } else if (generationNiche === "black") {
+    sales_text = buildOriginalPresellCopy({ language, productName, price });
+    if (subtitle === locale.subtitleFallback && metaDescription.length > 20) {
+      subtitle = firstSentences(metaDescription, 220);
+    }
+  } else {
+    sales_text = buildCompactSalesText({
+      language,
+      productName,
+      description: metaDescription,
+      price,
+      paragraphs: bodyParagraphs.length ? bodyParagraphs : paragraphs,
+      listItems,
+    });
+  }
+
+  const policy_urls = extractPolicyUrlsFromHtml(html, finalUrl);
 
   const discount = extractDiscountSignals(html, language);
 
@@ -1459,12 +1580,13 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     mirrorChars: import_mirror_src_doc?.length ?? 0,
     imageCount: images.length,
     salesChars: sales_text.length,
-    sourceTextChars: paragraphs.join(" ").length,
+    sourceTextChars: bodyParagraphs.join(" ").length,
     headingCount: headings.length,
     hasPrice: price.trim().length > 0,
     hasSourceCta: sourceHasCommercialCta(htmlToSearchableText(html)),
     title: productName,
     browser: browserStatus,
+    generationNiche,
   });
   const import_notes = browserDetail ? [...classified.notes, browserDetail] : classified.notes;
 
@@ -1472,12 +1594,17 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   const tintedLightBgHits = countTintedLightBackgroundHits(foldSampleForTheme);
   const storefront_theme = resolveImportStorefrontTheme(html, foldSampleForTheme, tintedLightBgHits);
 
+  const import_mode: PresellImportMode =
+    (import_mirror_src_doc?.length ?? 0) >= 800 && classified.publishable
+      ? "mirror"
+      : classified.mode;
+
   return {
     product_name: productName,
     title: productName,
-    subtitle: locale.subtitleFallback,
+    subtitle,
     sales_text,
-    cta_text: locale.cta,
+    cta_text,
     images,
     source_url: finalUrl,
     affiliate_link: input.affiliateLink || finalUrl,
@@ -1487,7 +1614,10 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     ...discount,
     ...(video_url ? { video_url } : {}),
     import_notes,
-    import_mode: classified.mode,
+    import_mode,
     publishable: classified.publishable,
+    generation_niche: generationNiche,
+    policy_urls,
+    ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
   };
 }

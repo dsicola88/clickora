@@ -11,18 +11,31 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { getPresellTypeOption, PRESELL_TYPE_GROUPS } from "@/lib/presellTypeOptions";
+import { getPresellTypeOption } from "@/lib/presellTypeOptions";
+import {
+  presellTypeGroupsForNiche,
+  type PresellGenerationNiche,
+} from "@/lib/presellGenerationNiche";
 
 type Props = {
   value: string;
   onValueChange: (id: string) => void;
   id?: string;
   disabled?: boolean;
+  /** Filtra tipos agressivos no modo white. */
+  generationNiche?: PresellGenerationNiche;
 };
 
-export function PresellTypeCombobox({ value, onValueChange, id, disabled }: Props) {
+export function PresellTypeCombobox({
+  value,
+  onValueChange,
+  id,
+  disabled,
+  generationNiche = "black",
+}: Props) {
   const [open, setOpen] = useState(false);
   const selected = getPresellTypeOption(value);
+  const groups = presellTypeGroupsForNiche(generationNiche);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -61,7 +74,7 @@ export function PresellTypeCombobox({ value, onValueChange, id, disabled }: Prop
           <CommandInput placeholder="Pesquisar: VSL, cookies, desconto, idade…" className="h-11" />
           <CommandList className="max-h-[min(22rem,60vh)]">
             <CommandEmpty>Nenhum tipo corresponde à pesquisa.</CommandEmpty>
-            {PRESELL_TYPE_GROUPS.map((group) => (
+            {groups.map((group) => (
               <CommandGroup key={group.id} heading={group.label}>
                 {group.types.map((t) => (
                   <CommandItem

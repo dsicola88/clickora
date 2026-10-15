@@ -104,6 +104,7 @@ async function resolveDefaultVerifiedCustomDomainIdForUser(userId: string): Prom
 const importFromUrlSchema = z.object({
   product_url: z.preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().url()),
   language: z.string().optional(),
+  generation_niche: z.enum(["black", "white"]).optional(),
   /** `""` do cliente não pode falhar `.url().optional()`. */
   affiliate_link: z.preprocess(
     (v) => (v === "" || v === null ? undefined : v),
@@ -645,6 +646,7 @@ export const presellController = {
         productUrl: parsed.data.product_url,
         language: parsed.data.language,
         affiliateLink: parsed.data.affiliate_link,
+        generationNiche: parsed.data.generation_niche,
         userId: billingUserId(req),
       });
       return res.json(data);

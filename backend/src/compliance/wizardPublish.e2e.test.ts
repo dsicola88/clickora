@@ -61,6 +61,46 @@ describe("wizard E2E publish gate", () => {
     assert.equal(canPublishForAds(ev.gate), true, `gate=${ev.gate}`);
   });
 
+  it("presell builder (pageDocument) passa gate com texto visível no editor", () => {
+    const article =
+      "Conteúdo informativo independente sobre Tea. Não somos o fabricante. " +
+      "Podemos receber comissão por indicação. Confirme preço e garantia no site oficial. " +
+      "Compare alternativas e leia o rótulo antes de comprar.";
+    const signals = extractPresellSignals({
+      title: "Tea",
+      type: "builder",
+      language: "pt-BR",
+      content: {
+        affiliateLink: "https://en.wikipedia.org/wiki/Tea",
+        pageDocument: {
+          sections: [
+            {
+              columns: [
+                {
+                  widgets: [
+                    { type: "image", content: { src: "https://cdn.example/tea.jpg" } },
+                    { type: "heading", content: { text: "Tea — editor" } },
+                    { type: "text", content: { html: `<p>${article}</p>` } },
+                    { type: "button", content: { text: "Continuar para a oferta" } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      settings: {
+        businessName: "Operador Teste",
+        contactEmail: "ops@example.com",
+        privacyPolicyUrl: "/privacidade",
+      },
+    });
+    const ev = evaluateCompliance({ signals, destination: destOk });
+    assert.notEqual(resultStatus(ev, "OC-001"), "FAIL");
+    assert.equal(resultStatus(ev, "CT-001"), "PASS");
+    assert.equal(canPublishForAds(ev.gate), true, `gate=${ev.gate}`);
+  });
+
   it("título genérico / página ponte → blocked (rascunho correcto)", () => {
     const signals = extractPresellSignals({
       title: "Home",

@@ -28,6 +28,14 @@ import { getPresellTypeOption } from "@/lib/presellTypeOptions";
 import { PRESELL_CREATION_LANGUAGES, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { isDiscountPresellType, isVideoPresellType } from "@/lib/presellTypeMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { PresellReviewStage } from "@/components/presell/PresellReviewStage";
+import {
+  PRESELL_NICHE_OPTIONS,
+  applyImportedPolicyToSettings,
+  coercePresellTypeForNiche,
+  defaultAbPresellTypeB,
+  type PresellGenerationNiche,
+} from "@/lib/presellGenerationNiche";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -52,18 +60,6 @@ function slugFromTitle(title: string) {
   );
 }
 
-/** Segunda variante A/B — distinta da primeira, com foco em conversão. */
-function defaultAbTypeB(typeA: string): string {
-  if (typeA === "cookies") return "desconto";
-  if (typeA === "desconto") return "cookies";
-  if (typeA === "tsl") return "review";
-  if (typeA === "review") return "tsl";
-  if (typeA === "dtc") return "tsl";
-  if (typeA === "vsl") return "vsl_tsl";
-  if (typeA === "vsl_tsl") return "vsl";
-  return "tsl";
-}
-
 /**
  * Fluxo: Oferta → Campanha → Tipo/idioma → Tracking → Publicar.
  * Tipos iguais ao formulário completo (cookies, desconto, VSL, etc.).
@@ -85,6 +81,7 @@ export default function CreatePresellWizardPage() {
   const [trafficSource, setTrafficSource] = useState("Google Ads");
   const [country, setCountry] = useState("US");
   const [language, setLanguage] = useState<PresellLocaleKey>("pt-BR");
+  const [generationNiche, setGenerationNiche] = useState<PresellGenerationNiche>("black");
   const [presellType, setPresellType] = useState("cookies");
   const [enableAbTest, setEnableAbTest] = useState(false);
   const [abTypeB, setAbTypeB] = useState("desconto");
@@ -97,6 +94,7 @@ export default function CreatePresellWizardPage() {
   const [presellId, setPresellId] = useState<string | null>(null);
   const [presellIdB, setPresellIdB] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
+  const [reviewVariant, setReviewVariant] = useState<"a" | "b">("a");
   const [rotatorAdUrl, setRotatorAdUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish" | "ab" | "rotator">("idle");
@@ -148,6 +146,7 @@ export default function CreatePresellWizardPage() {
         product_url: productPage,
         language,
         affiliate_link: offer,
+        generation_niche: generationNiche,
       });
 
       const buildContent = (typeForPage: string) => {
@@ -177,6 +176,8 @@ export default function CreatePresellWizardPage() {
             productName: titleLooksWeak ? pageTitle : data.product_name || resolvedTitle,
             productImages: data.images,
             sourceUrl: data.source_url || productPage,
+            generationNiche: data.generation_niche ?? generationNiche,
+            policyUrls: data.policy_urls,
             storefrontTheme: data.storefront_theme,
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,
@@ -216,6 +217,7 @@ export default function CreatePresellWizardPage() {
             productName: titleSeed,
             productImages: [],
             sourceUrl: offer,
+            generationNiche,
           };
           if (isVideoPresellType(typeForPage) && manualYoutubeUrl.trim()) {
             const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
@@ -240,17 +242,21 @@ export default function CreatePresellWizardPage() {
           "Para publicar sem bloqueio no Google Ads, indique o nome real do operador e um e-mail de contacto válidos (sem dados inventados).",
         );
       }
-      const settings: Record<string, unknown> = {
-        cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-        privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-        termsUrl: "/termos",
-        businessName: operatorName,
-        contactEmail: operatorEmail,
-        ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
-        affiliateDisclosure:
-          "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si. Não somos o fabricante nem processamos o pagamento.",
-        minAge: minAge.trim() || "18",
-      };
+      const policyFromImport = imported.data?.policy_urls;
+      const settings: Record<string, unknown> = applyImportedPolicyToSettings(
+        {
+          cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+          privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+          termsUrl: "/termos",
+          businessName: operatorName,
+          contactEmail: operatorEmail,
+          ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
+          affiliateDisclosure:
+            "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si. Não somos o fabricante nem processamos o pagamento.",
+          minAge: minAge.trim() || "18",
+        },
+        policyFromImport,
+      );
 
       const a = buildContent(type);
       setGenPhase("publish");
@@ -284,7 +290,7 @@ export default function CreatePresellWizardPage() {
 
       if (enableAbTest && a.mirrorOk) {
         setGenPhase("ab");
-        const typeB = abTypeB === type ? defaultAbTypeB(type) : abTypeB;
+        const typeB = abTypeB === type ? defaultAbPresellTypeB(type, generationNiche) : abTypeB;
         const b = buildContent(typeB);
         const slugB = `${slugFromTitle(titleSeed)}-b-${Date.now().toString(36).slice(-4)}`;
         const { data: createdB, error: errB } = await presellService.create({
@@ -362,6 +368,7 @@ export default function CreatePresellWizardPage() {
       setMirrorFidelityOk(mirrorOk);
       const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id ?? null, page);
       setPublicUrl(url);
+      setReviewVariant("a");
       setRotatorAdUrl(rotatorUrl);
       if (campaignId) {
         await campaignsService.update(campaignId, {
@@ -402,7 +409,6 @@ export default function CreatePresellWizardPage() {
     },
   });
 
-  const previewUrl = publicUrl;
   const trackedSingle =
     publicUrl && campaignName
       ? buildTrackedPresellUrl(publicUrl, campaignName, trafficSource)
@@ -422,7 +428,7 @@ export default function CreatePresellWizardPage() {
     { n: 2 as const, label: "Campanha" },
     { n: 3 as const, label: "Tipo e idioma" },
     { n: 4 as const, label: "Rastreio" },
-    { n: 5 as const, label: "Publicar" },
+    { n: 5 as const, label: "Rever" },
   ];
 
   const genLabel =
@@ -473,6 +479,35 @@ export default function CreatePresellWizardPage() {
 
       {step === 1 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
+          <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <Label>Gerador — nicho da campanha</Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PRESELL_NICHE_OPTIONS.map((opt) => {
+                const active = generationNiche === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setGenerationNiche(opt.id);
+                      setPresellType((t) => coercePresellTypeForNiche(t, opt.id));
+                      if (enableAbTest) setAbTypeB(defaultAbPresellTypeB(presellType, opt.id));
+                    }}
+                    className={cn(
+                      "rounded-lg border px-3 py-2.5 text-left text-xs",
+                      active
+                        ? "border-primary bg-primary/10"
+                        : "border-border/70 bg-card hover:border-primary/40",
+                    )}
+                  >
+                    <p className="font-semibold text-foreground text-sm">{opt.name}</p>
+                    <p className="mt-1 text-muted-foreground leading-relaxed">{opt.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="offer">Hoplink da rede (destino da venda)</Label>
             <Input
@@ -615,9 +650,10 @@ export default function CreatePresellWizardPage() {
             <Label>Tipo de presell</Label>
             <PresellTypeCombobox
               value={presellType}
+              generationNiche={generationNiche}
               onValueChange={(v) => {
                 setPresellType(v);
-                if (enableAbTest) setAbTypeB(defaultAbTypeB(v));
+                if (enableAbTest) setAbTypeB(defaultAbPresellTypeB(v, generationNiche));
               }}
             />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -644,14 +680,18 @@ export default function CreatePresellWizardPage() {
                 checked={enableAbTest}
                 onCheckedChange={(v) => {
                   setEnableAbTest(v);
-                  if (v) setAbTypeB(defaultAbTypeB(presellType));
+                  if (v) setAbTypeB(defaultAbPresellTypeB(presellType, generationNiche));
                 }}
               />
             </div>
             {enableAbTest ? (
               <div className="space-y-2">
                 <Label>Tipo da variante B</Label>
-                <PresellTypeCombobox value={abTypeB} onValueChange={setAbTypeB} />
+                <PresellTypeCombobox
+                  value={abTypeB}
+                  generationNiche={generationNiche}
+                  onValueChange={setAbTypeB}
+                />
               </div>
             ) : null}
           </div>
@@ -821,100 +861,20 @@ export default function CreatePresellWizardPage() {
         </div>
       )}
 
-      {step === 5 && (
-        <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
-          <p className="font-semibold text-lg">
-            {mirrorFidelityOk ? "A sua presell está pronta" : "Quase pronta — falta publicar com conteúdo fiel"}
-          </p>
-          <ul className="text-sm space-y-1.5">
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-600" /> Tipo A: {typeDetail?.name ?? presellType}
-            </li>
-            {presellIdB ? (
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-600" /> Tipo B:{" "}
-                {getPresellTypeOption(abTypeB)?.name ?? abTypeB}
-              </li>
-            ) : null}
-            {rotatorAdUrl ? (
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-600" /> Rotador A/B 50/50 activo
-              </li>
-            ) : null}
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-600" /> Idioma: {language}
-            </li>
-            <li className="flex items-center gap-2">
-              {mirrorFidelityOk ? (
-                <Check className="h-4 w-4 text-emerald-600" />
-              ) : (
-                <span className="h-2 w-2 rounded-full bg-amber-500 mx-1" aria-hidden />
-              )}
-              {mirrorFidelityOk
-                ? "Publicada · tracking no clique activo"
-                : "Rascunho · publique em Presells para o link público e o tracking funcionarem"}
-              {presellId ? ` · ${presellId.slice(0, 8)}…` : ""}
-            </li>
-          </ul>
-          {tracked && mirrorFidelityOk ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">
-                {rotatorAdUrl
-                  ? "URL do rotador A/B (cole no anúncio — divide tráfego 50/50):"
-                  : "URL para o anúncio (Google Ads → URL final):"}
-              </p>
-              <div className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-xs break-all">{tracked}</div>
-              {rotatorAdUrl ? (
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Estatísticas e promoção do vencedor em{" "}
-                  <Link to="/tracking/rotadores" className="text-primary underline-offset-2 hover:underline">
-                    Rotadores
-                  </Link>
-                  .
-                </p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Inclui <span className="font-mono">utm_campaign</span> = slug da campanha (ex.:{" "}
-                  <span className="font-mono">neotonics-google-ads</span>),{" "}
-                  <span className="font-mono">utm_term=&#123;keyword&#125;</span> e{" "}
-                  <span className="font-mono">utm_content=&#123;adgroupid&#125;</span> — a Google só substitui no
-                  clique real do anúncio. Preferir sufixo de URL? Use o{" "}
-                  <Link to="/tracking/url-builder" className="text-primary underline-offset-2 hover:underline">
-                    construtor de URL
-                  </Link>
-                  .
-                </p>
-              )}
-            </div>
-          ) : !mirrorFidelityOk ? (
-            <p className="text-sm text-muted-foreground">
-              Publique a presell com espelho fiel antes de copiar o URL do anúncio.
-            </p>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button className="gap-2" onClick={() => void copy()} disabled={!tracked || !mirrorFidelityOk}>
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              Copiar URL do anúncio
-            </Button>
-            {previewUrl && mirrorFidelityOk ? (
-              <Button variant="outline" asChild>
-                <a href={previewUrl} target="_blank" rel="noreferrer">
-                  Abrir página
-                </a>
-              </Button>
-            ) : null}
-            {campaignId ? (
-              <Button variant="secondary" asChild>
-                <Link to={`/campanhas/${campaignId}`}>Ver campanha</Link>
-              </Button>
-            ) : (
-              <Button variant="secondary" asChild>
-                <Link to="/presells">Ver Presells</Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+      {step === 5 && presellId ? (
+        <PresellReviewStage
+          pageId={presellId}
+          pageIdB={presellIdB}
+          variant={reviewVariant}
+          onVariant={setReviewVariant}
+          published={mirrorFidelityOk}
+          adUrl={tracked}
+          copied={copied}
+          onCopy={() => void copy()}
+          onEdit={() => navigate(`/presell/builder/${reviewVariant === "b" && presellIdB ? presellIdB : presellId}`)}
+          onClose={() => navigate("/presells")}
+        />
+      ) : null}
     </div>
   );
 }

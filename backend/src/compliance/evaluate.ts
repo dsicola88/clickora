@@ -260,7 +260,13 @@ const RULES = [
     run: ({ signals }) => {
       const re =
         /\b(fabricante\s+oficial|official\s+manufacturer|somos\s+o\s+fabricante|site\s+oficial\s+do\s+fabricante|médico\s+autorizado|medico\s+autorizado|FDA\s+approved\s+cure|aprovado\s+pela\s+OMS|cura\s+garantida|milagroso)\b/i;
-      if (re.test(signals.claimsText)) {
+      const falseAuthority = signals.claimsText.split(/[.!?\n]+/).some((sentence) => {
+        const match = sentence.match(re);
+        if (!match || match.index == null) return false;
+        const before = sentence.slice(0, match.index);
+        return !/\b(não|nao|not|never)\b/i.test(before);
+      });
+      if (falseAuthority) {
         return {
           status: "FAIL",
           confidence: 0.85,

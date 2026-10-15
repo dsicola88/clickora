@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { SITE_SUPPORT_EMAIL } from "@/lib/siteLegal";
 import { getPresellUiStrings, isRtlLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
+import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
 
 type Props = {
   language: string | undefined;
@@ -44,6 +45,7 @@ export function PresellTrustFooter({
   supportEmail,
 }: Props) {
   const s = getPresellUiStrings(language);
+  const portal = getPortalChromeCopy(language);
   const locale = (language || "pt-BR") as PresellLocaleKey;
   const rtl = isRtlLocale(locale);
   const privacyHref = realUrl(privacyPolicyUrl, "/privacidade");
@@ -66,26 +68,25 @@ export function PresellTrustFooter({
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-10 text-sm leading-relaxed sm:px-6">
           <p className="font-medium text-slate-100">
             © {year}
-            {operator ? ` ${operator}` : " Página informativa independente"} — Todos os direitos
-            reservados.
+            {operator ? ` ${operator}` : ` ${portal.independentPage}`} — {portal.rights}
           </p>
           <p>
-            <span className="font-semibold text-slate-100">Aviso de Afiliado:</span> Este site atua
-            de forma independente como um portal de conteúdo informativo. Não somos o fabricante
-            nem o processador de pagamento. Ao clicar nos links e visitar o site da oferta, poderemos
-            receber uma comissão por indicação caso uma compra seja efetuada, sem custo extra para
-            si.
+            <span className="font-semibold text-slate-100">{portal.affiliateTitle}</span> {portal.affiliateBody}
           </p>
-          <p className="text-slate-300 text-xs leading-relaxed">
-            Aviso de isenção: o conteúdo é informativo e não substitui aconselhamento médico,
-            nutricional ou jurídico. Confirme composição, avisos e condições apenas no site e no
-            rótulo oficiais do produto.
-          </p>
+          <p className="text-slate-300 text-xs leading-relaxed">{portal.disclaimer}</p>
           {(operator || doc || email) && (
             <p className="text-slate-300">
-              {operator ? <span>Operador: {operator}. </span> : null}
-              {doc ? <span>Documento: {doc}. </span> : null}
-              Contacto:{" "}
+              {operator ? (
+                <span>
+                  {portal.operator} {operator}.{" "}
+                </span>
+              ) : null}
+              {doc ? (
+                <span>
+                  {portal.document} {doc}.{" "}
+                </span>
+              ) : null}
+              {portal.contact}{" "}
               <a href={mail} className="underline underline-offset-2 hover:text-white">
                 {contactEmail}
               </a>
@@ -93,16 +94,16 @@ export function PresellTrustFooter({
           )}
           {!operator && !doc && !email ? (
             <p className="text-slate-300">
-              Contacto da plataforma:{" "}
+              {portal.platformContact}{" "}
               <a href={mail} className="underline underline-offset-2 hover:text-white">
                 {contactEmail}
               </a>
-              . Complete o nome e documento do operador nas definições da presell antes de anunciar.
+              . {portal.completeOperator}
             </p>
           ) : null}
           <nav
             className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-xs font-medium text-slate-300"
-            aria-label="Políticas"
+            aria-label={portal.policies}
           >
             <a
               href={privacyHref}
@@ -110,7 +111,7 @@ export function PresellTrustFooter({
               rel="noopener noreferrer"
               className="hover:text-white underline-offset-2 hover:underline"
             >
-              Política de Privacidade
+              {s.trustPrivacy}
             </a>
             <a
               href={termsHref}
@@ -118,7 +119,7 @@ export function PresellTrustFooter({
               rel="noopener noreferrer"
               className="hover:text-white underline-offset-2 hover:underline"
             >
-              Termos de Uso
+              {s.trustTerms}
             </a>
             <a
               href={medicalHref}
@@ -126,7 +127,7 @@ export function PresellTrustFooter({
               rel="noopener noreferrer"
               className="hover:text-white underline-offset-2 hover:underline"
             >
-              Aviso de Isenção Médica
+              {portal.medical}
             </a>
             <a
               href={cookieHref}
@@ -134,7 +135,7 @@ export function PresellTrustFooter({
               rel="noopener noreferrer"
               className="hover:text-white underline-offset-2 hover:underline"
             >
-              Política de Cookies
+              {s.cookiePolicy}
             </a>
           </nav>
         </div>
@@ -189,7 +190,7 @@ export function PresellTrustFooter({
             {s.cookiePolicy}
           </a>
           <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
-            Isenção médica
+            {portal.medical}
           </a>
           <a href={mail} className={link}>
             {s.trustContact}

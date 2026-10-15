@@ -74,7 +74,12 @@ export const presellService = {
     return apiClient.post<Presell>("/presells", data);
   },
 
-  async importFromUrl(payload: { product_url: string; language?: string; affiliate_link?: string }) {
+  async importFromUrl(payload: {
+    product_url: string;
+    language?: string;
+    affiliate_link?: string;
+    generation_niche?: "black" | "white";
+  }) {
     return apiClient.post<{
       product_name: string;
       title: string;
@@ -99,6 +104,13 @@ export const presellService = {
       publishable: boolean;
       storefront_theme: "dark_commerce" | "default";
       storefront_hero_tint: boolean;
+      generation_niche: "black" | "white";
+      policy_urls: {
+        privacy?: string;
+        terms?: string;
+        refund?: string;
+        shipping?: string;
+      };
     }>("/presells/import-from-url", payload);
   },
 

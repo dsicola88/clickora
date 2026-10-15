@@ -35,6 +35,7 @@ import {
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 const PublicBuilderPresellView = lazy(() =>
   import("@/components/presell/PublicBuilderPresellView").then((m) => ({
     default: m.PublicBuilderPresellView,
@@ -968,7 +969,15 @@ export default function PublicPresell() {
    * O espelho importado mantém-se visível com o aviso de cookies.
    * A folha fica em baixo; fechar não troca a landing pelo modelo React nem sai para a oferta.
    */
-  const showImportedMirror = false;
+  const generationNiche =
+    content.generationNiche === "white" || content.generation_niche === "white" ? "white" : "black";
+  const hasGenerationNiche =
+    content.generationNiche === "black" ||
+    content.generationNiche === "white" ||
+    content.generation_niche === "black" ||
+    content.generation_niche === "white";
+  /** Black e white: espelho 1:1 quando o import Playwright guardou HTML (cookies/desconto/review por cima). Fantasma não usa espelho. */
+  const showImportedMirror = mirrorEligible && !isGhostPage;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameRaw = plainTextFromMaybeHtml(
@@ -993,10 +1002,10 @@ export default function PublicPresell() {
     salesText,
     ctaText: ctaTextRaw,
   });
-  const ctaText = storefrontLayout ? healthArticle.ctaLabel : ctaTextRaw;
-  const useHealthArticleBody = storefrontLayout && !showImportedMirror && !isVslLayout;
-  /** Portal de saúde: UI de consentimento e rodapé em PT-BR. */
-  const displayLang = useHealthArticleBody ? "pt-BR" : uiLang;
+  const ctaText =
+    storefrontLayout && !hasGenerationNiche ? healthArticle.ctaLabel : ctaTextRaw;
+  const useHealthArticleBody =
+    storefrontLayout && !showImportedMirror && !isVslLayout && !hasGenerationNiche;
   const textBlocks = useHealthArticleBody
     ? []
     : salesText
@@ -1031,6 +1040,7 @@ export default function PublicPresell() {
       );
     }
     return (
+      <PresellPublicLocaleProvider language={uiLang}>
       <div className="min-h-screen bg-background pb-12">
         <PresellMarketingOverlays
           pageId={page.id}
@@ -1057,6 +1067,7 @@ export default function PublicPresell() {
         </Suspense>
         <PresellTrustFooter language={uiLang} cookiePolicyUrl={cookiePolicyUrl} />
       </div>
+      </PresellPublicLocaleProvider>
     );
   }
 
@@ -1070,7 +1081,7 @@ export default function PublicPresell() {
     <>
       {gateKind === "cookies" && showCookieModal ? (
         <CookieConsentModal
-          language={displayLang}
+          language={uiLang}
           policyUrl={cookiePolicyUrl}
           redirectHref={href}
           fallbackHref={cookieConsentFallbackHref}
@@ -1709,7 +1720,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
       <PresellTrustFooter
-        language={displayLang}
+        language={uiLang}
         cookiePolicyUrl={cookiePolicyUrl}
         privacyPolicyUrl={
           typeof settings.privacyPolicyUrl === "string" ? settings.privacyPolicyUrl : undefined

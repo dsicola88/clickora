@@ -14,7 +14,7 @@ describe("presellHealthArticle", () => {
     ).toBe(true);
   });
 
-  it("resolve artigo transparente PT para bridge antiga (sem claims médicos)", () => {
+  it("resolve artigo transparente no idioma da página para bridge antiga", () => {
     const a = resolveHealthArticle({
       content: {},
       productName: "TryVisivra",
@@ -22,11 +22,24 @@ describe("presellHealthArticle", () => {
       salesText: "See today's offer.\nPrice written on the offer page: $780.",
       ctaText: "See the offer",
     });
-    expect(a.headline).toMatch(/avaliar a oferta/i);
-    expect(a.ctaLabel).toBe("Continuar para a página oficial da oferta");
+    expect(a.headline).toMatch(/review the TryVisivra offer/i);
+    expect(a.ctaLabel).toBe("Continue to the official offer page");
+    expect(a.kicker).toBe("Informational page");
     expect(a.productNote).toContain("TryVisivra");
     expect(a.intro).not.toMatch(/carotenoides|mácula|luz azul/i);
     expect(a.pillars).toHaveLength(3);
+  });
+
+  it("não deixa o artigo em português quando o idioma é espanhol", () => {
+    const a = resolveHealthArticle({
+      content: {},
+      productName: "TryVisivra",
+      language: "es",
+      salesText: "",
+    });
+    expect(a.headline).toMatch(/oferta de TryVisivra/i);
+    expect(a.headline).not.toMatch(/avaliar a oferta/i);
+    expect(a.ctaLabel).toMatch(/Continuar a la página oficial/i);
   });
 
   it("rejeita copy com alegações de saúde inventadas", () => {
@@ -48,6 +61,7 @@ describe("presellHealthArticle", () => {
 
   it("template PT só com factos verificáveis sobre a página", () => {
     const a = buildPtBrHealthPortalArticle("TryVisivra");
+    expect(a.kicker).toBe("Portal informativo");
     expect(a.pillars.map((p) => p.title)).toEqual([
       "Identidade do vendedor",
       "Preço, envio e garantia",

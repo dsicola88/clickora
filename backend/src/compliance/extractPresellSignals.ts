@@ -34,6 +34,68 @@ function uniqueSentences(text: string): number {
   return new Set(sentences).size;
 }
 
+const WIDGET_TEXT_KEYS = [
+  "text",
+  "html",
+  "title",
+  "label",
+  "message",
+  "description",
+  "caption",
+  "body",
+  "subtitle",
+  "question",
+  "answer",
+  "quote",
+  "name",
+];
+
+/** Texto e imagens visíveis no documento do editor. O visitante vê isto, não o sales_text antigo. */
+function collectBuilderDocument(doc: unknown): { text: string; imageCount: number; buttonLabel: string } {
+  const chunks: string[] = [];
+  let imageCount = 0;
+  let buttonLabel = "";
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    const rec = node as Record<string, unknown>;
+    const type = asString(rec.type);
+    const content = asRecord(rec.content);
+    if (type === "image") {
+      const src = asString(content.src || content.url).trim();
+      if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("/")) imageCount += 1;
+    }
+    if (type === "button" || type === "ctaBox") {
+      const label = stripHtml(asString(content.text || content.label || content.title));
+      if (label && !buttonLabel) buttonLabel = label;
+    }
+    if (type) {
+      for (const key of WIDGET_TEXT_KEYS) {
+        const value = content[key];
+        if (typeof value === "string" && value.trim()) chunks.push(stripHtml(value));
+      }
+      if (Array.isArray(content.items)) {
+        for (const item of content.items) {
+          if (!item || typeof item !== "object") continue;
+          const row = item as Record<string, unknown>;
+          for (const key of WIDGET_TEXT_KEYS) {
+            const value = row[key];
+            if (typeof value === "string" && value.trim()) chunks.push(stripHtml(value));
+          }
+        }
+      }
+    }
+    if (Array.isArray(rec.sections)) walk(rec.sections);
+    if (Array.isArray(rec.columns)) walk(rec.columns);
+    if (Array.isArray(rec.widgets)) walk(rec.widgets);
+  };
+  walk(doc);
+  return { text: chunks.join("\n"), imageCount, buttonLabel };
+}
+
 function hostOf(url: string | null): string | null {
   if (!url) return null;
   try {
@@ -82,9 +144,13 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
   const productName =
     asString(content.product_name || content.productName || content.title || input.title).trim() ||
     input.title.trim();
-  const salesText = asString(content.sales_text || content.salesText || content.body || "").trim();
+  const builder = collectBuilderDocument(content.pageDocument || content.page_document);
+  const salesText = [asString(content.sales_text || content.salesText || content.body || "").trim(), builder.text]
+    .filter(Boolean)
+    .join("\n")
+    .trim();
   const subtitle = asString(content.subtitle || "").trim();
-  const ctaText = asString(content.cta_text || content.ctaText || "").trim();
+  const ctaText = asString(content.cta_text || content.ctaText || "").trim() || builder.buttonLabel;
   const affiliateLink = asString(content.affiliate_link || content.affiliateLink || "").trim() || null;
   const sourceUrl = asString(content.source_url || content.sourceUrl || "").trim() || null;
   const mirrorHtml = asString(
@@ -95,7 +161,8 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
     : Array.isArray(content.productImages)
       ? content.productImages
       : [];
-  const imageCount = images.filter((x) => typeof x === "string" && x.trim()).length;
+  const imageCount =
+    images.filter((x) => typeof x === "string" && x.trim()).length + builder.imageCount;
 
   const disclosureText = [
     asString(content.affiliate_disclosure || content.affiliateDisclosure),

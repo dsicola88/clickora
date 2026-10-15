@@ -149,7 +149,7 @@ export default function PresellManualPagesPage() {
         toast.error("Documento do editor em falta.");
         return;
       }
-      const html = exportPageToHtml(doc);
+      const html = exportPageToHtml(doc, data.language);
       await navigator.clipboard.writeText(html);
       toast.success("HTML copiado para a área de transferência.");
     } catch (e) {
@@ -169,7 +169,7 @@ export default function PresellManualPagesPage() {
         toast.error("Documento do editor em falta.");
         return;
       }
-      const html = exportPageToHtml(doc);
+      const html = exportPageToHtml(doc, data.language);
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");

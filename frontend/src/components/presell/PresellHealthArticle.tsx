@@ -23,7 +23,7 @@ export function PresellHealthArticle({ article, href, ctaEnabled, className }: P
     >
       <header className="mb-8 sm:mb-10">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-3">
-          Portal informativo
+          {article.kicker}
         </p>
         <h2 className="font-serif text-2xl sm:text-3xl md:text-[2.15rem] font-semibold leading-snug tracking-tight text-slate-950">
           {article.headline}

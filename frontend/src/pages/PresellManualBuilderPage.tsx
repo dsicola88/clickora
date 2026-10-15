@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Settings2, X } from "lucide-react";
@@ -20,6 +20,8 @@ import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { buildEditablePageDocument, pointOfferButtonsAt } from "@/lib/presellVisualEdit";
+import type { PageDocument } from "@/page-builder/types";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
@@ -28,6 +30,8 @@ import {
   resolveDefaultCustomDomainIdForAccount,
 } from "@/lib/publicPresellOrigin";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
+import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
+import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import type { Presell } from "@/types/api";
@@ -36,6 +40,18 @@ import "@/page-builder/page-builder-theme.css";
 const PageEditor = lazy(() =>
   import("@/page-builder/components/PageEditor").then((m) => ({ default: m.PageEditor })),
 );
+
+function readVisualDraft(key: string): PageDocument | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const doc = JSON.parse(raw) as PageDocument;
+    if (!doc || !Array.isArray(doc.sections) || doc.sections.length === 0) return null;
+    return doc;
+  } catch {
+    return null;
+  }
+}
 
 function sanitizeSlug(raw: string): string {
   const s = raw
@@ -57,7 +73,12 @@ export default function PresellManualBuilderPage() {
 
   const [editorReady, setEditorReady] = useState(false);
   const [slugDraft, setSlugDraft] = useState("");
+  const [language, setLanguage] = useState<PresellLocaleKey>("pt-BR");
+  const [category, setCategory] = useState("sem");
+  /** A página pública ainda é a versão automática até a primeira publicação neste editor. */
+  const [awaitingVisualPublish, setAwaitingVisualPublish] = useState(false);
   const [affiliateDraft, setAffiliateDraft] = useState("");
+  const loadedOfferRef = useRef("");
   const [customDomainId, setCustomDomainId] = useState("");
   const [configSettings, setConfigSettings] = useState<PresellConfigSettings>(() => ({
     ...DEFAULT_PRESELL_CONFIG_SETTINGS,
@@ -124,6 +145,7 @@ export default function PresellManualBuilderPage() {
         const doc = useBuilder.getState().doc;
         if (!cancelled) {
           setSlugDraft(sanitizeSlug(doc.name));
+          setLanguage("pt-BR");
           setAffiliateDraft("");
           setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
           setEditorReady(true);
@@ -138,21 +160,32 @@ export default function PresellManualBuilderPage() {
         navigate("/presell/dashboard", { replace: true });
         return;
       }
+      const stored = parsePresellBuilderPageDocument(data.content);
+      const storageKey = `clickora:builder:${routeId}`;
+      let doc = stored;
       if (data.type !== "builder") {
-        toast.error("Esta presell não foi criada no editor manual.");
-        navigate("/presell/dashboard", { replace: true });
-        return;
+        doc = readVisualDraft(storageKey) ?? buildEditablePageDocument({
+          title: data.title,
+          type: data.type,
+          videoUrl: data.video_url,
+          content: (data.content || {}) as Record<string, unknown>,
+        });
+        setAwaitingVisualPublish(true);
+      } else {
+        setAwaitingVisualPublish(false);
       }
-      const doc = parsePresellBuilderPageDocument(data.content);
-      if (!doc) {
+      if (!doc || !Array.isArray(doc.sections)) {
         toast.error("Documento do editor em falta ou inválido.");
         navigate("/presell/dashboard", { replace: true });
         return;
       }
       useBuilder.getState().hydrateDocument(doc);
       setSlugDraft(data.slug);
+      setCategory(data.category || "sem");
+      setLanguage(normalizePresellLocale(data.language));
       const c = (data.content || {}) as Record<string, unknown>;
       setAffiliateDraft(String(c.affiliateLink ?? ""));
+      loadedOfferRef.current = String(c.affiliateLink ?? "");
       setCustomDomainId(data.custom_domain_id ?? "");
       const s = (data.settings || {}) as Record<string, unknown>;
       setConfigSettings({
@@ -171,6 +204,14 @@ export default function PresellManualBuilderPage() {
         customCss: String(s.customCss ?? ""),
         countdownDurationMinutes: String(s.countdownDurationMinutes ?? "15"),
         offerQueryForwardAllowlist: String(s.offerQueryForwardAllowlist ?? ""),
+        businessName: String(s.businessName ?? ""),
+        contactEmail: String(s.contactEmail ?? ""),
+        privacyPolicyUrl: String(s.privacyPolicyUrl ?? ""),
+        cookiePolicyUrl: String(s.cookiePolicyUrl ?? ""),
+        affiliateDisclosure: String(s.affiliateDisclosure ?? ""),
+        ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
+          ? { operatorDocument: s.operatorDocument }
+          : {}),
       });
       setEditorReady(true);
     };
@@ -196,8 +237,7 @@ export default function PresellManualBuilderPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const doc = useBuilder.getState().doc;
-      const slug = sanitizeSlug(slugDraft || doc.name);
+      const slug = sanitizeSlug(slugDraft || useBuilder.getState().doc.name);
       const affiliate = affiliateDraft.trim();
       if (!slug) throw new Error("Indique um slug (endereço interno) para a página.");
       if (!affiliate) {
@@ -208,6 +248,9 @@ export default function PresellManualBuilderPage() {
       } catch {
         throw new Error("O link da oferta tem de ser um URL válido (https://…).");
       }
+      const doc = pointOfferButtonsAt(useBuilder.getState().doc, affiliate, loadedOfferRef.current);
+      useBuilder.getState().hydrateDocument(doc);
+      loadedOfferRef.current = affiliate;
 
       const content: Record<string, unknown> = {
         pageDocument: doc,
@@ -218,8 +261,8 @@ export default function PresellManualBuilderPage() {
         title: doc.name.trim() || "Presell manual",
         slug,
         type: "builder",
-        category: "sem",
-        language: "pt-BR",
+        category,
+        language,
         content,
         settings: buildSettingsPayload(),
         status: "draft",
@@ -252,7 +295,8 @@ export default function PresellManualBuilderPage() {
     },
     onSuccess: async (saved) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success(routeId ? "Presell atualizada." : "Presell guardada.");
+      setAwaitingVisualPublish(false);
+      toast.success(routeId ? "Presell publicada." : "Presell guardada.");
       if (!routeId && saved?.id) {
         const publicUrl = getPublicPresellFullUrl(customDomains, saved.custom_domain_id ?? null, {
           id: saved.id,
@@ -298,6 +342,7 @@ export default function PresellManualBuilderPage() {
   }
 
   return (
+    <PresellPublicLocaleProvider language={language}>
     <PresellBuilderEmbedProvider value={embedValue}>
       <div className="page-builder-scope fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-editor-bg text-editor-fg">
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-editor-border bg-editor-panel px-2">
@@ -345,6 +390,21 @@ export default function PresellManualBuilderPage() {
               </SelectContent>
             </Select>
           ) : null}
+          <Select value={language} onValueChange={(v) => setLanguage(normalizePresellLocale(v) as PresellLocaleKey)}>
+            <SelectTrigger
+              className="h-8 w-36 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-44"
+              aria-label="Idioma da página"
+            >
+              <SelectValue placeholder="Idioma" />
+            </SelectTrigger>
+            <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg">
+              {PRESELL_CREATION_LANGUAGES.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             variant="outline"
@@ -360,6 +420,11 @@ export default function PresellManualBuilderPage() {
             <span className="ml-1.5 tabular-nums text-editor-fg-muted">{trackingHealthScore}</span>
           </Button>
         </div>
+        {awaitingVisualPublish ? (
+          <p className="shrink-0 border-b border-editor-border bg-editor-panel-2 px-3 py-2 text-xs leading-relaxed text-editor-fg">
+            A página no ar mantém-se até publicares. Aqui moves imagens, textos e botões. Publicar substitui a versão automática por esta.
+          </p>
+        ) : null}
 
         <div className="relative min-h-0 flex-1">
           <Suspense
@@ -422,5 +487,6 @@ export default function PresellManualBuilderPage() {
         </div>
       </div>
     </PresellBuilderEmbedProvider>
+    </PresellPublicLocaleProvider>
   );
 }

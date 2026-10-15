@@ -511,7 +511,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
         ? `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Presell</title></head><body>${note}<p>Documento do editor em falta.</p></body></html>`
         : `${note}<!-- Documento do editor em falta -->`;
     }
-    const merged = injectPresellSettingsIntoFullHtml(exportPageToHtml(doc), page);
+    const merged = injectPresellSettingsIntoFullHtml(exportPageToHtml(doc, page.language), page);
     return `${note}${merged}`;
   }
 
