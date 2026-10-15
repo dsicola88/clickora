@@ -570,6 +570,12 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     sections.push(gate);
   }
 
+  const sourcePageTitle =
+    asString(content.sourcePageTitle) || asString(content.source_page_title) || title;
+  const favicon =
+    asString(content.faviconUrl) || asString(content.favicon_url) || hero || "";
+  const description = asString(content.subtitle) || asString(content.metaDescription);
+
   return {
     id: id("page_"),
     name: title || asString(source.title) || "Presell",
@@ -577,6 +583,12 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     settings: {
       background: mirrorFold.length > 80 || productFold || white ? "#ffffff" : "#f8fafc",
       maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : white ? 860 : 720,
+    },
+    seo: {
+      title: sourcePageTitle,
+      ...(description ? { description } : {}),
+      ...(hero ? { ogImage: hero } : {}),
+      ...(favicon ? { favicon } : {}),
     },
     updatedAt: Date.now(),
   };

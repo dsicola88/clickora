@@ -38,6 +38,8 @@ describe("buildEditablePageDocument", () => {
     expect(cookie.content.followLanguage).toBe(false);
     expect(cookie.content.allowLabel).toBeTruthy();
     expect(cookie.content.overlayOpacity).toBe(28);
+    expect(doc.seo?.favicon).toBe("https://cdn.example/pack.jpg");
+    expect(doc.seo?.ogImage).toBe("https://cdn.example/pack.jpg");
   });
 
   it("black cookies: portal estruturado; cookie só desbloqueia (sem hoplink)", () => {

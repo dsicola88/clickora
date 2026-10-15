@@ -193,6 +193,12 @@ export default function CreatePresellWizardPage() {
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,
             ...(hasMirror ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
+            ...(typeof data.source_page_title === "string" && data.source_page_title.trim()
+              ? { sourcePageTitle: data.source_page_title.trim() }
+              : {}),
+            ...(typeof data.favicon_url === "string" && data.favicon_url.trim()
+              ? { faviconUrl: data.favicon_url.trim() }
+              : {}),
             importMode: data.import_mode,
             ...(data.rating_from_source
               ? {

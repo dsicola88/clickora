@@ -6,7 +6,11 @@ import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 export const DEFAULT_BROWSER_TAB_TITLE =
   "dclickora — Presell pages, rastreamento de conversões e ferramenta para afiliados";
 
-const MAX_SEO_TITLE = 110;
+const MAX_SEO_TITLE = 120;
+
+export function looksLikeAppBrandTitle(s: string): boolean {
+  return /dclickora|clickora|presell pages.*rastreamento|ferramenta para afiliados/i.test(s);
+}
 
 function clampSeoTitle(s: string): string {
   const t = s.trim();
@@ -35,50 +39,63 @@ export function getPresellProductLabel(page: Presell): string {
   return "Página";
 }
 
+function firstUsableSeoTitle(candidates: string[]): string {
+  for (const raw of candidates) {
+    const t = clampSeoTitle(plainTextFromMaybeHtml(raw));
+    if (!t || looksLikeAppBrandTitle(t)) continue;
+    return t;
+  }
+  return "";
+}
+
+function titleFromImportedHtml(html: string): string {
+  const t = html.trim();
+  if (t.length < 20) return "";
+  const og = t.match(
+    /<meta[^>]+(?:property|name)=["']og:title["'][^>]*content=["']([^"']+)["']/i,
+  );
+  const ogRev = t.match(
+    /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']og:title["']/i,
+  );
+  const titleTag = t.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return firstUsableSeoTitle([og?.[1] || "", ogRev?.[1] || "", titleTag?.[1] || ""]);
+}
+
 /**
- * Título principal para `<title>`, Open Graph e JSON-LD.
- * Prioridade: **Nome da página** no painel (`page.title`) — o que o utilizador vê no campo «Nome da página» —
- * depois SEO interno do builder, nome do documento, headline/H1, rótulos de produto.
+ * Título principal para `<title>`, Open Graph e JSON-LD — nome do produto / título oficial da origem,
+ * não o nome interno da campanha nem o da app.
  */
 export function getPresellSeoPrimaryTitle(page: Presell): string {
-  const pageName = String(page.title ?? "").trim();
-  if (pageName) return clampSeoTitle(pageName);
-
   const c = (page.content || {}) as Record<string, unknown>;
-  if (page.type === "builder") {
-    const doc = parsePresellBuilderPageDocument(page.content);
-    if (doc) {
-      const st = String(doc.seo?.title ?? "").trim();
-      if (st) return clampSeoTitle(st);
-      const nm = String(doc.name ?? "").trim();
-      if (nm) return clampSeoTitle(nm);
-    }
-  }
-  const headline = plainTextFromMaybeHtml(String(c.title ?? "").trim());
-  if (headline) return clampSeoTitle(headline);
-  return getPresellProductLabel(page);
+  const doc = page.type === "builder" || c.pageDocument ? parsePresellBuilderPageDocument(page.content) : null;
+  const mirror =
+    typeof c.importMirrorSrcDoc === "string"
+      ? c.importMirrorSrcDoc
+      : typeof c.import_mirror_src_doc === "string"
+        ? c.import_mirror_src_doc
+        : "";
+  const picked = firstUsableSeoTitle([
+    String(doc?.seo?.title ?? ""),
+    String(c.sourcePageTitle ?? c.source_page_title ?? ""),
+    titleFromImportedHtml(mirror),
+    String(c.productName ?? c.product_name ?? ""),
+    String(c.title ?? ""),
+    String(doc?.name ?? ""),
+    String(page.title ?? ""),
+  ]);
+  return picked || getPresellProductLabel(page);
 }
 
 /**
- * Título do separador: `{título SEO} | {hostname}` — palavra-chave primeiro.
+ * Título do separador e do Google: só o nome do produto / título oficial.
+ * O domínio aparece à parte (como em visivra.net) — não sufixar `| dclickora.com`.
  */
 export function resolvePublicPresellDocumentTitle(page: Presell): string {
-  const primary = getPresellSeoPrimaryTitle(page);
-  if (typeof window === "undefined") {
-    return primary;
-  }
-  const host = window.location.hostname;
-  return `${primary} | ${host}`;
+  return getPresellSeoPrimaryTitle(page);
 }
 
-/** Para export HTML: mesmo padrão usando o URL público da presell. */
-export function buildExportDocumentTitle(page: Presell, publicPageUrl: string): string {
-  const primary = getPresellSeoPrimaryTitle(page);
-  try {
-    const h = new URL(publicPageUrl).hostname;
-    if (h) return `${primary} | ${h}`;
-  } catch {
-    /* ignore */
-  }
-  return primary;
+/** Para export HTML: o mesmo título da página pública (sem hostname). */
+export function buildExportDocumentTitle(page: Presell, _publicPageUrl: string): string {
+  void _publicPageUrl;
+  return getPresellSeoPrimaryTitle(page);
 }

@@ -1,7 +1,12 @@
 import type { Presell } from "@/types/api";
 import { getResolvedPublicApiBaseUrl } from "@/config/publicApiUrl";
 import { resolveApiUrl } from "@/lib/apiOrigin";
-import { resolvePublicPresellOgImageUrl, toAbsolutePageUrl } from "@/lib/publicPresellSeo";
+import {
+  resolvePublicPresellFaviconUrl,
+  resolvePublicPresellOgImageUrl,
+  toAbsolutePageUrl,
+} from "@/lib/publicPresellSeo";
+import { getPresellProductLabel, resolvePublicPresellDocumentTitle } from "@/lib/publicPresellDocumentTitle";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 
 const inflight = new Map<string, Promise<Presell | null>>();
@@ -35,9 +40,41 @@ function upsertMeta(attrName: "name" | "property", key: string, value: string) {
   el.setAttribute("content", value);
 }
 
-/** Antes do React: evita o cartão genérico /placeholder.svg e ajuda o browser a pré-carregar a hero. */
+function upsertIcon(rel: string, href: string, type = "", sizes = "") {
+  let el = document.querySelector(`link[rel="${rel}"][data-presell-icon="1"]`) as HTMLLinkElement | null;
+  if (!el) {
+    document.querySelectorAll(`link[rel="${rel}"]`).forEach((old) => old.remove());
+    el = document.createElement("link");
+    el.rel = rel;
+    el.setAttribute("data-presell-icon", "1");
+    document.head.appendChild(el);
+  }
+  el.href = href;
+  if (type) el.type = type;
+  else el.removeAttribute("type");
+  if (sizes) el.setAttribute("sizes", sizes);
+  else el.removeAttribute("sizes");
+}
+
+/** Antes do React: título/favicon do produto, evita o cartão genérico da app. */
 function applyEarlyPresellShareImageHints(page: Presell) {
   if (typeof document === "undefined") return;
+  const title = resolvePublicPresellDocumentTitle(page).trim();
+  if (title) {
+    document.title = title;
+    upsertMeta("property", "og:title", title);
+    upsertMeta("name", "twitter:title", title);
+  }
+  const iconRaw = resolvePublicPresellFaviconUrl(page)?.trim();
+  if (iconRaw) {
+    const iconHref = toAbsolutePageUrl(iconRaw);
+    if (iconHref) {
+      upsertIcon("icon", iconHref);
+      upsertIcon("apple-touch-icon", iconHref, "", "180x180");
+      const label = getPresellProductLabel(page);
+      if (label) upsertMeta("name", "apple-mobile-web-app-title", label.slice(0, 40));
+    }
+  }
   const raw = resolvePublicPresellOgImageUrl(page)?.trim();
   if (!raw) return;
   const href = toAbsolutePageUrl(raw);

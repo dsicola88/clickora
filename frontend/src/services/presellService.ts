@@ -113,6 +113,8 @@ export const presellService = {
       };
       source_business_name?: string;
       source_contact_email?: string;
+      source_page_title?: string;
+      favicon_url?: string;
     }>("/presells/import-from-url", payload);
   },
 

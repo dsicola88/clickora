@@ -27,7 +27,7 @@ export function AutosaveStatus() {
   return (
     <div
       className="flex min-w-0 max-w-[9rem] items-center gap-2 rounded-md border border-editor-border/80 bg-editor-panel-2/90 px-2 py-1 sm:max-w-none sm:px-2.5"
-      title="Cada alteração é gravada automaticamente no armazenamento local deste browser (autosave)."
+      title="Cada alteração grava neste browser e, instantes depois, na sua conta. Se a luz for abaixo, volte a Editar — o canvas regressa ao último autosave."
     >
       <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.25)]" />
       <span className="truncate text-[11px] text-editor-fg-muted">
