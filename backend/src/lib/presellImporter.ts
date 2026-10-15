@@ -1167,9 +1167,9 @@ function buildOriginalPresellCopy(args: { language: string; productName: string;
   // Sem preço solto ($780) — bridge pages são bloqueadas no Google Ads.
   void args.price;
   if (lang === "pt-BR" || lang === "pt") {
-    return `Nutrição Ocular: A Importância dos Carotenoides na Era das Telas Digitais
+    return `Como avaliar a oferta de ${name} com transparência
 
-Passamos grande parte do nosso dia expostos à luz azul gerada por smartphones, computadores e televisores. Especialistas apontam que essa rotina intensiva exige cuidados nutricionais específicos para apoiar o conforto visual e mitigar a fadiga ocular ao fim do dia.
+Esta página é um conteúdo informativo independente sobre ${name}. Não somos o fabricante, não processamos pagamentos e não substituímos a ficha técnica, o rótulo nem o atendimento do vendedor.
 
 ${locale.sectionWhy}
 
@@ -1181,7 +1181,8 @@ ${locale.bullet3}
 
 ${locale.sectionWhat}
 
-Para quem busca uma alternativa concentrada para complementar a dieta com esses nutrientes, a linha internacional ${name} destaca-se pela seleção rigorosa de ingredientes. ${locale.urgency}`.trim();
+${locale.richFooter}
+${locale.urgency}`.trim();
   }
   return `${name}
 

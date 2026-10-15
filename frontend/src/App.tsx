@@ -48,6 +48,7 @@ const DpilotPaidApp = lazy(() =>
 );
 const LegalPrivacyPage = lazy(() => import("./pages/LegalPrivacyPage"));
 const LegalTermsPage = lazy(() => import("./pages/LegalTermsPage"));
+const LegalMedicalDisclaimerPage = lazy(() => import("./pages/LegalMedicalDisclaimerPage"));
 const ResultsOverviewPage = lazy(() => import("./pages/ResultsOverviewPage"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
 const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
@@ -164,6 +165,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/privacidade" element={<LegalPrivacyPage />} />
               <Route path="/termos" element={<LegalTermsPage />} />
+              <Route path="/aviso-medico" element={<LegalMedicalDisclaimerPage />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/p/:id" element={<PublicPresell />} />
               <Route

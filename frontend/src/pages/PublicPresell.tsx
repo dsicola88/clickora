@@ -1709,9 +1709,15 @@ export default function PublicPresell() {
         </section>
       ) : null}
       <PresellTrustFooter
-        language={uiLang}
+        language={displayLang}
         cookiePolicyUrl={cookiePolicyUrl}
-        productName={healthProductName}
+        privacyPolicyUrl={
+          typeof settings.privacyPolicyUrl === "string" ? settings.privacyPolicyUrl : undefined
+        }
+        termsUrl={typeof settings.termsUrl === "string" ? settings.termsUrl : undefined}
+        businessName={
+          typeof settings.businessName === "string" ? settings.businessName : undefined
+        }
         portalMode={useHealthArticleBody}
         operatorDocument={
           typeof settings.operatorDocument === "string"
@@ -1721,9 +1727,13 @@ export default function PublicPresell() {
               : undefined
         }
         supportEmail={
-          typeof settings.supportEmail === "string" ? settings.supportEmail : undefined
+          typeof settings.supportEmail === "string"
+            ? settings.supportEmail
+            : typeof settings.contactEmail === "string"
+              ? settings.contactEmail
+              : undefined
         }
-        tone={useDarkMirrorStorefront ? "dark" : "portal"}
+        tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
       />
     </>
   );

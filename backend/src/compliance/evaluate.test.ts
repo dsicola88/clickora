@@ -106,14 +106,14 @@ describe("presell compliance engine", () => {
     assert.equal(result("OC-003", ev).status, "WARNING");
   });
 
-  it("4. missing affiliate disclosure WARNs CT-001 (não bloqueia sozinho)", () => {
+  it("4. missing affiliate disclosure FAILs CT-001 (bloqueia publicação)", () => {
     const signals = baseSignals({ hasAffiliateDisclosure: false, affiliateLink: "https://offer.example.com" });
     const ev = evaluateCompliance({ signals, destination: destOk() });
-    assert.equal(result("CT-001", ev).status, "WARNING");
-    assert.equal(canPublishForAds(ev.gate), true);
+    assert.equal(result("CT-001", ev).status, "FAIL");
+    assert.equal(canPublishForAds(ev.gate), false);
   });
 
-  it("5. missing business identity WARNs CT-002 (não bloqueia sozinho)", () => {
+  it("5. missing business identity FAILs CT-002 (bloqueia publicação)", () => {
     const signals = baseSignals({
       hasAffiliateDisclosure: true,
       hasBusinessIdentity: false,
@@ -121,8 +121,8 @@ describe("presell compliance engine", () => {
       contactEmail: null,
     });
     const ev = evaluateCompliance({ signals, destination: destOk() });
-    assert.equal(result("CT-002", ev).status, "WARNING");
-    assert.equal(canPublishForAds(ev.gate), true);
+    assert.equal(result("CT-002", ev).status, "FAIL");
+    assert.equal(canPublishForAds(ev.gate), false);
   });
 
   it("6. unsourced health/study claim WARN CL-003", () => {
@@ -301,7 +301,11 @@ describe("presell compliance engine", () => {
   });
 
   it("23. human override softens false positive without inventing approval", () => {
-    const signals = baseSignals({ healthCureClaim: true, claimsText: "cura garantida da doença" });
+    // Texto que dispara CL-001 sem o padrão CT-003 (cura garantida).
+    const signals = baseSignals({
+      healthCureClaim: true,
+      claimsText: "elimina permanentemente a doença em 7 dias sem exceção",
+    });
     const ev = evaluateCompliance({ signals, destination: destOk() });
     assert.equal(result("CL-001", ev).status, "FAIL");
     const overridden = applyHumanOverrides(ev.results, [
@@ -328,12 +332,18 @@ describe("presell compliance engine", () => {
 
   it("correction assistant does not invent business or legal text", () => {
     const ev = evaluateCompliance({
-      signals: baseSignals({ hasBusinessIdentity: false, privacyPolicyUrl: null }),
+      signals: baseSignals({
+        hasBusinessIdentity: false,
+        businessName: null,
+        contactEmail: null,
+        privacyPolicyUrl: null,
+      }),
       destination: destOk(),
     });
+    assert.equal(result("CT-002", ev).status, "FAIL");
     const suggestions = suggestCorrections({ results: ev.results, current: {} });
     const identity = suggestions.find((s) => s.ruleId === "CT-002");
-    assert.ok(identity);
+    assert.ok(identity, `suggestions=${suggestions.map((s) => s.ruleId).join(",")}`);
     assert.ok(identity!.requiresUserInput.includes("businessName"));
     assert.equal(identity!.suggestedContentPatches.length, 0);
     assert.equal(identity!.applyAutomatically, false);

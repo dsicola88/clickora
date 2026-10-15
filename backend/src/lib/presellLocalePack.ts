@@ -62,18 +62,18 @@ const RICH: Record<string, RichLocalePack> = {
     richFooter: "Continúa en la página oficial para precios completos y pago seguro.",
   },
   "pt-BR": {
-    subtitleFallback: "Portal informativo de bem-estar — conteúdo editorial independente.",
-    cta: "Visitar o Site Oficial do Fabricante",
-    sectionWhy: "Pilares do Bem-Estar Ocular",
-    sectionWhat: "Sobre a linha recomendada",
-    sectionFromPage: "Contexto editorial",
-    bullet1: "Suporte contra a Fadiga Diária: auxilia a reduzir o impacto do cansaço visual provocado pelo uso prolongado de telas.",
-    bullet2: "Ação Antioxidante: fornece nutrientes essenciais que ajudam a proteger as células da mácula contra o envelhecimento precoce.",
-    bullet3: "Nutrição Vitamínica Completa: aporte focado de vitaminas que colaboram com a manutenção saudável da visão noturna.",
+    subtitleFallback: "Conteúdo informativo independente — confirme detalhes no site da oferta.",
+    cta: "Continuar para a página oficial da oferta",
+    sectionWhy: "O que deve confirmar no site oficial",
+    sectionWhat: "Transparência",
+    sectionFromPage: "Contexto",
+    bullet1: "Identidade do vendedor: confirme nome comercial, contacto e políticas no destino.",
+    bullet2: "Preço, envio e garantia: só são válidos no checkout oficial do comerciante.",
+    bullet3: "Composição e avisos: leia no site e no rótulo do fabricante — não inventamos essas informações.",
     urgency:
-      "Como este portal atua de forma independente na recomendação de bem-estar, direcionamos você diretamente para a estrutura oficial do fabricante.",
+      "Esta página não é o fabricante nem processa pagamentos. Podemos receber comissão por indicação, sem custo extra para si.",
     richFooter:
-      "Para quem busca uma alternativa concentrada para complementar a dieta com esses nutrientes, a seleção rigorosa de ingredientes é o diferencial da linha internacional.",
+      "Use o botão para abrir a página oficial da oferta e verificar todas as condições antes de comprar.",
   },
   de: {
     subtitleFallback: "Wichtige Informationen von der offiziellen Angebotsseite",
@@ -280,7 +280,7 @@ export function officialBuyCta(language: string): string {
   const m: Record<string, string> = {
     en: "See the offer",
     es: "Comprar en el sitio oficial",
-    "pt-BR": "Visitar o Site Oficial do Fabricante",
+    "pt-BR": "Continuar para a página oficial da oferta",
     de: "Auf der offiziellen Website kaufen",
     fr: "Acheter sur le site officiel",
     it: "Acquista sul sito ufficiale",

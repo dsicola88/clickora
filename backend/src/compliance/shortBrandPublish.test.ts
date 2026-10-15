@@ -43,6 +43,8 @@ What happens next
       settings: {
         cookiePolicyUrl: "/privacidade",
         privacyPolicyUrl: "/privacidade",
+        businessName: "Analista Independente Lda",
+        contactEmail: "ops@example.com",
         affiliateDisclosure:
           "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si.",
       },

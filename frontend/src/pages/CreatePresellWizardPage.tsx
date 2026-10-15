@@ -27,6 +27,7 @@ import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeOption } from "@/lib/presellTypeOptions";
 import { PRESELL_CREATION_LANGUAGES, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { isDiscountPresellType, isVideoPresellType } from "@/lib/presellTypeMeta";
+import { useAuth } from "@/contexts/AuthContext";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -71,7 +72,12 @@ function defaultAbTypeB(typeA: string): string {
 export default function CreatePresellWizardPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  /** Identidade real do operador — nunca inventar CNPJ/marca. */
+  const [businessName, setBusinessName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [operatorDocument, setOperatorDocument] = useState("");
   const [offerUrl, setOfferUrl] = useState("");
   /** Página de vendas a clonar (visual). Se vazio, usa o hoplink. */
   const [productPageUrl, setProductPageUrl] = useState("");
@@ -220,11 +226,29 @@ export default function CreatePresellWizardPage() {
         return { content, video_url, mirrorOk, pageTitle };
       };
 
+      const operatorName =
+        businessName.trim() ||
+        (typeof user?.name === "string" ? user.name.trim() : "") ||
+        "";
+      const operatorEmail =
+        contactEmail.trim() ||
+        (typeof user?.sale_notify_email === "string" && user.sale_notify_email.trim()) ||
+        (typeof user?.email === "string" ? user.email.trim() : "") ||
+        "";
+      if (!operatorName || !operatorEmail) {
+        throw new Error(
+          "Para publicar sem bloqueio no Google Ads, indique o nome real do operador e um e-mail de contacto válidos (sem dados inventados).",
+        );
+      }
       const settings: Record<string, unknown> = {
         cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
         privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+        termsUrl: "/termos",
+        businessName: operatorName,
+        contactEmail: operatorEmail,
+        ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
         affiliateDisclosure:
-          "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si.",
+          "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si. Não somos o fabricante nem processamos o pagamento.",
         minAge: minAge.trim() || "18",
       };
 
@@ -630,6 +654,42 @@ export default function CreatePresellWizardPage() {
                 <PresellTypeCombobox value={abTypeB} onValueChange={setAbTypeB} />
               </div>
             ) : null}
+          </div>
+
+          <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
+            <p className="text-sm font-medium text-foreground">Identidade do operador (obrigatório para Google Ads)</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Use apenas dados verdadeiros. Não invente CNPJ, marca nem e-mail — a analista do Google bloqueia
+              informação fictícia no rodapé e nas políticas.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="bizName">Nome do responsável / empresa</Label>
+              <Input
+                id="bizName"
+                placeholder={user?.name || "O seu nome ou razão social"}
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bizEmail">E-mail de contacto público</Label>
+              <Input
+                id="bizEmail"
+                type="email"
+                placeholder={user?.email || "voce@dominio.com"}
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bizDoc">CNPJ / CPF / NIF (opcional — só se for real)</Label>
+              <Input
+                id="bizDoc"
+                placeholder="Deixe vazio se ainda não tiver"
+                value={operatorDocument}
+                onChange={(e) => setOperatorDocument(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">

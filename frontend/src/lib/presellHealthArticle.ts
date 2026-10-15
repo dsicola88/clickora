@@ -1,6 +1,6 @@
 /**
- * Artigo informativo estilo portal de saúde — substitui a bridge page
- * (bullets robóticos + preço solto) que o Google Ads rejeita.
+ * Artigo editorial transparente — sem bridge de preço e sem alegações
+ * de saúde inventadas (bloqueio típico no Google Ads).
  */
 
 export type HealthArticlePillar = { title: string; body: string };
@@ -17,6 +17,10 @@ export type HealthArticle = {
 const BRIDGE_JUNK =
   /price written on the offer page|see today's offer|see the offer|the current price is on the next page|the product name and the pictures are ready|before you continue|on the next page|from the offer page|preço escrito na página|veja a oferta de hoje|o preço atual está na página seguinte/i;
 
+/** Claims médicos / benefícios inventados — não gerar automaticamente. */
+const INVENTED_HEALTH =
+  /carotenoides|mácula|macula|luz azul|fadiga ocular|visão noturna|antioxidante|nutrição ocular|cura|milagroso|garantido|fda\s*approved/i;
+
 export function isThinBridgeSalesText(salesText: string | null | undefined): boolean {
   const t = (salesText || "").trim();
   if (!t) return true;
@@ -30,30 +34,32 @@ export function isThinBridgeSalesText(salesText: string | null | undefined): boo
   return uniqueLines.size > 0 && uniqueLines.size <= 4 && t.length < 420;
 }
 
-/** Artigo portal PT-BR (formato Ads-safe: conteúdo informativo + CTA transparente). */
+/**
+ * Artigo portal PT-BR: só factos verificáveis sobre o papel da página.
+ * Não inventa composição, benefícios clínicos nem “especialistas”.
+ */
 export function buildPtBrHealthPortalArticle(productName: string): HealthArticle {
-  const name = productName.trim() || "o produto";
+  const name = productName.trim() || "este produto";
   return {
-    headline: "Nutrição Ocular: A Importância dos Carotenoides na Era das Telas Digitais",
-    intro:
-      "Passamos grande parte do nosso dia expostos à luz azul gerada por smartphones, computadores e televisores. Especialistas apontam que essa rotina intensiva exige cuidados nutricionais específicos para apoiar o conforto visual e mitigar a fadiga ocular ao fim do dia.",
-    pillarsTitle: "Pilares do Bem-Estar Ocular",
+    headline: `Como avaliar a oferta de ${name} com transparência`,
+    intro: `Esta página é um conteúdo informativo independente sobre ${name}. Não somos o fabricante, não processamos pagamentos e não substituímos a ficha técnica, o rótulo nem o atendimento do vendedor. O objetivo é ajudar o visitante a decidir com calma antes de seguir para o site da oferta.`,
+    pillarsTitle: "O que deve confirmar no site oficial",
     pillars: [
       {
-        title: "Suporte contra a Fadiga Diária",
-        body: "Auxilia a reduzir o impacto do cansaço visual provocado pelo uso prolongado de telas.",
+        title: "Identidade do vendedor",
+        body: "Confirme o nome comercial, contacto e políticas publicadas no destino da oferta antes de concluir qualquer compra.",
       },
       {
-        title: "Ação Antioxidante",
-        body: "Fornece nutrientes essenciais que ajudam a proteger as células da mácula contra o envelhecimento precoce.",
+        title: "Preço, envio e garantia",
+        body: "Valores, prazos, devoluções e condições de pagamento só são válidos quando apresentados no checkout oficial do comerciante.",
       },
       {
-        title: "Nutrição Vitamínica Completa",
-        body: "Aporte focado de vitaminas que colaboram com a manutenção saudável da visão noturna.",
+        title: "Composição e avisos do produto",
+        body: "Ingredientes, modo de uso e avisos de saúde devem ser lidos na página e no rótulo do fabricante — esta página não reproduz nem inventa essas informações.",
       },
     ],
-    productNote: `Para quem busca uma alternativa concentrada para complementar a dieta com esses nutrientes, a linha internacional ${name} destaca-se pela seleção rigorosa de ingredientes. Como este portal atua de forma independente na recomendação de bem-estar, direcionamos você diretamente para a estrutura oficial do fabricante.`,
-    ctaLabel: "Visitar o Site Oficial do Fabricante",
+    productNote: `Se quiser conhecer a proposta comercial de ${name}, utilize o botão abaixo para abrir a página oficial da oferta. Podemos receber comissão por indicação caso uma compra seja efetuada — sem custo adicional para si.`,
+    ctaLabel: "Continuar para a página oficial da oferta",
   };
 }
 
@@ -89,9 +95,13 @@ function pillarsFromContent(raw: unknown): HealthArticlePillar[] | null {
   return out.length ? out : null;
 }
 
+function looksInventedHealthCopy(...parts: string[]): boolean {
+  return parts.some((p) => INVENTED_HEALTH.test(p));
+}
+
 /**
- * Resolve o artigo a mostrar. Bridge antiga → template portal PT-BR.
- * Campos estruturados no content têm prioridade.
+ * Resolve o artigo. Bridge antiga ou copy com claims inventados → template transparente.
+ * Campos estruturados só entram se não tiverem alegações médicas fabricadas.
  */
 export function resolveHealthArticle(args: {
   content: ContentLike;
@@ -106,43 +116,59 @@ export function resolveHealthArticle(args: {
   const intro = asString(c.articleIntro || c.healthIntro);
   const pillarsTitle = asString(c.articlePillarsTitle || c.healthPillarsTitle);
   const productNote = asString(c.articleProductNote || c.healthProductNote);
+  const base = buildPtBrHealthPortalArticle(args.productName);
 
-  if (headline && intro && pillars && pillars.length >= 2) {
-    const base = buildPtBrHealthPortalArticle(args.productName);
+  const structuredOk =
+    headline &&
+    intro &&
+    pillars &&
+    pillars.length >= 2 &&
+    !looksInventedHealthCopy(
+      headline,
+      intro,
+      pillarsTitle,
+      productNote,
+      ...pillars.map((p) => `${p.title} ${p.body}`),
+    );
+
+  if (structuredOk && pillars) {
     return {
       headline,
       intro,
       pillarsTitle: pillarsTitle || base.pillarsTitle,
       pillars,
       productNote: productNote || base.productNote,
-      ctaLabel:
-        asString(args.ctaText) && !/see the offer|ver a oferta|allow/i.test(String(args.ctaText))
-          ? String(args.ctaText).trim()
-          : base.ctaLabel,
+      ctaLabel: pickCta(args.ctaText, base.ctaLabel),
     };
   }
 
   const sales = args.salesText || asString(c.salesText || c.sales_text);
-  if (isThinBridgeSalesText(sales) || /^(pt|pt-br)/i.test(args.language || "pt")) {
-    const article = buildPtBrHealthPortalArticle(args.productName);
-    const cta = asString(args.ctaText);
-    if (cta && !BRIDGE_JUNK.test(cta) && !/^see the offer$/i.test(cta)) {
-      return { ...article, ctaLabel: cta };
-    }
-    return article;
+  if (
+    isThinBridgeSalesText(sales) ||
+    looksInventedHealthCopy(sales) ||
+    /^(pt|pt-br)/i.test(args.language || "pt")
+  ) {
+    return { ...base, ctaLabel: pickCta(args.ctaText, base.ctaLabel) };
   }
 
-  // Fallback: artigo mínimo a partir do salesText existente (sem preços).
   const cleaned = sales.replace(BRIDGE_JUNK, "").replace(/\$\d+(?:[.,]\d+)?/g, "").trim();
-  const article = buildPtBrHealthPortalArticle(args.productName);
-  if (cleaned.length > 280) {
+  if (cleaned.length > 280 && !looksInventedHealthCopy(cleaned)) {
     const parts = cleaned.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
     return {
-      ...article,
-      headline: parts[0]?.length < 120 ? parts[0] : article.headline,
-      intro: parts.find((p) => p.length > 80 && p !== parts[0]) || article.intro,
-      productNote: parts[parts.length - 1] || article.productNote,
+      ...base,
+      headline: parts[0]?.length < 120 ? parts[0] : base.headline,
+      intro: parts.find((p) => p.length > 80 && p !== parts[0]) || base.intro,
+      productNote: parts[parts.length - 1] || base.productNote,
+      ctaLabel: pickCta(args.ctaText, base.ctaLabel),
     };
   }
-  return article;
+  return { ...base, ctaLabel: pickCta(args.ctaText, base.ctaLabel) };
+}
+
+function pickCta(raw: string | undefined, fallback: string): string {
+  const cta = asString(raw);
+  if (!cta) return fallback;
+  if (BRIDGE_JUNK.test(cta) || /^see the offer$/i.test(cta)) return fallback;
+  if (/fabricante oficial|official manufacturer|somos o fabricante/i.test(cta)) return fallback;
+  return cta;
 }

@@ -173,7 +173,7 @@ const RULES = [
     description: "Quando existe link de oferta externo, a relação de afiliado deve estar visível.",
     platforms: ["google", "microsoft"],
     category: "commercial_transparency",
-    severity: "medium",
+    severity: "high",
     sourceIds: ["gads-misrepresentation", "msads-agreement"],
     sourceReviewedAt: "2026-10-15",
     run: ({ signals }) => {
@@ -194,43 +194,57 @@ const RULES = [
         };
       }
       return {
-        status: "WARNING",
-        confidence: 0.85,
+        status: "FAIL",
+        confidence: 0.9,
         evidence: { summary: "Link de oferta presente sem divulgação de afiliado visível." },
-        remediation: "Adicione divulgação clara (ex.: relação de afiliado / comissão) antes de anunciar.",
+        remediation:
+          "Adicione divulgação clara e verdadeira de afiliado/comissão. Não invente dados — a analista do Google exige transparência.",
       };
     },
   }),
   def({
     id: "CT-002",
     name: "Identidade comercial",
-    description: "Quem opera a página deve ser identificável (nome e/ou contacto).",
+    description: "Quem opera a página deve ser identificável (nome e contacto reais).",
     platforms: ["google", "microsoft"],
     category: "commercial_transparency",
-    severity: "medium",
+    severity: "high",
     sourceIds: ["gads-misrepresentation"],
     sourceReviewedAt: "2026-10-15",
     run: ({ signals }) => {
-      if (signals.hasBusinessIdentity) {
+      const hasName = Boolean(signals.businessName?.trim());
+      const hasContact = Boolean(signals.contactEmail?.trim());
+      if (hasName && hasContact) {
         return {
           status: "PASS",
-          confidence: 0.7,
+          confidence: 0.85,
           evidence: {
-            summary: "Identidade comercial parcialmente preenchida.",
-            details: [
-              signals.businessName ? `business=${signals.businessName}` : "business=missing",
-              signals.contactEmail ? "contact=present" : "contact=missing",
-            ],
+            summary: "Identidade comercial preenchida (nome + contacto).",
+            details: [`business=${signals.businessName}`, "contact=present"],
           },
-          remediation: "Complete nome legal e contacto funcional se ainda faltar.",
+          remediation: "Mantenha nome e contacto actualizados e verdadeiros.",
         };
       }
-      // medium WARNING: não bloqueia publicação automática; ainda exige dados no editor.
+      if (signals.hasBusinessIdentity && (hasName || hasContact)) {
+        return {
+          status: "WARNING",
+          confidence: 0.7,
+          evidence: {
+            summary: "Identidade parcial — complete nome legal e e-mail de contacto.",
+            details: [
+              hasName ? `business=${signals.businessName}` : "business=missing",
+              hasContact ? "contact=present" : "contact=missing",
+            ],
+          },
+          remediation: "Preencha nome do operador e e-mail real. Não use placeholders.",
+        };
+      }
       return {
-        status: "WARNING",
-        confidence: 0.8,
-        evidence: { summary: "Identidade empresarial/contacto não fornecidos." },
-        remediation: "Preencha o responsável pela página e um contacto funcional. Não invente dados.",
+        status: "FAIL",
+        confidence: 0.9,
+        evidence: { summary: "Identidade empresarial/contacto ausentes ou fictícios." },
+        remediation:
+          "Preencha o responsável real pela página e um e-mail funcional nas definições. Nunca invente CNPJ, marca ou contacto.",
       };
     },
   }),
@@ -245,13 +259,14 @@ const RULES = [
     sourceReviewedAt: "2026-10-15",
     run: ({ signals }) => {
       const re =
-        /\b(fabricante\s+oficial|official\s+manufacturer|somos\s+o\s+fabricante|médico\s+autorizado|medico\s+autorizado|FDA\s+approved\s+cure|aprovado\s+pela\s+OMS)\b/i;
+        /\b(fabricante\s+oficial|official\s+manufacturer|somos\s+o\s+fabricante|site\s+oficial\s+do\s+fabricante|médico\s+autorizado|medico\s+autorizado|FDA\s+approved\s+cure|aprovado\s+pela\s+OMS|cura\s+garantida|milagroso)\b/i;
       if (re.test(signals.claimsText)) {
         return {
           status: "FAIL",
           confidence: 0.85,
           evidence: { summary: "Possível alegação de autoridade/identidade enganosa." },
-          remediation: "Remova alegações não verificáveis. Se for verdadeiro, forneça prova e mantenha linguagem precisa.",
+          remediation:
+            "Remova alegações não verificáveis e não se apresente como o fabricante. Use linguagem de afiliado transparente.",
         };
       }
       return {
