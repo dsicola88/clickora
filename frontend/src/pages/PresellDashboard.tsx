@@ -10,13 +10,13 @@ import {
   Check,
   Trash2,
   Settings,
-  Pencil,
   Code2,
   Download,
   LayoutGrid,
   ChevronLeft,
   ChevronRight,
   Megaphone,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,7 +61,14 @@ import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } fr
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
+import { buildTrackedPresellUrl } from "@/services/campaignsService";
 import { exportPageToHtml } from "@/page-builder/export-html";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
@@ -114,7 +121,6 @@ export default function PresellDashboard() {
   const [showCreator, setShowCreator] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
-  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   /** A carregar HTML (copiar fragmento para widget ou descarregar .html completo). */
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
@@ -441,37 +447,21 @@ export default function PresellDashboard() {
     resetForm();
   };
 
-  const handleEditClick = async (page: Presell) => {
-    if (!canWritePresells) {
-      toast.error("Sem permissão para editar presells neste workspace.");
-      return;
-    }
-    setIsLoadingEdit(true);
-    try {
-      const { data, error } = await presellService.getById(page.id);
-      if (error || !data) {
-        toast.error(error || "Não foi possível carregar a página.");
-        return;
-      }
-      if (data.type === "builder") {
-        navigate(`/presell/builder/${data.id}`);
-        return;
-      }
-      setEditingId(data.id);
-      setEditingPage(data);
-      populateFormFromPresell(data);
-      setCreatorStep(1);
-      setShowCreator(true);
-    } finally {
-      setIsLoadingEdit(false);
-    }
+  /** URL final para colar no Ads: domínio/p/id + UTMs + gclid. */
+  const adsFinalUrlForPage = (page: Presell) => {
+    const base = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
+    return buildTrackedPresellUrl(base, page.title || page.slug || "campanha", "Google Ads");
   };
 
-  const handleCopySlug = (page: Presell) => {
-    const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
-    navigator.clipboard.writeText(url);
+  const handleCopyAdsUrl = (page: Presell) => {
+    if (page.status !== "published") {
+      toast.error("Publique a página antes de copiar a URL para o Ads.");
+      return;
+    }
+    const url = adsFinalUrlForPage(page);
+    void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    toast.success("Link público copiado (/p/ e ID da página).");
+    toast.success("URL completa para o Ads copiada (presell + UTMs + gclid).");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -1472,17 +1462,11 @@ export default function PresellDashboard() {
       </div>
 
       <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/20 px-3 py-2 leading-relaxed">
-        <span className="font-medium text-card-foreground">Anúncios e partilha:</span> o link que copias é sempre{" "}
-        <code className="text-[11px] bg-background px-1 rounded">https://teu-dominio/p/&lt;id&gt;</code> (com domínio
-        verificado, ou o da conta). O «endereço» (slug) é só nome interno. O{" "}
-        <span className="font-medium text-card-foreground">hoplink</span> fica no botão — não uses a página do produto
-        no anúncio.{" "}
-        <Code2 className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
-        <span className="font-medium text-card-foreground">Copiar HTML</span> (fragmento para colar num widget HTML);{" "}
-        <Download className="inline h-3 w-3 align-text-bottom opacity-80" aria-hidden />{" "}
-        <span className="font-medium text-card-foreground">Descarregar .html</span> (página completa com &lt;html&gt;). Nas
-        presells <span className="font-medium text-card-foreground">manuais</span>, o HTML exportado corresponde ao layout
-        do editor (não ao modelo importado por URL).
+        <span className="font-medium text-card-foreground">URL para o Ads:</span> use{" "}
+        <span className="font-medium text-card-foreground">Copiar URL Ads</span> — inclui a presell, UTMs e{" "}
+        <code className="text-[11px] bg-background px-1 rounded">gclid</code>, pronta a colar no anúncio. O slug é só
+        nome interno. O hoplink fica no botão da página — não uses a página do produto no anúncio. Exportar HTML está em{" "}
+        <span className="font-medium text-card-foreground">Mais</span>.
       </p>
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -1517,10 +1501,17 @@ export default function PresellDashboard() {
                         <span className="text-[10px] text-muted-foreground">slug: /{page.slug}</span>
                         <button
                           type="button"
-                          onClick={() => handleCopySlug(page)}
-                          className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors"
+                          onClick={() => handleCopyAdsUrl(page)}
+                          className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors inline-flex items-center gap-1"
+                          title="Copiar URL completa com UTMs e gclid para o Google Ads"
                         >
-                          {copiedId === page.id ? <Check className="h-3 w-3" /> : "Copiar"}
+                          {copiedId === page.id ? (
+                            <>
+                              <Check className="h-3 w-3" /> Copiada
+                            </>
+                          ) : (
+                            "Copiar URL Ads"
+                          )}
                         </button>
                       </div>
                     </div>
@@ -1549,20 +1540,9 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => navigate(`/presell/builder/${page.id}`)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Editor visual — imagens, textos e posições"
+                          title="Editar página"
                         >
                           <LayoutGrid className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      {canWritePresells ? (
-                        <button
-                          type="button"
-                          onClick={() => handleEditClick(page)}
-                          disabled={isLoadingEdit}
-                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
                         </button>
                       ) : null}
                       <a
@@ -1572,8 +1552,8 @@ export default function PresellDashboard() {
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         title={
                           page.status === "published"
-                            ? "Abrir o mesmo link público que vês na coluna (domínio verificado ou dclickora)."
-                            : "A presell tem de estar «Habilitada» (publicada) para o link público mostrar conteúdo"
+                            ? "Abrir a página pública"
+                            : "Publique a página para o link público mostrar conteúdo"
                         }
                       >
                         <Eye className="h-4 w-4" />
@@ -1581,37 +1561,13 @@ export default function PresellDashboard() {
                       {page.status === "published" ? (
                         <button
                           type="button"
-                          onClick={() =>
-                            navigate(
-                              dpilotAdsHandoffHref(
-                                getPublicPresellFullUrl(customDomains, page.custom_domain_id, page),
-                              ),
-                            )
-                          }
+                          onClick={() => navigate(dpilotAdsHandoffHref(adsFinalUrlForPage(page)))}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Anunciar esta URL no Google Ads"
+                          title="Anunciar no Google Ads com a URL rastreada"
                         >
                           <Megaphone className="h-4 w-4" />
                         </button>
                       ) : null}
-                      <button
-                        type="button"
-                        onClick={() => handleCopyHtml(page)}
-                        disabled={htmlExportBusyId === page.id}
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        title="Copiar HTML para colar no widget HTML do teu site"
-                      >
-                        <Code2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadFullHtml(page)}
-                        disabled={htmlExportBusyId === page.id}
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        title="Descarregar página .html completa (DOCTYPE, head, body)"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
                       {canWritePresells ? (
                         <button
                           type="button"
@@ -1632,6 +1588,34 @@ export default function PresellDashboard() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       ) : null}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                            title="Mais ações"
+                            aria-label="Mais ações"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem
+                            disabled={htmlExportBusyId === page.id}
+                            onClick={() => void handleCopyHtml(page)}
+                          >
+                            <Code2 className="mr-2 h-4 w-4" />
+                            Copiar HTML (widget)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={htmlExportBusyId === page.id}
+                            onClick={() => void handleDownloadFullHtml(page)}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Descarregar .html
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
                 </tr>
