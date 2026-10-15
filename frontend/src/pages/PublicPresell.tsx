@@ -75,6 +75,8 @@ import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
 import { PresellTypeFrame } from "@/components/presell/PresellTypeFrame";
+import { PresellHealthArticle } from "@/components/presell/PresellHealthArticle";
+import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
 
 function queryParam(search: URLSearchParams, key: string) {
@@ -923,7 +925,7 @@ export default function PublicPresell() {
   });
   const subtitle = importedClone ? "" : subtitleRaw;
   const salesText = importedClone ? "" : salesTextRaw;
-  const ctaText = (content.ctaText as string) || "Quero Aproveitar Agora";
+  const ctaTextRaw = (content.ctaText as string) || "Visitar o Site Oficial do Fabricante";
 
   const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
 
@@ -931,24 +933,12 @@ export default function PublicPresell() {
 
   const heroImage = productImages[0];
   const galleryImages = productImages.slice(1, 10);
-  const textBlocks = salesText
-    .split(/\n\n+/)
-    .map((b) => b.trim())
-    .filter(Boolean);
-
-  const vslExcerpt = (() => {
-    const first = textBlocks[0] || "";
-    if (!first) return "";
-    return first.length > 300 ? `${first.slice(0, 297)}…` : first;
-  })();
 
   const showVideo = isVideoPresellType(page.type) && !!page.video_url;
   const showVslFallback = isVideoPresellType(page.type) && !page.video_url;
   const hideHeroImageForVslFallback = showVslFallback;
   const typeTheme = getPresellTypeTheme(page.type);
   const isVslLayout = isVideoPresellType(page.type);
-  const showSalesLetterSection =
-    textBlocks.length > 0 && !isVslOnlyPresellType(page.type);
 
   const isDiscount = isDiscountPresellType(page.type);
   const discountHeadline = (content.discountHeadline as string) || title;
@@ -994,6 +984,32 @@ export default function PublicPresell() {
     productNameRaw.toLowerCase() !== title.toLowerCase()
       ? productNameRaw
       : "";
+  const healthProductName = productNameRaw || title || "o produto";
+  /** Storefront: artigo portal (anti-bridge Ads). Páginas antigas com junk também caem aqui. */
+  const healthArticle = resolveHealthArticle({
+    content: content as Record<string, unknown>,
+    productName: healthProductName,
+    language: uiLang || page.language || "pt-BR",
+    salesText,
+    ctaText: ctaTextRaw,
+  });
+  const ctaText = storefrontLayout ? healthArticle.ctaLabel : ctaTextRaw;
+  const useHealthArticleBody = storefrontLayout && !showImportedMirror && !isVslLayout;
+  /** Portal de saúde: UI de consentimento e rodapé em PT-BR. */
+  const displayLang = useHealthArticleBody ? "pt-BR" : uiLang;
+  const textBlocks = useHealthArticleBody
+    ? []
+    : salesText
+        .split(/\n\n+/)
+        .map((b) => b.trim())
+        .filter(Boolean);
+  const vslExcerpt = (() => {
+    const first = textBlocks[0] || "";
+    if (!first) return "";
+    return first.length > 300 ? `${first.slice(0, 297)}…` : first;
+  })();
+  const showSalesLetterSection =
+    !useHealthArticleBody && textBlocks.length > 0 && !isVslOnlyPresellType(page.type);
   const ratingFromSource = content.ratingFromSource === true;
   const showStorefrontRating =
     ratingFromSource &&
@@ -1054,7 +1070,7 @@ export default function PublicPresell() {
     <>
       {gateKind === "cookies" && showCookieModal ? (
         <CookieConsentModal
-          language={uiLang}
+          language={displayLang}
           policyUrl={cookiePolicyUrl}
           redirectHref={href}
           fallbackHref={cookieConsentFallbackHref}
@@ -1429,25 +1445,24 @@ export default function PublicPresell() {
                   )}
                 >
                   {ctaText}
-                  <span aria-hidden>→</span>
                 </a>
               </div>
             </header>
+            {/* Só header + frasco — o miolo bridge foi removido (Ads). */}
             <section className="relative overflow-hidden bg-gradient-to-br from-[#0a5ea8] via-[#0a3f86] to-[#07264f] text-white">
-            <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-12 md:pb-16">
-              {interactiveKind ? (
-                <div className="mb-8 text-center max-w-3xl mx-auto text-white [&_label]:text-white [&_p]:text-white/80">
-                  <PresellGateFields
-                    gateKind={interactiveKind}
-                    language={uiLang}
-                    settings={settings}
-                    onPayload={handleFieldPayload}
-                  />
-                </div>
-              ) : null}
-
-              <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
-                <div className="order-2 md:order-1">
+              <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 pb-10 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
+                {interactiveKind ? (
+                  <div className="mb-6 w-full max-w-xl text-center text-white [&_label]:text-white [&_p]:text-white/80">
+                    <PresellGateFields
+                      gateKind={interactiveKind}
+                      language={uiLang}
+                      settings={settings}
+                      onPayload={handleFieldPayload}
+                    />
+                  </div>
+                ) : null}
+                <h1 className="sr-only">{title}</h1>
+                <div className="w-full max-w-md">
                   <PresellProductHero
                     src={heroImageFallback.src}
                     onError={heroImageFallback.onError}
@@ -1455,86 +1470,9 @@ export default function PublicPresell() {
                     tone="plain"
                     emphasis="showcase"
                   />
-                  {productImages.length > 1 ? (
-                    <div className="mt-4 flex gap-3 overflow-x-auto pb-1 snap-x">
-                      {productImages.map((src, i) => (
-                        <button
-                          key={`${i}-${src.slice(0, 48)}`}
-                          type="button"
-                          onClick={() => setStorefrontMainIdx(i)}
-                          className={cn(
-                            "shrink-0 snap-start overflow-hidden rounded-xl border-2 bg-white/95 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
-                            i === heroImageFallback.effectiveIndex
-                              ? "border-orange-400 shadow-lg"
-                              : "border-white/30 opacity-90 hover:opacity-100",
-                          )}
-                          aria-label={`Imagem ${i + 1}`}
-                        >
-                          <PresellSecondaryImage
-                            src={src}
-                            alt=""
-                            className="h-16 w-16 bg-white object-contain sm:h-20 sm:w-20"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="order-1 md:order-2 text-center md:text-left">
-                  <h1 className="font-sans text-5xl font-extrabold leading-[0.95] tracking-tight text-white break-words sm:text-6xl lg:text-7xl">
-                    {title}
-                  </h1>
-                  {showStorefrontRating ? (
-                    <div className="mt-4 flex justify-center md:justify-start">
-                      <StorefrontRatingRow
-                        value={String(content.ratingValue)}
-                        stars={Number(content.ratingStars)}
-                      />
-                    </div>
-                  ) : null}
-                  {subtitle ? (
-                    <p className="mt-4 text-lg leading-relaxed text-white/85 sm:text-xl">{subtitle}</p>
-                  ) : null}
-                  <div className="mt-8">
-                    <PresellCta href={href} disabled={!ctaEnabled} surface="commerce" stretch>
-                      {ctaText}
-                    </PresellCta>
-                    <p className="mt-4 text-sm leading-relaxed text-white/75">
-                      {getPresellUiStrings(uiLang).midCta}
-                    </p>
-                  </div>
                 </div>
               </div>
-
-              {showVideo ? (
-                <div className="relative w-full max-w-4xl mx-auto aspect-video bg-muted rounded-xl overflow-hidden shadow-md border border-border/50 mt-10">
-                  {isEmbedPlayerVideoUrl(videoEmbedSrc) ? (
-                    <>
-                      <iframe
-                        title="Vídeo"
-                        src={videoEmbedSrc}
-                        className="absolute inset-0 z-0 h-full w-full border-0"
-                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                        allowFullScreen
-                        referrerPolicy="strict-origin-when-cross-origin"
-                      />
-                      <YoutubeCornerClickShield embedSrc={videoEmbedSrc} />
-                    </>
-                  ) : (
-                    <video
-                      title="Vídeo"
-                      src={videoEmbedSrc}
-                      className="absolute inset-0 h-full w-full object-contain bg-black"
-                      controls
-                      playsInline
-                      preload="metadata"
-                    />
-                  )}
-                </div>
-              ) : null}
-            </div>
-          </section>
+            </section>
           </>
         )
       ) : !showImportedMirror ? (
@@ -1687,9 +1625,15 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {!showImportedMirror ? (
+      {!showImportedMirror && !useHealthArticleBody ? (
         <div className="mx-auto max-w-3xl px-4 pt-6 md:pt-8">
           <PresellTypeFrame type={page.type} language={uiLang} variant="aside" />
+        </div>
+      ) : null}
+
+      {useHealthArticleBody ? (
+        <div className="border-t border-slate-200 bg-white">
+          <PresellHealthArticle article={healthArticle} href={href} ctaEnabled={ctaEnabled} />
         </div>
       ) : null}
 
@@ -1723,14 +1667,6 @@ export default function PublicPresell() {
                   )}
                 >
                   <div className="flex flex-col items-center gap-4 sm:gap-5 max-w-lg mx-auto text-center">
-                    <p
-                      className={cn(
-                        "text-sm sm:text-base font-medium leading-relaxed px-1",
-                        storefrontMirrorLightBody ? "text-slate-800" : "text-foreground/85",
-                      )}
-                    >
-                      {getPresellUiStrings(uiLang).midCta}
-                    </p>
                     <PresellCta
                       href={href}
                       disabled={!ctaEnabled}
@@ -1746,71 +1682,48 @@ export default function PublicPresell() {
         </section>
       ) : null}
 
-      {storefrontLayout && !showSalesLetterSection ? null : (
-      <section
-        id={storefrontMirrorLightBody && !showSalesLetterSection ? "presell-story" : undefined}
-        className={cn(
-          "max-w-3xl mx-auto px-3 sm:px-4 pb-6 sm:pb-8 pt-6 sm:pt-8",
-          storefrontMirrorLightBody && "bg-slate-50/80 scroll-mt-14",
-        )}
-      >
-        <div
+      {!useHealthArticleBody && !(storefrontLayout && !showSalesLetterSection) ? (
+        <section
+          id={storefrontMirrorLightBody && !showSalesLetterSection ? "presell-story" : undefined}
           className={cn(
-            "rounded-2xl border px-4 py-8 sm:px-8 sm:py-10 text-center space-y-5 shadow-sm",
-            storefrontMirrorLightBody
-              ? "border-slate-200/80 bg-white text-slate-900"
-              : "border-border/40 bg-card/40 backdrop-blur-[2px]",
+            "max-w-3xl mx-auto px-3 sm:px-4 pb-6 sm:pb-8 pt-6 sm:pt-8",
+            storefrontMirrorLightBody && "bg-slate-50/80 scroll-mt-14",
           )}
         >
-          <PresellCta
-            href={href}
-            disabled={!ctaEnabled}
-            surface={storefrontLayout ? "commerce" : "light"}
-          >
-            {ctaText}
-          </PresellCta>
-          <p
+          <div
             className={cn(
-              "text-xs sm:text-sm max-w-md mx-auto leading-relaxed",
-              storefrontMirrorLightBody ? "text-slate-600" : "text-muted-foreground",
+              "rounded-2xl border px-4 py-8 sm:px-8 sm:py-10 text-center space-y-5 shadow-sm",
+              storefrontMirrorLightBody
+                ? "border-slate-200/80 bg-white text-slate-900"
+                : "border-border/40 bg-card/40 backdrop-blur-[2px]",
             )}
           >
-            {getPresellUiStrings(uiLang).footerNote}
-          </p>
-          {page.footer_branding ? (
-            <p
-              className={cn(
-                "text-[11px] pt-3 border-t max-w-md mx-auto",
-                storefrontMirrorLightBody
-                  ? "text-slate-500 border-slate-200/80"
-                  : "text-muted-foreground/75 border-border/30",
-              )}
-              dir={isRtlLocale(uiLang) ? "rtl" : "ltr"}
+            <PresellCta
+              href={href}
+              disabled={!ctaEnabled}
+              surface={storefrontLayout ? "commerce" : "light"}
             >
-              {getPresellUiStrings(uiLang).footerBrandingPrefix}
-              <a
-                href={href && href !== "#" ? href : "https://www.dclickora.com"}
-                target={href && href !== "#" ? undefined : "_blank"}
-                rel="noopener noreferrer"
-                className={cn(
-                  "font-medium underline underline-offset-2 hover:text-primary",
-                  storefrontMirrorLightBody ? "text-slate-800" : "text-foreground/80",
-                )}
-              >
-                dclickora
-              </a>
-              {getPresellUiStrings(uiLang).footerBrandingSuffix}
-            </p>
-          ) : null}
-        </div>
-      </section>
-      )}
+              {ctaText}
+            </PresellCta>
+          </div>
+        </section>
+      ) : null}
       <PresellTrustFooter
         language={uiLang}
         cookiePolicyUrl={cookiePolicyUrl}
-        tone={
-          useDarkMirrorStorefront ? "dark" : storefrontMirrorLightBody ? "slate" : "light"
+        productName={healthProductName}
+        portalMode={useHealthArticleBody}
+        operatorDocument={
+          typeof settings.operatorDocument === "string"
+            ? settings.operatorDocument
+            : typeof settings.cnpj === "string"
+              ? settings.cnpj
+              : undefined
         }
+        supportEmail={
+          typeof settings.supportEmail === "string" ? settings.supportEmail : undefined
+        }
+        tone={useDarkMirrorStorefront ? "dark" : "portal"}
       />
     </>
   );
@@ -1829,7 +1742,9 @@ export default function PublicPresell() {
         language={uiLang}
         suppressWhileCookieGate={showCookieModal}
       />
-      <PresellLanguageSelector override={override} onModeChange={setMode} />
+      {!useHealthArticleBody ? (
+        <PresellLanguageSelector override={override} onModeChange={setMode} />
+      ) : null}
       {/* Montagem de scripts “início do corpo” (pixels, scripts de terceiros, etc.) */}
       <div
         ref={bodyCodeMountRef}

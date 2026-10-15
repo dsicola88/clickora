@@ -62,16 +62,18 @@ const RICH: Record<string, RichLocalePack> = {
     richFooter: "Continúa en la página oficial para precios completos y pago seguro.",
   },
   "pt-BR": {
-    subtitleFallback: "Uma leitura clara da oferta antes de decidir no site do vendedor.",
-    cta: "Ver a oferta",
-    sectionWhy: "O que esta página mostra",
-    sectionWhat: "O que acontece a seguir",
-    sectionFromPage: "Da página do comerciante",
-    bullet1: "Nome e fotos vêm da listagem do vendedor — não são inventados aqui.",
-    bullet2: "Preço final, envio e garantias só se confirmam no checkout do comerciante.",
-    bullet3: "A decisão é sua: continue só se a oferta ainda fizer sentido.",
-    urgency: "Disponibilidade e condições podem mudar — confirme na página oficial da oferta.",
-    richFooter: "Esta página é independente da marca e não processa pagamentos.",
+    subtitleFallback: "Portal informativo de bem-estar — conteúdo editorial independente.",
+    cta: "Visitar o Site Oficial do Fabricante",
+    sectionWhy: "Pilares do Bem-Estar Ocular",
+    sectionWhat: "Sobre a linha recomendada",
+    sectionFromPage: "Contexto editorial",
+    bullet1: "Suporte contra a Fadiga Diária: auxilia a reduzir o impacto do cansaço visual provocado pelo uso prolongado de telas.",
+    bullet2: "Ação Antioxidante: fornece nutrientes essenciais que ajudam a proteger as células da mácula contra o envelhecimento precoce.",
+    bullet3: "Nutrição Vitamínica Completa: aporte focado de vitaminas que colaboram com a manutenção saudável da visão noturna.",
+    urgency:
+      "Como este portal atua de forma independente na recomendação de bem-estar, direcionamos você diretamente para a estrutura oficial do fabricante.",
+    richFooter:
+      "Para quem busca uma alternativa concentrada para complementar a dieta com esses nutrientes, a seleção rigorosa de ingredientes é o diferencial da linha internacional.",
   },
   de: {
     subtitleFallback: "Wichtige Informationen von der offiziellen Angebotsseite",
@@ -278,7 +280,7 @@ export function officialBuyCta(language: string): string {
   const m: Record<string, string> = {
     en: "See the offer",
     es: "Comprar en el sitio oficial",
-    "pt-BR": "Ver a oferta",
+    "pt-BR": "Visitar o Site Oficial do Fabricante",
     de: "Auf der offiziellen Website kaufen",
     fr: "Acheter sur le site officiel",
     it: "Acquista sul sito ufficiale",
@@ -294,46 +296,11 @@ export function officialBuyCta(language: string): string {
   return m[k] ?? m.en;
 }
 
-export function referencePriceLineRich(lang: string, price: string): string {
-  const k = normalizeImporterLang(lang);
-  if (!price) return "";
-  const m: Record<string, string> = {
-    en: `\n\nPrice written on the offer page: ${price}.`,
-    es: `\n\nReferencia de precio en la página oficial: ${price}.`,
-    "pt-BR": `\n\nPreço escrito na página da oferta: ${price}.`,
-    de: `\n\nReferenzpreis auf der offiziellen Seite: ${price}.`,
-    fr: `\n\nPrix de référence sur la page officielle : ${price}.`,
-    it: `\n\nPrezzo di riferimento sulla pagina ufficiale: ${price}.`,
-    pl: `\n\nCena referencyjna na stronie oficjalnej: ${price}.`,
-    tr: `\n\nResmi sayfadaki referans fiyat: ${price}.`,
-    hi: `\n\nआधिकारिक पृष्ठ पर संदर्भ मूल्य: ${price}.`,
-    ar: `\n\nالسعر المرجعي في الصفحة الرسمية: ${price}.`,
-    nl: `\n\nReferentieprijs op de officiële pagina: ${price}.`,
-    sv: `\n\nReferenspris på den officiella sidan: ${price}.`,
-    no: `\n\nReferansepris på den offisielle siden: ${price}.`,
-    da: `\n\nReferencepris på den officielle side: ${price}.`,
-  };
-  return m[k] ?? m["pt-BR"];
+/** Preços soltos na presell (= bridge) são bloqueados no Google Ads — não emitir. */
+export function referencePriceLineRich(_lang: string, _price: string): string {
+  return "";
 }
 
-export function referencePriceLineCompact(lang: string, price: string): string {
-  const k = normalizeImporterLang(lang);
-  if (!price) return "";
-  const m: Record<string, string> = {
-    en: `Price written on the offer page: ${price}.`,
-    es: `Referencia de precio en la página oficial: ${price}.`,
-    "pt-BR": `Preço escrito na página da oferta: ${price}.`,
-    de: `Referenzangebot auf der offiziellen Seite: ${price}.`,
-    fr: `Référence d’offre sur la page officielle : ${price}.`,
-    it: `Riferimento offerta sulla pagina ufficiale: ${price}.`,
-    pl: `Referencja oferty na stronie oficjalnej: ${price}.`,
-    tr: `Resmi sayfadaki teklif referansı: ${price}.`,
-    hi: `आधिकारिक पृष्ठ पर ऑफ़र संदर्भ: ${price}.`,
-    ar: `مرجع العرض في الصفحة الرسمية: ${price}.`,
-    nl: `Aanbiedingsreferentie op de officiële pagina: ${price}.`,
-    sv: `Erbjudandereferens på den officiella sidan: ${price}.`,
-    no: `Tilbudsreferanse på den offisielle siden: ${price}.`,
-    da: `Tilbudsreference på den officielle side: ${price}.`,
-  };
-  return m[k] ?? m["pt-BR"];
+export function referencePriceLineCompact(_lang: string, _price: string): string {
+  return "";
 }

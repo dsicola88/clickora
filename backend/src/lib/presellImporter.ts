@@ -2,6 +2,7 @@ import type { RichLocalePack } from "./presellLocalePack";
 import {
   buildDiscountHeadline,
   localePack,
+  normalizeImporterLang,
   officialBuyCta,
   referencePriceLineCompact,
   referencePriceLineRich,
@@ -1162,8 +1163,26 @@ function pickSubtitle(
 function buildOriginalPresellCopy(args: { language: string; productName: string; price: string }): string {
   const locale = localePack(args.language);
   const name = args.productName.trim() || "Produto";
-  const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
-  // Texto próprio, sem repetir as mesmas frases em três secções.
+  const lang = normalizeImporterLang(args.language);
+  // Sem preço solto ($780) — bridge pages são bloqueadas no Google Ads.
+  void args.price;
+  if (lang === "pt-BR" || lang === "pt") {
+    return `Nutrição Ocular: A Importância dos Carotenoides na Era das Telas Digitais
+
+Passamos grande parte do nosso dia expostos à luz azul gerada por smartphones, computadores e televisores. Especialistas apontam que essa rotina intensiva exige cuidados nutricionais específicos para apoiar o conforto visual e mitigar a fadiga ocular ao fim do dia.
+
+${locale.sectionWhy}
+
+${locale.bullet1}
+
+${locale.bullet2}
+
+${locale.bullet3}
+
+${locale.sectionWhat}
+
+Para quem busca uma alternativa concentrada para complementar a dieta com esses nutrientes, a linha internacional ${name} destaca-se pela seleção rigorosa de ingredientes. ${locale.urgency}`.trim();
+  }
   return `${name}
 
 ${locale.subtitleFallback}
@@ -1175,9 +1194,7 @@ ${locale.sectionWhy}
 
 ${locale.sectionWhat}
 • ${locale.richFooter}
-• ${locale.urgency}
-
-${priceLine}`.trim();
+• ${locale.urgency}`.trim();
 }
 
 /** Página longa (ex.: Neotonics): texto denso parecido com a oferta. */
