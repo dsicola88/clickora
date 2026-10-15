@@ -454,7 +454,7 @@ const RULES = [
           remediation: "Monitore disponibilidade do destino.",
         };
       }
-      // Timeout/rede: WARNING (não bloqueia publicação do wizard). 404/ciclo/SSRF continuam FAIL noutros sítios.
+      // Timeout/rede/bot-wall: WARNING (não bloqueia o wizard). 404/ciclo/SSRF continuam FAIL.
       if (destination.errorCode === "timeout" || destination.errorCode === "network") {
         return {
           status: "WARNING",
@@ -464,6 +464,18 @@ const RULES = [
             details: [destination.errorCode],
           },
           remediation: "Confirme o URL da oferta manualmente e volte a auditar.",
+        };
+      }
+      // Redes de afiliados costumam bloquear o nosso UA (403/401). Isso não prova URL morto.
+      if (destination.crawlerBlocked) {
+        return {
+          status: "WARNING",
+          confidence: 0.55,
+          evidence: {
+            summary: "Destino respondeu, mas bloqueou o bot de auditoria (possível WAF).",
+            details: destination.statusCode != null ? [`status=${destination.statusCode}`] : undefined,
+          },
+          remediation: "Confirme o link no browser; AdsBot/Bingbot são distintos deste probe.",
         };
       }
       if (destination.statusCode != null && destination.statusCode >= 400) {
@@ -617,11 +629,12 @@ const RULES = [
         };
       }
       if (destination.crawlerBlocked) {
+        // WARNING: o nosso bot ≠ AdsBot. WAF em redes de afiliado não deve forçar rascunho no wizard.
         return {
-          status: "FAIL",
-          confidence: 0.8,
-          evidence: { summary: "Possível bloqueio ao crawler de auditoria." },
-          remediation: "Não bloqueie crawlers legítimos de publicidade; evite cloaking.",
+          status: "WARNING",
+          confidence: 0.65,
+          evidence: { summary: "Possível bloqueio ao crawler de auditoria (WAF)." },
+          remediation: "Permita AdsBot / bingbot; confirme o URL no browser antes de anunciar.",
         };
       }
       return {

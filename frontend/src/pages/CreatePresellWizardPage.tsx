@@ -355,7 +355,6 @@ export default function CreatePresellWizardPage() {
         toast.success(
           "Presell publicada com o nome, as fotos e o link da oferta. Não é um clone da página da marca.",
         );
-        if (importNotes.length > 0) toast.warning(importNotes.join(" "));
       } else if (complianceBlocked) {
         toast.warning(
           "Importação ok, mas a conformidade publicitária manteve a página em rascunho. Edite e publique em Presells.",
@@ -724,12 +723,12 @@ export default function CreatePresellWizardPage() {
                 "Postback (vendas)",
                 "Pendente — configure BuyGoods / SmartAdv / Digistore",
               ],
-              ["Espelho da página", mirrorFidelityOk ? "Publicada, com captura estática" : "Rascunho — editar antes de anunciar"],
+              ["Página", mirrorFidelityOk ? "Publicada e pronta para o anúncio" : "Rascunho — editar antes de anunciar"],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-3 border-b border-border/40 py-2">
                 <span className="text-muted-foreground">{k}</span>
                 <span className="inline-flex items-center gap-1.5 font-medium text-right max-w-[60%]">
-                  {k === "Postback (vendas)" || (k === "Espelho da página" && !mirrorFidelityOk) ? (
+                  {k === "Postback (vendas)" || (k === "Página" && !mirrorFidelityOk) ? (
                     <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
                   ) : (
                     <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />

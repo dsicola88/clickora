@@ -193,12 +193,14 @@ describe("presell compliance engine", () => {
     assert.equal(result("DT-005", ev).status, "WARNING");
   });
 
-  it("13. crawler blocked FAILs DT-006", () => {
+  it("13. crawler blocked WARNs DT-006/DT-002 (não força rascunho)", () => {
     const ev = evaluateCompliance({
       signals: baseSignals(),
       destination: destOk({ crawlerBlocked: true, statusCode: 403, ok: false }),
     });
-    assert.equal(result("DT-006", ev).status, "FAIL");
+    assert.equal(result("DT-006", ev).status, "WARNING");
+    assert.equal(result("DT-002", ev).status, "WARNING");
+    assert.equal(canPublishForAds(ev.gate), true);
   });
 
   it("14. cloaking enabled FAILs DT-007", () => {
