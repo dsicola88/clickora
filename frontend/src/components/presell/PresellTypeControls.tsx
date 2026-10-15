@@ -29,11 +29,13 @@ const COUNTRIES = [
   { code: "OTHER", name: "Outro / Other" },
 ];
 
-const MODELS = [
-  { id: "a", label: "Opção A" },
-  { id: "b", label: "Opção B" },
-  { id: "c", label: "Opção C" },
-];
+function modelRows(L: ReturnType<typeof getPresellUiStrings>): { id: string; label: string }[] {
+  return [
+    { id: "a", label: L.modelA },
+    { id: "b", label: L.modelB },
+    { id: "c", label: L.modelC },
+  ];
+}
 
 function num(v: unknown, fallback: number): number {
   const n = Number(v);
