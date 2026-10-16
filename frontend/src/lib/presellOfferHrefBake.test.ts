@@ -37,6 +37,22 @@ describe("bakeHtmlOfferHrefs", () => {
     expect(out).toContain('href="/terms"');
   });
 
+  it("botão sem href e CTAs passam a levar o hoplink rastreado; logo da rede sai", () => {
+    const html = `
+      <a href="${CLICKORA_MIRROR_TRACK_MARKER}">Buy</a>
+      <button class="btn">Order Now</button>
+      <a href="https://visivra.today/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
+      <a href="https://buygoods.com"><img alt="buygoods" src="https://cdn.buygoods.com/l.png"></a>
+    `;
+    const out = bakeHtmlOfferHrefs(html, "https://app.example/track/r/x", "https://buygoods.com/x");
+    expect(out.match(/track\/r\/x/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(out).toContain("Order Now");
+    expect(out).toContain("https://visivra.today/contact");
+    expect(out).toContain('href="/privacy"');
+    expect(out).not.toContain("cdn.buygoods.com");
+  });
+
   it("reconhece hosts comerciais", () => {
     expect(hrefLooksLikeOfferLink("https://buygoods.com/x")).toBe(true);
     expect(hrefLooksLikeOfferLink("https://cdn.example/a.png")).toBe(false);

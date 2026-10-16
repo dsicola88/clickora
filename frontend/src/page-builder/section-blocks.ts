@@ -4,13 +4,48 @@
  */
 import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createSection, createWidget, id } from "./factory";
+import { resolvedIdentity, type PageIdentity } from "./pageIdentity";
+
+export type { PageIdentity };
 
 export interface SectionBlockDefinition {
   id: string;
   name: string;
   description: string;
   category: "nav" | "hero" | "proof" | "cta" | "compliance";
-  build: () => SectionNode[];
+  build: (ctx?: PageIdentity) => SectionNode[];
+}
+
+function cookieStorageKey(name: string) {
+  const slug = name
+    .toLowerCase()
+    .replace(/™/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return `clickora-cookie-${slug || "produto"}`;
+}
+
+function heroPlaceholder(name: string) {
+  const bullets = ["OFFICIAL OFFER", "TRANSPARENT TERMS", "SECURE CHECKOUT", "INDEPENDENT PAGE"];
+  return `<div style="position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#071a3d 0%,#0b3d7a 48%,#0a2f5c 100%);min-height:340px;box-shadow:0 18px 40px rgba(11,61,122,.22)">
+  <div style="display:flex;gap:10px;padding:32px 18px 48px;align-items:center;justify-content:space-between">
+    <div style="flex:1;display:flex;align-items:flex-end;justify-content:center;gap:8px;min-height:220px">
+      <div style="width:70px;height:168px;border-radius:14px 14px 8px 8px;background:linear-gradient(#f8fafc,#e2e8f0);box-shadow:0 10px 18px rgba(0,0,0,.22)"></div>
+      <div style="width:86px;height:210px;border-radius:16px 16px 8px 8px;background:linear-gradient(#fff,#eef2f7);box-shadow:0 14px 24px rgba(0,0,0,.28)"></div>
+      <div style="width:70px;height:168px;border-radius:14px 14px 8px 8px;background:linear-gradient(#f8fafc,#e2e8f0);box-shadow:0 10px 18px rgba(0,0,0,.22)"></div>
+    </div>
+    <div style="width:44%;display:flex;flex-direction:column;gap:16px;padding-right:4px">
+      ${bullets
+        .map(
+          (t) =>
+            `<div style="display:flex;align-items:center;gap:10px"><span style="flex-shrink:0;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.45);display:inline-flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span></span><span style="color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;line-height:1.2">${t}</span></div>`,
+        )
+        .join("")}
+    </div>
+  </div>
+  <p style="position:absolute;left:16px;right:16px;bottom:10px;margin:0;font-size:9px;line-height:1.35;color:rgba(255,255,255,.55);text-align:center">Placeholder visual de ${name} — substitua pela imagem da oferta importada. Resultados individuais variam. Not FDA evaluated.</p>
+</div>`;
 }
 
 function w(
@@ -81,7 +116,7 @@ function section(
   return sec;
 }
 
-/** Amarelo CTA Visivra / Order Now */
+/** Amarelo CTA / Order Now */
 const yellow = "#ffd200";
 const blue = "#0b3d7a";
 const ink = "#0a0a0a";
@@ -93,10 +128,11 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
     name: "Menu + Order Now",
     description: "Logo à esquerda, links e Order Now à direita — o nome não fica por baixo do menu.",
     category: "nav",
-    build: () => {
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
       const logo = w(
         "heading",
-        { text: "Visivra™", tag: "h2" },
+        { text: b.name, tag: "h2" },
         {
           typography: {
             desktop: {
@@ -139,8 +175,8 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
       const orderBtn = w(
         "button",
         {
-          text: "Order Now",
-          href: "#offer",
+          text: b.cta,
+          href: b.offer,
           iconName: "ShoppingCart",
           iconPosition: "right",
           iconSize: 17,
@@ -203,42 +239,34 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
     name: "Hero imagem + texto",
     description: "1.ª dobra: painel do produto + título + texto (edite/substitua a imagem)",
     category: "hero",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      const visual = b.image
+        ? w(
+            "image",
+            { src: b.image, alt: b.name, link: b.offer === "#" ? "" : b.offer, hero: true },
+            {
+              margin: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+            },
+          )
+        : w(
+            "html",
+            { code: heroPlaceholder(b.name) },
+            {
+              margin: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+            },
+          );
+      return [
       section(
         [
           [
-            w(
-              "html",
-              {
-                code: `<div style="position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#071a3d 0%,#0b3d7a 48%,#0a2f5c 100%);min-height:340px;box-shadow:0 18px 40px rgba(11,61,122,.22)">
-  <div style="display:flex;gap:10px;padding:32px 18px 48px;align-items:center;justify-content:space-between">
-    <div style="flex:1;display:flex;align-items:flex-end;justify-content:center;gap:8px;min-height:220px">
-      <div style="width:70px;height:168px;border-radius:14px 14px 8px 8px;background:linear-gradient(#f8fafc,#e2e8f0);box-shadow:0 10px 18px rgba(0,0,0,.22)"></div>
-      <div style="width:86px;height:210px;border-radius:16px 16px 8px 8px;background:linear-gradient(#fff,#eef2f7);box-shadow:0 14px 24px rgba(0,0,0,.28)"></div>
-      <div style="width:70px;height:168px;border-radius:14px 14px 8px 8px;background:linear-gradient(#f8fafc,#e2e8f0);box-shadow:0 10px 18px rgba(0,0,0,.22)"></div>
-    </div>
-    <div style="width:44%;display:flex;flex-direction:column;gap:16px;padding-right:4px">
-      ${["IMPROVES CLARITY", "REDUCES EYE STRAIN", "SUPPORTS RETINAL HEALTH", "ENHANCES FOCUS"]
-        .map(
-          (t) =>
-            `<div style="display:flex;align-items:center;gap:10px"><span style="flex-shrink:0;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.45);display:inline-flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span></span><span style="color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;line-height:1.2">${t}</span></div>`,
-        )
-        .join("")}
-    </div>
-  </div>
-  <p style="position:absolute;left:16px;right:16px;bottom:10px;margin:0;font-size:9px;line-height:1.35;color:rgba(255,255,255,.55);text-align:center">Placeholder visual — substitua por imagem do produto. Resultados individuais variam. Not FDA evaluated.</p>
-</div>`,
-              },
-              {
-                margin: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
-              },
-            ),
+            visual,
           ],
           [
             w(
               "heading",
               {
-                text: "Visivra : Natural Support for Sharp and Clear Vision",
+                text: b.headline,
                 tag: "h1",
               },
               {
@@ -268,8 +296,8 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
             w(
               "text",
               {
-                html: `<p>Visivra is an advanced eye health supplement meticulously formulated to support optimal vision and overall ocular wellness. At the heart of Visivra is our proprietary <strong>Ocular Support &amp; Visual Clarity Matrix</strong>, which includes Lutein, Zeaxanthin, Bilberry Extract, Astaxanthin, Zinc and Vitamin A — nutrients studied for macular and retinal support.</p>
-<p style="margin-top:14px">In today's digital world, prolonged screen time and environmental stressors can contribute to eye strain. Visivra is designed to help your eyes stay comfortable while supporting healthy retinal function. Individual results vary. This page is an independent affiliate landing — not the manufacturer.</p>`,
+                html: `<p>${b.name} is presented on this independent affiliate landing. Edit this text to match the official offer you imported — do not invent ingredients, origin or disease claims.</p>
+<p style="margin-top:14px">Confirm price, shipping and terms on checkout. Individual results vary. This page is not the manufacturer.</p>`,
               },
               {
                 typography: {
@@ -296,20 +324,23 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
         [46, 54],
         1180,
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-why-band",
     name: "Barra Why Choose",
-    description: "Faixa azul full-width — Why Choose Visivra?",
+    description: "Faixa azul full-width — Why Choose (nome da página em edição)",
     category: "proof",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
             w(
               "heading",
-              { text: "Why Choose Visivra?", tag: "h2" },
+              { text: `Why Choose ${b.name}?`, tag: "h2" },
               {
                 typography: {
                   desktop: {
@@ -333,20 +364,23 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
         },
         "full",
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-blue-band",
     name: "Barra Benefits",
-    description: "Faixa azul full-width — Benefits of Visivra",
+    description: "Faixa azul full-width — Benefits (nome da página em edição)",
     category: "proof",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
             w(
               "heading",
-              { text: "Benefits of Visivra", tag: "h2" },
+              { text: `Benefits of ${b.name}`, tag: "h2" },
               {
                 typography: {
                   desktop: {
@@ -371,14 +405,16 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
         },
         "full",
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-trust-4",
     name: "4 selos de confiança",
     description: "USA / Natural / GMP / Facility — edite o HTML de cada selo",
     category: "proof",
-    build: () => {
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
       const seal = (title: string, ring: string, inner: string, label: string, blurb: string) =>
         w(
           "html",
@@ -396,7 +432,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
       return [
         section(
           [
-            [seal("MADE IN THE USA", "#c41e3a", "#e8eef7", "USA", "Visivra is manufactured on US soil.")],
+            [seal("MADE IN THE USA", "#c41e3a", "#e8eef7", "USA", `Confirm origin claims for ${b.name} on the official offer. This page does not invent manufacturing facts.`)],
             [seal("100% NATURAL", "#166534", "#ecfdf5", "Natural", "All ingredients are pure, natural, and carefully sourced.")],
             [seal("GMP CERTIFIED", "#b91c1c", "#fef2f2", "GMP", "Produced following Good Manufacturing Practice standards.")],
             [
@@ -424,14 +460,16 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
     name: "Lista de benefícios (checks)",
     description: "Círculos azuis + título + descrição — edite cada item",
     category: "proof",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
             w(
               "text",
               {
-                html: `<p>In today's fast-paced world, our eyes face unprecedented challenges — from prolonged exposure to digital screens to environmental pollutants. Visivra's <strong>Ocular Support &amp; Visual Clarity Matrix</strong> is formulated to help you maintain comfort and clarity as part of a healthy lifestyle.</p>`,
+                html: `<p>Use this section to describe ${b.name} the same way the official offer does. Do not paste claims from another catalog product.</p>`,
               },
               {
                 typography: {
@@ -462,25 +500,25 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
                   {
                     id: id("il_"),
                     iconName: "check",
-                    title: "Supports Clear and Sharp Vision:",
+                    title: "Matches the official offer:",
                     description:
-                      "<p>Formulated with lutein and zeaxanthin to help support macular pigment and visual clarity during daily screen use.</p>",
+                      `<p>Keep copy, images and benefits aligned with ${b.name} — the page you opened in this editor.</p>`,
                     href: "",
                   },
                   {
                     id: id("il_"),
                     iconName: "check",
-                    title: "Helps Reduce Eye Strain:",
+                    title: "Transparent affiliate landing:",
                     description:
-                      "<p>Nutrients selected to complement healthy habits that may ease digital eye fatigue from long work sessions.</p>",
+                      "<p>Disclose the affiliate relationship. Confirm price and terms on checkout. Individual results vary.</p>",
                     href: "",
                   },
                   {
                     id: id("il_"),
                     iconName: "check",
-                    title: "Promotes Healthy Retinal Function:",
+                    title: "No invented medical claims:",
                     description:
-                      "<p>Antioxidant support intended to help maintain retinal wellness as part of a balanced diet and lifestyle.</p>",
+                      "<p>Do not diagnose, treat, cure or prevent disease. Edit this list with facts from the product page you imported.</p>",
                     href: "",
                   },
                 ],
@@ -497,14 +535,17 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
         [100],
         820,
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-yellow-cta",
     name: "CTA amarelo",
     description: "Botão GET A DISCOUNT / Order com ícone carrinho",
     category: "cta",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
@@ -512,7 +553,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
               "button",
               {
                 text: "GET A DISCOUNT NOW!",
-                href: "#offer",
+                href: b.offer,
                 iconName: "ShoppingCart",
                 iconPosition: "right",
                 iconSize: 18,
@@ -544,14 +585,17 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
           padding: { desktop: { top: 24, right: 20, bottom: 32, left: 20, unit: "px" } },
         },
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-yellow-cta-soft",
     name: "CTA amarelo (fundo cinza)",
     description: "Segundo botão GET A DISCOUNT — faixa cinza antes do rodapé",
     category: "cta",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
@@ -559,7 +603,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
               "button",
               {
                 text: "GET A DISCOUNT NOW!",
-                href: "#offer",
+                href: b.offer,
                 iconName: "ShoppingCart",
                 iconPosition: "right",
                 iconSize: 18,
@@ -589,14 +633,17 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
           padding: { desktop: { top: 36, right: 24, bottom: 36, left: 24, unit: "px" } },
         },
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-cookie-modal",
     name: "Cookie modal (Accept All)",
     description: "Overlay centrado + botão voltar ao topo",
     category: "compliance",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
@@ -613,7 +660,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
                 variant: "modal",
                 backdrop: true,
                 position: "bottom-right",
-                storageKey: "clickora-cookie-visivra-dtc",
+                storageKey: cookieStorageKey(b.name),
               },
               {},
             ),
@@ -636,14 +683,17 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
           padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
         },
       ),
-    ],
+    ];
+    },
   },
   {
     id: "block-legal-footer",
     name: "Rodapé legal",
     description: "Afiliado + FDA disclaimer + links de política",
     category: "compliance",
-    build: () => [
+    build: (ctx) => {
+      const b = resolvedIdentity(ctx);
+      return [
       section(
         [
           [
@@ -651,7 +701,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
               "html",
               {
                 code: `<div style="text-align:center;color:#9ca3af;font-size:12px;line-height:1.7;max-width:760px;margin:0 auto">
-<p style="margin:0 0 10px;color:#fff;font-weight:800;font-size:18px">Visivra™</p>
+<p style="margin:0 0 10px;color:#fff;font-weight:800;font-size:18px">${b.name}</p>
 <p style="margin:0 0 10px">© ${new Date().getFullYear()} Independent affiliate page. Replace with your company name and address.</p>
 <p style="margin:0 0 10px"><strong style="color:#e5e7eb">Affiliate disclosure:</strong> We may earn a commission if you buy through links on this page.</p>
 <p style="margin:0 0 14px"><strong style="color:#e5e7eb">FDA disclaimer:</strong> These statements have not been evaluated by the Food and Drug Administration. This product is not intended to diagnose, treat, cure, or prevent any disease. “FDA registered facility” is not the same as FDA approval of the product.</p>
@@ -659,7 +709,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
 <a href="/privacidade" style="color:#f5c518;margin:0 8px">Privacy Policy</a> ·
 <a href="/termos" style="color:#f5c518;margin:0 8px">Terms of Service</a> ·
 <a href="/privacidade" style="color:#f5c518;margin:0 8px">Cookie Policy</a> ·
-<a href="#offer" style="color:#f5c518;margin:0 8px">Shipping &amp; Returns</a>
+<a href="${b.offer}" style="color:#f5c518;margin:0 8px">Shipping &amp; Returns</a>
 </p>
 </div>`,
               },
@@ -672,7 +722,8 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
           padding: { desktop: { top: 48, right: 24, bottom: 56, left: 24, unit: "px" } },
         },
       ),
-    ],
+    ];
+    },
   },
 ];
 
@@ -687,7 +738,7 @@ export const SECTION_BLOCK_CATEGORIES: Array<{
   { id: "compliance", label: "Cookies / legal" },
 ];
 
-/** Ordem para replicar a DTC Visivra ponta a ponta no editor manual (sem abrir o modelo). */
+/** Ordem DTC no editor manual (sem abrir o modelo). */
 export const VISIVRA_FROM_SCRATCH_RECIPE: string[] = [
   "block-nav-order",
   "block-hero-2col",
@@ -701,30 +752,44 @@ export const VISIVRA_FROM_SCRATCH_RECIPE: string[] = [
   "block-cookie-modal",
 ];
 
-export function buildSectionsFromRecipe(recipe: string[] = VISIVRA_FROM_SCRATCH_RECIPE): SectionNode[] {
+/** Identidade só para o atalho de catálogo Visivra (página nova vazia). */
+export const VISIVRA_PAGE_IDENTITY: PageIdentity = {
+  productName: "Visivra™",
+  headline: "Visivra : Natural Support for Sharp and Clear Vision",
+};
+
+export function buildSectionsFromRecipe(
+  recipe: string[] = VISIVRA_FROM_SCRATCH_RECIPE,
+  ctx?: PageIdentity,
+): SectionNode[] {
   return recipe.flatMap((blockId) => {
     const block = SECTION_BLOCKS.find((b) => b.id === blockId);
     if (!block) throw new Error(`Bloco em falta: ${blockId}`);
-    return block.build();
+    return block.build(ctx);
   });
 }
 
 /**
- * Página completa montada bloco a bloco — o mesmo resultado do modelo,
- * como um afiliado faria no editor manual (Blocos, um de cada vez).
+ * Página completa montada bloco a bloco no editor manual.
+ * Sem ctx usa «Produto»; o atalho Visivra passa VISIVRA_PAGE_IDENTITY.
  */
-export function buildVisivraFromScratch(): PageDocument {
+export function buildDtcFromScratch(ctx?: PageIdentity): PageDocument {
+  const b = resolvedIdentity(ctx);
   return {
     id: id("page_"),
-    name: "Visivra — do zero (editor manual)",
-    sections: buildSectionsFromRecipe(),
+    name: `${b.name} — editor manual`,
+    sections: buildSectionsFromRecipe(undefined, ctx),
     settings: { maxContentWidth: 1180, background: "#ffffff" },
     seo: {
-      title: "Visivra — Natural Support for Sharp and Clear Vision",
+      title: b.headline,
       description: "Independent affiliate landing built section by section in the Clickora editor.",
     },
     updatedAt: Date.now(),
   };
+}
+
+export function buildVisivraFromScratch(): PageDocument {
+  return buildDtcFromScratch(VISIVRA_PAGE_IDENTITY);
 }
 
 /** @deprecated use buildVisivraFromScratch — a 1.ª dobra já não é o recorte isolado. */

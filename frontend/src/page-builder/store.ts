@@ -13,6 +13,7 @@ import type {
 import { syncLibraryDocument } from "./library-storage";
 import { createColumn, createEmptyPage, createSection, createWidget, id } from "./factory";
 import { locateWidget, parentContainerId, reIdWidget, widgetContains } from "./widget-tree";
+import { identityFromDocument, type PageIdentity } from "./pageIdentity";
 
 const DEFAULT_STORAGE_KEY = "clickora:page-builder:doc:v1";
 let activeStorageKey = DEFAULT_STORAGE_KEY;
@@ -26,6 +27,8 @@ export function setPageBuilderStorageKey(key: string) {
 export interface HydrateDocumentOptions {
   /** Se definido, alterações sincronizam esta entrada da biblioteca local. */
   linkedLibraryId?: string | null;
+  /** Identidade da página em edição (blocos novos copiam isto, não o catálogo). */
+  identity?: PageIdentity;
 }
 
 interface BuilderState {
@@ -47,6 +50,9 @@ interface BuilderState {
   clipboard: WidgetNode | null;
   /** Estilos copiados (conteúdo fica de fora). */
   styleClipboard: WidgetNode["styles"] | null;
+  /** Produto/oferta da página aberta — blocos e receitas usam isto. */
+  pageIdentity: PageIdentity;
+  setPageIdentity: (identity: PageIdentity) => void;
   setLinkedLibraryId: (id: string | null) => void;
   setColumnWidths: (sectionId: string, widths: number[], device: DeviceType) => void;
   copySelection: () => void;
@@ -123,6 +129,10 @@ interface BuilderState {
   loadFromStorage: () => void;
   /** Substitui o documento (ex.: ao abrir presell «builder» guardada no Clickora). */
   hydrateDocument: (doc: PageDocument, options?: HydrateDocumentOptions) => void;
+}
+
+function emptyIdentity(): PageIdentity {
+  return { productName: "" };
 }
 
 function storageKey() {
@@ -218,6 +228,8 @@ export const useBuilder = create<BuilderState>((set, get) => {
     linkedLibraryId: null,
     clipboard: null,
     styleClipboard: null,
+    pageIdentity: identityFromDocument(initialDoc),
+    setPageIdentity: (pageIdentity) => set({ pageIdentity }),
     setLinkedLibraryId: (linkedLibraryId) => set({ linkedLibraryId }),
     setColumnWidths: (sectionId, widths, device) =>
       mutate((doc) => {
@@ -667,10 +679,18 @@ export const useBuilder = create<BuilderState>((set, get) => {
         structurePanelOpen: false,
         linkedLibraryId: null,
         lastPersistedAt: Date.now(),
+        pageIdentity: emptyIdentity(),
       });
     },
-    loadFromStorage: () =>
-      set({ doc: loadInitial(), linkedLibraryId: null, lastPersistedAt: Date.now() }),
+    loadFromStorage: () => {
+      const doc = loadInitial();
+      set({
+        doc,
+        linkedLibraryId: null,
+        lastPersistedAt: Date.now(),
+        pageIdentity: identityFromDocument(doc),
+      });
+    },
     hydrateDocument: (doc, options) => {
       const next = clone(doc);
       next.updatedAt = Date.now();
@@ -680,6 +700,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
       if (linked) {
         syncLibraryDocument(linked, next, true);
       }
+      const pageIdentity = options?.identity ?? identityFromDocument(next);
       set({
         doc: next,
         history: [],
@@ -690,6 +711,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
         structurePanelOpen: false,
         linkedLibraryId: linked,
         lastPersistedAt: Date.now(),
+        pageIdentity,
       });
     },
   };

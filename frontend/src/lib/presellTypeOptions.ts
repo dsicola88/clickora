@@ -60,7 +60,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "review",
         name: "Review / análise",
         description:
-          "Enquadramento de análise independente. Rating só quando veio da origem. Reforça que não é o site oficial da marca.",
+          "Análise independente. Todos os botões e CTAs levam o hoplink rastreado. Rodapé só no nível legal (políticas + aviso), sem chrome da rede.",
       },
       {
         id: "desconto",

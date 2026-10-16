@@ -34,6 +34,7 @@ import {
   resolveDefaultCustomDomainIdForAccount,
 } from "@/lib/publicPresellOrigin";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
+import { identityFromPresellContent } from "@/page-builder/pageIdentity";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 import { presellService } from "@/services/presellService";
@@ -195,7 +196,9 @@ export default function PresellManualBuilderPage() {
         navigate("/presell/dashboard", { replace: true });
         return;
       }
-      useBuilder.getState().hydrateDocument(doc);
+      useBuilder.getState().hydrateDocument(doc, {
+        identity: identityFromPresellContent(c, doc, data.title),
+      });
       lastCloudDocJsonRef.current = JSON.stringify(useBuilder.getState().doc);
       setSlugDraft(data.slug);
       setCategory(data.category || "sem");
@@ -265,7 +268,14 @@ export default function PresellManualBuilderPage() {
         throw new Error("O link da oferta tem de ser um URL válido (https://…).");
       }
       const doc = pointOfferButtonsAt(useBuilder.getState().doc, affiliate, loadedOfferRef.current);
-      useBuilder.getState().hydrateDocument(doc);
+      const currentIdentity = useBuilder.getState().pageIdentity;
+      useBuilder.getState().hydrateDocument(doc, {
+        identity: {
+          ...currentIdentity,
+          ...identityFromPresellContent(contentRef.current, doc),
+          offerHref: affiliate,
+        },
+      });
       loadedOfferRef.current = affiliate;
 
       const keepType = routeId ? pageTypeRef.current || "builder" : "builder";

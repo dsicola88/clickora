@@ -80,6 +80,11 @@ export function isBuilderPresellType(presellType: string): boolean {
   return presellType === "builder";
 }
 
+/** Review / análise: CTAs levam sempre o hoplink rastreado; o rodapé fica no nível legal da origem. */
+export function isReviewPresellType(presellType: string): boolean {
+  return presellType === "review";
+}
+
 /** Formulário simples ou combinado antes do CTA. */
 export type CoreInteractivePresellGateKind = Exclude<PresellGateKind, "none" | "cookies">;
 

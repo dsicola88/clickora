@@ -5,6 +5,7 @@ import {
   buildSectionsFromRecipe,
   type SectionBlockDefinition,
 } from "../section-blocks";
+import { documentHasImportedFold } from "../pageIdentity";
 import { useBuilder } from "../store";
 import { TEMPLATES } from "../templates";
 import { Blocks, LayoutTemplate, X } from "lucide-react";
@@ -16,6 +17,8 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
   const appendSections = useBuilder((s) => s.appendSections);
   const replaceSections = useBuilder((s) => s.replaceSections);
   const doc = useBuilder((s) => s.doc);
+  const identity = useBuilder((s) => s.pageIdentity);
+  const imported = documentHasImportedFold(doc);
 
   const items = useMemo(() => {
     if (category === "recipe" || category === "all") return SECTION_BLOCKS;
@@ -25,11 +28,11 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
   if (!open) return null;
 
   const insertBlock = (block: SectionBlockDefinition) => {
-    appendSections(block.build());
+    appendSections(block.build(identity));
   };
 
   const applyRecipe = () => {
-    const sections = buildSectionsFromRecipe();
+    const sections = buildSectionsFromRecipe(undefined, identity);
     if (doc.sections.length === 0) replaceSections(sections);
     else appendSections(sections);
     onClose();
@@ -38,6 +41,19 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
   const applyFullTemplate = () => {
     const t = TEMPLATES.find((x) => x.id === "presell-dtc-vision");
     if (!t) return;
+    if (imported) {
+      window.alert(
+        "Esta página já foi importada. Não substitui o conteúdo por Visivra. Insira blocos — eles usam o nome e a oferta desta página.",
+      );
+      return;
+    }
+    const product = (identity.productName || "").toLowerCase();
+    if (product && !product.includes("visivra") && doc.sections.length > 0) {
+      window.alert(
+        `A página em edição é «${identity.productName}». O modelo Visivra não a substitui. Use a receita DTC (copia o nome desta página).`,
+      );
+      return;
+    }
     if (doc.sections.length > 0) {
       const ok = window.confirm("Substituir o conteúdo atual pelo modelo Visivra completo?");
       if (!ok) return;
@@ -114,9 +130,10 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
           <div className="editor-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
             {category === "recipe" ? (
               <div className="mb-4 space-y-3 rounded-lg border border-editor-border bg-editor-panel-2/40 p-4">
-                <h3 className="text-sm font-semibold">Página Visivra bloco a bloco</h3>
+                <h3 className="text-sm font-semibold">Receita DTC (esta página)</h3>
                 <p className="text-[12px] text-editor-fg-muted">
-                  Mesmo resultado do modelo: insira cada bloco (ou todos na ordem) e edite textos e imagens.
+                  Os blocos copiam o nome, a imagem e a oferta da página que está a editar
+                  {identity.productName ? ` (${identity.productName})` : ""}. Não colam um produto de catálogo.
                 </p>
                 <ol className="list-decimal space-y-1 pl-4 text-[12px] text-editor-fg-muted">
                   <li>Menu (logo | links | Order Now)</li>

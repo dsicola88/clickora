@@ -1,6 +1,6 @@
 import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createSection, createWidget, id } from "./factory";
-import { buildSectionsFromRecipe } from "./section-blocks";
+import { buildSectionsFromRecipe, VISIVRA_PAGE_IDENTITY } from "./section-blocks";
 import { presellNeotonicsTemplate, presellNitricBoostTemplate } from "./templates.dtcOffers";
 
 export interface TemplateDefinition {
@@ -2084,7 +2084,7 @@ const presellDtcVisionTemplate: TemplateDefinition = {
   description:
     "Réplica editável ponta a ponta: menu branco + Order Now, hero produto, selos de confiança, benefícios com checks, barras azuis, CTA amarelo e cookie modal Accept All",
   thumbnail: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80",
-  build: () => buildSectionsFromRecipe(),
+  build: () => buildSectionsFromRecipe(undefined, VISIVRA_PAGE_IDENTITY),
 };
 
 

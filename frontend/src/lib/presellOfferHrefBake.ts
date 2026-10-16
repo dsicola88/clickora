@@ -114,6 +114,7 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     const offerHit = hrefLooksLikeOfferLink(href, affiliateHref);
     const buttonish = hasButtonishClass(attrs);
     const soft = isSoftNavHref(href);
+    if (innerLooksLikeNetworkBadge(inner) && !labelHit) return "";
     // Soft-nav (privacy, #top…) só se não for CTA/comercial.
     if (soft && !labelHit && !offerHit) return full;
     // Comercial, CTA com qualquer destino (site do produto incluso), ou botão estilizado.
@@ -131,5 +132,51 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     return `${attr}=${q}${track}${q}`;
   });
 
+  // `<button>` de compra sem href — passa a âncora com o hoplink rastreado.
+  out = out.replace(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi, (full, attrs: string, inner: string) => {
+    const type = (htmlTagAttr(attrs, "type") || "submit").toLowerCase();
+    if (type === "reset") return full;
+    const labelHit = isCtaLabel(inner);
+    const buttonish = hasButtonishClass(attrs);
+    if (!labelHit && !buttonish) return full;
+    const next = upsertAttr(
+      upsertAttr(` ${attrs}`.replace(/\s+type\s*=\s*(["'])[\s\S]*?\1/i, ""), "href", track),
+      "data-clickora-offer",
+      "1",
+    );
+    return `<a${next} target="_self">${inner}</a>`;
+  });
+
+  return stripNetworkFooterChrome(out);
+}
+
+const NETWORK_FOOTER_BRAND =
+  /buygoods|clickbank|digistore|hotmart|jvzoo|warriorplus|cartpanda|paylix|bestbuyhere/i;
+
+function htmlTagAttr(attrs: string, name: string): string {
+  const m = attrs.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return (m?.[1] || m?.[2] || m?.[3] || "").trim();
+}
+
+function innerLooksLikeNetworkBadge(html: string): boolean {
+  const t = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return NETWORK_FOOTER_BRAND.test(t) && t.length < 48;
+}
+
+/** Tira o logo “powered by buygoods” do rodapé; não mexe em CTAs já rastreados. */
+function stripNetworkFooterChrome(html: string): string {
+  let out = html.replace(/<img\b[^>]*>/gi, (full) => {
+    if (NETWORK_FOOTER_BRAND.test(full)) return "";
+    return full;
+  });
+  out = out.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (full, attrs: string, inner: string) => {
+    const text = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!text && /\bdata-clickora-offer\s*=/i.test(attrs)) return "";
+    if (innerLooksLikeNetworkBadge(inner) || NETWORK_FOOTER_BRAND.test(htmlTagAttr(attrs, "href"))) {
+      if (isCtaLabel(inner)) return full;
+      return "";
+    }
+    return full;
+  });
   return out;
 }

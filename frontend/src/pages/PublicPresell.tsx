@@ -31,6 +31,7 @@ import {
   isDiscountPresellType,
   isGhostPresellType,
   isMirrorChromePresellType,
+  isReviewPresellType,
   isVideoPresellType,
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
@@ -912,6 +913,7 @@ export default function PublicPresell() {
 
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
+  const isReviewPage = isReviewPresellType(page.type);
 
   const titleRaw = plainTextFromMaybeHtml((content.title as string) || page.title);
   const subtitleRaw = plainTextFromMaybeHtml((content.subtitle as string) || "");
@@ -1131,6 +1133,7 @@ export default function PublicPresell() {
             interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
           />
         </Suspense>
+        {isReviewPage && (generationNiche === "white" || mirrorHtmlFold) ? null : (
         <PresellTrustFooter
           language={uiLang}
           cookiePolicyUrl={cookiePolicyUrl}
@@ -1155,6 +1158,7 @@ export default function PublicPresell() {
                 : undefined
           }
         />
+        )}
       </>
     );
     return (
@@ -1849,6 +1853,7 @@ export default function PublicPresell() {
           </div>
         </section>
       ) : null}
+      {isReviewPage && (generationNiche === "white" || showImportedMirror) ? null : (
       <PresellTrustFooter
         language={uiLang}
         cookiePolicyUrl={cookiePolicyUrl}
@@ -1876,6 +1881,7 @@ export default function PublicPresell() {
         }
         tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
       />
+      )}
     </>
   );
 

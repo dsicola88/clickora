@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TEMPLATES, TEMPLATE_CATEGORIES, type TemplateDefinition } from "../templates";
+import { documentHasImportedFold } from "../pageIdentity";
 import { useBuilder } from "../store";
 import { X, LayoutTemplate, Plus } from "lucide-react";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -8,6 +9,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
   const [category, setCategory] = useState<TemplateDefinition["category"] | "all">("all");
   const [pendingTemplate, setPendingTemplate] = useState<TemplateDefinition | null>(null);
   const doc = useBuilder((s) => s.doc);
+  const identity = useBuilder((s) => s.pageIdentity);
 
   if (!open) return null;
 
@@ -23,6 +25,35 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
   };
 
   const applyTemplate = (t: TemplateDefinition, mode: "replace" | "append") => {
+    const imported = documentHasImportedFold(doc);
+    const product = (identity.productName || "").toLowerCase();
+    const catalogHint =
+      t.id === "presell-dtc-vision"
+        ? "visivra"
+        : t.id === "presell-neotonics"
+          ? "neotonics"
+          : t.id === "presell-nitric-boost"
+            ? "nitric"
+            : "";
+    if (catalogHint && imported) {
+      window.alert(
+        `Esta página já foi importada. O modelo «${t.name}» não a substitui nem é colado no final. Edite o HTML importado ou use blocos com o nome desta oferta.`,
+      );
+      setPendingTemplate(null);
+      return;
+    }
+    if (
+      catalogHint &&
+      product &&
+      !product.includes(catalogHint) &&
+      (mode === "replace" || doc.sections.length > 0)
+    ) {
+      window.alert(
+        `A página em edição é «${identity.productName}». O modelo «${t.name}» é outro produto — use a receita DTC nos Blocos.`,
+      );
+      setPendingTemplate(null);
+      return;
+    }
     const state = useBuilder.getState();
     const newSections = t.build();
     if (mode === "replace") {

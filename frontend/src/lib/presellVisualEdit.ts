@@ -377,6 +377,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   const videoUrl = asString(source.videoUrl);
   const white = isWhiteNiche(content);
   const cookieType = getPresellGateKind(source.type || "") === "cookies";
+  const offerForCtas = cookieType ? "" : offer;
   const productFold = white && Boolean(hero);
   const copyWidgets: WidgetNode[] = [];
 
@@ -387,13 +388,13 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
     copyWidgets.push(video);
   }
-  if (cta && offer && !cookieType) {
+  if (cta && offerForCtas) {
     const button = createWidget("button");
-    button.content = { ...button.content, text: cta, href: offer, target: "_self" };
+    button.content = { ...button.content, text: cta, href: offerForCtas, target: "_self" };
     copyWidgets.push(button);
   }
 
-  const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, cookieType ? "" : offer, false));
+  const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, offerForCtas, false));
   // White cookies: Aceitar → oferta. Black: Aceitar só desbloqueia o artigo; CTA vai à oferta.
   const cookie = cookieType
     ? offerCookie(white ? offer : "", policyHrefFromContent(content), source.language)
@@ -437,7 +438,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     };
     fold.columns[0].widthPercent = { desktop: 58, tablet: 100, mobile: 100 };
     fold.columns[1].widthPercent = { desktop: 42, tablet: 100, mobile: 100 };
-    fold.columns[0].widgets = [heroImageWidget(hero, alt, cookieType ? "" : offer)];
+    fold.columns[0].widgets = [heroImageWidget(hero, alt, offerForCtas)];
     fold.columns[1].widgets = copyWidgets;
     sections.push(fold);
     if (extraPhotos.length) {
@@ -459,7 +460,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       ctaText: cta,
     });
     const ctaLabel = article.ctaLabel || cta || "Continuar";
-    const offerLink = cookieType ? "" : offer;
+    const offerLink = offerForCtas;
 
     const headerSec = createSection(1);
     headerSec.layout = "full";
@@ -471,7 +472,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     };
     // Cookies: sem CTA no header (Aceitar só desbloqueia). Outros tipos: CTA no header + corpo.
     headerSec.columns[0].widgets = [
-      portalHeaderWidget(alt, ctaLabel, cookieType ? "" : offer),
+      portalHeaderWidget(alt, ctaLabel, offerForCtas),
     ];
     sections.push(headerSec);
 
@@ -548,7 +549,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     }
   } else {
     const stacked: WidgetNode[] = [];
-    if (hero) stacked.push(heroImageWidget(hero, alt, cookieType ? "" : offer));
+    if (hero) stacked.push(heroImageWidget(hero, alt, offerForCtas));
     stacked.push(...copyWidgets, ...extraPhotos);
     const section = createSection(1);
     section.styles = {

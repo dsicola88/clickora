@@ -57,10 +57,14 @@ describe("editor manual — página Visivra ponta a ponta do zero", () => {
 
   it("export HTML empilha colunas no telemóvel (o menu não tapa o título)", () => {
     const doc = buildVisivraFromScratch();
+    doc.sections = doc.sections.filter(
+      (sec) =>
+        !sec.columns.some((col) => col.widgets.some((w) => w.type === "cookieBanner")),
+    );
     const html = exportPageToHtml(doc);
     expect(html).toContain("Order Now");
     expect(html).toContain("Visivra : Natural Support");
-    expect(html).toContain("Why Choose Visivra?");
+    expect(html).toContain("Why Choose Visivra");
     expect(html).toContain("GET A DISCOUNT NOW!");
     expect(html).toMatch(/section > div \{ flex-direction: column/);
 

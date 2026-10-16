@@ -125,10 +125,35 @@ describe("buildEditablePageDocument", () => {
     expect(doc.sections[0].columns[1].widgets[0].type).toBe("heading");
   });
 
-  it("o botão único passa a usar o link da oferta", () => {
+  it("review / análise: todos os CTAs levam o hoplink rastreado", () => {
     const doc = buildEditablePageDocument({
       title: "Tea",
       type: "review",
+      content: {
+        title: "Tea",
+        ctaText: "Continuar",
+        affiliateLink: "https://buygoods.com/secure/checkout?item=1",
+        generationNiche: "white",
+        importMirrorSrcDoc: `<!doctype html><html><body><a href="${CLICKORA_MIRROR_TRACK_MARKER}">Buy</a><a href="https://buygoods.com/x">BUY NOW</a><button class="btn">Order Now</button><a href="/privacy">Privacy</a><a href="https://buygoods.com"><img src="https://cdn.buygoods.com/logo.png" alt="buygoods"></a></body></html>`,
+      },
+    });
+    const baked = bakePublicOfferHrefs(
+      doc,
+      "https://app.example/track/r/x",
+      "https://buygoods.com/secure/checkout?item=1",
+      "/privacidade",
+    );
+    const html = String(baked.sections[0].columns[0].widgets[0].content.code);
+    expect(html.match(/track\/r\/x/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(html).not.toContain(CLICKORA_MIRROR_TRACK_MARKER);
+    expect(html).toContain('href="/privacy"');
+    expect(html).not.toContain("cdn.buygoods.com");
+  });
+
+  it("o botão único passa a usar o link da oferta", () => {
+    const doc = buildEditablePageDocument({
+      title: "Tea",
+      type: "dtc",
       content: {
         title: "Tea",
         ctaText: "Continuar",
