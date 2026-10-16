@@ -29,12 +29,20 @@ describe("buildDeterministicBundle", () => {
     const keywords = buildDeterministicKeywords("GlucoTrust", "en");
     for (const platform of ["google", "microsoft"] as const) {
       const bundle = buildDeterministicBundle(
-        { product: "GlucoTrust", language: "en", market: platform === "google" ? "US" : "GB", platform, objective: "purchase" },
+        {
+          product: "GlucoTrust",
+          language: "en",
+          market: platform === "google" ? "US" : "GB",
+          platform,
+          objective: "purchase",
+          final_url: "https://example.com/glucotrust",
+        },
         keywords,
       );
       assert.equal(bundle.source, "deterministic");
       assert.equal(bundle.promotion, null);
       assert.equal(bundle.snippet, null);
+      assert.equal(bundle.sitelinks.length, 4);
       assert.ok(bundle.headlines.length >= 3);
       assert.ok(bundle.headlines.length <= 15);
       assert.ok(bundle.headlines.every((h) => adTextLength(h.text) <= 30));
@@ -42,6 +50,7 @@ describe("buildDeterministicBundle", () => {
       assert.ok(bundle.descriptions.every((d) => adTextLength(d.text) <= 90));
       assert.ok(bundle.headlines.every((h) => h.pin === null));
       const issues = validateBundle(bundle, "");
+      assert.ok(issues.some((i) => i.code === "snippet_skipped"));
       assert.equal(issues.some((i) => i.code === "length" && i.level === "invalid"), false);
       assert.ok(issues.some((i) => i.code === "fallback"));
       assert.ok(issues.some((i) => i.code === "promotion_skipped"));

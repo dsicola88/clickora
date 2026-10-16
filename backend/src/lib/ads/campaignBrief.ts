@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type { KeywordItem } from "../keywordGenerator";
+import { KEYWORD_MARKETS } from "../keywordGenerator";
 import { safeImportFetch } from "../presellSafeFetch";
 import { PresellImportBlockedError } from "../presellImportSsrf";
 import type { AdGenerateInput } from "./adBundle";
 import { extractProductPageFacts, htmlToPlainText, type PageFact, type ProductPageFacts } from "./productPageFacts";
+import { resolveCampaignProductName } from "./productPageIdentity";
 
 export const AFFILIATE_PLATFORMS = [
   "digistore24",
@@ -42,6 +44,10 @@ export const campaignBriefSchema = z.object({
   affiliate_platform: z.enum(AFFILIATE_PLATFORMS),
   product_url: z.string().trim().url().max(2000),
   funnel: z.enum(CAMPAIGN_FUNNELS),
+  market: z.preprocess(emptyToUndef, z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/).optional()),
+  /** URL pública da presell ou lander de afiliado (destino do anúncio). */
+  final_url: z.preprocess(emptyToUndef, z.string().trim().url().max(2000).optional()),
+  product_name_source: z.enum(["form", "page", "auto"]).optional(),
   page_text: z.preprocess(emptyToUndef, z.string().trim().min(40).max(8000).optional()),
 });
 
@@ -68,6 +74,15 @@ const MARKET_BY_LANGUAGE: Record<CampaignBrief["language"], string> = {
 
 export function marketForLanguage(language: CampaignBrief["language"]): string {
   return MARKET_BY_LANGUAGE[language];
+}
+
+export function resolveCampaignMarket(
+  language: CampaignBrief["language"],
+  market?: string | null,
+): string {
+  const code = (market || "").trim().toUpperCase();
+  if (code && KEYWORD_MARKETS.some((m) => m.code === code)) return code;
+  return marketForLanguage(language);
 }
 
 export function objectiveForFunnel(funnel: CampaignFunnel): AdGenerateInput["objective"] {
@@ -111,6 +126,13 @@ export type CampaignAnalysis = {
   facts: PageFact[];
   missing: string[];
   adGroups: Array<{ name: string; intent: string; hint: string }>;
+  pageTitle?: string | null;
+  pageH1?: string | null;
+  suggestedProductName?: string | null;
+  productNameSource?: "form" | "page" | "auto" | "merged";
+  productAligned?: boolean;
+  productAlignmentScore?: number;
+  formProductName?: string;
 };
 
 function isHtml(contentType: string | undefined, body: Buffer): boolean {
@@ -189,21 +211,27 @@ export async function prepareCampaignInput(brief: CampaignBrief): Promise<{ inpu
       html = rendered;
     }
   }
-  const extractedFirst = extractProductPageFacts(html, brief.product);
+  const identity = resolveCampaignProductName({
+    userProduct: brief.product,
+    html,
+    productNameSource: brief.product_name_source ?? "auto",
+  });
+  const effectiveProduct = identity.effectiveProduct;
+  const extractedFirst = extractProductPageFacts(html, effectiveProduct);
   let extracted = extractedFirst;
   if (pageStatus === "fetched" && commercialScore(extractedFirst) === 0) {
     const rendered = await readRenderedPage(brief.product_url, brief.language);
     if (rendered) {
-      const again = extractProductPageFacts(rendered, brief.product);
+      const again = extractProductPageFacts(rendered, effectiveProduct);
       if (commercialScore(again) > 0) extracted = again;
     }
   }
   const input: AdGenerateInput = {
-    product: brief.product,
+    product: effectiveProduct,
     language: brief.language,
-    market: marketForLanguage(brief.language),
+    market: resolveCampaignMarket(brief.language, brief.market),
     product_url: brief.product_url,
-    final_url: brief.product_url,
+    final_url: brief.final_url?.trim() || undefined,
     platform: "both",
     objective: objectiveForFunnel(brief.funnel),
     funnel: brief.funnel,
@@ -215,7 +243,7 @@ export async function prepareCampaignInput(brief: CampaignBrief): Promise<{ inpu
           promotion: {
             kind: "percent" as const,
             value: extracted.promotionPercent,
-            item: brief.product.slice(0, 40),
+            item: effectiveProduct.slice(0, 40),
             url: brief.product_url,
           },
         }
@@ -231,8 +259,34 @@ export async function prepareCampaignInput(brief: CampaignBrief): Promise<{ inpu
       facts: extracted.facts,
       missing: extracted.missing,
       adGroups: adGroupsForFunnel(brief.funnel),
+      pageTitle: identity.pageTitle,
+      pageH1: identity.pageH1,
+      suggestedProductName: identity.suggestedFromPage,
+      productNameSource: identity.source,
+      productAligned: identity.aligned,
+      productAlignmentScore: identity.alignmentScore,
+      formProductName: brief.product.trim(),
     },
   };
+}
+
+/** HTML da página de vendas (para pré-visualização do nome). */
+export async function loadCampaignPageHtml(input: {
+  product_url: string;
+  language: string;
+  page_text?: string;
+}): Promise<{ html: string; pageStatus: "fetched" | "pasted" }> {
+  if (input.page_text?.trim()) {
+    return { html: input.page_text.trim(), pageStatus: "pasted" };
+  }
+  try {
+    const html = await readPage(input.product_url);
+    return { html, pageStatus: "fetched" };
+  } catch (error) {
+    const rendered = await readRenderedPage(input.product_url, input.language);
+    if (!rendered) throw error;
+    return { html: rendered, pageStatus: "fetched" };
+  }
 }
 
 export function isCampaignBrief(body: unknown): boolean {

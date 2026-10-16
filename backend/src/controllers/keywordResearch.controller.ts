@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 import prisma from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import {
@@ -8,13 +9,14 @@ import {
   marketName,
 } from "../lib/keywordGenerator";
 import { generateResearchPackage, notesForBundle } from "../lib/ads/adBundleLlm";
-import { CampaignPageUnavailableError } from "../lib/ads/campaignBrief";
+import { CampaignPageUnavailableError, loadCampaignPageHtml } from "../lib/ads/campaignBrief";
+import { resolveCampaignProductName } from "../lib/ads/productPageIdentity";
 import { validateBundle, validationSummary } from "../lib/ads/adValidate";
 import type { AdBundle } from "../lib/ads/adBundle";
 import { Prisma } from "@prisma/client";
 import { keywordResearchByIdWhere, keywordResearchListWhere } from "../lib/keywordResearchScope";
 
-const HISTORY_LIMIT = 30;
+const HISTORY_LIMIT = 50;
 
 function present(row: {
   id: string;
@@ -26,6 +28,10 @@ function present(row: {
   urlTitle: string | null;
   keywords: unknown;
   createdAt: Date;
+  updatedAt?: Date;
+  affiliatePlatform?: string | null;
+  funnel?: string | null;
+  finalUrl?: string | null;
   bundle?: unknown;
   platform?: string | null;
   objective?: string | null;
@@ -58,7 +64,7 @@ export const keywordResearchController = {
     const userId = billingUserId(req);
     const rows = await prisma.keywordResearch.findMany({
       where: keywordResearchListWhere(userId),
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
       take: HISTORY_LIMIT,
       select: {
         id: true,
@@ -66,7 +72,9 @@ export const keywordResearchController = {
         language: true,
         market: true,
         marketName: true,
+        funnel: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
     res.json(
@@ -77,7 +85,9 @@ export const keywordResearchController = {
         language_label: KEYWORD_LANGUAGES.find((l) => l.code === r.language)?.label ?? r.language,
         market: r.market,
         market_name: r.marketName,
+        funnel: r.funnel,
         created_at: r.createdAt.toISOString(),
+        updated_at: (r.updatedAt ?? r.createdAt).toISOString(),
       })),
     );
   },
@@ -98,12 +108,56 @@ export const keywordResearchController = {
     res.json(body);
   },
 
+  async previewPage(req: Request, res: Response) {
+    const parsed = z
+      .object({
+        product: z.string().trim().min(1).max(200),
+        product_url: z.string().trim().url().max(2000),
+        language: z.enum(["en", "pt", "es", "fr", "de", "it"]).default("en"),
+        page_text: z.string().trim().min(40).max(8000).optional(),
+        product_name_source: z.enum(["form", "page", "auto"]).optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const brief = parsed.data;
+    try {
+      const { html, pageStatus } = await loadCampaignPageHtml({
+        product_url: brief.product_url,
+        language: brief.language,
+        page_text: brief.page_text,
+      });
+      const identity = resolveCampaignProductName({
+        userProduct: brief.product,
+        html,
+        productNameSource: brief.product_name_source ?? "auto",
+      });
+      return res.json({
+        page_status: pageStatus,
+        page_title: identity.pageTitle,
+        page_h1: identity.pageH1,
+        suggested_product_name: identity.suggestedFromPage,
+        effective_product_name: identity.effectiveProduct,
+        aligned: identity.aligned,
+        alignment_score: identity.alignmentScore,
+        product_name_source: identity.source,
+      });
+    } catch (e) {
+      if (e instanceof CampaignPageUnavailableError) {
+        return res.status(422).json({ error: e.message, code: e.code });
+      }
+      return res.status(502).json({ error: "Não foi possível ler a página do produto." });
+    }
+  },
+
   async generate(req: Request, res: Response) {
     const userId = billingUserId(req);
     try {
       const { input, keywords, bundle, urlTitle } = await generateResearchPackage(req.body);
       const notes = notesForBundle(input);
       const stored = { ...bundle, notes };
+      const analysis = (bundle as AdBundle & { analysis?: { affiliatePlatform?: string; funnel?: string } }).analysis;
       const row = await prisma.keywordResearch.create({
         data: {
           userId,
@@ -118,6 +172,9 @@ export const keywordResearchController = {
           platform: input.platform,
           objective: input.objective,
           source: bundle.source,
+          affiliatePlatform: analysis?.affiliatePlatform ?? null,
+          funnel: input.funnel ?? analysis?.funnel ?? null,
+          finalUrl: input.final_url ?? null,
         },
       });
       const body = present(row);
@@ -155,12 +212,17 @@ export const keywordResearchController = {
     const notes = typeof (existing.bundle as { notes?: string } | null)?.notes === "string"
       ? (existing.bundle as { notes: string }).notes
       : "";
+    const finalUrlRaw = req.body?.final_url;
+    const patch: Prisma.KeywordResearchUpdateManyMutationInput = {
+      keywords: keywords as Prisma.InputJsonValue,
+      bundle: { ...(bundle as object), notes } as Prisma.InputJsonValue,
+    };
+    if (typeof finalUrlRaw === "string") {
+      patch.finalUrl = finalUrlRaw.trim() || null;
+    }
     const updated = await prisma.keywordResearch.updateMany({
       where: { id },
-      data: {
-        keywords: keywords as Prisma.InputJsonValue,
-        bundle: { ...(bundle as object), notes } as Prisma.InputJsonValue,
-      },
+      data: patch,
     });
     if (updated.count !== 1) return res.status(404).json({ error: "Pesquisa não encontrada." });
     const row = await prisma.keywordResearch.findFirst({ where: keywordResearchByIdWhere(userId, id) });

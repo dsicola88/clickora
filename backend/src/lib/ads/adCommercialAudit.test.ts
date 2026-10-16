@@ -49,8 +49,8 @@ describe("auditoria comercial do fallback", () => {
         false,
       );
       if (input.final_url) {
-        assert.equal(bundle.sitelinks[0]?.url, input.final_url);
-        assert.equal(bundle.sitelinks[1]?.url, "");
+        assert.equal(bundle.sitelinks.length, 4);
+        assert.ok(bundle.sitelinks.every((s) => s.url === input.final_url));
       } else {
         assert.ok(bundle.sitelinks.every((s) => s.url === ""));
       }

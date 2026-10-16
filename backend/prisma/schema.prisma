@@ -496,7 +496,11 @@ model KeywordResearch {
   platform   String?  @db.VarChar(16)
   objective  String?  @db.VarChar(24)
   source     String?  @db.VarChar(24)
+  affiliatePlatform String? @map("affiliate_platform") @db.VarChar(24)
+  funnel            String? @db.VarChar(16)
+  finalUrl          String? @map("final_url") @db.Text
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

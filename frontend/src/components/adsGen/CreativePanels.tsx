@@ -173,26 +173,32 @@ export function CreativePanels({
                 }}
               />
               <div className="grid gap-2 sm:grid-cols-2">
-                <Input
-                  aria-label={`Descrição 1 do sitelink ${i + 1}`}
-                  placeholder="Descrição 1"
-                  value={s.description1}
-                  onChange={(e) => {
-                    const sitelinks = bundle.sitelinks.slice();
-                    sitelinks[i] = { ...s, description1: e.target.value };
-                    onChange({ ...bundle, sitelinks });
-                  }}
-                />
-                <Input
-                  aria-label={`Descrição 2 do sitelink ${i + 1}`}
-                  placeholder="Descrição 2"
-                  value={s.description2}
-                  onChange={(e) => {
-                    const sitelinks = bundle.sitelinks.slice();
-                    sitelinks[i] = { ...s, description2: e.target.value };
-                    onChange({ ...bundle, sitelinks });
-                  }}
-                />
+                <div className="space-y-1">
+                  <Input
+                    aria-label={`Descrição 1 do sitelink ${i + 1}`}
+                    placeholder="Descrição 1"
+                    value={s.description1}
+                    onChange={(e) => {
+                      const sitelinks = bundle.sitelinks.slice();
+                      sitelinks[i] = { ...s, description1: e.target.value };
+                      onChange({ ...bundle, sitelinks });
+                    }}
+                  />
+                  <Counter value={s.description1} max={35} />
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    aria-label={`Descrição 2 do sitelink ${i + 1}`}
+                    placeholder="Descrição 2"
+                    value={s.description2}
+                    onChange={(e) => {
+                      const sitelinks = bundle.sitelinks.slice();
+                      sitelinks[i] = { ...s, description2: e.target.value };
+                      onChange({ ...bundle, sitelinks });
+                    }}
+                  />
+                  <Counter value={s.description2} max={35} />
+                </div>
               </div>
             </div>
           ))}

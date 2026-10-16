@@ -168,6 +168,111 @@ type CopyBank = {
   sitelinkLine2: string;
 };
 
+type SitelinkPack = {
+  links: [string, string, string, string];
+  line1: [string, string, string, string];
+  line2: [string, string, string, string];
+  snippetHeader: string;
+  neutralCallouts: string[];
+};
+
+const SITELINK_PACKS: Record<LocaleId, SitelinkPack> = {
+  "en-US": {
+    links: ["Official Site", "Order Online", "Product Info", "Compare Options"],
+    line1: ["Visit the official page.", "Continue to checkout.", "See offer details.", "Review before you buy."],
+    line2: ["Secure landing page.", "Same offer page.", "Facts from the page.", "No extra claims."],
+    snippetHeader: "Types",
+    neutralCallouts: ["Official Page", "Secure Site", "View Details", "Shop Online"],
+  },
+  "en-GB": {
+    links: ["Official Site", "Order Online", "Product Info", "Compare Options"],
+    line1: ["Visit the official page.", "Continue to checkout.", "See offer details.", "Review before you buy."],
+    line2: ["Secure landing page.", "Same offer page.", "Facts from the page.", "No extra claims."],
+    snippetHeader: "Types",
+    neutralCallouts: ["Official Page", "Secure Site", "View Details", "Shop Online"],
+  },
+  "pt-BR": {
+    links: ["Site oficial", "Comprar online", "Detalhes", "Comparar"],
+    line1: ["Abra a página oficial.", "Siga para a oferta.", "Veja os detalhes.", "Compare antes de decidir."],
+    line2: ["Página de destino.", "Mesma oferta.", "Factos da página.", "Sem promessas extra."],
+    snippetHeader: "Tipos",
+    neutralCallouts: ["Página oficial", "Site seguro", "Ver detalhes", "Comprar online"],
+  },
+  "pt-PT": {
+    links: ["Site oficial", "Encomendar", "Detalhes", "Comparar"],
+    line1: ["Abra a página oficial.", "Avance para a oferta.", "Veja os detalhes.", "Compare antes de decidir."],
+    line2: ["Página de destino.", "Mesma oferta.", "Factos da página.", "Sem promessas extra."],
+    snippetHeader: "Tipos",
+    neutralCallouts: ["Página oficial", "Site seguro", "Ver detalhes", "Comprar online"],
+  },
+  "es-419": {
+    links: ["Sitio oficial", "Comprar online", "Detalles", "Comparar"],
+    line1: ["Abre la página oficial.", "Continúa a la oferta.", "Mira los detalles.", "Compara antes de decidir."],
+    line2: ["Página de destino.", "Misma oferta.", "Datos de la página.", "Sin promesas extra."],
+    snippetHeader: "Tipos",
+    neutralCallouts: ["Página oficial", "Sitio seguro", "Ver detalles", "Comprar online"],
+  },
+  "es-ES": {
+    links: ["Sitio oficial", "Comprar online", "Detalles", "Comparar"],
+    line1: ["Abre la página oficial.", "Continúa a la oferta.", "Consulta los detalles.", "Compara antes de decidir."],
+    line2: ["Página de destino.", "Misma oferta.", "Datos de la página.", "Sin promesas extra."],
+    snippetHeader: "Tipos",
+    neutralCallouts: ["Página oficial", "Sitio seguro", "Ver detalles", "Comprar online"],
+  },
+  "fr-FR": {
+    links: ["Site officiel", "Commander", "Détails", "Comparer"],
+    line1: ["Ouvrez la page officielle.", "Accédez à l'offre.", "Voir les détails.", "Comparez avant d'acheter."],
+    line2: ["Page de destination.", "Même offre.", "Faits de la page.", "Sans promesse extra."],
+    snippetHeader: "Types",
+    neutralCallouts: ["Page officielle", "Site sécurisé", "Voir détails", "Acheter en ligne"],
+  },
+  "de-DE": {
+    links: ["Offizielle Seite", "Online bestellen", "Produktdetails", "Vergleichen"],
+    line1: ["Offizielle Seite öffnen.", "Zur Angebotsseite.", "Details ansehen.", "Vor dem Kauf vergleichen."],
+    line2: ["Zielseite.", "Gleiches Angebot.", "Fakten von der Seite.", "Keine Extra-Versprechen."],
+    snippetHeader: "Typen",
+    neutralCallouts: ["Offizielle Seite", "Sichere Seite", "Details ansehen", "Online kaufen"],
+  },
+  "it-IT": {
+    links: ["Sito ufficiale", "Ordina online", "Dettagli", "Confronta"],
+    line1: ["Apri la pagina ufficiale.", "Vai all'offerta.", "Vedi i dettagli.", "Confronta prima di acquistare."],
+    line2: ["Pagina di destinazione.", "Stessa offerta.", "Fatti dalla pagina.", "Nessuna promessa extra."],
+    snippetHeader: "Tipi",
+    neutralCallouts: ["Pagina ufficiale", "Sito sicuro", "Vedi dettagli", "Acquista online"],
+  },
+};
+
+function buildProfessionalSitelinks(locale: LocaleId, destination: string): SitelinkAsset[] {
+  const pack = SITELINK_PACKS[locale];
+  if (!destination.trim()) {
+    return [
+      {
+        id: "sl-1",
+        text: pack.links[0],
+        url: "",
+        description1: "",
+        description2: "",
+      },
+    ];
+  }
+  return pack.links.map((text, i) => ({
+    id: `sl-${i + 1}`,
+    text,
+    url: destination,
+    description1: pack.line1[i] ?? "",
+    description2: pack.line2[i] ?? "",
+  }));
+}
+
+/** Snippet só com lista real confirmada (página/LLM). O fallback determinístico não inventa valores. */
+export function buildStructuredSnippet(
+  _keywords: KeywordItem[],
+  _locale: LocaleId,
+  _product: string,
+): SnippetAsset {
+  return null;
+}
+
 const BANKS: Record<LocaleId, CopyBank> = {
   "en-US": {
     buy: (p) => `Buy ${p}`,
@@ -460,34 +565,35 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
 
   const descTexts = winningDescriptions(input, locale, usableForProduct, GOOGLE_RSA.descriptionMax);
 
-  const destination = input.final_url || input.product_url || "";
-  const sitelinks: SitelinkAsset[] = [
-    {
-      id: "sl-1",
-      text: bank.sitelinkDetails,
-      url: destination,
-      description1: destination ? bank.sitelinkLine1 : "",
-      description2: destination ? bank.sitelinkLine2 : "",
-    },
-    {
-      id: "sl-2",
-      text: bank.sitelinkPending,
-      url: "",
-      description1: "",
-      description2: "",
-    },
-  ];
-  if (!destination) limitations.push("Nenhuma página real foi associada ao primeiro sitelink.");
+  const destination = (input.final_url || input.product_url || "").trim();
+  const sitelinks = buildProfessionalSitelinks(locale, destination);
+  if (!destination) {
+    limitations.push("Indique a URL final da presell para preencher sitelinks e caminhos como num pacote Search completo.");
+  } else if (sitelinks.length < 4) {
+    limitations.push("Sitelinks reduzidos: falta URL de destino válida.");
+  }
 
   const callouts = verifiedCallouts(input).map((text, i) => ({ id: id("co", i + 1), text }));
+  const hasOfferNotes = Boolean(input.price_note?.trim() || input.offer_note?.trim() || input.guarantee_note?.trim());
+  if (callouts.length === 0 && destination && !hasOfferNotes) {
+    const pack = SITELINK_PACKS[locale];
+    for (const text of pack.neutralCallouts) {
+      if (callouts.length >= 4) break;
+      if (adTextLength(text) > 0 && adTextLength(text) <= CALLOUT_MAX) {
+        callouts.push({ id: id("co", callouts.length + 1), text });
+      }
+    }
+  }
   if (callouts.length === 0) {
     const notes = [input.price_note, input.offer_note, input.guarantee_note].filter(Boolean);
     limitations.push(
       notes.length
         ? "Nenhum preço, oferta ou garantia confirmados cabe em 25 caracteres. Não foram cortados para virar destaque."
-        : "Sem preço, oferta ou garantia confirmados: não há destaques.",
+        : "Destaques neutros só entram quando há URL final; caso contrário, ficam vazios até confirmar factos na página.",
     );
   }
+
+  const snippet = buildStructuredSnippet(keywords, locale, p);
 
   const path1 = adPath(p, 15);
   const path2Wanted = input.objective === "comparison" || input.funnel === "MIDDLE" ? adPath("compare", 15) : "";
@@ -506,7 +612,7 @@ export function buildDeterministicBundle(input: AdGenerateInput, keywords: Keywo
     path2: path2 === path1 ? "" : path2,
     sitelinks,
     callouts,
-    snippet: null,
+    snippet,
     promotion: input.promotion
       ? {
           kind: input.promotion.kind,

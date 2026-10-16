@@ -61,6 +61,13 @@ export type AdBundle = {
     facts: { label: string; value: string; status: "confirmed" | "quoted" }[];
     missing: string[];
     adGroups: { name: string; intent: string; hint: string }[];
+    pageTitle?: string | null;
+    pageH1?: string | null;
+    suggestedProductName?: string | null;
+    productNameSource?: "form" | "page" | "auto" | "merged";
+    productAligned?: boolean;
+    productAlignmentScore?: number;
+    formProductName?: string;
   };
 };
 
@@ -83,6 +90,10 @@ export type KeywordResearch = {
   url_title: string | null;
   keywords: KeywordItem[];
   created_at: string;
+  updated_at?: string;
+  affiliate_platform?: string | null;
+  funnel?: string | null;
+  final_url?: string | null;
   platform?: string | null;
   objective?: string | null;
   source?: string | null;
@@ -98,7 +109,9 @@ export type KeywordResearchSummary = {
   language_label: string;
   market: string;
   market_name: string;
+  funnel?: string | null;
   created_at: string;
+  updated_at?: string;
 };
 
 export type KeywordOptions = {
@@ -119,7 +132,25 @@ export const keywordResearchService = {
   generate(body: Record<string, unknown>) {
     return apiClient.post<KeywordResearch>("/keyword-researches/generate", body);
   },
-  update(id: string, body: { keywords: KeywordItem[]; bundle: AdBundle }) {
+  pagePreview(body: {
+    product: string;
+    product_url: string;
+    language: string;
+    page_text?: string;
+    product_name_source?: "form" | "page" | "auto";
+  }) {
+    return apiClient.post<{
+      page_status: "fetched" | "pasted";
+      page_title: string | null;
+      page_h1: string | null;
+      suggested_product_name: string | null;
+      effective_product_name: string;
+      aligned: boolean;
+      alignment_score: number;
+      product_name_source: string;
+    }>("/keyword-researches/page-preview", body);
+  },
+  update(id: string, body: { keywords: KeywordItem[]; bundle: AdBundle; final_url?: string | null }) {
     return apiClient.patch<KeywordResearch>(`/keyword-researches/${encodeURIComponent(id)}`, body);
   },
 };

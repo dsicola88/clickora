@@ -11,12 +11,12 @@ export const KEYWORD_INTENT_FILTERS: { id: "ALL" | KeywordIntent; label: string 
 ];
 
 export const KEYWORD_INTENT_SECTIONS: { intent: KeywordIntent; title: string }[] = [
-  { intent: "BUY", title: "🔥 Compra" },
-  { intent: "COMMERCIAL", title: "💰 Comercial" },
-  { intent: "INFORMATIONAL", title: "📚 Informativa" },
-  { intent: "COMPARISON", title: "⚖️ Comparação" },
-  { intent: "BRAND", title: "🏷️ Marca" },
-  { intent: "NEGATIVE", title: "🚫 Sugestões de negativas" },
+  { intent: "BUY", title: "Compra" },
+  { intent: "COMMERCIAL", title: "Comercial" },
+  { intent: "INFORMATIONAL", title: "Informativa" },
+  { intent: "COMPARISON", title: "Comparação" },
+  { intent: "BRAND", title: "Marca" },
+  { intent: "NEGATIVE", title: "Sugestões de negativas" },
 ];
 
 export const KEYWORD_FUNNEL_SECTIONS: { id: "BOTTOM" | "MIDDLE" | "TOP"; title: string; hint: string }[] = [

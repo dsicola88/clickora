@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, Search } from "lucide-react";
+import { Copy, Download, ExternalLink, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,12 @@ import {
   setKeywordSelection,
   toggleKeywordSelection,
 } from "@/lib/keywordResults";
+import { CampaignPackageChecklist } from "@/components/adsGen/CampaignPackageChecklist";
 import { CreativePanels } from "@/components/adsGen/CreativePanels";
+import {
+  ProductPageIdentityBanner,
+  type PageIdentityPreview,
+} from "@/components/adsGen/ProductPageIdentityBanner";
 import { adsToCsv, finalExportBlockReason } from "@/lib/adText";
 import {
   keywordResearchService,
@@ -43,6 +49,14 @@ import {
   type KeywordItem,
   type KeywordResearch,
 } from "@/services/keywordResearchService";
+import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
+import {
+  defaultMarketForLanguage,
+  GRINGA_AFFILIATE_PLATFORMS,
+  marketsForLanguage,
+} from "@/lib/keywordResearchMarkets";
+
+const LAST_RESEARCH_STORAGE_KEY = "dclickora-keyword-research-last-id";
 
 const FALLBACK_LANGUAGES = [
   { code: "en", label: "Inglês" },
@@ -84,16 +98,17 @@ function platformLabel(platform: string | null | undefined): string {
 function generationStatus(research: KeywordResearch): string {
   const failed = research.bundle?.llmFailed === true;
   const ai = research.source === "llm" || research.bundle?.source === "llm";
+  const parts = [`Mercado ${research.market_name}`, research.updated_at ? `Gravado ${formatResearchDate(research.updated_at)}` : ""];
   if (ai && !failed) {
-    return "Geração com IA, validada pelas regras carregadas. Sem volume, CPC ou concorrência. Não prevê aprovação.";
+    return `Pacote Search completo (IA + validação). ${parts.filter(Boolean).join(" · ")}. Sem dados de Keyword Planner.`;
   }
   if (!research.bundle && !research.source) {
-    return "Pesquisa anterior, sem estado de geração registado. Sem volume, CPC ou concorrência.";
+    return `Pesquisa arquivada (só palavras-chave). ${parts.filter(Boolean).join(" · ")}.`;
   }
   if (failed) {
-    return "Fallback determinístico: a geração inteligente falhou. Não é um resultado da IA. Sem volume, CPC ou concorrência.";
+    return `Pacote Search (modelo fixo — a IA de copy falhou). ${parts.filter(Boolean).join(" · ")}.`;
   }
-  return "Fallback determinístico. Não é uma redação da IA. Sem volume, CPC ou concorrência.";
+  return `Pacote Search (modelo fixo). ${parts.filter(Boolean).join(" · ")}.`;
 }
 
 function isHttpUrl(s: string): boolean {
@@ -260,6 +275,15 @@ function ProductSummary({ research, onCopy }: { research: KeywordResearch; onCop
               ? "A página não foi consultada. Os trechos vêm do texto colado."
               : "Esta pesquisa não tem leitura de página. Gere de novo para obter o resumo."}
         </p>
+        {analysis?.suggestedProductName ? (
+          <p className="text-xs text-muted-foreground mt-1">
+            Nome usado na campanha: <strong className="text-foreground">{research.product}</strong>
+            {analysis.formProductName && analysis.formProductName !== research.product
+              ? ` (formulário: ${analysis.formProductName})`
+              : ""}
+            {analysis.productAligned === false ? " · Revise se o nome coincide com a página." : " · Alinhado com a página."}
+          </p>
+        ) : null}
         <p className="mt-1 text-xs text-muted-foreground">{generationStatus(research)}</p>
       </div>
       {analysis?.adGroups?.length ? (
@@ -307,10 +331,13 @@ function ProductSummary({ research, onCopy }: { research: KeywordResearch; onCop
 
 export default function KeywordsPage() {
   const qc = useQueryClient();
+  const restoredOnce = useRef(false);
   const [product, setProduct] = useState("");
-  const [language, setLanguage] = useState("pt");
-  const [affiliatePlatform, setAffiliatePlatform] = useState<(typeof AFFILIATE_PLATFORMS)[number][0]>("hotmart");
+  const [language, setLanguage] = useState("en");
+  const [market, setMarket] = useState("US");
+  const [affiliatePlatform, setAffiliatePlatform] = useState<(typeof AFFILIATE_PLATFORMS)[number][0]>("clickbank");
   const [productUrl, setProductUrl] = useState("");
+  const [finalUrl, setFinalUrl] = useState("");
   const [funnel, setFunnel] = useState<(typeof FUNNEL_OPTIONS)[number]["id"]>("BOTTOM");
   const [pageText, setPageText] = useState("");
   const [needsPageText, setNeedsPageText] = useState(false);
@@ -321,6 +348,10 @@ export default function KeywordsPage() {
   const [intent, setIntent] = useState<"ALL" | KeywordIntent>("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generateError, setGenerateError] = useState<{ message: string; noResults?: boolean } | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
+  const [productNameSource, setProductNameSource] = useState<"auto" | "form" | "page">("auto");
+  const [pagePreview, setPagePreview] = useState<PageIdentityPreview | null>(null);
+  const [pagePreviewLoading, setPagePreviewLoading] = useState(false);
 
   const optionsQ = useQuery({
     queryKey: ["keyword-researches", "options"],
@@ -345,16 +376,99 @@ export default function KeywordsPage() {
     return remote ? { ...remote, label: fallback.label } : fallback;
   });
 
+  const marketOptions = useMemo(
+    () => marketsForLanguage(language, optionsQ.data?.markets ?? []),
+    [language, optionsQ.data?.markets],
+  );
+
+  useEffect(() => {
+    if (!marketOptions.some((m) => m.code === market)) {
+      setMarket(defaultMarketForLanguage(language));
+    }
+  }, [language, market, marketOptions]);
+
+  useEffect(() => {
+    const url = productUrl.trim();
+    if (!isHttpUrl(url) || product.trim().length < 2) {
+      setPagePreview(null);
+      return;
+    }
+    if (needsPageText && pageText.trim().length >= 40) {
+      setPagePreviewLoading(true);
+      const t = window.setTimeout(() => {
+        void keywordResearchService
+          .pagePreview({
+            product: product.trim(),
+            product_url: url,
+            language,
+            page_text: pageText.trim(),
+            product_name_source: productNameSource,
+          })
+          .then(({ data, error }) => {
+            setPagePreviewLoading(false);
+            if (error || !data) {
+              setPagePreview(null);
+              return;
+            }
+            setPagePreview(data);
+            if (
+              productNameSource === "auto" &&
+              !data.aligned &&
+              data.suggested_product_name &&
+              data.effective_product_name &&
+              data.effective_product_name.toLowerCase() !== product.trim().toLowerCase()
+            ) {
+              setProduct(data.effective_product_name);
+            }
+          });
+      }, 700);
+      return () => window.clearTimeout(t);
+    }
+    if (needsPageText) return;
+    setPagePreviewLoading(true);
+    const t = window.setTimeout(() => {
+      void keywordResearchService
+        .pagePreview({
+          product: product.trim(),
+          product_url: url,
+          language,
+          product_name_source: productNameSource,
+        })
+        .then(({ data, error }) => {
+          setPagePreviewLoading(false);
+          if (error || !data) {
+            setPagePreview(null);
+            return;
+          }
+          setPagePreview(data);
+          if (
+            productNameSource === "auto" &&
+            !data.aligned &&
+            data.suggested_product_name &&
+            data.effective_product_name &&
+            data.effective_product_name.toLowerCase() !== product.trim().toLowerCase()
+          ) {
+            setProduct(data.effective_product_name);
+          }
+        });
+    }, 700);
+    return () => window.clearTimeout(t);
+  }, [product, productUrl, language, productNameSource, needsPageText, pageText]);
+
   const generate = useMutation({
     mutationFn: async () => {
       const url = productUrl.trim();
       const pasted = pageText.trim();
+      const landing = finalUrl.trim();
       const { data, error, errorCode } = await keywordResearchService.generate({
         product: product.trim(),
         language,
+        market,
         affiliate_platform: affiliatePlatform,
         product_url: url,
+        final_url: landing.length && isHttpUrl(landing) ? landing : undefined,
         funnel,
+        product_name_source: productNameSource,
         ...(needsPageText && pasted.length >= 40 ? { page_text: pasted } : {}),
       });
       if (error || !data) {
@@ -370,6 +484,13 @@ export default function KeywordsPage() {
     },
     onSuccess: (data) => {
       setResearch(data);
+      setMarket(data.market);
+      setFinalUrl(data.final_url ?? finalUrl);
+      try {
+        localStorage.setItem(LAST_RESEARCH_STORAGE_KEY, data.id);
+      } catch {
+        /* ignore */
+      }
       setQuery("");
       setIntent("ALL");
       setSelected(new Set());
@@ -377,6 +498,7 @@ export default function KeywordsPage() {
       setNeedsPageText(false);
       setStudioTab("summary");
       setDraftDirty(false);
+      setSaveState("saved");
       void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
     },
     onError: (e: Error & { noResults?: boolean; needsPageText?: boolean }) => {
@@ -404,8 +526,16 @@ export default function KeywordsPage() {
       setResearch(data);
       setProduct(data.product);
       setLanguage(data.language);
+      setMarket(data.market);
       setProductUrl(data.product_url ?? "");
-      if (data.bundle?.analysis?.funnel) setFunnel(data.bundle.analysis.funnel);
+      setFinalUrl(data.final_url ?? "");
+      try {
+        localStorage.setItem(LAST_RESEARCH_STORAGE_KEY, data.id);
+      } catch {
+        /* ignore */
+      }
+      if (data.funnel) setFunnel(data.funnel as (typeof FUNNEL_OPTIONS)[number]["id"]);
+      else if (data.bundle?.analysis?.funnel) setFunnel(data.bundle.analysis.funnel);
       if (data.bundle?.analysis?.affiliatePlatform) {
         const known = AFFILIATE_PLATFORMS.some(([id]) => id === data.bundle?.analysis?.affiliatePlatform);
         if (known) setAffiliatePlatform(data.bundle.analysis.affiliatePlatform as (typeof AFFILIATE_PLATFORMS)[number][0]);
@@ -416,9 +546,50 @@ export default function KeywordsPage() {
       setSelected(new Set());
       setGenerateError(null);
       setDraftDirty(false);
+      setSaveState("saved");
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  useEffect(() => {
+    if (restoredOnce.current || research || generate.isPending || openHistory.isPending) return;
+    if (!historyQ.data?.length) return;
+    let lastId: string | null = null;
+    try {
+      lastId = localStorage.getItem(LAST_RESEARCH_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!lastId || !historyQ.data.some((h) => h.id === lastId)) return;
+    restoredOnce.current = true;
+    openHistory.mutate(lastId);
+  }, [historyQ.data, research, generate.isPending, openHistory]);
+
+  useEffect(() => {
+    if (!draftDirty || !research?.id || !research.bundle) return;
+    setSaveState("dirty");
+    const timer = window.setTimeout(() => {
+      setSaveState("saving");
+      void keywordResearchService
+        .update(research.id, {
+          keywords: research.keywords,
+          bundle: research.bundle,
+          final_url: finalUrl.trim() || null,
+        })
+        .then(({ data, error }) => {
+          if (error || !data) {
+            setSaveState("dirty");
+            toast.error(error || "Não foi possível gravar automaticamente.");
+            return;
+          }
+          setResearch(data);
+          setDraftDirty(false);
+          setSaveState("saved");
+          void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
+        });
+    }, 1600);
+    return () => window.clearTimeout(timer);
+  }, [draftDirty, research?.id, research?.keywords, research?.bundle, finalUrl, qc]);
 
   const visible = useMemo(
     () => filterKeywords(research?.keywords ?? [], query, intent),
@@ -472,13 +643,39 @@ export default function KeywordsPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Pesquisa e anúncios"
-        subtitle="Nome, idioma, plataforma de afiliados, link e funil. A campanha fica pronta para rever."
+        subtitle="Estúdio Search: palavras-chave, negativas, RSA, sitelinks, destaques e snippet estruturado. Grava na conta e exporta para o Google Ads."
       />
+      {research ? (
+        <p className="text-xs text-muted-foreground -mt-4">
+          {saveState === "saving"
+            ? "A gravar alterações…"
+            : saveState === "dirty"
+              ? "Rascunho com alterações por gravar…"
+              : saveState === "saved"
+                ? "Pacote gravado na sua conta."
+                : "Pacote pronto para editar."}
+        </p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="space-y-6 min-w-0">
+          <details
+            className={cn(
+              "rounded-xl border border-border/70 bg-card group",
+              research ? "open:shadow-sm" : "",
+            )}
+            open={!research}
+          >
+            {research ? (
+              <summary className="cursor-pointer list-none px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                <span>Nova campanha ou alterar produto</span>
+                <span className="text-xs font-normal text-muted-foreground truncate max-w-[min(100%,20rem)]">
+                  {product || research.product}
+                </span>
+              </summary>
+            ) : null}
           <form
-            className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 space-y-4"
+            className={cn("p-4 sm:p-5 space-y-4", research && "border-t border-border/50")}
             onSubmit={(e) => {
               e.preventDefault();
               submitGenerate();
@@ -512,8 +709,35 @@ export default function KeywordsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Mercado do anúncio</Label>
+                <Select value={market} onValueChange={setMarket}>
+                  <SelectTrigger aria-label="Mercado do anúncio">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {marketOptions.map((m) => (
+                      <SelectItem key={m.code} value={m.code}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
                 <Label>Plataforma de afiliados</Label>
-                <Select value={affiliatePlatform} onValueChange={(value) => setAffiliatePlatform(value as typeof affiliatePlatform)}>
+                <Select
+                  value={affiliatePlatform}
+                  onValueChange={(value) => {
+                    const next = value as typeof affiliatePlatform;
+                    setAffiliatePlatform(next);
+                    if (GRINGA_AFFILIATE_PLATFORMS.has(next)) {
+                      setLanguage("en");
+                      setMarket("US");
+                    }
+                  }}
+                >
                   <SelectTrigger aria-label="Plataforma de afiliados">
                     <SelectValue />
                   </SelectTrigger>
@@ -525,6 +749,23 @@ export default function KeywordsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kw-final-url">URL final do anúncio (presell)</Label>
+                <Input
+                  id="kw-final-url"
+                  value={finalUrl}
+                  onChange={(e) => {
+                    setFinalUrl(e.target.value);
+                    if (research) setDraftDirty(true);
+                  }}
+                  placeholder="https://… a sua presell publicada"
+                  inputMode="url"
+                  autoComplete="off"
+                />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Usada nos sitelinks e no destino do anúncio. O link do produto acima serve só para ler a oferta e gerar copy.
+                </p>
               </div>
             </div>
             <div className="space-y-2">
@@ -539,6 +780,19 @@ export default function KeywordsPage() {
                 placeholder="https://… página de vendas"
                 inputMode="url"
                 autoComplete="off"
+              />
+              <ProductPageIdentityBanner
+                preview={pagePreview}
+                loading={pagePreviewLoading}
+                productNameSource={productNameSource}
+                onUsePageName={() => {
+                  if (pagePreview?.suggested_product_name) {
+                    setProduct(pagePreview.suggested_product_name);
+                    setProductNameSource("page");
+                  }
+                }}
+                onKeepFormName={() => setProductNameSource("form")}
+                onUseAuto={() => setProductNameSource("auto")}
               />
             </div>
             <div className="space-y-2">
@@ -581,9 +835,10 @@ export default function KeywordsPage() {
               </div>
             ) : null}
             <Button type="submit" className="h-11 w-full text-sm font-semibold tracking-wide" disabled={generate.isPending}>
-              {generate.isPending ? "A gerar campanha…" : "GERAR CAMPANHA"}
+              {generate.isPending ? "A gerar campanha…" : research ? "Regenerar campanha" : "Gerar campanha"}
             </Button>
           </form>
+          </details>
 
           {generate.isPending || openHistory.isPending ? (
             <LoadingState
@@ -604,6 +859,9 @@ export default function KeywordsPage() {
             )
           ) : research ? (
             <div className="space-y-4">
+              {research.bundle ? (
+                <CampaignPackageChecklist bundle={research.bundle} issues={research.validation ?? []} />
+              ) : null}
               <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Secções da campanha">
                 {(
                   [
@@ -864,23 +1122,40 @@ export default function KeywordsPage() {
                   <Button
                     type="button"
                     size="sm"
+                    variant="secondary"
                     onClick={() => {
                       if (!research.bundle) return;
+                      setSaveState("saving");
                       void keywordResearchService
-                        .update(research.id, { keywords: research.keywords, bundle: research.bundle })
+                        .update(research.id, {
+                          keywords: research.keywords,
+                          bundle: research.bundle,
+                          final_url: finalUrl.trim() || null,
+                        })
                         .then(({ data, error }) => {
                           if (error || !data) {
+                            setSaveState("dirty");
                             toast.error(error || "Não foi possível gravar.");
                             return;
                           }
                           setResearch(data);
                           setDraftDirty(false);
-                          toast.success("Alterações gravadas");
+                          setSaveState("saved");
+                          toast.success("Pacote gravado");
+                          void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
                         });
                     }}
                   >
-                    Gravar alterações
+                    Gravar agora
                   </Button>
+                  {isHttpUrl(finalUrl.trim()) ? (
+                    <Button type="button" size="sm" variant="outline" asChild>
+                      <Link to={dpilotAdsHandoffHref(finalUrl.trim())} className="gap-1.5">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Assistente Google Ads
+                      </Link>
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -911,7 +1186,9 @@ export default function KeywordsPage() {
                     <span className="block text-[11px] text-muted-foreground">
                       {h.language_label} · {h.market_name}
                     </span>
-                    <span className="block text-[11px] text-muted-foreground">{formatResearchDate(h.created_at)}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {formatResearchDate(h.updated_at ?? h.created_at)}
+                    </span>
                   </button>
                 </li>
               ))}

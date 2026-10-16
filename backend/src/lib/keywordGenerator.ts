@@ -554,6 +554,10 @@ export function mapKeywordResearch(row: {
   urlTitle: string | null;
   keywords: unknown;
   createdAt: Date;
+  updatedAt?: Date;
+  affiliatePlatform?: string | null;
+  funnel?: string | null;
+  finalUrl?: string | null;
 }) {
   const keywords = sanitizeKeywordItems(Array.isArray(row.keywords) ? row.keywords : []);
   return {
@@ -567,5 +571,9 @@ export function mapKeywordResearch(row: {
     url_title: row.urlTitle,
     keywords,
     created_at: row.createdAt.toISOString(),
+    updated_at: (row.updatedAt ?? row.createdAt).toISOString(),
+    affiliate_platform: row.affiliatePlatform ?? null,
+    funnel: row.funnel ?? null,
+    final_url: row.finalUrl ?? null,
   };
 }
