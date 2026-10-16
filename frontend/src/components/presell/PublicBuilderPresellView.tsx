@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import type { PageDocument } from "@/page-builder/types";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
+import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
 
 function normalizeComparableUrl(raw: string): string | null {
   try {
@@ -62,12 +63,16 @@ export function PublicBuilderPresellView({
       const marked = a.getAttribute("data-clickora-offer") === "1";
       const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");
 
+      const labelHit = isCtaLabel(a.textContent || a.getAttribute("aria-label") || "");
+      const softHash = /^#(top|content|main|inicio|topo|footer|nav)\b/i.test(hrefAttr);
       const isOfferIntent = (() => {
         if (marked) return true;
+        if (labelHit && (hashOnly || !softHash)) return true;
         if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) return false;
-        if (!offerNorm) return false;
         try {
           const absolute = new URL(hrefAttr, window.location.href).href;
+          if (hrefLooksLikeOfferLink(absolute, offerUrl || "")) return true;
+          if (!offerNorm) return false;
           const linkNorm = normalizeComparableUrl(absolute);
           return Boolean(linkNorm && linkNorm === offerNorm);
         } catch {
@@ -85,13 +90,12 @@ export function PublicBuilderPresellView({
 
       if (!track) return;
 
-      if (marked && hashOnly) {
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign(track);
-        return;
-      }
-      if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) {
+      if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:") || softHash) {
+        if (labelHit || marked) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.location.assign(track);
+        }
         return;
       }
       e.preventDefault();

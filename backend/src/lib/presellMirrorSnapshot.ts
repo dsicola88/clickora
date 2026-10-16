@@ -393,7 +393,9 @@ export function finalizeMirrorSrcDocForImport(
     const href = a.getAttribute("href");
     const label = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""}`;
     const offerCta =
-      /order\s*now|buy\s*now|add to cart|comprar agora|shop now|checkout|get started with/i.test(label);
+      /order\s*now|buy\s*now|add to cart|comprar agora|shop now|checkout|get started|go directly|official site|official shop|get\s+[\w\s]{0,48}official|claim\s+offer|secure\s+order|ver oferta|continuar/i.test(
+        label,
+      );
     if (!href || href.trim().toLowerCase().startsWith("javascript:")) {
       if (offerCta) {
         a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);

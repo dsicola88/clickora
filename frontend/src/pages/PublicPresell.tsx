@@ -1090,6 +1090,8 @@ export default function PublicPresell() {
     );
     const mirrorHtmlFold =
       visualDoc.sections[0]?.columns[0]?.widgets[0]?.type === "html";
+    /** White = página independente completa; chrome/selector PT no topo poluem o espelho EN. */
+    const suppressMirrorChrome = generationNiche === "white" || mirrorHtmlFold;
     const offerUrl =
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : undefined;
     const inner = (
@@ -1106,7 +1108,8 @@ export default function PublicPresell() {
             </div>
           </section>
         ) : null}
-        {isMirrorChromePresellType(page.type) ? (
+        {/* Espelho white já traz header/CTA próprios — chrome PT em cima desalinha e confunde. */}
+        {isMirrorChromePresellType(page.type) && !suppressMirrorChrome ? (
           <MirrorTypeChrome
             type={page.type}
             ctaText={ctaText}
@@ -1168,7 +1171,7 @@ export default function PublicPresell() {
             language={uiLang}
             suppressWhileCookieGate={gateKind === "cookies"}
           />
-          {mirrorHtmlFold ? null : (
+          {suppressMirrorChrome ? null : (
             <PresellLanguageSelector override={override} onModeChange={setMode} />
           )}
           <div
