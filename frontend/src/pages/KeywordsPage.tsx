@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,6 +123,7 @@ export default function KeywordsPage() {
   const [productNameSource, setProductNameSource] = useState<"auto" | "form" | "page">("auto");
   const [pagePreview, setPagePreview] = useState<PageIdentityPreview | null>(null);
   const [pagePreviewLoading, setPagePreviewLoading] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(true);
 
   const optionsQ = useQuery({
     queryKey: ["keyword-researches", "options"],
@@ -259,6 +271,7 @@ export default function KeywordsPage() {
       setStudioTab("copy");
       setDraftDirty(false);
       setSaveState("saved");
+      setSetupOpen(false);
       void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
     },
     onError: (e: Error & { noResults?: boolean; needsPageText?: boolean }) => {
@@ -307,6 +320,58 @@ export default function KeywordsPage() {
       setGenerateError(null);
       setDraftDirty(false);
       setSaveState("saved");
+      setSetupOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function startNewCampaign() {
+    setResearch(null);
+    setProduct("");
+    setProductUrl("");
+    setFinalUrl("");
+    setPageText("");
+    setNeedsPageText(false);
+    setGenerateError(null);
+    setDraftDirty(false);
+    setSaveState("idle");
+    setSetupOpen(true);
+    setQuery("");
+    setIntent("ALL");
+    setSelected(new Set());
+    setStudioTab("copy");
+    restoredOnce.current = true;
+    try {
+      localStorage.removeItem(LAST_RESEARCH_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const deleteHistory = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await keywordResearchService.remove(id);
+      if (error) throw new Error(error);
+    },
+    onSuccess: (_void, id) => {
+      if (research?.id === id) {
+        startNewCampaign();
+      }
+      void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
+      toast.success("Pesquisa apagada.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const clearAllHistory = useMutation({
+    mutationFn: async () => {
+      const { error } = await keywordResearchService.removeAll();
+      if (error) throw new Error(error);
+    },
+    onSuccess: () => {
+      startNewCampaign();
+      void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
+      toast.success("Histórico limpo.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -401,37 +466,40 @@ export default function KeywordsPage() {
         title="Pesquisa e anúncios"
         subtitle="Copy no estilo MAG: títulos, descrições, destaques e sitelinks prontos a copiar para o Google Ads."
       />
-      {research ? (
-        <p className="text-xs text-muted-foreground -mt-4">
-          {saveState === "saving"
-            ? "A gravar alterações…"
-            : saveState === "dirty"
-              ? "Rascunho com alterações por gravar…"
-              : saveState === "saved"
-                ? "Pacote gravado na sua conta."
-                : "Pacote pronto para editar."}
-        </p>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3 -mt-2">
+        {research ? (
+          <p className="text-xs text-muted-foreground">
+            {saveState === "saving"
+              ? "A gravar alterações…"
+              : saveState === "dirty"
+                ? "Rascunho com alterações por gravar…"
+                : saveState === "saved"
+                  ? "Pacote gravado na sua conta."
+                  : "Pacote pronto para editar."}
+          </p>
+        ) : (
+          <span className="text-xs text-muted-foreground">Preencha o formulário e gere a campanha.</span>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {research ? (
+            <>
+              <Button type="button" size="sm" variant="outline" onClick={() => setSetupOpen((o) => !o)}>
+                {setupOpen ? "Ocultar formulário" : "Alterar produto / regenerar"}
+              </Button>
+              <Button type="button" size="sm" onClick={startNewCampaign}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Nova campanha
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="space-y-6 min-w-0">
-          <details
-            className={cn(
-              "rounded-xl border border-border/70 bg-card group",
-              research ? "open:shadow-sm" : "",
-            )}
-            open={!research}
-          >
-            {research ? (
-              <summary className="cursor-pointer list-none px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
-                <span>Nova campanha ou alterar produto</span>
-                <span className="text-xs font-normal text-muted-foreground truncate max-w-[min(100%,20rem)]">
-                  {product || research.product}
-                </span>
-              </summary>
-            ) : null}
+          {setupOpen || !research ? (
           <form
-            className={cn("p-4 sm:p-5 space-y-4", research && "border-t border-border/50")}
+            className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
               submitGenerate();
@@ -591,10 +659,14 @@ export default function KeywordsPage() {
               </div>
             ) : null}
             <Button type="submit" className="h-11 w-full text-sm font-semibold tracking-wide" disabled={generate.isPending}>
-              {generate.isPending ? "A gerar campanha…" : research ? "Regenerar campanha" : "Gerar campanha"}
+              {generate.isPending
+                ? "A gerar campanha…"
+                : research
+                  ? "Regenerar campanha (novo pacote)"
+                  : "Gerar campanha"}
             </Button>
           </form>
-          </details>
+          ) : null}
 
           {generate.isPending || openHistory.isPending ? (
             <LoadingState
@@ -736,7 +808,36 @@ export default function KeywordsPage() {
         </div>
 
         <aside className="space-y-3 min-w-0">
-          <h2 className="text-sm font-semibold">Pesquisas recentes</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Pesquisas recentes</h2>
+            {history.length > 0 ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">
+                    Limpar tudo
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar pesquisas recentes?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Apaga todas as campanhas guardadas nesta lista. Não afeta presells nem campanhas no Google Ads.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        if (!clearAllHistory.isPending) clearAllHistory.mutate();
+                      }}
+                    >
+                      Apagar tudo
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+          </div>
           {historyQ.isLoading ? (
             <p className="text-xs text-muted-foreground">A carregar…</p>
           ) : history.length === 0 ? (
@@ -744,12 +845,12 @@ export default function KeywordsPage() {
           ) : (
             <ul className="space-y-1">
               {history.map((h) => (
-                <li key={h.id}>
+                <li key={h.id} className="flex gap-0.5 items-stretch">
                   <button
                     type="button"
                     onClick={() => openHistory.mutate(h.id)}
                     className={cn(
-                      "w-full text-left rounded-lg border border-transparent px-2.5 py-2 hover:bg-muted/60",
+                      "min-w-0 flex-1 text-left rounded-lg border border-transparent px-2.5 py-2 hover:bg-muted/60",
                       research?.id === h.id && "border-border bg-muted/40",
                     )}
                   >
@@ -761,6 +862,17 @@ export default function KeywordsPage() {
                       {formatResearchDate(h.updated_at ?? h.created_at)}
                     </span>
                   </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-auto shrink-0 w-9 text-muted-foreground hover:text-destructive"
+                    aria-label={`Apagar pesquisa ${h.product}`}
+                    disabled={deleteHistory.isPending}
+                    onClick={() => deleteHistory.mutate(h.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </li>
               ))}
             </ul>

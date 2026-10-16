@@ -252,4 +252,19 @@ export const keywordResearchController = {
     body.validation_summary = validationSummary(body.validation);
     res.json(body);
   },
+
+  async remove(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const id = req.params.id?.trim();
+    if (!id) return res.status(400).json({ error: "ID em falta." });
+    const deleted = await prisma.keywordResearch.deleteMany({ where: keywordResearchByIdWhere(userId, id) });
+    if (deleted.count === 0) return res.status(404).json({ error: "Pesquisa não encontrada." });
+    res.status(204).send();
+  },
+
+  async removeAll(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    await prisma.keywordResearch.deleteMany({ where: keywordResearchListWhere(userId) });
+    res.status(204).send();
+  },
 };

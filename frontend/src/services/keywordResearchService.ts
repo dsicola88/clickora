@@ -153,4 +153,10 @@ export const keywordResearchService = {
   update(id: string, body: { keywords: KeywordItem[]; bundle: AdBundle; final_url?: string | null }) {
     return apiClient.patch<KeywordResearch>(`/keyword-researches/${encodeURIComponent(id)}`, body);
   },
+  remove(id: string) {
+    return apiClient.delete<null>(`/keyword-researches/${encodeURIComponent(id)}`);
+  },
+  removeAll() {
+    return apiClient.delete<null>("/keyword-researches");
+  },
 };

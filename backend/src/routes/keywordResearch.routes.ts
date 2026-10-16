@@ -11,7 +11,9 @@ keywordResearchRouter.use(authenticate, tenantIsolation, requireActiveSubscripti
 
 keywordResearchRouter.get("/options", keywordResearchController.options);
 keywordResearchRouter.get("/", keywordResearchController.list);
+keywordResearchRouter.delete("/", keywordResearchController.removeAll);
 keywordResearchRouter.get("/:id", keywordResearchController.getById);
+keywordResearchRouter.delete("/:id", keywordResearchController.remove);
 keywordResearchRouter.post("/page-preview", keywordGenerateLimiter, keywordResearchController.previewPage);
 keywordResearchRouter.post("/generate", keywordGenerateLimiter, keywordResearchController.generate);
 keywordResearchRouter.patch("/:id", keywordResearchController.update);
