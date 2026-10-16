@@ -39,11 +39,26 @@ test.describe("Pesquisa e anúncios — estúdio MAG", () => {
       await recentPv.click();
       await expect(page.getByRole("tab", { name: "Copy vencedora" })).toBeVisible({ timeout: 30_000 });
     } else {
+      const pastedPageText =
+        "GlucoTrust official website. Buy GlucoTrust with discount today. You save on bottles. " +
+        "180 day money back guarantee. Free US shipping. Order online now.";
       await page.getByLabel("Nome do produto").fill("GlucoTrust");
       await page.getByLabel(/Link oficial do produto/i).fill("https://example.com/glucotrust");
       await page.getByLabel(/URL final do anúncio/i).fill("https://example.com/presell");
       await page.getByRole("button", { name: /Gerar campanha|Regenerar campanha/i }).click();
-      await expect(page.getByRole("tab", { name: "Copy vencedora" })).toBeVisible({ timeout: 120_000 });
+      await expect(page.locator("#kw-page-text")).toBeVisible({ timeout: 45_000 });
+      await page.locator("#kw-page-text").fill(pastedPageText);
+      const generateResponse = page.waitForResponse(
+        (r) => r.url().includes("/api/keyword-researches/generate") && r.request().method() === "POST",
+        { timeout: 120_000 },
+      );
+      await page.getByRole("button", { name: /Gerar campanha|Regenerar campanha/i }).click();
+      const response = await generateResponse;
+      if (!response.ok()) {
+        const body = await response.text();
+        throw new Error(`Geração falhou (${response.status()}): ${body.slice(0, 800)}`);
+      }
+      await expect(page.getByRole("tab", { name: "Copy vencedora" })).toBeVisible({ timeout: 30_000 });
     }
 
     await page.getByRole("tab", { name: "Copy vencedora" }).click();

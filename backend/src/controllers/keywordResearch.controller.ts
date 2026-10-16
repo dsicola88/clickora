@@ -62,21 +62,41 @@ export const keywordResearchController = {
 
   async list(req: Request, res: Response) {
     const userId = billingUserId(req);
-    const rows = await prisma.keywordResearch.findMany({
-      where: keywordResearchListWhere(userId),
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      take: HISTORY_LIMIT,
-      select: {
-        id: true,
-        product: true,
-        language: true,
-        market: true,
-        marketName: true,
-        funnel: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    const baseSelect = {
+      id: true,
+      product: true,
+      language: true,
+      market: true,
+      marketName: true,
+      funnel: true,
+      createdAt: true,
+    } as const;
+    let rows: Array<{
+      id: string;
+      product: string;
+      language: string;
+      market: string;
+      marketName: string;
+      funnel: string | null;
+      createdAt: Date;
+      updatedAt?: Date;
+    }>;
+    try {
+      rows = await prisma.keywordResearch.findMany({
+        where: keywordResearchListWhere(userId),
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        take: HISTORY_LIMIT,
+        select: { ...baseSelect, updatedAt: true },
+      });
+    } catch (e) {
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022")) throw e;
+      rows = await prisma.keywordResearch.findMany({
+        where: keywordResearchListWhere(userId),
+        orderBy: { createdAt: "desc" },
+        take: HISTORY_LIMIT,
+        select: baseSelect,
+      });
+    }
     res.json(
       rows.map((r) => ({
         id: r.id,

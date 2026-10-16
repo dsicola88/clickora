@@ -211,6 +211,12 @@ CREATE TABLE IF NOT EXISTS "academy_lessons" (
     await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "platform" VARCHAR(16)`);
     await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "objective" VARCHAR(24)`);
     await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "source" VARCHAR(24)`);
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "affiliate_platform" VARCHAR(24)`);
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "funnel" VARCHAR(16)`);
+    await systemPrisma.$executeRawUnsafe(`ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "final_url" TEXT`);
+    await systemPrisma.$executeRawUnsafe(
+      `ALTER TABLE "keyword_researches" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    );
   } catch (e) {
     console.warn("[schemaRepair] keyword_researches bundle (ignorado):", e);
   }
