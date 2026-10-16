@@ -30,7 +30,9 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         ...(process.env.PLAYWRIGHT_CHROME_CHANNEL
           ? { channel: process.env.PLAYWRIGHT_CHROME_CHANNEL as "chrome" }
-          : {}),
+          : process.platform === "darwin"
+            ? { channel: "chrome" as const }
+            : {}),
       },
     },
   ],

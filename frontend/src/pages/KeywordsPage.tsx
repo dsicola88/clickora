@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, ExternalLink, Search } from "lucide-react";
+import { Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -19,24 +18,13 @@ import { ErrorState } from "@/components/ErrorState";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { cn } from "@/lib/utils";
 import {
-  campaignReviewText,
   copyKeywordsText,
   downloadCsv,
-  filterKeywords,
   formatResearchDate,
-  groupNegativeKeywords,
-  KEYWORD_FUNNEL_SECTIONS,
-  KEYWORD_INTENT_FILTERS,
-  funnelLabel,
   keywordsToCsv,
-  keywordFunnel,
-  negativeGroupLabel,
-  relevanceLabel,
-  setKeywordSelection,
-  toggleKeywordSelection,
 } from "@/lib/keywordResults";
-import { CampaignPackageChecklist } from "@/components/adsGen/CampaignPackageChecklist";
-import { CreativePanels } from "@/components/adsGen/CreativePanels";
+import { magazineCopyText } from "@/lib/magazineCopyText";
+import { CampaignMagazineStudio, type MagazineTab } from "@/components/adsGen/CampaignMagazineStudio";
 import {
   ProductPageIdentityBanner,
   type PageIdentityPreview,
@@ -86,30 +74,6 @@ const FUNNEL_OPTIONS = [
   { id: "TOP" as const, title: "Topo de funil", hint: "Descoberta e informação" },
 ];
 
-type StudioTab = "summary" | "keywords" | "negatives" | "ads" | "extensions" | "review";
-
-function platformLabel(platform: string | null | undefined): string {
-  if (platform === "microsoft") return "Microsoft Advertising";
-  if (platform === "both") return "Google Ads e Microsoft Advertising";
-  if (platform === "google") return "Google Ads";
-  return "Plataforma não registada nesta pesquisa";
-}
-
-function generationStatus(research: KeywordResearch): string {
-  const failed = research.bundle?.llmFailed === true;
-  const ai = research.source === "llm" || research.bundle?.source === "llm";
-  const parts = [`Mercado ${research.market_name}`, research.updated_at ? `Gravado ${formatResearchDate(research.updated_at)}` : ""];
-  if (ai && !failed) {
-    return `Pacote Search completo (IA + validação). ${parts.filter(Boolean).join(" · ")}. Sem dados de Keyword Planner.`;
-  }
-  if (!research.bundle && !research.source) {
-    return `Pesquisa arquivada (só palavras-chave). ${parts.filter(Boolean).join(" · ")}.`;
-  }
-  if (failed) {
-    return `Pacote Search (modelo fixo — a IA de copy falhou). ${parts.filter(Boolean).join(" · ")}.`;
-  }
-  return `Pacote Search (modelo fixo). ${parts.filter(Boolean).join(" · ")}.`;
-}
 
 function isHttpUrl(s: string): boolean {
   try {
@@ -125,210 +89,6 @@ async function copyText(text: string, ok: string) {
   toast.success(ok);
 }
 
-const MATCH_LABEL: Record<string, string> = { BROAD: "ampla", PHRASE: "frase", EXACT: "exata" };
-
-function KeywordList({
-  rows,
-  selected,
-  onToggle,
-  onEdit,
-}: {
-  rows: KeywordItem[];
-  selected: Set<string>;
-  onToggle: (keyword: string) => void;
-  onEdit: (from: string, to: string) => void;
-}) {
-  return (
-    <>
-      <div className="hidden md:block overflow-x-auto rounded-lg border border-border/60">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border/60 bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-              <th className="w-10 px-3 py-2"> </th>
-              <th className="px-3 py-2 font-medium">Palavra-chave</th>
-              <th className="px-3 py-2 font-medium w-40">Relevância estimada</th>
-              <th className="px-3 py-2 font-medium w-24"> </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((item, index) => (
-              <tr key={`${item.intent}-${index}`} className="border-b border-border/40 last:border-0">
-                <td className="px-3 py-2 align-middle">
-                  <Checkbox
-                    checked={selected.has(item.keyword)}
-                    onCheckedChange={() => onToggle(item.keyword)}
-                    aria-label={`Seleccionar ${item.keyword}`}
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <Input
-                    aria-label={`Editar ${item.keyword}`}
-                    value={item.keyword}
-                    className="h-8"
-                    onChange={(e) => onEdit(item.keyword, e.target.value)}
-                  />
-                  <span className="block text-[11px] text-muted-foreground mt-1">
-                    {funnelLabel(item)}
-                    {item.matchTypes?.length ? ` · ${item.matchTypes.map((m) => MATCH_LABEL[m] ?? m).join(" · ")}` : ""}
-                  </span>
-                  {item.natural === false ? (
-                    <span className="block text-[11px] text-amber-700">Frase pouco natural — rever</span>
-                  ) : null}
-                  {item.negativeSuggestion ? (
-                    <span className="block text-[11px] text-muted-foreground">Sugestão de negativa</span>
-                  ) : null}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs">{relevanceLabel(item.relevance)}</td>
-                <td className="px-3 py-2 text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => void copyText(item.keyword, "Copiada")}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1" />
-                    Copiar
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="md:hidden space-y-2">
-        {rows.map((item, index) => (
-          <KeywordRow
-            key={`${item.intent}-${index}`}
-            item={item}
-            selected={selected.has(item.keyword)}
-            onToggle={() => onToggle(item.keyword)}
-            onEdit={(to) => onEdit(item.keyword, to)}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function KeywordRow({
-  item,
-  selected,
-  onToggle,
-  onEdit,
-}: {
-  item: KeywordItem;
-  selected: boolean;
-  onToggle: () => void;
-  onEdit: (to: string) => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-3 rounded-lg border border-border/60 bg-card px-3 py-2.5",
-        selected && "border-primary/40 bg-primary/5",
-      )}
-    >
-      <Checkbox
-        checked={selected}
-        onCheckedChange={() => onToggle()}
-        aria-label={`Seleccionar ${item.keyword}`}
-        className="mt-0.5"
-      />
-      <div className="min-w-0 flex-1">
-        <Input aria-label={`Editar ${item.keyword}`} value={item.keyword} className="h-8" onChange={(e) => onEdit(e.target.value)} />
-        <p className="text-[11px] text-muted-foreground mt-0.5">
-          {funnelLabel(item)} · Relevância estimada: {relevanceLabel(item.relevance)}
-          {item.matchTypes?.length ? ` · ${item.matchTypes.map((m) => MATCH_LABEL[m] ?? m).join(" · ")}` : ""}
-          {item.natural === false ? " · rever a frase" : ""}
-          {item.negativeSuggestion ? " · sugestão de negativa" : ""}
-        </p>
-      </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="shrink-0 h-8 px-2"
-        onClick={() => void copyText(item.keyword, "Copiada")}
-      >
-        <Copy className="h-3.5 w-3.5" />
-        <span className="sr-only sm:not-sr-only sm:ml-1.5 text-xs">Copiar</span>
-      </Button>
-    </div>
-  );
-}
-
-function ProductSummary({ research, onCopy }: { research: KeywordResearch; onCopy: (text: string) => void }) {
-  const analysis = research.bundle?.analysis;
-  const funnelName = FUNNEL_OPTIONS.find((option) => option.id === analysis?.funnel)?.title ?? "Funil não registado nesta pesquisa";
-  return (
-    <section className="space-y-4 rounded-xl border border-border/70 bg-card p-4">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">{research.product}</h2>
-        <p className="text-sm text-muted-foreground">
-          {analysis?.affiliatePlatformLabel ?? "Plataforma não registada"} · {funnelName} · {research.language_label}
-        </p>
-        <p className="mt-2 text-sm">
-          {analysis?.pageStatus === "fetched"
-            ? "A página foi consultada. Confirmado entra no anúncio. O que está só citado fica de fora."
-            : analysis?.pageStatus === "pasted"
-              ? "A página não foi consultada. Os trechos vêm do texto colado."
-              : "Esta pesquisa não tem leitura de página. Gere de novo para obter o resumo."}
-        </p>
-        {analysis?.suggestedProductName ? (
-          <p className="text-xs text-muted-foreground mt-1">
-            Nome usado na campanha: <strong className="text-foreground">{research.product}</strong>
-            {analysis.formProductName && analysis.formProductName !== research.product
-              ? ` (formulário: ${analysis.formProductName})`
-              : ""}
-            {analysis.productAligned === false ? " · Revise se o nome coincide com a página." : " · Alinhado com a página."}
-          </p>
-        ) : null}
-        <p className="mt-1 text-xs text-muted-foreground">{generationStatus(research)}</p>
-      </div>
-      {analysis?.adGroups?.length ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {analysis.adGroups.map((group) => (
-            <div key={group.name} className="rounded-lg border border-border/60 px-3 py-2">
-              <p className="text-sm font-semibold">{group.name}</p>
-              <p className="text-xs text-muted-foreground">{group.hint}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {analysis?.facts?.length ? (
-        <ul className="space-y-2">
-          {analysis.facts.map((fact) => (
-            <li key={`${fact.label}-${fact.value}`} className="rounded-lg border border-border/60 px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{fact.label}</p>
-                <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => onCopy(fact.value)}>
-                  <Copy className="h-3.5 w-3.5 mr-1" />
-                  Copiar
-                </Button>
-              </div>
-              <p className="text-sm">{fact.value}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {fact.status === "confirmed" ? "Confirmado. Pode entrar no anúncio." : "Citado na página. Não entrou no anúncio."}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {analysis?.missing?.length ? (
-        <div>
-          <p className="text-sm font-medium">Não encontrado na página</p>
-          <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
-            {analysis.missing.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 export default function KeywordsPage() {
   const qc = useQueryClient();
   const restoredOnce = useRef(false);
@@ -341,7 +101,7 @@ export default function KeywordsPage() {
   const [funnel, setFunnel] = useState<(typeof FUNNEL_OPTIONS)[number]["id"]>("BOTTOM");
   const [pageText, setPageText] = useState("");
   const [needsPageText, setNeedsPageText] = useState(false);
-  const [studioTab, setStudioTab] = useState<StudioTab>("summary");
+  const [studioTab, setStudioTab] = useState<MagazineTab>("copy");
   const [draftDirty, setDraftDirty] = useState(false);
   const [research, setResearch] = useState<KeywordResearch | null>(null);
   const [query, setQuery] = useState("");
@@ -496,7 +256,7 @@ export default function KeywordsPage() {
       setSelected(new Set());
       setGenerateError(null);
       setNeedsPageText(false);
-      setStudioTab("summary");
+      setStudioTab("copy");
       setDraftDirty(false);
       setSaveState("saved");
       void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
@@ -540,7 +300,7 @@ export default function KeywordsPage() {
         const known = AFFILIATE_PLATFORMS.some(([id]) => id === data.bundle?.analysis?.affiliatePlatform);
         if (known) setAffiliatePlatform(data.bundle.analysis.affiliatePlatform as (typeof AFFILIATE_PLATFORMS)[number][0]);
       }
-      setStudioTab("summary");
+      setStudioTab("copy");
       setQuery("");
       setIntent("ALL");
       setSelected(new Set());
@@ -591,10 +351,6 @@ export default function KeywordsPage() {
     return () => window.clearTimeout(timer);
   }, [draftDirty, research?.id, research?.keywords, research?.bundle, finalUrl, qc]);
 
-  const visible = useMemo(
-    () => filterKeywords(research?.keywords ?? [], query, intent),
-    [research, query, intent],
-  );
   const selectedItems = useMemo(
     () => (research?.keywords ?? []).filter((k) => selected.has(k.keyword)),
     [research, selected],
@@ -643,7 +399,7 @@ export default function KeywordsPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Pesquisa e anúncios"
-        subtitle="Estúdio Search: palavras-chave, negativas, RSA, sitelinks, destaques e snippet estruturado. Grava na conta e exporta para o Google Ads."
+        subtitle="Copy no estilo MAG: títulos, descrições, destaques e sitelinks prontos a copiar para o Google Ads."
       />
       {research ? (
         <p className="text-xs text-muted-foreground -mt-4">
@@ -860,215 +616,37 @@ export default function KeywordsPage() {
           ) : research ? (
             <div className="space-y-4">
               {research.bundle ? (
-                <CampaignPackageChecklist bundle={research.bundle} issues={research.validation ?? []} />
-              ) : null}
-              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Secções da campanha">
-                {(
-                  [
-                    ["summary", "Resumo do produto"],
-                    ["keywords", "Palavras-chave"],
-                    ["negatives", "Negativas"],
-                    ["ads", "Anúncios"],
-                    ["extensions", "Extensões"],
-                    ["review", "Revisão final"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <Button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={studioTab === id}
-                    size="sm"
-                    variant={studioTab === id ? "default" : "outline"}
-                    className="h-8 text-xs"
-                    onClick={() => setStudioTab(id)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-              {studioTab === "summary" ? (
-                <ProductSummary research={research} onCopy={(text) => void copyText(text, "Copiado")} />
-              ) : null}
-              {studioTab === "ads" || studioTab === "extensions" || studioTab === "review" ? (
-                research.bundle ? (
-                  <CreativePanels
-                    tab={studioTab === "ads" ? "ad" : studioTab === "extensions" ? "assets" : "review"}
-                    bundle={research.bundle}
-                    issues={research.validation ?? []}
-                    onChange={(bundle) => {
-                      setDraftDirty(true);
-                      setResearch({ ...research, bundle });
-                    }}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">Esta pesquisa antiga não tem pacote de anúncios. Gera de novo para o criar.</p>
-                )
-              ) : null}
-              {studioTab === "keywords" || studioTab === "negatives" ? (
-              <>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {studioTab === "negatives" ? "Negativas para" : "Palavras-chave para"}
-                </p>
-                <h2 className="text-xl font-semibold tracking-tight">{research.product}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {research.bundle?.analysis?.affiliatePlatformLabel ?? platformLabel(research.platform)}
-                  {" · "}
-                  {FUNNEL_OPTIONS.find((option) => option.id === research.bundle?.analysis?.funnel)?.title ?? "Funil da pesquisa"}
-                  {" · "}
-                  {research.language_label}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">{generationStatus(research)}</p>
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Pesquisar palavras-chave..."
-                  className="pl-9"
-                  aria-label="Pesquisar palavras-chave"
-                />
-              </div>
-
-              {studioTab === "keywords" ? <div className="flex flex-wrap gap-1.5">
-                {KEYWORD_INTENT_FILTERS.filter((f) => f.id !== "NEGATIVE").map((f) => (
-                  <Button
-                    key={f.id}
-                    type="button"
-                    size="sm"
-                    variant={intent === f.id ? "default" : "outline"}
-                    className="h-8 text-xs"
-                    onClick={() => setIntent(f.id)}
-                  >
-                    {f.label}
-                  </Button>
-                ))}
-              </div> : null}
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground">{selected.size} selecionadas</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!research.keywords.length}
-                  onClick={() => void copyText(copyKeywordsText(research.keywords), "Todas copiadas")}
-                >
-                  Copiar todas
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedItems.length}
-                  onClick={() => void copyText(copyKeywordsText(selectedItems), "Seleccionadas copiadas")}
-                >
-                  Copiar selecionadas
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!research.keywords.length}
-                  onClick={() => {
+                <CampaignMagazineStudio
+                  research={research}
+                  tab={studioTab}
+                  onTabChange={setStudioTab}
+                  bundle={research.bundle}
+                  issues={research.validation ?? []}
+                  onBundleChange={(bundle) => {
+                    setDraftDirty(true);
+                    setResearch({ ...research, bundle });
+                  }}
+                  query={query}
+                  onQueryChange={setQuery}
+                  intent={intent}
+                  onIntentChange={setIntent}
+                  selected={selected}
+                  onSelectedChange={setSelected}
+                  onEditKeyword={editKeyword}
+                  onCopyKeywords={() => void copyText(copyKeywordsText(research.keywords), "Todas copiadas")}
+                  onCopySelected={() => void copyText(copyKeywordsText(selectedItems), "Seleccionadas copiadas")}
+                  onExportKeywordsCsv={() => {
                     const csv = keywordsToCsv(research.keywords, research);
                     const slug = research.product.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 40);
                     downloadCsv(`palavras-chave-${slug || "export"}.csv`, csv);
                     toast.success("CSV exportado");
                   }}
-                >
-                  <Download className="h-3.5 w-3.5 mr-1.5" />
-                  Exportar CSV
-                </Button>
-              </div>
-
-              {visible.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  Nenhuma palavra-chave corresponde a este filtro.
-                </p>
+                />
               ) : (
-                <>
-                  {studioTab === "keywords" ? KEYWORD_FUNNEL_SECTIONS.map((section) => {
-                    const rows = visible.filter((k) => k.intent !== "NEGATIVE" && keywordFunnel(k) === section.id);
-                    if (!rows.length) return null;
-                    const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
-                    return (
-                      <section key={section.id} className="space-y-2">
-                        <h3 className="text-sm font-semibold pt-2">{section.title}</h3>
-                        <p className="text-xs text-muted-foreground">{section.hint}</p>
-                        <KeywordList rows={rows} selected={selected} onToggle={onToggle} onEdit={editKeyword} />
-                      </section>
-                    );
-                  }) : null}
-                  {studioTab === "negatives" ? (() => {
-                    const rows = (research?.keywords ?? []).filter((k) => k.intent === "NEGATIVE" && (!query.trim() || k.keyword.toLowerCase().includes(query.trim().toLowerCase())));
-                    if (!rows.length) return null;
-                    const onToggle = (keyword: string) => setSelected((s) => toggleKeywordSelection(s, keyword));
-                    const groups = groupNegativeKeywords(rows);
-                    return (
-                      <section className="space-y-3">
-                        <h3 className="text-sm font-semibold pt-2">Sugestões de negativas</h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Reveja antes de usar numa campanha. Uma negativa mal escolhida pode bloquear quem ainda está a
-                          decidir comprar. Não fazem parte do funil.
-                        </p>
-                        {groups.map((group) => {
-                          const keys = group.items.map((k) => k.keyword);
-                          const allOn = keys.every((k) => selected.has(k));
-                          return (
-                            <div key={group.group} className="space-y-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h4 className="text-xs font-medium text-muted-foreground">{negativeGroupLabel(group.group)}</h4>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={() => setSelected((s) => setKeywordSelection(s, keys, !allOn))}
-                                >
-                                  {allOn ? "Desmarcar grupo" : "Seleccionar grupo"}
-                                </Button>
-                              </div>
-                              <KeywordList rows={group.items} selected={selected} onToggle={onToggle} onEdit={editKeyword} />
-                            </div>
-                          );
-                        })}
-                      </section>
-                    );
-                  })() : null}
-                </>
+                <p className="text-sm text-muted-foreground">Esta pesquisa antiga não tem pacote de anúncios. Gere de novo para criar copy.</p>
               )}
-              </>
-              ) : null}
               {research.bundle ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      const bundle = research.bundle as AdBundle;
-                      const funnelName = FUNNEL_OPTIONS.find((option) => option.id === bundle.analysis?.funnel)?.title ?? "Campanha";
-                      void copyText(
-                        campaignReviewText({
-                          product: research.product,
-                          language: research.language_label,
-                          funnel: funnelName,
-                          keywords: research.keywords,
-                          headlines: bundle.headlines.map((item) => item.text),
-                          descriptions: bundle.descriptions.map((item) => item.text),
-                          sitelinks: bundle.sitelinks.map((item) => [item.text, item.description1, item.description2, item.url].filter(Boolean).join(" — ")),
-                          callouts: bundle.callouts.map((item) => item.text),
-                        }),
-                        "Campanha copiada",
-                      );
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copiar campanha
-                  </Button>
+                <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-t border-border/70 bg-background/95 px-1 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                   <Button
                     type="button"
                     variant="outline"
@@ -1112,13 +690,6 @@ export default function KeywordsPage() {
                   >
                     Exportar CSV de revisão
                   </Button>
-                  {draftDirty ? (
-                    <span className="text-xs text-muted-foreground">Grave o rascunho para validar antes de exportar.</span>
-                  ) : finalExportBlockReason(research.validation ?? []) ? (
-                    <span className="text-xs text-destructive">{finalExportBlockReason(research.validation ?? [])}</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Sem inválidos nas regras carregadas. Continua a ser um CSV de revisão.</span>
-                  )}
                   <Button
                     type="button"
                     size="sm"
