@@ -298,24 +298,38 @@ function startChime(ctx: AudioContext, id: SaleChimeId): void {
   bell(ctx, master, 1760, 0.18, 0.28, 0.16);
 }
 
+function resumePendingChime(): void {
+  const ctx = audioContext();
+  if (!ctx) return;
+  void ctx.resume().then(() => {
+    if (pendingId && ctx.state === "running") {
+      const id = pendingId;
+      pendingId = null;
+      startChime(ctx, id);
+    }
+  });
+}
+
 export function installSaleChimeUnlock(): () => void {
-  const unlock = () => {
-    const ctx = audioContext();
-    if (!ctx) return;
-    void ctx.resume().then(() => {
-      if (pendingId && ctx.state === "running") {
-        const id = pendingId;
-        pendingId = null;
-        startChime(ctx, id);
-      }
-    });
-  };
-  window.addEventListener("pointerdown", unlock);
+  const unlock = () => resumePendingChime();
+  window.addEventListener("pointerdown", unlock, { passive: true });
+  window.addEventListener("touchstart", unlock, { passive: true });
   window.addEventListener("keydown", unlock);
+  const onVisible = () => {
+    if (document.visibilityState === "visible") resumePendingChime();
+  };
+  document.addEventListener("visibilitychange", onVisible);
   return () => {
     window.removeEventListener("pointerdown", unlock);
+    window.removeEventListener("touchstart", unlock);
     window.removeEventListener("keydown", unlock);
+    document.removeEventListener("visibilitychange", onVisible);
   };
+}
+
+/** Som do push (definições da conta) ou o deste aparelho. */
+export function resolvePushChimeSound(sound: string | null | undefined): SaleChimeId {
+  return parseSaleChimeId(sound) ?? saleChimeSound();
 }
 
 const SAMPLE_SRC: Partial<Record<SaleChimeId, string>> = {

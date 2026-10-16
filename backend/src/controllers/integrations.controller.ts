@@ -1653,12 +1653,17 @@ export const integrationsController = {
         error: "Não há subscrições neste dispositivo. Ative as notificações primeiro.",
       });
     }
+    const user = await systemPrisma.user.findUnique({
+      where: { id: userId },
+      select: { saleChime: true },
+    });
     await sendWebPushToUser(userId, {
       title: "Nova venda aprovada!",
       body: "Teste da dclickora. Numa venda real, a comissão que a rede enviar aparece aqui.",
       url: "/resultados/relatorios/conversoes",
       tag: `sale-test-${Date.now()}`,
       chime: true,
+      chimeSound: user?.saleChime ?? "kaching",
     });
     return res.json({ ok: true });
   },

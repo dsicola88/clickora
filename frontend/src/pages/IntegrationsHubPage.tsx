@@ -123,7 +123,8 @@ export default function IntegrationsHubPage() {
               <div>
                 <p className="text-sm font-semibold text-foreground">Som de venda</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                  Ligado. O som escolhe-se em Postback, junto do e-mail. O e-mail e o cartão do telemóvel saem com o browser fechado.
+                  Ligado neste aparelho. O som escolhe-se em Plataformas → Som da venda; o push e a app usam o mesmo. E-mail e
+                  cartão saem com o browser fechado.
                 </p>
               </div>
               <Switch

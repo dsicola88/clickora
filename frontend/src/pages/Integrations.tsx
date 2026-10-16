@@ -423,7 +423,8 @@ export default function Integrations() {
                       <div>
                         <p className="text-sm font-medium text-foreground">Som de venda</p>
                         <p className="text-sm text-muted-foreground">
-                          Com a dclickora aberta, a venda toca o som escolhido em Postback, junto do e-mail. Já vem ligado.
+                          Com o aviso push (ou a app aberta), toca o som escolhido em Plataformas → Som da venda. Já vem
+                          ligado neste aparelho.
                         </p>
                       </div>
                       <Switch

@@ -44,18 +44,19 @@ export async function notifyApprovedSale(input: {
     linkedToClick: input.linkedToClick,
   });
 
+  const user = await systemPrisma.user.findUnique({
+    where: { id: input.userId },
+    select: { email: true, saleNotifyEmail: true, saleChime: true },
+  });
+
   void sendWebPushToUser(input.userId, {
     title: notice.pushTitle,
     body: notice.pushBody,
     url: "/resultados/relatorios/conversoes",
     tag: `sale-${input.conversionId}`,
     chime: true,
+    chimeSound: user?.saleChime ?? "kaching",
   }).catch((err) => console.warn("[sale push]", input.userId, err));
-
-  const user = await systemPrisma.user.findUnique({
-    where: { id: input.userId },
-    select: { email: true, saleNotifyEmail: true },
-  });
   const to = (user?.saleNotifyEmail?.trim() || user?.email || "").trim();
   if (!to) return { sent: false, reason: "sem_email" };
 

@@ -232,6 +232,13 @@ export function getVapidPublicKeyFromEnv(): string | null {
   return k || null;
 }
 
+const SALE_CHIME_SOUND_IDS = new Set(["kaching", "chaching", "registradora", "moedas", "chuva", "sino"]);
+
+export function normalizeSaleChimeSound(raw: string | null | undefined): string {
+  const s = (raw || "").trim();
+  return SALE_CHIME_SOUND_IDS.has(s) ? s : "kaching";
+}
+
 export type WebPushPayload = {
   title: string;
   body: string;
@@ -241,6 +248,8 @@ export type WebPushPayload = {
   tag?: string;
   /** A janela aberta toca o som de venda. O teste de notificação não leva este sinal. */
   chime?: boolean;
+  /** Som escolhido nas definições da conta (kaching, sino, …). */
+  chimeSound?: string;
 };
 
 /**
@@ -264,7 +273,9 @@ export async function sendWebPushToUser(userId: string, payload: WebPushPayload)
     body: payload.body,
     url: payload.url ?? "/resultados",
     ...(payload.tag ? { tag: payload.tag } : {}),
-    ...(payload.chime ? { chime: true } : {}),
+    ...(payload.chime
+      ? { chime: true, chimeSound: normalizeSaleChimeSound(payload.chimeSound) }
+      : {}),
   });
 
   const toRemove: string[] = [];

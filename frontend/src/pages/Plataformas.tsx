@@ -397,8 +397,9 @@ export default function Plataformas() {
             <div className="space-y-3">
               <Label className="font-semibold">Som da venda</Label>
               <p className="text-xs text-muted-foreground">
-                Toque num som para o ouvir. Com a dclickora aberta, a venda usa o som escolhido. No telemóvel bloqueado,
-                o aparelho mostra o cartão e toca o som de notificação do sistema.
+                Toque num som para o ouvir e guarde com «Guardar e-mail e som». O mesmo som toca no aviso push e com a
+                app aberta. Se o browser bloquear áudio, abra a dclickora ou toque no aviso — o som escolhido dispara ao
+                entrar.
               </p>
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Som da venda">
                 {SALE_CHIMES.map((item) => {
