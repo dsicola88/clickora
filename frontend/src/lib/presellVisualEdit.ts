@@ -2,6 +2,7 @@ import { createSection, createWidget, id } from "@/page-builder/factory";
 import type { PageDocument, WidgetNode } from "@/page-builder/types";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { CLICKORA_MIRROR_TRACK_MARKER } from "@/lib/presellMirrorMarkers";
+import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { getPresellGateKind } from "@/lib/presellTypeMeta";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
@@ -638,7 +639,9 @@ export function bakePublicOfferHrefs(
         if (widget.type === "html" && typeof widget.content.code === "string") {
           widget.content = {
             ...widget.content,
-            code: widget.content.code.split(CLICKORA_MIRROR_TRACK_MARKER).join(href || CLICKORA_MIRROR_TRACK_MARKER),
+            code: href
+              ? bakeHtmlOfferHrefs(widget.content.code, href, affiliate)
+              : widget.content.code.split(CLICKORA_MIRROR_TRACK_MARKER).join(CLICKORA_MIRROR_TRACK_MARKER),
           };
         }
         if (href && widget.type === "image" && !cookieGate) {
@@ -660,7 +663,10 @@ export function bakePublicOfferHrefs(
     }
   }
   if (href) {
-    pointOfferButtonsAt(clone, href, affiliate || undefined, { assignCookieOffer: !unlockCookieOnly });
+    pointOfferButtonsAt(clone, href, affiliate || undefined, {
+      assignCookieOffer: !unlockCookieOnly,
+      forceAllButtons: true,
+    });
   }
   if (cookieGate && !unlockCookieOnly) {
     for (const section of clone.sections) {
@@ -687,12 +693,13 @@ export function pointOfferButtonsAt(
   doc: PageDocument,
   offerUrl: string,
   previousOffer?: string,
-  options: { assignCookieOffer?: boolean } = {},
+  options: { assignCookieOffer?: boolean; forceAllButtons?: boolean } = {},
 ): PageDocument {
   const offer = offerUrl.trim();
   if (!offer) return doc;
   const previous = previousOffer ? comparableUrl(previousOffer) : "";
   const assignCookieOffer = options.assignCookieOffer !== false;
+  const forceAllButtons = Boolean(options.forceAllButtons);
   const widgets = doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets));
   const buttons = widgets.filter((widget) => widget.type === "button");
   for (const button of buttons) {
@@ -700,7 +707,7 @@ export function pointOfferButtonsAt(
     const empty = !href || href === "#" || href.startsWith("#");
     const wasOffer = Boolean(previous) && comparableUrl(href) === previous;
     const onlyButton = buttons.length === 1;
-    if (empty || wasOffer || onlyButton) {
+    if (forceAllButtons || empty || wasOffer || onlyButton) {
       button.content = { ...button.content, href: offer };
     }
   }
