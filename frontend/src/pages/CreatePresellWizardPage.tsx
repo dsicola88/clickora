@@ -40,6 +40,7 @@ import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -277,8 +278,7 @@ export default function CreatePresellWizardPage() {
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
           ...settingsBase,
-          affiliateDisclosure:
-            "Divulgação: esta página pode conter links de afiliado. Se comprar através deles, posso receber uma comissão — sem custo extra para si. Não somos o fabricante nem processamos o pagamento.",
+          affiliateDisclosure: defaultAffiliateDisclosureSetting(language),
           minAge: minAge.trim() || "18",
         },
         policyFromImport,

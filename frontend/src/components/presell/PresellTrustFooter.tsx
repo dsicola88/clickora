@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { SITE_SUPPORT_EMAIL } from "@/lib/siteLegal";
-import { getPresellUiStrings, isRtlLocale, normalizePresellLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
+import { presellComplianceLanguage } from "@/lib/presellPublicComplianceCopy";
+import { getPresellUiStrings, isRtlLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
 import type { ImportedPolicyUrls } from "@/lib/presellGenerationNiche";
 import {
@@ -94,9 +95,9 @@ export function PresellTrustFooter({
   operatorDocument,
   supportEmail,
 }: Props) {
-  const s = getPresellUiStrings(language);
-  const portal = getPortalChromeCopy(language);
-  const locale = normalizePresellLocale(language);
+  const locale = presellComplianceLanguage(language);
+  const s = getPresellUiStrings(locale);
+  const portal = getPortalChromeCopy(locale);
   const copy = merchantFooterCopy(locale);
   const rtl = isRtlLocale(locale);
   const bundle = resolveBundle({

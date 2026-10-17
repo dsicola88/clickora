@@ -4,9 +4,13 @@ import {
   policyUrlsFromPresellContent,
   resolvePresellFooterPolicies,
 } from "@/lib/presellFooterPolicies";
-import { getPresellUiStrings, normalizePresellLocale } from "@/lib/presellUiStrings";
+import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
-import { mirrorReferenceNoticeText, publicAffiliateDisclosureText } from "@/lib/presellPublicComplianceCopy";
+import {
+  mirrorReferenceNoticeText,
+  presellComplianceLanguage,
+  publicAffiliateDisclosureText,
+} from "@/lib/presellPublicComplianceCopy";
 
 function escapeHtml(s: string): string {
   return s
@@ -17,7 +21,8 @@ function escapeHtml(s: string): string {
 }
 
 export function buildAffiliateDisclosureBannerExportHtml(language: string | undefined): string {
-  const text = publicAffiliateDisclosureText(language);
+  const locale = presellComplianceLanguage(language);
+  const text = publicAffiliateDisclosureText(locale);
   return `<div class="pe-affiliate-bar" role="note">${escapeHtml(text)}</div>`;
 }
 
@@ -27,10 +32,10 @@ export function buildTrustFooterExportHtml(
   content: Record<string, unknown>,
 ): string {
   const bundle = resolvePresellFooterPolicies(settings, policyUrlsFromPresellContent(content));
-  const locale = normalizePresellLocale(language);
-  const L = getPresellUiStrings(language);
+  const locale = presellComplianceLanguage(language);
+  const L = getPresellUiStrings(locale);
   const copy = merchantFooterCopy(locale);
-  const portal = getPortalChromeCopy(language);
+  const portal = getPortalChromeCopy(locale);
   const { operator } = bundle;
 
   const operatorLinks = [
@@ -87,5 +92,6 @@ export const EXPORT_COMPLIANCE_STYLES = `
 `;
 
 export function buildMirrorReferenceNoticeExportHtml(language: string | undefined): string {
-  return `<p class="pe-mirror-note" role="note">${escapeHtml(mirrorReferenceNoticeText(language))}</p>`;
+  const locale = presellComplianceLanguage(language);
+  return `<p class="pe-mirror-note" role="note">${escapeHtml(mirrorReferenceNoticeText(locale))}</p>`;
 }

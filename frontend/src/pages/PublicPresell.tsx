@@ -82,6 +82,7 @@ import {
   PresellAffiliateDisclosureBar,
   PresellMirrorReferenceNotice,
 } from "@/components/presell/PresellComplianceChrome";
+import { presellComplianceLanguage } from "@/lib/presellPublicComplianceCopy";
 import { PresellTypeFrame } from "@/components/presell/PresellTypeFrame";
 import { PresellHealthArticle } from "@/components/presell/PresellHealthArticle";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
@@ -997,6 +998,8 @@ export default function PublicPresell() {
     content.generation_niche === "white";
   /** Divulgação de afiliado em todas as presells públicas (inclui antigas sem nicho), excepto fantasma. */
   const showAffiliateCompliance = !isGhostPage;
+  /** Conformidade no idioma da presell (anúncio/criação), não no idioma escolhido pelo visitante. */
+  const complianceLang = presellComplianceLanguage(page.language, uiLang);
   /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
   const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
 
@@ -1063,7 +1066,7 @@ export default function PublicPresell() {
     return (
       <PresellPublicLocaleProvider language={uiLang}>
       <div className="min-h-screen bg-background pb-12">
-        {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={uiLang} /> : null}
+        {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={complianceLang} /> : null}
         <PresellMarketingOverlays
           pageId={page.id}
           settings={settings}
@@ -1087,7 +1090,7 @@ export default function PublicPresell() {
             }
           />
         </Suspense>
-        <PresellTrustFooter language={uiLang} {...footerSettingsProps} />
+        <PresellTrustFooter language={complianceLang} {...footerSettingsProps} />
       </div>
       </PresellPublicLocaleProvider>
     );
@@ -1115,8 +1118,8 @@ export default function PublicPresell() {
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : undefined;
     const inner = (
       <>
-        {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={uiLang} /> : null}
-        {showImportedMirror ? <PresellMirrorReferenceNotice language={uiLang} /> : null}
+        {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={complianceLang} /> : null}
+        {showImportedMirror ? <PresellMirrorReferenceNotice language={complianceLang} /> : null}
         {interactiveKind ? (
           <section className="sticky top-0 z-[35] w-full border-b border-border/60 bg-muted/95 px-3 py-5 sm:px-4 backdrop-blur-md">
             <div className="mx-auto max-w-3xl text-center">
@@ -1153,7 +1156,7 @@ export default function PublicPresell() {
           />
         </Suspense>
         <PresellTrustFooter
-          language={uiLang}
+          language={complianceLang}
           {...footerSettingsProps}
           portalMode={generationNiche === "black"}
           businessName={typeof settings.businessName === "string" ? settings.businessName : undefined}
@@ -1226,11 +1229,11 @@ export default function PublicPresell() {
 
   const pageBody = (
     <>
-      {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={uiLang} /> : null}
-      {showImportedMirror ? <PresellMirrorReferenceNotice language={uiLang} /> : null}
+      {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={complianceLang} /> : null}
+      {showImportedMirror ? <PresellMirrorReferenceNotice language={complianceLang} /> : null}
       {gateKind === "cookies" && showCookieModal ? (
         <CookieConsentModal
-          language={uiLang}
+          language={complianceLang}
           policyUrl={cookiePolicyUrl}
           redirectHref={href}
           fallbackHref={cookieConsentFallbackHref}
@@ -1869,7 +1872,7 @@ export default function PublicPresell() {
         </section>
       ) : null}
       <PresellTrustFooter
-        language={uiLang}
+        language={complianceLang}
         {...footerSettingsProps}
         businessName={
           typeof settings.businessName === "string" ? settings.businessName : undefined
