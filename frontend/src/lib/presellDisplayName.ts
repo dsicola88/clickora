@@ -23,8 +23,56 @@ export function presellHeadline(opts: {
   const stored = (opts.productName || opts.contentTitle || "").trim();
   const pageTitle = opts.pageTitle.trim();
   if (opts.importedClone && looksLikeVariantCode(stored) && pageTitle) {
-    return brandFromPageTitle(pageTitle);
+    return brandFromPageTitle(splitBrandFromSeoTitle(pageTitle));
   }
   if (opts.importedClone) return stored || opts.contentTitle.trim() || pageTitle;
   return opts.contentTitle.trim() || pageTitle;
+}
+
+/** Primeiro segmento de títulos SEO tipo «LungOra | Official Site». */
+export function splitBrandFromSeoTitle(title: string): string {
+  const t = title.trim();
+  if (!t) return "";
+  const parts = t.split(/\s*[-–|]\s*/);
+  const first = (parts[0]?.trim() || t).replace(/[™®©]/g, "").trim();
+  const genericSecond =
+    /^(text presentation|official site|official website|home|welcome|support .+|shop)$/i;
+  if (parts.length >= 2 && genericSecond.test(parts[1]?.trim() || "")) {
+    return first;
+  }
+  return first;
+}
+
+/** Nome legível no header do portal black (evita códigos tipo PV / PV V2). */
+export function resolvePresellPortalBrandName(args: {
+  productName?: string;
+  contentTitle?: string;
+  sourcePageTitle?: string;
+  pageTitle?: string;
+}): string {
+  const productName = (args.productName || "").trim();
+  const contentTitle = (args.contentTitle || "").trim();
+  const sourcePageTitle = (args.sourcePageTitle || "").trim();
+  const pageTitle = (args.pageTitle || "").trim();
+  const stored = productName || contentTitle;
+
+  const seoCandidates = [sourcePageTitle, pageTitle]
+    .map(splitBrandFromSeoTitle)
+    .map(brandFromPageTitle)
+    .filter((b) => b.length >= 3 && !looksLikeVariantCode(b));
+
+  if (looksLikeVariantCode(stored) && seoCandidates[0]) {
+    return seoCandidates[0];
+  }
+
+  const headline = presellHeadline({
+    importedClone: Boolean(sourcePageTitle || pageTitle),
+    productName: stored,
+    contentTitle,
+    pageTitle: sourcePageTitle || pageTitle,
+  });
+  const cleaned = brandFromPageTitle(splitBrandFromSeoTitle(headline));
+  if (cleaned && !looksLikeVariantCode(cleaned)) return cleaned;
+  if (seoCandidates[0]) return seoCandidates[0];
+  return stored || pageTitle || "Produto";
 }

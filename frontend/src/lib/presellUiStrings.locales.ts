@@ -28,6 +28,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Cookie Policy",
     midCta: "Confirm price and terms on the merchant site.",
     portalHeaderOffer: "Official offer",
+    portalHeaderTagline:
+      "Independent information about {name} — confirm price, ingredients, and terms on the seller’s official site.",
     footerNote: "Independent page · price and payment on the seller’s checkout.",
     footerBrandingPrefix: "Presell and tracking with ",
     footerBrandingSuffix: "",
@@ -71,6 +73,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Política de cookies",
     midCta: "Continúa en la página oficial para precios y pago seguro.",
     portalHeaderOffer: "Oferta oficial",
+    portalHeaderTagline:
+      "Información independiente sobre {name}: confirme precio, ingredientes y condiciones en el sitio oficial del vendedor.",
     footerNote: "Precios, disponibilidad y pago seguro están en la página oficial del producto.",
     footerBrandingPrefix: "Presell y seguimiento con ",
     footerBrandingSuffix: "",
@@ -112,6 +116,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Política de cookies",
     midCta: "Confirme preço e condições no site do vendedor.",
     portalHeaderOffer: "Oferta oficial",
+    portalHeaderTagline:
+      "Informação independente sobre {name} — confirme preço, ingredientes e condições no site oficial do vendedor.",
     footerNote: "Página independente · preço e pagamento no checkout do comerciante.",
     footerBrandingPrefix: "Presell e rastreamento com ",
     footerBrandingSuffix: "",
@@ -155,6 +161,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Cookie-Richtlinie",
     midCta: "Weiter zur offiziellen Seite für aktuelle Preise und sicheren Checkout.",
     portalHeaderOffer: "Offizielles Angebot",
+    portalHeaderTagline:
+      "Unabhängige Informationen zu {name} — Preis, Inhaltsstoffe und Bedingungen nur auf der offiziellen Verkäuferseite prüfen.",
     footerNote: "Preise, Verfügbarkeit und sicherer Checkout finden Sie auf der offiziellen Produktseite.",
     footerBrandingPrefix: "Presell und Tracking mit ",
     footerBrandingSuffix: "",
@@ -196,6 +204,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Politique des cookies",
     midCta: "Continuez sur la page officielle pour les prix à jour et un paiement sécurisé.",
     portalHeaderOffer: "Offre officielle",
+    portalHeaderTagline:
+      "Page d’information indépendante sur {name} — vérifiez prix, ingrédients et conditions sur le site officiel du vendeur.",
     footerNote: "Tarifs, disponibilité et paiement sécurisé : voir la page officielle du produit.",
     footerBrandingPrefix: "Presell et suivi avec ",
     footerBrandingSuffix: "",
@@ -237,6 +247,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Politica sui cookie",
     midCta: "Continua sulla pagina ufficiale per prezzi aggiornati e checkout sicuro.",
     portalHeaderOffer: "Offerta ufficiale",
+    portalHeaderTagline:
+      "Informazioni indipendenti su {name}: prezzo, ingredienti e condizioni solo sul sito ufficiale del venditore.",
     footerNote: "Prezzi, disponibilità e checkout sicuro sulla pagina ufficiale del prodotto.",
     footerBrandingPrefix: "Presell e tracciamento con ",
     footerBrandingSuffix: "",
@@ -278,6 +290,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Polityka plików cookie",
     midCta: "Przejdź na oficjalną stronę po aktualne ceny i bezpieczną płatność.",
     portalHeaderOffer: "Oferta oficjalna",
+    portalHeaderTagline:
+      "Niezależne informacje o {name} — cenę, skład i warunki potwierdź na oficjalnej stronie sprzedawcy.",
     footerNote: "Ceny, dostępność i bezpieczna płatność — na oficjalnej stronie produktu.",
     footerBrandingPrefix: "Presell i śledzenie z ",
     footerBrandingSuffix: "",
@@ -319,6 +333,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Çerez politikası",
     midCta: "Güncel fiyatlar ve güvenli ödeme için resmi sayfaya devam edin.",
     portalHeaderOffer: "Resmi teklif",
+    portalHeaderTagline:
+      "{name} hakkında bağımsız bilgi — fiyat, içerik ve koşulları satıcının resmi sitesinde doğrulayın.",
     footerNote: "Fiyat, stok ve güvenli ödeme için resmî ürün sayfasına bakın.",
     footerBrandingPrefix: "Presell ve izleme ile ",
     footerBrandingSuffix: "",
@@ -360,6 +376,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "कुकी नीति",
     midCta: "वर्तमान मूल्य और सुरक्षित चेकआउट के लिए आधिकारिक पृष्ठ पर जारी रखें।",
     portalHeaderOffer: "आधिकारिक ऑफ़र",
+    portalHeaderTagline:
+      "{name} के बारे में स्वतंत्र जानकारी — कीमत, सामग्री और शर्तें विक्रेता की आधिकारिक साइट पर पुष्टि करें।",
     footerNote: "मूल्य, उपलब्धता और सुरक्षित भुगतान आधिकारिक उत्पाद पृष्ठ पर देखें।",
     footerBrandingPrefix: "प्रेसेल और ट्रैकिंग: ",
     footerBrandingSuffix: "",
@@ -401,6 +419,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "سياسة ملفات تعريف الارتباط",
     midCta: "تابع إلى الصفحة الرسمية للأسعار الحالية والدفع الآمن.",
     portalHeaderOffer: "العرض الرسمي",
+    portalHeaderTagline:
+      "معلومات مستقلة عن {name} — أكّد السعر والمكوّنات والشروط على الموقع الرسمي للبائع.",
     footerNote: "التفاصيل والأسعار والدفع الآمن على الصفحة الرسمية للمنتج.",
     footerBrandingPrefix: "البيع المسبق والتتبع عبر ",
     footerBrandingSuffix: "",
@@ -442,6 +462,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Cookiebeleid",
     midCta: "Ga verder naar de officiële pagina voor actuele prijzen en veilige checkout.",
     portalHeaderOffer: "Officieel aanbod",
+    portalHeaderTagline:
+      "Onafhankelijke informatie over {name} — bevestig prijs, ingrediënten en voorwaarden op de officiële site van de verkoper.",
     footerNote: "Prijzen, beschikbaarheid en veilige checkout staan op de officiële productpagina.",
     footerBrandingPrefix: "Presell en tracking met ",
     footerBrandingSuffix: "",
@@ -483,6 +505,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Cookiepolicy",
     midCta: "Fortsätt till den officiella sidan för aktuella priser och säker kassa.",
     portalHeaderOffer: "Officiellt erbjudande",
+    portalHeaderTagline:
+      "Oberoende information om {name} — bekräfta pris, innehåll och villkor på säljarens officiella webbplats.",
     footerNote: "Priser, tillgänglighet och säker betalning på den officiella produktsidan.",
     footerBrandingPrefix: "Presell och spårning med ",
     footerBrandingSuffix: "",
@@ -524,6 +548,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Retningslinjer for informasjonskapsler",
     midCta: "Gå videre til den offisielle siden for oppdaterte priser og sikker utsjekking.",
     portalHeaderOffer: "Offisielt tilbud",
+    portalHeaderTagline:
+      "Uavhengig informasjon om {name} — bekreft pris, innhold og vilkår på selgerens offisielle nettsted.",
     footerNote: "Priser, tilgjengelighet og sikker betaling på den offisielle productsiden.",
     footerBrandingPrefix: "Presell og sporing med ",
     footerBrandingSuffix: "",
@@ -565,6 +591,8 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     cookiePolicy: "Cookiepolitik",
     midCta: "Fortsæt til den officielle side for aktuelle priser og sikker betaling.",
     portalHeaderOffer: "Officielt tilbud",
+    portalHeaderTagline:
+      "Uafhængig information om {name} — bekræft pris, indhold og vilkår på sælgerens officielle websted.",
     footerNote: "Priser, tilgængelighed og sikker betaling på den officielle produktside.",
     footerBrandingPrefix: "Presell og sporing med ",
     footerBrandingSuffix: "",

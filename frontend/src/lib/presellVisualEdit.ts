@@ -7,6 +7,7 @@ import { getPresellGateKind } from "@/lib/presellTypeMeta";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { isPresellDecorImage, rankPresellProductImages } from "@/lib/presellProductImagesRank";
+import { resolvePresellPortalBrandName } from "@/lib/presellDisplayName";
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -211,19 +212,39 @@ function articleCopy(html: string): WidgetNode {
   return text;
 }
 
-/** Barra superior do portal black — marca + CTA opcional. */
-function portalHeaderWidget(brand: string, ctaLabel: string, offer: string): WidgetNode {
+function resolvePortalHeaderTagline(
+  content: Record<string, unknown>,
+  brand: string,
+  language: string | null | undefined,
+): string {
+  const meta = asString(content.metaDescription || content.meta_description);
+  if (meta.length >= 24 && meta.length <= 160 && !/lorem ipsum|click here to/i.test(meta)) {
+    return meta.length > 132 ? `${meta.slice(0, 129)}…` : meta;
+  }
+  const subtitle = asString(content.subtitle);
+  if (subtitle.length >= 20 && subtitle.length <= 140) {
+    return subtitle.length > 132 ? `${subtitle.slice(0, 129)}…` : subtitle;
+  }
+  const L = getPresellUiStrings(language || "en");
+  return L.portalHeaderTagline.replaceAll("{name}", brand);
+}
+
+/** Barra superior do portal black — nome do produto, contexto curto e CTA. */
+function portalHeaderWidget(brand: string, tagline: string, ctaLabel: string, offer: string): WidgetNode {
   const html = createWidget("html");
   const isScroll = offer.startsWith("#");
   const cta =
     offer && ctaLabel
-      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;min-width:9.5rem;padding:12px 22px;border-radius:999px;background:linear-gradient(180deg,#f97316,#ea580c);color:#fff;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap;box-shadow:0 8px 22px -6px rgba(234,88,12,.55),0 0 0 1px rgba(255,255,255,.15) inset;letter-spacing:.02em">${escapeHtml(ctaLabel)}</a>`
+      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:9.5rem;padding:12px 22px;border-radius:999px;background:linear-gradient(180deg,#f97316,#ea580c);color:#fff;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap;box-shadow:0 8px 22px -6px rgba(234,88,12,.55),0 0 0 1px rgba(255,255,255,.15) inset;letter-spacing:.02em">${escapeHtml(ctaLabel)}</a>`
       : "";
   html.content = {
     ...html.content,
     code:
-      `<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px clamp(16px,4vw,28px);background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid rgba(255,255,255,.08)">` +
-      `<strong style="font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">${escapeHtml(brand)}</strong>` +
+      `<header style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:16px clamp(16px,4vw,28px);background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid rgba(255,255,255,.08)">` +
+      `<div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1 1 14rem">` +
+      `<span style="font-size:clamp(1.125rem,2.9vw,1.45rem);font-weight:800;letter-spacing:-0.02em;line-height:1.15;color:#fff">${escapeHtml(brand)}</span>` +
+      `<span style="font-size:clamp(0.75rem,2.1vw,0.875rem);font-weight:500;color:rgba(255,255,255,.84);line-height:1.45;max-width:42rem">${escapeHtml(tagline)}</span>` +
+      `</div>` +
       cta +
       `</header>`,
   };
@@ -469,10 +490,20 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       sections.push(gallery);
     }
   } else if (!white) {
+    const sourcePageTitle =
+      asString(content.sourcePageTitle) || asString(content.source_page_title);
+    const portalBrand = resolvePresellPortalBrandName({
+      productName: asString(content.productName) || asString(content.product_name),
+      contentTitle: asString(content.title),
+      sourcePageTitle,
+      pageTitle: asString(source.title) || title,
+    });
+    const portalLang = source.language || asString(content.language) || "en";
+    const headerTagline = resolvePortalHeaderTagline(content, portalBrand, portalLang);
     const article = resolveHealthArticle({
       content,
-      productName: alt,
-      language: source.language || asString(content.language) || "pt-BR",
+      productName: portalBrand,
+      language: portalLang || "pt-BR",
       salesText: asString(content.salesText),
       ctaText: cta,
     });
@@ -481,7 +512,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     const headerCtaHref = offerForCtas || (cookieType ? "#presell-offer-cta" : "");
     const headerCtaLabel =
       cookieType && !offerForCtas
-        ? getPresellUiStrings(source.language || asString(content.language) || "en").portalHeaderOffer
+        ? getPresellUiStrings(portalLang).portalHeaderOffer
         : ctaLabel;
 
     const headerSec = createSection(1);
@@ -493,7 +524,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       background: "#0f172a",
     };
     headerSec.columns[0].widgets = [
-      portalHeaderWidget(alt, headerCtaLabel, headerCtaHref),
+      portalHeaderWidget(portalBrand, headerTagline, headerCtaLabel, headerCtaHref),
     ];
     sections.push(headerSec);
 
@@ -510,7 +541,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       articleKicker(article.kicker),
       articleTitle(article.headline),
     ];
-    if (hero) articleWidgets.push(articleProductPhoto(hero, alt, offerLink));
+    if (hero) articleWidgets.push(articleProductPhoto(hero, portalBrand, offerLink));
     articleWidgets.push(articleCopy(articleBodyHtml(article)));
     articleSec.columns[0].widgets = articleWidgets;
     sections.push(articleSec);
@@ -551,8 +582,8 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     if (restImages.length) {
       const galleryWidgets = restImages
         .filter((src) => !isPresellDecorImage(src))
-        .slice(0, 2)
-        .map((src) => articleProductPhoto(src, alt, offerLink));
+        .slice(0, 1)
+        .map((src) => articleProductPhoto(src, portalBrand, offerLink));
       const gallery = createSection(1);
       gallery.contentWidth = 720;
       gallery.styles = {

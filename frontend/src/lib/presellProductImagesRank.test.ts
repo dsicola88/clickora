@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isPresellDecorImage, rankPresellProductImages } from "./presellProductImagesRank";
-import { presellHeadline } from "./presellDisplayName";
+import { presellHeadline, resolvePresellPortalBrandName } from "./presellDisplayName";
 
 describe("imagens da presell", () => {
   it("tira cartões, selos e a imagem social vazia e deixa a foto do produto", () => {
@@ -27,5 +27,16 @@ describe("nome em destaque", () => {
         pageTitle: "Visivra2",
       }),
     ).toBe("Visivra");
+  });
+
+  it("header do portal usa título SEO quando productName é código PV", () => {
+    expect(
+      resolvePresellPortalBrandName({
+        productName: "PV",
+        contentTitle: "PV",
+        sourcePageTitle: "LungOra | Official Site | Respiratory Support",
+        pageTitle: "Campanha PV",
+      }),
+    ).toBe("LungOra");
   });
 });

@@ -78,6 +78,8 @@ export type PresellUiStrings = {
   midCta: string;
   /** CTA curto no header do portal black (cookies: scroll até à oferta). */
   portalHeaderOffer: string;
+  /** Subtítulo no header do portal; `{name}` = marca do produto. */
+  portalHeaderTagline: string;
   /** Texto neutro para o visitante (sem mencionar afiliado ou rastreamento). */
   footerNote: string;
   /** Texto antes do link da marca (ex.: "Presell e rastreamento com "). */

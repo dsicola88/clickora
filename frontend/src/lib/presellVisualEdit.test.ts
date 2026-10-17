@@ -44,6 +44,29 @@ describe("buildEditablePageDocument", () => {
     expect(doc.seo?.ogImage).toBe("https://cdn.example/pack.jpg");
   });
 
+  it("black: header mostra marca SEO em vez de código PV", () => {
+    const doc = buildEditablePageDocument({
+      title: "Campanha PV",
+      type: "cookies",
+      language: "en",
+      content: {
+        title: "PV V2",
+        productName: "PV V2",
+        sourcePageTitle: "VisiVra | Official Website | Eye Health",
+        generationNiche: "black",
+        affiliateLink: "https://offer.example/buy",
+        productImages: ["https://cdn.example/pack.jpg"],
+      },
+    });
+    const header = String(doc.sections[0].columns[0].widgets[0].content.code);
+    expect(header).toContain("VisiVra");
+    expect(header).not.toMatch(/>PV V2</);
+    const h1 = String(
+      doc.sections[1].columns[0].widgets.find((w) => w.content.tag === "h1")?.content.text || "",
+    );
+    expect(h1.toLowerCase()).toContain("visivra");
+  });
+
   it("black cookies: portal estruturado; cookie só desbloqueia (sem hoplink)", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
@@ -63,6 +86,7 @@ describe("buildEditablePageDocument", () => {
     expect(doc.settings.background).toBe("#f8fafc");
     expect(doc.sections[0].columns[0].widgets[0].type).toBe("html");
     expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("StopWatt");
+    expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toMatch(/Independent information|Informação independente/i);
     expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("Official offer");
     const articleWidgets = doc.sections[1].columns[0].widgets;
     const media = articleWidgets.find((w) => w.type === "html");
