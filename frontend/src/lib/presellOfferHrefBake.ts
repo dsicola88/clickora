@@ -126,7 +126,12 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     let next = upsertAttr(attrs, "href", track);
     next = upsertAttr(next, "data-clickora-offer", "1");
     next = upsertAttr(next, "target", "_self");
-    return `<a${next}>${inner}</a>`;
+    let innerOut = inner;
+    const innerText = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!innerText && (hashOrder || labelHit)) {
+      innerOut = "Order Now";
+    }
+    return `<a${next}>${innerOut}</a>`;
   });
 
   // formaction / action em forms de checkout
@@ -174,7 +179,9 @@ function stripNetworkFooterChrome(html: string): string {
   });
   out = out.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (full, attrs: string, inner: string) => {
     const text = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    if (!text && /\bdata-clickora-offer\s*=/i.test(attrs)) return "";
+    if (!text && /\bdata-clickora-offer\s*=/i.test(attrs) && !/\/track\/r\//i.test(attrs)) {
+      return "";
+    }
     if (innerLooksLikeNetworkBadge(inner) || NETWORK_FOOTER_BRAND.test(htmlTagAttr(attrs, "href"))) {
       if (isCtaLabel(inner)) return full;
       return "";
