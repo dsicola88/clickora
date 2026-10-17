@@ -27,6 +27,13 @@ describe("resolveMirrorAnchorNavigateHref", () => {
     expect(resolveMirrorAnchorNavigateHref(el, track)).toBeNull();
   });
 
+  it("#order-now sem texto visível (só CSS) abre hoplink", () => {
+    const el = document.createElement("a");
+    el.setAttribute("href", "#order-now");
+    el.className = "header-btn";
+    expect(resolveMirrorAnchorNavigateHref(el, track)).toBe(track);
+  });
+
   it("buygoods cru usa track offer", () => {
     const el = a("https://www.buygoods.com/secure/checkout?x=1", "Buy Now");
     expect(resolveMirrorAnchorNavigateHref(el, track)).toBe(track);

@@ -1,4 +1,5 @@
 import { CLICKORA_MIRROR_TRACK_MARKER } from "@/lib/presellMirrorMarkers";
+import { isCommerceHashHref } from "@/lib/presellCommerceHash";
 
 const COMMERCE_HOST_MARKERS = [
   "buygoods",
@@ -113,13 +114,14 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     const href = (hrefMatch?.[2] || "").trim();
     const labelHit = isCtaLabel(inner);
     const offerHit = hrefLooksLikeOfferLink(href, affiliateHref);
+    const hashOrder = isCommerceHashHref(href);
     const buttonish = hasButtonishClass(attrs);
     const soft = isSoftNavHref(href);
     if (innerLooksLikeNetworkBadge(inner) && !labelHit) return "";
     // Soft-nav (privacy, #top…) só se não for CTA/comercial.
-    if (soft && !labelHit && !offerHit) return full;
+    if (soft && !labelHit && !offerHit && !hashOrder) return full;
     // Comercial, CTA com qualquer destino (site do produto incluso), ou botão estilizado.
-    if (!offerHit && !labelHit && !(buttonish && !soft)) return full;
+    if (!offerHit && !labelHit && !hashOrder && !(buttonish && !soft)) return full;
 
     let next = upsertAttr(attrs, "href", track);
     next = upsertAttr(next, "data-clickora-offer", "1");

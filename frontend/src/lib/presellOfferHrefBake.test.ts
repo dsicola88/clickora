@@ -25,6 +25,13 @@ describe("bakeHtmlOfferHrefs", () => {
     expect(out).toContain('href="#top"');
   });
 
+  it("repare #order-now do menu Neotonics", () => {
+    const html = `<a class="btn" href="#order-now"></a><a href="#ingredients">Ingredients</a>`;
+    const out = bakeHtmlOfferHrefs(html, "https://app.example/track/r/x");
+    expect(out).toContain('href="https://app.example/track/r/x"');
+    expect(out).toContain('href="#ingredients"');
+  });
+
   it("repare CTAs que apontam ao site do produto (não só buygoods)", () => {
     const html = `
       <a href="https://tryvisivra.com/shop">Go directly at VISIVRA Shop</a>

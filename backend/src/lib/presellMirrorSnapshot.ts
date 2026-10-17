@@ -463,7 +463,11 @@ export function finalizeMirrorSrcDocForImport(
       }
       return;
     }
-    if (href.startsWith("#") && offerCta) {
+    const hashOffer =
+      /^#(?:order|buy|checkout|cta|offer|cart|purchase|shop|bundle|package|pricing)(?:[-_a-z0-9]*)?$/i.test(
+        href.trim(),
+      );
+    if (href.startsWith("#") && (offerCta || hashOffer)) {
       a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);
       a.setAttribute("target", "_top");
       a.setAttribute("rel", "noopener noreferrer");

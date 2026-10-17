@@ -1,7 +1,11 @@
 import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
+import { isCommerceHashHref } from "@/lib/presellCommerceHash";
 
 const OFFER_CTA_FALLBACK =
   /order\s*now|buy\s*now|shop\s*now|comprar|official|checkout|claim|get\s+yours|add to cart/i;
+
+const BUTTONISH_CLASS =
+  /\b(btn|button|cta|elementor-button|wp-block-button|shop-button|buy-button|offer-button|add-to-cart|nav-link-btn)\b/i;
 
 export function mirrorAnchorLabel(anchor: HTMLAnchorElement): string {
   return `${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""} ${anchor.className || ""}`
@@ -11,7 +15,13 @@ export function mirrorAnchorLabel(anchor: HTMLAnchorElement): string {
 
 export function mirrorAnchorLooksCommercial(anchor: HTMLAnchorElement): boolean {
   const blob = mirrorAnchorLabel(anchor);
-  return OFFER_CTA_FALLBACK.test(blob) || isCtaLabel(blob);
+  const href = (anchor.getAttribute("href") || "").trim();
+  return (
+    OFFER_CTA_FALLBACK.test(blob) ||
+    isCtaLabel(blob) ||
+    isCommerceHashHref(href) ||
+    BUTTONISH_CLASS.test(anchor.className || "")
+  );
 }
 
 /**
@@ -37,7 +47,7 @@ export function resolveMirrorAnchorNavigateHref(
     anchor.getAttribute("data-clickora-offer") === "1";
 
   if (raw.startsWith("#")) {
-    return commercial ? offer : null;
+    return commercial || isCommerceHashHref(raw) ? offer : null;
   }
 
   if (isTrack) return raw.includes("clickora.invalid") ? offer : raw;
