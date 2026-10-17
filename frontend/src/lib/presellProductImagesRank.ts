@@ -63,7 +63,13 @@ export function isPresellDecorImage(url: string): boolean {
   }
   u = u.toLowerCase();
   if (/\.svg(?:$|\?)/i.test(u)) return true;
-  return /\b(visa|mastercard|american[\s_-]?express|discover|amex|paypal|cards?\.webp|payment[_-]?(?:icon|badge|method)|social-default|placeholder|blank|spacer|1x1|favicon|trust[_-]?badge|guarantee|logo)\b/i.test(
+  const dimPair = u.match(/\b(\d{2,4})x(\d{2,4})\b/);
+  if (dimPair) {
+    const w = Number(dimPair[1]);
+    const h = Number(dimPair[2]);
+    if (w > 0 && h > 0 && w / h >= 3.2 && h <= 280) return true;
+  }
+  return /\b(visa|mastercard|american[\s_-]?express|discover|amex|paypal|cards?\.webp|payment[_-]?(?:icon|badge|method|logo|strip|banner)|social-default|placeholder|blank|spacer|1x1|favicon|trust[_-]?badge|guarantee|logo)\b/i.test(
     u,
   );
 }

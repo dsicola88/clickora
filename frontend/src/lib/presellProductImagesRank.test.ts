@@ -13,6 +13,7 @@ describe("imagens da presell", () => {
     ]);
     expect(ranked).toEqual(["https://cdn.example.com/visivra-bottle.png"]);
     expect(isPresellDecorImage("https://cdn.example.com/visa-mastercard.png")).toBe(true);
+    expect(isPresellDecorImage("https://cdn.example.com/assets/payment-badges-1200x180.webp")).toBe(true);
   });
 });
 

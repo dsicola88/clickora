@@ -76,6 +76,8 @@ export type PresellUiStrings = {
   cookieAccept: string;
   cookiePolicy: string;
   midCta: string;
+  /** CTA curto no header do portal black (cookies: scroll até à oferta). */
+  portalHeaderOffer: string;
   /** Texto neutro para o visitante (sem mencionar afiliado ou rastreamento). */
   footerNote: string;
   /** Texto antes do link da marca (ex.: "Presell e rastreamento com "). */

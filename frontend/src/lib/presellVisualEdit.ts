@@ -6,6 +6,7 @@ import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { getPresellGateKind } from "@/lib/presellTypeMeta";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
+import { isPresellDecorImage, rankPresellProductImages } from "@/lib/presellProductImagesRank";
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -99,11 +100,21 @@ function articleProductPhoto(src: string, alt: string, offer = ""): WidgetNode {
   image.content = { ...image.content, src, alt, link: offer, hero: false };
   image.styles = {
     ...image.styles,
-    width: { desktop: "360px" },
+    width: { desktop: "100%" },
     align: { desktop: "center" },
-    margin: { desktop: { top: 0, right: 0, bottom: 8, left: 0, unit: "px" } },
+    margin: { desktop: { top: 4, right: 0, bottom: 28, left: 0, unit: "px" } },
+    border: { width: 1, style: "solid", color: "#e2e8f0", radius: 14 },
   };
   return image;
+}
+
+function portalCtaAnchor(): WidgetNode {
+  const html = createWidget("html");
+  html.content = {
+    ...html.content,
+    code: `<div id="presell-offer-cta" style="scroll-margin-top:88px" aria-hidden="true"></div>`,
+  };
+  return html;
 }
 
 function articleKicker(text: string): WidgetNode {
@@ -196,15 +207,16 @@ function articleCopy(html: string): WidgetNode {
 /** Barra superior do portal black — marca + CTA opcional. */
 function portalHeaderWidget(brand: string, ctaLabel: string, offer: string): WidgetNode {
   const html = createWidget("html");
+  const isScroll = offer.startsWith("#");
   const cta =
     offer && ctaLabel
-      ? `<a href="${escapeHtml(offer)}" data-clickora-offer="1" style="display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:6px;background:#ea580c;color:#fff;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">${escapeHtml(ctaLabel)}</a>`
+      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;min-width:7.5rem;padding:10px 18px;border-radius:999px;background:#ea580c;color:#fff;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,.25)">${escapeHtml(ctaLabel)}</a>`
       : "";
   html.content = {
     ...html.content,
     code:
-      `<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 22px;background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif">` +
-      `<strong style="font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">${escapeHtml(brand)}</strong>` +
+      `<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px clamp(16px,4vw,28px);background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid rgba(255,255,255,.08)">` +
+      `<strong style="font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">${escapeHtml(brand)}</strong>` +
       cta +
       `</header>`,
   };
@@ -365,11 +377,13 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   const html = textHtml(asString(content.subtitle), asString(content.salesText));
   const cta = asString(content.ctaText);
   const offer = asString(content.affiliateLink);
-  const images = imageUrls(content.productImages);
+  const images = rankPresellProductImages(imageUrls(content.productImages));
+  const productPhotos = images.filter((url) => !isPresellDecorImage(url));
   const alt = asString(content.productName) || title || "Produto";
-  const [hero, ...restImages] = images;
   const videoUrl = asString(source.videoUrl);
   const white = isWhiteNiche(content);
+  const photoPool = productPhotos.length ? productPhotos : white ? images : [];
+  const [hero, ...restImages] = photoPool;
   const cookieType = getPresellGateKind(source.type || "") === "cookies";
   const offerForCtas = cookieType ? "" : offer;
   const productFold = white && Boolean(hero);
@@ -455,6 +469,11 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     });
     const ctaLabel = article.ctaLabel || cta || "Continuar";
     const offerLink = offerForCtas;
+    const headerCtaHref = offerForCtas || (cookieType ? "#presell-offer-cta" : "");
+    const headerCtaLabel =
+      cookieType && !offerForCtas
+        ? getPresellUiStrings(source.language || asString(content.language) || "en").portalHeaderOffer
+        : ctaLabel;
 
     const headerSec = createSection(1);
     headerSec.layout = "full";
@@ -464,24 +483,28 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
       background: "#0f172a",
     };
-    // Cookies: sem CTA no header (Aceitar só desbloqueia). Outros tipos: CTA no header + corpo.
     headerSec.columns[0].widgets = [
-      portalHeaderWidget(alt, ctaLabel, offerForCtas),
+      portalHeaderWidget(alt, headerCtaLabel, headerCtaHref),
     ];
     sections.push(headerSec);
 
-    if (hero) {
-      const media = createSection(1);
-      media.layout = "full";
-      media.contentWidth = 720;
-      media.styles = {
-        ...media.styles,
-        padding: { desktop: { top: 28, right: 24, bottom: 4, left: 24, unit: "px" } },
-        background: "#f8fafc",
-      };
-      media.columns[0].widgets = [articleProductPhoto(hero, alt, offerLink)];
-      sections.push(media);
-    }
+    const articleSec = createSection(1);
+    articleSec.layout = "full";
+    articleSec.contentWidth = 720;
+    articleSec.styles = {
+      ...articleSec.styles,
+      padding: { desktop: { top: 28, right: 28, bottom: 8, left: 28, unit: "px" } },
+      margin: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+      background: "#ffffff",
+    };
+    const articleWidgets: WidgetNode[] = [
+      articleKicker(article.kicker),
+      articleTitle(article.headline),
+    ];
+    if (hero) articleWidgets.push(articleProductPhoto(hero, alt, offerLink));
+    articleWidgets.push(articleCopy(articleBodyHtml(article)));
+    articleSec.columns[0].widgets = articleWidgets;
+    sections.push(articleSec);
 
     if (videoUrl) {
       const video = createWidget("video");
@@ -490,27 +513,12 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       vidSec.contentWidth = 720;
       vidSec.styles = {
         ...vidSec.styles,
-        padding: { desktop: { top: 8, right: 24, bottom: 8, left: 24, unit: "px" } },
-        background: "#f8fafc",
+        padding: { desktop: { top: 0, right: 28, bottom: 16, left: 28, unit: "px" } },
+        background: "#ffffff",
       };
       vidSec.columns[0].widgets = [video];
       sections.push(vidSec);
     }
-
-    const articleSec = createSection(1);
-    articleSec.layout = "full";
-    articleSec.contentWidth = 720;
-    articleSec.styles = {
-      ...articleSec.styles,
-      padding: { desktop: { top: 20, right: 28, bottom: 12, left: 28, unit: "px" } },
-      background: "#ffffff",
-    };
-    articleSec.columns[0].widgets = [
-      articleKicker(article.kicker),
-      articleTitle(article.headline),
-      articleCopy(articleBodyHtml(article)),
-    ];
-    sections.push(articleSec);
 
     if (offer) {
       const ctaSec = createSection(1);
@@ -519,16 +527,21 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       ctaSec.styles = {
         ...ctaSec.styles,
         padding: { desktop: { top: 22, right: 24, bottom: 24, left: 24, unit: "px" } },
-        margin: { desktop: { top: 8, right: 20, bottom: 36, left: 20, unit: "px" } },
-        background: "#ffffff",
-        border: { width: 1, style: "solid", color: "#e2e8f0", radius: 12 },
+        margin: { desktop: { top: 4, right: 20, bottom: 36, left: 20, unit: "px" } },
+        background: "#f8fafc",
+        border: { width: 1, style: "solid", color: "#e2e8f0", radius: 14 },
       };
-      ctaSec.columns[0].widgets = [portalCtaNote(article.productNote), portalOfferButton(ctaLabel, offer)];
+      ctaSec.columns[0].widgets = [
+        portalCtaAnchor(),
+        portalCtaNote(article.productNote),
+        portalOfferButton(ctaLabel, offer),
+      ];
       sections.push(ctaSec);
     }
 
     if (restImages.length) {
       const galleryWidgets = restImages
+        .filter((src) => !isPresellDecorImage(src))
         .slice(0, 2)
         .map((src) => articleProductPhoto(src, alt, offerLink));
       const gallery = createSection(1);
@@ -538,8 +551,10 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
         padding: { desktop: { top: 0, right: 28, bottom: 36, left: 28, unit: "px" } },
         background: "#f8fafc",
       };
-      gallery.columns[0].widgets = galleryWidgets;
-      sections.push(gallery);
+      if (galleryWidgets.length) {
+        gallery.columns[0].widgets = galleryWidgets;
+        sections.push(gallery);
+      }
     }
   } else {
     const stacked: WidgetNode[] = [];

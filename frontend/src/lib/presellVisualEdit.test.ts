@@ -63,22 +63,23 @@ describe("buildEditablePageDocument", () => {
     expect(doc.settings.background).toBe("#f8fafc");
     expect(doc.sections[0].columns[0].widgets[0].type).toBe("html");
     expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("StopWatt");
-    const media = doc.sections[1].columns[0].widgets[0];
-    expect(media.type).toBe("image");
-    expect(media.content.hero).toBe(false);
-    expect(media.content.src).toBe("https://cdn.example/pack.jpg");
-    const bodyTypes = doc.sections[2].columns[0].widgets.map((w) => w.type);
-    expect(bodyTypes).toEqual(["heading", "heading", "text"]);
-    const headline = String(doc.sections[2].columns[0].widgets[1].content.text).toLowerCase();
+    expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("Official offer");
+    const articleWidgets = doc.sections[1].columns[0].widgets;
+    const media = articleWidgets.find((w) => w.type === "image");
+    expect(media?.content.hero).toBe(false);
+    expect(media?.content.src).toBe("https://cdn.example/pack.jpg");
+    const bodyTypes = articleWidgets.map((w) => w.type);
+    expect(bodyTypes).toEqual(["heading", "heading", "image", "text"]);
+    const headline = String(articleWidgets[1].content.text).toLowerCase();
     expect(headline).toContain("stopwatt");
     expect(headline).not.toContain("milagrosa");
-    const bodyHtml = String(doc.sections[2].columns[0].widgets[2].content.html).toLowerCase();
+    const bodyHtml = String(articleWidgets[3].content.html).toLowerCase();
     expect(bodyHtml).not.toContain("milagrosa");
     expect(bodyHtml).toContain("official");
-    const ctaTypes = doc.sections[3].columns[0].widgets.map((w) => w.type);
-    expect(ctaTypes).toEqual(["text", "button"]);
-    expect(doc.sections[3].columns[0].widgets[1].content.href).toBe("https://offer.example/buy");
-    const cookie = doc.sections[4].columns[0].widgets[0];
+    const ctaTypes = doc.sections[2].columns[0].widgets.map((w) => w.type);
+    expect(ctaTypes).toEqual(["html", "text", "button"]);
+    expect(doc.sections[2].columns[0].widgets[2].content.href).toBe("https://offer.example/buy");
+    const cookie = doc.sections[3].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
     expect(cookie.content.offerHref || "").toBe("");
     const baked = bakePublicOfferHrefs(
@@ -297,9 +298,7 @@ describe("buildEditablePageDocument", () => {
     );
     expect(resolved.settings.maxContentWidth).toBe(720);
     expect(resolved.sections[0].columns[0].widgets[0].type).toBe("html");
-    const image = resolved.sections
-      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
-      .find((w) => w.type === "image");
+    const image = resolved.sections[1].columns[0].widgets.find((w) => w.type === "image");
     expect(image?.content.hero).toBe(false);
     const headline = resolved.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
