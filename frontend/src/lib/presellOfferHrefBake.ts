@@ -18,6 +18,7 @@ const COMMERCE_HOST_MARKERS = [
   "lemonsqueezy.com",
   "mwebinsight.com",
   "mwebdatawatch.com",
+  "mwebkivo.com",
   "bestbuyhere",
   "hop.clickbank",
 ];

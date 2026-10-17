@@ -32,6 +32,7 @@ const COMMERCE_HOST_MARKERS = [
   "lemonsqueezy.com",
   "mwebinsight.com",
   "mwebdatawatch.com",
+  "mwebkivo.com",
 ];
 
 function hostLooksLikeCommerceOrCheckout(hostname: string): boolean {

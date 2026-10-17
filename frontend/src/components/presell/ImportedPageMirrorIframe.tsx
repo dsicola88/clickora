@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-
-const OFFER_CTA_FALLBACK = /order\s*now|buy\s*now|shop\s*now|comprar|official|checkout|claim/i;
+import {
+  mirrorAnchorLooksCommercial,
+  resolveMirrorAnchorNavigateHref,
+} from "@/lib/presellMirrorIframeNav";
 
 function repairMirrorOfferAnchors(doc: Document, trackHref: string): void {
-  const track = trackHref.trim();
   doc.querySelectorAll("a").forEach((a) => {
     const href = (a.getAttribute("href") || "").trim();
     if (!href || href.startsWith("#") || /^mailto:|^tel:/i.test(href)) return;
     const isTracked =
-      (track && href === track) ||
+      (trackHref && href === trackHref) ||
       href.includes("/track/") ||
       href.includes("clickora.invalid/__TRACK");
-    const labelBlob = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""} ${a.className || ""}`;
-    const looksCommercial = OFFER_CTA_FALLBACK.test(labelBlob) || isTracked;
-    if (!looksCommercial && !isTracked) return;
+    if (!mirrorAnchorLooksCommercial(a) && !isTracked) return;
     const text = (a.textContent || "").replace(/\s+/g, " ").trim();
     if (text.length < 2) {
+      const labelBlob = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""} ${a.className || ""}`;
       const fallback =
         a.getAttribute("aria-label")?.trim() ||
         a.getAttribute("title")?.trim() ||
-        (OFFER_CTA_FALLBACK.test(labelBlob) ? "Order Now" : "");
+        (mirrorAnchorLooksCommercial(a) ? "Order Now" : "");
       if (fallback) a.textContent = fallback;
     }
   });
@@ -31,8 +31,11 @@ type Props = {
   title?: string;
   /** Chamado se o `<body>` parecer vazio (texto mínimo e sem media/tabelas) — permite cair no layout React. */
   onMirrorProbablyEmpty?: () => void;
-  /** Quando definido, um link http(s) do clone que não seja já o rastreio vai para esta oferta. */
+  /** URL rastreada `/track/r/…` — todos os CTAs comerciais devem abrir na janela principal. */
   offerHref?: string;
+  /** Hoplink bruto (mwebkivo, buygoods…) — classificar links no espelho. */
+  affiliateHref?: string;
+  interactionLocked?: boolean;
 };
 
 /**
@@ -45,6 +48,7 @@ export function ImportedPageMirrorIframe({
   onMirrorProbablyEmpty,
   interactionLocked = false,
   offerHref,
+  affiliateHref = "",
 }: Props) {
   const ref = useRef<HTMLIFrameElement>(null);
   const roRef = useRef<ResizeObserver | null>(null);
@@ -114,6 +118,8 @@ export function ImportedPageMirrorIframe({
 
   const offerHrefRef = useRef(offerHref);
   offerHrefRef.current = offerHref;
+  const affiliateHrefRef = useRef(affiliateHref);
+  affiliateHrefRef.current = affiliateHref;
   const mirrorClickCleanup = useRef<(() => void) | null>(null);
 
   const onLoad = useCallback(() => {
@@ -147,12 +153,15 @@ export function ImportedPageMirrorIframe({
       if (!(node instanceof Element)) return;
       const a = node.closest("a");
       if (!a) return;
-      const raw = (a.getAttribute("href") || "").trim();
-      if (!raw || raw.startsWith("#") || /^mailto:|^tel:/i.test(raw)) return;
-      if (raw === offer || raw.includes("/track/")) return;
+      const dest = resolveMirrorAnchorNavigateHref(
+        a,
+        offer,
+        affiliateHrefRef.current || "",
+      );
+      if (!dest) return;
       e.preventDefault();
       e.stopPropagation();
-      window.location.assign(offer);
+      window.location.assign(dest);
     };
     clickDoc.addEventListener("click", onClick, true);
     mirrorClickCleanup.current = () => clickDoc.removeEventListener("click", onClick, true);
@@ -178,7 +187,7 @@ export function ImportedPageMirrorIframe({
           interactionLocked && "pointer-events-none select-none",
         )}
         style={{ height, width: "100%", maxWidth: "100%" }}
-        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation"
+        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation allow-top-navigation-by-user-activation"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         referrerPolicy="no-referrer-when-downgrade"
       />

@@ -70,6 +70,7 @@ import {
   isRtlLocale,
 } from "@/lib/presellUiStrings";
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
+import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { cn } from "@/lib/utils";
 import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
@@ -815,8 +816,9 @@ export default function PublicPresell() {
 
   const mirrorSrcDoc = useMemo(() => {
     if (!importMirrorSrcDocRaw || !href) return "";
-    return buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
-  }, [importMirrorSrcDocRaw, href]);
+    const withTrack = buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
+    return bakeHtmlOfferHrefs(withTrack, href, affiliateLink.trim());
+  }, [importMirrorSrcDocRaw, href, affiliateLink]);
 
   const [mirrorUseTemplateFallback, setMirrorUseTemplateFallback] = useState(false);
   useEffect(() => {
@@ -1283,6 +1285,7 @@ export default function PublicPresell() {
           onMirrorProbablyEmpty={() => setMirrorUseTemplateFallback(true)}
           interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
           offerHref={href}
+          affiliateHref={affiliateLink.trim()}
         />
       ) : null}
 
