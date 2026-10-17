@@ -125,6 +125,7 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
 
     let next = upsertAttr(attrs, "href", track);
     next = upsertAttr(next, "data-clickora-offer", "1");
+    if (hashOrder) next = upsertAttr(next, "data-clickora-hash-cta", "1");
     next = upsertAttr(next, "target", "_self");
     let innerOut = inner;
     const innerText = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
