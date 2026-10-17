@@ -117,22 +117,18 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     const hashOrder = isCommerceHashHref(href);
     const buttonish = hasButtonishClass(attrs);
     const soft = isSoftNavHref(href);
+    /** Âncoras #order-now: mantêm href e CSS originais; redirect só no clique (iframe). */
+    if (hashOrder) return full;
     if (innerLooksLikeNetworkBadge(inner) && !labelHit) return "";
     // Soft-nav (privacy, #top…) só se não for CTA/comercial.
-    if (soft && !labelHit && !offerHit && !hashOrder) return full;
+    if (soft && !labelHit && !offerHit) return full;
     // Comercial, CTA com qualquer destino (site do produto incluso), ou botão estilizado.
-    if (!offerHit && !labelHit && !hashOrder && !(buttonish && !soft)) return full;
+    if (!offerHit && !labelHit && !(buttonish && !soft)) return full;
 
     let next = upsertAttr(attrs, "href", track);
     next = upsertAttr(next, "data-clickora-offer", "1");
-    if (hashOrder) next = upsertAttr(next, "data-clickora-hash-cta", "1");
     next = upsertAttr(next, "target", "_self");
-    let innerOut = inner;
-    const innerText = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    if (!innerText && (hashOrder || labelHit)) {
-      innerOut = "Order Now";
-    }
-    return `<a${next}>${innerOut}</a>`;
+    return `<a${next}>${inner}</a>`;
   });
 
   // formaction / action em forms de checkout

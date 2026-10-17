@@ -71,6 +71,7 @@ import {
 } from "@/lib/presellUiStrings";
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
+import { preserveNavHashCtaAppearance } from "@/lib/presellMirrorPreserveNav";
 import { cn } from "@/lib/utils";
 import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
@@ -817,7 +818,8 @@ export default function PublicPresell() {
   const mirrorSrcDoc = useMemo(() => {
     if (!importMirrorSrcDocRaw || !href) return "";
     const withTrack = buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
-    return bakeHtmlOfferHrefs(withTrack, href, affiliateLink.trim());
+    const baked = bakeHtmlOfferHrefs(withTrack, href, affiliateLink.trim());
+    return preserveNavHashCtaAppearance(baked);
   }, [importMirrorSrcDocRaw, href, affiliateLink]);
 
   const [mirrorUseTemplateFallback, setMirrorUseTemplateFallback] = useState(false);

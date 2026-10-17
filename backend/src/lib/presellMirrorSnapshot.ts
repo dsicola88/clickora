@@ -275,7 +275,7 @@ function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: 
 /** Base mínima — não altera tipografia/layout do original (fidelidade 1:1). */
 export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html,body{margin:0;}</style>`;
 
-export const MIRROR_CTA_READABILITY_STYLE = `<style data-clickora="cta-readability">main a[href*="/track/"],section a[href*="/track/"],article a[href*="/track/"],footer a[href*="/track/"]{color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;font-size:max(12px,0.8125rem)!important;text-indent:0!important;letter-spacing:normal!important;line-height:1.3!important;opacity:1!important;visibility:visible!important}header a[href*="/track/"],nav a[href*="/track/"],a[data-clickora-hash-cta="1"]{display:inline-block!important;padding:.5rem 1.15rem!important;border-radius:.375rem!important;background:linear-gradient(180deg,#2dd4bf 0%,#0f766e 100%)!important;color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:max(12px,0.8125rem)!important;font-weight:600!important;text-decoration:none!important;text-indent:0!important;letter-spacing:.02em!important;line-height:1.25!important;opacity:1!important;visibility:visible!important;box-shadow:0 1px 2px rgba(0,0,0,.15)!important}a[href*="/track/"] *,a[href*="clickora.invalid/__TRACK"] *{color:inherit!important;-webkit-text-fill-color:inherit!important;font-size:inherit!important;opacity:1!important;visibility:visible!important}</style>`;
+export const MIRROR_CTA_READABILITY_STYLE = "";
 
 function ensureMirrorOfferAnchorLabels(root: ReturnType<typeof parse>): void {
   root.querySelectorAll("a[href]").forEach((a) => {
@@ -463,16 +463,6 @@ export function finalizeMirrorSrcDocForImport(
       }
       return;
     }
-    const hashOffer =
-      /^#(?:order|buy|checkout|cta|offer|cart|purchase|shop|bundle|package|pricing)(?:[-_a-z0-9]*)?$/i.test(
-        href.trim(),
-      );
-    if (href.startsWith("#") && (offerCta || hashOffer)) {
-      a.setAttribute("href", CLICKORA_MIRROR_TRACK_MARKER);
-      a.setAttribute("target", "_top");
-      a.setAttribute("rel", "noopener noreferrer");
-      return;
-    }
     if (href.startsWith("#")) return;
     let abs: URL;
     try {
@@ -501,9 +491,10 @@ export function finalizeMirrorSrcDocForImport(
   if (!out.includes("data-clickora=\"responsive-base\"")) {
     out = out.replace(/<head\b[^>]*>/i, (m) => `${m}${MIRROR_RESPONSIVE_STYLE_IN_HEAD}`);
   }
-  if (!out.includes("data-clickora=\"cta-readability\"")) {
+  if (MIRROR_CTA_READABILITY_STYLE && !out.includes("data-clickora=\"cta-readability\"")) {
     out = out.replace(/<head\b[^>]*>/i, (m) => `${m}${MIRROR_CTA_READABILITY_STYLE}`);
   }
+  out = out.replace(/<style\b[^>]*data-clickora="cta-readability"[^>]*>[\s\S]*?<\/style>/gi, "");
 
   if (out.length > MAX_MIRROR_CHARS) {
     out = truncateMirrorHtmlToLimit(out, MAX_MIRROR_CHARS);
