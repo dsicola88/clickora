@@ -1,6 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
+const OFFER_CTA_FALLBACK = /order\s*now|buy\s*now|shop\s*now|comprar|official|checkout|claim/i;
+
+function repairMirrorOfferAnchors(doc: Document, trackHref: string): void {
+  const track = trackHref.trim();
+  doc.querySelectorAll("a").forEach((a) => {
+    const href = (a.getAttribute("href") || "").trim();
+    if (!href || href.startsWith("#") || /^mailto:|^tel:/i.test(href)) return;
+    const isTracked =
+      (track && href === track) ||
+      href.includes("/track/") ||
+      href.includes("clickora.invalid/__TRACK");
+    const labelBlob = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""} ${a.className || ""}`;
+    const looksCommercial = OFFER_CTA_FALLBACK.test(labelBlob) || isTracked;
+    if (!looksCommercial && !isTracked) return;
+    const text = (a.textContent || "").replace(/\s+/g, " ").trim();
+    if (text.length < 2) {
+      const fallback =
+        a.getAttribute("aria-label")?.trim() ||
+        a.getAttribute("title")?.trim() ||
+        (OFFER_CTA_FALLBACK.test(labelBlob) ? "Order Now" : "");
+      if (fallback) a.textContent = fallback;
+    }
+  });
+}
+
 type Props = {
   srcDoc: string;
   title?: string;
@@ -106,6 +131,12 @@ export function ImportedPageMirrorIframe({
     window.setTimeout(checkProbablyEmpty, 320);
     window.setTimeout(checkProbablyEmpty, 1400);
     window.setTimeout(checkProbablyEmpty, 2800);
+    try {
+      const repairDoc = el?.contentDocument;
+      if (repairDoc) repairMirrorOfferAnchors(repairDoc, offerHrefRef.current || "");
+    } catch {
+      /* cross-origin guard */
+    }
     mirrorClickCleanup.current?.();
     mirrorClickCleanup.current = null;
     const offer = (offerHrefRef.current || "").trim();

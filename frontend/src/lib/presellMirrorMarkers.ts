@@ -8,6 +8,9 @@ export function escapeHtmlAttrHref(href: string): string {
 /** Deve coincidir com o backend (`presellMirrorSnapshot.ts`). */
 export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html,body{margin:0;}</style>`;
 
+/** CTAs reescritos para /track/ — evita texto branco sobre fundo branco após import. */
+export const MIRROR_CTA_READABILITY_STYLE = `<style data-clickora="cta-readability">a[href*="/track/"],a[href*="clickora.invalid/__TRACK"]{color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;font-size:max(12px,0.8125rem)!important;text-indent:0!important;letter-spacing:normal!important;line-height:1.3!important;opacity:1!important;visibility:visible!important}a[href*="/track/"] *,a[href*="clickora.invalid/__TRACK"] *{color:inherit!important;-webkit-text-fill-color:inherit!important;font-size:inherit!important;opacity:1!important;visibility:visible!important}</style>`;
+
 /** Presells antigas sem este bloco — injeta no cliente. */
 export function ensureMirrorResponsiveBaseHtml(html: string): string {
   if (html.includes("data-clickora=\"responsive-base\"")) return html;
@@ -28,10 +31,17 @@ export function deferMirrorImagesBelowFold(html: string): string {
   });
 }
 
+export function ensureMirrorCtaReadabilityHtml(html: string): string {
+  if (html.includes("data-clickora=\"cta-readability\"")) return html;
+  return html.replace(/<head\b[^>]*>/i, (open) => `${open}${MIRROR_CTA_READABILITY_STYLE}`);
+}
+
 export function buildMirrorSrcDocWithTrackHref(srcDoc: string, trackHref: string): string {
   const escaped = escapeHtmlAttrHref(trackHref);
   const filled = srcDoc.split(CLICKORA_MIRROR_TRACK_MARKER).join(escaped);
-  return preconnectMirrorImageHost(deferMirrorImagesBelowFold(ensureMirrorResponsiveBaseHtml(filled)));
+  return preconnectMirrorImageHost(
+    deferMirrorImagesBelowFold(ensureMirrorCtaReadabilityHtml(ensureMirrorResponsiveBaseHtml(filled))),
+  );
 }
 
 function preconnectMirrorImageHost(html: string): string {

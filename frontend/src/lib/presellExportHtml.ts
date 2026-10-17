@@ -34,8 +34,6 @@ import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
 import {
-  buildAffiliateDisclosureBannerExportHtml,
-  buildMirrorReferenceNoticeExportHtml,
   buildTrustFooterExportHtml,
   EXPORT_COMPLIANCE_STYLES,
 } from "@/lib/presellExportTrustFooter";
@@ -480,12 +478,8 @@ function injectPresellComplianceShell(html: string, page: Presell): string {
   if (isGhostPresellType(page.type)) {
     return html;
   }
-  const banner = buildAffiliateDisclosureBannerExportHtml(page.language);
   const trust = buildTrustFooterExportHtml(page.language, settings, content);
-  let out = html;
-  out = out.replace(/<body([^>]*)>/i, `<body$1>${banner}`);
-  out = out.replace("</body>", `${trust}\n</body>`);
-  return out;
+  return html.replace("</body>", `${trust}\n</body>`);
 }
 
 function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string {
@@ -686,8 +680,6 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       ? `<p class="pe-footer-branding">${escapeHtml(L.footerBrandingPrefix)}<a href="https://www.dclickora.com" target="_blank" rel="noopener noreferrer">dclickora</a>${escapeHtml(L.footerBrandingSuffix)}</p>`
       : "";
   const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}</div></section>`;
-  const complianceBanner = isGhost ? "" : buildAffiliateDisclosureBannerExportHtml(page.language);
-  const mirrorNotice = !isGhost && hasMirrorExport ? buildMirrorReferenceNoticeExportHtml(page.language) : "";
   const trustFooter = isGhost
     ? ""
     : buildTrustFooterExportHtml(page.language, settings, content);
@@ -698,8 +690,6 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   }
 
   core +=
-    complianceBanner +
-    mirrorNotice +
     heroSection +
     gallerySection +
     salesSection +

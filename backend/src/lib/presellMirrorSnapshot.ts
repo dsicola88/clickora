@@ -274,6 +274,22 @@ function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: 
 /** Base mínima — não altera tipografia/layout do original (fidelidade 1:1). */
 export const MIRROR_RESPONSIVE_STYLE_IN_HEAD = `<style data-clickora="responsive-base">html,body{margin:0;}</style>`;
 
+export const MIRROR_CTA_READABILITY_STYLE = `<style data-clickora="cta-readability">a[href*="/track/"],a[href*="clickora.invalid/__TRACK"]{color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;font-size:max(12px,0.8125rem)!important;text-indent:0!important;letter-spacing:normal!important;line-height:1.3!important;opacity:1!important;visibility:visible!important}a[href*="/track/"] *,a[href*="clickora.invalid/__TRACK"] *{color:inherit!important;-webkit-text-fill-color:inherit!important;font-size:inherit!important;opacity:1!important;visibility:visible!important}</style>`;
+
+function ensureMirrorOfferAnchorLabels(root: ReturnType<typeof parse>): void {
+  root.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.getAttribute("href") || "";
+    if (!href.includes("__TRACK") && !href.includes("/track/")) return;
+    const text = (a.textContent || "").replace(/\s+/g, " ").trim();
+    if (text.length >= 2) return;
+    const fallback =
+      a.getAttribute("aria-label")?.trim() ||
+      a.getAttribute("title")?.trim() ||
+      "Order Now";
+    a.textContent = fallback;
+  });
+}
+
 export function buildMirrorSrcDocFromParts(baseHref: string, headSnip: string, bodyInner: string): string {
   const b = escapeBaseHref(baseHref.split("#")[0] || baseHref);
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">${MIRROR_RESPONSIVE_STYLE_IN_HEAD}<base href="${b}">${headSnip}</head><body>${bodyInner}</body></html>`;
@@ -429,6 +445,7 @@ export function finalizeMirrorSrcDocForImport(
   rewriteFormActionsForMirror(root, base, hosts);
   rewriteDataAttrNavigatorsForMirror(root, base, hosts);
   rewriteOnclickNavigatorsForMirror(root, base, hosts);
+  ensureMirrorOfferAnchorLabels(root);
 
   let out = root.toString();
   out = out.replace(/<script\b[\s\S]*?<\/script>/gi, "");
@@ -436,6 +453,9 @@ export function finalizeMirrorSrcDocForImport(
 
   if (!out.includes("data-clickora=\"responsive-base\"")) {
     out = out.replace(/<head\b[^>]*>/i, (m) => `${m}${MIRROR_RESPONSIVE_STYLE_IN_HEAD}`);
+  }
+  if (!out.includes("data-clickora=\"cta-readability\"")) {
+    out = out.replace(/<head\b[^>]*>/i, (m) => `${m}${MIRROR_CTA_READABILITY_STYLE}`);
   }
 
   if (out.length > MAX_MIRROR_CHARS) {
