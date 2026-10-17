@@ -117,7 +117,7 @@ describe("matriz tipo × nicho", () => {
     }
   });
 
-  it("white cookies: hoplink no aviso; sem portal header black", () => {
+  it("white cookies: CTA na página; cookie sem hoplink", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -131,7 +131,10 @@ describe("matriz tipo × nicho", () => {
     const cookie = doc.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "cookieBanner");
-    expect(cookie?.content.offerHref).toBe("https://offer.example/buy");
+    expect(cookie?.content.offerHref || "").toBe("");
+    expect(
+      doc.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets)).some((w) => w.type === "button"),
+    ).toBe(true);
     expect(doc.settings.background).toBe("#ffffff");
   });
 });

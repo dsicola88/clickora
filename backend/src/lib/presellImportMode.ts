@@ -75,7 +75,7 @@ export function classifyPresellImport(args: {
   if (hasMirror) {
     notes.push(
       niche === "white"
-        ? "Modo white: espelho visual da sales page (sem JavaScript da origem). CTAs rastreados apontam para o teu hoplink."
+        ? "Modo white: espelho visual da sales page (sem JavaScript da origem). CTAs rastreados apontam para o teu hoplink; aviso de cookies não substitui o CTA da oferta."
         : "Modo black: a sales page agressiva não é copiada para o anúncio. Só nome e fotos da origem; texto informativo (Google/Bing).",
     );
   } else if (niche === "black") {

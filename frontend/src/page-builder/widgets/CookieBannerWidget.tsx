@@ -105,8 +105,6 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
-  const offerHref = (c.offerHref ?? "").trim();
-  const lockToOffer = Boolean(offerHref && offerHref !== "#");
   const inBuilder = useBuilderSurface();
   const [dismissed, setDismissed] = useState(false);
 
@@ -246,100 +244,44 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           alignItems: "stretch",
         }}
       >
-        {!inBuilder && lockToOffer ? (
-          <a
-            href={offerHref}
-            data-clickora-offer="1"
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.assign(offerHref);
-            }}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxSizing: "border-box",
-              textAlign: "center",
-              textDecoration: "none",
-              background: accentColor,
-              color: "#ffffff",
-              fontWeight: 700,
-              fontSize: 15,
-              padding: "12px 16px",
-              borderRadius: 999,
-            }}
-          >
-            {allowLabel}
-          </a>
-        ) : (
-          <button
-            type="button"
-            onClick={inBuilder ? undefined : dismiss}
-            style={{
-              flex: 1,
-              border: "none",
-              cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
-              background: accentColor,
-              color: "#ffffff",
-              fontWeight: 700,
-              fontSize: 15,
-              padding: "12px 16px",
-              borderRadius: 999,
-            }}
-          >
-            {commit ? (
-              <CookieText field="allowLabel" value={allowLabel} style={{ color: "#ffffff", fontWeight: 700 }} />
-            ) : (
-              allowLabel
-            )}
-          </button>
-        )}
-        {!inBuilder && lockToOffer ? (
-          <a
-            href={offerHref}
-            data-clickora-offer="1"
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.assign(offerHref);
-            }}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              textDecoration: "none",
-              color: "#334155",
-              fontWeight: 600,
-              fontSize: 15,
-              padding: "12px 16px",
-              borderRadius: 999,
-              border: "1px solid #cbd5e1",
-              background: "#ffffff",
-            }}
-          >
-            {declineLabel}
-          </a>
-        ) : (
-          <button
-            type="button"
-            onClick={inBuilder ? undefined : dismiss}
-            style={{
-              flex: 1,
-              cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
-              color: "#334155",
-              fontWeight: 600,
-              fontSize: 15,
-              padding: "12px 16px",
-              borderRadius: 999,
-              border: "1px solid #cbd5e1",
-              background: "#ffffff",
-            }}
-          >
-            {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={inBuilder ? undefined : dismiss}
+          style={{
+            flex: 1,
+            border: "none",
+            cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+            background: accentColor,
+            color: "#ffffff",
+            fontWeight: 700,
+            fontSize: 15,
+            padding: "12px 16px",
+            borderRadius: 999,
+          }}
+        >
+          {commit ? (
+            <CookieText field="allowLabel" value={allowLabel} style={{ color: "#ffffff", fontWeight: 700 }} />
+          ) : (
+            allowLabel
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={inBuilder ? undefined : dismiss}
+          style={{
+            flex: 1,
+            cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+            color: "#334155",
+            fontWeight: 600,
+            fontSize: 15,
+            padding: "12px 16px",
+            borderRadius: 999,
+            border: "1px solid #cbd5e1",
+            background: "#ffffff",
+          }}
+        >
+          {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
+        </button>
       </div>
       {footerNote || commit ? (
         <p style={{ margin: "14px 0 0", fontSize: 12, lineHeight: 1.4, color: "#94a3b8", textAlign: "center" }}>

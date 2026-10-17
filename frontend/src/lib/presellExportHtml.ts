@@ -32,6 +32,13 @@ import {
 import { presellImageDisplayCandidates } from "@/lib/presellImageDisplay";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
+import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
+import {
+  buildAffiliateDisclosureBannerExportHtml,
+  buildMirrorReferenceNoticeExportHtml,
+  buildTrustFooterExportHtml,
+  EXPORT_COMPLIANCE_STYLES,
+} from "@/lib/presellExportTrustFooter";
 
 function escapeHtml(s: string): string {
   return s
@@ -183,6 +190,7 @@ const EXPORT_STYLES = `
 .pe-discount-rating{text-align:center;margin:.5rem 0;}
 .pe-discount-rating .pe-num{font-size:1.875rem;font-weight:700;}
 .pe-discount-rating .pe-stars{color:#ffc107;font-size:1.75rem;letter-spacing:2px;}
+${EXPORT_COMPLIANCE_STYLES}
 `;
 
 const ARROW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
@@ -308,14 +316,15 @@ function buildInteractiveGateHtml(
   return parts.join("");
 }
 
-function buildCookieModalHtml(language: string, policyUrl: string, href: string, fallbackHref: string): string {
+function buildCookieModalHtml(language: string, policyUrl: string): string {
   const L = cookieTexts(language);
-  const policyLink = policyUrl.trim()
-    ? `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;">${escapeHtml(L.policy)}</button>`
+  const policyHref = policyUrl.trim();
+  const policyLink = policyHref
+    ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
     : "";
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <button type="button" class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-label="${escapeAttr(L.close)}"></button>
-<div class="pe-cookie-card" id="pe-cookie-card">
+<div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="true">
 <h2>${escapeHtml(L.title)}</h2>
 <p>${escapeHtml(L.body)}</p>
 ${policyLink}
@@ -328,20 +337,13 @@ ${policyLink}
 </div>
 <script>
 (function(){
-var dest=${JSON.stringify(href)};
-var fb=${JSON.stringify(fallbackHref)};
-function pick(){if(dest&&dest!=="#")return dest;if(fb&&fb!=="#")return fb;return"";}
-function visit(){var u=pick();if(u)location.assign(u);}
+function dismiss(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";}
 var b=document.getElementById("pe-cookie-backdrop");
-var card=document.getElementById("pe-cookie-card");
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
-var p=document.getElementById("pe-cookie-policy");
-if(b)b.addEventListener("click",visit);
-if(card)card.addEventListener("click",visit);
-if(c)c.addEventListener("click",visit);
-if(a)a.addEventListener("click",visit);
-if(p)p.addEventListener("click",visit);
+if(b)b.addEventListener("click",dismiss);
+if(c)c.addEventListener("click",dismiss);
+if(a)a.addEventListener("click",dismiss);
 })();
 </script>`;
 }
@@ -472,6 +474,20 @@ export type PresellExportOptions = {
 };
 
 /** Injeta `settings` da presell (head/body/footer/CSS) no HTML exportado do editor manual. */
+function injectPresellComplianceShell(html: string, page: Presell): string {
+  const settings = (page.settings || {}) as Record<string, unknown>;
+  const content = (page.content || {}) as Record<string, unknown>;
+  if (isGhostPresellType(page.type)) {
+    return html;
+  }
+  const banner = buildAffiliateDisclosureBannerExportHtml(page.language);
+  const trust = buildTrustFooterExportHtml(page.language, settings, content);
+  let out = html;
+  out = out.replace(/<body([^>]*)>/i, `<body$1>${banner}`);
+  out = out.replace("</body>", `${trust}\n</body>`);
+  return out;
+}
+
 function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string {
   const settings = (page.settings || {}) as Record<string, unknown>;
   let out = html;
@@ -498,7 +514,7 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
   if (footerCode) {
     out = out.replace("</body>", `${footerCode}\n</body>`);
   }
-  return out;
+  return injectPresellComplianceShell(out, page);
 }
 
 /**
@@ -534,12 +550,11 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       : [],
   );
 
-  const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
-  const sourceUrlExport = typeof content.sourceUrl === "string" ? content.sourceUrl.trim() : "";
-  const cookieExportFallback =
-    affiliateLink.trim() && affiliateLink.trim() !== "#"
-      ? affiliateLink.trim()
-      : sourceUrlExport;
+  const footerPolicies = resolvePresellFooterPolicies(settings, policyUrlsFromPresellContent(content));
+  const cookiePolicyUrl = footerPolicies.operator.cookies;
+  const hasMirrorExport =
+    (typeof content.importMirrorSrcDoc === "string" && content.importMirrorSrcDoc.length > 800) ||
+    (typeof content.import_mirror_src_doc === "string" && content.import_mirror_src_doc.length > 800);
   const customCss = typeof settings.customCss === "string" ? settings.customCss.trim() : "";
   const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
   const conversionTrackingScript =
@@ -670,14 +685,26 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     page.footer_branding === true
       ? `<p class="pe-footer-branding">${escapeHtml(L.footerBrandingPrefix)}<a href="https://www.dclickora.com" target="_blank" rel="noopener noreferrer">dclickora</a>${escapeHtml(L.footerBrandingSuffix)}</p>`
       : "";
-  const footerSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}</div></section>`;
+  const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}</div></section>`;
+  const complianceBanner = isGhost ? "" : buildAffiliateDisclosureBannerExportHtml(page.language);
+  const mirrorNotice = !isGhost && hasMirrorExport ? buildMirrorReferenceNoticeExportHtml(page.language) : "";
+  const trustFooter = isGhost
+    ? ""
+    : buildTrustFooterExportHtml(page.language, settings, content);
 
   let core = "";
   if (gateKind === "cookies") {
-    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, cookieExportFallback);
+    core += buildCookieModalHtml(page.language, cookiePolicyUrl);
   }
 
-  core += heroSection + gallerySection + salesSection + footerSection;
+  core +=
+    complianceBanner +
+    mirrorNotice +
+    heroSection +
+    gallerySection +
+    salesSection +
+    ctaFooterSection +
+    trustFooter;
 
   if (isDiscount) {
     const bar = urgencyTimerSeconds > 0 ? buildDiscountBarHtml(urgencyTimerSeconds, page.language, href) : "";

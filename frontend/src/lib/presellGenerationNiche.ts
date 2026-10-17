@@ -18,7 +18,7 @@ export const PRESELL_NICHE_OPTIONS: {
     id: "white",
     name: "White (produtos leves)",
     description:
-      "Gadgets, reviews, ofertas sem claims médicos. Visual 100% da página da URL (espelho) — sem produto fixo. Em cookies o hoplink fica no aviso; nos outros tipos vale o CTA do tipo.",
+      "Gadgets, reviews, ofertas sem claims médicos. Visual da página da URL (espelho) quando possível. Cookies só desbloqueiam a página; a oferta fica nos CTAs explícitos. Divulgação de afiliado no topo.",
   },
 ];
 
@@ -69,21 +69,7 @@ export type ImportedPolicyUrls = {
   shipping?: string;
 };
 
-export function applyImportedPolicyToSettings(
-  settings: Record<string, unknown>,
-  policies: ImportedPolicyUrls | undefined,
-): Record<string, unknown> {
-  if (!policies) return settings;
-  const next = { ...settings };
-  if (policies.privacy?.trim()) {
-    next.cookiePolicyUrl = policies.privacy.trim();
-    next.privacyPolicyUrl = policies.privacy.trim();
-  }
-  if (policies.terms?.trim()) {
-    next.termsUrl = policies.terms.trim();
-  }
-  return next;
-}
+export { applyImportedPolicyToSettings } from "@/lib/presellFooterPolicies";
 
 export function applyImportedSourceIdentity(
   settings: Record<string, unknown>,

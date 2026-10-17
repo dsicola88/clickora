@@ -65,17 +65,17 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
 
       if (getPresellGateKind(type) === "cookies") {
         const cookie = widgets.find((w) => w.type === "cookieBanner");
-        expect(cookie?.content.offerHref).toBe("https://offer.example/buy");
+        expect(cookie?.content.offerHref || "").toBe("");
         const baked = bakePublicOfferHrefs(
           doc,
           "https://app.example/track/r/x",
           "https://offer.example/buy",
           "/privacidade",
+          { unlockCookieOnly: true },
         );
         const bakedCookie = widgetsOf(baked).find((w) => w.type === "cookieBanner");
-        expect(bakedCookie?.content.offerHref).toBe("https://app.example/track/r/x");
-        // White cookies: botões do corpo removidos
-        expect(widgetsOf(baked).some((w) => w.type === "button")).toBe(false);
+        expect(bakedCookie?.content.offerHref || "").toBe("");
+        expect(widgetsOf(baked).some((w) => w.type === "button")).toBe(true);
       }
 
       // Espelho presente quando há mirror (>80 chars)

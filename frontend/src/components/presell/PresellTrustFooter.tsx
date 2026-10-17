@@ -1,40 +1,90 @@
 import { cn } from "@/lib/utils";
 import { SITE_SUPPORT_EMAIL } from "@/lib/siteLegal";
-import { getPresellUiStrings, isRtlLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
+import { getPresellUiStrings, isRtlLocale, normalizePresellLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
+import type { ImportedPolicyUrls } from "@/lib/presellGenerationNiche";
+import {
+  merchantFooterCopy,
+  merchantLinkLabel,
+} from "@/lib/presellMerchantFooterCopy";
+import {
+  merchantPolicyLinks,
+  resolvePresellFooterPolicies,
+  type PresellFooterPolicyBundle,
+} from "@/lib/presellFooterPolicies";
 
 type Props = {
   language: string | undefined;
   tone?: "light" | "dark" | "slate" | "portal";
   className?: string;
+  /** @deprecated Prefer `settings` + `contentPolicyUrls`. */
   cookiePolicyUrl?: string;
   privacyPolicyUrl?: string;
   termsUrl?: string;
-  /** Nome do operador (não o da marca do produto). */
+  settings?: Record<string, unknown>;
+  contentPolicyUrls?: ImportedPolicyUrls | null;
+  policies?: PresellFooterPolicyBundle;
   businessName?: string;
   productName?: string;
   portalMode?: boolean;
-  /** CNPJ/CPF/NIF real — omitido se vazio (nunca placeholder). */
   operatorDocument?: string;
   supportEmail?: string;
 };
 
-function realUrl(raw: string | undefined, fallback: string): string {
-  const t = (raw || "").trim();
-  if (!t || t === "#" || /insira|exemplo|example\.com|seu-dominio|placeholder/i.test(t)) {
-    return fallback;
-  }
-  return t;
+function resolveBundle(props: Props): PresellFooterPolicyBundle {
+  if (props.policies) return props.policies;
+  const legacy: Record<string, unknown> = { ...(props.settings ?? {}) };
+  if (props.privacyPolicyUrl) legacy.privacyPolicyUrl = props.privacyPolicyUrl;
+  if (props.cookiePolicyUrl) legacy.cookiePolicyUrl = props.cookiePolicyUrl;
+  if (props.termsUrl) legacy.termsUrl = props.termsUrl;
+  return resolvePresellFooterPolicies(legacy, props.contentPolicyUrls);
+}
+
+function MerchantPolicyNav({
+  bundle,
+  locale,
+  linkClass,
+  textClass,
+}: {
+  bundle: PresellFooterPolicyBundle;
+  locale: PresellLocaleKey;
+  linkClass: string;
+  textClass: string;
+}) {
+  const links = merchantPolicyLinks(bundle);
+  if (links.length === 0) return null;
+  const copy = merchantFooterCopy(locale);
+  return (
+    <div className={cn("space-y-2 pt-2 border-t border-dashed", textClass)}>
+      <p className={cn("text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80")}>{copy.section}</p>
+      <nav className="flex flex-wrap gap-x-4 gap-y-2 text-xs sm:text-sm font-medium">
+        {links.map(({ id, href }) => (
+          <a
+            key={id}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkClass}
+          >
+            {merchantLinkLabel(locale, id as "merchantPrivacy" | "merchantTerms" | "merchantRefund" | "merchantShipping")}
+          </a>
+        ))}
+      </nav>
+    </div>
+  );
 }
 
 /**
- * Rodapé Ads-safe: só dados reais. Sem CNPJ fictício, sem e-mail inventado,
- * sem se apresentar como a marca do produto.
+ * Rodapé Ads-safe: políticas desta página (afiliado) na mesma origem;
+ * links do comerciante só com rótulo explícito (consulta antes de comprar).
  */
 export function PresellTrustFooter({
   language,
   tone = "light",
   className,
+  settings,
+  contentPolicyUrls,
+  policies,
   cookiePolicyUrl,
   privacyPolicyUrl,
   termsUrl,
@@ -46,17 +96,25 @@ export function PresellTrustFooter({
 }: Props) {
   const s = getPresellUiStrings(language);
   const portal = getPortalChromeCopy(language);
-  const locale = (language || "pt-BR") as PresellLocaleKey;
+  const locale = normalizePresellLocale(language);
+  const copy = merchantFooterCopy(locale);
   const rtl = isRtlLocale(locale);
-  const privacyHref = realUrl(privacyPolicyUrl, "/privacidade");
-  const termsHref = realUrl(termsUrl, "/termos");
-  const cookieHref = realUrl(cookiePolicyUrl, privacyHref);
-  const medicalHref = "/aviso-medico";
+  const bundle = resolveBundle({
+    language,
+    settings,
+    contentPolicyUrls,
+    policies,
+    cookiePolicyUrl,
+    privacyPolicyUrl,
+    termsUrl,
+  });
+  const { operator } = bundle;
+  const medicalHref = operator.medical;
   const email = (supportEmail || "").trim();
   const contactEmail = email || SITE_SUPPORT_EMAIL;
   const mail = `mailto:${contactEmail}`;
   const doc = (operatorDocument || "").trim();
-  const operator = (businessName || "").trim();
+  const operatorName = (businessName || "").trim();
   const year = new Date().getFullYear();
 
   if (portalMode || tone === "portal") {
@@ -68,17 +126,17 @@ export function PresellTrustFooter({
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-10 text-sm leading-relaxed sm:px-6">
           <p className="font-medium text-slate-100">
             © {year}
-            {operator ? ` ${operator}` : ` ${portal.independentPage}`} — {portal.rights}
+            {operatorName ? ` ${operatorName}` : ` ${portal.independentPage}`} — {portal.rights}
           </p>
           <p>
             <span className="font-semibold text-slate-100">{portal.affiliateTitle}</span> {portal.affiliateBody}
           </p>
           <p className="text-slate-300 text-xs leading-relaxed">{portal.disclaimer}</p>
-          {(operator || doc || email) && (
+          {(operatorName || doc || email) && (
             <p className="text-slate-300">
-              {operator ? (
+              {operatorName ? (
                 <span>
-                  {portal.operator} {operator}.{" "}
+                  {portal.operator} {operatorName}.{" "}
                 </span>
               ) : null}
               {doc ? (
@@ -92,7 +150,7 @@ export function PresellTrustFooter({
               </a>
             </p>
           )}
-          {!operator && !doc && !email ? (
+          {!operatorName && !doc && !email ? (
             <p className="text-slate-300">
               {portal.platformContact}{" "}
               <a href={mail} className="underline underline-offset-2 hover:text-white">
@@ -105,39 +163,25 @@ export function PresellTrustFooter({
             className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-xs font-medium text-slate-300"
             aria-label={portal.policies}
           >
-            <a
-              href={privacyHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white underline-offset-2 hover:underline"
-            >
-              {s.trustPrivacy}
+            <a href={operator.privacy} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
+              {copy.operatorPrivacy}
             </a>
-            <a
-              href={termsHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white underline-offset-2 hover:underline"
-            >
-              {s.trustTerms}
+            <a href={operator.terms} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
+              {copy.operatorTerms}
             </a>
-            <a
-              href={medicalHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white underline-offset-2 hover:underline"
-            >
+            <a href={medicalHref} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
               {portal.medical}
             </a>
-            <a
-              href={cookieHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white underline-offset-2 hover:underline"
-            >
+            <a href={operator.cookies} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
               {s.cookiePolicy}
             </a>
           </nav>
+          <MerchantPolicyNav
+            bundle={bundle}
+            locale={locale}
+            linkClass="hover:text-white underline-offset-2 hover:underline text-slate-300"
+            textClass="border-white/15 text-slate-400"
+          />
         </div>
       </footer>
     );
@@ -180,13 +224,13 @@ export function PresellTrustFooter({
           className={cn("flex flex-wrap gap-x-4 gap-y-2 text-xs sm:text-sm font-medium pt-1", text)}
           aria-label={s.trustNavLabel}
         >
-          <a href={privacyHref} target="_blank" rel="noopener noreferrer" className={link}>
-            {s.trustPrivacy}
+          <a href={operator.privacy} target="_blank" rel="noopener noreferrer" className={link}>
+            {copy.operatorPrivacy}
           </a>
-          <a href={termsHref} target="_blank" rel="noopener noreferrer" className={link}>
-            {s.trustTerms}
+          <a href={operator.terms} target="_blank" rel="noopener noreferrer" className={link}>
+            {copy.operatorTerms}
           </a>
-          <a href={cookieHref} target="_blank" rel="noopener noreferrer" className={link}>
+          <a href={operator.cookies} target="_blank" rel="noopener noreferrer" className={link}>
             {s.cookiePolicy}
           </a>
           <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
@@ -196,6 +240,7 @@ export function PresellTrustFooter({
             {s.trustContact}
           </a>
         </nav>
+        <MerchantPolicyNav bundle={bundle} locale={locale} linkClass={link} textClass={cn("border-border/50", text)} />
         <p className={cn("text-[11px] leading-relaxed", text)}>
           {s.trustContactLine}{" "}
           <a href={mail} className={cn("font-medium", link)}>

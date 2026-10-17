@@ -9,7 +9,7 @@ import {
 } from "./presellVisualEdit";
 
 describe("buildEditablePageDocument", () => {
-  it("white: dobra produto + hoplink no cookie", () => {
+  it("white cookies: dobra produto + CTA explícito; cookie só desbloqueia", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -31,9 +31,11 @@ describe("buildEditablePageDocument", () => {
     expect(fold.columns[0].widgets[0].content.hero).toBe(true);
     expect(fold.columns[1].widgets[0].content.text).toBe("StopWatt");
     expect(String(fold.columns[1].widgets[1].content.html)).toContain("tomada");
-    const cookie = doc.sections[1].columns[0].widgets[0];
+    const button = doc.sections[1].columns[0].widgets.find((w) => w.type === "button");
+    expect(button?.content.href).toBe("https://offer.example/buy");
+    const cookie = doc.sections[2].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
-    expect(cookie.content.offerHref).toBe("https://offer.example/buy");
+    expect(cookie.content.offerHref || "").toBe("");
     expect(cookie.content.policyUrl).toBe("/privacidade");
     expect(cookie.content.followLanguage).toBe(false);
     expect(cookie.content.allowLabel).toBeTruthy();
@@ -232,12 +234,17 @@ describe("buildEditablePageDocument", () => {
       "https://app.example/track/r/x",
       "https://offer.example/buy",
       "https://brand.example/privacy",
+      { unlockCookieOnly: true },
     );
     const cookie = baked.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "cookieBanner");
     expect(cookie?.content.policyUrl).toBe("https://brand.example/privacy");
-    expect(cookie?.content.offerHref).toBe("https://app.example/track/r/x");
+    expect(cookie?.content.offerHref || "").toBe("");
+    const bakedButton = baked.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "button");
+    expect(bakedButton?.content.href).toBe("https://app.example/track/r/x");
     expect(String(baked.sections[0].columns[0].widgets[0].content.code)).toContain(
       "https://app.example/track/r/x",
     );

@@ -65,24 +65,19 @@ export function cookieConsentNavigation(
 export function CookieConsentModal({
   language,
   policyUrl,
-  redirectHref,
-  fallbackHref,
   accepted,
   onAccept,
-  navigateOnAccept = false,
 }: {
   language: string;
   policyUrl: string;
-  redirectHref: string;
+  redirectHref?: string;
   fallbackHref?: string;
   accepted: boolean;
   onAccept?: () => void;
-  /** Tipo cookies: Accept All segue o hoplink rastreado. A política continua a ser a política. */
+  /** @deprecated Cookies só desbloqueiam a página; a oferta fica nos CTAs explícitos. */
   navigateOnAccept?: boolean;
 }) {
   const L = getPresellUiStrings(language);
-  const offerDest = cookieConsentNavigation("allow", redirectHref, fallbackHref);
-  const offerUrl = offerDest.kind === "assign" ? offerDest.url : "";
   useEffect(() => {
     if (accepted) return;
     const prev = document.body.style.overflow;
@@ -93,13 +88,7 @@ export function CookieConsentModal({
   }, [accepted]);
   if (accepted) return null;
 
-  const accept = () => {
-    if (navigateOnAccept && offerUrl) {
-      window.location.assign(offerUrl);
-      return;
-    }
-    onAccept?.();
-  };
+  const dismiss = () => onAccept?.();
   const policyHref = policyUrl;
 
   return (
@@ -131,8 +120,8 @@ export function CookieConsentModal({
               {" "}
               <a
                 href={policyHref}
-                target={navigateOnAccept ? undefined : "_blank"}
-                rel={navigateOnAccept ? undefined : "noopener noreferrer"}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -143,38 +132,20 @@ export function CookieConsentModal({
           ) : null}
         </p>
         <div className="mt-6 flex gap-3">
-          {navigateOnAccept && offerUrl ? (
-            <a
-              href={offerUrl}
-              className="inline-flex h-12 flex-1 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600"
-            >
-              {L.cookieAllow}
-            </a>
-          ) : (
-            <Button
-              type="button"
-              className="h-12 flex-1 rounded-full border-0 bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600"
-              onClick={accept}
-            >
-              {L.cookieAllow}
-            </Button>
-          )}
-          {navigateOnAccept && offerUrl ? (
-            <a
-              href={offerUrl}
-              className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              {L.cookieClose}
-            </a>
-          ) : (
-            <button
-              type="button"
-              className="h-12 flex-1 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              onClick={accept}
-            >
-              {L.cookieClose}
-            </button>
-          )}
+          <Button
+            type="button"
+            className="h-12 flex-1 rounded-full border-0 bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600"
+            onClick={dismiss}
+          >
+            {L.cookieAllow}
+          </Button>
+          <button
+            type="button"
+            className="h-12 flex-1 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={dismiss}
+          >
+            {L.cookieClose}
+          </button>
         </div>
         <p className="mt-4 text-center text-xs text-slate-400">{L.cookieFooter}</p>
       </div>

@@ -263,13 +263,7 @@ function sanitizeImportedHtml(html: string, keepStylesheets = false): string {
   return out;
 }
 
-function policyHrefFromContent(content: Record<string, unknown>): string {
-  const urls = content.policyUrls;
-  if (urls && typeof urls === "object") {
-    const row = urls as Record<string, unknown>;
-    const privacy = asString(row.privacy || row.cookie || row.cookies);
-    if (privacy) return privacy;
-  }
+function policyHrefFromContent(_content: Record<string, unknown>): string {
   return "/privacidade";
 }
 
@@ -395,9 +389,9 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   }
 
   const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, offerForCtas, false));
-  // White cookies: Aceitar → oferta. Black: Aceitar só desbloqueia o artigo; CTA vai à oferta.
+  /** Cookies (white e black): modal só desbloqueia a página — hoplink nos CTAs visíveis (Ads / RGPD). */
   const cookie = cookieType
-    ? offerCookie(white ? offer : "", policyHrefFromContent(content), source.language)
+    ? offerCookie("", policyHrefFromContent(content), source.language)
     : null;
 
   const sections: ReturnType<typeof createSection>[] = [];
@@ -561,6 +555,26 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     if (stacked.length) sections.push(section);
   }
 
+  if (cookie && white && offer) {
+    const lang = source.language || asString(content.language) || "pt-BR";
+    const ctaLabel = cta || getPresellUiStrings(lang).cookieAccept;
+    const ctaSec = createSection(1);
+    ctaSec.layout = "boxed";
+    ctaSec.contentWidth = 720;
+    ctaSec.styles = {
+      ...ctaSec.styles,
+      padding: { desktop: { top: 20, right: 24, bottom: 12, left: 24, unit: "px" } },
+      margin: { desktop: { top: 8, right: 20, bottom: 0, left: 20, unit: "px" } },
+      background: "#ffffff",
+      border: { width: 1, style: "solid", color: "#e2e8f0", radius: 12 },
+    };
+    ctaSec.columns[0].widgets = [
+      portalCtaNote(getPresellUiStrings(lang).midCta),
+      portalOfferButton(ctaLabel, offer),
+    ];
+    sections.push(ctaSec);
+  }
+
   if (cookie) {
     const gate = createSection(1);
     gate.styles = {
@@ -611,10 +625,7 @@ export function resolvePresellPageDocument(
 }
 
 export type BakePublicOfferOptions = {
-  /**
-   * Black Ads: cookie só desbloqueia o portal informativo.
-   * White: cookie pode levar à oferta e remove botões duplicados.
-   */
+  /** Presells tipo cookies: modal só desbloqueia; CTAs da página levam ao `/track/r/`. */
   unlockCookieOnly?: boolean;
 };
 

@@ -37,6 +37,7 @@ import {
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
+import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 const PublicBuilderPresellView = lazy(() =>
   import("@/components/presell/PublicBuilderPresellView").then((m) => ({
@@ -77,6 +78,10 @@ import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
+import {
+  PresellAffiliateDisclosureBar,
+  PresellMirrorReferenceNotice,
+} from "@/components/presell/PresellComplianceChrome";
 import { PresellTypeFrame } from "@/components/presell/PresellTypeFrame";
 import { PresellHealthArticle } from "@/components/presell/PresellHealthArticle";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
@@ -933,7 +938,16 @@ export default function PublicPresell() {
   const salesText = importedClone ? "" : salesTextRaw;
   const ctaTextRaw = (content.ctaText as string) || "Visitar o Site Oficial do Fabricante";
 
-  const cookiePolicyUrl = typeof settings.cookiePolicyUrl === "string" ? settings.cookiePolicyUrl : "";
+  const contentPolicyUrls = policyUrlsFromPresellContent(content as Record<string, unknown>);
+  const footerPolicies = resolvePresellFooterPolicies(
+    settings as Record<string, unknown>,
+    contentPolicyUrls,
+  );
+  const cookiePolicyUrl = footerPolicies.operator.cookies;
+  const footerSettingsProps = {
+    settings: settings as Record<string, unknown>,
+    contentPolicyUrls,
+  };
 
   const primarySeoLabel = getPresellSeoPrimaryTitle(page);
 
@@ -981,6 +995,8 @@ export default function PublicPresell() {
     content.generationNiche === "white" ||
     content.generation_niche === "black" ||
     content.generation_niche === "white";
+  /** Divulgação de afiliado em todas as presells públicas (inclui antigas sem nicho), excepto fantasma. */
+  const showAffiliateCompliance = !isGhostPage;
   /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
   const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
 
@@ -1047,6 +1063,7 @@ export default function PublicPresell() {
     return (
       <PresellPublicLocaleProvider language={uiLang}>
       <div className="min-h-screen bg-background pb-12">
+        {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={uiLang} /> : null}
         <PresellMarketingOverlays
           pageId={page.id}
           settings={settings}
@@ -1070,7 +1087,7 @@ export default function PublicPresell() {
             }
           />
         </Suspense>
-        <PresellTrustFooter language={uiLang} cookiePolicyUrl={cookiePolicyUrl} />
+        <PresellTrustFooter language={uiLang} {...footerSettingsProps} />
       </div>
       </PresellPublicLocaleProvider>
     );
@@ -1088,7 +1105,7 @@ export default function PublicPresell() {
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
-      { unlockCookieOnly: generationNiche === "black" },
+      { unlockCookieOnly: getPresellGateKind(page.type) === "cookies" },
     );
     const mirrorHtmlFold =
       visualDoc.sections[0]?.columns[0]?.widgets[0]?.type === "html";
@@ -1098,6 +1115,8 @@ export default function PublicPresell() {
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : undefined;
     const inner = (
       <>
+        {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={uiLang} /> : null}
+        {showImportedMirror ? <PresellMirrorReferenceNotice language={uiLang} /> : null}
         {interactiveKind ? (
           <section className="sticky top-0 z-[35] w-full border-b border-border/60 bg-muted/95 px-3 py-5 sm:px-4 backdrop-blur-md">
             <div className="mx-auto max-w-3xl text-center">
@@ -1133,15 +1152,10 @@ export default function PublicPresell() {
             interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
           />
         </Suspense>
-        {isReviewPage && (generationNiche === "white" || mirrorHtmlFold) ? null : (
         <PresellTrustFooter
           language={uiLang}
-          cookiePolicyUrl={cookiePolicyUrl}
+          {...footerSettingsProps}
           portalMode={generationNiche === "black"}
-          privacyPolicyUrl={
-            typeof settings.privacyPolicyUrl === "string" ? settings.privacyPolicyUrl : undefined
-          }
-          termsUrl={typeof settings.termsUrl === "string" ? settings.termsUrl : undefined}
           businessName={typeof settings.businessName === "string" ? settings.businessName : undefined}
           operatorDocument={
             typeof settings.operatorDocument === "string"
@@ -1158,7 +1172,6 @@ export default function PublicPresell() {
                 : undefined
           }
         />
-        )}
       </>
     );
     return (
@@ -1213,6 +1226,8 @@ export default function PublicPresell() {
 
   const pageBody = (
     <>
+      {showAffiliateCompliance ? <PresellAffiliateDisclosureBar language={uiLang} /> : null}
+      {showImportedMirror ? <PresellMirrorReferenceNotice language={uiLang} /> : null}
       {gateKind === "cookies" && showCookieModal ? (
         <CookieConsentModal
           language={uiLang}
@@ -1221,7 +1236,7 @@ export default function PublicPresell() {
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
-          navigateOnAccept={gateKind === "cookies"}
+          navigateOnAccept={false}
         />
       ) : null}
 
@@ -1853,14 +1868,9 @@ export default function PublicPresell() {
           </div>
         </section>
       ) : null}
-      {isReviewPage && (generationNiche === "white" || showImportedMirror) ? null : (
       <PresellTrustFooter
         language={uiLang}
-        cookiePolicyUrl={cookiePolicyUrl}
-        privacyPolicyUrl={
-          typeof settings.privacyPolicyUrl === "string" ? settings.privacyPolicyUrl : undefined
-        }
-        termsUrl={typeof settings.termsUrl === "string" ? settings.termsUrl : undefined}
+        {...footerSettingsProps}
         businessName={
           typeof settings.businessName === "string" ? settings.businessName : undefined
         }
@@ -1881,7 +1891,6 @@ export default function PublicPresell() {
         }
         tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
       />
-      )}
     </>
   );
 

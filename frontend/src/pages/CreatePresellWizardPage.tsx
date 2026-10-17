@@ -32,7 +32,6 @@ import { PresellReviewStage } from "@/components/presell/PresellReviewStage";
 import {
   PRESELL_NICHE_OPTIONS,
   applyImportedPolicyToSettings,
-  applyImportedSourceIdentity,
   coercePresellTypeForNiche,
   defaultAbPresellTypeB,
   type PresellGenerationNiche,
@@ -260,21 +259,21 @@ export default function CreatePresellWizardPage() {
       const settingsBase =
         generationNiche === "black"
           ? {
-              cookiePolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
-              privacyPolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
+              cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               termsUrl: "/termos",
               businessName: operatorName,
               contactEmail: operatorEmail,
               ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
             }
-          : applyImportedSourceIdentity(
-              {
-                cookiePolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
-                privacyPolicyUrl: cookiePolicyUrl.trim() || policyFromImport?.privacy || "/privacidade",
-                termsUrl: "/termos",
-              },
-              identityFromSource,
-            );
+          : {
+              cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              termsUrl: "/termos",
+              ...(identityFromSource.contactEmail
+                ? { contactEmail: identityFromSource.contactEmail }
+                : {}),
+            };
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
           ...settingsBase,
