@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { bindMirrorOfferClickCapture } from "@/lib/presellMirrorOfferClick";
+import {
+  CLICKORA_OFFER_NAV_MESSAGE,
+} from "@/lib/presellMirrorOfferNavigate";
 
 type Props = {
   srcDoc: string;
@@ -115,6 +118,19 @@ export function ImportedPageMirrorIframe({
     attachOfferClickCapture();
     return () => mirrorClickCleanup.current?.();
   }, [attachOfferClickCapture, offerHref, srcDoc, affiliateHref]);
+
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const data = e.data as { type?: string; href?: string } | null;
+      if (data?.type !== CLICKORA_OFFER_NAV_MESSAGE) return;
+      const dest = typeof data.href === "string" ? data.href.trim() : "";
+      if (!dest || dest === "#") return;
+      window.location.assign(dest);
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
 
   const onLoad = useCallback(() => {
     measureDebounced();

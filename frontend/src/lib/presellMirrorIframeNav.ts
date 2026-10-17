@@ -13,6 +13,12 @@ export function mirrorAnchorLabel(anchor: HTMLAnchorElement): string {
     .trim();
 }
 
+function anchorHasOrderNowVisual(anchor: HTMLAnchorElement): boolean {
+  return Boolean(
+    anchor.querySelector("img.order-now-button, img[src*='order-now'], img[alt*='order' i]"),
+  );
+}
+
 export function mirrorAnchorLooksCommercial(anchor: HTMLAnchorElement): boolean {
   const blob = mirrorAnchorLabel(anchor);
   const href = (anchor.getAttribute("href") || "").trim();
@@ -20,7 +26,8 @@ export function mirrorAnchorLooksCommercial(anchor: HTMLAnchorElement): boolean 
     OFFER_CTA_FALLBACK.test(blob) ||
     isCtaLabel(blob) ||
     isCommerceHashHref(href) ||
-    BUTTONISH_CLASS.test(anchor.className || "")
+    BUTTONISH_CLASS.test(anchor.className || "") ||
+    anchorHasOrderNowVisual(anchor)
   );
 }
 

@@ -1,6 +1,7 @@
 import { isCommerceHashHref } from "@/lib/presellCommerceHash";
 import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
 import { mirrorAnchorLooksCommercial, resolveMirrorAnchorNavigateHref } from "@/lib/presellMirrorIframeNav";
+import { navigatePresellOfferFromMirrorEvent } from "@/lib/presellMirrorOfferNavigate";
 
 const OFFER_SELECTOR = "a, button, input[type='submit'], input[type='button'], [role='button']";
 
@@ -74,10 +75,10 @@ function onMirrorPointerEvent(e: Event, trackOfferHref: string, affiliateHref: s
   e.preventDefault();
   e.stopPropagation();
   if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
-  window.top?.location.assign(dest);
+  navigatePresellOfferFromMirrorEvent(e, dest);
 }
 
-/** Captura cliques no documento do iframe — obrigatório para #order-now e botões sem href. */
+/** Captura cliques (fase capture) no documento do iframe — #order-now, botões, /track/. */
 export function bindMirrorOfferClickCapture(
   doc: Document,
   trackOfferHref: string,
@@ -89,10 +90,8 @@ export function bindMirrorOfferClickCapture(
   tagMirrorOfferElementsInDocument(doc);
 
   const handler = (e: Event) => onMirrorPointerEvent(e, offer, affiliateHref);
-  doc.addEventListener("pointerdown", handler, true);
   doc.addEventListener("click", handler, true);
   return () => {
-    doc.removeEventListener("pointerdown", handler, true);
     doc.removeEventListener("click", handler, true);
   };
 }

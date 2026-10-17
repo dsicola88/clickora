@@ -20,7 +20,7 @@ export function preserveNavHashCtaAppearance(html: string): string {
   });
 
   const navRoots = doc.querySelectorAll(
-    "header, nav, [class*='header'], [class*='Header'], [class*='navbar'], [class*='Navbar'], [class*='menu'], [class*='top-bar'], [class*='TopBar']",
+    "header, nav, section.top-nav, [class*='top-nav'], [class*='header'], [class*='Header'], [class*='navbar'], [class*='Navbar'], [class*='menu'], [class*='top-bar'], [class*='TopBar']",
   );
   navRoots.forEach((root) => {
     root.querySelectorAll("a[href]").forEach((node) => {
