@@ -4,11 +4,12 @@
  */
 import {
   getResolvedPublicApiBaseUrl,
+  getTrackApiBaseForPublicPresell,
   getTrackApiBaseUrl,
   normalizeToApiBaseUrl,
 } from "@/config/publicApiUrl";
 
-export { normalizeToApiBaseUrl, getTrackApiBaseUrl };
+export { normalizeToApiBaseUrl, getTrackApiBaseUrl, getTrackApiBaseForPublicPresell };
 
 /** @deprecated Preferir `getResolvedPublicApiBaseUrl()` — mantido para chamadas que ainda passam `raw` manual. */
 export function normalizeApiBaseUrl(raw: string | undefined): string {
@@ -26,7 +27,7 @@ export function getApiBaseUrl(): string {
   return getResolvedPublicApiBaseUrl();
 }
 
-/** Pixel / redirect de tracking — IP real do visitante (não o proxy Vercel). */
+/** Pixel / redirect na presell pública (same-origin `/api` no domínio verificado). */
 export function getTrackApiBaseUrlForBrowser(): string {
   return getTrackApiBaseUrl();
 }

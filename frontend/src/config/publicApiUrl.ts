@@ -7,8 +7,9 @@
  * - `VITE_PUBLIC_TRACK_API_URL` — opcional; pixel/redirect `/track/*` (IP real do visitante)
  *
  * Comportamento:
- * - **Produção em `dclickora.com` ou domínio personalizado:** app autenticada usa **`/api`** (same-origin → Railway).
- * - **Tracking público (pixel, /track/r):** URL absoluta Railway quando possível — o proxy Vercel gravava o IP do hop AWS, não o do visitante.
+ * - **Produção em `dclickora.com` ou domínio personalizado:** app e **tracking** (`/track/r`, pixel) usam **`/api`** no mesmo host (rewrite Vercel → Railway; IP via `X-Vercel-Forwarded-For`).
+ * - **`VITE_PUBLIC_TRACK_API_URL`:** override (ex. API directa) se precisares de outro hop.
+ * - **Preview `*.vercel.app`:** fallback Railway directo no browser.
  * - **Desenvolvimento sem URL:** `http://localhost:3001/api`
  */
 
@@ -71,23 +72,40 @@ export function getResolvedPublicApiBaseUrl(): string {
 }
 
 /**
- * Base da API para pixel, `/track/r/` e beacons — HTTPS directo à Railway
- * para o IP/país do visitante coincidir com BuyGoods/SmartAdv (não o hop Vercel/AWS).
+ * Base da API para pixel, `/track/r/` e beacons na **página pública** (browser).
+ * Prefer same-origin `/api` no domínio do anúncio — links profissionais (`teudominio.sbs/api/track/r/…`).
  */
 export function getTrackApiBaseUrl(): string {
   const trackOnly = import.meta.env.VITE_PUBLIC_TRACK_API_URL?.trim();
   if (trackOnly) return normalizeToApiBaseUrl(trackOnly);
 
-  const raw = readEnvApiUrl();
-  if (raw && /^https:\/\//i.test(raw)) return normalizeToApiBaseUrl(raw);
-
   if (!import.meta.env.PROD) {
     return getResolvedPublicApiBaseUrl();
   }
+
+  if (typeof window !== "undefined" && shouldUseSameOriginApiInProd()) {
+    return PROD_SAME_ORIGIN;
+  }
+
+  const raw = readEnvApiUrl();
+  if (raw && /^https:\/\//i.test(raw)) return normalizeToApiBaseUrl(raw);
 
   if (typeof window !== "undefined") {
     return PROD_TRACK_API_FALLBACK;
   }
 
   return getResolvedPublicApiBaseUrl();
+}
+
+/** Export HTML / embed: tracking no **mesmo host** da presell publicada (URL absoluta). */
+export function getTrackApiBaseForPublicPresell(publicPresellUrl: string): string {
+  const trackOnly = import.meta.env.VITE_PUBLIC_TRACK_API_URL?.trim();
+  if (trackOnly) return normalizeToApiBaseUrl(trackOnly);
+  try {
+    const origin = new URL(publicPresellUrl.trim()).origin.replace(/\/+$/, "");
+    if (origin) return `${origin}/api`;
+  } catch {
+    /* fall through */
+  }
+  return getTrackApiBaseUrl();
 }

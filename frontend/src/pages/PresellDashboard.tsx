@@ -47,7 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
-import { getApiBaseUrl, getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import { getApiBaseUrl, getTrackApiBaseForPublicPresell, getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
@@ -484,7 +484,7 @@ export default function PresellDashboard() {
         html = exportPageToHtml(doc, data.language);
       } else {
         html = buildPresellStandaloneHtml(data, {
-          apiBase: getTrackApiBaseUrl(),
+          apiBase: getTrackApiBaseForPublicPresell(publicUrl),
           publicPageUrl: publicUrl,
           format: "htmlWidget",
         });
@@ -521,7 +521,7 @@ export default function PresellDashboard() {
         html = exportPageToHtml(doc, data.language);
       } else {
         html = buildPresellStandaloneHtml(data, {
-          apiBase: getTrackApiBaseUrl(),
+          apiBase: getTrackApiBaseForPublicPresell(publicUrl),
           publicPageUrl: publicUrl,
           format: "document",
         });
