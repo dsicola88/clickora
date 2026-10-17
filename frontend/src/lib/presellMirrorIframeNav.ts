@@ -39,6 +39,13 @@ export function resolveMirrorAnchorNavigateHref(
   const raw = (anchor.getAttribute("href") || "").trim();
   if (!raw || /^mailto:|^tel:/i.test(raw)) return null;
 
+  if (anchor.getAttribute("data-clickora-offer") === "1") {
+    if (/\/track\/r\//i.test(raw)) {
+      return raw.includes("clickora.invalid") ? offer : raw;
+    }
+    return offer;
+  }
+
   const commercial = mirrorAnchorLooksCommercial(anchor);
   const isTrack =
     raw === offer ||

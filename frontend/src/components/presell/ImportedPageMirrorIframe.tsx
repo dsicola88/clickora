@@ -1,30 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  mirrorAnchorLooksCommercial,
-  resolveMirrorAnchorNavigateHref,
-} from "@/lib/presellMirrorIframeNav";
-
-function repairMirrorOfferAnchors(doc: Document, trackHref: string): void {
-  doc.querySelectorAll("a").forEach((a) => {
-    const href = (a.getAttribute("href") || "").trim();
-    if (!href || href.startsWith("#") || /^mailto:|^tel:/i.test(href)) return;
-    const isTracked =
-      (trackHref && href === trackHref) ||
-      href.includes("/track/") ||
-      href.includes("clickora.invalid/__TRACK");
-    if (!mirrorAnchorLooksCommercial(a) && !isTracked) return;
-    const text = (a.textContent || "").replace(/\s+/g, " ").trim();
-    if (text.length < 2) {
-      const labelBlob = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""} ${a.className || ""}`;
-      const fallback =
-        a.getAttribute("aria-label")?.trim() ||
-        a.getAttribute("title")?.trim() ||
-        (mirrorAnchorLooksCommercial(a) ? "Order Now" : "");
-      if (fallback) a.textContent = fallback;
-    }
-  });
-}
+import { bindMirrorOfferClickCapture } from "@/lib/presellMirrorOfferClick";
 
 type Props = {
   srcDoc: string;
@@ -57,12 +33,17 @@ export function ImportedPageMirrorIframe({
   emptyCbRef.current = onMirrorProbablyEmpty;
   const [height, setHeight] = useState(960);
 
+  const offerHrefRef = useRef(offerHref);
+  offerHrefRef.current = offerHref;
+  const affiliateHrefRef = useRef(affiliateHref);
+  affiliateHrefRef.current = affiliateHref;
+  const mirrorClickCleanup = useRef<(() => void) | null>(null);
+
   const measure = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     try {
       const b = el.contentDocument?.body;
-      // Só o conteúdo. A altura do <html> acompanha o iframe e, se entrar na conta, cresce até ao tecto.
       const contentH = Math.max(b?.scrollHeight ?? 0, b?.offsetHeight ?? 0, 480);
       const next = Math.min(48_000, Math.ceil(contentH + 8));
       setHeight((prev) => (Math.abs(prev - next) <= 2 ? prev : next));
@@ -101,6 +82,20 @@ export function ImportedPageMirrorIframe({
     }
   }, []);
 
+  const attachOfferClickCapture = useCallback(() => {
+    mirrorClickCleanup.current?.();
+    mirrorClickCleanup.current = null;
+    const el = ref.current;
+    const doc = el?.contentDocument;
+    const offer = (offerHrefRef.current || "").trim();
+    if (!doc || !offer || offer === "#") return;
+    mirrorClickCleanup.current = bindMirrorOfferClickCapture(
+      doc,
+      offer,
+      affiliateHrefRef.current || "",
+    );
+  }, []);
+
   useEffect(() => {
     measureDebounced();
     return () => window.clearTimeout(debounceRef.current);
@@ -116,11 +111,10 @@ export function ImportedPageMirrorIframe({
     };
   }, [measureDebounced]);
 
-  const offerHrefRef = useRef(offerHref);
-  offerHrefRef.current = offerHref;
-  const affiliateHrefRef = useRef(affiliateHref);
-  affiliateHrefRef.current = affiliateHref;
-  const mirrorClickCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    attachOfferClickCapture();
+    return () => mirrorClickCleanup.current?.();
+  }, [attachOfferClickCapture, offerHref, srcDoc, affiliateHref]);
 
   const onLoad = useCallback(() => {
     measureDebounced();
@@ -137,35 +131,8 @@ export function ImportedPageMirrorIframe({
     window.setTimeout(checkProbablyEmpty, 320);
     window.setTimeout(checkProbablyEmpty, 1400);
     window.setTimeout(checkProbablyEmpty, 2800);
-    try {
-      const repairDoc = el?.contentDocument;
-      if (repairDoc) repairMirrorOfferAnchors(repairDoc, offerHrefRef.current || "");
-    } catch {
-      /* cross-origin guard */
-    }
-    mirrorClickCleanup.current?.();
-    mirrorClickCleanup.current = null;
-    const offer = (offerHrefRef.current || "").trim();
-    const clickDoc = el?.contentDocument;
-    if (!offer || offer === "#" || !clickDoc) return;
-    const onClick = (e: MouseEvent) => {
-      const node = e.target;
-      if (!(node instanceof Element)) return;
-      const a = node.closest("a");
-      if (!a) return;
-      const dest = resolveMirrorAnchorNavigateHref(
-        a,
-        offer,
-        affiliateHrefRef.current || "",
-      );
-      if (!dest) return;
-      e.preventDefault();
-      e.stopPropagation();
-      window.location.assign(dest);
-    };
-    clickDoc.addEventListener("click", onClick, true);
-    mirrorClickCleanup.current = () => clickDoc.removeEventListener("click", onClick, true);
-  }, [measureDebounced, checkProbablyEmpty]);
+    attachOfferClickCapture();
+  }, [measureDebounced, checkProbablyEmpty, attachOfferClickCapture]);
 
   useEffect(() => {
     return () => {
