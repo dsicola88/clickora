@@ -32,6 +32,10 @@ import { extractClientIp } from "../lib/clientIp";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 import { fillMissingAdClickIds, forwardAdQueryToUrl, rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
+import {
+  affiliateLinkFromPresellContent,
+  isRedirectToAllowedOffer,
+} from "../lib/trackOfferRedirectGuard";
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -362,6 +366,20 @@ export const trackController = {
     if (page.status !== "published") {
       console.warn("[track.redirect] presell não publicada → sem oferta", { presellId, status: page.status });
       return sendSafeVisitorPage(res, page.settings);
+    }
+    const configuredOffer = affiliateLinkFromPresellContent(page.content);
+    if (!isRedirectToAllowedOffer(to, configuredOffer)) {
+      console.warn("[track.redirect] parâmetro to não autorizado", {
+        presellId,
+        host: (() => {
+          try {
+            return new URL(to).hostname;
+          } catch {
+            return "?";
+          }
+        })(),
+      });
+      return res.status(400).json({ error: "Destino de oferta inválido para esta presell" });
     }
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) {

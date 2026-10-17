@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { normalizeIpForMatch } from "./normalizeIp";
-import { detectBot, assessClickQuality } from "./detectBot";
+import { assessClickQuality, detectBot, isGoogleAdsCrawlerUserAgent } from "./detectBot";
 import { consumeTrackRateLimit } from "./trackRateLimit";
 import { isPrivateOrLocalIp } from "./clientIp";
 import { effectiveAutoBlacklistThreshold } from "./trackingGuardPolicy";
@@ -169,20 +169,25 @@ export async function enforceTrackingRules(args: {
   if (owner.blockBotClicks) {
     const b = detectBot(userAgent);
     if (b.isBot) {
-      void logGuardBlock({
-        ownerUserId,
-        presellPageId,
-        channel,
-        reason: "bot_blocked",
-        detail: `Bot: ${b.label}`,
-        ip: ipKey,
-      });
-      return {
-        ok: false,
-        status: 403,
-        error: "Pedido identificado como bot",
-        reason: "bot_blocked",
-      };
+      const adsReviewChannel =
+        channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
+      const adsCrawler = adsReviewChannel && isGoogleAdsCrawlerUserAgent(userAgent);
+      if (!adsCrawler) {
+        void logGuardBlock({
+          ownerUserId,
+          presellPageId,
+          channel,
+          reason: "bot_blocked",
+          detail: `Bot: ${b.label}`,
+          ip: ipKey,
+        });
+        return {
+          ok: false,
+          status: 403,
+          error: "Pedido identificado como bot",
+          reason: "bot_blocked",
+        };
+      }
     }
   }
 

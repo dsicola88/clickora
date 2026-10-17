@@ -26,6 +26,12 @@ const NAMED: { test: RegExp; label: string }[] = [
   { test: /curl\/|wget\/|python-requests|axios\/|go-http|java\//i, label: "HTTP client" },
 ];
 
+/** Crawlers usados pelo Google Ads / inspeção de destino — não bloquear na presell pública nem no redirect. */
+export function isGoogleAdsCrawlerUserAgent(userAgent: string | undefined | null): boolean {
+  const ua = (userAgent || "").trim();
+  return /adsbot-google|google-inspectiontool/i.test(ua);
+}
+
 export function detectBot(userAgent: string | undefined | null): BotDetection {
   const ua = (userAgent || "").trim();
   if (ua.length === 0) return { isBot: true, label: "Sem User-Agent" };
