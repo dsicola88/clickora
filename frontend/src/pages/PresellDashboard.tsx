@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -73,6 +73,7 @@ import type { Presell } from "@/types/api";
 import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { MirrorHtmlEditor } from "@/components/presell/MirrorHtmlEditor";
+import type { MirrorHtmlVisualPreviewHandle } from "@/components/presell/MirrorHtmlVisualPreview";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 import { PresellAdsCompliancePanel } from "@/components/presell/PresellAdsCompliancePanel";
 import {
@@ -319,6 +320,7 @@ export default function PresellDashboard() {
   const [configSettings, setConfigSettings] = useState(() => ({ ...DEFAULT_PRESELL_CONFIG_SETTINGS }));
   /** Rascunho do HTML espelhado ao editar (sincroniza com `content.importMirrorSrcDoc`). */
   const [mirrorHtmlDraft, setMirrorHtmlDraft] = useState("");
+  const mirrorVisualPreviewRef = useRef<MirrorHtmlVisualPreviewHandle | null>(null);
   const [mirrorReimportBusy, setMirrorReimportBusy] = useState(false);
 
   const updateField = (field: string, value: string) => {
@@ -601,13 +603,14 @@ export default function PresellDashboard() {
           }
         }
         const prevContent = editingPage.content as Record<string, unknown>;
+        let mirrorToSave = mirrorHtmlDraft.trim();
+        const captured = mirrorVisualPreviewRef.current?.captureDocumentHtml()?.trim();
+        if (captured && captured.length > 200) mirrorToSave = captured;
         const content = {
           ...prevContent,
           affiliateLink: ctaAffiliate,
           sourceUrl: prevContent.sourceUrl ?? importUrl,
-          ...(mirrorHtmlDraft.trim().length > 0
-            ? { importMirrorSrcDoc: mirrorHtmlDraft }
-            : { importMirrorSrcDoc: "" }),
+          ...(mirrorToSave.length > 0 ? { importMirrorSrcDoc: mirrorToSave } : { importMirrorSrcDoc: "" }),
         };
         await updateMutation.mutateAsync({
           id: editingId,
@@ -1263,6 +1266,7 @@ export default function PresellDashboard() {
               <MirrorHtmlEditor
                 value={mirrorHtmlDraft}
                 onChange={setMirrorHtmlDraft}
+                visualPreviewRef={mirrorVisualPreviewRef}
                 reimportBusy={mirrorReimportBusy}
                 onReimport={async () => {
                   const url = formData.productLink.trim() || formData.affiliateLink.trim();

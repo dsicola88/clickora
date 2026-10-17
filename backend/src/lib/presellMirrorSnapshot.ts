@@ -378,6 +378,48 @@ export function promoteLargestMirrorImageSrc(root: HTMLElement, base: URL): void
   });
 }
 
+/** Remove marcas do modo edição visual efémero (nunca persistir na presell pública). */
+export function stripEphemeralMirrorEditMarks(root: HTMLElement): void {
+  root.querySelectorAll("[contenteditable]").forEach((n) => n.removeAttribute("contenteditable"));
+  root.querySelectorAll("style[data-clickora-mirror-edit]").forEach((n) => n.remove());
+  root.querySelectorAll(".editable-element").forEach((n) => {
+    n.classList.remove("editable-element");
+    const cls = n.getAttribute("class")?.trim();
+    if (!cls) n.removeAttribute("class");
+  });
+}
+
+/**
+ * HTML capturado do iframe de edição → documento limpo (sem contenteditable) + CTAs/track intactos.
+ */
+export function sanitizeMirrorSrcDocFromEditor(
+  raw: string,
+  pageBaseUrl: string,
+  affiliateUrl: string,
+): string | null {
+  const trimmed = raw.trim();
+  if (trimmed.length < 80) return null;
+
+  const baseForDoc = pageBaseUrl.trim() || affiliateUrl.trim() || "https://example.invalid/";
+  let docHtml = trimmed;
+  if (!/<html[\s>]/i.test(trimmed)) {
+    let bodyInner = trimmed;
+    const bodyMatch = trimmed.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (bodyMatch?.[1]) bodyInner = bodyMatch[1];
+    docHtml = buildMirrorSrcDocFromParts(baseForDoc, "", bodyInner);
+  }
+
+  let root: HTMLElement;
+  try {
+    root = parse(docHtml, { comment: true }) as HTMLElement;
+  } catch {
+    return null;
+  }
+  stripEphemeralMirrorEditMarks(root);
+  const affiliate = affiliateUrl.trim() || baseForDoc;
+  return finalizeMirrorSrcDocForImport(root.toString(), baseForDoc, affiliate);
+}
+
 /**
  * Remove elementos perigosos, normaliza links da oferta para marcador de tracking,
  * força `target="_top"` para sair do iframe.

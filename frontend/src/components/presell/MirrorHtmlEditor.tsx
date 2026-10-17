@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  MirrorHtmlVisualPreview,
+  type MirrorHtmlVisualPreviewHandle,
+} from "@/components/presell/MirrorHtmlVisualPreview";
 
 type Props = {
   value: string;
@@ -12,6 +16,7 @@ type Props = {
   onReimport?: () => void;
   reimportBusy?: boolean;
   className?: string;
+  visualPreviewRef?: RefObject<MirrorHtmlVisualPreviewHandle | null>;
 };
 
 /**
@@ -24,6 +29,7 @@ export function MirrorHtmlEditor({
   onReimport,
   reimportBusy = false,
   className,
+  visualPreviewRef,
 }: Props) {
   const [open, setOpen] = useState(false);
   const len = value.length;
@@ -31,6 +37,10 @@ export function MirrorHtmlEditor({
 
   return (
     <div className={cn("space-y-2", className)}>
+      {healthy && visualPreviewRef ? (
+        <MirrorHtmlVisualPreview ref={visualPreviewRef} srcDoc={value} editMode />
+      ) : null}
+
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-4 sm:px-6 border border-border/50 bg-card hover:bg-muted/30 text-card-foreground transition-colors cursor-pointer text-left min-w-0">
           <div className="min-w-0">
@@ -52,9 +62,9 @@ export function MirrorHtmlEditor({
         <CollapsibleContent>
           <div className="rounded-b-xl px-4 py-4 sm:px-6 border-x border-b border-border/50 bg-card space-y-3">
             <p className="text-[11px] leading-relaxed text-muted-foreground rounded-md border border-border/60 bg-muted/30 px-2.5 py-2">
-              Edite o HTML do clone com cuidado. Scripts externos e JS da origem não correm no iframe.
-              Use «Re-importar» para voltar a capturar a página do produto (Playwright + rehost R2 se
-              configurado). Ao guardar, imagens http externas no espelho são reconciliadas de novo para o R2.
+              Use a pré-visualização acima para editar textos. O código HTML avançado fica aqui. Scripts externos e JS
+              da origem não correm no iframe. Use «Re-importar» para voltar a capturar a página do produto. Ao guardar,
+              o servidor remove marcas de edição e revalida CTAs/track.
             </p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="mirror-html-editor">importMirrorSrcDoc</Label>

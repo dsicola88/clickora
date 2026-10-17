@@ -4,6 +4,7 @@ import {
   CLICKORA_MIRROR_TRACK_MARKER,
   finalizeMirrorSrcDocForImport,
   mirrorUrlShouldUseTrackMarker,
+  sanitizeMirrorSrcDocFromEditor,
   tryExtractUrlFromInlineHandler,
 } from "./presellMirrorSnapshot";
 
@@ -66,6 +67,26 @@ describe("tryExtractUrlFromInlineHandler", () => {
   it("empty or useless", () => {
     assert.equal(tryExtractUrlFromInlineHandler(""), null);
     assert.equal(tryExtractUrlFromInlineHandler("return false"), null);
+  });
+});
+
+describe("sanitizeMirrorSrcDocFromEditor", () => {
+  it("remove contenteditable e mantém marcador de track no CTA", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<h1 contenteditable="true" class="editable-element">Title</h1>
+<p contenteditable="true" class="editable-element">Body copy</p>
+<a href="https://www.buygoods.com/secure/checkout.html?x=1">Buy Now</a>
+</body></html>`;
+    const out = sanitizeMirrorSrcDocFromEditor(
+      html,
+      "https://offer.example/land",
+      "https://www.buygoods.com/secure/checkout.html?x=1",
+    );
+    assert.ok(out);
+    assert.ok(!out!.includes("contenteditable"));
+    assert.ok(!out!.includes("editable-element"));
+    assert.ok(out!.includes(CLICKORA_MIRROR_TRACK_MARKER));
+    assert.match(out!, /Title/);
   });
 });
 

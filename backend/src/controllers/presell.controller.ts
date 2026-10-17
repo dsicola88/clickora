@@ -31,6 +31,7 @@ import { extractClientIp } from "../lib/clientIp";
 import { resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
+import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
 import { assertPublishAllowed, runPresellComplianceAudit } from "../compliance/service";
 import {
   coercePresellTypeForNiche,
@@ -398,6 +399,7 @@ export const presellController = {
         parsed.data.content && typeof parsed.data.content === "object" && !Array.isArray(parsed.data.content)
           ? (parsed.data.content as Record<string, unknown>)
           : {};
+      contentPayload = sanitizeMirrorInContentRecord(contentPayload);
       const reconciled = await reconcileMirrorInPresellContent({
         content: contentPayload,
         userId,
@@ -473,8 +475,9 @@ export const presellController = {
     let nextContent: Record<string, unknown> | undefined;
     let mirrorRehosted = 0;
     if (req.body.content && typeof req.body.content === "object" && !Array.isArray(req.body.content)) {
+      const sanitized = sanitizeMirrorInContentRecord(req.body.content as Record<string, unknown>);
       const reconciled = await reconcileMirrorInPresellContent({
-        content: req.body.content as Record<string, unknown>,
+        content: sanitized,
         userId,
         pageHint: page.slug || page.id.slice(0, 8),
       });
