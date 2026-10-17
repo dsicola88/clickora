@@ -1419,6 +1419,13 @@ export function extractSourceIdentityFromHtml(
     if (found.includes(email)) continue;
     found.push(email);
   }
+  const plainRe = /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/g;
+  while ((m = plainRe.exec(html)) !== null) {
+    const email = (m[1] || "").toLowerCase();
+    if (!email || SKIP_SOURCE_EMAIL.test(email)) continue;
+    if (found.includes(email)) continue;
+    found.push(email);
+  }
   const sameHost = found.find((email) => host && email.endsWith(`@${host}`));
   const contactEmail = sameHost || found[0];
   const businessName =

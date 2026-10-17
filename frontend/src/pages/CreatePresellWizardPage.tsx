@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
@@ -104,6 +104,18 @@ export default function CreatePresellWizardPage() {
   const [copied, setCopied] = useState(false);
   const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish" | "ab" | "rotator">("idle");
   const [mirrorFidelityOk, setMirrorFidelityOk] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const mail =
+      (typeof user.sale_notify_email === "string" && user.sale_notify_email.trim()) ||
+      (typeof user.email === "string" ? user.email.trim() : "");
+    setContactEmail((prev) => prev || mail);
+    if (generationNiche === "black") {
+      const name = typeof user.name === "string" ? user.name.trim() : "";
+      setBusinessName((prev) => prev || name);
+    }
+  }, [user, generationNiche]);
 
   const platform = useMemo(() => detectPlatform(offerUrl), [offerUrl]);
   const typeDetail = getPresellTypeOption(presellType);
@@ -256,7 +268,20 @@ export default function CreatePresellWizardPage() {
         businessName: imported.data?.source_business_name || imported.data?.product_name,
         contactEmail: imported.data?.source_contact_email,
       };
-      // Black: identidade do afiliado intermediário (obrigatória). White: dados da página espelhada.
+      const importedProduct = String(imported.data?.product_name || imported.data?.title || "").trim();
+      const whiteBusinessName =
+        businessName.trim() ||
+        identityFromSource.businessName ||
+        importedProduct ||
+        operatorName ||
+        campaignName.trim();
+      const whiteContactEmail = contactEmail.trim() || identityFromSource.contactEmail || operatorEmail;
+      if (generationNiche === "white" && (!whiteBusinessName || !whiteContactEmail)) {
+        throw new Error(
+          "No nicho white, indique um e-mail de contacto público (ou configure «Notificar vendas» no perfil). O nome pode ser o do produto ou o seu como afiliado.",
+        );
+      }
+      // Black: identidade do afiliado. White: produto + contacto real (Google CT-002).
       const settingsBase =
         generationNiche === "black"
           ? {
@@ -271,9 +296,8 @@ export default function CreatePresellWizardPage() {
               cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               termsUrl: "/termos",
-              ...(identityFromSource.contactEmail
-                ? { contactEmail: identityFromSource.contactEmail }
-                : {}),
+              businessName: whiteBusinessName,
+              contactEmail: whiteContactEmail,
             };
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
@@ -771,12 +795,31 @@ export default function CreatePresellWizardPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
-              <p className="text-sm font-medium text-foreground">Identidade (nicho white)</p>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">Contacto público (nicho white)</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                A página espelha a oferta original — nome e políticas vêm do site do produto. Sem preenchimento
-                manual de operador no white.
+                O espelho copia a oferta, mas o Google exige um responsável e e-mail real no rodapé. Usamos o nome
+                do produto e o seu e-mail da conta (pode alterar abaixo). Sem isto a página fica em rascunho.
               </p>
+              <div className="space-y-2">
+                <Label htmlFor="whiteBizName">Nome no rodapé (produto ou operador)</Label>
+                <Input
+                  id="whiteBizName"
+                  placeholder={campaignName.trim() || "Nome do produto"}
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="whiteBizEmail">E-mail de contacto público</Label>
+                <Input
+                  id="whiteBizEmail"
+                  type="email"
+                  placeholder={user?.email || "voce@dominio.com"}
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+              </div>
             </div>
           )}
 

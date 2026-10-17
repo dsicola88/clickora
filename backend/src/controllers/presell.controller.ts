@@ -34,6 +34,11 @@ import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
 import { assertPublishAllowed, runPresellComplianceAudit } from "../compliance/service";
 import {
+  enrichPresellPageRecords,
+  enrichPresellSettingsWithOperatorIdentity,
+  settingsRecord,
+} from "../lib/presellOperatorIdentity";
+import {
   coercePresellTypeForNiche,
   normalizePresellGenerationNiche,
 } from "../lib/presellGenerationNiche";
@@ -97,6 +102,34 @@ async function resolveCustomDomainIdForUser(userId: string, raw: string | null):
  * Quando o cliente não envia `custom_domain_id`, associa um domínio verificado.
  * Mesma prioridade que a migração de backfill: `is_default` primeiro, depois o mais antigo (`created_at`).
  */
+async function loadUserOperatorIdentity(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { fullName: true, email: true, saleNotifyEmail: true },
+  });
+}
+
+/** Preenche CT-002 (nome + e-mail) a partir da conta — evita rascunho silencioso no white. */
+async function ensurePresellOperatorIdentityOnPage(page: PresellPage): Promise<PresellPage> {
+  const user = await loadUserOperatorIdentity(page.userId);
+  if (!user) return page;
+  const { content, settings, changed } = enrichPresellPageRecords({
+    content: page.content,
+    settings: page.settings,
+    user,
+  });
+  if (!changed) return page;
+  return systemPrisma.presellPage.update({
+    where: { id: page.id },
+    data: {
+      settings: settings as Prisma.InputJsonValue,
+      content: content as Prisma.InputJsonValue,
+      complianceGate: "unchecked",
+      contentFingerprint: null,
+    },
+  });
+}
+
 async function resolveDefaultVerifiedCustomDomainIdForUser(userId: string): Promise<string | null> {
   const rows = await prisma.customDomain.findMany({
     where: { userId, status: "verified" },
@@ -412,6 +445,14 @@ export const presellController = {
       contentPayload.generationNiche = niche;
       const safeType = coercePresellTypeForNiche(parsed.data.type || "cookies", niche);
 
+      const operatorUser = await loadUserOperatorIdentity(userId);
+      const identityEnriched = enrichPresellSettingsWithOperatorIdentity({
+        settings: settingsRecord(parsed.data.settings),
+        content: contentPayload,
+        user: operatorUser ?? {},
+      });
+      const settingsPayload = identityEnriched.settings;
+
       const requestedStatus = parsed.data.status || "draft";
       page = await prisma.presellPage.create({
         data: {
@@ -423,7 +464,7 @@ export const presellController = {
           language: parsed.data.language || "pt",
           content: contentPayload as Prisma.InputJsonValue,
           videoUrl: parsed.data.video_url,
-          settings: (parsed.data.settings || {}) as Prisma.InputJsonValue,
+          settings: settingsPayload as Prisma.InputJsonValue,
           tracking: (parsed.data.tracking || {}) as Prisma.InputJsonValue,
           status: "draft",
           complianceGate: "unchecked",
@@ -432,6 +473,7 @@ export const presellController = {
       });
 
       if (requestedStatus === "published") {
+        page = await ensurePresellOperatorIdentityOnPage(page);
         const gate = await assertPublishAllowed({ page, runIfStale: true });
         if (!gate.ok) {
           // Página criada em draft — não publicar. 201 para o cliente poder abrir o editor.
@@ -638,15 +680,17 @@ export const presellController = {
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
+    let pageForPublish = page;
     if (status === "published") {
-      const gate = await assertPublishAllowed({ page, runIfStale: true });
+      pageForPublish = await ensurePresellOperatorIdentityOnPage(page);
+      const gate = await assertPublishAllowed({ page: pageForPublish, runIfStale: true });
       if (!gate.ok) {
         return res.status(gate.status).json(gate.body);
       }
     }
 
     const updated = await systemPrisma.presellPage.update({
-      where: { id: page.id },
+      where: { id: pageForPublish.id },
       data: { status },
     });
 
