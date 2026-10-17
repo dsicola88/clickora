@@ -10,6 +10,7 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
   const alt = (widget.content.alt as string) ?? "";
   const link = ((widget.content.link as string) ?? "").trim();
   const isHero = widget.content.hero === true;
+  const portalProduct = widget.content.portalProduct === true;
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
   const { width, height, ...wrapperRest } = css;
@@ -39,14 +40,19 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
     <div
       data-presell-hero={isHero ? "product" : undefined}
       data-presell-hero-emphasis={isHero ? "primary" : undefined}
+      data-presell-portal-photo={portalProduct ? "1" : undefined}
       style={{
         width: "100%",
-        maxWidth: "100%",
-        minHeight: isHero ? "min(72vh, 680px)" : undefined,
+        maxWidth: portalProduct ? "min(100%, 400px)" : "100%",
+        margin: portalProduct ? "0 auto" : undefined,
+        minHeight: isHero ? "min(58vh, 560px)" : undefined,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: isHero ? "#f8fafc" : undefined,
+        background: isHero || portalProduct ? "#f8fafc" : undefined,
+        padding: portalProduct ? 14 : undefined,
+        borderRadius: portalProduct ? 14 : undefined,
+        border: portalProduct ? "1px solid #e2e8f0" : undefined,
       }}
     >
     <img
@@ -55,10 +61,11 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
       style={{
         width: "100%",
         height: isHero ? "auto" : height,
-        minHeight: isHero ? "min(64vh, 620px)" : undefined,
+        minHeight: isHero ? "min(52vh, 520px)" : undefined,
         maxWidth: "100%",
+        maxHeight: portalProduct ? "min(46vh, 400px)" : undefined,
         display: "block",
-        objectFit: isHero ? "contain" : undefined,
+        objectFit: isHero || portalProduct ? "contain" : undefined,
       }}
       loading={priority ? "eager" : "lazy"}
       decoding="async"

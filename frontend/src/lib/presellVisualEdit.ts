@@ -84,7 +84,13 @@ function isWhiteNiche(content: Record<string, unknown>): boolean {
 
 function heroImageWidget(src: string, alt: string, offer = "", isHero = true): WidgetNode {
   const image = createWidget("image");
-  image.content = { ...image.content, src, alt, link: offer, ...(isHero ? { hero: true } : {}) };
+  image.content = {
+    ...image.content,
+    src,
+    alt,
+    link: offer,
+    ...(isHero ? { hero: true } : { portalProduct: true }),
+  };
   image.styles = {
     ...image.styles,
     width: { desktop: "100%" },
@@ -94,18 +100,19 @@ function heroImageWidget(src: string, alt: string, offer = "", isHero = true): W
   return image;
 }
 
-/** Foto do produto em artigo black — sem banda hero de viewport inteira. */
+/** Foto do produto em artigo black — tamanho editorial, não banner full-bleed. */
 function articleProductPhoto(src: string, alt: string, offer = ""): WidgetNode {
-  const image = createWidget("image");
-  image.content = { ...image.content, src, alt, link: offer, hero: false };
-  image.styles = {
-    ...image.styles,
-    width: { desktop: "100%" },
-    align: { desktop: "center" },
-    margin: { desktop: { top: 4, right: 0, bottom: 28, left: 0, unit: "px" } },
-    border: { width: 1, style: "solid", color: "#e2e8f0", radius: 14 },
+  const html = createWidget("html");
+  const img = `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" style="display:block;width:100%;max-width:400px;max-height:min(46vh,400px);height:auto;margin:0 auto;object-fit:contain" />`;
+  const linked = offer
+    ? `<a href="${escapeHtml(offer)}" data-clickora-offer="1" style="display:block;text-decoration:none">${img}</a>`
+    : img;
+  html.content = {
+    ...html.content,
+    code:
+      `<figure data-presell-portal-photo="1" style="margin:0 auto 1.75rem;max-width:400px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.06)">${linked}</figure>`,
   };
-  return image;
+  return html;
 }
 
 function portalCtaAnchor(): WidgetNode {
@@ -210,7 +217,7 @@ function portalHeaderWidget(brand: string, ctaLabel: string, offer: string): Wid
   const isScroll = offer.startsWith("#");
   const cta =
     offer && ctaLabel
-      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;min-width:7.5rem;padding:10px 18px;border-radius:999px;background:#ea580c;color:#fff;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,.25)">${escapeHtml(ctaLabel)}</a>`
+      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;min-width:9.5rem;padding:12px 22px;border-radius:999px;background:linear-gradient(180deg,#f97316,#ea580c);color:#fff;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap;box-shadow:0 8px 22px -6px rgba(234,88,12,.55),0 0 0 1px rgba(255,255,255,.15) inset;letter-spacing:.02em">${escapeHtml(ctaLabel)}</a>`
       : "";
   html.content = {
     ...html.content,
@@ -242,21 +249,23 @@ function portalCtaNote(note: string): WidgetNode {
 
 function portalOfferButton(label: string, offer: string): WidgetNode {
   const button = createWidget("button");
-  button.content = { ...button.content, text: label, href: offer, target: "_self" };
+  button.content = { ...button.content, text: label, href: offer, target: "_self", offerPrimary: true };
   button.styles = {
     ...button.styles,
     color: "#ffffff",
-    background: "#ea580c",
+    background: "linear-gradient(180deg, #f97316 0%, #ea580c 100%)",
     align: { desktop: "center" },
-    padding: { desktop: { top: 14, right: 28, bottom: 14, left: 28, unit: "px" } },
-    border: { width: 0, style: "solid", color: "#000000", radius: 8 },
-    margin: { desktop: { top: 4, right: 0, bottom: 0, left: 0, unit: "px" } },
+    width: { desktop: "100%" },
+    padding: { desktop: { top: 18, right: 36, bottom: 18, left: 36, unit: "px" } },
+    border: { width: 0, style: "solid", color: "#000000", radius: 14 },
+    margin: { desktop: { top: 8, right: 0, bottom: 0, left: 0, unit: "px" } },
+    boxShadow: "0 14px 36px -10px rgba(234, 88, 12, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.14) inset",
   };
   const typo = button.styles.typography;
   if (typo?.desktop) {
     button.styles.typography = {
       ...typo,
-      desktop: { ...typo.desktop, fontSize: 16, fontWeight: 700, textAlign: "center" },
+      desktop: { ...typo.desktop, fontSize: 19, fontWeight: 800, textAlign: "center", lineHeight: 1.25 },
     };
   }
   return button;

@@ -65,11 +65,11 @@ describe("buildEditablePageDocument", () => {
     expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("StopWatt");
     expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("Official offer");
     const articleWidgets = doc.sections[1].columns[0].widgets;
-    const media = articleWidgets.find((w) => w.type === "image");
-    expect(media?.content.hero).toBe(false);
-    expect(media?.content.src).toBe("https://cdn.example/pack.jpg");
+    const media = articleWidgets.find((w) => w.type === "html");
+    expect(String(media?.content.code)).toContain("https://cdn.example/pack.jpg");
+    expect(String(media?.content.code)).toContain("data-presell-portal-photo");
     const bodyTypes = articleWidgets.map((w) => w.type);
-    expect(bodyTypes).toEqual(["heading", "heading", "image", "text"]);
+    expect(bodyTypes).toEqual(["heading", "heading", "html", "text"]);
     const headline = String(articleWidgets[1].content.text).toLowerCase();
     expect(headline).toContain("stopwatt");
     expect(headline).not.toContain("milagrosa");
@@ -182,10 +182,10 @@ describe("buildEditablePageDocument", () => {
         generationNiche: "black",
       },
     });
-    const image = doc.sections
+    const photo = doc.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
-      .find((w) => w.type === "image");
-    expect(image?.content.src).toBe(png);
+      .find((w) => w.type === "html" && String(w.content.code).includes("data:image/png"));
+    expect(String(photo?.content.code)).toContain(png.slice(0, 40));
   });
 
   it("não inventa foto nem botão quando esses dados não existem", () => {
@@ -298,8 +298,8 @@ describe("buildEditablePageDocument", () => {
     );
     expect(resolved.settings.maxContentWidth).toBe(720);
     expect(resolved.sections[0].columns[0].widgets[0].type).toBe("html");
-    const image = resolved.sections[1].columns[0].widgets.find((w) => w.type === "image");
-    expect(image?.content.hero).toBe(false);
+    const photo = resolved.sections[1].columns[0].widgets.find((w) => w.type === "html");
+    expect(String(photo?.content.code)).toContain("pack.jpg");
     const headline = resolved.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "heading" && w.content.tag === "h1");

@@ -132,18 +132,32 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
       ? c.iconSize
       : Math.max(14, Math.round(((widget.styles.typography?.desktop?.fontSize as number) || 16) * 0.95));
   const IconComp = resolveLucideIcon(iconName);
+  const offerPrimary = c.offerPrimary === true;
   const rowStyle: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    ...(offerPrimary
+      ? {
+          width: "100%",
+          maxWidth: "min(100%, 26rem)",
+          minHeight: "3.35rem",
+        }
+      : {}),
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: alignToFlexJustify(align) }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: offerPrimary ? "center" : alignToFlexJustify(align),
+        width: offerPrimary ? "100%" : undefined,
+      }}
+    >
       <div
         className={hasEntrance ? `lovBtn_wrap_${sid}` : undefined}
-        style={{ display: "inline-block" }}
+        style={{ display: "inline-block", width: offerPrimary ? "100%" : undefined, maxWidth: offerPrimary ? "min(100%, 26rem)" : undefined }}
       >
         {injectedCss ? <style dangerouslySetInnerHTML={{ __html: injectedCss }} /> : null}
         {commit ? (
@@ -178,6 +192,7 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
             target={openBlank ? "_blank" : undefined}
             rel={openBlank ? "noopener noreferrer" : undefined}
             data-clickora-offer={placeholderHref ? "1" : undefined}
+            data-clickora-offer-primary={offerPrimary ? "1" : undefined}
             className={`lovBtn_${sid}`}
             style={{ ...btnStyle, ...rowStyle, textDecoration: "none" }}
           >

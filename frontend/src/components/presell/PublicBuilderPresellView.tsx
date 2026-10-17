@@ -115,7 +115,7 @@ export function PublicBuilderPresellView({
       className={
         interactionLocked
           ? "[&_a]:pointer-events-none [&_a]:opacity-50 [&_button]:pointer-events-none [&_button]:opacity-50"
-          : undefined
+          : "[&_[data-presell-portal-photo]_img]:object-contain [&_[data-clickora-offer-primary='1']]:hover:brightness-105 [&_[data-clickora-offer-primary='1']]:active:scale-[0.99]"
       }
     >
       <PageRenderer doc={doc} device="desktop" />
