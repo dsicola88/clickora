@@ -100,7 +100,7 @@ export function AppCommandPalette({ className }: Props) {
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          "group flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border/80 bg-muted/40 px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:max-w-md md:flex-none md:w-72 lg:w-80",
+          "group flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-border/80 bg-muted/50 px-2.5 text-left text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           className,
         )}
       >

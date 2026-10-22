@@ -23,18 +23,25 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <AppUpdateNotice />
           <header
             className={cn(
-              "sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+              "sticky top-0 z-30 relative flex h-12 shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",
             )}
           >
-            <SidebarTrigger
-              className="h-9 w-9 shrink-0 touch-manipulation md:h-8 md:w-8"
-              title="Encolher / expandir menu"
-              aria-label="Encolher ou expandir menu"
-            />
-            <Separator orientation="vertical" className="hidden h-4 sm:block" />
-            <div className="flex min-w-0 flex-1 items-center md:flex-none">
-              <AppCommandPalette />
+            <div className="z-10 flex shrink-0 items-center gap-2">
+              <SidebarTrigger
+                className="h-9 w-9 shrink-0 touch-manipulation md:h-8 md:w-8"
+                title="Encolher / expandir menu"
+                aria-label="Encolher ou expandir menu"
+              />
+              <Separator orientation="vertical" className="hidden h-4 sm:block" />
             </div>
+            {/* Pesquisa centrada no header (padrão Linear / Notion). */}
+            <div className="pointer-events-none absolute inset-x-0 flex justify-center px-14 sm:px-16">
+              <div className="pointer-events-auto w-full max-w-md md:max-w-lg">
+                <AppCommandPalette className="w-full max-w-none" />
+              </div>
+            </div>
+            {/* Equilíbrio visual à direita do trigger */}
+            <div className="ml-auto hidden w-9 shrink-0 sm:block" aria-hidden />
           </header>
           <main className={mainChrome}>{children}</main>
         </SidebarInset>

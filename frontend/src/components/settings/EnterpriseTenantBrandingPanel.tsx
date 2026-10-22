@@ -95,42 +95,44 @@ export function EnterpriseTenantBrandingPanel() {
       title="Marca white-label"
       description="Nome, logo, favicon e cores nas propriedades publicadas da conta."
     >
-      <div className="space-y-4 px-4 pb-4 max-w-xl">
+      <div className="space-y-4 px-4 pb-4">
         {isLoading ? (
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar…
           </p>
         ) : (
           <>
-            <div className="space-y-1.5">
-              <Label htmlFor="brand-name">Nome da marca</Label>
-              <Input
-                id="brand-name"
-                value={brandName}
-                onChange={(e) => setBrandName(e.target.value)}
-                maxLength={120}
-                placeholder="A sua marca"
-              />
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-1.5 md:col-span-1">
+                <Label htmlFor="brand-name">Nome da marca</Label>
+                <Input
+                  id="brand-name"
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  maxLength={120}
+                  placeholder="A sua marca"
+                />
+              </div>
+              <div className="space-y-1.5 md:col-span-1">
+                <Label htmlFor="logo-url">URL do logo</Label>
+                <Input
+                  id="logo-url"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+              <div className="space-y-1.5 md:col-span-1">
+                <Label htmlFor="favicon-url">URL do favicon</Label>
+                <Input
+                  id="favicon-url"
+                  value={faviconUrl}
+                  onChange={(e) => setFaviconUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="logo-url">URL do logo</Label>
-              <Input
-                id="logo-url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://…"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="favicon-url">URL do favicon</Label>
-              <Input
-                id="favicon-url"
-                value={faviconUrl}
-                onChange={(e) => setFaviconUrl(e.target.value)}
-                placeholder="https://…"
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
               <div className="space-y-1.5">
                 <Label htmlFor="primary-color">Cor primária</Label>
                 <div className="flex gap-2">
