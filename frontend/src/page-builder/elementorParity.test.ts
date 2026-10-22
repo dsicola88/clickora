@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createWidget } from "./factory";
 import { WIDGET_LIST, WIDGET_REGISTRY } from "./widget-registry";
 import type { WidgetType } from "./types";
+import { buildWidgetMotionCss, widgetHasMotion } from "./widget-motion";
+import { stylesToCssWidgetContent } from "./style-utils";
 
 /** Elementor Free + Essential (landing) → Clickora. */
 const ELEMENTOR_LANDING_MAP: Array<{ elementor: string; ours: WidgetType | WidgetType[] }> = [
@@ -64,5 +66,24 @@ describe("Elementor landing parity", () => {
     expect(w.effects).toBeUndefined();
     w.effects = { entranceAnimation: "fadeIn", hoverTransform: "scale(1.05)" };
     expect(w.effects.entranceAnimation).toBe("fadeIn");
+  });
+
+  it("every widget supports Elementor Style+Advanced motion pipeline", () => {
+    for (const def of WIDGET_LIST) {
+      const w = createWidget(def.type);
+      w.effects = {
+        entranceAnimation: "fadeIn",
+        hoverTransform: "scale(1.05)",
+        hoverColor: "#fff",
+        hoverBackground: "#111",
+        hoverBorderColor: "#222",
+      };
+      expect(widgetHasMotion(w.effects, w.content)).toBe(true);
+      const css = buildWidgetMotionCss(w.id, w.effects, w.content);
+      expect(css).toContain(":hover");
+      expect(css).toContain("fadeIn");
+      // Style shell must always resolve without throw
+      expect(() => stylesToCssWidgetContent(w.styles, "desktop")).not.toThrow();
+    }
   });
 });

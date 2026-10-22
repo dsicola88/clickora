@@ -117,6 +117,14 @@ export function resolveWidgetEffects(
       effects?.hoverBoxShadow ??
       (typeof c.hoverBoxShadow === "string" ? c.hoverBoxShadow : undefined),
     hoverOpacity: effects?.hoverOpacity,
+    hoverColor:
+      effects?.hoverColor ?? (typeof c.hoverColor === "string" ? c.hoverColor : undefined),
+    hoverBackground:
+      effects?.hoverBackground ??
+      (typeof c.hoverBackground === "string" ? c.hoverBackground : undefined),
+    hoverBorderColor:
+      effects?.hoverBorderColor ??
+      (typeof c.hoverBorderColor === "string" ? c.hoverBorderColor : undefined),
     transitionDurationMs:
       effects?.transitionDurationMs ??
       (typeof c.transitionDurationMs === "number" ? c.transitionDurationMs : undefined) ??
@@ -152,14 +160,21 @@ export function buildWidgetMotionCss(
   const entDelay = Math.max(0, e.entranceDelayMs ?? 0);
   const entEase = (e.entranceEasing || "cubic-bezier(0.4, 0, 0.2, 1)").trim();
 
-  let css = `.${cls}{transition:transform ${duration}ms ${easing},box-shadow ${duration}ms ${easing},opacity ${duration}ms ${easing}`;
+  let css = `.${cls}{transition:transform ${duration}ms ${easing},box-shadow ${duration}ms ${easing},opacity ${duration}ms ${easing},color ${duration}ms ${easing},background ${duration}ms ${easing},border-color ${duration}ms ${easing}`;
   if (transform) css += `;transform:${transform}`;
   css += `}`;
+
+  const hoverColor = e.hoverColor?.trim();
+  const hoverBackground = e.hoverBackground?.trim();
+  const hoverBorderColor = e.hoverBorderColor?.trim();
 
   const hoverRules: string[] = [];
   if (hoverTransform) hoverRules.push(`transform:${hoverTransform}`);
   if (hoverBoxShadow) hoverRules.push(`box-shadow:${hoverBoxShadow}`);
   if (hoverOpacity !== undefined) hoverRules.push(`opacity:${hoverOpacity}`);
+  if (hoverColor) hoverRules.push(`color:${hoverColor}`);
+  if (hoverBackground) hoverRules.push(`background:${hoverBackground}`);
+  if (hoverBorderColor) hoverRules.push(`border-color:${hoverBorderColor}`);
   if (hoverRules.length) css += `.${cls}:hover{${hoverRules.join(";")}}`;
 
   if (keyEnt && entrance !== "none") {
@@ -181,6 +196,9 @@ export function widgetHasMotion(
       e.transform?.trim() ||
       e.hoverTransform?.trim() ||
       e.hoverBoxShadow?.trim() ||
+      e.hoverColor?.trim() ||
+      e.hoverBackground?.trim() ||
+      e.hoverBorderColor?.trim() ||
       (typeof e.hoverOpacity === "number" && !Number.isNaN(e.hoverOpacity)),
   );
 }

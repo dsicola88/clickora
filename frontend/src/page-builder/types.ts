@@ -144,6 +144,10 @@ export interface WidgetEffects {
   hoverTransform?: string;
   hoverBoxShadow?: string;
   hoverOpacity?: number;
+  /** Cores de hover (Elementor Style → Hover) — todos os widgets. */
+  hoverColor?: string;
+  hoverBackground?: string;
+  hoverBorderColor?: string;
   transitionDurationMs?: number;
   transitionEasing?: string;
 }

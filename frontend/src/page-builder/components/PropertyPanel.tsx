@@ -877,11 +877,87 @@ function WidgetContentTab({
           />
         </Section>
       );
-    default:
-      return null;
+    default: {
+      const keys = Object.keys(c);
+      return (
+        <Section title="Conteúdo">
+          <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1">
+            Este widget usa campos livres. Estilo e efeitos estão nas abas Estilo / Avançado.
+          </p>
+          {keys.length === 0 ? (
+            <p className="text-xs text-editor-fg-muted">Sem campos de conteúdo.</p>
+          ) : (
+            keys.map((key) => {
+              const val = c[key];
+              if (typeof val === "boolean") {
+                return (
+                  <SelectField
+                    key={key}
+                    label={key}
+                    value={val ? "yes" : "no"}
+                    options={[
+                      { value: "yes", label: "Sim" },
+                      { value: "no", label: "Não" },
+                    ]}
+                    onChange={(v) => setContent({ [key]: v === "yes" })}
+                  />
+                );
+              }
+              if (typeof val === "number") {
+                return (
+                  <NumberField
+                    key={key}
+                    label={key}
+                    value={val}
+                    onChange={(v) => setContent({ [key]: v })}
+                  />
+                );
+              }
+              if (typeof val === "string") {
+                return val.length > 80 ? (
+                  <TextareaField
+                    key={key}
+                    label={key}
+                    value={val}
+                    onChange={(v) => setContent({ [key]: v })}
+                    rows={4}
+                  />
+                ) : (
+                  <TextField
+                    key={key}
+                    label={key}
+                    value={val}
+                    onChange={(v) => setContent({ [key]: v })}
+                  />
+                );
+              }
+              return (
+                <TextareaField
+                  key={key}
+                  label={key}
+                  value={JSON.stringify(val, null, 2)}
+                  onChange={(v) => {
+                    try {
+                      setContent({ [key]: JSON.parse(v) });
+                    } catch {
+                      /* ignore invalid json while typing */
+                    }
+                  }}
+                  rows={4}
+                />
+              );
+            })
+          )}
+        </Section>
+      );
+    }
   }
 }
 
+/**
+ * Estilo Elementor completo — igual para TODOS os widgets (independente do tipo).
+ * Conteúdo específico fica na aba Conteúdo; motion/hover avançado na aba Avançado.
+ */
 function WidgetStyleTab({
   widget,
   device,
@@ -891,169 +967,142 @@ function WidgetStyleTab({
   device: DeviceType;
   setStyles: (p: Partial<BaseStyles & ResponsiveStyles>) => void;
 }) {
+  const setBorder = (patch: Partial<NonNullable<BaseStyles["border"]>>) =>
+    setStyles({
+      border: {
+        width: widget.styles.border?.width ?? 0,
+        style: widget.styles.border?.style ?? "solid",
+        color: widget.styles.border?.color ?? "#000000",
+        radius: widget.styles.border?.radius ?? 0,
+        ...patch,
+      },
+    });
+
   return (
     <>
-      {widget.type === "spacer" ? (
-        <Section title="Tamanho">
-          <TextField
-            label={`Altura (${device})`}
-            value={(resolveResponsive(widget.styles.height, device) as string) ?? "50px"}
-            onChange={(v) =>
-              setStyles({ height: setResponsive(widget.styles.height, device, v) })
-            }
-          />
-        </Section>
-      ) : (
-        <>
-          {widget.type === "video" || widget.type === "stickyVideo" ? (
-            <div className="border-b border-editor-border px-3 pb-3">
-              <p className="text-[11px] leading-relaxed text-editor-fg-muted">
-                <span className="font-semibold text-editor-fg">Link do YouTube ou Bunny:</span> está na aba{" "}
-                <span className="font-semibold text-editor-fg">Conteúdo</span> (primeiro separador em cima). Aqui só
-                defines fundo e margens do bloco.
-              </p>
-            </div>
-          ) : null}
-          <Section title="Cores">
-            {widget.type !== "image" &&
-            widget.type !== "video" &&
-            widget.type !== "stickyVideo" &&
-            widget.type !== "gallery" &&
-            widget.type !== "imageCarousel" &&
-            widget.type !== "tabs" &&
-            widget.type !== "socialIcons" &&
-            widget.type !== "iconList" && (
-              <ColorField
-                label="Cor do texto"
-                value={widget.styles.color ?? ""}
-                onChange={(v) => setStyles({ color: v })}
-              />
-            )}
-            <ColorField
-              label="Fundo"
-              value={widget.styles.background ?? ""}
-              onChange={(v) => setStyles({ background: v })}
-            />
-            <NumberField
-              label="Opacidade (0–1)"
-              value={typeof widget.styles.opacity === "number" ? widget.styles.opacity : 1}
-              min={0}
-              max={1}
-              step={0.05}
-              onChange={(v) => setStyles({ opacity: v })}
-            />
-          </Section>
-          <div className="border-b border-editor-border px-3 py-2">
-            <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-              Animações de entrada e hover: aba <span className="font-semibold text-editor-fg">Avançado</span>{" "}
-              → Motion Effects (cada widget é independente).
-            </p>
-          </div>
+      <div className="border-b border-editor-border px-3 py-2">
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+          Estilo deste elemento (como Elementor). Dispositivo ativo:{" "}
+          <span className="font-semibold text-editor-fg">{device}</span>. Hover e animação de entrada →{" "}
+          <span className="font-semibold text-editor-fg">Avançado</span>.
+        </p>
+      </div>
 
-          {(widget.type === "heading" ||
-            widget.type === "text" ||
-            widget.type === "button" ||
-            widget.type === "animatedHeadline" ||
-            widget.type === "alert" ||
-            widget.type === "infoBox" ||
-            widget.type === "imageBox" ||
-            widget.type === "ctaBox" ||
-            widget.type === "ticker" ||
-            widget.type === "phoneCall" ||
-            widget.type === "dateWidget" ||
-            widget.type === "navMenu" ||
-            widget.type === "counter" ||
-            widget.type === "starRating" ||
-            widget.type === "icon") && (
-            <TypographySection styles={widget.styles} device={device} setStyles={setStyles} />
-          )}
+      <Section title={`Tamanho (${device})`}>
+        <TextField
+          label="Largura"
+          value={(resolveResponsive(widget.styles.width, device) as string) ?? ""}
+          onChange={(v) => {
+            const t = v.trim();
+            if (!t) setStyles({ width: undefined });
+            else setStyles({ width: setResponsive(widget.styles.width, device, t) });
+          }}
+          placeholder="auto, 100%, 320px…"
+        />
+        <TextField
+          label="Altura"
+          value={
+            (resolveResponsive(widget.styles.height, device) as string) ??
+            (widget.type === "spacer" ? "50px" : "")
+          }
+          onChange={(v) => {
+            const t = v.trim();
+            if (!t) setStyles({ height: undefined });
+            else setStyles({ height: setResponsive(widget.styles.height, device, t) });
+          }}
+          placeholder={widget.type === "spacer" ? "50px" : "auto, 200px…"}
+        />
+      </Section>
 
-          <SpacingSection styles={widget.styles} device={device} setStyles={setStyles} />
+      <Section title="Cores">
+        <ColorField
+          label="Cor do texto"
+          value={widget.styles.color ?? ""}
+          onChange={(v) => setStyles({ color: v })}
+        />
+        <ColorField
+          label="Fundo"
+          value={widget.styles.background ?? ""}
+          onChange={(v) => setStyles({ background: v })}
+        />
+        <NumberField
+          label="Opacidade (0–1)"
+          value={typeof widget.styles.opacity === "number" ? widget.styles.opacity : 1}
+          min={0}
+          max={1}
+          step={0.05}
+          onChange={(v) => setStyles({ opacity: v })}
+        />
+      </Section>
 
-          <Section title="Borda">
-            <NumberField
-              label="Espessura (px)"
-              value={widget.styles.border?.width ?? 0}
-              min={0}
-              max={40}
-              onChange={(v) =>
-                setStyles({
-                  border: {
-                    width: v,
-                    style: widget.styles.border?.style ?? "solid",
-                    color: widget.styles.border?.color ?? "#000000",
-                    radius: widget.styles.border?.radius ?? 0,
-                  },
-                })
-              }
-            />
-            <ColorField
-              label="Cor da borda"
-              value={widget.styles.border?.color ?? "#000000"}
-              onChange={(v) =>
-                setStyles({
-                  border: {
-                    width: widget.styles.border?.width ?? 0,
-                    style: widget.styles.border?.style ?? "solid",
-                    color: v,
-                    radius: widget.styles.border?.radius ?? 0,
-                  },
-                })
-              }
-            />
-            <NumberField
-              label="Raio (px)"
-              value={widget.styles.border?.radius ?? 0}
-              min={0}
-              max={999}
-              onChange={(v) =>
-                setStyles({
-                  border: {
-                    width: widget.styles.border?.width ?? 0,
-                    style: widget.styles.border?.style ?? "solid",
-                    color: widget.styles.border?.color ?? "#000000",
-                    radius: v,
-                  },
-                })
-              }
-            />
-          </Section>
+      <TypographySection styles={widget.styles} device={device} setStyles={setStyles} />
 
-          <Section title="Sombra">
-            <TextareaField
-              label="Sombra (CSS)"
-              value={widget.styles.boxShadow ?? ""}
-              onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
-              rows={2}
-              placeholder="0 4px 14px rgba(15, 23, 42, 0.12)"
-            />
-          </Section>
+      <SpacingSection styles={widget.styles} device={device} setStyles={setStyles} />
 
-          <Section title="Alinhamento do bloco">
-            <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
-              Posiciona o elemento na coluna (independente do alinhamento do texto na tipografia).
-            </p>
-            <SelectField
-              label={`Alinhamento (${device})`}
-              value={(resolveResponsive(widget.styles.align, device) as string) ?? "left"}
-              options={[
-                { value: "left", label: "Esquerda" },
-                { value: "center", label: "Centro" },
-                { value: "right", label: "Direita" },
-              ]}
-              onChange={(v) =>
-                setStyles({
-                  align: setResponsive(
-                    widget.styles.align,
-                    device,
-                    v as "left" | "center" | "right",
-                  ),
-                })
-              }
-            />
-          </Section>
-        </>
-      )}
+      <Section title="Borda">
+        <NumberField
+          label="Espessura (px)"
+          value={widget.styles.border?.width ?? 0}
+          min={0}
+          max={40}
+          onChange={(v) => setBorder({ width: v })}
+        />
+        <SelectField
+          label="Estilo"
+          value={widget.styles.border?.style ?? "solid"}
+          options={[
+            { value: "none", label: "Nenhuma" },
+            { value: "solid", label: "Sólida" },
+            { value: "dashed", label: "Tracejada" },
+            { value: "dotted", label: "Pontilhada" },
+          ]}
+          onChange={(v) =>
+            setBorder({ style: v as NonNullable<BaseStyles["border"]>["style"] })
+          }
+        />
+        <ColorField
+          label="Cor da borda"
+          value={widget.styles.border?.color ?? "#000000"}
+          onChange={(v) => setBorder({ color: v })}
+        />
+        <NumberField
+          label="Raio (px)"
+          value={widget.styles.border?.radius ?? 0}
+          min={0}
+          max={999}
+          onChange={(v) => setBorder({ radius: v })}
+        />
+      </Section>
+
+      <Section title="Sombra">
+        <TextareaField
+          label="Sombra (CSS box-shadow)"
+          value={widget.styles.boxShadow ?? ""}
+          onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
+          rows={2}
+          placeholder="0 4px 14px rgba(15, 23, 42, 0.12)"
+        />
+      </Section>
+
+      <Section title="Alinhamento do bloco">
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
+          Posição na coluna (independente do alinhamento tipográfico).
+        </p>
+        <SelectField
+          label={`Alinhamento (${device})`}
+          value={(resolveResponsive(widget.styles.align, device) as string) ?? "left"}
+          options={[
+            { value: "left", label: "Esquerda" },
+            { value: "center", label: "Centro" },
+            { value: "right", label: "Direita" },
+          ]}
+          onChange={(v) =>
+            setStyles({
+              align: setResponsive(widget.styles.align, device, v as "left" | "center" | "right"),
+            })
+          }
+        />
+      </Section>
     </>
   );
 }

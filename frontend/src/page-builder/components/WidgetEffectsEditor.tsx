@@ -5,7 +5,7 @@ import {
   HOVER_PRESET_OPTIONS,
   resolveWidgetEffects,
 } from "../widget-motion";
-import { NumberField, SelectField, TextareaField } from "./PropertyControls";
+import { ColorField, NumberField, SelectField, TextareaField } from "./PropertyControls";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -106,6 +106,21 @@ export function WidgetEffectsEditor({
           rows={2}
           placeholder="scale(1.05) translateY(-2px)"
         />
+        <ColorField
+          label="Cor do texto (hover)"
+          value={e.hoverColor ?? ""}
+          onChange={(v) => patch({ hoverColor: v.trim() ? v : undefined })}
+        />
+        <ColorField
+          label="Fundo (hover)"
+          value={e.hoverBackground ?? ""}
+          onChange={(v) => patch({ hoverBackground: v.trim() ? v : undefined })}
+        />
+        <ColorField
+          label="Cor da borda (hover)"
+          value={e.hoverBorderColor ?? ""}
+          onChange={(v) => patch({ hoverBorderColor: v.trim() ? v : undefined })}
+        />
         <TextareaField
           label="Sombra no hover"
           value={e.hoverBoxShadow ?? ""}
@@ -121,9 +136,6 @@ export function WidgetEffectsEditor({
           step={0.05}
           onChange={(v) => patch({ hoverOpacity: v })}
         />
-        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          No botão, cores de hover (texto/fundo) continuam na aba <strong>Conteúdo</strong>.
-        </p>
       </Section>
     </>
   );
