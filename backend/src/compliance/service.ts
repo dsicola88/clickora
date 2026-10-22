@@ -6,6 +6,7 @@ import {
   buildEvaluationFromResults,
   canPublishForAds,
   evaluateCompliance,
+  isInstantPublishPresellType,
 } from "./evaluate";
 import { probeDestinationUrl } from "./destinationProbe";
 import { probeTrackingParamPreservation } from "./trackingProbe";
@@ -279,6 +280,7 @@ export async function recordComplianceDecision(args: {
 /**
  * Impede publicação se a gate não permitir.
  * Se o conteúdo mudou desde a última auditoria, exige reauditoria.
+ * Tipo `builder` (editor manual): publica de imediato — auditoria em background, sem bloquear.
  */
 export async function assertPublishAllowed(args: {
   page: PresellLike;
@@ -294,6 +296,15 @@ export async function assertPublishAllowed(args: {
     settings: args.page.settings,
     videoUrl: args.page.videoUrl,
   });
+
+  /** Elementor-style: editar → domínio → Publicar → no ar (rastreio no head). */
+  if (isInstantPublishPresellType(args.page.type)) {
+    void runPresellComplianceAudit({
+      presell: { ...args.page, contentFingerprint: signals.contentFingerprint },
+      skipDestinationProbe: true,
+    }).catch(() => undefined);
+    return { ok: true };
+  }
 
   const fingerprintChanged =
     Boolean(args.page.contentFingerprint) &&

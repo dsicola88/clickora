@@ -58,6 +58,7 @@ import {
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { customDomainService } from "@/services/customDomainService";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
@@ -159,12 +160,11 @@ export default function PresellDashboard() {
     setSearchParams({ [PRESELL_DASH_ANALYTICS_TAB_PARAM]: v }, { replace: true });
   };
 
-  /** Mesmo padrão do Tracking → dashboard: script a colar no &lt;head&gt; da presell. */
+  /** Mesmo padrão do Tracking → dashboard: script async no &lt;head&gt; da presell. */
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    const base = getTrackApiBaseUrl().replace(/\/$/, "");
-    return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
+    return buildClickoraEmbedScriptHtml({ apiBase: getTrackApiBaseUrl(), userId: uid });
   }, [user?.id]);
 
   /**

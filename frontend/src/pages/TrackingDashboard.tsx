@@ -40,6 +40,7 @@ import { integrationsService } from "@/services/integrationsService";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { Switch } from "@/components/ui/switch";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
+import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { formatGoogleAdsDashboardMoney } from "@/lib/googleAdsDashboardMoney";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -1721,7 +1722,8 @@ export default function TrackingDashboard() {
   const trackingScript = useMemo(() => {
     const uid = dashboard?.tracking_install?.user_id || user?.id;
     if (!uid) return "";
-    return `<script src="${resolvedEmbedSrc}" data-id="${uid}"></script>`;
+    const base = resolvedEmbedSrc.replace(/\/track\/v2\/clickora\.min\.js$/i, "");
+    return buildClickoraEmbedScriptHtml({ apiBase: base, userId: uid });
   }, [dashboard?.tracking_install?.user_id, user?.id, resolvedEmbedSrc]);
 
   const scriptStillLocalhostOnDeploy = useMemo(() => {

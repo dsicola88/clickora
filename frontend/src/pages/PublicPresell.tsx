@@ -45,6 +45,7 @@ const PublicBuilderPresellView = lazy(() =>
   })),
 );
 import { getTrackApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
+import { buildClickoraEmbedScriptHtml, stripClickoraEmbedScripts } from "@/lib/clickoraEmbedScript";
 import {
   getPublicPresellPrefetchResult,
   startPublicPresellPrefetchForParam,
@@ -699,9 +700,11 @@ export default function PublicPresell() {
     setFieldGate(p);
   }, []);
 
-  useEffect(() => {
+  /** Pixel o mais cedo possível (layout) — impressão Ads antes de paint pesado. */
+  useLayoutEffect(() => {
     if (!page?.id || page.cloak_safe === true) return;
     const pixel = new Image();
+    pixel.decoding = "async";
     pixel.src = buildImpressionPixelUrl(apiBase, page.id, search);
     // Uma visita = uma impressão; mudanças de query na mesma página não recontam.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só page.id
@@ -727,11 +730,16 @@ export default function PublicPresell() {
     if (!page?.id || page.cloak_safe === true) return;
     const s = (page.settings || {}) as Record<string, unknown>;
     const conversionTrackingScript = String(s.conversionTrackingScript ?? "").trim();
-    const headerCode = String(s.headerCode ?? "").trim();
+    /** Remove clickora duplicado/localhost do head guardado — injectamos o canónico abaixo. */
+    const headerCode = stripClickoraEmbedScripts(String(s.headerCode ?? ""));
     const bodyCode = String(s.bodyCode ?? "").trim();
     const footerCode = String(s.footerCode ?? "").trim();
     const customCss = String(s.customCss ?? "").trim();
     const optionalMarketing = buildPresellOptionalSettingsMarketing(s);
+    const clickoraHead = buildClickoraEmbedScriptHtml({
+      apiBase,
+      presellId: page.id,
+    });
 
     const cleanups: (() => void)[] = [];
 
@@ -742,6 +750,8 @@ export default function PublicPresell() {
       document.head.appendChild(style);
       cleanups.push(() => style.remove());
     }
+    /** Sempre no &lt;head&gt;, async + data-presell-id — pageview Ads fiável e sem bloquear LCP. */
+    if (clickoraHead) cleanups.push(injectWithCleanup(clickoraHead, document.head));
     if (conversionTrackingScript)
       cleanups.push(injectWithCleanup(conversionTrackingScript, document.head));
     if (optionalMarketing.headHtml.trim()) {
@@ -758,7 +768,7 @@ export default function PublicPresell() {
 
     return () => cleanups.forEach((fn) => fn());
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deps above: settingsInjectKey covers page.settings fields
-  }, [page?.id, page?.cloak_safe, settingsInjectKey]);
+  }, [page?.id, page?.cloak_safe, settingsInjectKey, apiBase]);
 
   const content = (page?.content || {}) as Record<string, unknown>;
   const tracking = (page?.tracking || {}) as Record<string, unknown>;

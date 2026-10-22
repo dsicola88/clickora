@@ -6,6 +6,7 @@ import {
   canPublishForAds,
   evaluateCompliance,
   deriveGate,
+  isInstantPublishPresellType,
 } from "./evaluate";
 import { probeTrackingParamPreservation } from "./trackingProbe";
 import { suggestCorrections } from "./correctionAssistant";
@@ -269,6 +270,12 @@ describe("presell compliance engine", () => {
     assert.equal(canPublishForAds("blocked"), false);
     assert.equal(canPublishForAds("needs_review"), false);
     assert.equal(canPublishForAds("ready_for_review"), true);
+  });
+
+  it("18b. editor visual (builder) publica de imediato sem gate Ads", () => {
+    assert.equal(isInstantPublishPresellType("builder"), true);
+    assert.equal(isInstantPublishPresellType("tsl"), false);
+    assert.equal(isInstantPublishPresellType("cookies"), false);
   });
 
   it("19. tenant isolation is enforced by query userId (contract)", () => {

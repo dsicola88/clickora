@@ -1062,6 +1062,15 @@ export function listRuleDefinitions(): RuleDefinition[] {
   return RULES.map(({ run: _run, ...rest }) => rest);
 }
 
+/**
+ * Gate interna de Ads (wizard / tipos gerados).
+ * Editor visual (`builder`) publica como Elementor — ver `isInstantPublishPresellType`.
+ */
 export function canPublishForAds(gate: ComplianceGate): boolean {
   return gate === "ready_for_review";
+}
+
+/** Editor manual / visual: Publicar = no ar de imediato (domínio + rastreio), sem fila de “aprovação” Clickora. */
+export function isInstantPublishPresellType(type: string | null | undefined): boolean {
+  return (type || "").trim().toLowerCase() === "builder";
 }

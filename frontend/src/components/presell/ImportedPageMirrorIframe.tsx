@@ -170,7 +170,7 @@ export function ImportedPageMirrorIframe({
           interactionLocked && "pointer-events-none select-none",
         )}
         style={{ height, width: "100%", maxWidth: "100%" }}
-        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation allow-top-navigation-by-user-activation"
+        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation allow-top-navigation allow-top-navigation-by-user-activation"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         referrerPolicy="no-referrer-when-downgrade"
       />

@@ -24,6 +24,11 @@ import { keywordResearchRouter } from "./routes/keywordResearch.routes";
 import { lessonsRouter } from "./routes/lessons.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/customDomainCache";
+import {
+  corsCredentialsForPath,
+  isAllowedOrigin as corsOriginAllowed,
+  isPublicTrackingPath,
+} from "./lib/corsPolicy";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
 import { initWebPushFromEnv } from "./lib/webPush";
 import { logPaidEnvStatus } from "./paid/paidEnvCheck";
@@ -116,51 +121,48 @@ function allAllowedOrigins(): string[] {
   ];
 }
 
-/** Domínio de produção do site — sempre permitir (evita CORS quebrado se FRONTEND_URL/NODE_ENV falharem no deploy). */
-function isDclickoraSiteOrigin(origin: string): boolean {
-  return /^https:\/\/(www\.)?dclickora\.com$/i.test(origin.trim());
-}
-
-/** Origem do browser em máquina local — independente de NODE_ENV (muitos .env locais usam production por engano). */
-function isLocalMachineOrigin(origin: string): boolean {
-  try {
-    const u = new URL(origin.trim());
-    const h = u.hostname.toLowerCase();
-    if (h !== "localhost" && h !== "127.0.0.1") return false;
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function isAllowedOrigin(origin: string | undefined): boolean {
-  if (!origin) return true;
-  if (isDclickoraSiteOrigin(origin)) return true;
-  if (isVerifiedCustomDomainOrigin(origin)) return true;
-  if (isLocalMachineOrigin(origin)) return true;
-  const fromEnv = allAllowedOrigins();
-  if (fromEnv.length > 0) return fromEnv.includes(origin);
-  return ["http://localhost:8080", "http://localhost:5173"].includes(origin);
+function isAllowedOrigin(origin: string | undefined, path: string): boolean {
+  return corsOriginAllowed(origin, {
+    path,
+    isVerifiedCustomDomainOrigin,
+    envAllowedOrigins: allAllowedOrigins(),
+  });
 }
 
 // ========================
 // Middleware
 // ========================
-app.use(
-  cors({
+/**
+ * CORS por caminho:
+ * - `/api/track/*` — qualquer origem http(s) (landers/oferta; embed com credentials omit).
+ * - resto — allowlist (site, domínio verificado, FRONTEND_URL) com credentials.
+ */
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const path = req.path || "";
+  if (isPublicTrackingPath(path)) {
+    return cors({
+      origin: true,
+      credentials: false,
+      optionsSuccessStatus: 204,
+      methods: ["GET", "HEAD", "POST", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Accept"],
+      exposedHeaders: ["X-Next-Cursor", "Content-Disposition"],
+    })(req, res, next);
+  }
+  return cors({
     origin: (origin, callback) => {
-      if (isAllowedOrigin(origin)) {
+      if (isAllowedOrigin(origin, path)) {
         callback(null, true);
       } else {
-        console.warn(`[CORS] origin not allowed: ${origin}`);
+        console.warn(`[CORS] origin not allowed: ${origin} path=${path}`);
         callback(null, false);
       }
     },
     credentials: true,
     optionsSuccessStatus: 204,
     exposedHeaders: ["X-Next-Cursor", "Content-Disposition"],
-  }),
-);
+  })(req, res, next);
+});
 
 /**
  * Garante `Access-Control-Allow-Origin` em respostas JSON/handlers onde o pacote `cors`
@@ -169,14 +171,17 @@ app.use(
  */
 function ensureCorsHeadersOnResponseEnd(req: Request, res: Response, next: NextFunction) {
   const origin = req.headers.origin;
-  if (!origin || !isAllowedOrigin(origin)) {
+  if (!origin) return next();
+  const path = req.path || "";
+  if (!isAllowedOrigin(origin, path)) {
     return next();
   }
+  const withCreds = corsCredentialsForPath(path);
   const origEnd = res.end.bind(res);
   res.end = function (chunk?: unknown, encoding?: unknown, cb?: unknown) {
     if (!res.getHeader("Access-Control-Allow-Origin")) {
       res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
+      if (withCreds) res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Vary", "Origin");
     }
     return origEnd(chunk as never, encoding as never, cb as never);

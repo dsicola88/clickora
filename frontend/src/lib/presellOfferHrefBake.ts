@@ -117,17 +117,17 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     const hashOrder = isCommerceHashHref(href);
     const buttonish = hasButtonishClass(attrs);
     const soft = isSoftNavHref(href);
-    /** Âncoras #order-now: mantêm href e CSS originais; redirect só no clique (iframe). */
-    if (hashOrder) return full;
     if (innerLooksLikeNetworkBadge(inner) && !labelHit) return "";
     // Soft-nav (privacy, #top…) só se não for CTA/comercial.
-    if (soft && !labelHit && !offerHit) return full;
-    // Comercial, CTA com qualquer destino (site do produto incluso), ou botão estilizado.
-    if (!offerHit && !labelHit && !(buttonish && !soft)) return full;
+    if (soft && !labelHit && !offerHit && !hashOrder) return full;
+    // #order-now / CTAs comerciais / botões — hoplink rastreado na janela principal.
+    if (!hashOrder && !offerHit && !labelHit && !(buttonish && !soft)) return full;
 
     let next = upsertAttr(attrs, "href", track);
     next = upsertAttr(next, "data-clickora-offer", "1");
-    next = upsertAttr(next, "target", "_self");
+    /** `_top`: navegação nativa sai do sandbox do iframe sem depender só do JS. */
+    next = upsertAttr(next, "target", "_top");
+    next = upsertAttr(next, "rel", "noopener noreferrer");
     return `<a${next}>${inner}</a>`;
   });
 
@@ -149,7 +149,7 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
       "data-clickora-offer",
       "1",
     );
-    return `<a${next} target="_self">${inner}</a>`;
+    return `<a${next} target="_top" rel="noopener noreferrer">${inner}</a>`;
   });
 
   return stripNetworkFooterChrome(out);

@@ -5,17 +5,26 @@ const NAV_ORDER =
   /order\s*now|buy\s*now|shop\s*now|claim|checkout|comprar|get\s+yours/i;
 
 /**
- * Mantém href/CSS original (#order-now). Só metadata + restaura links do menu que foram para /track/.
+ * Garante CTAs do menu (#order-now / Order Now) com hoplink rastreado + target=_top.
+ * Não reverte para #order-now — isso só fazia scroll e quebrava o redirect.
+ * O visual Neotonics vem de `.order-now-button` na <img>, não do href.
  */
 export function preserveNavHashCtaAppearance(html: string): string {
   if (typeof DOMParser === "undefined") return html;
   const doc = new DOMParser().parseFromString(html, "text/html");
 
+  const markOffer = (a: HTMLAnchorElement) => {
+    a.setAttribute("data-clickora-offer", "1");
+    a.setAttribute("target", "_top");
+    a.setAttribute("rel", "noopener noreferrer");
+    a.removeAttribute("data-clickora-hash-cta");
+  };
+
   doc.querySelectorAll("a[href]").forEach((node) => {
     const a = node as HTMLAnchorElement;
     const href = (a.getAttribute("href") || "").trim();
-    if (isCommerceHashHref(href)) {
-      a.setAttribute("data-clickora-offer", "1");
+    if (isCommerceHashHref(href) || /\/track\/r\//i.test(href) || href.includes("clickora.invalid/__TRACK")) {
+      markOffer(a);
     }
   });
 
@@ -27,19 +36,17 @@ export function preserveNavHashCtaAppearance(html: string): string {
       const a = node as HTMLAnchorElement;
       const href = (a.getAttribute("href") || "").trim();
       const label = (a.textContent || a.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
+      const hasOrderImg = Boolean(
+        a.querySelector("img.order-now-button, img[src*='order-now'], img[alt*='order' i]"),
+      );
       const tracked = /\/track\/r\//i.test(href) || href.includes("clickora.invalid/__TRACK");
       const hashCta = isCommerceHashHref(href);
-      const looksOrder = NAV_ORDER.test(label) || isCtaLabel(label);
+      const looksOrder = NAV_ORDER.test(label) || isCtaLabel(label) || hasOrderImg;
 
-      if (!tracked && !hashCta) return;
-      if (!looksOrder && !hashCta && !/\b(btn|button|cta)\b/i.test(a.className)) return;
+      if (!tracked && !hashCta && !looksOrder) return;
+      if (!looksOrder && !hashCta && !tracked && !/\b(btn|button|cta)\b/i.test(a.className)) return;
 
-      if (tracked && !hashCta) {
-        a.setAttribute("href", "#order-now");
-      }
-      a.setAttribute("data-clickora-offer", "1");
-      a.removeAttribute("data-clickora-hash-cta");
-      a.removeAttribute("target");
+      markOffer(a);
     });
   });
 

@@ -303,8 +303,13 @@ function expressWildcardPathSuffix(req: Request): string | undefined {
   return typeof t === "string" && t.length > 0 ? t : undefined;
 }
 
-/** Minificado: pageview via POST /track/event; presell em /p/{uuid} ou data-presell-id; envia _fbp se existir. */
-const CLICKORA_EMBED_JS = `(function(){var sc=document.currentScript;if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;var cm=typeof document!=="undefined"&&document.cookie?document.cookie.match(/(?:^|;)_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
+/**
+ * Pageview via POST /track/event.
+ * - Funciona com `async` (não depende só de document.currentScript).
+ * - presell: data-presell-id ou path /p/{uuid}.
+ * - Copia gclid/UTMs da query + _fbp para metadata (Ads → atribuição).
+ */
+const CLICKORA_EMBED_JS = `(function(){function findSc(){var s=document.currentScript;if(s&&s.src)return s;var a=document.getElementsByTagName("script");for(var i=a.length-1;i>=0;i--){if(a[i].src&&/clickora\\.min\\.js/i.test(a[i].src))return a[i];}return null;}var sc=findSc();if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;try{var q=new URLSearchParams(location.search||"");["gclid","gbraid","wbraid","fbclid","ttclid","msclkid","utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(function(k){var v=q.get(k);if(v)md[k]=v;});}catch(e){}var cm=typeof document!=="undefined"&&document.cookie?document.cookie.match(/(?:^|;)\\s*_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
 export const trackController = {
   async redirect(req: Request, res: Response) {
@@ -1286,10 +1291,12 @@ export const trackController = {
     });
   },
 
-  /** Script leve para pageview em presells hospedadas em `/p/{uuid}`. */
+  /** Script leve para pageview em presells hospedadas em `/p/{uuid}` (async-safe). */
   serveClickoraEmbed(_req: Request, res: Response) {
     res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    /** Cache curto: correção de embed (CORS/gclid) chega rápido aos visitantes Ads. */
+    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     return res.send(CLICKORA_EMBED_JS);
   },
 

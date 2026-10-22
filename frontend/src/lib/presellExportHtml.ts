@@ -7,7 +7,8 @@ import {
   resolvePublicPresellMetaDescription,
   resolvePublicPresellOgImageUrl,
 } from "@/lib/publicPresellSeo";
-import { resolveApiUrl } from "@/lib/apiOrigin";
+import { getTrackApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
+import { buildClickoraEmbedScriptHtml, stripClickoraEmbedScripts } from "@/lib/clickoraEmbedScript";
 import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
 import {
@@ -491,8 +492,16 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
   }
   const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
   const conversionTrackingScript = String(settings.conversionTrackingScript ?? "").trim();
-  const headerCode = String(settings.headerCode ?? "").trim();
-  const headScripts = [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
+  const headerCode = stripClickoraEmbedScripts(String(settings.headerCode ?? ""));
+  const trackBase =
+    typeof window !== "undefined"
+      ? getTrackApiBaseUrl()
+      : "https://www.dclickora.com/api";
+  const clickoraHead = buildClickoraEmbedScriptHtml({
+    apiBase: trackBase,
+    presellId: page.id,
+  });
+  const headScripts = [clickoraHead, conversionTrackingScript, optionalMarketing.headHtml, headerCode]
     .filter(Boolean)
     .join("\n");
   if (headScripts) {

@@ -595,7 +595,7 @@ export const presellController = {
       }
     }
 
-    // Se já estava publicada, republicação exige nova auditoria — forçar paused até revalidar.
+    // Já publicada: republicação com gate (exceto editor visual `builder` — fica no ar como Elementor).
     if (
       page.status === "published" &&
       (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)

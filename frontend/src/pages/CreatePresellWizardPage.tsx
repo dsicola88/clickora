@@ -38,6 +38,7 @@ import {
 } from "@/lib/presellGenerationNiche";
 import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
+import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
@@ -309,7 +310,7 @@ export default function CreatePresellWizardPage() {
       );
       const uid = user?.id;
       if (uid) {
-        const embed = `<script src="${getTrackApiBaseUrl().replace(/\/$/, "")}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
+        const embed = buildClickoraEmbedScriptHtml({ apiBase: getTrackApiBaseUrl(), userId: uid });
         settings.headerCode = mergeClickoraTrackingIntoHeader(String(settings.headerCode ?? ""), embed);
       }
 

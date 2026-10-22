@@ -25,11 +25,15 @@ describe("bakeHtmlOfferHrefs", () => {
     expect(out).toContain('href="#top"');
   });
 
-  it("não altera #order-now do menu (visual original; clique no iframe)", () => {
-    const html = `<a class="btn" href="#order-now"></a><a href="#ingredients">Ingredients</a>`;
+  it("converte #order-now do menu para /track/ com target=_top (redirect nativo)", () => {
+    const html = `<a class="btn" href="#order-now"><img class="order-now-button" src="x.png"></a><a href="#ingredients">Ingredients</a>`;
     const out = bakeHtmlOfferHrefs(html, "https://app.example/track/r/x");
-    expect(out).toContain('href="#order-now"');
-    expect(out).not.toContain("track/r/x");
+    expect(out).toContain('href="https://app.example/track/r/x"');
+    expect(out).toContain('target="_top"');
+    expect(out).toContain('data-clickora-offer="1"');
+    expect(out).toContain("order-now-button");
+    expect(out).toContain('href="#ingredients"');
+    expect(out).not.toContain('href="#order-now"');
   });
 
   it("repare CTAs que apontam ao site do produto (não só buygoods)", () => {

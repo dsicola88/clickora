@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
+import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
 import {
@@ -94,8 +95,7 @@ export default function PresellManualBuilderPage() {
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    const base = getTrackApiBaseUrl().replace(/\/$/, "");
-    return `<script src="${base}/track/v2/clickora.min.js" data-id="${uid}"></script>`;
+    return buildClickoraEmbedScriptHtml({ apiBase: getTrackApiBaseUrl(), userId: uid });
   }, [user?.id]);
   const contentRef = useRef<Record<string, unknown>>({});
   const pageTypeRef = useRef("builder");
@@ -296,6 +296,7 @@ export default function PresellManualBuilderPage() {
         language,
         content,
         settings: buildSettingsPayload(),
+        /** Rascunho só no POST; a seguir publicamos de imediato (sem fila de aprovação). */
         status: "draft",
         ...(hasVerifiedCustomDomain && customDomainId
           ? { custom_domain_id: customDomainId }
@@ -305,21 +306,18 @@ export default function PresellManualBuilderPage() {
       if (routeId) {
         const { data: updated, error } = await presellService.update(routeId, payload);
         if (error) throw new Error(error);
-        // Republicar só após gate de conformidade no servidor.
-        const { error: pubErr } = await presellService.toggleStatus(routeId, "published");
+        const { data: published, error: pubErr } = await presellService.toggleStatus(routeId, "published");
         if (pubErr) throw new Error(pubErr);
-        return updated;
+        return published || updated;
       }
-      const { data: created, error } = await presellService.create(payload);
+      const { data: created, error } = await presellService.create({
+        ...payload,
+        status: "published",
+      });
       if (error) throw new Error(error);
-      if (created?.id) {
+      if (created?.id && created.status !== "published") {
         const { data: published, error: pubErr } = await presellService.toggleStatus(created.id, "published");
-        if (pubErr) {
-          throw new Error(
-            pubErr ||
-              "Presell guardada em rascunho. Corrija a conformidade publicitária antes de publicar.",
-          );
-        }
+        if (pubErr) throw new Error(pubErr);
         return published || created;
       }
       return created;
@@ -327,22 +325,28 @@ export default function PresellManualBuilderPage() {
     onSuccess: async (saved) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       setAwaitingVisualPublish(false);
-      toast.success(routeId ? "Presell publicada." : "Presell guardada.");
-      if (!routeId && saved?.id) {
-        const publicUrl = getPublicPresellFullUrl(customDomains, saved.custom_domain_id ?? null, {
-          id: saved.id,
-        });
-        try {
-          await navigator.clipboard.writeText(publicUrl);
-          toast.success("Link público copiado para a área de transferência.", { duration: 6000 });
-        } catch {
-          /* ignore */
-        }
-        navigate(`/presell/builder/${saved.id}`, { replace: true });
+      if (!saved?.id) {
+        toast.success("Presell publicada.");
+        return;
       }
+      const publicUrl = getPublicPresellFullUrl(
+        customDomains,
+        saved.custom_domain_id ?? customDomainId ?? null,
+        { id: saved.id },
+      );
+      toast.success("Página publicada — pronta a usar (links e rastreamento ativos).", {
+        description: publicUrl,
+        duration: 8000,
+      });
+      try {
+        await navigator.clipboard.writeText(publicUrl);
+      } catch {
+        /* ignore */
+      }
+      navigate("/presell/dashboard", { replace: true });
     },
     onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Erro ao guardar.");
+      toast.error(e instanceof Error ? e.message : "Erro ao publicar.");
     },
   });
 
@@ -490,7 +494,8 @@ export default function PresellManualBuilderPage() {
         </div>
         {awaitingVisualPublish ? (
           <p className="shrink-0 border-b border-editor-border bg-editor-panel-2 px-3 py-2 text-xs leading-relaxed text-editor-fg">
-            A página no ar mantém-se até publicares. Aqui moves imagens, textos e botões. Publicar substitui a versão automática por esta.
+            Escolhe o domínio (se tiveres), edita e clica em <strong className="font-medium">Publicar</strong> — a
+            página fica no ar de imediato, com rastreamento e pronta na lista de Presells.
           </p>
         ) : null}
 
@@ -517,9 +522,10 @@ export default function PresellManualBuilderPage() {
               <div className="relative flex h-full w-full max-w-xl flex-col border-l border-editor-border bg-editor-panel shadow-2xl">
                 <div className="flex items-start justify-between gap-3 border-b border-editor-border px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold text-editor-fg">Publicação e rastreio</p>
+                    <p className="text-sm font-semibold text-editor-fg">Rastreio (opcional)</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-editor-fg-muted">
-                      O script Clickora entra no head ao guardar. Pixels e o script de conversão ficam aqui, fora do canvas.
+                      Ao publicar, o script Clickora entra no &lt;head&gt; automaticamente. Pixels extra e conversões
+                      podes configurar aqui — não bloqueiam a publicação.
                     </p>
                   </div>
                   <button
