@@ -152,7 +152,6 @@ const importFromUrlSchema = z.object({
 
 export const presellController = {
   async getPublicById(req: Request, res: Response) {
-    res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     const id = req.params.id;
     /** Rota pública sem JWT / ALS — usar systemPrisma com filtro explícito por id. */
     const page = await systemPrisma.presellPage.findFirst({
@@ -189,7 +188,6 @@ export const presellController = {
    * No dclickora.com / localhost / preview Vercel usa-se sempre GET /presells/id/:uuid.
    */
   async getPublicBySlug(req: Request, res: Response) {
-    res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     const raw = req.params.slug;
     const slug = typeof raw === "string" ? decodeURIComponent(raw) : "";
     if (!slug || slug.length > 200) {
@@ -239,7 +237,6 @@ export const presellController = {
    * Se `custom_domains.root_presell_id` estiver definido, usa essa; senão a mais recentemente atualizada.
    */
   async getRootPresellForHost(req: Request, res: Response) {
-    res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     const host = getRequestHostname(req);
     if (!host || isMainOrPreviewHostname(host)) {
       return res.status(404).json({ error: "Indisponível neste host.", code: "ROOT_PRESELL_MAIN_HOST" });
@@ -802,12 +799,14 @@ async function sendPublicPresell(
   const geo = shouldServeCloakSafePage(req, page.settings);
   if (geo.cloak) {
     console.info("[presell.public] página segura", { id: page.id, reason: geo.reason });
+    res.setHeader("Cache-Control", "private, no-store");
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));
   }
   const ip = extractClientIp(req);
   const visitor = resolveVisitorCountryFromRequest(req, ip);
   if (visitor.source !== "cdn77" && datacenterClickPlace(ip)) {
     console.info("[presell.public] página segura", { id: page.id, reason: "datacenter" });
+    res.setHeader("Cache-Control", "private, no-store");
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: "datacenter" }));
   }
   const guard = await enforceTrackingRules({
@@ -821,9 +820,21 @@ async function sendPublicPresell(
   });
   if (!guard.ok) {
     console.info("[presell.public] página segura", { id: page.id, reason: guard.reason });
+    res.setHeader("Cache-Control", "private, no-store");
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: guard.reason }));
   }
+  // Publicado OK: cache curto partilhável (CDN/browser) — cloak/guard já filtraram.
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
   return res.json(mapped);
+}
+
+/** Conteúdo público sem rascunho do editor nem métricas internas (JSON mais leve → TTFB). */
+function slimPublicContent(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const c = { ...(raw as Record<string, unknown>) };
+  delete c.editorWorkingDocument;
+  delete c.editor_working_document;
+  return c;
 }
 
 async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
@@ -833,8 +844,15 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
   });
   const hidePlatform = branding?.hidePoweredBy === true && plan?.hasBranding === false;
   const footerBranding = hidePlatform ? false : (plan?.hasBranding ?? true);
+  const base = mapPresell(page);
   return {
-    ...mapPresell(page),
+    ...base,
+    content: slimPublicContent(base.content),
+    clicks: undefined,
+    impressions: undefined,
+    conversions: undefined,
+    compliance_gate: undefined,
+    last_compliance_audit_at: undefined,
     footer_branding: footerBranding,
     tenant_branding: branding
       ? {

@@ -1,7 +1,15 @@
+import { Suspense } from "react";
 import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types";
 import { resolveResponsive } from "../store";
-import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
-import { WIDGET_REGISTRY } from "../widget-registry";
+import {
+  columnFlexItem,
+  isSectionStacked,
+  sectionColumnsGrid,
+  sectionDirectionFor,
+  stylesToCss,
+  stylesToCssWidgetShell,
+} from "../style-utils";
+import { resolvePublicWidgetRender } from "../widget-public-render";
 import { LcpMediaScope } from "../lcp-media";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { WidgetInlineStyle } from "../widget-custom-css";
@@ -10,7 +18,7 @@ import { motionClassName, widgetHasMotion } from "../widget-motion";
 /**
  * Read-only renderer for a PageDocument.
  * Used by the live editor preview AND by the public /p/$slug route.
- * Contains zero editor chrome — just clean output.
+ * Widgets da 1.ª dobra são síncronos; o resto é lazy (LCP).
  */
 export function PageRenderer({
   doc,
@@ -121,9 +129,8 @@ function ColumnRender({
       }}
     >
       {column.widgets.map((widget) => {
-        const def = WIDGET_REGISTRY[widget.type];
-        if (!def) return null;
-        const Render = def.Render;
+        const Render = resolvePublicWidgetRender(widget.type);
+        if (!Render) return null;
         const shell = stylesToCssWidgetShell(widget.styles, device);
         const wid = widget.cssId?.trim();
         const wcls = widget.cssClasses?.trim();
@@ -132,14 +139,11 @@ function ColumnRender({
           : "";
         const className = [wcls, motionCls].filter(Boolean).join(" ") || undefined;
         return (
-          <div
-            key={widget.id}
-            id={wid || undefined}
-            className={className}
-            style={shell}
-          >
+          <div key={widget.id} id={wid || undefined} className={className} style={shell}>
             <WidgetInlineStyle widget={widget} />
-            <Render widget={widget} device={device} />
+            <Suspense fallback={null}>
+              <Render widget={widget} device={device} />
+            </Suspense>
           </div>
         );
       })}

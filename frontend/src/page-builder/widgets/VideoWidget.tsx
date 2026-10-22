@@ -3,7 +3,6 @@ import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import { embedUrlWithPlayback, resolvePageBuilderVideoUrl } from "../videoEmbed";
-import { useClaimLcpMedia } from "../lcp-media";
 
 function VideoPlaceholder({
   variant,
@@ -88,7 +87,6 @@ export function VideoWidget({ widget, device }: { widget: WidgetNode; device: De
   const controls = widget.content.controls !== false;
   const resolved = resolvePageBuilderVideoUrl(url);
   const embedSrc = resolved ? embedUrlWithPlayback(resolved, { autoplay, controls }) : null;
-  const priority = useClaimLcpMedia(Boolean(embedSrc));
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
   const { width, ...rest } = css;
@@ -107,7 +105,7 @@ export function VideoWidget({ widget, device }: { widget: WidgetNode; device: De
           <iframe
             src={embedSrc}
             title="Vídeo"
-            loading={priority ? "eager" : "lazy"}
+            loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             style={{

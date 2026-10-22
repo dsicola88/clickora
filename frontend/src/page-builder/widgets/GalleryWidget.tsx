@@ -412,7 +412,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                     <img
                       src={img.src}
                       alt={img.alt}
-                      loading={i < slidesToShow + 2 ? "eager" : "lazy"}
+                      loading={i === 0 ? "eager" : "lazy"}
                       style={imgStyleCarousel}
                     />
                   ) : (

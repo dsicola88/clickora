@@ -1,12 +1,12 @@
 import { useDroppable } from "@dnd-kit/core";
-import type { CSSProperties } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { useNestedRender } from "../nested-render";
 import { stylesToCssWidgetContent, stylesToCssWidgetShell } from "../style-utils";
 import type { DeviceType, FlexAlign, FlexDirection, FlexJustify, FlexWrapMode, WidgetNode } from "../types";
 import { WidgetInlineStyle } from "../widget-custom-css";
 import { motionClassName, widgetHasMotion } from "../widget-motion";
 import { readContainerChildren } from "../widget-tree";
-import { WIDGET_REGISTRY } from "../widget-registry";
+import { resolvePublicWidgetRender } from "../widget-public-render";
 
 export interface ContainerContent {
   direction: FlexDirection;
@@ -108,8 +108,8 @@ function PublicContainer({
   return (
     <div style={{ ...containerFlexStyle(content), ...visual, display: "flex" }}>
       {childrenNodes.map((child) => {
-        const def = WIDGET_REGISTRY[child.type];
-        if (!def) return null;
+        const Render = resolvePublicWidgetRender(child.type);
+        if (!Render) return null;
         const shell = stylesToCssWidgetShell(child.styles, device);
         const noShrink = shell.flexShrink === 0;
         const motionCls = widgetHasMotion(child.effects, child.content)
@@ -125,7 +125,9 @@ function PublicContainer({
             style={{ ...shell, minWidth: noShrink ? "auto" : 0 }}
           >
             <WidgetInlineStyle widget={child} />
-            <def.Render widget={child} device={device} />
+            <Suspense fallback={null}>
+              <Render widget={child} device={device} />
+            </Suspense>
           </div>
         );
       })}

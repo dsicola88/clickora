@@ -151,66 +151,89 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Árvore mínima para landers /p/ — sem Auth/Toaster (menos JS e sem /me a competir com LCP). */
+function PublicPresellShell() {
+  return (
+    <Suspense fallback={null}>
+      <Routes>
+        <Route path="/p/:id" element={<PublicPresell />} />
+      </Routes>
+    </Suspense>
+  );
+}
+
+function AuthenticatedAppShell() {
+  return (
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrandingFaviconGate />
+      <AuthProvider>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/privacidade" element={<LegalPrivacyPage />} />
+            <Route path="/termos" element={<LegalTermsPage />} />
+            <Route path="/aviso-medico" element={<LegalMedicalDisclaimerPage />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/p/:id" element={<PublicPresell />} />
+            <Route
+              path="/presell/builder/:id?"
+              element={
+                <ProtectedRoute>
+                  <Suspense
+                    fallback={
+                      <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
+                        Carregando editor…
+                      </div>
+                    }
+                  >
+                    <PresellManualBuilderPage />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/planos" element={<Plans />} />
+            <Route path="/presell-para-afiliados" element={<IntentConversionPage />} />
+            <Route path="/rastreamento-afiliados" element={<IntentConversionPage />} />
+            <Route path="/guia-vendas-afiliados" element={<AffiliateGuidePage />} />
+            <Route path="/" element={<LandingRoot />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Routes>
+                      <Route path="/tracking/dpilot/*" element={<DpilotPaidApp />} />
+                      {appRoutes.map((route) => (
+                        <Route key={route.path} path={route.path} element={route.element} />
+                      ))}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </TooltipProvider>
+  );
+}
+
+function AppRouterGate() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/p/")) return <PublicPresellShell />;
+  return <AuthenticatedAppShell />;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <BrandingFaviconGate />
-          <AuthProvider>
-            <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/privacidade" element={<LegalPrivacyPage />} />
-              <Route path="/termos" element={<LegalTermsPage />} />
-              <Route path="/aviso-medico" element={<LegalMedicalDisclaimerPage />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/p/:id" element={<PublicPresell />} />
-              <Route
-                path="/presell/builder/:id?"
-                element={
-                  <ProtectedRoute>
-                    <Suspense
-                      fallback={
-                        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-                          Carregando editor…
-                        </div>
-                      }
-                    >
-                      <PresellManualBuilderPage />
-                    </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/planos" element={<Plans />} />
-              <Route path="/presell-para-afiliados" element={<IntentConversionPage />} />
-              <Route path="/rastreamento-afiliados" element={<IntentConversionPage />} />
-              <Route path="/guia-vendas-afiliados" element={<AffiliateGuidePage />} />
-              <Route path="/" element={<LandingRoot />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <Routes>
-                        <Route path="/tracking/dpilot/*" element={<DpilotPaidApp />} />
-                        {appRoutes.map((route) => (
-                          <Route key={route.path} path={route.path} element={route.element} />
-                        ))}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-            </Suspense>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+      <BrowserRouter>
+        <AppRouterGate />
+      </BrowserRouter>
     </QueryClientProvider>
   </ErrorBoundary>
 );
