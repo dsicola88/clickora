@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import {
-  CommandDialog,
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   APP_NAV_GROUP_LABEL,
-  APP_NAV_ITEMS,
   appNavSearchValue,
+  commandNavItems,
+  normalizeNavSearchText,
   type AppNavItem,
 } from "@/lib/appNav";
 import { cn } from "@/lib/utils";
@@ -24,32 +26,32 @@ const GROUP_ORDER: AppNavItem["group"][] = [
   "performance",
   "configuracao",
   "conta",
+  "avancado",
 ];
 
-function isMacPlatform(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+function useIsMacShortcut(): boolean {
+  const [mac, setMac] = useState(false);
+  useEffect(() => {
+    setMac(/Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent));
+  }, []);
+  return mac;
 }
 
 type Props = {
-  /** Classe extra no botão do header */
   className?: string;
 };
 
 /**
- * Pesquisa global de navegação — botão no topo + ⌘K / Ctrl+K (padrão Linear / Vercel).
+ * Pesquisa global de navegação — botão no topo + ⌘K / Ctrl+K.
  */
 export function AppCommandPalette({ className }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { isAdmin, isSuperAdmin } = useAuth();
   const staff = isAdmin || isSuperAdmin;
-  const mac = isMacPlatform();
+  const mac = useIsMacShortcut();
 
-  const items = useMemo(
-    () => APP_NAV_ITEMS.filter((item) => (item.staffOnly ? staff : true)),
-    [staff],
-  );
+  const items = useMemo(() => commandNavItems(staff), [staff]);
 
   const grouped = useMemo(() => {
     const map = new Map<AppNavItem["group"], AppNavItem[]>();
@@ -64,12 +66,9 @@ export function AppCommandPalette({ className }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "k") return;
-      if (!(e.metaKey || e.ctrlKey)) return;
-      const t = e.target as HTMLElement | null;
-      if (t?.closest("input, textarea, select, [contenteditable=true]")) {
-        // Ainda permite ⌘K em campos — padrão apps SaaS; não bloquear.
-      }
+      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return;
+      // Não disparar com Alt (ex. Ctrl+Alt+K de extensões) nem Shift exclusivo.
+      if (e.altKey) return;
       e.preventDefault();
       setOpen((v) => !v);
     };
@@ -77,21 +76,33 @@ export function AppCommandPalette({ className }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const go = (url: string) => {
-    setOpen(false);
-    navigate(url);
-  };
+  const go = useCallback(
+    (url: string) => {
+      setOpen(false);
+      navigate(url);
+    },
+    [navigate],
+  );
+
+  const filter = useCallback((value: string, search: string, keywords?: string[]) => {
+    const q = normalizeNavSearchText(search);
+    if (!q) return 1;
+    const hay = normalizeNavSearchText([value, ...(keywords ?? [])].join(" "));
+    return hay.includes(q) ? 1 : 0;
+  }, []);
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
+        aria-label="Pesquisar páginas e opções"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className={cn(
-          "group flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border/80 bg-muted/40 px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground md:max-w-md md:flex-none md:w-72 lg:w-80",
+          "group flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border/80 bg-muted/40 px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:max-w-md md:flex-none md:w-72 lg:w-80",
           className,
         )}
-        aria-label="Pesquisar páginas e opções"
       >
         <Search className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
         <span className="min-w-0 flex-1 truncate">Pesquisar páginas…</span>
@@ -100,30 +111,42 @@ export function AppCommandPalette({ className }: Props) {
         </kbd>
       </button>
 
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Ir para… (presells, postback, google ads…)" />
-        <CommandList>
-          <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-          {grouped.map(({ group, items: rows }) => (
-            <CommandGroup key={group} heading={APP_NAV_GROUP_LABEL[group]}>
-              {rows.map((item) => (
-                <CommandItem
-                  key={item.url}
-                  value={appNavSearchValue(item)}
-                  onSelect={() => go(item.url)}
-                  className="gap-2.5"
-                >
-                  <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{item.title}</span>
-                  <span className="ml-auto hidden truncate text-[11px] text-muted-foreground/70 sm:inline">
-                    {item.url}
-                  </span>
-                </CommandItem>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="overflow-hidden p-0 shadow-lg top-[18%] translate-y-0 gap-0 sm:max-w-lg [&>button]:hidden">
+          <DialogTitle className="sr-only">Pesquisar páginas e opções</DialogTitle>
+          {/* key força reset do filtro ao reabrir */}
+          <Command
+            key={open ? "open" : "closed"}
+            loop
+            filter={filter}
+            className="rounded-lg [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
+          >
+            <CommandInput placeholder="Ir para… (presells, postback, google ads, rotadores…)" />
+            <CommandList className="max-h-[min(420px,70vh)]">
+              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+              {grouped.map(({ group, items: rows }) => (
+                <CommandGroup key={group} heading={APP_NAV_GROUP_LABEL[group]}>
+                  {rows.map((item) => (
+                    <CommandItem
+                      key={item.url}
+                      value={appNavSearchValue(item)}
+                      keywords={item.keywords}
+                      onSelect={() => go(item.url)}
+                      className="cursor-pointer gap-2.5"
+                    >
+                      <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+                      <span className="ml-auto hidden max-w-[40%] truncate text-[11px] text-muted-foreground/70 sm:inline">
+                        {item.url}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               ))}
-            </CommandGroup>
-          ))}
-        </CommandList>
-      </CommandDialog>
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

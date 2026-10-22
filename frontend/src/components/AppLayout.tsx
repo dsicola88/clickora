@@ -27,12 +27,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
             )}
           >
             <SidebarTrigger
-              className="h-11 w-11 shrink-0 md:h-8 md:w-8"
+              className="h-9 w-9 shrink-0 touch-manipulation md:h-8 md:w-8"
               title="Encolher / expandir menu"
               aria-label="Encolher ou expandir menu"
             />
             <Separator orientation="vertical" className="hidden h-4 sm:block" />
-            <AppCommandPalette />
+            <div className="flex min-w-0 flex-1 items-center md:flex-none">
+              <AppCommandPalette />
+            </div>
           </header>
           <main className={mainChrome}>{children}</main>
         </SidebarInset>

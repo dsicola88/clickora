@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
   APP_NAV_GROUP_LABEL,
-  APP_NAV_ITEMS,
   isAppNavActive,
+  sidebarNavItems,
   type AppNavItem,
 } from "@/lib/appNav";
 
@@ -96,8 +96,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const byGroup = useMemo(() => {
     const map = new Map<AppNavItem["group"], AppNavItem[]>();
     for (const g of SIDEBAR_GROUPS) map.set(g, []);
-    for (const item of APP_NAV_ITEMS) {
-      if (item.staffOnly && !staff) continue;
+    for (const item of sidebarNavItems(staff)) {
       map.get(item.group)?.push(item);
     }
     return SIDEBAR_GROUPS.map((g) => ({ group: g, items: map.get(g) ?? [] })).filter(
