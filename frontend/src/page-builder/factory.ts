@@ -632,6 +632,68 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     },
     styles: { padding: r(spacing(12, 12, 12, 12)) },
   }),
+  imageBox: () => ({
+    content: {
+      src: "",
+      alt: "Imagem",
+      title: "Caixa com imagem",
+      description: "Título + imagem + texto, como o Image Box do Elementor.",
+      href: "",
+      titleColor: "#0f172a",
+      descColor: "#64748b",
+      imageHeight: 200,
+      objectFit: "cover",
+    },
+    styles: { padding: r(spacing(0, 0, 0, 0)), margin: r(spacing(0, 0, 16, 0)) },
+  }),
+  starRating: () => ({
+    content: {
+      rating: 4.8,
+      max: 5,
+      size: 22,
+      color: "#f59e0b",
+      emptyColor: "#e5e7eb",
+      showScore: true,
+      title: "Avaliação dos clientes",
+    },
+    styles: {
+      align: r("left" as const),
+      margin: r(spacing(0, 0, 12, 0)),
+    },
+  }),
+  counter: () => ({
+    content: {
+      start: 0,
+      end: 1250,
+      durationMs: 1600,
+      prefix: "",
+      suffix: "+",
+      title: "Clientes satisfeitos",
+      numberColor: "#0f172a",
+      titleColor: "#64748b",
+    },
+    styles: {
+      align: r("center" as const),
+      padding: r(spacing(8, 8, 8, 8)),
+      margin: r(spacing(0, 0, 16, 0)),
+    },
+  }),
+  googleMaps: () => ({
+    content: {
+      query: "Lisboa, Portugal",
+      zoom: 14,
+      height: 320,
+      embedUrl: "",
+    },
+    styles: {
+      margin: r(spacing(0, 0, 16, 0)),
+      border: { width: 0, style: "solid", color: "#000000", radius: 8 },
+    },
+  }),
+  menuAnchor: () => ({
+    content: { anchorId: "oferta" },
+    styles: { margin: r(spacing(0, 0, 0, 0)), padding: r(spacing(0, 0, 0, 0)) },
+  }),
   container: () => ({
     content: {
       direction: "row",

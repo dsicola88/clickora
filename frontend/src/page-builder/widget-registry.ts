@@ -35,6 +35,10 @@ import {
   Info,
   LayoutGrid,
   Cookie,
+  MapPin,
+  Anchor,
+  Hash,
+  ImagePlus,
 } from "lucide-react";
 import { ContainerWidget } from "./widgets/ContainerWidget";
 import { CookieBannerWidget } from "./widgets/CookieBannerWidget";
@@ -69,6 +73,11 @@ import { DateWidget } from "./widgets/DateWidget";
 import { NavMenuWidget } from "./widgets/NavMenuWidget";
 import { TickerWidget } from "./widgets/TickerWidget";
 import { InfoBoxWidget } from "./widgets/InfoBoxWidget";
+import { ImageBoxWidget } from "./widgets/ImageBoxWidget";
+import { StarRatingWidget } from "./widgets/StarRatingWidget";
+import { CounterWidget } from "./widgets/CounterWidget";
+import { GoogleMapsWidget } from "./widgets/GoogleMapsWidget";
+import { MenuAnchorWidget } from "./widgets/MenuAnchorWidget";
 
 export interface WidgetDefinition {
   type: WidgetType;
@@ -141,7 +150,7 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   faq: {
     type: "faq",
-    label: "Perguntas frequentes",
+    label: "FAQ / Accordion",
     category: "pro",
     icon: HelpCircle,
     Render: FaqWidget,
@@ -197,7 +206,7 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   progressTracker: {
     type: "progressTracker",
-    label: "Progresso",
+    label: "Barra de progresso",
     category: "pro",
     icon: Gauge,
     Render: ProgressTrackerWidget,
@@ -281,10 +290,45 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   infoBox: {
     type: "infoBox",
-    label: "Caixa de informação",
+    label: "Caixa de ícone",
     category: "pro",
     icon: Info,
     Render: InfoBoxWidget,
+  },
+  imageBox: {
+    type: "imageBox",
+    label: "Caixa de imagem",
+    category: "pro",
+    icon: ImagePlus,
+    Render: ImageBoxWidget,
+  },
+  starRating: {
+    type: "starRating",
+    label: "Avaliação (estrelas)",
+    category: "basic",
+    icon: Star,
+    Render: StarRatingWidget,
+  },
+  counter: {
+    type: "counter",
+    label: "Contador",
+    category: "pro",
+    icon: Hash,
+    Render: CounterWidget,
+  },
+  googleMaps: {
+    type: "googleMaps",
+    label: "Google Maps",
+    category: "media",
+    icon: MapPin,
+    Render: GoogleMapsWidget,
+  },
+  menuAnchor: {
+    type: "menuAnchor",
+    label: "Âncora de menu",
+    category: "basic",
+    icon: Anchor,
+    Render: MenuAnchorWidget,
   },
   cookieBanner: {
     type: "cookieBanner",

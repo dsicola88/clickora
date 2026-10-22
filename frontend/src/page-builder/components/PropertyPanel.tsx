@@ -613,6 +613,209 @@ function WidgetContentTab({
       return <TickerContentEditor content={c} setContent={setContent} />;
     case "infoBox":
       return <InfoBoxContentEditor content={c} setContent={setContent} />;
+    case "imageBox":
+      return (
+        <Section title="Caixa de imagem">
+          <BuilderImageUrlField
+            label="URL da imagem"
+            value={(c.src as string) ?? ""}
+            onChange={(v) => setContent({ src: v })}
+          />
+          <TextField
+            label="Texto alternativo"
+            value={(c.alt as string) ?? ""}
+            onChange={(v) => setContent({ alt: v })}
+          />
+          <TextField
+            label="Título"
+            value={(c.title as string) ?? ""}
+            onChange={(v) => setContent({ title: v })}
+          />
+          <TextareaField
+            label="Descrição"
+            value={(c.description as string) ?? ""}
+            onChange={(v) => setContent({ description: v })}
+            rows={3}
+          />
+          <TextField
+            label="Link (opcional)"
+            value={(c.href as string) ?? ""}
+            onChange={(v) => setContent({ href: v })}
+            placeholder="https://…"
+          />
+          <NumberField
+            label="Altura da imagem (px)"
+            value={(c.imageHeight as number) ?? 200}
+            min={80}
+            max={800}
+            onChange={(v) => setContent({ imageHeight: v })}
+          />
+          <SelectField
+            label="Object-fit"
+            value={(c.objectFit as string) ?? "cover"}
+            options={[
+              { value: "cover", label: "Cobrir" },
+              { value: "contain", label: "Conter" },
+            ]}
+            onChange={(v) => setContent({ objectFit: v })}
+          />
+          <ColorField
+            label="Cor do título"
+            value={(c.titleColor as string) ?? "#0f172a"}
+            onChange={(v) => setContent({ titleColor: v })}
+          />
+          <ColorField
+            label="Cor da descrição"
+            value={(c.descColor as string) ?? "#64748b"}
+            onChange={(v) => setContent({ descColor: v })}
+          />
+        </Section>
+      );
+    case "starRating":
+      return (
+        <Section title="Avaliação">
+          <TextField
+            label="Título (opcional)"
+            value={(c.title as string) ?? ""}
+            onChange={(v) => setContent({ title: v })}
+          />
+          <NumberField
+            label="Nota"
+            value={(c.rating as number) ?? 4.5}
+            min={0}
+            max={10}
+            step={0.1}
+            onChange={(v) => setContent({ rating: v })}
+          />
+          <NumberField
+            label="Máximo de estrelas"
+            value={(c.max as number) ?? 5}
+            min={1}
+            max={10}
+            onChange={(v) => setContent({ max: v })}
+          />
+          <NumberField
+            label="Tamanho (px)"
+            value={(c.size as number) ?? 22}
+            min={12}
+            max={48}
+            onChange={(v) => setContent({ size: v })}
+          />
+          <ColorField
+            label="Cor preenchida"
+            value={(c.color as string) ?? "#f59e0b"}
+            onChange={(v) => setContent({ color: v })}
+          />
+          <ColorField
+            label="Cor vazia"
+            value={(c.emptyColor as string) ?? "#e5e7eb"}
+            onChange={(v) => setContent({ emptyColor: v })}
+          />
+          <SelectField
+            label="Mostrar nota numérica"
+            value={(c.showScore as boolean) !== false ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ showScore: v === "yes" })}
+          />
+        </Section>
+      );
+    case "counter":
+      return (
+        <Section title="Contador">
+          <NumberField
+            label="Início"
+            value={(c.start as number) ?? 0}
+            onChange={(v) => setContent({ start: v })}
+          />
+          <NumberField
+            label="Fim"
+            value={(c.end as number) ?? 1000}
+            onChange={(v) => setContent({ end: v })}
+          />
+          <NumberField
+            label="Duração (ms)"
+            value={(c.durationMs as number) ?? 1600}
+            min={200}
+            max={10000}
+            onChange={(v) => setContent({ durationMs: v })}
+          />
+          <TextField
+            label="Prefixo"
+            value={(c.prefix as string) ?? ""}
+            onChange={(v) => setContent({ prefix: v })}
+          />
+          <TextField
+            label="Sufixo"
+            value={(c.suffix as string) ?? ""}
+            onChange={(v) => setContent({ suffix: v })}
+          />
+          <TextField
+            label="Título"
+            value={(c.title as string) ?? ""}
+            onChange={(v) => setContent({ title: v })}
+          />
+          <ColorField
+            label="Cor do número"
+            value={(c.numberColor as string) ?? "#0f172a"}
+            onChange={(v) => setContent({ numberColor: v })}
+          />
+          <ColorField
+            label="Cor do título"
+            value={(c.titleColor as string) ?? "#64748b"}
+            onChange={(v) => setContent({ titleColor: v })}
+          />
+        </Section>
+      );
+    case "googleMaps":
+      return (
+        <Section title="Google Maps">
+          <TextField
+            label="Morada / pesquisa"
+            value={(c.query as string) ?? ""}
+            onChange={(v) => setContent({ query: v })}
+            placeholder="Lisboa, Portugal"
+          />
+          <NumberField
+            label="Zoom"
+            value={(c.zoom as number) ?? 14}
+            min={1}
+            max={21}
+            onChange={(v) => setContent({ zoom: v })}
+          />
+          <NumberField
+            label="Altura (px)"
+            value={(c.height as number) ?? 320}
+            min={120}
+            max={800}
+            onChange={(v) => setContent({ height: v })}
+          />
+          <TextareaField
+            label="URL embed (opcional)"
+            value={(c.embedUrl as string) ?? ""}
+            onChange={(v) => setContent({ embedUrl: v })}
+            rows={3}
+            placeholder="Cole o src do iframe do Google Maps se preferir"
+          />
+        </Section>
+      );
+    case "menuAnchor":
+      return (
+        <Section title="Âncora">
+          <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1">
+            Cria um ponto na página (ex.: <span className="font-mono">#oferta</span>). Use no link do botão
+            ou menu: <span className="font-mono">#oferta</span>.
+          </p>
+          <TextField
+            label="ID da âncora (sem #)"
+            value={(c.anchorId as string) ?? "oferta"}
+            onChange={(v) => setContent({ anchorId: v })}
+            placeholder="oferta"
+          />
+        </Section>
+      );
     case "cookieBanner":
       return <CookieBannerContentEditor content={c} setContent={setContent} />;
     case "container":
@@ -753,11 +956,14 @@ function WidgetStyleTab({
             widget.type === "animatedHeadline" ||
             widget.type === "alert" ||
             widget.type === "infoBox" ||
+            widget.type === "imageBox" ||
             widget.type === "ctaBox" ||
             widget.type === "ticker" ||
             widget.type === "phoneCall" ||
             widget.type === "dateWidget" ||
             widget.type === "navMenu" ||
+            widget.type === "counter" ||
+            widget.type === "starRating" ||
             widget.type === "icon") && (
             <TypographySection styles={widget.styles} device={device} setStyles={setStyles} />
           )}
