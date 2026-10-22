@@ -313,7 +313,9 @@ function SectionView({
             isSelected ? "opacity-100" : "opacity-0 group-hover/section:opacity-100"
           }`}
         >
-          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider">Secção</span>
+          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider" data-pb-hint-chip>
+            Secção · layout
+          </span>
           <ToolbarBtn
             title="Mover para cima"
             disabled={index === 0}
@@ -507,27 +509,32 @@ function ColumnView({
         />
       )}
 
-      {!preview && section.columns.length > 1 && (
+      {!preview && (
         <div
-          className={`absolute left-1/2 top-1 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-editor-column px-1 py-0.5 text-[10px] text-white shadow-sm transition-opacity ${
+          className={`absolute left-1 top-1 z-10 flex items-center gap-0.5 rounded-md bg-editor-column px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow-sm transition-opacity ${
             isSelected ? "opacity-100" : "opacity-0 group-hover/column:opacity-100"
           }`}
+          data-pb-hint-chip
         >
-          <ToolbarBtn
-            title="Excluir coluna"
-            onClick={(e) => {
-              e.stopPropagation();
-              removeColumn(section.id, column.id);
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </ToolbarBtn>
+          <span>Coluna</span>
+          {section.columns.length > 1 ? (
+            <ToolbarBtn
+              title="Excluir coluna"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeColumn(section.id, column.id);
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </ToolbarBtn>
+          ) : null}
         </div>
       )}
 
       {column.widgets.length === 0 && !preview ? (
-        <div className="m-2 flex min-h-[72px] items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
-          Largue um elemento aqui
+        <div className="m-2 flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
+          <span className="font-medium text-slate-600">Largue um elemento aqui</span>
+          <span className="text-[10px] text-slate-400">Título, texto ou botão na barra à esquerda</span>
         </div>
       ) : (
         column.widgets.map((widget, index) =>
@@ -677,45 +684,52 @@ function EditableWidget({
       ) : null}
       {isOver ? <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-0.5 bg-editor-accent" /> : null}
       <div
-        className={`pointer-events-none absolute inset-0 z-10 border transition-colors ${
-          isSelected ? "border-editor-widget" : "border-transparent group-hover/widget:border-editor-widget/40"
+        className={`pointer-events-none absolute inset-0 z-10 transition-shadow ${
+          isSelected
+            ? "shadow-[inset_0_0_0_2px_var(--editor-widget)]"
+            : "group-hover/widget:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--editor-widget)_55%,transparent)]"
         }`}
       />
+      {/* Handle tipo Elementor: canto superior esquerdo — deixa claro que é o ELEMENTO, não a secção */}
       <div
-        className={`absolute right-1 top-1 z-20 flex items-center gap-0.5 rounded-md bg-editor-widget px-1 py-0.5 text-white shadow-sm transition-opacity ${
+        className={`absolute -left-px -top-px z-20 flex items-stretch overflow-hidden rounded-br-md bg-editor-widget text-white shadow-md transition-opacity ${
           isSelected || isDragging ? "opacity-100" : "opacity-0 group-hover/widget:opacity-100"
         }`}
       >
         <button
           type="button"
-          title="Arrastar"
+          title="Arrastar elemento"
           ref={setDragRef}
           {...listeners}
           {...attributes}
-          className="flex h-5 w-5 cursor-grab items-center justify-center rounded active:cursor-grabbing"
+          className="flex w-6 cursor-grab items-center justify-center bg-black/15 active:cursor-grabbing"
           onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="h-3 w-3" />
+          <GripVertical className="h-3.5 w-3.5" />
         </button>
-        <span className="px-1 text-[10px] font-semibold uppercase tracking-wider">{def.label}</span>
-        <ToolbarBtn
-          title="Duplicar"
-          onClick={(e) => {
-            e.stopPropagation();
-            duplicateWidget(section.id, column.id, widget.id);
-          }}
-        >
-          <Copy className="h-3 w-3" />
-        </ToolbarBtn>
-        <ToolbarBtn
-          title="Excluir"
-          onClick={(e) => {
-            e.stopPropagation();
-            removeWidget(section.id, column.id, widget.id);
-          }}
-        >
-          <Trash2 className="h-3 w-3" />
-        </ToolbarBtn>
+        <div className="flex items-center gap-0.5 px-1.5 py-0.5">
+          <span className="max-w-[7rem] truncate px-0.5 text-[10px] font-semibold uppercase tracking-wider">
+            {def.label}
+          </span>
+          <ToolbarBtn
+            title="Duplicar"
+            onClick={(e) => {
+              e.stopPropagation();
+              duplicateWidget(section.id, column.id, widget.id);
+            }}
+          >
+            <Copy className="h-3 w-3" />
+          </ToolbarBtn>
+          <ToolbarBtn
+            title="Excluir"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeWidget(section.id, column.id, widget.id);
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </ToolbarBtn>
+        </div>
       </div>
 
       {widget.type === "container" ? (

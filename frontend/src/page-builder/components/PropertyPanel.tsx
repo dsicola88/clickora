@@ -83,14 +83,63 @@ export function PropertyPanel() {
 
 function EmptyPanel() {
   return (
-    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center gap-3 border-l border-editor-border bg-editor-panel p-6 text-center text-editor-fg-muted">
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center gap-4 border-l border-editor-border bg-editor-panel p-6 text-center text-editor-fg-muted">
       <div className="rounded-full bg-editor-panel-2 p-4">
         <Settings2 className="h-6 w-6" />
       </div>
-      <p className="text-xs">
-        Selecione um elemento no canvas para editar suas propriedades.
-      </p>
+      <div className="space-y-2 max-w-[220px]">
+        <p className="text-sm font-medium text-editor-fg">Nada selecionado</p>
+        <p className="text-[11px] leading-relaxed">
+          Clique num <span className="font-semibold text-editor-fg">widget</span> (título, texto, botão…)
+          para Conteúdo / Estilo / Avançado desse elemento.
+        </p>
+        <p className="text-[11px] leading-relaxed">
+          A moldura <span className="font-semibold text-editor-section">verde</span> é a secção
+          (layout de colunas). A moldura{" "}
+          <span className="font-semibold text-editor-widget">vermelha</span> é o elemento.
+        </p>
+      </div>
     </aside>
+  );
+}
+
+type BreadcrumbCrumb = {
+  label: string;
+  color: string;
+  onClick?: () => void;
+};
+
+function SelectionBreadcrumb({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
+  if (crumbs.length === 0) return null;
+  return (
+    <nav
+      aria-label="Hierarquia de seleção"
+      className="flex flex-wrap items-center gap-1 border-b border-editor-border bg-editor-panel-2/50 px-3 py-1.5"
+    >
+      {crumbs.map((c, i) => (
+        <span key={`${c.label}-${i}`} className="flex items-center gap-1">
+          {i > 0 ? <span className="text-[10px] text-editor-fg-muted">›</span> : null}
+          {c.onClick ? (
+            <button
+              type="button"
+              onClick={c.onClick}
+              className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+              style={{ background: c.color }}
+              title={`Selecionar ${c.label}`}
+            >
+              {c.label}
+            </button>
+          ) : (
+            <span
+              className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white"
+              style={{ background: c.color }}
+            >
+              {c.label}
+            </span>
+          )}
+        </span>
+      ))}
+    </nav>
   );
 }
 
@@ -102,6 +151,8 @@ function PanelShell({
   active,
   onTab,
   children,
+  breadcrumb,
+  hint,
 }: {
   title: string;
   badge: string;
@@ -110,9 +161,12 @@ function PanelShell({
   active: Tab;
   onTab: (t: Tab) => void;
   children: React.ReactNode;
+  breadcrumb?: BreadcrumbCrumb[];
+  hint?: React.ReactNode;
 }) {
   return (
     <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-editor-border bg-editor-panel text-editor-fg">
+      {breadcrumb ? <SelectionBreadcrumb crumbs={breadcrumb} /> : null}
       <div className="border-b border-editor-border p-3">
         <div className="flex items-center gap-2">
           <span
@@ -121,8 +175,9 @@ function PanelShell({
           >
             {badge}
           </span>
-          <h3 className="text-sm font-medium">{title}</h3>
+          <h3 className="text-sm font-medium truncate">{title}</h3>
         </div>
+        {hint ? <div className="mt-2">{hint}</div> : null}
       </div>
       <div className="flex border-b border-editor-border">
         {tabs.map((t) => (
@@ -142,6 +197,68 @@ function PanelShell({
       </div>
       <div className="editor-scrollbar flex-1 overflow-y-auto">{children}</div>
     </aside>
+  );
+}
+
+/** Lista rápida de widgets da secção — evita ficar preso só nas opções de layout. */
+function SectionElementsPicker({ section }: { section: SectionNode }) {
+  const select = useBuilder((s) => s.select);
+  const items: Array<{
+    id: string;
+    columnId: string;
+    label: string;
+    type: WidgetType;
+  }> = [];
+  for (const col of section.columns) {
+    for (const w of col.widgets) {
+      const def = WIDGET_REGISTRY[w.type];
+      items.push({
+        id: w.id,
+        columnId: col.id,
+        label: def?.label ?? w.type,
+        type: w.type,
+      });
+    }
+  }
+  if (items.length === 0) {
+    return (
+      <Section title="Elementos nesta secção">
+        <p className="text-[11px] leading-relaxed text-editor-fg-muted">
+          Ainda sem widgets. Arraste Título, Texto ou Botão da barra esquerda para dentro da coluna.
+        </p>
+      </Section>
+    );
+  }
+  return (
+    <Section title="Elementos nesta secção">
+      <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1 mb-1.5">
+        Clique para editar o elemento (Conteúdo / Estilo / Avançado). A secção só controla colunas e fundo.
+      </p>
+      <ul className="space-y-1">
+        {items.map((it, i) => (
+          <li key={it.id}>
+            <button
+              type="button"
+              onClick={() =>
+                select({
+                  kind: "widget",
+                  sectionId: section.id,
+                  columnId: it.columnId,
+                  id: it.id,
+                })
+              }
+              className="flex w-full items-center gap-2 rounded-md border border-editor-border bg-editor-panel-2 px-2.5 py-2 text-left transition-colors hover:border-editor-widget hover:bg-editor-widget/10"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-editor-widget/20 text-[10px] font-bold text-editor-widget">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-editor-fg">{it.label}</span>
+              <span className="shrink-0 text-[10px] uppercase tracking-wider text-editor-fg-muted">{it.type}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }
 
@@ -190,11 +307,34 @@ function WidgetPanel({
       styles: { ...widget.styles, ...patch },
     });
 
+  const select = useBuilder((s) => s.select);
+  const colIndex = Math.max(0, section.columns.findIndex((c) => c.id === column.id));
+
   return (
     <PanelShell
       title={def.label}
-      badge="Widget"
+      badge="Elemento"
       badgeColor="var(--editor-widget)"
+      breadcrumb={[
+        {
+          label: "Secção",
+          color: "var(--editor-section)",
+          onClick: () => select({ kind: "section", id: section.id }),
+        },
+        {
+          label: `Coluna ${colIndex + 1}`,
+          color: "var(--editor-column)",
+          onClick: () =>
+            select({ kind: "column", sectionId: section.id, id: column.id }),
+        },
+        { label: def.label, color: "var(--editor-widget)" },
+      ]}
+      hint={
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+          A editar este elemento. Conteúdo = texto/link · Estilo = cores e tipografia · Avançado =
+          margem, posição e CSS.
+        </p>
+      }
       tabs={[
         { id: "content", label: "Conteúdo" },
         { id: "style", label: "Estilo" },
@@ -568,7 +708,8 @@ function WidgetStyleTab({
             {widget.type !== "image" &&
             widget.type !== "video" &&
             widget.type !== "stickyVideo" &&
-            widget.type !== "alert" &&
+            widget.type !== "gallery" &&
+            widget.type !== "imageCarousel" &&
             widget.type !== "tabs" &&
             widget.type !== "socialIcons" &&
             widget.type !== "iconList" && (
@@ -587,58 +728,103 @@ function WidgetStyleTab({
 
           {(widget.type === "heading" ||
             widget.type === "text" ||
-            widget.type === "button") && (
+            widget.type === "button" ||
+            widget.type === "animatedHeadline" ||
+            widget.type === "alert" ||
+            widget.type === "infoBox" ||
+            widget.type === "ctaBox" ||
+            widget.type === "ticker" ||
+            widget.type === "phoneCall" ||
+            widget.type === "dateWidget" ||
+            widget.type === "navMenu" ||
+            widget.type === "icon") && (
             <TypographySection styles={widget.styles} device={device} setStyles={setStyles} />
           )}
 
           <SpacingSection styles={widget.styles} device={device} setStyles={setStyles} />
 
-          {widget.type === "button" ? (
-            <Section title="Sombra">
-              <TextareaField
-                label="Sombra (CSS)"
-                value={widget.styles.boxShadow ?? ""}
-                onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
-                rows={2}
-                placeholder="0 4px 14px rgba(15, 23, 42, 0.12)"
-              />
-            </Section>
-          ) : null}
+          <Section title="Borda">
+            <NumberField
+              label="Espessura (px)"
+              value={widget.styles.border?.width ?? 0}
+              min={0}
+              max={40}
+              onChange={(v) =>
+                setStyles({
+                  border: {
+                    width: v,
+                    style: widget.styles.border?.style ?? "solid",
+                    color: widget.styles.border?.color ?? "#000000",
+                    radius: widget.styles.border?.radius ?? 0,
+                  },
+                })
+              }
+            />
+            <ColorField
+              label="Cor da borda"
+              value={widget.styles.border?.color ?? "#000000"}
+              onChange={(v) =>
+                setStyles({
+                  border: {
+                    width: widget.styles.border?.width ?? 0,
+                    style: widget.styles.border?.style ?? "solid",
+                    color: v,
+                    radius: widget.styles.border?.radius ?? 0,
+                  },
+                })
+              }
+            />
+            <NumberField
+              label="Raio (px)"
+              value={widget.styles.border?.radius ?? 0}
+              min={0}
+              max={999}
+              onChange={(v) =>
+                setStyles({
+                  border: {
+                    width: widget.styles.border?.width ?? 0,
+                    style: widget.styles.border?.style ?? "solid",
+                    color: widget.styles.border?.color ?? "#000000",
+                    radius: v,
+                  },
+                })
+              }
+            />
+          </Section>
 
-          {(widget.type === "image" ||
-            widget.type === "video" ||
-            widget.type === "button" ||
-            widget.type === "heading" ||
-            widget.type === "text" ||
-            widget.type === "icon" ||
-            widget.type === "divider" ||
-            widget.type === "socialIcons" ||
-            widget.type === "iconList" ||
-            widget.type === "tabs") && (
-            <Section title="Alinhamento do bloco">
-              <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
-                Posiciona o elemento na coluna (independente do alinhamento do texto na tipografia).
-              </p>
-              <SelectField
-                label={`Alinhamento (${device})`}
-                value={(resolveResponsive(widget.styles.align, device) as string) ?? "left"}
-                options={[
-                  { value: "left", label: "Esquerda" },
-                  { value: "center", label: "Centro" },
-                  { value: "right", label: "Direita" },
-                ]}
-                onChange={(v) =>
-                  setStyles({
-                    align: setResponsive(
-                      widget.styles.align,
-                      device,
-                      v as "left" | "center" | "right",
-                    ),
-                  })
-                }
-              />
-            </Section>
-          )}
+          <Section title="Sombra">
+            <TextareaField
+              label="Sombra (CSS)"
+              value={widget.styles.boxShadow ?? ""}
+              onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
+              rows={2}
+              placeholder="0 4px 14px rgba(15, 23, 42, 0.12)"
+            />
+          </Section>
+
+          <Section title="Alinhamento do bloco">
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
+              Posiciona o elemento na coluna (independente do alinhamento do texto na tipografia).
+            </p>
+            <SelectField
+              label={`Alinhamento (${device})`}
+              value={(resolveResponsive(widget.styles.align, device) as string) ?? "left"}
+              options={[
+                { value: "left", label: "Esquerda" },
+                { value: "center", label: "Centro" },
+                { value: "right", label: "Direita" },
+              ]}
+              onChange={(v) =>
+                setStyles({
+                  align: setResponsive(
+                    widget.styles.align,
+                    device,
+                    v as "left" | "center" | "right",
+                  ),
+                })
+              }
+            />
+          </Section>
         </>
       )}
     </>
@@ -664,11 +850,28 @@ function ColumnPanel({
   const setStyles = (patch: Partial<BaseStyles & ResponsiveStyles>) =>
     updateColumn(section.id, column.id, { styles: { ...column.styles, ...patch } });
 
+  const select = useBuilder((s) => s.select);
+  const colIndex = Math.max(0, section.columns.findIndex((c) => c.id === column.id));
+
   return (
     <PanelShell
-      title="Coluna"
+      title={`Coluna ${colIndex + 1}`}
       badge="Coluna"
       badgeColor="var(--editor-column)"
+      breadcrumb={[
+        {
+          label: "Secção",
+          color: "var(--editor-section)",
+          onClick: () => select({ kind: "section", id: section.id }),
+        },
+        { label: `Coluna ${colIndex + 1}`, color: "var(--editor-column)" },
+      ]}
+      hint={
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+          Largura e fundo desta coluna. Para texto/botão, selecione o elemento no canvas ou na lista
+          da secção.
+        </p>
+      }
       tabs={[
         { id: "content", label: "Disposição" },
         { id: "style", label: "Estilo" },
@@ -678,19 +881,49 @@ function ColumnPanel({
       onTab={setTab}
     >
       {tab === "content" && (
-        <Section title="Largura">
-          <NumberField
-            label={`Largura % (${device})`}
-            value={resolveResponsive(column.widthPercent, device) ?? 100}
-            min={5}
-            max={100}
-            onChange={(v) =>
-              updateColumn(section.id, column.id, {
-                widthPercent: setResponsive(column.widthPercent, device, v),
-              })
-            }
-          />
-        </Section>
+        <>
+          <Section title="Largura">
+            <NumberField
+              label={`Largura % (${device})`}
+              value={resolveResponsive(column.widthPercent, device) ?? 100}
+              min={5}
+              max={100}
+              onChange={(v) =>
+                updateColumn(section.id, column.id, {
+                  widthPercent: setResponsive(column.widthPercent, device, v),
+                })
+              }
+            />
+          </Section>
+          {column.widgets.length > 0 ? (
+            <Section title="Elementos nesta coluna">
+              <ul className="space-y-1">
+                {column.widgets.map((w) => {
+                  const label = WIDGET_REGISTRY[w.type]?.label ?? w.type;
+                  return (
+                    <li key={w.id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          select({
+                            kind: "widget",
+                            sectionId: section.id,
+                            columnId: column.id,
+                            id: w.id,
+                          })
+                        }
+                        className="flex w-full items-center justify-between rounded-md border border-editor-border bg-editor-panel-2 px-2.5 py-2 text-left text-xs transition-colors hover:border-editor-widget"
+                      >
+                        <span className="font-medium text-editor-fg">{label}</span>
+                        <span className="text-[10px] text-editor-fg-muted">Editar →</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Section>
+          ) : null}
+        </>
       )}
       {tab === "style" && (
         <>
@@ -730,9 +963,16 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
 
   return (
     <PanelShell
-      title="Seção"
-      badge="Seção"
+      title="Secção"
+      badge="Secção"
       badgeColor="var(--editor-section)"
+      breadcrumb={[{ label: "Secção", color: "var(--editor-section)" }]}
+      hint={
+        <p className="rounded-md border border-editor-section/40 bg-editor-section/10 px-2 py-1.5 text-[10px] leading-relaxed text-editor-fg">
+          Estás na <strong>secção</strong> (colunas e fundo). Para tipografia, botão ou imagem,
+          escolhe um elemento na lista abaixo ou clica nele no canvas.
+        </p>
+      }
       tabs={[
         { id: "content", label: "Disposição" },
         { id: "style", label: "Estilo" },
@@ -743,6 +983,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
     >
       {tab === "content" && (
         <>
+          <SectionElementsPicker section={section} />
           <Section title="Estrutura de colunas">
             <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
               Altere o layout como no Elementor. Widgets de colunas removidas passam para a última coluna.

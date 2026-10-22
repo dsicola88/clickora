@@ -39,6 +39,16 @@
   cursor: text;
 }
 
+/* Hierarquia visual: secção (verde) vs coluna (azul) vs elemento (vermelho) — estilo Elementor */
+.page-builder-scope .group\/section:hover > [data-pb-section-outline],
+.page-builder-scope .group\/column:hover > [data-pb-column-outline] {
+  outline-offset: -1px;
+}
+
+.page-builder-scope [data-pb-hint-chip] {
+  letter-spacing: 0.06em;
+}
+
 .page-builder-scope .editor-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
