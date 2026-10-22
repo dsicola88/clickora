@@ -102,12 +102,6 @@ export function CookieBannerContentEditor({
         onChange={(v) => setContent({ policyUrl: v })}
         placeholder="/privacidade"
       />
-      <TextField
-        label="Link da oferta (Permitir / Fechar na página publicada)"
-        value={(c.offerHref as string) ?? ""}
-        onChange={(v) => setContent({ offerHref: v })}
-        placeholder="https://… ou deixe o hoplink da presell"
-      />
       <ColorField
         label="Cor do botão Aceitar"
         value={(c.accentColor as string) ?? "#2563eb"}

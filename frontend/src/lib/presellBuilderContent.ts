@@ -21,32 +21,16 @@ export function parsePresellEditorWorkingDocument(content: unknown): PageDocumen
   return asPageDocument(c.editorWorkingDocument);
 }
 
-function docTime(doc: PageDocument | null | undefined): number {
-  if (!doc) return 0;
-  const n = Number(doc.updatedAt);
-  return Number.isFinite(n) ? n : 0;
-}
-
 /**
- * Preferência: rascunho local mais recente, depois o working no servidor, depois a página publicada.
- * Assim Editar não desfaz o canvas e um crash recupera o que estava a ser editado.
+ * Fonte de verdade = BD (working → publicada). O localStorage do browser só entra
+ * se a conta ainda não tiver documento (primeira visita / offline sem sync).
  */
 export function pickPresellEditorDocument(args: {
   published: PageDocument | null;
   working: PageDocument | null;
   local: PageDocument | null;
 }): PageDocument | null {
-  const ranked = [
-    { doc: args.local, tie: 2 },
-    { doc: args.working, tie: 1 },
-    { doc: args.published, tie: 0 },
-  ].filter((row): row is { doc: PageDocument; tie: number } => Boolean(row.doc));
-  if (!ranked.length) return null;
-  return ranked.reduce((best, next) => {
-    const nextT = docTime(next.doc);
-    const bestT = docTime(best.doc);
-    if (nextT > bestT) return next;
-    if (nextT === bestT && next.tie > best.tie) return next;
-    return best;
-  }).doc;
+  if (args.working) return args.working;
+  if (args.published) return args.published;
+  return args.local;
 }

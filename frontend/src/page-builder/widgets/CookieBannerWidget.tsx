@@ -31,8 +31,6 @@ export interface CookieBannerContent {
   overlayBlur?: number;
   /** false = textos editados à mão. Ausente ou true com título de stock = idioma da página. */
   followLanguage?: boolean;
-  /** Na página publicada o Accept All vai para este URL (hoplink). Vazio = só fecha o aviso. */
-  offerHref?: string;
 }
 
 function readDismissed(key: string): boolean {

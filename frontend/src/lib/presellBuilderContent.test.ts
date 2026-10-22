@@ -17,11 +17,19 @@ function doc(name: string, updatedAt: number): PageDocument {
 }
 
 describe("pickPresellEditorDocument", () => {
-  it("não desfaz o rascunho local mais novo que a página publicada", () => {
+  it("prioriza o rascunho na BD sobre o localStorage do browser", () => {
+    const published = doc("pub", 100);
+    const working = doc("work", 120);
+    const local = doc("local", 999);
+    const picked = pickPresellEditorDocument({ published, working, local });
+    expect(picked?.name).toBe("work");
+  });
+
+  it("usa a publicada na BD quando não há working (ignora local mais novo)", () => {
     const published = doc("pub", 100);
     const local = doc("local", 200);
     const picked = pickPresellEditorDocument({ published, working: null, local });
-    expect(picked?.name).toBe("local");
+    expect(picked?.name).toBe("pub");
   });
 
   it("recupera o working do servidor se o local estiver vazio", () => {
@@ -34,6 +42,11 @@ describe("pickPresellEditorDocument", () => {
   it("usa a publicada quando não há rascunho", () => {
     const published = doc("pub", 100);
     expect(pickPresellEditorDocument({ published, working: null, local: null })?.name).toBe("pub");
+  });
+
+  it("usa local só se a BD ainda não tiver documento", () => {
+    const local = doc("local", 50);
+    expect(pickPresellEditorDocument({ published: null, working: null, local })?.name).toBe("local");
   });
 });
 

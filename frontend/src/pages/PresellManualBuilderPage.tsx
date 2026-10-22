@@ -100,6 +100,12 @@ export default function PresellManualBuilderPage() {
   const contentRef = useRef<Record<string, unknown>>({});
   const pageTypeRef = useRef("builder");
   const lastCloudDocJsonRef = useRef("");
+  const [cloudAutosaveStatus, setCloudAutosaveStatus] = useState<
+    "idle" | "pending" | "saving" | "saved" | "error"
+  >("idle");
+  const [lastCloudSavedAt, setLastCloudSavedAt] = useState<number | null>(null);
+  const draftBootstrapRef = useRef(false);
+  const cloudInflightRef = useRef(false);
 
   const trackingHealthScore = useMemo(
     () =>
@@ -375,41 +381,136 @@ export default function PresellManualBuilderPage() {
   const canSaveToAccount = userCanWritePresells(user);
   const affiliateDraftRef = useRef(affiliateDraft);
   affiliateDraftRef.current = affiliateDraft;
+  const slugDraftRef = useRef(slugDraft);
+  slugDraftRef.current = slugDraft;
+  const languageRef = useRef(language);
+  languageRef.current = language;
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
+  const customDomainIdRef = useRef(customDomainId);
+  customDomainIdRef.current = customDomainId;
+  const buildSettingsPayloadRef = useRef(buildSettingsPayload);
+  buildSettingsPayloadRef.current = buildSettingsPayload;
+
+  const pushWorkingToCloud = useCallback(async (presellId: string, doc: PageDocument) => {
+    const snapshot = JSON.stringify(doc);
+    if (snapshot === lastCloudDocJsonRef.current) return true;
+    const affiliate =
+      affiliateDraftRef.current.trim() || String(contentRef.current.affiliateLink ?? "");
+    const content: Record<string, unknown> = {
+      ...contentRef.current,
+      editorWorkingDocument: doc,
+      affiliateLink: affiliate || contentRef.current.affiliateLink,
+    };
+    setCloudAutosaveStatus("saving");
+    const { error } = await presellService.update(presellId, {
+      content,
+      language: languageRef.current,
+    });
+    if (error) {
+      setCloudAutosaveStatus("error");
+      return false;
+    }
+    lastCloudDocJsonRef.current = snapshot;
+    contentRef.current = content;
+    setLastCloudSavedAt(Date.now());
+    setCloudAutosaveStatus("saved");
+    return true;
+  }, []);
+
+  const bootstrapDraftInCloud = useCallback(async (doc: PageDocument) => {
+    if (draftBootstrapRef.current || cloudInflightRef.current) return;
+    draftBootstrapRef.current = true;
+    cloudInflightRef.current = true;
+    setCloudAutosaveStatus("saving");
+    const slug = sanitizeSlug(slugDraftRef.current || doc.name || "pagina");
+    const affiliate = affiliateDraftRef.current.trim();
+    const content: Record<string, unknown> = {
+      ...contentRef.current,
+      pageDocument: doc,
+      editorWorkingDocument: doc,
+      affiliateLink: affiliate || contentRef.current.affiliateLink || "",
+    };
+    const payload: Partial<Presell> = {
+      title: doc.name.trim() || "Presell manual",
+      slug,
+      type: "builder",
+      category: categoryRef.current,
+      language: languageRef.current,
+      content,
+      settings: buildSettingsPayloadRef.current(),
+      status: "draft",
+      ...(hasVerifiedCustomDomain && customDomainIdRef.current
+        ? { custom_domain_id: customDomainIdRef.current }
+        : {}),
+    };
+    const { data: created, error } = await presellService.create(payload);
+    cloudInflightRef.current = false;
+    if (error || !created?.id) {
+      draftBootstrapRef.current = false;
+      setCloudAutosaveStatus("error");
+      return;
+    }
+    contentRef.current = content;
+    lastCloudDocJsonRef.current = JSON.stringify(doc);
+    pageTypeRef.current = "builder";
+    setLastCloudSavedAt(Date.now());
+    setCloudAutosaveStatus("saved");
+    setPageBuilderStorageKey(`clickora:builder:${created.id}`);
+    navigate(`/presell/builder/${created.id}`, { replace: true });
+  }, [hasVerifiedCustomDomain, navigate]);
 
   useEffect(() => {
-    if (!editorReady || !routeId || !canSaveToAccount) return;
+    if (!editorReady || !canSaveToAccount) return;
     let timer: number | undefined;
-    let inflight = false;
-    const unsub = useBuilder.subscribe((state, prev) => {
-      if (prev && state.doc === prev.doc) return;
-      const json = JSON.stringify(state.doc);
+    const schedule = () => {
+      const doc = useBuilder.getState().doc;
+      const json = JSON.stringify(doc);
       if (json === lastCloudDocJsonRef.current) return;
+      setCloudAutosaveStatus("pending");
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        if (inflight) return;
-        inflight = true;
-        const doc = useBuilder.getState().doc;
-        const snapshot = JSON.stringify(doc);
-        const affiliate =
-          affiliateDraftRef.current.trim() || String(contentRef.current.affiliateLink ?? "");
-        const content: Record<string, unknown> = {
-          ...contentRef.current,
-          editorWorkingDocument: doc,
-          affiliateLink: affiliate || contentRef.current.affiliateLink,
-        };
-        void presellService.update(routeId, { content, language }).then(({ error }) => {
-          inflight = false;
-          if (error) return;
-          lastCloudDocJsonRef.current = snapshot;
-          contentRef.current = content;
-        });
-      }, 1400);
+        if (cloudInflightRef.current) return;
+        cloudInflightRef.current = true;
+        void (async () => {
+          try {
+            if (!routeId) {
+              await bootstrapDraftInCloud(doc);
+              return;
+            }
+            await pushWorkingToCloud(routeId, doc);
+          } finally {
+            cloudInflightRef.current = false;
+          }
+        })();
+      }, 1200);
+    };
+    const unsub = useBuilder.subscribe((state, prev) => {
+      if (prev && state.doc === prev.doc) return;
+      schedule();
     });
+    const flush = () => {
+      window.clearTimeout(timer);
+      const doc = useBuilder.getState().doc;
+      const json = JSON.stringify(doc);
+      if (json === lastCloudDocJsonRef.current || cloudInflightRef.current) return;
+      if (routeId) {
+        // best-effort sync on tab close
+        void pushWorkingToCloud(routeId, doc);
+      }
+    };
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onHidden);
     return () => {
       unsub();
       window.clearTimeout(timer);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onHidden);
     };
-  }, [editorReady, routeId, canSaveToAccount, language]);
+  }, [editorReady, routeId, canSaveToAccount, pushWorkingToCloud, bootstrapDraftInCloud]);
 
   const embedValue = useMemo(
     () => ({
@@ -422,8 +523,10 @@ export default function PresellManualBuilderPage() {
       },
       isSaving: saveMutation.isPending,
       canSave: canSaveToAccount,
+      cloudAutosaveStatus,
+      lastCloudSavedAt,
     }),
-    [saveMutation, user, canSaveToAccount],
+    [saveMutation, user, canSaveToAccount, cloudAutosaveStatus, lastCloudSavedAt],
   );
 
   if (!editorReady) {

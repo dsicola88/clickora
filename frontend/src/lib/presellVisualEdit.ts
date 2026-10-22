@@ -377,7 +377,7 @@ function foldCopy(html: string): WidgetNode {
   return text;
 }
 
-function offerCookie(offer: string, policyHref: string, language?: string | null): WidgetNode {
+function offerCookie(_offer: string, policyHref: string, language?: string | null): WidgetNode {
   const cookie = createWidget("cookieBanner");
   const L = getPresellUiStrings(language || "en");
   cookie.content = {
@@ -391,7 +391,6 @@ function offerCookie(offer: string, policyHref: string, language?: string | null
     followLanguage: false,
     overlayOpacity: 28,
     overlayBlur: 2,
-    ...(offer ? { offerHref: offer } : {}),
     policyUrl: policyHref || "/privacidade",
   };
   return cookie;
@@ -723,7 +722,8 @@ export function bakePublicOfferHrefs(
         if (widget.type === "cookieBanner") {
           const next: Record<string, unknown> = { ...widget.content };
           if (policy) next.policyUrl = policy;
-          if (unlockCookieOnly) next.offerHref = "";
+          // offerHref removido: Aceitar/Fechar só fecham o aviso (compliance).
+          delete next.offerHref;
           widget.content = next;
         }
       }
@@ -731,7 +731,6 @@ export function bakePublicOfferHrefs(
   }
   if (href) {
     pointOfferButtonsAt(clone, href, affiliate || undefined, {
-      assignCookieOffer: !unlockCookieOnly,
       forceAllButtons: true,
     });
   }
@@ -760,12 +759,11 @@ export function pointOfferButtonsAt(
   doc: PageDocument,
   offerUrl: string,
   previousOffer?: string,
-  options: { assignCookieOffer?: boolean; forceAllButtons?: boolean } = {},
+  options: { forceAllButtons?: boolean } = {},
 ): PageDocument {
   const offer = offerUrl.trim();
   if (!offer) return doc;
   const previous = previousOffer ? comparableUrl(previousOffer) : "";
-  const assignCookieOffer = options.assignCookieOffer !== false;
   const forceAllButtons = Boolean(options.forceAllButtons);
   const widgets = doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets));
   const buttons = widgets.filter((widget) => widget.type === "button");
@@ -778,18 +776,11 @@ export function pointOfferButtonsAt(
       button.content = { ...button.content, href: offer };
     }
   }
-  if (assignCookieOffer) {
-    for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
-      const href = asString(cookie.content.offerHref);
-      const empty = !href || href === "#" || href.startsWith("#");
-      const wasOffer = Boolean(previous) && comparableUrl(href) === previous;
-      if (empty || wasOffer) {
-        cookie.content = { ...cookie.content, offerHref: offer };
-      }
-    }
-  } else {
-    for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
-      cookie.content = { ...cookie.content, offerHref: "" };
+  for (const cookie of widgets.filter((widget) => widget.type === "cookieBanner")) {
+    if ("offerHref" in cookie.content) {
+      const next = { ...cookie.content };
+      delete next.offerHref;
+      cookie.content = next;
     }
   }
   return doc;
