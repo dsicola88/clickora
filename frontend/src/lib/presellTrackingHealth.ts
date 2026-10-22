@@ -23,8 +23,10 @@ function hasAnyNetworkTag(s: PresellConfigSettings): boolean {
   const c = String(s.googleConversionEvent ?? "").trim();
   const f = String(s.fbPixelId ?? "").trim();
   const fbT = String(s.fbTrackName ?? "").trim();
+  const tk = String(s.tiktokPixelId ?? "").trim();
+  const bing = String(s.bingUetTagId ?? "").trim();
   const conv = String(s.conversionTrackingScript ?? "").trim();
-  return Boolean(g || c || f || fbT || conv);
+  return Boolean(g || c || f || fbT || tk || bing || conv);
 }
 
 const AW_CONV = /^AW-[0-9]+\/.+/i;
@@ -84,16 +86,16 @@ export function computePresellTrackingHealth(input: {
   if (hasAnyNetworkTag(configSettings)) {
     items.push({
       id: "networks",
-      label: "Tags de anúncios (Google / Meta / conversão)",
+      label: "Tags de anúncios (Meta / TikTok / Google / Bing)",
       status: "ok",
-      detail: "Há IDs ou snippet de conversão configurados.",
+      detail: "Há IDs ou script de pixel configurados nesta presell.",
     });
   } else {
     items.push({
       id: "networks",
       label: "Tags de anúncios (opcional)",
       status: "info",
-      detail: "Podes adicionar GA4, conversão Google Ads ou Pixel Meta nos campos abaixo.",
+      detail: "Podes colar IDs ou o script completo de Meta, TikTok, Google Ads ou Bing abaixo.",
     });
   }
 

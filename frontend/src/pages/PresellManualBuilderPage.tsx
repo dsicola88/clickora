@@ -36,7 +36,11 @@ import {
 } from "@/lib/presellBuilderContent";
 import { buildEditablePageDocument, pointOfferButtonsAt } from "@/lib/presellVisualEdit";
 import type { PageDocument } from "@/page-builder/types";
-import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
+import {
+  DEFAULT_PRESELL_CONFIG_SETTINGS,
+  hydratePresellConfigSettings,
+  type PresellConfigSettings,
+} from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 import {
@@ -225,32 +229,7 @@ export default function PresellManualBuilderPage() {
       setAffiliateDraft(String(c.affiliateLink ?? ""));
       loadedOfferRef.current = String(c.affiliateLink ?? "");
       setCustomDomainId(data.custom_domain_id ?? "");
-      const s = (data.settings || {}) as Record<string, unknown>;
-      setConfigSettings({
-        exitPopup: Boolean(s.exitPopup),
-        countdownTimer: Boolean(s.countdownTimer),
-        socialProof: Boolean(s.socialProof),
-        googleTrackingCode: String(s.googleTrackingCode ?? ""),
-        googleConversionEvent: String(s.googleConversionEvent ?? ""),
-        fbPixelId: String(s.fbPixelId ?? ""),
-        fbTrackName: String(s.fbTrackName ?? ""),
-        fbConversionApi: String(s.fbConversionApi ?? "disabled"),
-        headerCode: String(s.headerCode ?? ""),
-        conversionTrackingScript: String(s.conversionTrackingScript ?? ""),
-        bodyCode: String(s.bodyCode ?? ""),
-        footerCode: String(s.footerCode ?? ""),
-        customCss: String(s.customCss ?? ""),
-        countdownDurationMinutes: String(s.countdownDurationMinutes ?? "15"),
-        offerQueryForwardAllowlist: String(s.offerQueryForwardAllowlist ?? ""),
-        businessName: String(s.businessName ?? ""),
-        contactEmail: String(s.contactEmail ?? ""),
-        privacyPolicyUrl: String(s.privacyPolicyUrl ?? ""),
-        cookiePolicyUrl: String(s.cookiePolicyUrl ?? ""),
-        affiliateDisclosure: String(s.affiliateDisclosure ?? ""),
-        ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
-          ? { operatorDocument: s.operatorDocument }
-          : {}),
-      });
+      setConfigSettings(hydratePresellConfigSettings(data.settings as Record<string, unknown>));
       setEditorReady(true);
     };
 
@@ -661,10 +640,10 @@ export default function PresellManualBuilderPage() {
               <div className="relative flex h-full w-full max-w-xl flex-col border-l border-editor-border bg-editor-panel shadow-2xl">
                 <div className="flex items-start justify-between gap-3 border-b border-editor-border px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold text-editor-fg">Rastreio (opcional)</p>
+                    <p className="text-sm font-semibold text-editor-fg">Pixels e rastreio</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-editor-fg-muted">
-                      Ao publicar, o script Clickora entra no &lt;head&gt; automaticamente. Pixels extra e conversões
-                      podes configurar aqui — não bloqueiam a publicação.
+                      Clickora (cliques/comissões) é automático. Aqui colas pixel Meta, TikTok, Google ou Bing — por ID
+                      ou script completo — para a página manual.
                     </p>
                   </div>
                   <button

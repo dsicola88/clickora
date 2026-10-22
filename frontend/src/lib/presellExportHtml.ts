@@ -22,6 +22,7 @@ import {
   type InteractivePresellGateKind,
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { coerceTrackingSnippetToHtml } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import {
@@ -491,8 +492,12 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
     out = out.replace("</head>", `<style>/* clickora presell */\n${customCss}\n</style>\n</head>`);
   }
   const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
-  const conversionTrackingScript = String(settings.conversionTrackingScript ?? "").trim();
-  const headerCode = stripClickoraEmbedScripts(String(settings.headerCode ?? ""));
+  const conversionTrackingScript = coerceTrackingSnippetToHtml(
+    String(settings.conversionTrackingScript ?? ""),
+  );
+  const headerCode = coerceTrackingSnippetToHtml(
+    stripClickoraEmbedScripts(String(settings.headerCode ?? "")),
+  );
   const trackBase =
     typeof window !== "undefined"
       ? getTrackApiBaseUrl()
@@ -507,13 +512,13 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
   if (headScripts) {
     out = out.replace("</head>", `${headScripts}\n</head>`);
   }
-  const bodyCode = String(settings.bodyCode ?? "").trim();
+  const bodyCode = coerceTrackingSnippetToHtml(String(settings.bodyCode ?? ""));
   const bodyOptional = optionalMarketing.bodyHtml.trim();
   const bodyMerged = [bodyOptional, bodyCode].filter(Boolean).join("");
   if (bodyMerged) {
     out = out.replace(/<body([^>]*)>/i, `<body$1><div data-presell-inject="body-start">${bodyMerged}</div>`);
   }
-  const footerCode = String(settings.footerCode ?? "").trim();
+  const footerCode = coerceTrackingSnippetToHtml(String(settings.footerCode ?? ""));
   if (footerCode) {
     out = out.replace("</body>", `${footerCode}\n</body>`);
   }
@@ -560,14 +565,21 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     (typeof content.import_mirror_src_doc === "string" && content.import_mirror_src_doc.length > 800);
   const customCss = typeof settings.customCss === "string" ? settings.customCss.trim() : "";
   const optionalMarketing = buildPresellOptionalSettingsMarketing(settings);
-  const conversionTrackingScript =
-    typeof settings.conversionTrackingScript === "string" ? settings.conversionTrackingScript.trim() : "";
-  const headerCode = typeof settings.headerCode === "string" ? settings.headerCode.trim() : "";
+  const conversionTrackingScript = coerceTrackingSnippetToHtml(
+    typeof settings.conversionTrackingScript === "string" ? settings.conversionTrackingScript : "",
+  );
+  const headerCode = coerceTrackingSnippetToHtml(
+    typeof settings.headerCode === "string" ? settings.headerCode : "",
+  );
   const headInjectSnippets = [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
     .filter(Boolean)
     .join("\n");
-  const bodyCode = typeof settings.bodyCode === "string" ? settings.bodyCode.trim() : "";
-  const footerCode = typeof settings.footerCode === "string" ? settings.footerCode.trim() : "";
+  const bodyCode = coerceTrackingSnippetToHtml(
+    typeof settings.bodyCode === "string" ? settings.bodyCode : "",
+  );
+  const footerCode = coerceTrackingSnippetToHtml(
+    typeof settings.footerCode === "string" ? settings.footerCode : "",
+  );
 
   const heroImage = productImages[0];
   const galleryImages = productImages.slice(1, 10);

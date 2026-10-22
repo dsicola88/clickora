@@ -55,7 +55,7 @@ import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import { DiscountPresellOverlay } from "@/components/presell/DiscountPresellOverlay";
 import { PresellCta } from "@/components/presell/PresellCta";
 import { VslProductVideoFallback } from "@/components/presell/VslProductVideoFallback";
-import { injectWithCleanup } from "@/lib/injectPresellCustomCode";
+import { coerceTrackingSnippetToHtml, injectWithCleanup } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { PresellMarketingOverlays } from "@/components/presell/PresellMarketingOverlays";
 import { isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
@@ -740,11 +740,13 @@ export default function PublicPresell() {
   useLayoutEffect(() => {
     if (!page?.id || page.cloak_safe === true) return;
     const s = (page.settings || {}) as Record<string, unknown>;
-    const conversionTrackingScript = String(s.conversionTrackingScript ?? "").trim();
+    const conversionTrackingScript = coerceTrackingSnippetToHtml(
+      String(s.conversionTrackingScript ?? ""),
+    );
     /** Remove clickora duplicado/localhost do head guardado — injectamos o canónico abaixo. */
-    const headerCode = stripClickoraEmbedScripts(String(s.headerCode ?? ""));
-    const bodyCode = String(s.bodyCode ?? "").trim();
-    const footerCode = String(s.footerCode ?? "").trim();
+    const headerCode = coerceTrackingSnippetToHtml(stripClickoraEmbedScripts(String(s.headerCode ?? "")));
+    const bodyCode = coerceTrackingSnippetToHtml(String(s.bodyCode ?? ""));
+    const footerCode = coerceTrackingSnippetToHtml(String(s.footerCode ?? ""));
     const customCss = String(s.customCss ?? "").trim();
     const optionalMarketing = buildPresellOptionalSettingsMarketing(s);
     const clickoraHead = buildClickoraEmbedScriptHtml({

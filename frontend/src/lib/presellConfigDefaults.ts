@@ -10,6 +10,16 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   fbPixelId: "",
   fbTrackName: "",
   fbConversionApi: "disabled",
+  /** Pixel TikTok Ads (só ID numérico / alfanumérico do Events Manager). */
+  tiktokPixelId: "",
+  /** Microsoft Advertising UET tag ID (só dígitos). */
+  bingUetTagId: "",
+  /**
+   * Como instalar pixels de anúncios nesta presell:
+   * - auto: IDs Meta / TikTok / Bing / Google → a app gera o script
+   * - manual: colas o &lt;script&gt; completo (Events Manager, Google Ads, Bing, …)
+   */
+  adPixelsMode: "auto",
   headerCode: "",
   /** Snippet opcional (Google Ads / gtag / rede) — injeta no &lt;head&gt; da página publicada antes do restante código. */
   conversionTrackingScript: "",
@@ -40,3 +50,47 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   cookiePolicyUrl: "",
   affiliateDisclosure: "",
 };
+
+/**
+ * Hidrata `settings` da API → estado do painel sem perder campos (cloak, pixels, docs).
+ * Sempre parte dos defaults para páginas antigas sem as chaves novas.
+ */
+export function hydratePresellConfigSettings(
+  raw: Record<string, unknown> | null | undefined,
+): PresellConfigSettings {
+  const s = raw && typeof raw === "object" ? raw : {};
+  const modeRaw = String(s.adPixelsMode ?? "auto").trim().toLowerCase();
+  return {
+    ...DEFAULT_PRESELL_CONFIG_SETTINGS,
+    exitPopup: Boolean(s.exitPopup),
+    countdownTimer: Boolean(s.countdownTimer),
+    socialProof: Boolean(s.socialProof),
+    googleTrackingCode: String(s.googleTrackingCode ?? ""),
+    googleConversionEvent: String(s.googleConversionEvent ?? ""),
+    fbPixelId: String(s.fbPixelId ?? ""),
+    fbTrackName: String(s.fbTrackName ?? ""),
+    fbConversionApi: String(s.fbConversionApi ?? "disabled"),
+    tiktokPixelId: String(s.tiktokPixelId ?? ""),
+    bingUetTagId: String(s.bingUetTagId ?? ""),
+    adPixelsMode: modeRaw === "manual" ? "manual" : "auto",
+    headerCode: String(s.headerCode ?? ""),
+    conversionTrackingScript: String(s.conversionTrackingScript ?? ""),
+    bodyCode: String(s.bodyCode ?? ""),
+    footerCode: String(s.footerCode ?? ""),
+    customCss: String(s.customCss ?? ""),
+    countdownDurationMinutes: String(s.countdownDurationMinutes ?? "15"),
+    offerQueryForwardAllowlist: String(s.offerQueryForwardAllowlist ?? ""),
+    enterpriseCloak: Boolean(s.enterpriseCloak),
+    cloakSafeTitle: String(s.cloakSafeTitle ?? ""),
+    cloakSafeBody: String(s.cloakSafeBody ?? ""),
+    cloakGeoDeny: String(s.cloakGeoDeny ?? ""),
+    businessName: String(s.businessName ?? ""),
+    contactEmail: String(s.contactEmail ?? ""),
+    privacyPolicyUrl: String(s.privacyPolicyUrl ?? ""),
+    cookiePolicyUrl: String(s.cookiePolicyUrl ?? ""),
+    affiliateDisclosure: String(s.affiliateDisclosure ?? ""),
+    ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
+      ? { operatorDocument: s.operatorDocument }
+      : {}),
+  };
+}

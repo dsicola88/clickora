@@ -35,7 +35,7 @@ export function PresellAdvancedTrackingCollapsible({
   setConfigSettings,
   trackingEmbedScript,
   surface = "dashboard",
-  triggerLabel = "Opcional: configurações e rastreamento",
+  triggerLabel = "Pixels de anúncios e configurações",
 }: Props) {
   const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const isEditor = surface === "editor";
@@ -180,63 +180,177 @@ export function PresellAdvancedTrackingCollapsible({
                 )}
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label>Google Analytics / tag</Label>
-                <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Measurement ID <span className="font-mono">G-…</span>, contentor{" "}
-                  <span className="font-mono">GTM-…</span>, ou cola um <span className="font-mono">&lt;script&gt;</span>{" "}
-                  completo. A app injeta no head na ordem correta.
+            {/* Pixels de anúncios — automático (IDs) ou manual (colar script) */}
+            <div
+              className={cn(
+                "space-y-4 rounded-xl border px-3 py-3 sm:px-4",
+                isEditor ? "border-editor-accent/35 bg-editor-panel-2/50" : "border-primary/20 bg-primary/[0.03]",
+              )}
+            >
+              <div>
+                <p className={cn("text-sm font-semibold", isEditor ? "text-editor-fg" : "text-foreground")}>
+                  Pixels de anúncios (Meta, TikTok, Google, Bing)
                 </p>
-                <Input
-                  placeholder="G-XXXXXXXX ou GTM-XXXX ou &lt;script&gt;…"
-                  value={String(configSettings.googleTrackingCode ?? "")}
-                  onChange={(e) => setConfigSettings((p) => ({ ...p, googleTrackingCode: e.target.value }))}
-                  className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Conversão Google Ads (opcional)</Label>
-                <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Formato <span className="font-mono">AW-123456789/AbCdEfGh</span> (copiado de Conversões em Google Ads).
-                  Combinado com o campo acima, dispara <span className="font-mono">gtag('event','conversion')</span>.
+                <p className={cn("mt-1 text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                  Para uma página feita para Facebook, TikTok ou outra rede: escolhe o modo, cola o ID ou o script do
+                  painel da plataforma — a Clickora injeta na presell publicada. O rastreio Clickora (cliques / comissão)
+                  continua automático.
                 </p>
-                <Input
-                  placeholder="AW-123456789/AbCdEfGh"
-                  value={String(configSettings.googleConversionEvent ?? "")}
-                  onChange={(e) => setConfigSettings((p) => ({ ...p, googleConversionEvent: e.target.value }))}
-                  className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
-                />
               </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Pixel Facebook (Meta)</Label>
-                <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Só dígitos (Gestor de eventos → Pixel). O PageView dispara na carga; opcionalmente um evento extra
-                  abaixo.
-                </p>
-                <Input
-                  placeholder="ex.: 1234567890123456"
-                  inputMode="numeric"
-                  value={String(configSettings.fbPixelId ?? "")}
-                  onChange={(e) => setConfigSettings((p) => ({ ...p, fbPixelId: e.target.value }))}
-                  className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
-                />
+
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { id: "auto", label: "Automático (só IDs)" },
+                    { id: "manual", label: "Manual (colar script)" },
+                  ] as const
+                ).map((opt) => {
+                  const active =
+                    String(configSettings.adPixelsMode ?? "auto").toLowerCase() === opt.id ||
+                    (!configSettings.adPixelsMode && opt.id === "auto");
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        const prev = String(configSettings.adPixelsMode ?? "auto").toLowerCase();
+                        if (prev === opt.id) return;
+                        setConfigSettings((p) => ({ ...p, adPixelsMode: opt.id }));
+                        if (opt.id === "manual") {
+                          toast.message("Modo manual", {
+                            description:
+                              "Cola o script completo no campo abaixo. Os IDs deixam de gerar pixel automático (evita duplicar).",
+                          });
+                        } else {
+                          toast.message("Modo automático", {
+                            description:
+                              "Usa só os IDs. Se já tiveres um script completo colado, esse continua no head — remove-o se for o mesmo pixel.",
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                        active
+                          ? isEditor
+                            ? "border-editor-accent bg-editor-accent/15 text-editor-fg"
+                            : "border-primary bg-primary/10 text-foreground"
+                          : isEditor
+                            ? "border-editor-border bg-editor-bg text-editor-fg-muted hover:text-editor-fg"
+                            : "border-border/70 bg-background text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
-            </div>
-            <div className="space-y-2 max-w-lg">
-              <Label htmlFor={isEditor ? "presell-fb-track-editor" : "fbTrackName"}>
-                Nome do evento Meta (opcional)
-              </Label>
-              <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                Se preencheres, dispara <span className="font-mono">trackCustom</span> com este nome após o PageView.
-              </p>
-              <Input
-                id={isEditor ? "presell-fb-track-editor" : "fbTrackName"}
-                placeholder="ex.: Lead ou Subscribe"
-                value={String(configSettings.fbTrackName ?? "")}
-                onChange={(e) => setConfigSettings((p) => ({ ...p, fbTrackName: e.target.value }))}
-                className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
-              />
+
+              {String(configSettings.adPixelsMode ?? "auto").toLowerCase() !== "manual" ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2 min-w-0">
+                      <Label>Pixel Meta (Facebook / Instagram)</Label>
+                      <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                        Gestor de eventos → Pixel → só o ID (dígitos). PageView na carga.
+                      </p>
+                      <Input
+                        placeholder="ex.: 1234567890123456"
+                        inputMode="numeric"
+                        value={String(configSettings.fbPixelId ?? "")}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, fbPixelId: e.target.value }))}
+                        className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor={isEditor ? "presell-fb-track-editor" : "fbTrackName"}>
+                        Evento Meta extra (opcional)
+                      </Label>
+                      <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                        Dispara <span className="font-mono">trackCustom</span> após o PageView.
+                      </p>
+                      <Input
+                        id={isEditor ? "presell-fb-track-editor" : "fbTrackName"}
+                        placeholder="ex.: Lead ou ViewContent"
+                        value={String(configSettings.fbTrackName ?? "")}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, fbTrackName: e.target.value }))}
+                        className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label>Pixel TikTok</Label>
+                      <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                        TikTok Ads → Events → Pixel ID.
+                      </p>
+                      <Input
+                        placeholder="ex.: CABCDEF1234567890"
+                        value={String(configSettings.tiktokPixelId ?? "")}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, tiktokPixelId: e.target.value }))}
+                        className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label>Bing / Microsoft UET</Label>
+                      <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                        Microsoft Advertising → UET tag ID (só números).
+                      </p>
+                      <Input
+                        placeholder="ex.: 12345678"
+                        inputMode="numeric"
+                        value={String(configSettings.bingUetTagId ?? "")}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, bingUetTagId: e.target.value }))}
+                        className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label>Google Analytics / tag</Label>
+                      <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                        <span className="font-mono">G-…</span>, <span className="font-mono">GTM-…</span> ou{" "}
+                        <span className="font-mono">AW-…</span>
+                      </p>
+                      <Input
+                        placeholder="G-XXXXXXXX ou GTM-XXXX ou AW-…"
+                        value={String(configSettings.googleTrackingCode ?? "")}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, googleTrackingCode: e.target.value }))}
+                        className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label>Conversão Google Ads (opcional)</Label>
+                      <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                        <span className="font-mono">AW-123/AbCdEf</span> — dispara conversion na carga.
+                      </p>
+                      <Input
+                        placeholder="AW-123456789/AbCdEfGh"
+                        value={String(configSettings.googleConversionEvent ?? "")}
+                        onChange={(e) => setConfigSettings((p) => ({ ...p, googleConversionEvent: e.target.value }))}
+                        className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Script / pixel completo</Label>
+                  <p className={cn("text-[10px] leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                    Cola o código que a Meta, TikTok, Google Ads ou Bing te dão (pode incluir vários{" "}
+                    <span className="font-mono">&lt;script&gt;</span>). É injetado no{" "}
+                    <span className="font-mono">&lt;head&gt;</span> da página publicada. Em modo manual os IDs acima
+                    não geram script automático (evita duplicar o pixel).
+                  </p>
+                  <Textarea
+                    rows={7}
+                    placeholder={`<!-- Ex.: Pixel Meta ou TikTok completo -->\n<script>…</script>`}
+                    value={String(configSettings.conversionTrackingScript ?? "")}
+                    onChange={(e) =>
+                      setConfigSettings((p) => ({ ...p, conversionTrackingScript: e.target.value }))
+                    }
+                    className={cn(
+                      "font-mono text-xs min-h-[8rem]",
+                      isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "",
+                    )}
+                  />
+                </div>
+              )}
             </div>
 
             <div
@@ -309,35 +423,35 @@ export function PresellAdvancedTrackingCollapsible({
                 </p>
               </div>
 
-              <div
-                className={cn(
-                  "rounded-xl border px-3 py-3 space-y-2",
-                  isEditor ? "border-editor-accent/40 bg-editor-panel-2/80" : "border-primary/25 bg-muted/20",
-                )}
-              >
-                <Label className={cn("text-sm", isEditor ? "text-editor-fg" : "")}>
-                  Script de rastreamento de conversões (opcional)
-                </Label>
-                <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Cola aqui o snippet da rede (Google Ads, etiqueta global gtag, etc.). Na página publicada é injetado no{" "}
-                  <span className="font-mono text-[11px]">&lt;head&gt;</span>{" "}
-                  <span className="font-medium">antes</span> do campo «Código no &lt;head&gt;», para respeitar a ordem
-                  habitual de medição de conversões.
-                </p>
-                <Textarea
-                  rows={4}
-                  placeholder={`<!-- Ex.: evento de conversão Google Ads -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=AW-…"></script>\n<script>…</script>`}
-                  value={String(configSettings.conversionTrackingScript ?? "")}
-                  onChange={(e) =>
-                    setConfigSettings((p) => ({ ...p, conversionTrackingScript: e.target.value }))
-                  }
+              {String(configSettings.adPixelsMode ?? "auto").toLowerCase() !== "manual" ? (
+                <div
                   className={cn(
-                    "font-mono text-xs min-h-[5rem]",
-                    isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "",
+                    "rounded-xl border px-3 py-3 space-y-2",
+                    isEditor ? "border-editor-accent/40 bg-editor-panel-2/80" : "border-primary/25 bg-muted/20",
                   )}
-                  id={isEditor ? "presell-conversion-head-editor" : "conversionTrackingScript"}
-                />
-              </div>
+                >
+                  <Label className={cn("text-sm", isEditor ? "text-editor-fg" : "")}>
+                    Script extra de conversão (opcional)
+                  </Label>
+                  <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+                    Além dos IDs acima, podes colar aqui um snippet adicional (ex. evento só de purchase). Injetado no{" "}
+                    <span className="font-mono text-[11px]">&lt;head&gt;</span> antes do «Código no &lt;head&gt;».
+                  </p>
+                  <Textarea
+                    rows={3}
+                    placeholder={`<!-- Opcional — script extra -->`}
+                    value={String(configSettings.conversionTrackingScript ?? "")}
+                    onChange={(e) =>
+                      setConfigSettings((p) => ({ ...p, conversionTrackingScript: e.target.value }))
+                    }
+                    className={cn(
+                      "font-mono text-xs min-h-[4rem]",
+                      isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "",
+                    )}
+                    id={isEditor ? "presell-conversion-head-editor" : "conversionTrackingScript"}
+                  />
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
                 <div className="space-y-2 min-w-0">

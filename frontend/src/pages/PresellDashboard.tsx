@@ -71,7 +71,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Presell } from "@/types/api";
-import { DEFAULT_PRESELL_CONFIG_SETTINGS, type PresellConfigSettings } from "@/lib/presellConfigDefaults";
+import {
+  DEFAULT_PRESELL_CONFIG_SETTINGS,
+  hydratePresellConfigSettings,
+  type PresellConfigSettings,
+} from "@/lib/presellConfigDefaults";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { MirrorHtmlEditor } from "@/components/presell/MirrorHtmlEditor";
 import type { MirrorHtmlVisualPreviewHandle } from "@/components/presell/MirrorHtmlVisualPreview";
@@ -416,27 +420,7 @@ export default function PresellDashboard() {
       minAge: String(settings.minAge ?? "18"),
       manualYoutubeUrl: page.video_url || "",
     });
-    setConfigSettings({
-      exitPopup: Boolean(settings.exitPopup),
-      countdownTimer: Boolean(settings.countdownTimer),
-      socialProof: Boolean(settings.socialProof),
-      googleTrackingCode: String(settings.googleTrackingCode ?? ""),
-      googleConversionEvent: String(settings.googleConversionEvent ?? ""),
-      fbPixelId: String(settings.fbPixelId ?? ""),
-      fbTrackName: String(settings.fbTrackName ?? ""),
-      fbConversionApi: String(settings.fbConversionApi ?? "disabled"),
-      headerCode: String(settings.headerCode ?? ""),
-      conversionTrackingScript: String(settings.conversionTrackingScript ?? ""),
-      bodyCode: String(settings.bodyCode ?? ""),
-      footerCode: String(settings.footerCode ?? ""),
-      customCss: String(settings.customCss ?? ""),
-      countdownDurationMinutes: String(settings.countdownDurationMinutes ?? "15"),
-      offerQueryForwardAllowlist: String(settings.offerQueryForwardAllowlist ?? ""),
-      enterpriseCloak: Boolean(settings.enterpriseCloak),
-      cloakSafeTitle: String(settings.cloakSafeTitle ?? ""),
-      cloakSafeBody: String(settings.cloakSafeBody ?? ""),
-      cloakGeoDeny: String(settings.cloakGeoDeny ?? ""),
-    });
+    setConfigSettings(hydratePresellConfigSettings(settings));
     setMirrorHtmlDraft(
       typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : "",
     );
