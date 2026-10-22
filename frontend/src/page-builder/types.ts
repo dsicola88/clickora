@@ -129,12 +129,28 @@ export interface BaseStyles {
   opacity?: number;
 }
 
+/** Motion Effects (Elementor Advanced) — independente por widget. */
+export interface WidgetEffects {
+  entranceAnimation?: string;
+  entranceDurationMs?: number;
+  entranceDelayMs?: number;
+  entranceEasing?: string;
+  transform?: string;
+  hoverTransform?: string;
+  hoverBoxShadow?: string;
+  hoverOpacity?: number;
+  transitionDurationMs?: number;
+  transitionEasing?: string;
+}
+
 export interface WidgetNode {
   id: string;
   type: WidgetType;
   /** Free-form widget content (text, src, href, etc). Shape depends on type. */
   content: Record<string, unknown>;
   styles: BaseStyles & ResponsiveStyles;
+  /** Entrada / hover / transform — cada widget independente. */
+  effects?: WidgetEffects;
   /** Atributo `id` HTML (aba Avançado). */
   cssId?: string;
   /** Custom CSS class names (advanced tab). */

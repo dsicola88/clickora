@@ -5,6 +5,7 @@ import { WIDGET_REGISTRY } from "../widget-registry";
 import { LcpMediaScope } from "../lcp-media";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { WidgetInlineStyle } from "../widget-custom-css";
+import { motionClassName, widgetHasMotion } from "../widget-motion";
 
 /**
  * Read-only renderer for a PageDocument.
@@ -125,11 +126,15 @@ function ColumnRender({
         const shell = stylesToCssWidgetShell(widget.styles, device);
         const wid = widget.cssId?.trim();
         const wcls = widget.cssClasses?.trim();
+        const motionCls = widgetHasMotion(widget.effects, widget.content)
+          ? motionClassName(widget.id)
+          : "";
+        const className = [wcls, motionCls].filter(Boolean).join(" ") || undefined;
         return (
           <div
             key={widget.id}
             id={wid || undefined}
-            className={wcls || undefined}
+            className={className}
             style={shell}
           >
             <WidgetInlineStyle widget={widget} />

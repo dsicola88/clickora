@@ -12,6 +12,7 @@ import { WIDGET_REGISTRY } from "../widget-registry";
 import { NestedRenderProvider } from "../nested-render";
 import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WidgetInlineStyle } from "../widget-custom-css";
+import { motionClassName, widgetHasMotion } from "../widget-motion";
 import { InlineEditProvider } from "../inline-edit";
 import {
   Plus,
@@ -568,9 +569,13 @@ function StaticWidget({ widget, device }: { widget: WidgetNode; device: DeviceTy
   const shell = stylesToCssWidgetShell(widget.styles, device);
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
+  const motionCls = widgetHasMotion(widget.effects, widget.content)
+    ? motionClassName(widget.id)
+    : "";
+  const className = [wcls, motionCls].filter(Boolean).join(" ") || undefined;
   return (
     <div
-      className={wcls || undefined}
+      className={className}
       id={wid || undefined}
       style={{ ...shell, minWidth: shell.flexShrink === 0 ? "auto" : 0 }}
     >
@@ -613,6 +618,9 @@ function EditableWidget({
 
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
+  const motionCls = widgetHasMotion(widget.effects, widget.content)
+    ? motionClassName(widget.id)
+    : "";
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `slot:${widget.id}`,
@@ -655,7 +663,7 @@ function EditableWidget({
   return (
     <div
       ref={widget.type === "container" ? undefined : setDropRef}
-      className={`group/widget relative${wcls ? ` ${wcls}` : ""}${isDragging ? " opacity-40" : ""}`}
+      className={`group/widget relative${wcls ? ` ${wcls}` : ""}${motionCls ? ` ${motionCls}` : ""}${isDragging ? " opacity-40" : ""}`}
       id={wid || undefined}
       style={{
         ...shell,

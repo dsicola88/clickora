@@ -24,6 +24,8 @@ import type { FormField } from "../widgets/FormWidget";
 import type { SocialNetwork } from "../widgets/SocialIconsWidget";
 import type { TabItem } from "../widgets/TabsWidget";
 import { ButtonWidgetEditor } from "./editors/ButtonWidgetEditor";
+import { WidgetEffectsEditor } from "./WidgetEffectsEditor";
+import type { WidgetEffects } from "../types";
 import {
   ColorField,
   NumberField,
@@ -363,6 +365,11 @@ function WidgetPanel({
             updateWidget(section.id, column.id, widget.id, { customCss: v })
           }
           showLayout
+          effects={widget.effects}
+          onEffects={(effects) =>
+            updateWidget(section.id, column.id, widget.id, { effects })
+          }
+          effectsWidget={widget}
         />
       )}
     </PanelShell>
@@ -724,7 +731,21 @@ function WidgetStyleTab({
               value={widget.styles.background ?? ""}
               onChange={(v) => setStyles({ background: v })}
             />
+            <NumberField
+              label="Opacidade (0–1)"
+              value={typeof widget.styles.opacity === "number" ? widget.styles.opacity : 1}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(v) => setStyles({ opacity: v })}
+            />
           </Section>
+          <div className="border-b border-editor-border px-3 py-2">
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+              Animações de entrada e hover: aba <span className="font-semibold text-editor-fg">Avançado</span>{" "}
+              → Motion Effects (cada widget é independente).
+            </p>
+          </div>
 
           {(widget.type === "heading" ||
             widget.type === "text" ||
@@ -1389,6 +1410,9 @@ function AdvancedTab({
   onWidgetCustomCss,
   hideClasses,
   showLayout,
+  effects,
+  onEffects,
+  effectsWidget,
 }: {
   styles: BaseStyles & ResponsiveStyles;
   device: DeviceType;
@@ -1402,6 +1426,9 @@ function AdvancedTab({
   hideClasses?: boolean;
   /** Controles de layout (largura, posição, flex) — widgets de página. */
   showLayout?: boolean;
+  effects?: WidgetEffects;
+  onEffects?: (effects: WidgetEffects) => void;
+  effectsWidget?: WidgetNode;
 }) {
   const clearableZ = resolveResponsive(styles.zIndex, device);
   const zStr =
@@ -1411,6 +1438,12 @@ function AdvancedTab({
 
   return (
     <>
+      {effectsWidget && onEffects ? (
+        <WidgetEffectsEditor
+          widget={{ ...effectsWidget, effects }}
+          onChange={onEffects}
+        />
+      ) : null}
       {showLayout ? (
         <Section title="Disposição">
           <TextField
