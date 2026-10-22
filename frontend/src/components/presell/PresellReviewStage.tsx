@@ -6,6 +6,11 @@ import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import "@/page-builder/page-builder-theme.css";
+import {
+  applyEditorChromeTheme,
+  clearEditorChromeThemeAttr,
+  readStoredEditorChromeTheme,
+} from "@/page-builder/editorChromeTheme";
 
 type Device = "desktop" | "tablet" | "mobile";
 
@@ -105,9 +110,18 @@ export function PresellReviewStage({
 
   const previewPath = published ? `/p/${activeId}` : draftSrc || "";
   const showFrame = published || Boolean(draftSrc);
+  const editorTheme = readStoredEditorChromeTheme();
+
+  useEffect(() => {
+    applyEditorChromeTheme(editorTheme);
+    return () => clearEditorChromeThemeAttr();
+  }, [editorTheme]);
 
   return (
-    <div className="page-builder-scope fixed inset-0 z-[200] flex flex-col bg-editor-bg text-editor-fg">
+    <div
+      className="page-builder-scope fixed inset-0 z-[200] flex flex-col bg-editor-bg text-editor-fg"
+      data-editor-theme={editorTheme}
+    >
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-editor-border bg-editor-panel px-2">
         <button
           type="button"

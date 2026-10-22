@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Settings2, X } from "lucide-react";
@@ -42,6 +51,10 @@ import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import type { Presell } from "@/types/api";
 import "@/page-builder/page-builder-theme.css";
+import {
+  EditorChromeThemeProvider,
+  useEditorChromeThemeContext,
+} from "@/page-builder/EditorChromeThemeContext";
 
 const PageEditor = lazy(() =>
   import("@/page-builder/components/PageEditor").then((m) => ({ default: m.PageEditor })),
@@ -541,7 +554,8 @@ export default function PresellManualBuilderPage() {
   return (
     <PresellPublicLocaleProvider language={language}>
     <PresellBuilderEmbedProvider value={embedValue}>
-      <div className="page-builder-scope fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-editor-bg text-editor-fg">
+    <EditorChromeThemeProvider>
+      <ManualBuilderChromeShell>
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-editor-border bg-editor-panel px-2">
           <Button
             type="button"
@@ -684,8 +698,21 @@ export default function PresellManualBuilderPage() {
             </div>
           ) : null}
         </div>
-      </div>
+      </ManualBuilderChromeShell>
+    </EditorChromeThemeProvider>
     </PresellBuilderEmbedProvider>
     </PresellPublicLocaleProvider>
+  );
+}
+
+function ManualBuilderChromeShell({ children }: { children: ReactNode }) {
+  const { themeId } = useEditorChromeThemeContext();
+  return (
+    <div
+      className="page-builder-scope fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-editor-bg text-editor-fg"
+      data-editor-theme={themeId}
+    >
+      {children}
+    </div>
   );
 }

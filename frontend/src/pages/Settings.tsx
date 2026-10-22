@@ -24,16 +24,35 @@ function planTypeLabel(t: UserPlan["plan_type"]): string {
   }
 }
 
+const APP_THEME_KEY = "clickora:app-theme";
+
+function readAppTheme(): "light" | "dark" {
+  try {
+    const raw = localStorage.getItem(APP_THEME_KEY);
+    if (raw === "dark" || raw === "light") return raw;
+  } catch {
+    /* ignore */
+  }
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+function applyAppTheme(next: "light" | "dark") {
+  document.documentElement.classList.toggle("dark", next === "dark");
+  try {
+    localStorage.setItem(APP_THEME_KEY, next);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function Settings() {
   const { userPlan } = useAuth();
-  const [theme, setTheme] = useState<"light" | "dark">(
-    document.documentElement.classList.contains("dark") ? "dark" : "light",
-  );
+  const [theme, setTheme] = useState<"light" | "dark">(() => readAppTheme());
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
+    applyAppTheme(newTheme);
     toast.success(`Tema alterado para ${newTheme === "dark" ? "escuro" : "claro"}`);
   };
 

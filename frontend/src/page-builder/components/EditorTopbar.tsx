@@ -33,11 +33,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AutosaveStatus } from "./AutosaveStatus";
+import { EditorThemePicker } from "./EditorThemePicker";
 import { PagesLibraryModal } from "./PagesLibraryModal";
 import { TemplatesModal } from "./TemplatesModal";
 import { PublishModal } from "./PublishModal";
 import { SeoModal } from "./SeoModal";
 import { TrackingModal } from "./TrackingModal";
+import { useEditorChromeThemeContextOptional } from "../EditorChromeThemeContext";
 
 const DEVICES: Array<{ id: DeviceType; Icon: typeof Monitor; label: string }> = [
   { id: "desktop", Icon: Monitor, label: "Computador" },
@@ -82,6 +84,7 @@ export function EditorTopbar() {
   }, [doc.name]);
 
   const presellEmbed = usePresellBuilderEmbedOptional();
+  const chromeTheme = useEditorChromeThemeContextOptional();
 
   const commitName = () => {
     const next = nameDraft.trim() || "Presell";
@@ -189,6 +192,9 @@ export function EditorTopbar() {
       </div>
 
       <div className="flex items-center justify-end gap-1">
+        {chromeTheme ? (
+          <EditorThemePicker themeId={chromeTheme.themeId} onChange={chromeTheme.setThemeId} />
+        ) : null}
         <IconBtn label="Blocos (do zero)" onClick={() => setBlocksOpen(true)}>
           <Blocks className="h-4 w-4" />
         </IconBtn>

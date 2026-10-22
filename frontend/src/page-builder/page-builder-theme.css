@@ -1,13 +1,13 @@
 /**
- * Tema do editor visual (ex-build_dpa) — variáveis usadas pelas classes Tailwind `editor-*`.
- * Aplicar no contentor do editor: `className="page-builder-scope"`.
+ * Temas do chrome do editor visual (não da página publicada).
+ * Aplicar: class "page-builder-scope" + data-editor-theme="…".
+ * Variáveis também em :root[data-editor-theme] para menus portados (Radix).
  */
-/*
- * Variáveis no :root para menus portados (Select, dropdown) fora de .page-builder-scope.
- * Hex primeiro: se o browser ignorar oklch, a cor anterior mantém-se.
- */
-:root,
-.page-builder-scope {
+
+/* ——— Studio escuro (padrão Elementor) ——— */
+:root[data-editor-theme="studio-dark"],
+.page-builder-scope,
+.page-builder-scope[data-editor-theme="studio-dark"] {
   --editor-bg: #1e2128;
   --editor-bg: oklch(0.18 0.01 260);
   --editor-panel: #2a2e38;
@@ -34,12 +34,87 @@
   --editor-widget: oklch(0.62 0.21 27);
 }
 
+/* ——— Studio claro ——— */
+:root[data-editor-theme="studio-light"],
+.page-builder-scope[data-editor-theme="studio-light"] {
+  --editor-bg: #e8ecf2;
+  --editor-bg: oklch(0.94 0.01 250);
+  --editor-panel: #ffffff;
+  --editor-panel: oklch(0.995 0.002 250);
+  --editor-panel-2: #f1f4f8;
+  --editor-panel-2: oklch(0.97 0.008 250);
+  --editor-border: #cfd6e0;
+  --editor-border: oklch(0.88 0.015 250);
+  --editor-fg: #0f172a;
+  --editor-fg: oklch(0.22 0.03 260);
+  --editor-fg-muted: #64748b;
+  --editor-fg-muted: oklch(0.55 0.03 250);
+  --editor-canvas: #f8fafc;
+  --editor-canvas: oklch(0.98 0.005 250);
+  --editor-accent: #e11d48;
+  --editor-accent: oklch(0.58 0.22 27);
+  --editor-accent-fg: #ffffff;
+  --editor-section: #15803d;
+  --editor-column: #2563eb;
+  --editor-widget: #e11d48;
+}
+
+/* ——— Ardósia Pro (escuro frio) ——— */
+:root[data-editor-theme="slate-pro"],
+.page-builder-scope[data-editor-theme="slate-pro"] {
+  --editor-bg: #0b1220;
+  --editor-panel: #111827;
+  --editor-panel-2: #1e293b;
+  --editor-border: #334155;
+  --editor-fg: #f1f5f9;
+  --editor-fg-muted: #94a3b8;
+  --editor-canvas: #e2e8f0;
+  --editor-accent: #6366f1;
+  --editor-accent-fg: #ffffff;
+  --editor-section: #22c55e;
+  --editor-column: #38bdf8;
+  --editor-widget: #a78bfa;
+}
+
+/* ——— Grafite + teal ——— */
+:root[data-editor-theme="graphite"],
+.page-builder-scope[data-editor-theme="graphite"] {
+  --editor-bg: #121214;
+  --editor-panel: #1c1c1f;
+  --editor-panel-2: #27272a;
+  --editor-border: #3f3f46;
+  --editor-fg: #fafafa;
+  --editor-fg-muted: #a1a1aa;
+  --editor-canvas: #f4f4f5;
+  --editor-accent: #14b8a6;
+  --editor-accent-fg: #042f2e;
+  --editor-section: #22c55e;
+  --editor-column: #3b82f6;
+  --editor-widget: #14b8a6;
+}
+
+/* ——— Marfim (claro quente) ——— */
+:root[data-editor-theme="ivory"],
+.page-builder-scope[data-editor-theme="ivory"] {
+  --editor-bg: #f3efe8;
+  --editor-panel: #fffcf7;
+  --editor-panel-2: #f7f1e8;
+  --editor-border: #e0d5c5;
+  --editor-fg: #1c1917;
+  --editor-fg-muted: #78716c;
+  --editor-canvas: #fffdf9;
+  --editor-accent: #c2410c;
+  --editor-accent-fg: #ffffff;
+  --editor-section: #15803d;
+  --editor-column: #1d4ed8;
+  --editor-widget: #c2410c;
+}
+
 .page-builder-scope [contenteditable="true"] {
   outline: none;
   cursor: text;
 }
 
-/* Hierarquia visual: secção (verde) vs coluna (azul) vs elemento (vermelho) — estilo Elementor */
 .page-builder-scope .group\/section:hover > [data-pb-section-outline],
 .page-builder-scope .group\/column:hover > [data-pb-column-outline] {
   outline-offset: -1px;
