@@ -21,9 +21,10 @@ describe("normalize* pixel IDs from messy paste", () => {
     ).toBe("1234567890123456");
   });
 
-  it("TikTok: ID e ttq.load", () => {
+  it("TikTok: ID e ttq.load (sem match guloso em texto)", () => {
     expect(normalizeTikTokPixelId("CABCDEF1234567890")).toBe("CABCDEF1234567890");
     expect(normalizeTikTokPixelId(`ttq.load('CABCDEF1234567890');`)).toBe("CABCDEF1234567890");
+    expect(normalizeTikTokPixelId("Cole o ID ABCDEFGHIJKLMNOPQRST no painel")).toBe("");
   });
 
   it("Bing UET", () => {
@@ -98,6 +99,31 @@ describe("buildPresellOptionalSettingsMarketing", () => {
     });
     expect(out.headHtml).not.toContain("Meta Pixel");
     expect(out.bodyHtml).not.toContain("facebook.com/tr");
+  });
+
+  it("script Meta no campo Google não duplica com fbPixelId", () => {
+    const out = buildPresellOptionalSettingsMarketing({
+      adPixelsMode: "auto",
+      fbPixelId: "1234567890123456",
+      googleTrackingCode: `<script>fbq('init','999');</script>`,
+    });
+    expect(out.headHtml).toContain("Snippet colado");
+    expect(out.headHtml).not.toContain("Meta Pixel");
+  });
+
+  it("evento Meta standard usa track, custom usa trackCustom", () => {
+    const lead = buildPresellOptionalSettingsMarketing({
+      adPixelsMode: "auto",
+      fbPixelId: "1234567890123456",
+      fbTrackName: "Lead",
+    });
+    expect(lead.headHtml).toContain(`fbq('track',"Lead")`);
+    const custom = buildPresellOptionalSettingsMarketing({
+      adPixelsMode: "auto",
+      fbPixelId: "1234567890123456",
+      fbTrackName: "MyCustomEvent",
+    });
+    expect(custom.headHtml).toContain(`fbq('trackCustom',"MyCustomEvent")`);
   });
 
   it("detectPastedAdPixelBases cobre as 4 redes", () => {

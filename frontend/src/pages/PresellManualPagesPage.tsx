@@ -31,9 +31,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { getTrackApiBaseForPublicPresell } from "@/lib/apiOrigin";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
-import { exportPageToHtml } from "@/page-builder/export-html";
+import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import type { Presell } from "@/types/api";
 
 function sanitizeSlug(raw: string): string {
@@ -144,14 +145,17 @@ export default function PresellManualPagesPage() {
       const data = await loadFresh(page.id);
       if (!data) return;
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
-      const doc = parsePresellBuilderPageDocument(data.content);
-      if (!doc) {
+      if (!parsePresellBuilderPageDocument(data.content)) {
         toast.error("Documento do editor em falta.");
         return;
       }
-      const html = exportPageToHtml(doc, data.language);
+      const html = buildPresellStandaloneHtml(data, {
+        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        publicPageUrl: publicUrl,
+        format: "htmlWidget",
+      });
       await navigator.clipboard.writeText(html);
-      toast.success("HTML copiado para a área de transferência.");
+      toast.success("HTML copiado (com pixels e rastreamento).");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao copiar HTML.");
     } finally {
@@ -164,12 +168,16 @@ export default function PresellManualPagesPage() {
     try {
       const data = await loadFresh(page.id);
       if (!data) return;
-      const doc = parsePresellBuilderPageDocument(data.content);
-      if (!doc) {
+      if (!parsePresellBuilderPageDocument(data.content)) {
         toast.error("Documento do editor em falta.");
         return;
       }
-      const html = exportPageToHtml(doc, data.language);
+      const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
+      const html = buildPresellStandaloneHtml(data, {
+        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        publicPageUrl: publicUrl,
+        format: "document",
+      });
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");

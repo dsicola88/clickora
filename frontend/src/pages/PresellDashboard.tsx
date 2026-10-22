@@ -63,7 +63,6 @@ import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildTrackedPresellUrl } from "@/services/campaignsService";
-import { exportPageToHtml } from "@/page-builder/export-html";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -460,26 +459,18 @@ export default function PresellDashboard() {
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
-      let html: string;
-      if (data.type === "builder") {
-        const doc = parsePresellBuilderPageDocument(data.content);
-        if (!doc) {
-          toast.error("Documento do editor em falta.");
-          return;
-        }
-        html = exportPageToHtml(doc, data.language);
-      } else {
-        html = buildPresellStandaloneHtml(data, {
-          apiBase: getTrackApiBaseForPublicPresell(publicUrl),
-          publicPageUrl: publicUrl,
-          format: "htmlWidget",
-        });
+      const html = buildPresellStandaloneHtml(data, {
+        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        publicPageUrl: publicUrl,
+        format: "htmlWidget",
+      });
+      if (data.type === "builder" && !parsePresellBuilderPageDocument(data.content)) {
+        toast.error("Documento do editor em falta.");
+        return;
       }
       await navigator.clipboard.writeText(html);
       toast.success(
-        data.type === "builder"
-          ? "HTML copiado a partir do layout do editor manual."
-          : "HTML copiado (mesmo layout que a página pública). Cola no teu site no bloco ou widget «HTML».",
+        "HTML copiado (layout + pixels Clickora/Meta/TikTok/Google/Bing). Cola no teu site no bloco «HTML».",
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível copiar o HTML.");
@@ -497,21 +488,15 @@ export default function PresellDashboard() {
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
-      let html: string;
-      if (data.type === "builder") {
-        const doc = parsePresellBuilderPageDocument(data.content);
-        if (!doc) {
-          toast.error("Documento do editor em falta.");
-          return;
-        }
-        html = exportPageToHtml(doc, data.language);
-      } else {
-        html = buildPresellStandaloneHtml(data, {
-          apiBase: getTrackApiBaseForPublicPresell(publicUrl),
-          publicPageUrl: publicUrl,
-          format: "document",
-        });
+      if (data.type === "builder" && !parsePresellBuilderPageDocument(data.content)) {
+        toast.error("Documento do editor em falta.");
+        return;
       }
+      const html = buildPresellStandaloneHtml(data, {
+        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        publicPageUrl: publicUrl,
+        format: "document",
+      });
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");

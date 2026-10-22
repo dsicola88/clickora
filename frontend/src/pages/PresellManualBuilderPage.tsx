@@ -117,6 +117,7 @@ export default function PresellManualBuilderPage() {
   const contentRef = useRef<Record<string, unknown>>({});
   const pageTypeRef = useRef("builder");
   const lastCloudDocJsonRef = useRef("");
+  const lastCloudSettingsJsonRef = useRef("");
   const [cloudAutosaveStatus, setCloudAutosaveStatus] = useState<
     "idle" | "pending" | "saving" | "saved" | "error"
   >("idle");
@@ -179,6 +180,7 @@ export default function PresellManualBuilderPage() {
           setLanguage("pt-BR");
           setAffiliateDraft("");
           setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
+          lastCloudSettingsJsonRef.current = "";
           setEditorReady(true);
         }
         return;
@@ -223,13 +225,15 @@ export default function PresellManualBuilderPage() {
         identity: identityFromPresellContent(c, doc, data.title),
       });
       lastCloudDocJsonRef.current = JSON.stringify(useBuilder.getState().doc);
+      const hydrated = hydratePresellConfigSettings(data.settings as Record<string, unknown>);
       setSlugDraft(data.slug);
       setCategory(data.category || "sem");
       setLanguage(normalizePresellLocale(data.language));
       setAffiliateDraft(String(c.affiliateLink ?? ""));
       loadedOfferRef.current = String(c.affiliateLink ?? "");
       setCustomDomainId(data.custom_domain_id ?? "");
-      setConfigSettings(hydratePresellConfigSettings(data.settings as Record<string, unknown>));
+      setConfigSettings(hydrated);
+      lastCloudSettingsJsonRef.current = JSON.stringify(hydrated);
       setEditorReady(true);
     };
 
@@ -386,7 +390,14 @@ export default function PresellManualBuilderPage() {
 
   const pushWorkingToCloud = useCallback(async (presellId: string, doc: PageDocument) => {
     const snapshot = JSON.stringify(doc);
-    if (snapshot === lastCloudDocJsonRef.current) return true;
+    const settingsPayload = buildSettingsPayloadRef.current();
+    const settingsSnap = JSON.stringify(settingsPayload);
+    if (
+      snapshot === lastCloudDocJsonRef.current &&
+      settingsSnap === lastCloudSettingsJsonRef.current
+    ) {
+      return true;
+    }
     const affiliate =
       affiliateDraftRef.current.trim() || String(contentRef.current.affiliateLink ?? "");
     const content: Record<string, unknown> = {
@@ -398,12 +409,14 @@ export default function PresellManualBuilderPage() {
     const { error } = await presellService.update(presellId, {
       content,
       language: languageRef.current,
+      settings: settingsPayload,
     });
     if (error) {
       setCloudAutosaveStatus("error");
       return false;
     }
     lastCloudDocJsonRef.current = snapshot;
+    lastCloudSettingsJsonRef.current = settingsSnap;
     contentRef.current = content;
     setLastCloudSavedAt(Date.now());
     setCloudAutosaveStatus("saved");
@@ -445,6 +458,7 @@ export default function PresellManualBuilderPage() {
     }
     contentRef.current = content;
     lastCloudDocJsonRef.current = JSON.stringify(doc);
+    lastCloudSettingsJsonRef.current = JSON.stringify(buildSettingsPayloadRef.current());
     pageTypeRef.current = "builder";
     setLastCloudSavedAt(Date.now());
     setCloudAutosaveStatus("saved");
@@ -458,7 +472,10 @@ export default function PresellManualBuilderPage() {
     const schedule = () => {
       const doc = useBuilder.getState().doc;
       const json = JSON.stringify(doc);
-      if (json === lastCloudDocJsonRef.current) return;
+      const settingsSnap = JSON.stringify(buildSettingsPayloadRef.current());
+      if (json === lastCloudDocJsonRef.current && settingsSnap === lastCloudSettingsJsonRef.current) {
+        return;
+      }
       setCloudAutosaveStatus("pending");
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
@@ -485,7 +502,13 @@ export default function PresellManualBuilderPage() {
       window.clearTimeout(timer);
       const doc = useBuilder.getState().doc;
       const json = JSON.stringify(doc);
-      if (json === lastCloudDocJsonRef.current || cloudInflightRef.current) return;
+      const settingsSnap = JSON.stringify(buildSettingsPayloadRef.current());
+      if (
+        (json === lastCloudDocJsonRef.current && settingsSnap === lastCloudSettingsJsonRef.current) ||
+        cloudInflightRef.current
+      ) {
+        return;
+      }
       if (routeId) {
         // best-effort sync on tab close
         void pushWorkingToCloud(routeId, doc);
@@ -503,6 +526,26 @@ export default function PresellManualBuilderPage() {
       document.removeEventListener("visibilitychange", onHidden);
     };
   }, [editorReady, routeId, canSaveToAccount, pushWorkingToCloud, bootstrapDraftInCloud]);
+
+  /** Autosave pixels/settings mesmo sem alterar o canvas. */
+  useEffect(() => {
+    if (!editorReady || !canSaveToAccount || !routeId) return;
+    const settingsSnap = JSON.stringify(buildSettingsPayload());
+    if (settingsSnap === lastCloudSettingsJsonRef.current) return;
+    setCloudAutosaveStatus("pending");
+    const timer = window.setTimeout(() => {
+      if (cloudInflightRef.current) return;
+      cloudInflightRef.current = true;
+      void (async () => {
+        try {
+          await pushWorkingToCloud(routeId, useBuilder.getState().doc);
+        } finally {
+          cloudInflightRef.current = false;
+        }
+      })();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [configSettings, editorReady, canSaveToAccount, routeId, buildSettingsPayload, pushWorkingToCloud]);
 
   const embedValue = useMemo(
     () => ({

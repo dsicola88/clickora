@@ -215,18 +215,35 @@ export function PresellAdvancedTrackingCollapsible({
                       onClick={() => {
                         const prev = String(configSettings.adPixelsMode ?? "auto").toLowerCase();
                         if (prev === opt.id) return;
-                        setConfigSettings((p) => ({ ...p, adPixelsMode: opt.id }));
                         if (opt.id === "manual") {
-                          toast.message("Modo manual", {
-                            description:
-                              "Cola o script completo no campo abaixo. Os IDs deixam de gerar pixel automático (evita duplicar).",
-                          });
+                          const hasIds = Boolean(
+                            String(configSettings.fbPixelId ?? "").trim() ||
+                              String(configSettings.tiktokPixelId ?? "").trim() ||
+                              String(configSettings.bingUetTagId ?? "").trim() ||
+                              String(configSettings.googleTrackingCode ?? "").trim() ||
+                              String(configSettings.googleConversionEvent ?? "").trim(),
+                          );
+                          const hasScript = Boolean(
+                            String(configSettings.conversionTrackingScript ?? "").trim(),
+                          );
+                          if (hasIds && !hasScript) {
+                            toast.warning("Modo manual sem script", {
+                              description:
+                                "Os IDs deixam de gerar pixel. Cola o script completo da Meta/TikTok/Google/Bing no campo abaixo, ou fica em Automático.",
+                            });
+                          } else {
+                            toast.message("Modo manual", {
+                              description:
+                                "Cola o script completo no campo abaixo. Os IDs não geram pixel automático (evita duplicar).",
+                            });
+                          }
                         } else {
                           toast.message("Modo automático", {
                             description:
                               "Usa só os IDs. Se já tiveres um script completo colado, esse continua no head — remove-o se for o mesmo pixel.",
                           });
                         }
+                        setConfigSettings((p) => ({ ...p, adPixelsMode: opt.id }));
                       }}
                       className={cn(
                         "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",

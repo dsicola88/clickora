@@ -33,15 +33,18 @@ export function normalizeMetaPixelId(raw: string): string {
   return embedded?.[1] ?? "";
 }
 
-/** Extrai Pixel ID TikTok de cola suja / `ttq.load('…')`. */
+/** Extrai Pixel ID TikTok de cola suja / `ttq.load('…')` / `sdkid=`. Sem match guloso em texto livre. */
 export function normalizeTikTokPixelId(raw: string): string {
   const t = raw.trim();
   if (!t) return "";
   const fromLoad = t.match(/ttq\.load\s*\(\s*['"]([A-Z0-9]{10,64})['"]/i);
   if (fromLoad?.[1]) return fromLoad[1];
+  const fromSdk = t.match(/[?&]sdkid=([A-Z0-9]{10,64})/i);
+  if (fromSdk?.[1]) return fromSdk[1];
+  /** ID limpo (Events Manager): tipicamente começa por letra. */
+  if (/^[A-Z][A-Z0-9]{9,63}$/i.test(t)) return t;
   if (/^[A-Z0-9]{10,64}$/i.test(t)) return t;
-  const embedded = t.match(/\b([A-Z0-9]{10,64})\b/i);
-  return embedded?.[1] ?? "";
+  return "";
 }
 
 /** Extrai UET tag ID Bing (só dígitos). */
@@ -107,14 +110,56 @@ function isManualPixelsMode(settings: Record<string, unknown>): boolean {
   return String(settings.adPixelsMode ?? "auto").trim().toLowerCase() === "manual";
 }
 
+function mergePixelBases(
+  a: ReturnType<typeof detectPastedAdPixelBases>,
+  b: ReturnType<typeof detectPastedAdPixelBases>,
+) {
+  return {
+    meta: a.meta || b.meta,
+    tiktok: a.tiktok || b.tiktok,
+    bing: a.bing || b.bing,
+    google: a.google || b.google,
+  };
+}
+
 function pastedBasesFromSettings(settings: Record<string, unknown>) {
   const blob = [
     String(settings.conversionTrackingScript ?? ""),
     String(settings.headerCode ?? ""),
     String(settings.bodyCode ?? ""),
     String(settings.footerCode ?? ""),
+    String(settings.googleTrackingCode ?? ""),
   ].join("\n");
   return detectPastedAdPixelBases(blob);
+}
+
+const META_STANDARD_EVENTS = new Set([
+  "PageView",
+  "Lead",
+  "ViewContent",
+  "Purchase",
+  "AddToCart",
+  "InitiateCheckout",
+  "CompleteRegistration",
+  "Search",
+  "Contact",
+  "Subscribe",
+  "AddPaymentInfo",
+  "AddToWishlist",
+  "StartTrial",
+  "SubmitApplication",
+  "Schedule",
+  "FindLocation",
+  "CustomizeProduct",
+  "Donate",
+]);
+
+function metaTrackCall(eventName: string): string {
+  const name = eventName.trim();
+  if (!name) return "";
+  const isStandard = META_STANDARD_EVENTS.has(name);
+  const fn = isStandard ? "track" : "trackCustom";
+  return `fbq('${fn}',${JSON.stringify(name)});`;
 }
 
 /**
@@ -130,7 +175,12 @@ export function buildPresellOptionalSettingsMarketing(
   const fbTrackName = String(settings.fbTrackName ?? "").trim();
   const tiktokPixelId = normalizeTikTokPixelId(String(settings.tiktokPixelId ?? ""));
   const bingUetTagId = normalizeBingUetTagId(String(settings.bingUetTagId ?? ""));
-  const already = pastedBasesFromSettings(settings);
+  const isRawScript = googleTrackingCode.length > 0 && /<\s*script/i.test(googleTrackingCode);
+  /** Script colado no campo Google pode ser Meta/TikTok/etc. — marca essas bases como já presentes. */
+  let already = pastedBasesFromSettings(settings);
+  if (isRawScript) {
+    already = mergePixelBases(already, detectPastedAdPixelBases(googleTrackingCode));
+  }
 
   const cacheKey = JSON.stringify({
     mode,
@@ -154,13 +204,12 @@ export function buildPresellOptionalSettingsMarketing(
   const conv = googleConversionEvent ? parseConversionSendTo(googleConversionEvent) : null;
 
   const isGtm = /^GTM-[A-Z0-9]+$/i.test(googleTrackingCode);
-  const isRawScript = googleTrackingCode.length > 0 && /<\s*script/i.test(googleTrackingCode);
   const isGa4Id = /^G-[A-Z0-9]+$/i.test(googleTrackingCode);
   const isAwOnlyId = /^AW-[0-9]+$/i.test(googleTrackingCode);
 
-  const skipGoogleAuto = already.google && !isRawScript;
-
-  if (!skipGoogleAuto) {
+  if (isRawScript) {
+    head.push(`<!-- Snippet colado (campo Google / tag) -->\n${googleTrackingCode}`);
+  } else if (!already.google) {
     if (isGtm) {
       const id = googleTrackingCode.toUpperCase();
       head.push(`<!-- Google Tag Manager (opcional presell) -->
@@ -171,8 +220,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','${escapeJs(id)}');</script>`);
       body.push(`<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${escapeAttr(id)}"
 height="0" width="0" style="display:none;visibility:hidden" title="GTM"></iframe></noscript>`);
-    } else if (isRawScript) {
-      head.push(`<!-- Google: snippet colado (opcional presell) -->\n${googleTrackingCode}`);
     } else if (googleTrackingCode.length > 0 && !isGa4Id && !isAwOnlyId) {
       head.push(
         `<!-- Clickora: «Google Analytics/tag» não reconhecido — usa G-…, GTM-…, AW-… ou cola o &lt;script&gt; completo. -->`,
@@ -186,7 +233,7 @@ height="0" width="0" style="display:none;visibility:hidden" title="GTM"></iframe
       gtagConfigIds.unshift(conv.awId.toUpperCase());
     }
 
-    const useStructuredGtag = !isGtm && !isRawScript && (gtagConfigIds.length > 0 || !!conv);
+    const useStructuredGtag = !isGtm && (gtagConfigIds.length > 0 || !!conv);
 
     if (useStructuredGtag) {
       if (gtagConfigIds.length === 0 && conv) {
@@ -216,15 +263,13 @@ ${conv ? `gtag('event', 'conversion', { send_to: '${escapeJs(conv.sendTo)}' });`
 </script>`);
       }
     }
-  } else if (conv && !already.google) {
-    /* already.google true — conversão AW também vem do snippet colado */
+  } else if (conv) {
+    /* already.google — conversão AW deve viver no snippet/GTM colado */
   }
 
   if (!already.meta && /^\d{10,20}$/.test(fbPixelId)) {
     const pid = fbPixelId;
-    const extra = fbTrackName.trim()
-      ? `fbq('trackCustom',${JSON.stringify(fbTrackName.trim())});`
-      : "";
+    const extra = metaTrackCall(fbTrackName);
     head.push(`<!-- Meta Pixel (opcional presell) -->
 <script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
