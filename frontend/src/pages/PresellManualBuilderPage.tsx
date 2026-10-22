@@ -561,7 +561,7 @@ export default function PresellManualBuilderPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 shrink-0 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
+            className="h-8 shrink-0 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border hover:text-editor-fg"
             onClick={() => navigate("/presell/dashboard")}
           >
             <ArrowLeft className="mr-1 h-3.5 w-3.5" />
@@ -589,7 +589,7 @@ export default function PresellManualBuilderPage() {
               <SelectTrigger className="h-8 w-40 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-52">
                 <SelectValue placeholder="Domínio" />
               </SelectTrigger>
-              <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg">
+              <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg shadow-lg [&_[role=option]]:text-editor-fg [&_[role=option]:focus]:bg-editor-panel-2">
                 <SelectItem value="default">Domínio padrão</SelectItem>
                 {customDomains
                   .filter((d) => d.status === "verified")
@@ -608,7 +608,7 @@ export default function PresellManualBuilderPage() {
             >
               <SelectValue placeholder="Idioma" />
             </SelectTrigger>
-            <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg">
+            <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg shadow-lg [&_[role=option]]:text-editor-fg [&_[role=option]:focus]:bg-editor-panel-2">
               {PRESELL_CREATION_LANGUAGES.map((l) => (
                 <SelectItem key={l.id} value={l.id}>
                   {l.name}

@@ -185,7 +185,7 @@ export function SpacingField({
           onClick={() => setLinked((v) => !v)}
           className={`flex h-5 w-5 items-center justify-center rounded transition-colors ${
             linked
-              ? "bg-editor-accent text-white"
+              ? "bg-editor-accent text-editor-accent-fg"
               : "text-editor-fg-muted hover:text-editor-fg"
           }`}
           title={linked ? "Vincular valores" : "Desvincular valores"}

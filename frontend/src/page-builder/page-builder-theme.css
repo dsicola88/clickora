@@ -110,6 +110,22 @@
   --editor-widget: #c2410c;
 }
 
+/*
+ * Componentes shadcn/Radix portados para o body: o foco usa --accent da app.
+ * Com data-editor-theme no :root, alinhamos o hover/foco ao chrome do editor.
+ */
+:root[data-editor-theme] {
+  --editor-focus-ring: color-mix(in oklab, var(--editor-accent) 45%, transparent);
+}
+
+:root[data-editor-theme] [role="option"]:focus,
+:root[data-editor-theme] [data-radix-collection-item]:focus,
+:root[data-editor-theme] [role="menuitem"]:focus,
+:root[data-editor-theme] [role="menuitem"][data-highlighted] {
+  background-color: var(--editor-panel-2) !important;
+  color: var(--editor-fg) !important;
+}
+
 .page-builder-scope [contenteditable="true"] {
   outline: none;
   cursor: text;

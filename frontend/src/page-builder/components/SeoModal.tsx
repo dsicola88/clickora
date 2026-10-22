@@ -171,7 +171,8 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
             </h3>
 
             {/* Google preview */}
-            <div className="rounded border border-editor-border bg-white p-4 text-left">
+            {/* Pré-visualização SERP: cores fixas de propósito (imitam o Google, não o tema do editor). */}
+            <div className="rounded border border-editor-border bg-[#fff] p-4 text-left shadow-sm">
               <div className="text-[11px] text-[#5f6368]">{previewUrl}</div>
               <div className="mt-1 truncate text-[18px] leading-tight text-[#1a0dab]">
                 {previewTitle}
@@ -179,8 +180,8 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
               <div className="mt-1 line-clamp-2 text-[13px] text-[#4d5156]">{previewDesc}</div>
             </div>
 
-            {/* Social preview */}
-            <div className="overflow-hidden rounded border border-editor-border bg-white">
+            {/* Social preview — cartão claro estilo redes, independente do chrome */}
+            <div className="overflow-hidden rounded border border-editor-border bg-[#fff] shadow-sm">
               {seo.ogImage ? (
                 <img
                   src={seo.ogImage}
