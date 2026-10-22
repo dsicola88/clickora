@@ -315,6 +315,28 @@ export default function PresellManualBuilderPage() {
         status: "published",
       });
       if (error) throw new Error(error);
+      const createdRow = created as
+        | (Presell & {
+            compliance_blocked?: boolean;
+            compliance?: {
+              error?: string;
+              message?: string;
+              critical_issues?: Array<{ name?: string; evidence?: string; remediation?: string }>;
+            };
+            message?: string;
+          })
+        | null;
+      if (createdRow?.compliance_blocked) {
+        const issues = (createdRow.compliance?.critical_issues || [])
+          .map((r) => (r.name || r.evidence || r.remediation || "").trim())
+          .filter(Boolean)
+          .slice(0, 4);
+        const base =
+          createdRow.compliance?.error ||
+          createdRow.message ||
+          "Publicação bloqueada pelas verificações internas.";
+        throw new Error(issues.length ? `${base}: ${issues.join(" · ")}` : base);
+      }
       if (created?.id && created.status !== "published") {
         const { data: published, error: pubErr } = await presellService.toggleStatus(created.id, "published");
         if (pubErr) throw new Error(pubErr);

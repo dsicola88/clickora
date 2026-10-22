@@ -89,8 +89,21 @@ class ApiClient {
           error?: string;
           code?: string;
           details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+          critical_issues?: Array<{ name?: string; evidence?: string; remediation?: string }>;
         };
-        let message = errorData.message || errorData.error || `Erro ${response.status}`;
+        const errCode = typeof errorData.code === "string" ? errorData.code : null;
+        /** COMPLIANCE_GATE: `message` é só disclaimer — preferir `error` + regras que falharam. */
+        let message =
+          errCode === "COMPLIANCE_GATE"
+            ? errorData.error || errorData.message || `Erro ${response.status}`
+            : errorData.message || errorData.error || `Erro ${response.status}`;
+        if (errCode === "COMPLIANCE_GATE" && Array.isArray(errorData.critical_issues)) {
+          const issues = errorData.critical_issues
+            .map((r) => (r.name || r.evidence || r.remediation || "").trim())
+            .filter(Boolean)
+            .slice(0, 4);
+          if (issues.length) message = `${message}: ${issues.join(" · ")}`;
+        }
         const fe = errorData.details?.fieldErrors;
         if (fe && typeof fe === "object") {
           const parts = Object.entries(fe).flatMap(([key, msgs]) =>
@@ -105,7 +118,6 @@ class ApiClient {
           window.dispatchEvent(new CustomEvent("auth:logout"));
         }
 
-        const errCode = typeof errorData.code === "string" ? errorData.code : null;
         return { data: null, error: message, errorCode: errCode };
       }
 
