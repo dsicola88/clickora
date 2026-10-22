@@ -45,8 +45,10 @@ export function buildMirrorSrcDocWithTrackHref(srcDoc: string, trackHref: string
   const filled = stripLegacyMirrorCtaReadabilityStyle(
     srcDoc.split(CLICKORA_MIRROR_TRACK_MARKER).join(escaped),
   );
+  /** Evita que CTAs relativos resolvam no lander do merchant (`tryvisivra.com/pv-v2…`). */
+  const noMerchantBase = filled.replace(/<base\b[^>]*>/gi, '<base href="./">');
   return preconnectMirrorImageHost(
-    deferMirrorImagesBelowFold(ensureMirrorResponsiveBaseHtml(filled)),
+    deferMirrorImagesBelowFold(ensureMirrorResponsiveBaseHtml(noMerchantBase)),
   );
 }
 

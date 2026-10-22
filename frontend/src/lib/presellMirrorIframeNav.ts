@@ -1,11 +1,11 @@
-import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
+import { hrefLooksLikeOfferLink, isCtaLabel, isSoftNavLabel } from "@/lib/presellOfferHrefBake";
 import { isCommerceHashHref } from "@/lib/presellCommerceHash";
 
 const OFFER_CTA_FALLBACK =
-  /order\s*now|buy\s*now|shop\s*now|comprar|official|checkout|claim|get\s+yours|add to cart/i;
+  /order\s*now|buy\s*now|shop\s*now|comprar|official|checkout|claim|get\s+yours|add to cart|get\s+started/i;
 
 const BUTTONISH_CLASS =
-  /\b(btn|button|cta|elementor-button|wp-block-button|shop-button|buy-button|offer-button|add-to-cart|nav-link-btn)\b/i;
+  /\b(btn|button|cta|elementor-button|wp-block-button|shop-button|buy-button|offer-button|add-to-cart|nav-link-btn|anchor_to_product)\b/i;
 
 export function mirrorAnchorLabel(anchor: HTMLAnchorElement): string {
   return `${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""} ${anchor.className || ""}`
@@ -45,6 +45,11 @@ export function resolveMirrorAnchorNavigateHref(
 
   const raw = (anchor.getAttribute("href") || "").trim();
   if (!raw || /^mailto:|^tel:/i.test(raw)) return null;
+
+  /** Contact / Privacy / etc. nunca abrem a oferta. */
+  if (isSoftNavLabel(mirrorAnchorLabel(anchor)) && !isCtaLabel(mirrorAnchorLabel(anchor))) {
+    return null;
+  }
 
   if (anchor.getAttribute("data-clickora-offer") === "1") {
     if (/\/track\/r\//i.test(raw)) {

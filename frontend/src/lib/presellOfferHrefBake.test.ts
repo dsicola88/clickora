@@ -69,4 +69,30 @@ describe("bakeHtmlOfferHrefs", () => {
     expect(hrefLooksLikeOfferLink("https://cdn.example/a.png")).toBe(false);
     expect(hrefLooksLikeOfferLink("https://shop.example/privacy")).toBe(false);
   });
+
+  it("Get Started (button Funnelish) e Contact errado no marcador → track só nos CTAs", () => {
+    const html = `
+      <base href="https://tryvisivra.com/pv-v2?aff_id=1">
+      <button class="anchor_to_product" data-eltype="button" id="cta1">
+        <span data-button-text="true">Get Started with VISIVRA Today !</span>
+      </button>
+      <a href="${CLICKORA_MIRROR_TRACK_MARKER}">Buy now Starter</a>
+      <a href="${CLICKORA_MIRROR_TRACK_MARKER}">Contact</a>
+      <a href="${CLICKORA_MIRROR_TRACK_MARKER}">Privacy</a>
+      <a href="https://www.buygoods.com/secure/checkout?item=1">BUY NOW!</a>
+    `;
+    const out = bakeHtmlOfferHrefs(html, "https://app.example/api/track/r/abc?to=mweb", "https://mwebkivo.com/1/");
+    expect(out).toContain('<base href="./">');
+    expect(out).not.toContain("tryvisivra.com/pv-v2");
+    expect(out).not.toContain("<button");
+    expect(out).toContain("Get Started with VISIVRA Today !");
+    expect(out).toContain('data-clickora-offer="1"');
+    expect(out).toContain('target="_top"');
+    expect(out.match(/\/api\/track\/r\/abc/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(out).not.toContain("buygoods.com");
+    // Soft-nav não abre oferta
+    expect(out).toMatch(/href="#"[^>]*>Contact</);
+    expect(out).toMatch(/href="#"[^>]*>Privacy</);
+    expect(out).not.toMatch(/data-clickora-offer="1"[^>]*>Contact</);
+  });
 });
