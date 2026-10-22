@@ -57,14 +57,22 @@ export default defineConfig(() => ({
   build: {
     rollupOptions: {
       output: {
+        /**
+         * Não separar `@radix-ui` num vendor próprio: o Rollup criava
+         * import circular react-vendor ↔ radix-vendor e a SPA ficava com `#root`
+         * vazio em produção (/p/ em branco). Radix vai com os chunks da app.
+         */
         manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-          if (id.includes("react-dom") || id.includes("/react/") || id.includes("\\react\\")) {
+          const norm = id.replace(/\\/g, "/");
+          if (!norm.includes("/node_modules/")) return;
+          if (
+            /\/node_modules\/(react-dom|scheduler)(\/|$)/.test(norm) ||
+            /\/node_modules\/react\//.test(norm)
+          ) {
             return "react-vendor";
           }
-          if (id.includes("@tanstack")) return "query-vendor";
-          if (id.includes("@radix-ui")) return "radix-vendor";
-          if (id.includes("lucide-react")) return "icons-vendor";
+          if (norm.includes("/node_modules/@tanstack/")) return "query-vendor";
+          if (norm.includes("/node_modules/lucide-react/")) return "icons-vendor";
         },
       },
     },

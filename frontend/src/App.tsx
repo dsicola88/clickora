@@ -62,11 +62,22 @@ const LessonsPage = lazy(() => import("./pages/LessonsPage"));
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 
 function RouteFallback() {
-  const path = typeof window !== "undefined" ? window.location.pathname : "";
-  if (path.startsWith("/p/")) return null;
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
       A carregar…
+    </div>
+  );
+}
+
+/** Fallback mínimo em /p/ — nunca `null` (página em branco permanente se o lazy falhar). */
+function PublicPresellFallback() {
+  return (
+    <div
+      className="flex min-h-[40vh] items-center justify-center text-sm text-neutral-500"
+      style={{ backgroundColor: "hsl(40 33% 98%)" }}
+      aria-busy="true"
+    >
+      Loading…
     </div>
   );
 }
@@ -154,7 +165,7 @@ const queryClient = new QueryClient({
 /** Árvore mínima para landers /p/ — sem Auth/Toaster (menos JS e sem /me a competir com LCP). */
 function PublicPresellShell() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PublicPresellFallback />}>
       <Routes>
         <Route path="/p/:id" element={<PublicPresell />} />
       </Routes>

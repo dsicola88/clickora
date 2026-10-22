@@ -102,7 +102,6 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
     <div
       style={{
         minHeight: 120,
-        maxWidth: "100%",
         width: mediaWidth,
         maxWidth: "100%",
         display: "flex",

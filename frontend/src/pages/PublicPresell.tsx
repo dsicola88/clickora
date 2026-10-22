@@ -46,6 +46,7 @@ const PublicBuilderPresellView = lazy(() =>
 );
 import { getTrackApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
 import { buildClickoraEmbedScriptHtml, stripClickoraEmbedScripts } from "@/lib/clickoraEmbedScript";
+import { isRealNetworkClickId } from "@/lib/networkClickId";
 import {
   getPublicPresellPrefetchResult,
   startPublicPresellPrefetchForParam,
@@ -127,15 +128,25 @@ function makeTrackClickUrl(
   clickUrl.searchParams.set("medium", queryParam(search, "utm_medium") || "none");
   clickUrl.searchParams.set("campaign", queryParam(search, "utm_campaign") || "");
   clickUrl.searchParams.set("referrer", document.referrer || "");
-  const gclid = queryParam(search, "gclid");
-  const fbclid = queryParam(search, "fbclid");
-  const ttclid = queryParam(search, "ttclid");
-  const utmTerm = queryParam(search, "utm_term");
-  const utmContent = queryParam(search, "utm_content");
-  const msclkid = queryParam(search, "msclkid");
-  const gbraid = queryParam(search, "gbraid");
-  const wbraid = queryParam(search, "wbraid");
-  const utmSourceExplicit = queryParam(search, "utm_source");
+  /** Descarta macros literais `{gclid}` / `{keyword}` copiadas do template Ads. */
+  const adParam = (key: string) => {
+    const v = queryParam(search, key);
+    return v && isRealNetworkClickId(v) ? v : "";
+  };
+  const utmParam = (key: string) => {
+    const v = queryParam(search, key);
+    if (!v || /^\{[\w.]+\}$/.test(v) || /^\{\{/.test(v)) return "";
+    return v;
+  };
+  const gclid = adParam("gclid");
+  const fbclid = adParam("fbclid");
+  const ttclid = adParam("ttclid");
+  const msclkid = adParam("msclkid");
+  const gbraid = adParam("gbraid");
+  const wbraid = adParam("wbraid");
+  const utmTerm = utmParam("utm_term");
+  const utmContent = utmParam("utm_content");
+  const utmSourceExplicit = utmParam("utm_source");
   if (gclid) clickUrl.searchParams.set("gclid", gclid);
   if (gbraid) clickUrl.searchParams.set("gbraid", gbraid);
   if (wbraid) clickUrl.searchParams.set("wbraid", wbraid);
