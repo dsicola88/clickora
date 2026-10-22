@@ -1,14 +1,15 @@
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
 import { InlinePlain } from "../inline-edit";
-import * as Icons from "lucide-react";
-import type { ComponentType } from "react";
+import { Sparkles } from "lucide-react";
+import { resolveLucideIconOr } from "../lucide-icon";
 
 export interface InfoBoxContent {
   iconName: string;
   iconColor: string;
   iconBg: string;
   iconShape: "square" | "circle" | "none";
+  iconSize: number;
   title: string;
   description: string;
   ctaText: string;
@@ -24,19 +25,17 @@ export interface InfoBoxContent {
 
 export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const c = widget.content as Partial<InfoBoxContent>;
-  const iconName = (c.iconName ?? "sparkles").trim();
-  const compName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
-  const IconComp =
-    ((Icons as unknown as Record<string, ComponentType<{ size?: number; color?: string }>>)[compName] as
-      | ComponentType<{ size?: number; color?: string }>
-      | undefined) ?? Icons.Sparkles;
+  const IconComp = resolveLucideIconOr(c.iconName ?? "sparkles", Sparkles);
   const layout = c.layout ?? "stacked";
   const align = c.align ?? "center";
   const isSide = layout === "side" && device !== "mobile";
+  const iconSize = typeof c.iconSize === "number" ? c.iconSize : 32;
+  const visual = stylesToCssWidgetContent(widget.styles, device);
 
   return (
     <div
       style={{
+        ...visual,
         display: "flex",
         flexDirection: isSide ? "row" : "column",
         alignItems: isSide
@@ -48,9 +47,9 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
               : "flex-start",
         textAlign: isSide ? "left" : align,
         gap: 16,
-        background: c.bg ?? "transparent",
-        borderRadius: c.borderRadius ?? 0,
-        ...stylesToCssWidgetContent(widget.styles, device),
+        // Content bg wins over Style when set (Elementor Content vs Style).
+        background: c.bg ?? visual.background ?? "transparent",
+        borderRadius: c.borderRadius ?? (visual.borderRadius as number | string | undefined) ?? 0,
       }}
     >
       <div
@@ -58,14 +57,14 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 64,
-          height: 64,
+          width: Math.max(48, iconSize + 32),
+          height: Math.max(48, iconSize + 32),
           background: c.iconShape === "none" ? "transparent" : c.iconBg ?? "#fef2f2",
           borderRadius: c.iconShape === "circle" ? "50%" : c.iconShape === "none" ? 0 : 12,
           flexShrink: 0,
         }}
       >
-        <IconComp size={32} color={c.iconColor ?? "#e63946"} />
+        <IconComp size={iconSize} color={c.iconColor ?? "#e63946"} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <h3

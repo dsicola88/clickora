@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { useInlineEdit } from "../inline-edit";
+import { stylesToCssWidgetContent } from "../style-utils";
 
 function rewriteShadowStylesheets(shadow: ShadowRoot) {
   const baseHref = shadow.querySelector("base")?.getAttribute("href")?.trim() || "";
@@ -29,13 +30,14 @@ function editorWrap(shadow: ShadowRoot): HTMLElement {
 }
 
 /** O HTML importado fica no shadow DOM para o CSS da origem não partir o resto da página. */
-export function HtmlWidget({ widget }: { widget: WidgetNode; device: DeviceType }) {
+export function HtmlWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const code = (widget.content.code as string) ?? "";
   const hostRef = useRef<HTMLDivElement>(null);
   const appliedCode = useRef<string | null>(null);
   const commit = useInlineEdit();
   const commitRef = useRef(commit);
   commitRef.current = commit;
+  const hostStyle = stylesToCssWidgetContent(widget.styles, device);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -91,6 +93,7 @@ export function HtmlWidget({ widget }: { widget: WidgetNode; device: DeviceType 
   return (
     <div
       ref={hostRef}
+      style={hostStyle}
       data-presell-html-fold="1"
       data-presell-html-editable={commit ? "1" : undefined}
     />

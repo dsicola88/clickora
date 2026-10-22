@@ -43,9 +43,19 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
 
   if (commit) {
     return (
-      <div style={frame}>
+      <div style={frame} title={link.length > 0 ? `Link: ${link}` : undefined}>
         <Tag
-          style={{ margin: 0, ...css }}
+          style={{
+            margin: 0,
+            ...css,
+            ...(link.length > 0
+              ? {
+                  textDecoration: "underline",
+                  textDecorationColor: "color-mix(in oklab, currentColor 35%, transparent)",
+                  textUnderlineOffset: 3,
+                }
+              : {}),
+          }}
           contentEditable
           suppressContentEditableWarning
           onBlur={(e) => {

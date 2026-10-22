@@ -47,7 +47,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 6px 24px rgba(16,185,129,.45)",
+            boxShadow: `0 6px 24px ${bg}73`,
             zIndex: 9989,
             textDecoration: "none",
             animation: "lov-pulse 2s ease infinite",
@@ -56,8 +56,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
           <Phone size={24} />
           <style
             dangerouslySetInnerHTML={{
-              __html:
-                "@keyframes lov-pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)}70%{box-shadow:0 0 0 14px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}",
+              __html: `@keyframes lov-pulse{0%{box-shadow:0 0 0 0 ${bg}73}70%{box-shadow:0 0 0 14px ${bg}00}100%{box-shadow:0 0 0 0 ${bg}00}}`,
             }}
           />
         </a>

@@ -252,16 +252,41 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
           cursor: "zoom-out",
         }}
       >
-        <img
-          src={images[lightbox].src}
-          alt={images[lightbox].alt}
+        <div
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 12,
             maxWidth: "100%",
             maxHeight: "100%",
-            objectFit: "contain",
-            borderRadius: 4,
           }}
-        />
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img
+            src={images[lightbox].src}
+            alt={images[lightbox].alt}
+            style={{
+              maxWidth: "100%",
+              maxHeight: images[lightbox].caption ? "calc(100vh - 120px)" : "100%",
+              objectFit: "contain",
+              borderRadius: 4,
+            }}
+          />
+          {images[lightbox].caption ? (
+            <p
+              style={{
+                margin: 0,
+                color: "#e2e8f0",
+                fontSize: 14,
+                textAlign: "center",
+                maxWidth: 640,
+              }}
+            >
+              {images[lightbox].caption}
+            </p>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={(e) => {

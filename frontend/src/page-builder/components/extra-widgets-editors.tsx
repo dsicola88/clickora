@@ -433,8 +433,15 @@ export function InfoBoxContentEditor({
         <TextField
           label="Nome do ícone"
           value={(c.iconName as string) ?? "sparkles"}
-          onChange={(v) => setContent({ iconName: v.toLowerCase().trim() })}
-          placeholder="sparkles, shield, zap…"
+          onChange={(v) => setContent({ iconName: v.trim() })}
+          placeholder="sparkles, arrow-right, ShoppingCart…"
+        />
+        <NumberField
+          label="Tamanho do ícone (px)"
+          value={(c.iconSize as number) ?? 32}
+          onChange={(v) => setContent({ iconSize: v })}
+          min={16}
+          max={96}
         />
         <ColorField label="Cor do ícone" value={(c.iconColor as string) ?? "#e63946"} onChange={(v) => setContent({ iconColor: v })} />
         <ColorField label="Fundo do ícone" value={(c.iconBg as string) ?? "#fef2f2"} onChange={(v) => setContent({ iconBg: v })} />

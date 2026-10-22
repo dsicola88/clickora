@@ -135,7 +135,8 @@ export function AnimatedHeadlineWidget({
         @keyframes lov-ah-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
       `}</style>
       <Tag style={{ margin: 0, ...css }}>
-        <InlinePlain value={prefix} field="prefix" /> {renderWord()} {suffix}
+        <InlinePlain value={prefix} field="prefix" /> {renderWord()}{" "}
+        <InlinePlain value={suffix} field="suffix" />
       </Tag>
     </>
   );

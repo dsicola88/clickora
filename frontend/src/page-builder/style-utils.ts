@@ -54,6 +54,7 @@ function typographyToCss(t: TypographyValue | undefined): CSSProperties {
 /** Estilos que devem aplicar-se ao invólucro do widget (filho flex da coluna). */
 const WIDGET_SHELL_KEYS = new Set([
   "position",
+  "top",
   "zIndex",
   "order",
   "alignSelf",
@@ -83,6 +84,13 @@ export function stylesToCssWidgetShell(
   for (const k of WIDGET_SHELL_KEYS) {
     const v = (css as Record<string, unknown>)[k];
     if (v !== undefined) (out as Record<string, unknown>)[k] = v;
+  }
+  // Sticky/fixed só funciona se position + top estiverem no mesmo elemento.
+  if ((out.position === "sticky" || out.position === "fixed") && out.top === undefined) {
+    out.top = "0";
+  }
+  if ((out.position === "sticky" || out.position === "fixed") && out.zIndex === undefined) {
+    out.zIndex = 200;
   }
   return out;
 }

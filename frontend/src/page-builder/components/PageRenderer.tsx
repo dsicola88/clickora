@@ -61,8 +61,9 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
           ? {
               position: sectionStyle.position ?? "sticky",
               top: sectionStyle.top ?? "0",
-              zIndex: sectionStyle.zIndex ?? 100,
+              zIndex: sectionStyle.zIndex ?? 200,
               width: "100%",
+              background: sectionStyle.background ?? "#ffffff",
             }
           : {}),
       }}

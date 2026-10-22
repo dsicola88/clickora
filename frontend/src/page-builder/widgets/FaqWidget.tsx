@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
 
@@ -33,6 +33,10 @@ export function FaqWidget({ widget, device }: { widget: WidgetNode; device: Devi
   const [open, setOpen] = useState<Set<number>>(
     () => new Set(defaultOpen >= 0 && defaultOpen < items.length ? [defaultOpen] : []),
   );
+
+  useEffect(() => {
+    setOpen(new Set(defaultOpen >= 0 && defaultOpen < items.length ? [defaultOpen] : []));
+  }, [defaultOpen, items.length]);
 
   const toggle = (idx: number) => {
     setOpen((prev) => {

@@ -1,7 +1,7 @@
-import type { ComponentType } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
-import * as Icons from "lucide-react";
+import { Check } from "lucide-react";
+import { resolveLucideIconOr } from "../lucide-icon";
 
 export interface IconListItem {
   id: string;
@@ -48,12 +48,7 @@ export function IconListWidget({ widget, device }: { widget: WidgetNode; device:
         }}
       >
         {items.map((item) => {
-          const name = (item.iconName || "check").trim();
-          const compName = name.charAt(0).toUpperCase() + name.slice(1);
-          const IconComp =
-            ((Icons as unknown as Record<string, ComponentType<{ size?: number; color?: string }>>)[compName] as
-              | ComponentType<{ size?: number; color?: string }>
-              | undefined) ?? Icons.Check;
+          const IconComp = resolveLucideIconOr(item.iconName || "check", Check);
           const href = (item.href || "").trim();
           const inner = (
             <>

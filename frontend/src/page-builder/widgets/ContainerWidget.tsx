@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { CSSProperties } from "react";
 import { useNestedRender } from "../nested-render";
-import { stylesToCssWidgetShell } from "../style-utils";
+import { stylesToCssWidgetContent, stylesToCssWidgetShell } from "../style-utils";
 import type { DeviceType, FlexAlign, FlexDirection, FlexJustify, FlexWrapMode, WidgetNode } from "../types";
 import { WidgetInlineStyle } from "../widget-custom-css";
 import { motionClassName, widgetHasMotion } from "../widget-motion";
@@ -37,7 +37,9 @@ export function ContainerWidget({ widget, device }: { widget: WidgetNode; device
   if (nested && nested.containerId === widget.id) {
     return <EditorContainer widget={widget} device={device} childrenNodes={children} content={content} />;
   }
-  return <PublicContainer device={device} childrenNodes={children} content={content} />;
+  return (
+    <PublicContainer widget={widget} device={device} childrenNodes={children} content={content} />
+  );
 }
 
 function EditorContainer({
@@ -63,14 +65,20 @@ function EditorContainer({
     },
   });
 
+  const visual = stylesToCssWidgetContent(widget.styles, device);
   return (
     <div
       ref={setNodeRef}
       style={{
         ...containerFlexStyle(content),
+        ...visual,
+        // Flex do contentor manda; Style preenche fundo/borda/padding.
+        display: "flex",
         outline: isOver ? "2px solid var(--editor-accent)" : undefined,
         outlineOffset: 2,
-        background: childrenNodes.length === 0 ? "rgba(148, 163, 184, 0.08)" : undefined,
+        background:
+          visual.background ??
+          (childrenNodes.length === 0 ? "rgba(148, 163, 184, 0.08)" : undefined),
       }}
       data-device={device}
     >
@@ -86,16 +94,19 @@ function EditorContainer({
 }
 
 function PublicContainer({
+  widget,
   device,
   childrenNodes,
   content,
 }: {
+  widget: WidgetNode;
   device: DeviceType;
   childrenNodes: WidgetNode[];
   content: Partial<ContainerContent>;
 }) {
+  const visual = stylesToCssWidgetContent(widget.styles, device);
   return (
-    <div style={containerFlexStyle(content)}>
+    <div style={{ ...containerFlexStyle(content), ...visual, display: "flex" }}>
       {childrenNodes.map((child) => {
         const def = WIDGET_REGISTRY[child.type];
         if (!def) return null;

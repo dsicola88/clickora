@@ -289,6 +289,7 @@ function SectionView({
               top: sectionStyle.top ?? 0,
               zIndex: sectionStyle.zIndex ?? 200,
               width: "100%",
+              background: sectionStyle.background ?? "#ffffff",
             }
           : {}),
       }}

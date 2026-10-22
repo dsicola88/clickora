@@ -45,7 +45,7 @@ import {
   StickyVideoContentEditor,
   TickerContentEditor,
 } from "./extra-widgets-editors";
-import type { NavItem } from "../widgets/NavMenuWidget";
+import type { NavItem, NavStickyMode } from "../widgets/NavMenuWidget";
 
 type Tab = "content" | "style" | "advanced";
 
@@ -345,7 +345,9 @@ function WidgetPanel({
       active={tab}
       onTab={setTab}
     >
-      {tab === "content" && <WidgetContentTab widget={widget} setContent={setContent} />}
+      {tab === "content" && (
+        <WidgetContentTab widget={widget} section={section} setContent={setContent} />
+      )}
       {tab === "style" && (
         <WidgetStyleTab widget={widget} device={device} setStyles={setStyles} />
       )}
@@ -378,9 +380,11 @@ function WidgetPanel({
 
 function WidgetContentTab({
   widget,
+  section,
   setContent,
 }: {
   widget: WidgetNode;
+  section: SectionNode;
   setContent: (p: Record<string, unknown>) => void;
 }) {
   const c = widget.content;
@@ -457,10 +461,30 @@ function WidgetContentTab({
             onChange={(v) => setContent({ alt: v })}
           />
           <TextField
+            label="Legenda (opcional)"
+            value={(c.caption as string) ?? ""}
+            onChange={(v) => setContent({ caption: v })}
+          />
+          <TextField
             label="Link (opcional)"
             value={(c.link as string) ?? ""}
             onChange={(v) => setContent({ link: v })}
           />
+          <SelectField
+            label="Object-fit"
+            value={(c.objectFit as string) ?? "cover"}
+            options={[
+              { value: "cover", label: "Cobrir (cover)" },
+              { value: "contain", label: "Conter (contain)" },
+              { value: "fill", label: "Preencher (fill)" },
+              { value: "none", label: "Nenhum" },
+              { value: "scale-down", label: "Reduzir (scale-down)" },
+            ]}
+            onChange={(v) => setContent({ objectFit: v })}
+          />
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+            Largura/altura da imagem → aba Estilo (refletem no canvas).
+          </p>
         </Section>
       );
     case "button":
@@ -516,6 +540,7 @@ function WidgetContentTab({
             label="Nome (lucide-react)"
             value={(c.name as string) ?? ""}
             onChange={(v) => setContent({ name: v })}
+            placeholder="ex.: star, arrow-right, ShoppingCart"
           />
           <NumberField
             label="Tamanho (px)"
@@ -524,6 +549,28 @@ function WidgetContentTab({
             min={8}
             max={256}
           />
+          <TextField
+            label="Link (opcional)"
+            value={(c.link as string) ?? ""}
+            onChange={(v) => setContent({ link: v })}
+          />
+          <SelectField
+            label="Forma"
+            value={(c.shape as string) ?? "none"}
+            options={[
+              { value: "none", label: "Nenhuma" },
+              { value: "circle", label: "Círculo" },
+              { value: "square", label: "Quadrado" },
+            ]}
+            onChange={(v) => setContent({ shape: v })}
+          />
+          {(c.shape as string) === "circle" || (c.shape as string) === "square" ? (
+            <ColorField
+              label="Fundo da forma"
+              value={(c.shapeBg as string) ?? "#f1f5f9"}
+              onChange={(v) => setContent({ shapeBg: v })}
+            />
+          ) : null}
         </Section>
       );
     case "divider":
@@ -608,7 +655,9 @@ function WidgetContentTab({
     case "dateWidget":
       return <DateContentEditor content={c} setContent={setContent} />;
     case "navMenu":
-      return <NavMenuContentEditor content={c} setContent={setContent} />;
+      return (
+        <NavMenuContentEditor content={c} setContent={setContent} section={section} />
+      );
     case "ticker":
       return <TickerContentEditor content={c} setContent={setContent} />;
     case "infoBox":
@@ -861,10 +910,10 @@ function WidgetContentTab({
           />
           <SelectField
             label="Quebra"
-            value={(c.wrap as string) ?? "wrap"}
+            value={(c.wrap as string) ?? "nowrap"}
             options={[
-              { value: "wrap", label: "Quebrar linha" },
               { value: "nowrap", label: "Uma linha" },
+              { value: "wrap", label: "Quebrar linha" },
             ]}
             onChange={(v) => setContent({ wrap: v })}
           />
@@ -1437,6 +1486,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
           cssClasses={undefined}
           onClasses={() => {}}
           hideClasses
+          showLayout
         />
       )}
     </PanelShell>
@@ -1728,23 +1778,36 @@ function AdvancedTab({
               { value: "static", label: "Padrão (static)" },
               { value: "relative", label: "Relativa" },
               { value: "absolute", label: "Absoluta" },
-              { value: "fixed", label: "Fixa (viewport)" },
-              { value: "sticky", label: "Sticky (barra de menu)" },
+              { value: "fixed", label: "Fixa (viewport) — conteúdo passa por baixo" },
+              { value: "sticky", label: "Sticky (barra de menu) — conteúdo passa por baixo" },
             ]}
-            onChange={(v) =>
-              onStyles({
+            onChange={(v) => {
+              const stickyOrFixed = v === "sticky" || v === "fixed";
+              const patch: Partial<BaseStyles & ResponsiveStyles> = {
                 position: setResponsive(
                   styles.position,
                   device,
                   v as NonNullable<typeof styles.position>["desktop"],
                 ),
-                ...((v === "sticky" || v === "fixed") &&
-                !resolveResponsive(styles.top, device)
-                  ? { top: setResponsive(styles.top, device, "0") }
-                  : {}),
-              })
-            }
+              };
+              if (stickyOrFixed) {
+                if (!resolveResponsive(styles.top, device)) {
+                  patch.top = setResponsive(styles.top, device, "0");
+                }
+                if (resolveResponsive(styles.zIndex, device) == null) {
+                  patch.zIndex = setResponsive(styles.zIndex, device, 200);
+                }
+                if (!styles.background) {
+                  patch.background = "#ffffff";
+                }
+              }
+              onStyles(patch);
+            }}
           />
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+            Sticky/fixa: a página sobe por baixo da barra (não por cima). Use fundo sólido e z-index alto
+            (ex. 200). Na barra de menu completa, prefira sticky/fixa nesta secção.
+          </p>
           <TextField
             label={`Top (${device}) — sticky/fixo`}
             value={(resolveResponsive(styles.top, device) as string) ?? ""}
@@ -1767,7 +1830,7 @@ function AdvancedTab({
               const n = Number(t);
               if (!Number.isNaN(n)) onStyles({ zIndex: setResponsive(styles.zIndex, device, n) });
             }}
-            placeholder="vazio = automático"
+            placeholder="200 (barra de menu)"
           />
           <SelectField
             label={`Alinhar-se (align-self, ${device})`}
@@ -2226,11 +2289,43 @@ function ListEditor<T extends ListItem>({
 function NavMenuContentEditor({
   content,
   setContent,
+  section,
 }: {
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
+  section: SectionNode;
 }) {
+  const updateSection = useBuilder((s) => s.updateSection);
   const items = (content.items as NavItem[]) ?? [];
+  const stickyMode = ((content.stickyMode as NavStickyMode) ?? "none") as NavStickyMode;
+  const pointer =
+    (content.pointer as string) ??
+    ((content.underlineOnHover as boolean) === false ? "none" : "underline");
+
+  const applySticky = (mode: NavStickyMode) => {
+    setContent({ stickyMode: mode });
+    if (mode === "none") {
+      updateSection(section.id, {
+        styles: {
+          ...section.styles,
+          position: setResponsive(section.styles.position, "desktop", "static"),
+        },
+      });
+      return;
+    }
+    // Como no Elementor: sticky/fixed na secção da barra — conteúdo sobe por baixo.
+    updateSection(section.id, {
+      styles: {
+        ...section.styles,
+        position: setResponsive(section.styles.position, "desktop", mode),
+        top: setResponsive(section.styles.top, "desktop", "0"),
+        zIndex: setResponsive(section.styles.zIndex, "desktop", 200),
+        background: section.styles.background || "#ffffff",
+        boxShadow: section.styles.boxShadow || "0 1px 0 rgba(15, 23, 42, 0.12)",
+      },
+    });
+  };
+
   return (
     <>
       <ListEditor
@@ -2239,14 +2334,72 @@ function NavMenuContentEditor({
         onChange={(next) => setContent({ items: next })}
         itemLabel={(it) => it.label || "Link"}
         newItem={() => ({ id: `nav_${nanoid(6)}`, label: "Novo link", href: "#" })}
-        renderFields={(item, update) => (
-          <>
-            <TextField label="Texto" value={item.label} onChange={(v) => update({ label: v })} />
-            <TextField label="URL / âncora" value={item.href} onChange={(v) => update({ href: v })} />
-          </>
-        )}
+        renderFields={(item, update) => {
+          const children = (item.children as NavItem[] | undefined) ?? [];
+          return (
+            <>
+              <TextField label="Texto" value={item.label} onChange={(v) => update({ label: v })} />
+              <TextField label="URL / âncora" value={item.href} onChange={(v) => update({ href: v })} />
+              <div className="space-y-1.5 rounded border border-dashed border-editor-border/80 p-2">
+                <p className="text-[10px] font-semibold text-editor-fg-muted">Submenu</p>
+                {children.map((child, ci) => (
+                  <div key={child.id} className="grid gap-1.5 rounded bg-editor-panel p-1.5">
+                    <TextField
+                      label="Texto"
+                      value={child.label}
+                      onChange={(v) => {
+                        const next = children.map((ch, i) => (i === ci ? { ...ch, label: v } : ch));
+                        update({ children: next });
+                      }}
+                    />
+                    <TextField
+                      label="URL"
+                      value={child.href}
+                      onChange={(v) => {
+                        const next = children.map((ch, i) => (i === ci ? { ...ch, href: v } : ch));
+                        update({ children: next });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-[10px] text-destructive"
+                      onClick={() => update({ children: children.filter((_, i) => i !== ci) })}
+                    >
+                      Remover sub-link
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="text-[10px] font-medium text-editor-accent"
+                  onClick={() =>
+                    update({
+                      children: [
+                        ...children,
+                        { id: `nav_${nanoid(6)}`, label: "Sub-link", href: "#" },
+                      ],
+                    })
+                  }
+                >
+                  + Adicionar sub-link
+                </button>
+              </div>
+            </>
+          );
+        }}
       />
-      <Section title="Aparência">
+
+      <Section title="Disposição (Elementor)">
+        <SelectField
+          label="Layout"
+          value={(content.layout as string) ?? "horizontal"}
+          options={[
+            { value: "horizontal", label: "Horizontal" },
+            { value: "vertical", label: "Vertical" },
+            { value: "dropdown", label: "Dropdown" },
+          ]}
+          onChange={(v) => setContent({ layout: v })}
+        />
         <SelectField
           label="Alinhamento"
           value={(content.align as string) ?? "center"}
@@ -2257,19 +2410,148 @@ function NavMenuContentEditor({
           ]}
           onChange={(v) => setContent({ align: v })}
         />
-        <ColorField label="Cor dos links" value={(content.color as string) ?? "#0f172a"} onChange={(v) => setContent({ color: v })} />
-        <ColorField label="Cor ao passar o rato" value={(content.hoverColor as string) ?? "#e63946"} onChange={(v) => setContent({ hoverColor: v })} />
-        <NumberField label="Tamanho da fonte" value={(content.fontSize as number) ?? 15} onChange={(v) => setContent({ fontSize: v })} min={10} max={24} />
-        <NumberField label="Peso da fonte" value={(content.fontWeight as number) ?? 500} onChange={(v) => setContent({ fontWeight: v })} min={400} max={800} step={100} />
-        <NumberField label="Espaço entre links" value={(content.gap as number) ?? 24} onChange={(v) => setContent({ gap: v })} min={8} max={48} />
         <SelectField
-          label="Sublinhado ao hover"
-          value={(content.underlineOnHover as boolean) !== false ? "yes" : "no"}
+          label="Pointer"
+          value={pointer}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "none", label: "Nenhum" },
+            { value: "underline", label: "Sublinhado" },
+            { value: "overline", label: "Linha acima" },
+            { value: "double-line", label: "Linha dupla" },
+            { value: "framed", label: "Moldura" },
+            { value: "background", label: "Fundo" },
           ]}
-          onChange={(v) => setContent({ underlineOnHover: v === "yes" })}
+          onChange={(v) =>
+            setContent({
+              pointer: v,
+              underlineOnHover: v !== "none",
+            })
+          }
+        />
+        <SelectField
+          label="Barra fixa ao scroll"
+          value={stickyMode}
+          options={[
+            { value: "none", label: "Normal (rola com a página)" },
+            { value: "sticky", label: "Sticky — página passa por baixo" },
+            { value: "fixed", label: "Fixa (viewport) — página passa por baixo" },
+          ]}
+          onChange={(v) => applySticky(v as NavStickyMode)}
+        />
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          Sticky/fixa aplica-se à secção do menu (como no Elementor). O conteúdo sobe por baixo da
+          barra; fundo branco e z-index 200 são definidos automaticamente.
+        </p>
+      </Section>
+
+      <Section title="Estilo dos links">
+        <ColorField
+          label="Cor normal"
+          value={(content.color as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ color: v })}
+        />
+        <ColorField
+          label="Cor hover"
+          value={(content.hoverColor as string) ?? "#e63946"}
+          onChange={(v) => setContent({ hoverColor: v })}
+        />
+        <ColorField
+          label="Cor ativa (âncora)"
+          value={(content.activeColor as string) ?? (content.hoverColor as string) ?? "#e63946"}
+          onChange={(v) => setContent({ activeColor: v })}
+        />
+        <NumberField
+          label="Tamanho da fonte"
+          value={(content.fontSize as number) ?? 15}
+          onChange={(v) => setContent({ fontSize: v })}
+          min={10}
+          max={28}
+        />
+        <NumberField
+          label="Peso da fonte"
+          value={(content.fontWeight as number) ?? 500}
+          onChange={(v) => setContent({ fontWeight: v })}
+          min={300}
+          max={900}
+          step={100}
+        />
+        <NumberField
+          label="Espaço entre links"
+          value={(content.gap as number) ?? 24}
+          onChange={(v) => setContent({ gap: v })}
+          min={0}
+          max={64}
+        />
+        <NumberField
+          label="Padding horizontal do item"
+          value={(content.itemPaddingX as number) ?? 4}
+          onChange={(v) => setContent({ itemPaddingX: v })}
+          min={0}
+          max={32}
+        />
+        <NumberField
+          label="Padding vertical do item"
+          value={(content.itemPaddingY as number) ?? 6}
+          onChange={(v) => setContent({ itemPaddingY: v })}
+          min={0}
+          max={32}
+        />
+      </Section>
+
+      <Section title="Dropdown / submenu">
+        <ColorField
+          label="Fundo do submenu"
+          value={(content.submenuBg as string) ?? "#ffffff"}
+          onChange={(v) => setContent({ submenuBg: v })}
+        />
+        <ColorField
+          label="Cor do texto"
+          value={(content.submenuColor as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ submenuColor: v })}
+        />
+        <ColorField
+          label="Cor hover"
+          value={(content.submenuHoverColor as string) ?? "#e63946"}
+          onChange={(v) => setContent({ submenuHoverColor: v })}
+        />
+        <NumberField
+          label="Largura mínima (px)"
+          value={(content.submenuMinWidth as number) ?? 180}
+          onChange={(v) => setContent({ submenuMinWidth: v })}
+          min={120}
+          max={400}
+        />
+      </Section>
+
+      <Section title="Mobile (Elementor)">
+        <NumberField
+          label="Breakpoint (px)"
+          value={(content.mobileBreakpoint as number) ?? 767}
+          onChange={(v) => setContent({ mobileBreakpoint: v })}
+          min={320}
+          max={1200}
+        />
+        <SelectField
+          label="Alinhamento mobile"
+          value={(content.mobileAlign as string) ?? "left"}
+          options={[
+            { value: "left", label: "Esquerda" },
+            { value: "center", label: "Centro" },
+            { value: "right", label: "Direita" },
+          ]}
+          onChange={(v) => setContent({ mobileAlign: v })}
+        />
+        <ColorField
+          label="Cor do botão hamburger"
+          value={(content.toggleColor as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ toggleColor: v })}
+        />
+        <NumberField
+          label="Tamanho do ícone"
+          value={(content.toggleSize as number) ?? 28}
+          onChange={(v) => setContent({ toggleSize: v })}
+          min={18}
+          max={48}
         />
       </Section>
     </>

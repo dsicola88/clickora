@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
-import { resolvePageBuilderVideoUrl } from "../videoEmbed";
+import { embedUrlWithPlayback, resolvePageBuilderVideoUrl } from "../videoEmbed";
 
 export interface StickyVideoContent {
   url: string;
@@ -12,6 +12,8 @@ export interface StickyVideoContent {
   borderRadius: number;
   showCloseButton: boolean;
   inlineHeight: number;
+  autoplay: boolean;
+  controls: boolean;
 }
 
 export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
@@ -23,22 +25,32 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
   const borderRadius = c.borderRadius ?? 8;
   const showCloseButton = c.showCloseButton ?? true;
   const inlineHeight = c.inlineHeight ?? 360;
+  const autoplay = c.autoplay === true;
+  const controls = c.controls !== false;
 
   const ref = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
   const [closed, setClosed] = useState(false);
   const resolved = url ? resolvePageBuilderVideoUrl(url) : null;
-  const embedSrc = resolved?.embedUrl ?? null;
+  const embedSrc = resolved
+    ? embedUrlWithPlayback(resolved, { autoplay, controls })
+    : null;
+  const pipSrc = resolved
+    ? embedUrlWithPlayback(resolved, { autoplay: true, controls })
+    : null;
 
   useEffect(() => {
     if (!ref.current) return;
     const el = ref.current;
-    const obs = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting), { threshold: 0 });
+    const obs = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting), {
+      threshold: 0,
+    });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   const [vSide, hSide] = position.split("-") as ["top" | "bottom", "left" | "right"];
+  const showPip = stuck && !closed && Boolean(pipSrc);
 
   const iframe = (src: string, title: string) => (
     <iframe
@@ -81,9 +93,16 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
           background: "#000",
         }}
       >
-        {embedSrc ? iframe(embedSrc, "Vídeo") : placeholder}
+        {/* Um único leitor: esconde o inline enquanto o PiP está ativo (evita áudio duplo). */}
+        {showPip ? (
+          <div style={{ width: "100%", height: "100%", background: "#0f172a" }} aria-hidden />
+        ) : embedSrc ? (
+          iframe(embedSrc, "Vídeo")
+        ) : (
+          placeholder
+        )}
       </div>
-      {stuck && !closed && embedSrc ? (
+      {showPip && pipSrc ? (
         <div
           style={{
             position: "fixed",
@@ -98,7 +117,7 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
             background: "#000",
           }}
         >
-          {iframe(embedSrc, "Vídeo fixo")}
+          {iframe(pipSrc, "Vídeo fixo")}
           {showCloseButton ? (
             <button
               type="button"

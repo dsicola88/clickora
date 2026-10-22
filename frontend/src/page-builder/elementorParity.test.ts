@@ -3,7 +3,7 @@ import { createWidget } from "./factory";
 import { WIDGET_LIST, WIDGET_REGISTRY } from "./widget-registry";
 import type { WidgetType } from "./types";
 import { buildWidgetMotionCss, widgetHasMotion } from "./widget-motion";
-import { stylesToCssWidgetContent } from "./style-utils";
+import { stylesToCssWidgetContent, stylesToCssWidgetShell } from "./style-utils";
 
 /** Elementor Free + Essential (landing) → Clickora. */
 const ELEMENTOR_LANDING_MAP: Array<{ elementor: string; ours: WidgetType | WidgetType[] }> = [
@@ -85,5 +85,35 @@ describe("Elementor landing parity", () => {
       // Style shell must always resolve without throw
       expect(() => stylesToCssWidgetContent(w.styles, "desktop")).not.toThrow();
     }
+  });
+
+  it("resolves hyphenated Lucide icon names (iconList/infoBox)", async () => {
+    const { resolveLucideIcon } = await import("./lucide-icon");
+    expect(resolveLucideIcon("arrow-right")).toBeTruthy();
+    expect(resolveLucideIcon("ShoppingCart")).toBeTruthy();
+    expect(resolveLucideIcon("check")).toBeTruthy();
+  });
+
+  it("navMenu sticky shell keeps position+top together (content scrolls under bar)", () => {
+    const w = createWidget("navMenu");
+    w.styles = {
+      ...w.styles,
+      position: { desktop: "sticky" },
+      top: { desktop: "0" },
+      zIndex: { desktop: 200 },
+      background: "#ffffff",
+    };
+    const shell = stylesToCssWidgetShell(w.styles, "desktop");
+    const content = stylesToCssWidgetContent(w.styles, "desktop");
+    expect(shell.position).toBe("sticky");
+    expect(shell.top).toBe("0");
+    expect(shell.zIndex).toBe(200);
+    expect(content.position).toBeUndefined();
+    expect(content.top).toBeUndefined();
+    expect(w.content).toMatchObject({
+      layout: "horizontal",
+      pointer: "underline",
+      stickyMode: "none",
+    });
   });
 });

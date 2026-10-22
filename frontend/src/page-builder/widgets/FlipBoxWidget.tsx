@@ -46,6 +46,9 @@ export function FlipBoxWidget({ widget, device }: { widget: WidgetNode; device: 
   const [flipped, setFlipped] = useState(false);
   const isFlipped = trigger === "click" ? flipped : false;
   const rotateAxis = flipDirection === "horizontal" ? "Y" : "X";
+  const sid = widget.id.replace(/[^a-zA-Z0-9]/g, "_");
+  const hoverCls = `lov-flipbox-hover_${sid}`;
+  const innerCls = `lov-flipbox-inner_${sid}`;
 
   const faceBase: React.CSSProperties = {
     position: "absolute",
@@ -70,13 +73,15 @@ export function FlipBoxWidget({ widget, device }: { widget: WidgetNode; device: 
           cursor: trigger === "click" ? "pointer" : "default",
         }}
         onClick={() => trigger === "click" && setFlipped((v) => !v)}
-        className={trigger === "hover" ? "lov-flipbox-hover" : ""}
+        className={trigger === "hover" ? hoverCls : undefined}
       >
-        <style>{`
-          .lov-flipbox-hover:hover .lov-flipbox-inner { transform: rotate${rotateAxis}(180deg); }
+        {trigger === "hover" ? (
+          <style>{`
+          .${hoverCls}:hover .${innerCls} { transform: rotate${rotateAxis}(180deg); }
         `}</style>
+        ) : null}
         <div
-          className="lov-flipbox-inner"
+          className={innerCls}
           style={{
             position: "relative",
             width: "100%",

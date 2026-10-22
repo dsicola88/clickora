@@ -9,11 +9,21 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
   const src = (widget.content.src as string) ?? "";
   const alt = (widget.content.alt as string) ?? "";
   const link = ((widget.content.link as string) ?? "").trim();
+  const caption = ((widget.content.caption as string) ?? "").trim();
+  const objectFit =
+    ((widget.content.objectFit as string) ??
+      (widget.content.hero === true || widget.content.portalProduct === true ? "contain" : "cover")) as
+      | "contain"
+      | "cover"
+      | "fill"
+      | "none"
+      | "scale-down";
   const isHero = widget.content.hero === true;
   const portalProduct = widget.content.portalProduct === true;
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
   const { width, height, ...wrapperRest } = css;
+  const mediaWidth = width ?? "100%";
   const editing = Boolean(useInlineEdit());
   const hasSrc = src.trim().length > 0;
   const priority = useClaimLcpMedia(hasSrc);
@@ -25,7 +35,8 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
         data-presell-hero="unavailable"
         style={{
           minHeight: "52vh",
-          width: width ?? "100%",
+          width: mediaWidth,
+          maxWidth: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -42,11 +53,12 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
       data-presell-hero-emphasis={isHero ? "primary" : undefined}
       data-presell-portal-photo={portalProduct ? "1" : undefined}
       style={{
-        width: "100%",
+        width: mediaWidth,
         maxWidth: portalProduct ? "min(100%, 400px)" : "100%",
         margin: portalProduct ? "0 auto" : undefined,
         minHeight: isHero ? "min(58vh, 560px)" : undefined,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         background: isHero || portalProduct ? "#f8fafc" : undefined,
@@ -65,20 +77,34 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
         maxWidth: "100%",
         maxHeight: portalProduct ? "min(46vh, 400px)" : undefined,
         display: "block",
-        objectFit: isHero || portalProduct ? "contain" : undefined,
+        objectFit: isHero || portalProduct ? "contain" : objectFit,
       }}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       fetchPriority={priority ? "high" : "auto"}
       onError={() => setFailed(true)}
     />
+    {caption ? (
+      <p
+        style={{
+          margin: "8px 0 0",
+          fontSize: 13,
+          color: "#64748b",
+          textAlign: "center",
+          width: "100%",
+        }}
+      >
+        {caption}
+      </p>
+    ) : null}
     </div>
   ) : (
     <div
       style={{
         minHeight: 120,
         maxWidth: "100%",
-        width: width ?? "100%",
+        width: mediaWidth,
+        maxWidth: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

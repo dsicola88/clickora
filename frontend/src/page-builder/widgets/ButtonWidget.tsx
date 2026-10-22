@@ -1,24 +1,9 @@
-import type { ComponentType, CSSProperties } from "react";
-import * as Icons from "lucide-react";
+import type { CSSProperties } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import { useInlineEdit } from "../inline-edit";
-
-function resolveLucideIcon(name: string): ComponentType<{ size?: number; color?: string; style?: CSSProperties }> | null {
-  const raw = name.trim();
-  if (!raw) return null;
-  const pascal = raw.includes("-")
-    ? raw
-        .split("-")
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-        .join("")
-    : raw.charAt(0).toUpperCase() + raw.slice(1);
-  const Comp = (Icons as unknown as Record<string, ComponentType<{ size?: number; color?: string; style?: CSSProperties }>>)[
-    pascal
-  ];
-  return Comp ?? null;
-}
+import { resolveLucideIcon } from "../lucide-icon";
 
 function sanitizeClassId(id: string): string {
   return id.replace(/[^a-zA-Z0-9]/g, "_");

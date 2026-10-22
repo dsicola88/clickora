@@ -83,20 +83,22 @@ export function FormWidget({ widget, device }: { widget: WidgetNode; device: Dev
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
+    if (!webhookUrl.trim()) {
+      setStatus("error");
+      return;
+    }
+
     setStatus("submitting");
     try {
-      if (webhookUrl) {
-        await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...values,
-            _meta: { source: "page-builder", submittedAt: new Date().toISOString() },
-          }),
-          mode: "no-cors",
-        });
-      }
-      // Conversion event for analytics (GTM/GA4/Pixel — Lead)
+      await fetch(webhookUrl.trim(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...values,
+          _meta: { source: "page-builder", submittedAt: new Date().toISOString() },
+        }),
+        mode: "no-cors",
+      });
       trackEvent("form_submit", {
         form_id: widget.id,
         form_name: "lead_form",
