@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppCommandPalette } from "@/components/AppCommandPalette";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { SaleChimeListener } from "@/components/SaleChimeListener";
 import { Separator } from "@/components/ui/separator";
@@ -26,13 +27,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
             )}
           >
             <SidebarTrigger
-              className="h-11 w-11 md:h-8 md:w-8"
+              className="h-11 w-11 shrink-0 md:h-8 md:w-8"
               title="Encolher / expandir menu"
               aria-label="Encolher ou expandir menu"
             />
-            <Separator orientation="vertical" className="h-4" />
-            <span className="text-sm font-semibold tracking-tight text-foreground md:hidden">dclickora</span>
-            <span className="hidden text-[11px] text-muted-foreground md:inline">Menu</span>
+            <Separator orientation="vertical" className="hidden h-4 sm:block" />
+            <AppCommandPalette />
           </header>
           <main className={mainChrome}>{children}</main>
         </SidebarInset>

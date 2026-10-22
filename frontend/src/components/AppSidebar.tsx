@@ -1,26 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
-  LayoutDashboard,
-  FileText,
-  BarChart3,
-  Zap,
-  ClipboardList,
-  Home,
   LogIn,
   LogOut,
-  User,
-  CreditCard,
-  Settings2,
-  Plug,
-  Megaphone,
-  ShieldAlert,
-  Link2,
   PanelLeftClose,
   PanelLeftOpen,
-  Webhook,
-  LineChart,
-  Search,
-  GraduationCap,
+  Zap,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -40,61 +24,44 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import {
+  APP_NAV_GROUP_LABEL,
+  APP_NAV_ITEMS,
+  isAppNavActive,
+  type AppNavItem,
+} from "@/lib/appNav";
 
 const itemClass =
   "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:min-h-0";
 const itemActive =
   "bg-sidebar-primary/18 font-semibold text-sidebar-primary-foreground shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))]";
 
-type NavItem = {
-  title: string;
-  url: string;
-  icon: React.ComponentType<{ className?: string }>;
-  end?: boolean;
-};
-
-const workNav: NavItem[] = [
-  { title: "Presells", url: "/presells", icon: FileText },
-  { title: "Campanhas", url: "/campanhas", icon: Megaphone },
-  { title: "Pesquisa e anúncios", url: "/palavras-chave", icon: Search },
-  { title: "Construtor de URL", url: "/tracking/url-builder", icon: Link2 },
+const SIDEBAR_GROUPS: AppNavItem["group"][] = [
+  "principal",
+  "trabalho",
+  "performance",
+  "configuracao",
+  "conta",
 ];
 
-const resultsNav: NavItem[] = [
-  { title: "Resultados", url: "/resultados", icon: LayoutDashboard, end: true },
-  { title: "Conversões", url: "/resultados/relatorios/conversoes", icon: ClipboardList, end: true },
-  { title: "Relatórios", url: "/resultados/relatorios", icon: BarChart3, end: true },
-];
-
-const configNav: NavItem[] = [
-  { title: "Integrações", url: "/integracoes", icon: Plug },
-  { title: "Vendas da rede", url: "/integracoes/postback", icon: Webhook },
-  { title: "Google Ads", url: "/integracoes/google-ads", icon: LineChart },
-  { title: "Custos automáticos", url: "/integracoes/automizer", icon: Zap },
-  { title: "Configurações", url: "/configuracoes", icon: Settings2 },
-];
-
-function isNavActive(url: string, path: string, end?: boolean): boolean {
-  if (end) return path === url;
-  if (path === url) return true;
-  if (url !== "/" && path.startsWith(`${url}/`)) return true;
-  return false;
-}
-
-function NavRows({ items, path, collapsed }: { items: NavItem[]; path: string; collapsed: boolean }) {
+function NavRows({ items, path, collapsed }: { items: AppNavItem[]; path: string; collapsed: boolean }) {
   return (
     <>
       {items.map((item) => (
         <SidebarMenuItem key={item.url}>
-          <SidebarMenuButton asChild isActive={isNavActive(item.url, path, item.end)} tooltip={item.title}>
-            <NavLink
-              to={item.url}
-              end={item.end}
-              className={itemClass}
-              activeClassName={itemActive}
-            >
+          <SidebarMenuButton asChild isActive={isAppNavActive(item.url, path, item.end)} tooltip={item.title}>
+            <NavLink to={item.url} end={item.end} className={itemClass} activeClassName={itemActive}>
               <item.icon className="h-4 w-4 flex-shrink-0" />
-              {!collapsed && <span className="truncate">{item.title}</span>}
+              {!collapsed && (
+                <span className="flex flex-1 items-center justify-between gap-2 truncate">
+                  <span className="truncate">{item.title}</span>
+                  {item.staffOnly ? (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Staff
+                    </Badge>
+                  ) : null}
+                </span>
+              )}
             </NavLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -117,6 +84,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const path = location.pathname;
   const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { toggleSidebar, isMobile, setOpenMobile } = useSidebar();
+  const staff = isAdmin || isSuperAdmin;
 
   const pathRef = useRef(path);
   useEffect(() => {
@@ -124,6 +92,18 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
     pathRef.current = path;
     if (isMobile) setOpenMobile(false);
   }, [path, isMobile, setOpenMobile]);
+
+  const byGroup = useMemo(() => {
+    const map = new Map<AppNavItem["group"], AppNavItem[]>();
+    for (const g of SIDEBAR_GROUPS) map.set(g, []);
+    for (const item of APP_NAV_ITEMS) {
+      if (item.staffOnly && !staff) continue;
+      map.get(item.group)?.push(item);
+    }
+    return SIDEBAR_GROUPS.map((g) => ({ group: g, items: map.get(g) ?? [] })).filter(
+      (g) => g.items.length > 0,
+    );
+  }, [staff]);
 
   return (
     <>
@@ -152,112 +132,20 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
       </SidebarHeader>
 
       <SidebarContent className="space-y-1 p-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={path === "/inicio"} tooltip="Início">
-                  <NavLink to="/inicio" end className={itemClass} activeClassName={itemActive}>
-                    <Home className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>Início</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={path.startsWith("/aulas")} tooltip="Aulas">
-                  <NavLink to="/aulas" className={itemClass} activeClassName={itemActive}>
-                    <GraduationCap className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>Aulas</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
-              Trabalho
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavRows items={workNav} path={path} collapsed={collapsed} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
-              Performance
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavRows items={resultsNav} path={path} collapsed={collapsed} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
-              Configuração
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavRows items={configNav} path={path} collapsed={collapsed} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
-              Conta
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={path === "/conta"} tooltip="Perfil">
-                  <NavLink to="/conta" end className={itemClass} activeClassName={itemActive}>
-                    <User className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>Perfil</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={path === "/planos" || path === "/plans"} tooltip="Plano">
-                  <NavLink to="/planos" className={itemClass} activeClassName={itemActive}>
-                    <CreditCard className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span>Plano</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {(isAdmin || isSuperAdmin) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={path.startsWith("/admin")} tooltip="Admin">
-                    <NavLink to="/admin/overview" className={itemClass} activeClassName={itemActive}>
-                      <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-                      {!collapsed && (
-                        <span className="flex flex-1 items-center justify-between gap-2">
-                          <span>Admin</span>
-                          <Badge variant="secondary" className="text-[10px]">
-                            Staff
-                          </Badge>
-                        </span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {byGroup.map(({ group, items }) => (
+          <SidebarGroup key={group}>
+            {!collapsed && group !== "principal" && (
+              <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
+                {APP_NAV_GROUP_LABEL[group]}
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <NavRows items={items} path={path} collapsed={collapsed} />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/80 p-2">
