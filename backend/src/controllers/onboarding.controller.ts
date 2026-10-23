@@ -62,7 +62,8 @@ export const onboardingController = {
         label: "Verificar domínio personalizado",
         done: domains >= 1,
         href: "/configuracoes",
-        optional: plan?.maxCustomDomains === 0,
+        /** Arranque funciona no domínio da app; custom domain é o próximo nível. */
+        optional: true,
       },
       {
         id: "webhook",
@@ -100,6 +101,8 @@ export const onboardingController = {
         label: "Activar MFA (Authenticator)",
         done: Boolean(user?.mfaEnabled),
         href: "/conta",
+        /** Recomendado em Agency; não bloqueia o checklist de arranque do afiliado. */
+        optional: true,
       },
       {
         id: "api_key",
