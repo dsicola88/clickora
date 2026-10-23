@@ -80,8 +80,14 @@ export function TrackPathStatus({ className }: { className?: string }) {
           {ok && data?.track ? (
             <p className="text-[11px] text-muted-foreground tabular-nums">
               Redirect amostrado: p50 {data.track.p50_ms ?? "—"} ms · p95 {p95 ?? "—"} ms
-              {data.track.samples ? ` · n=${data.track.samples}` : " · sem amostras ainda"}
-              {p95 != null && !sloOk ? ` · acima do SLO ${slo} ms` : ""}
+              {data.track.samples
+                ? ` · n=${data.track.samples}`
+                : " · sem amostras — gera-se no 1.º clique real em /track/r/"}
+              {p95 != null && !sloOk ? ` · acima do SLO ${slo} ms` : p95 != null ? " · dentro do SLO" : ""}
+            </p>
+          ) : ok ? (
+            <p className="text-[11px] text-muted-foreground">
+              Health OK. Amostras p50/p95 aparecem após redirects neste processo (deploy Fase 2).
             </p>
           ) : null}
           {ok && (data?.errors5m ?? 0) > 0 ? (
@@ -90,7 +96,8 @@ export function TrackPathStatus({ className }: { className?: string }) {
             </p>
           ) : null}
           <p className="text-[10px] text-muted-foreground">
-            SLO alvo: p95 redirect &lt; {slo} ms (região EU). Override: VITE_PUBLIC_TRACK_API_URL.
+            SLO alvo: p95 redirect &lt; {slo} ms (EU). Same-origin /api via Vercel é o path correcto;
+            amostras são por réplica Railway (reinício = zero).
           </p>
         </div>
       </div>

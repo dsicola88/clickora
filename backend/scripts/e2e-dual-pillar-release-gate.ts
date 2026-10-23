@@ -54,19 +54,32 @@ for (const rel of suites) {
   }
 }
 
-if (fs.existsSync(path.join(frontendRoot, "package.json"))) {
+const skipFrontend =
+  process.env.DUAL_PILLAR_SKIP_FRONTEND === "1" ||
+  process.env.DUAL_PILLAR_SKIP_FRONTEND === "true";
+const vitestBin = path.join(
+  frontendRoot,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "vitest.cmd" : "vitest",
+);
+const frontendReady =
+  fs.existsSync(path.join(frontendRoot, "package.json")) && fs.existsSync(vitestBin);
+
+if (skipFrontend) {
+  console.log("\n── frontend vitest — SKIP (DUAL_PILLAR_SKIP_FRONTEND; coberto pelo job frontend-presell) ──");
+} else if (!frontendReady) {
+  console.log(
+    "\n── frontend vitest — SKIP (frontend/node_modules ausente; corra npm ci em frontend/ ou o job CI frontend-presell) ──",
+  );
+} else if (fs.existsSync(path.join(frontendRoot, "package.json"))) {
   total += 1;
   console.log(`\n── frontend vitest (${frontendSuites.length} files) ──`);
-  const r = spawnSync(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["vitest", "run", ...frontendSuites],
-    {
-      cwd: frontendRoot,
-      stdio: "inherit",
-      env: process.env,
-      shell: process.platform === "win32",
-    },
-  );
+  const r = spawnSync(vitestBin, ["run", ...frontendSuites], {
+    cwd: frontendRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
   if (r.status !== 0) {
     failed += 1;
     console.error("FAIL frontend vitest");

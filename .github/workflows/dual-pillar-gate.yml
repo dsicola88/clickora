@@ -19,7 +19,10 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      # Frontend vitest corre no job frontend-presell (npm ci do frontend).
       - run: npm run test:dual-pillar-gate
+        env:
+          DUAL_PILLAR_SKIP_FRONTEND: "1"
 
   frontend-presell:
     runs-on: ubuntu-latest
