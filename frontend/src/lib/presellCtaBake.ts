@@ -3,7 +3,7 @@ import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 
 /**
  * Bake enterprise: hoplinks → `/track/r/:presellId?to=<oferta>` no HTML espelhado.
- * Sem `to=`, o hop `/track/r/` devolve 400 — o visitante do anúncio não pode ver JSON.
+ * Sem `to=` (ou `to=` vazio/#), o hop usa o hoplink da presell; `to` inválido cloaka (HTML seguro, não JSON 400).
  */
 export function trackHrefForPresell(presellId: string, affiliateHref = ""): string {
   const base = getTrackApiBaseUrl().replace(/\/+$/, "");

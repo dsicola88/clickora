@@ -320,6 +320,8 @@ export default function Relatorios() {
         filename,
       );
       toast.success("Ficheiro descarregado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível exportar.");
     } finally {
       setExporting(null);
     }
@@ -353,6 +355,8 @@ export default function Relatorios() {
         filename,
       );
       toast.success("Ficheiro pronto. Importe em Google Ads → Conversões → importar por cliques.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível exportar.");
     } finally {
       setExporting(null);
     }

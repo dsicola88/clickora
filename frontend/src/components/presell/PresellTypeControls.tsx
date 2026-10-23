@@ -379,13 +379,14 @@ export function useCookieAcceptedState() {
   return { cookieAccepted, setCookieAccepted };
 }
 
-/** Junta parâmetros do gate ao URL de afiliado (dinâmico). */
+/** Junta parâmetros do gate ao URL de afiliado sem sobrescrever query já no hoplink. */
 export function mergeParamsIntoAffiliateUrl(affiliateLink: string, extra: Record<string, string>): string {
   if (!extra || Object.keys(extra).length === 0) return affiliateLink;
   try {
     const u = new URL(affiliateLink);
     for (const [k, v] of Object.entries(extra)) {
-      if (v) u.searchParams.set(k, v);
+      if (!v || u.searchParams.has(k)) continue;
+      u.searchParams.set(k, v);
     }
     return u.toString();
   } catch {

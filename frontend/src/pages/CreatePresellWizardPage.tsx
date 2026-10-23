@@ -429,8 +429,10 @@ export default function CreatePresellWizardPage() {
               },
             ],
           });
-          if (rotErr || !rotator) throw new Error(rotErr || "Falha ao criar rotador A/B");
-          rotatorUrl = rotator.public_click_url;
+          if (!rotErr && rotator?.public_click_url) {
+            rotatorUrl = rotator.public_click_url;
+          }
+          // Se o rotador falhar após A/B publicados, não abortar: onSuccess avança com URL A e toast.
         }
       }
 

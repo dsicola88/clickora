@@ -21,6 +21,17 @@ describe("trackOfferRedirectGuard", () => {
     );
   });
 
+  it("ignora # / não-http no content e cai no tracking.offerUrl", () => {
+    assert.equal(
+      affiliateLinkFromPresellPage({ affiliateLink: "#" }, { offerUrl: "https://offer.example/real" }),
+      "https://offer.example/real",
+    );
+    assert.equal(
+      affiliateLinkFromPresellPage({ affiliateLink: "javascript:void(0)" }, { offerUrl: "https://offer.example/real" }),
+      "https://offer.example/real",
+    );
+  });
+
   it("aceita to igual ao hoplink configurado", () => {
     const offer = "https://www.buygoods.com/secure/checkout.html?account=1";
     assert.equal(isRedirectToAllowedOffer(offer, offer), true);

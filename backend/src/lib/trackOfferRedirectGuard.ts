@@ -10,13 +10,19 @@ export function affiliateLinkFromPresellContent(content: unknown): string {
  * Mesma resolução que a pública (`content.affiliateLink` → `tracking.offerUrl`).
  * Evita 400 «Destino inválido» quando o wizard antigo só gravou offerUrl no tracking.
  */
+function usableHttpOffer(raw: string): string {
+  const s = raw.trim();
+  if (!s || s === "#" || !/^https?:\/\//i.test(s)) return "";
+  return s;
+}
+
 export function affiliateLinkFromPresellPage(content: unknown, tracking: unknown): string {
-  const fromContent = affiliateLinkFromPresellContent(content);
+  const fromContent = usableHttpOffer(affiliateLinkFromPresellContent(content));
   if (fromContent) return fromContent;
   if (!tracking || typeof tracking !== "object" || Array.isArray(tracking)) return "";
   const t = tracking as Record<string, unknown>;
   const raw = t.offerUrl ?? t.offer_url;
-  return typeof raw === "string" ? raw.trim() : "";
+  return typeof raw === "string" ? usableHttpOffer(raw) : "";
 }
 
 function normalizeHostname(host: string): string {

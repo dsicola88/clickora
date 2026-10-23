@@ -80,8 +80,16 @@ const eventSchema = z.object({
 
 const redirectSchema = z
   .object({
-    /** Opcional: se ausente, usa o hoplink da presell (CTAs bake só com /track/r/:id). */
-    to: z.string().url().optional(),
+    /** Opcional: se ausente/vazio/#, usa o hoplink da presell (CTAs bake só com /track/r/:id). */
+    to: z.preprocess(
+      (v) => {
+        if (v == null) return undefined;
+        const s = String(v).trim();
+        if (!s || s === "#") return undefined;
+        return s;
+      },
+      z.string().url().optional(),
+    ),
     source: z.string().optional(),
     medium: z.string().optional(),
     campaign: z.string().optional(),

@@ -165,6 +165,7 @@ export default function ResultsOverviewPage() {
     data: campaigns = [],
     refetch: refetchCampaigns,
     isFetching: fetchingCampaigns,
+    isError: campaignsError,
   } = useQuery({
     queryKey: ["campaigns", "stats", from, to],
     queryFn: async () => {
@@ -758,7 +759,17 @@ export default function ResultsOverviewPage() {
           </Button>
         </div>
 
-        {activeRows.length === 0 ? (
+        {dim === "campaigns" && campaignsError ? (
+          <ProEmpty
+            title="Não foi possível carregar campanhas"
+            detail="O dashboard carregou, mas a lista de campanhas falhou. Tente de novo."
+            action={
+              <Button size="sm" variant="outline" onClick={() => void refetchCampaigns()}>
+                Tentar outra vez
+              </Button>
+            }
+          />
+        ) : activeRows.length === 0 ? (
           <ProEmpty
             title={clicks > 0 ? "Sem linhas nesta dimensão" : "Sem tráfego no período"}
             detail={
