@@ -34,6 +34,12 @@ import {
   Layers,
   AlignLeft,
   Tag,
+  Monitor,
+  Tablet,
+  Smartphone,
+  PanelLeft,
+  Columns2,
+  PanelRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -442,6 +448,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [footerTextSize, setFooterTextSize] = useState("sm");
   const [saving, setSaving] = useState(false);
   const [editorTab, setEditorTab] = useState<LandingEditorTab>("hero");
+  /** split = editor+preview · editor = só formulário · preview = só pré-visualização */
+  const [workspaceLayout, setWorkspaceLayout] = useState<"split" | "editor" | "preview">("split");
+  const [previewViewport, setPreviewViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [planLabels, setPlanLabels] = useState<Record<string, string>>(() => mergeWithDefaultLabels(undefined));
   const [heroVisual, setHeroVisual] = useState<PlansHeroVisual>(() => ({ ...DEFAULT_PLANS_HERO_VISUAL }));
 
@@ -1107,6 +1116,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const previewSalesThemed = useMemo(() => resolveLandingPageTheme(landingTheme), [landingTheme]);
 
+  const previewFrameWidth =
+    previewViewport === "mobile" ? 390 : previewViewport === "tablet" ? 768 : 1200;
+
   const addContentBlock = (kind: LandingWidgetKind) => {
     const key = newLandingContentBlockKey();
     setContentBlocks((prev) => [
@@ -1324,195 +1336,259 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const previewAt = data.updated_at;
 
+  const previewDocument = (
+    <LandingPageThemeProvider value={appearance === "sales_dark" ? previewSalesThemed : null}>
+      <div
+        className={cn(
+          "landing-admin-preview overflow-hidden rounded-lg border border-border/50 shadow-sm",
+          appearance === "sales_dark" && "min-h-[200px]",
+        )}
+        style={
+          appearance === "sales_dark"
+            ? {
+                backgroundColor: previewSalesThemed.page_background,
+                color: previewSalesThemed.heading_on_dark,
+              }
+            : { backgroundColor: "hsl(var(--background))" }
+        }
+      >
+        <style>{`
+          .landing-admin-preview [class*="aspect-[9/16]"] {
+            aspect-ratio: 4 / 5;
+            max-height: 14rem;
+          }
+          .landing-admin-preview .grid.md\\:grid-cols-3 {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          }
+        `}</style>
+        <div className="p-4 sm:p-5">
+          {appearance === "sales_dark" ? (
+            <section
+              className={cn(
+                "grid items-start gap-5",
+                previewExtras.product_demo && sectionsEnabled.product_demo && "lg:grid-cols-2",
+              )}
+            >
+              <div className="space-y-3">
+                {badgeText.trim() ? (
+                  <span
+                    className="inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{
+                      borderColor: previewSalesThemed.badge_border,
+                      backgroundColor: previewSalesThemed.badge_background,
+                      color: previewSalesThemed.badge_text,
+                    }}
+                  >
+                    {badgeText}
+                  </span>
+                ) : null}
+                <h3 className="text-xl font-bold leading-snug text-white sm:text-2xl">{heroTitle || "…"}</h3>
+                {heroSubtitle.trim() ? (
+                  <p className="text-sm leading-relaxed text-white/75 sm:text-base">{heroSubtitle}</p>
+                ) : null}
+                {previewExtras.hero_note?.trim() ? (
+                  <p className="text-xs leading-relaxed text-white/60 sm:text-sm">{previewExtras.hero_note}</p>
+                ) : null}
+              </div>
+              {sectionsEnabled.product_demo && previewExtras.product_demo ? (
+                <SalesProductDemo demo={previewExtras.product_demo} />
+              ) : null}
+            </section>
+          ) : (
+            <HeroPreview
+              badgeText={badgeText}
+              heroTitle={heroTitle || "…"}
+              heroSubtitle={heroSubtitle}
+              hasImage={data.has_hero_image}
+              imageUpdatedAt={previewAt}
+              heroFont={heroFont}
+              heroTextAlign={heroTextAlign}
+              heroTitleSize={heroTitleSize}
+              heroTitleWeight={heroTitleWeight}
+              heroSubtitleSize={heroSubtitleSize}
+              heroVisual={heroVisual}
+              textStyles={previewExtras.text_styles ?? undefined}
+              salesTone={false}
+              landingTheme={null}
+              className="mb-0 border-border/80 bg-muted/20 shadow-inner"
+            />
+          )}
+          {introText.trim() ? (
+            <div
+              className={cn(
+                "mt-4 rounded-lg border border-border/60 bg-card/80 p-4",
+                resolvedIntroClasses(
+                  {
+                    intro_font: introFont,
+                    intro_text_align: introTextAlign,
+                    intro_text_size: introTextSize,
+                  },
+                  previewExtras.text_styles?.intro,
+                  {
+                    omitColor:
+                      appearance === "sales_dark" || Boolean(previewExtras.text_styles?.intro?.color?.trim()),
+                  },
+                ),
+              )}
+              style={landingTextStyleColorStyle(previewExtras.text_styles?.intro)}
+            >
+              <LandingMarkdown
+                content={introText}
+                surface={
+                  appearance === "sales_dark" && !previewExtras.text_styles?.intro?.color?.trim()
+                    ? "dark_page"
+                    : "inherit"
+                }
+                salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                colorOverrides={
+                  previewExtras.text_styles?.intro?.color?.trim() && previewSalesThemed
+                    ? {
+                        body: previewExtras.text_styles.intro.color!.trim(),
+                        heading: previewExtras.text_styles.intro.color!.trim(),
+                        link: previewSalesThemed.link,
+                        border: previewSalesThemed.nav_border,
+                      }
+                    : null
+                }
+              />
+            </div>
+          ) : (
+            <p className="mt-4 text-xs italic text-muted-foreground">Sem texto introdutório.</p>
+          )}
+          <div className="mt-4">
+            <LandingPageBodySections
+              extras={previewExtras}
+              plans={previewPlans}
+              planLabels={mergeWithDefaultLabels(planLabels)}
+              userPlan={null}
+              previewMode
+              onSelectPlan={() => {}}
+            />
+          </div>
+          {footerText.trim() ? (
+            <div
+              className={cn(
+                "mt-5 rounded-md border border-dashed border-border/80 bg-muted/30 p-3",
+                resolvedFooterClasses(
+                  {
+                    footer_font: footerFont,
+                    footer_text_align: footerTextAlign,
+                    footer_text_size: footerTextSize,
+                  },
+                  previewExtras.text_styles?.footer,
+                  {
+                    omitColor:
+                      appearance === "sales_dark" ||
+                      Boolean(previewExtras.text_styles?.footer?.color?.trim()),
+                  },
+                ),
+              )}
+              style={landingTextStyleColorStyle(previewExtras.text_styles?.footer)}
+            >
+              <LandingMarkdown
+                content={footerText}
+                surface={
+                  appearance === "sales_dark" && !previewExtras.text_styles?.footer?.color?.trim()
+                    ? "dark_page"
+                    : "inherit"
+                }
+                salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                colorOverrides={
+                  previewExtras.text_styles?.footer?.color?.trim() && previewSalesThemed
+                    ? {
+                        body: previewExtras.text_styles.footer.color!.trim(),
+                        heading: previewExtras.text_styles.footer.color!.trim(),
+                        link: previewSalesThemed.link,
+                        border: previewSalesThemed.nav_border,
+                      }
+                    : null
+                }
+              />
+            </div>
+          ) : null}
+          <div className="mt-5">
+            <SalesLandingLegalFooter extras={previewExtras} />
+          </div>
+        </div>
+      </div>
+    </LandingPageThemeProvider>
+  );
+
   const previewPane = (
-    <div className="flex h-full min-h-0 flex-col bg-muted/25">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5">
+    <div className="flex h-full min-h-0 flex-col bg-muted/30">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           Pré-visualização
         </div>
-        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-[11px]" asChild>
-          <Link to="/" target="_blank" rel="noreferrer">
-            Abrir site
-            <ExternalLink className="h-3 w-3" />
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-1">
+          {(
+            [
+              { id: "desktop" as const, icon: Monitor, label: "Desktop" },
+              { id: "tablet" as const, icon: Tablet, label: "Tablet" },
+              { id: "mobile" as const, icon: Smartphone, label: "Telemóvel" },
+            ] as const
+          ).map((v) => {
+            const Icon = v.icon;
+            const active = previewViewport === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                title={v.label}
+                aria-label={v.label}
+                aria-pressed={active}
+                onClick={() => setPreviewViewport(v.id)}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium transition-colors",
+                  active
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{v.label}</span>
+              </button>
+            );
+          })}
+          <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-[11px]" asChild>
+            <Link to="/" target="_blank" rel="noreferrer">
+              Abrir
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3",
-          appearance === "sales_dark" ? "shadow-inner" : "bg-background/60",
+          "min-h-0 flex-1 overflow-auto",
+          appearance === "sales_dark" ? "bg-[#070b16]" : "bg-muted/40",
         )}
       >
-        <LandingPageThemeProvider value={appearance === "sales_dark" ? previewSalesThemed : null}>
+        <div className="flex justify-center p-3 sm:p-4">
           <div
             className={cn(
-              "overflow-hidden rounded-lg border border-border/50",
-              appearance === "sales_dark" && "min-h-[200px]",
+              "w-full transition-[max-width] duration-200",
+              previewViewport === "mobile" && "rounded-[1.25rem] ring-1 ring-border/80 shadow-lg",
             )}
-            style={
-              appearance === "sales_dark"
-                ? {
-                    backgroundColor: previewSalesThemed.page_background,
-                    color: previewSalesThemed.heading_on_dark,
-                  }
-                : undefined
-            }
+            style={{ maxWidth: `min(100%, ${previewFrameWidth}px)` }}
           >
-            <div className="p-2.5">
-              {appearance === "sales_dark" ? (
-                <section
-                  className={cn(
-                    "grid items-start gap-4",
-                    previewExtras.product_demo && sectionsEnabled.product_demo && "md:grid-cols-2",
-                  )}
-                >
-                  <div className="space-y-3">
-                    {badgeText.trim() ? (
-                      <span
-                        className="inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-                        style={{
-                          borderColor: previewSalesThemed.badge_border,
-                          backgroundColor: previewSalesThemed.badge_background,
-                          color: previewSalesThemed.badge_text,
-                        }}
-                      >
-                        {badgeText}
-                      </span>
-                    ) : null}
-                    <h3 className="text-lg font-bold leading-snug text-white">{heroTitle || "…"}</h3>
-                    {heroSubtitle.trim() ? (
-                      <p className="text-sm leading-relaxed text-white/75">{heroSubtitle}</p>
-                    ) : null}
-                    {previewExtras.hero_note?.trim() ? (
-                      <p className="text-xs leading-relaxed text-white/60">{previewExtras.hero_note}</p>
-                    ) : null}
-                  </div>
-                  {sectionsEnabled.product_demo && previewExtras.product_demo ? (
-                    <SalesProductDemo demo={previewExtras.product_demo} />
-                  ) : null}
-                </section>
-              ) : (
-                <HeroPreview
-                  badgeText={badgeText}
-                  heroTitle={heroTitle || "…"}
-                  heroSubtitle={heroSubtitle}
-                  hasImage={data.has_hero_image}
-                  imageUpdatedAt={previewAt}
-                  heroFont={heroFont}
-                  heroTextAlign={heroTextAlign}
-                  heroTitleSize={heroTitleSize}
-                  heroTitleWeight={heroTitleWeight}
-                  heroSubtitleSize={heroSubtitleSize}
-                  heroVisual={heroVisual}
-                  textStyles={previewExtras.text_styles ?? undefined}
-                  salesTone={false}
-                  landingTheme={null}
-                  className="mb-0 border-border/80 bg-muted/20 shadow-inner"
-                />
-              )}
-              {introText.trim() ? (
-                <div
-                  className={cn(
-                    "mt-3 rounded-lg border border-border/60 bg-card/80 p-3",
-                    resolvedIntroClasses(
-                      {
-                        intro_font: introFont,
-                        intro_text_align: introTextAlign,
-                        intro_text_size: introTextSize,
-                      },
-                      previewExtras.text_styles?.intro,
-                      {
-                        omitColor:
-                          appearance === "sales_dark" || Boolean(previewExtras.text_styles?.intro?.color?.trim()),
-                      },
-                    ),
-                  )}
-                  style={landingTextStyleColorStyle(previewExtras.text_styles?.intro)}
-                >
-                  <LandingMarkdown
-                    content={introText}
-                    surface={
-                      appearance === "sales_dark" && !previewExtras.text_styles?.intro?.color?.trim()
-                        ? "dark_page"
-                        : "inherit"
-                    }
-                    salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
-                    colorOverrides={
-                      previewExtras.text_styles?.intro?.color?.trim() && previewSalesThemed
-                        ? {
-                            body: previewExtras.text_styles.intro.color!.trim(),
-                            heading: previewExtras.text_styles.intro.color!.trim(),
-                            link: previewSalesThemed.link,
-                            border: previewSalesThemed.nav_border,
-                          }
-                        : null
-                    }
-                  />
-                </div>
-              ) : (
-                <p className="mt-3 text-[11px] italic text-muted-foreground">Sem texto introdutório.</p>
-              )}
-              <div className="mt-3">
-                <LandingPageBodySections
-                  extras={previewExtras}
-                  plans={previewPlans}
-                  planLabels={mergeWithDefaultLabels(planLabels)}
-                  userPlan={null}
-                  previewMode
-                  onSelectPlan={() => {}}
-                />
-              </div>
-              {footerText.trim() ? (
-                <div
-                  className={cn(
-                    "mt-4 rounded-md border border-dashed border-border/80 bg-muted/30 p-2.5",
-                    resolvedFooterClasses(
-                      {
-                        footer_font: footerFont,
-                        footer_text_align: footerTextAlign,
-                        footer_text_size: footerTextSize,
-                      },
-                      previewExtras.text_styles?.footer,
-                      {
-                        omitColor:
-                          appearance === "sales_dark" ||
-                          Boolean(previewExtras.text_styles?.footer?.color?.trim()),
-                      },
-                    ),
-                  )}
-                  style={landingTextStyleColorStyle(previewExtras.text_styles?.footer)}
-                >
-                  <LandingMarkdown
-                    content={footerText}
-                    surface={
-                      appearance === "sales_dark" && !previewExtras.text_styles?.footer?.color?.trim()
-                        ? "dark_page"
-                        : "inherit"
-                    }
-                    salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
-                    colorOverrides={
-                      previewExtras.text_styles?.footer?.color?.trim() && previewSalesThemed
-                        ? {
-                            body: previewExtras.text_styles.footer.color!.trim(),
-                            heading: previewExtras.text_styles.footer.color!.trim(),
-                            link: previewSalesThemed.link,
-                            border: previewSalesThemed.nav_border,
-                          }
-                        : null
-                    }
-                  />
-                </div>
-              ) : null}
-              <div className="mt-4">
-                <SalesLandingLegalFooter extras={previewExtras} />
-              </div>
-            </div>
+            {previewDocument}
           </div>
-        </LandingPageThemeProvider>
+        </div>
       </div>
+      <p className="shrink-0 border-t border-border/50 px-3 py-1.5 text-[10px] text-muted-foreground">
+        Largura alvo {previewFrameWidth}px · ajusta-se ao painel
+        {previewViewport === "desktop"
+          ? " (desktop)"
+          : previewViewport === "tablet"
+            ? " (tablet)"
+            : " (telemóvel)"}
+      </p>
     </div>
   );
+
+  const workspaceHeightClass = "h-[min(78vh,920px)] min-h-[520px]";
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
@@ -1524,10 +1600,41 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               Página de vendas
             </h2>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Edite por secção · pré-visualização ao vivo · altera a página inicial (/)
+              Abas expansíveis · pré-visualização com escala automática · página inicial (/)
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-border/70 bg-muted/40 p-0.5">
+              {(
+                [
+                  { id: "editor" as const, icon: PanelLeft, label: "Expandir editor" },
+                  { id: "split" as const, icon: Columns2, label: "Dividido" },
+                  { id: "preview" as const, icon: PanelRight, label: "Expandir preview" },
+                ] as const
+              ).map((layout) => {
+                const Icon = layout.icon;
+                const active = workspaceLayout === layout.id;
+                return (
+                  <button
+                    key={layout.id}
+                    type="button"
+                    title={layout.label}
+                    aria-label={layout.label}
+                    aria-pressed={active}
+                    onClick={() => setWorkspaceLayout(layout.id)}
+                    className={cn(
+                      "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden lg:inline">{layout.label.replace("Expandir ", "")}</span>
+                  </button>
+                );
+              })}
+            </div>
             <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
               <Link to="/" target="_blank" rel="noreferrer">
                 Ver página
@@ -1546,7 +1653,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             </Button>
           </div>
         </div>
-        <div className="flex gap-1 overflow-x-auto px-3 pb-2.5 scrollbar-thin">
+        <div className="flex flex-wrap gap-1.5 px-3 pb-3">
           {LANDING_EDITOR_TABS.map((tab) => {
             const Icon = tab.icon;
             const active = editorTab === tab.id;
@@ -1554,15 +1661,18 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setEditorTab(tab.id)}
+                onClick={() => {
+                  setEditorTab(tab.id);
+                  if (workspaceLayout === "preview") setWorkspaceLayout("split");
+                }}
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all",
                   active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "border-primary/40 bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20"
+                    : "border-border/60 bg-muted/30 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-3.5 w-3.5 shrink-0" />
                 {tab.label}
               </button>
             );
@@ -1570,9 +1680,23 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         </div>
       </div>
 
-      <div className="grid min-h-[min(72vh,820px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
-        <div className="min-w-0 border-b border-border/60 xl:border-b-0 xl:border-r">
-          <div className="max-h-[min(72vh,820px)] space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
+      <div
+        className={cn(
+          "grid",
+          workspaceHeightClass,
+          workspaceLayout === "split" && "xl:grid-cols-[minmax(0,1fr)_minmax(420px,1.05fr)]",
+          workspaceLayout === "editor" && "grid-cols-1",
+          workspaceLayout === "preview" && "grid-cols-1",
+        )}
+      >
+        {workspaceLayout !== "preview" ? (
+        <div
+          className={cn(
+            "min-w-0 min-h-0",
+            workspaceLayout === "split" && "border-b border-border/60 xl:border-b-0 xl:border-r",
+          )}
+        >
+          <div className={cn(workspaceHeightClass, "space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4")}>
             {editorTab === "structure" ? (
               <div className="space-y-3">
                 <div>
@@ -4209,24 +4333,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             ) : null}
           </div>
         </div>
+        ) : null}
 
-        <aside className="hidden min-h-0 xl:flex xl:max-h-[min(72vh,820px)] xl:flex-col">
-          {previewPane}
-        </aside>
-      </div>
-
-      <div className="border-t border-border/60 xl:hidden">
-        <Collapsible>
-          <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted/40">
-            Pré-visualização ao vivo
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="max-h-[min(60vh,560px)] overflow-hidden border-t border-border/50">
-              {previewPane}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        {workspaceLayout !== "editor" ? (
+          <aside className={cn("flex min-h-0 min-w-0 flex-col", workspaceHeightClass)}>
+            {previewPane}
+          </aside>
+        ) : null}
       </div>
     </div>
   );
