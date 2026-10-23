@@ -16,6 +16,7 @@ import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
+import { rememberDatacenterBlacklist } from "../lib/rememberDatacenterBlacklist";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
@@ -498,6 +499,11 @@ export const trackController = {
 
     if (place) {
       console.warn("[track.redirect] datacenter sem oferta", { presellId, ip, network: place.ip_network });
+      void rememberDatacenterBlacklist({
+        userId: page.userId,
+        ip,
+        network: place.ip_network,
+      });
       return sendSafeVisitorPage(res, page.settings);
     }
 
@@ -635,6 +641,11 @@ export const trackController = {
         },
       });
       console.warn("[track.rotator] datacenter sem oferta", { rotatorId, ip, network: place.ip_network });
+      void rememberDatacenterBlacklist({
+        userId: rot.userId,
+        ip,
+        network: place.ip_network,
+      });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
     if (countryOnCloakDenyList(rot.contextPresell.settings, country)) {

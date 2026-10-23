@@ -194,6 +194,13 @@ export default function Blacklist() {
         <p className="text-xs border-t border-border/50 pt-2 mt-2">
           A mesma decisão vale para a página, o pixel e o clique. O IP é o do proxy (Railway, Vercel ou Cloudflare), não um cabeçalho à escolha do browser. Intervalos CIDR não são suportados — um endereço por linha.
         </p>
+        <p className="text-xs border-t border-border/50 pt-2 mt-2 text-foreground/80">
+          <strong className="font-medium">Cloud / datacenter (AWS, GCP, CDN77…):</strong> ao detectar, a app
+          mostra página segura, não abre o hoplink e adiciona o IP à blacklist automaticamente. Isto corta
+          a rajada seguinte do mesmo IP — a 1.ª cobrança do clique no Google Ads já aconteceu no Google
+          (não dá para anular daqui). Em Google Ads: peça crédito por cliques inválidos e, se quiser,
+          exclua esses IPs nas definições da campanha.
+        </p>
       </div>
 
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
@@ -219,7 +226,10 @@ export default function Blacklist() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border border-border/60 p-4">
           <div className="space-y-1">
             <Label htmlFor="guard-bots">Bloquear cliques identificados como bot (UA)</Label>
-            <p className="text-xs text-muted-foreground">Recusa tracking quando o UA corresponde a crawler/bot conhecido (403).</p>
+            <p className="text-xs text-muted-foreground">
+              Recusa tracking quando o UA é crawler/bot. Recomendado em campanhas Google Ads (AdsBot oficial
+              continua a ver a landing para aprovação).
+            </p>
           </div>
           <Switch
             id="guard-bots"
@@ -232,7 +242,8 @@ export default function Blacklist() {
           <div className="space-y-1">
             <Label htmlFor="guard-proxy">Bloquear proxy / VPN suspeito</Label>
             <p className="text-xs text-muted-foreground">
-              Usa score de fraude (CF threat, multi-hop, Tor). Pode bloquear VPNs legítimas — teste primeiro.
+              Score de fraude (CF threat, multi-hop, Tor). Complementa o bloqueio de datacenter/cloud.
+              Pode bloquear VPNs legítimas — teste primeiro.
             </p>
           </div>
           <Switch
