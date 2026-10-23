@@ -19,6 +19,7 @@ import { geoLookupFromIp } from "../lib/countryFromIp";
 import { locationForStoredClick } from "../lib/cdn77Visitor";
 import { sqlVisitorCountry } from "../lib/edgeCountrySql";
 import { datacenterClickPlace } from "../lib/ipNetworkClass";
+import { resolveClickVisitorEvidence } from "../lib/clickVisitorEvidence";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
@@ -85,6 +86,11 @@ function mapTrackingEventForApi(e: {
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
   const fromCdnVisitor = metadata.country_source === "cdn77";
   const datacenter = fromCdnVisitor ? null : datacenterClickPlace(e.ipAddress);
+  const visitorEvidence = resolveClickVisitorEvidence({
+    ipAddress: e.ipAddress,
+    userAgent: e.userAgent,
+    metadata,
+  });
   const located = locationForStoredClick({
     ip: e.ipAddress,
     storedCountry,
@@ -162,11 +168,12 @@ function mapTrackingEventForApi(e: {
     gclid,
     msclkid,
     traffic_type,
-    is_bot: metadata.is_bot === true,
-    bot_label: typeof metadata.bot_label === "string" ? metadata.bot_label : null,
-    unqualified: datacenter?.unqualified === true,
-    unqualified_reason: datacenter?.unqualified_reason ?? null,
-    ip_network: datacenter?.ip_network ?? null,
+    /** Situação: só evidência recompute de IP + UA (não inventa a partir de metadata solto). */
+    is_bot: visitorEvidence.is_bot,
+    bot_label: visitorEvidence.bot_label,
+    unqualified: visitorEvidence.unqualified,
+    unqualified_reason: visitorEvidence.unqualified_reason,
+    ip_network: visitorEvidence.ip_network,
   };
 }
 
