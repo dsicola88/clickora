@@ -1,15 +1,13 @@
 /**
- * Qualidade do visitante no relatório de cliques.
- * Separado de «Pago/Orgânico» (origem do anúncio).
+ * Qualidade do visitante no relatório — só o que dá para afirmar com evidência.
+ * «Pago» (Tipo) ≠ humano; aqui não se inventa.
  */
 
-export type ClickVisitorKind = "real" | "bot" | "datacenter";
+export type ClickVisitorKind = "sem_alerta" | "bot" | "datacenter";
 
 export type ClickVisitorQuality = {
   kind: ClickVisitorKind;
-  /** Etiqueta curta na tabela. */
   label: string;
-  /** Tooltip / título. */
   detail: string;
 };
 
@@ -22,8 +20,8 @@ type QualityInput = {
 };
 
 /**
- * Prioridade: datacenter → bot → real.
- * Datacenter inclui cloud (AWS/GCP/…) mesmo com UA de telemóvel.
+ * Prioridade: datacenter (IP) → bot (UA) → sem alerta.
+ * Não usa a palavra «Real» — não há prova biométrica de humano.
  */
 export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality {
   if (e.unqualified) {
@@ -34,22 +32,33 @@ export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality
       label,
       detail:
         (e.unqualified_reason || "").trim() ||
-        "IP de cloud/CDN — não é acesso residencial. Não conta como clique bom e não abre o hoplink.",
+        "IP em lista explícita de cloud/CDN (AWS/GCP/CDN77). Não é evidência de browser residencial.",
     };
   }
   if (e.is_bot) {
     const bot = (e.bot_label || "").trim();
+    const isGoogle =
+      /google/i.test(bot) || /adsbot|inspectiontool|googlebot|mediapartners/i.test(bot);
+    if (isGoogle) {
+      return {
+        kind: "bot",
+        label: bot ? `Crawler Google (${bot})` : "Crawler Google",
+        detail:
+          "User-Agent de crawler oficial Google. Não deve ir à blacklist — necessário para anúncios/SEO.",
+      };
+    }
     return {
       kind: "bot",
       label: bot ? `Bot (${bot})` : "Bot",
       detail: bot
-        ? `Identificado como bot pelo User-Agent (${bot}).`
-        : "Identificado como bot pelo User-Agent.",
+        ? `User-Agent identificado como bot (${bot}). Evidência = UA, não o IP.`
+        : "User-Agent identificado como bot.",
     };
   }
   return {
-    kind: "real",
-    label: "Real",
-    detail: "Visitante sem sinais de bot nem IP de datacenter/cloud.",
+    kind: "sem_alerta",
+    label: "Sem alerta",
+    detail:
+      "Sem bot no User-Agent e sem IP em listas cloud/CDN conhecidas. Não prova que seja um comprador humano.",
   };
 }

@@ -503,6 +503,8 @@ export const trackController = {
         userId: page.userId,
         ip,
         network: place.ip_network,
+        eligible: place.auto_blacklist,
+        userAgent,
       });
       return sendSafeVisitorPage(res, page.settings);
     }
@@ -645,6 +647,8 @@ export const trackController = {
         userId: rot.userId,
         ip,
         network: place.ip_network,
+        eligible: place.auto_blacklist,
+        userAgent,
       });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }

@@ -1,23 +1,40 @@
 /**
  * Redes de datacenter/CDN cujo IP de saída não é um acesso residencial.
- * CDN77 (confirmado no RIPE) + clouds AWS/GCP (listas públicas + bootstrap).
+ * Só CDN77 (RIPE) + AWS/GCP oficiais (ou bootstrap AWS confirmado).
  */
 import { getCloudDatacenterNetworks } from "./cloudIpRanges";
 
+export type DatacenterNetworkSource =
+  | "static"
+  | "aws_official"
+  | "gcp_official"
+  | "bootstrap_confirmed";
+
 export type DatacenterNetwork = {
   name: string;
-  /** Sítio do registo / região cloud, para a coluna região. Não é a cidade do comprador. */
+  /** Sítio do registo / região cloud — não é a cidade do comprador. */
   place: string;
   country: string;
-  /** Base IPv4 e prefixo. */
   base: string;
   bits: number;
+  /** Origem da evidência — só redes explícitas entram em auto-blacklist. */
+  source?: DatacenterNetworkSource;
 };
 
-/** Blocos fixos (não dependem de fetch). */
+/** Blocos fixos (RIPE / evidência documentada no código). */
 const STATIC_NETWORKS: DatacenterNetwork[] = [
-  { name: "CDN77", place: "Londres", country: "GB", base: "152.233.28.0", bits: 23 },
+  {
+    name: "CDN77",
+    place: "Londres",
+    country: "GB",
+    base: "152.233.28.0",
+    bits: 23,
+    source: "static",
+  },
 ];
+
+/** Redes com evidência explícita — únicas elegíveis para blacklist automática. */
+const AUTO_BLACKLIST_NETWORKS = new Set(["CDN77", "AWS", "GCP"]);
 
 export type ClickPlace = {
   country: string | null;
@@ -26,6 +43,8 @@ export type ClickPlace = {
   ip_network: string | null;
   ip_network_place: string | null;
   unqualified_reason: string | null;
+  /** true = seguro auto-blacklistar; false = só marcar no relatório. */
+  auto_blacklist: boolean;
 };
 
 function ipv4ToInt(ip: string): number | null {
@@ -51,7 +70,6 @@ export function classifyDatacenterIp(ip: string | null | undefined): DatacenterN
   if (!ip) return null;
   const n = ipv4ToInt(ip.trim().replace(/^::ffff:/i, ""));
   if (n == null) return null;
-  /** Preferir o match mais específico (maior bits). */
   let best: DatacenterNetwork | null = null;
   for (const net of allNetworks()) {
     if (!inCidr(n, net.base, net.bits)) continue;
@@ -60,16 +78,34 @@ export function classifyDatacenterIp(ip: string | null | undefined): DatacenterN
   return best;
 }
 
+/**
+ * Auto-blacklist só com nome conhecido + fonte explícita (oficial / static / bootstrap confirmado).
+ * Nunca por heurística vaga.
+ */
+export function isExplicitDatacenterForAutoBlacklist(net: DatacenterNetwork | null | undefined): boolean {
+  if (!net) return false;
+  if (!AUTO_BLACKLIST_NETWORKS.has(net.name)) return false;
+  const src = net.source || "static";
+  return (
+    src === "static" ||
+    src === "aws_official" ||
+    src === "gcp_official" ||
+    src === "bootstrap_confirmed"
+  );
+}
+
 export function datacenterClickPlace(ip: string | null | undefined): ClickPlace | null {
   const net = classifyDatacenterIp(ip);
   if (!net) return null;
+  const auto = isExplicitDatacenterForAutoBlacklist(net);
   return {
     country: net.country,
     region: net.place,
     unqualified: true,
     ip_network: net.name,
     ip_network_place: net.place,
-    unqualified_reason: `Rede ${net.name} (${net.place}). Não é um acesso de casa ou telemóvel. Pode ser VPN, proxy ou bot em cloud. Este clique não é qualificado e não abre o hoplink.`,
+    unqualified_reason: `Rede ${net.name} (${net.place}, evidência ${net.source || "static"}). IP de cloud/CDN — não é acesso residencial típico. Clique não qualificado; hoplink não abre.`,
+    auto_blacklist: auto,
   };
 }
 
@@ -83,5 +119,6 @@ export function datacenterClickMeta(ip: string | null | undefined): Record<strin
     unqualified: true,
     unqualified_reason: place.unqualified_reason,
     exclude_from_kpi: true,
+    datacenter_auto_blacklist: place.auto_blacklist,
   };
 }

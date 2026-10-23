@@ -819,6 +819,8 @@ async function sendPublicPresell(
       userId: page.userId,
       ip,
       network: dcPlace.ip_network,
+      eligible: dcPlace.auto_blacklist,
+      userAgent: ua,
     });
     res.setHeader("Cache-Control", "private, no-store");
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: "datacenter" }));

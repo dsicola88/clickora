@@ -1,6 +1,6 @@
 /**
- * Prefixos IPv4 de cloud (AWS / GCP) para classificar cliques de datacenter.
- * Atualiza em background; bootstrap cobre os blocos EC2 vistos em tráfego Ads inválido.
+ * Prefixos IPv4 de cloud (AWS / GCP) — só listas oficiais ou CIDRs confirmados.
+ * Nada de blocos «à sorte» (Azure/Hetzner genéricos) para não marcar IPs residenciais.
  */
 import type { DatacenterNetwork } from "./ipNetworkClass";
 
@@ -9,33 +9,48 @@ type MutableRange = DatacenterNetwork;
 const AWS_RANGES_URL = "https://ip-ranges.amazonaws.com/ip-ranges.json";
 const GCP_RANGES_URL = "https://www.gstatic.com/ipranges/cloud.json";
 
-/** Bootstrap síncrono — inclui os EC2 us-west-1 do relatório Visivra (18.144 / 52.52 / 54.67). */
-const BOOTSTRAP: MutableRange[] = [
-  { name: "AWS", place: "us-west-1", country: "US", base: "18.144.0.0", bits: 15 },
-  { name: "AWS", place: "us-west-1", country: "US", base: "52.52.0.0", bits: 15 },
-  { name: "AWS", place: "us-west-1", country: "US", base: "54.67.0.0", bits: 16 },
-  { name: "AWS", place: "us-east-1", country: "US", base: "3.80.0.0", bits: 12 },
-  { name: "AWS", place: "us-east-1", country: "US", base: "54.144.0.0", bits: 14 },
-  { name: "AWS", place: "eu-west-1", country: "IE", base: "34.240.0.0", bits: 13 },
-  { name: "GCP", place: "global", country: "US", base: "34.64.0.0", bits: 10 },
-  { name: "GCP", place: "global", country: "US", base: "35.184.0.0", bits: 13 },
-  { name: "Azure", place: "global", country: "US", base: "20.33.0.0", bits: 16 },
-  { name: "Azure", place: "global", country: "US", base: "40.74.0.0", bits: 15 },
-  { name: "DigitalOcean", place: "global", country: "US", base: "104.131.0.0", bits: 16 },
-  { name: "DigitalOcean", place: "global", country: "US", base: "167.99.0.0", bits: 16 },
-  { name: "Hetzner", place: "EU", country: "DE", base: "49.12.0.0", bits: 15 },
-  { name: "Hetzner", place: "EU", country: "DE", base: "95.216.0.0", bits: 16 },
+/**
+ * Bootstrap mínimo: só os CIDRs AWS que bateram nos IPs do relatório Visivra
+ * (confirmados em ipinfo AS16509 Amazon). Removidos após 1.º refresh AWS OK.
+ */
+const BOOTSTRAP_CONFIRMED: MutableRange[] = [
+  {
+    name: "AWS",
+    place: "us-west-1",
+    country: "US",
+    base: "18.144.0.0",
+    bits: 15,
+    source: "bootstrap_confirmed",
+  },
+  {
+    name: "AWS",
+    place: "us-west-1",
+    country: "US",
+    base: "52.52.0.0",
+    bits: 15,
+    source: "bootstrap_confirmed",
+  },
+  {
+    name: "AWS",
+    place: "us-west-1",
+    country: "US",
+    base: "54.67.0.0",
+    bits: 16,
+    source: "bootstrap_confirmed",
+  },
 ];
 
-let dynamicRanges: MutableRange[] = [...BOOTSTRAP];
+let dynamicRanges: MutableRange[] = [...BOOTSTRAP_CONFIRMED];
 let lastRefreshAt = 0;
 let refreshInflight: Promise<void> | null = null;
+let lastRefreshHadOfficial = false;
 
 function parseCidr(cidr: string): { base: string; bits: number } | null {
   const m = /^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/.exec(cidr.trim());
   if (!m) return null;
   const bits = Number(m[2]);
-  if (!Number.isFinite(bits) || bits < 8 || bits > 32) return null;
+  /** Evitar prefixos demasiado largos (&lt; /12) vindos de feeds — menos falsos positivos. */
+  if (!Number.isFinite(bits) || bits < 12 || bits > 32) return null;
   return { base: m[1]!, bits };
 }
 
@@ -78,7 +93,11 @@ function loadAwsPrefixes(raw: unknown): MutableRange[] {
     if (!row || typeof row !== "object") continue;
     const p = row as { ip_prefix?: string; region?: string; service?: string };
     const service = String(p.service || "");
-    /** EC2 + AMAZON cobrem saída de bots/crawlers em instâncias; exclui só CLOUDFRONT se aparecer sozinho. */
+    /**
+     * EC2 = instâncias (bots típicos).
+     * AMAZON = infra AWS publicada pela Amazon (inclui os CIDRs do relatório Visivra).
+     * Não incluir CLOUDFRONT/S3 isolados — CDN de sites legítimos.
+     */
     if (service !== "EC2" && service !== "AMAZON") continue;
     const cidr = parseCidr(String(p.ip_prefix || ""));
     if (!cidr) continue;
@@ -89,6 +108,7 @@ function loadAwsPrefixes(raw: unknown): MutableRange[] {
       country: countryFromAwsRegion(region),
       base: cidr.base,
       bits: cidr.bits,
+      source: "aws_official",
     });
   }
   return out;
@@ -108,26 +128,44 @@ function loadGcpPrefixes(raw: unknown): MutableRange[] {
     out.push({
       name: "GCP",
       place: scope,
-      country: scope.toLowerCase().startsWith("us") ? "US" : "US",
+      country: "US",
       base: cidr.base,
       bits: cidr.bits,
+      source: "gcp_official",
     });
   }
   return out;
 }
 
-/** Lista actual (bootstrap até ao 1.º refresh bem-sucedido). */
+function dedupe(ranges: MutableRange[]): MutableRange[] {
+  const seen = new Set<string>();
+  const unique: MutableRange[] = [];
+  for (const n of ranges) {
+    const k = `${n.name}|${n.base}/${n.bits}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    unique.push(n);
+  }
+  return unique;
+}
+
+/** Lista actual (bootstrap confirmado até ao 1.º refresh oficial). */
 export function getCloudDatacenterNetworks(): readonly DatacenterNetwork[] {
   return dynamicRanges;
 }
 
-export function cloudIpRangesStatus(): { count: number; lastRefreshAt: number } {
-  return { count: dynamicRanges.length, lastRefreshAt };
+export function cloudIpRangesStatus(): {
+  count: number;
+  lastRefreshAt: number;
+  official: boolean;
+} {
+  return { count: dynamicRanges.length, lastRefreshAt, official: lastRefreshHadOfficial };
 }
 
 /**
- * Descarrega listas públicas AWS + GCP e substitui a tabela dinâmica.
- * Em falha mantém bootstrap / última lista boa.
+ * Descarrega listas públicas AWS + GCP.
+ * Com sucesso: substitui o bootstrap (só evidência oficial).
+ * Sem sucesso: mantém bootstrap confirmado Visivra.
  */
 export async function refreshCloudIpRanges(): Promise<{ ok: boolean; count: number; error?: string }> {
   if (refreshInflight) {
@@ -135,31 +173,34 @@ export async function refreshCloudIpRanges(): Promise<{ ok: boolean; count: numb
     return { ok: true, count: dynamicRanges.length };
   }
   refreshInflight = (async () => {
-    const merged: MutableRange[] = [...BOOTSTRAP];
+    const aws: MutableRange[] = [];
+    const gcp: MutableRange[] = [];
     try {
       const awsRaw = await fetchJson(AWS_RANGES_URL);
-      merged.push(...loadAwsPrefixes(awsRaw));
+      aws.push(...loadAwsPrefixes(awsRaw));
     } catch (e) {
       console.warn("[cloudIpRanges] AWS falhou", e instanceof Error ? e.message : e);
     }
     try {
       const gcpRaw = await fetchJson(GCP_RANGES_URL);
-      merged.push(...loadGcpPrefixes(gcpRaw));
+      gcp.push(...loadGcpPrefixes(gcpRaw));
     } catch (e) {
       console.warn("[cloudIpRanges] GCP falhou", e instanceof Error ? e.message : e);
     }
-    /** Dedup por name+base+bits */
-    const seen = new Set<string>();
-    const unique: MutableRange[] = [];
-    for (const n of merged) {
-      const k = `${n.name}|${n.base}/${n.bits}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      unique.push(n);
+    if (aws.length > 0 || gcp.length > 0) {
+      dynamicRanges = dedupe([...aws, ...gcp]);
+      lastRefreshHadOfficial = true;
+    } else {
+      dynamicRanges = [...BOOTSTRAP_CONFIRMED];
+      lastRefreshHadOfficial = false;
     }
-    dynamicRanges = unique;
     lastRefreshAt = Date.now();
-    console.info("[cloudIpRanges] atualizado", { count: unique.length });
+    console.info("[cloudIpRanges] atualizado", {
+      count: dynamicRanges.length,
+      official: lastRefreshHadOfficial,
+      aws: aws.length,
+      gcp: gcp.length,
+    });
   })();
   try {
     await refreshInflight;

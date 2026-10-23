@@ -32,6 +32,17 @@ export function isGoogleAdsCrawlerUserAgent(userAgent: string | undefined | null
   return /adsbot-google|google-inspectiontool/i.test(ua);
 }
 
+/**
+ * Crawlers oficiais Google (Ads + Search) — nunca auto-blacklistar o IP.
+ * Bloquear estes IPs pode reprovar anúncios ou prejudicar SEO.
+ */
+export function isProtectedGoogleCrawlerUserAgent(userAgent: string | undefined | null): boolean {
+  const ua = (userAgent || "").trim();
+  if (!ua) return false;
+  if (isGoogleAdsCrawlerUserAgent(ua)) return true;
+  return /googlebot|mediapartners-google|google-inspectiontool|adsbot-google/i.test(ua);
+}
+
 export function detectBot(userAgent: string | undefined | null): BotDetection {
   const ua = (userAgent || "").trim();
   if (ua.length === 0) return { isBot: true, label: "Sem User-Agent" };

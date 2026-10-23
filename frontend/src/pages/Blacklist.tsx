@@ -195,11 +195,10 @@ export default function Blacklist() {
           A mesma decisão vale para a página, o pixel e o clique. O IP é o do proxy (Railway, Vercel ou Cloudflare), não um cabeçalho à escolha do browser. Intervalos CIDR não são suportados — um endereço por linha.
         </p>
         <p className="text-xs border-t border-border/50 pt-2 mt-2 text-foreground/80">
-          <strong className="font-medium">Cloud / datacenter (AWS, GCP, CDN77…):</strong> ao detectar, a app
-          mostra página segura, não abre o hoplink e adiciona o IP à blacklist automaticamente. Isto corta
-          a rajada seguinte do mesmo IP — a 1.ª cobrança do clique no Google Ads já aconteceu no Google
-          (não dá para anular daqui). Em Google Ads: peça crédito por cliques inválidos e, se quiser,
-          exclua esses IPs nas definições da campanha.
+          <strong className="font-medium">Auto-blacklist (só evidência explícita):</strong> IP em lista
+          oficial AWS/GCP ou CDN77 confirmado → página segura, sem hoplink, e entra na blacklist.
+          Crawlers Google (AdsBot, Googlebot) <em>nunca</em> são auto-blacklistados. IPs duvidosos:
+          adiciona <em>manualmente</em> abaixo. A 1.ª cobrança no Google Ads já aconteceu no Google.
         </p>
       </div>
 
