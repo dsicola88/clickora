@@ -153,7 +153,8 @@ function done(
 function parseDigistore(flat: Record<string, string>): ParsedAffiliatePostback {
   const tx = norm(flat.transaction_type);
   const billing = norm(flat.billing_status || flat.order_billing_status);
-  const clickId = firstUuid(flat, ["cid", "sid1", "clickora_click_id"]);
+  // sid1 antes de cid: se outro tracker ocupa cid, o nosso UUID está em sid1.
+  const clickId = firstUuid(flat, ["clickora_click_id", "sid1", "cid"]);
   const networkOrderId = firstText(flat, ["order_id", "orderid"]);
   const externalId = firstText(flat, ["transaction_id"]) || networkOrderId;
   const currency = currencyFrom(flat, ["currency", "cy"]);
@@ -245,7 +246,7 @@ function parseSubidCommission(adapterId: string, flat: Record<string, string>): 
 
 function parseSmartAdv(flat: Record<string, string>): ParsedAffiliatePostback {
   const funnel = funnelFrom(flat);
-  const clickId = firstUuid(flat, ["sub3", "cid", "clickora_click_id"]);
+  const clickId = firstUuid(flat, ["clickora_click_id", "sub3", "sub5", "cid"]);
   const externalId = firstText(flat, ["transaction_id", "orderid", "order_id"]);
   const amount = moneyFrom(flat, ["payout", "amount"]);
   const currency = currencyFrom(flat, ["currency", "cy"]);
@@ -285,7 +286,7 @@ function parseHotmartAffiliate(flat: Record<string, string>, body: unknown): Par
   const event = (str(dig(body, ["event"])) || flat.event || "").trim();
   const purchaseStatus = str(dig(body, ["data", "purchase", "status"])) || "";
   const eventNorm = norm(event || purchaseStatus);
-  const clickId = firstUuid(flat, ["src", "sck", "clickora_click_id"]) ||
+  const clickId = firstUuid(flat, ["clickora_click_id", "src", "sck"]) ||
     uuidOf(str(dig(body, ["data", "purchase", "origin", "src"]))) ||
     uuidOf(str(dig(body, ["data", "purchase", "origin", "sck"])));
   const externalId =
@@ -329,7 +330,7 @@ function parseClickBank(flat: Record<string, string>, body: unknown): ParsedAffi
   const encrypted = Boolean(envelope && (envelope.notification || envelope.iv) && !flat.transactionType && !flat.transaction_type);
   const tx = (flat.transactionType || flat.transaction_type || "").trim().toUpperCase();
   const clickId =
-    firstUuid(flat, ["tid", "trackingId", "tracking_id", "clickora_click_id"]) ||
+    firstUuid(flat, ["clickora_click_id", "tid", "trackingId", "tracking_id"]) ||
     uuidOf(flat.trackingCodes);
   const externalId = firstText(flat, ["receipt", "transaction_id"]);
   const amount = moneyFrom(flat, ["totalAccountAmount", "affiliateCommission"]);
@@ -352,7 +353,7 @@ function parseClickBank(flat: Record<string, string>, body: unknown): ParsedAffi
 
 function parseWarriorPlus(flat: Record<string, string>): ParsedAffiliatePostback {
   const action = norm(flat.WP_ACTION || flat.wp_action);
-  const clickId = firstUuid(flat, ["WP_TID", "tid", "clickora_click_id"]);
+  const clickId = firstUuid(flat, ["clickora_click_id", "WP_TID", "tid"]);
   const externalId = firstText(flat, ["WP_SALEID", "WP_SALE", "WP_TXNID"]);
   const amount = moneyFrom(flat, ["WP_COMMISSION", "WP_AFF_COMMISSION", "WP_AFF_AMOUNT"]);
   const currency = currencyFrom(flat, ["currency", "cy"], "USD");
@@ -368,7 +369,7 @@ function parseWarriorPlus(flat: Record<string, string>): ParsedAffiliatePostback
 
 function parseJvzoo(flat: Record<string, string>): ParsedAffiliatePostback {
   const tx = (flat.ctransaction || "").trim().toUpperCase();
-  const clickId = firstUuid(flat, ["tid", "ctid", "clickora_click_id"]);
+  const clickId = firstUuid(flat, ["clickora_click_id", "tid", "ctid"]);
   const externalId = firstText(flat, ["ctransreceipt", "receipt"]);
   const amount = moneyFrom(flat, ["caffitid_amount", "ctransamount"]);
   const currency = currencyFrom(flat, ["currency"], "USD");
@@ -386,7 +387,17 @@ function parseJvzoo(flat: Record<string, string>): ParsedAffiliatePostback {
 /** Contrato explícito para redes sem IPN próprio. Não lê campos de outras plataformas. */
 function parseGeneric(flat: Record<string, string>, adapterId = "generic"): ParsedAffiliatePostback {
   const funnel = funnelFrom(flat);
-  const clickId = firstUuid(flat, ["clickora_click_id", "subid1"]);
+  // Contrato genérico: não ler cid/tid/src (são de adaptadores nativos).
+  const clickId = firstUuid(flat, [
+    "clickora_click_id",
+    "subid1",
+    "subid2",
+    "SUBID2",
+    "subid",
+    "SUBID",
+    "subid3",
+    "SUBID3",
+  ]);
   const externalId = firstText(flat, ["orderid", "order_id", "transaction_id"]);
   const amount = moneyFrom(flat, ["amount"]);
   const currency = currencyFrom(flat, ["cy", "currency"]);
@@ -606,6 +617,8 @@ export function buildTestSaleQuery(platform: string, clickId: string, orderId: s
     return {
       platform: "Digistore24",
       cid: clickId,
+      sid1: clickId,
+      clickora_click_id: clickId,
       billing_status: "completed",
       transaction_type: "payment",
       transaction_id: orderId,
@@ -613,6 +626,7 @@ export function buildTestSaleQuery(platform: string, clickId: string, orderId: s
       currency: "USD",
     };
   }
+
   if (id === "buygoods" || id === "maxweb") {
     return {
       platform: id === "maxweb" ? "MaxWeb" : "BuyGoods",
@@ -637,6 +651,8 @@ export function buildTestSaleQuery(platform: string, clickId: string, orderId: s
     return {
       platform: "Hotmart",
       src: clickId,
+      sck: clickId,
+      clickora_click_id: clickId,
       event: "PURCHASE_APPROVED",
       transaction: orderId,
       commission: "1.00",

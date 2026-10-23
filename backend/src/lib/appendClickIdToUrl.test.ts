@@ -5,12 +5,14 @@ import { appendClickIdToAffiliateUrl } from "./appendClickIdToUrl";
 describe("appendClickIdToAffiliateUrl", () => {
   const uuid = "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee";
 
-  it("em domínio desconhecido escreve subid, que a MaxWeb devolve", () => {
+  it("em domínio desconhecido escreve subid + subid1 + subid2", () => {
     const out = appendClickIdToAffiliateUrl("https://offer.test/buy?a=1", uuid);
     const u = new URL(out);
     assert.equal(u.searchParams.get("a"), "1");
     assert.equal(u.searchParams.get("clickora_click_id"), uuid);
     assert.equal(u.searchParams.get("subid"), uuid);
+    assert.equal(u.searchParams.get("subid1"), uuid);
+    assert.equal(u.searchParams.get("subid2"), uuid);
     assert.equal(u.searchParams.get("cid"), null);
     assert.equal(u.searchParams.get("sub3"), null);
     assert.equal(u.searchParams.get("s1"), null);
@@ -70,10 +72,21 @@ describe("appendClickIdToAffiliateUrl", () => {
     assert.equal(u.searchParams.get("subid"), null);
   });
 
-  it("Hotmart escreve src", () => {
+  it("Hotmart escreve src e sck", () => {
     const out = appendClickIdToAffiliateUrl("https://pay.hotmart.com/ABC", uuid);
     const u = new URL(out);
     assert.equal(u.searchParams.get("src"), uuid);
+    assert.equal(u.searchParams.get("sck"), uuid);
     assert.equal(u.searchParams.get("subid"), null);
+  });
+
+  it("Digistore preserva cid existente não-UUID e grava sid1", () => {
+    const out = appendClickIdToAffiliateUrl(
+      "https://www.digistore24.com/redir/x/y/?cid=campaign_name",
+      uuid,
+    );
+    const u = new URL(out);
+    assert.equal(u.searchParams.get("cid"), "campaign_name");
+    assert.equal(u.searchParams.get("sid1"), uuid);
   });
 });

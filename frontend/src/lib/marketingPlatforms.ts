@@ -122,11 +122,11 @@ export const DEFAULT_AFFILIATE_POSTBACK_PRESET: AffiliatePostbackPreset = {
 export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbackPreset>> = {
   Digistore24: {
     hint:
-      "Digistore24 (S2S). No hoplink vai cid (e sid1 se cid já existir). No postback use {cid}, {amount_affiliate}, {billing_status}, {transaction_type}, {transaction_id}, {order_id}, {payment_id} e {pay_sequence_no}. payment+completed/paying é venda. refund e chargeback revertem a transacção indicada por parent_transaction_id, payment_id ou pay_sequence_no. payment_missed não é reembolso.",
+      "Digistore24 (S2S). No hoplink: cid + sid1 (se outro tracker já usa cid, o UUID da dclickora fica em sid1). No postback ecoe {sid1} e {cid}. payment+completed/paying é venda. refund e chargeback revertem a transacção. payment_missed não é reembolso.",
     params: {
       cid: "{cid}",
       sid1: "{sid1}",
-      clickora_click_id: "{cid}",
+      clickora_click_id: "{sid1}",
       amount_affiliate: "{amount_affiliate}",
       billing_status: "{billing_status}",
       transaction_type: "{transaction_type}",

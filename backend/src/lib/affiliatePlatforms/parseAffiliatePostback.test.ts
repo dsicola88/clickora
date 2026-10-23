@@ -114,6 +114,39 @@ test("MaxWeb: subid=path id (3986) não-UUID; atribui via subid2", () => {
   assert.equal(Number(parsed.amount), 12.5);
 });
 
+test("Digistore: cid ocupado por outro tracker; atribui via sid1", () => {
+  const other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const parsed = parseAffiliatePostback({
+    platform: "Digistore24",
+    flat: {
+      cid: other,
+      sid1: UUID,
+      billing_status: "completed",
+      transaction_type: "payment",
+      transaction_id: "DS1",
+      amount_affiliate: "9",
+    },
+  });
+  assert.equal(parsed.clickId, UUID);
+  assert.equal(parsed.outcome.kind, "approved");
+});
+
+test("Hotmart: src lixo; atribui via sck", () => {
+  const parsed = parseAffiliatePostback({
+    platform: "Hotmart",
+    flat: {
+      src: "utm_campaign_x",
+      sck: UUID,
+      event: "PURCHASE_APPROVED",
+      transaction: "HM1",
+      commission: "20",
+      currency: "BRL",
+    },
+  });
+  assert.equal(parsed.clickId, UUID);
+  assert.equal(parsed.outcome.kind, "approved");
+});
+
 test("SmartAdv: approved ganha a checkout no mesmo payload; rejected não é venda", () => {
   const sale = parseAffiliatePostback({
     platform: "SmartAdv",

@@ -1,7 +1,27 @@
 import { canonicalPlatformId } from "./affiliatePlatforms/parseAffiliatePostback";
-import { outboundClickKeys, platformIdFromOfferHost } from "./affiliatePlatforms/outboundClickParams";
+import {
+  outboundClickKeys,
+  platformIdFromOfferHost,
+  UNKNOWN_OUTBOUND_KEYS,
+} from "./affiliatePlatforms/outboundClickParams";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Chaves onde lixo não-UUID (path id MaxWeb, campanha) pode ser substituído.
+ * Digistore `cid`: nunca substituir se já existir (outro tracker / token proprietário)
+ * — o UUID da dclickora vai em `sid1`.
+ */
+const REPLACEABLE_NON_UUID_KEYS = new Set([
+  "subid",
+  "subid1",
+  "subid2",
+  "sub3",
+  "sid1",
+  "src",
+  "sck",
+  "tid",
+]);
 
 function platformFromUrl(destUrl: string, platform?: string | null): string | null {
   const named = canonicalPlatformId(platform);
@@ -14,36 +34,30 @@ function platformFromUrl(destUrl: string, platform?: string | null): string | nu
   }
 }
 
-/** MaxWeb/BuyGoods: sobrescrever lixo não-UUID (path id, vazio); nunca um UUID de outro tracker. */
-function shouldWriteNetworkParam(
-  platformId: string | null,
-  key: string,
-  existing: string | null,
-): boolean {
+/**
+ * Escreve se vazio; nunca substitui um UUID (outro tracker).
+ * Substitui lixo não-UUID nas chaves de tracking conhecidas (exceto Digistore cid).
+ */
+function shouldWriteNetworkParam(key: string, existing: string | null): boolean {
   if (existing == null || existing.trim() === "") return true;
   if (UUID_RE.test(existing.trim())) return false;
-  if (platformId === "maxweb" || platformId === "buygoods") {
-    return key === "subid" || key === "subid2";
-  }
-  return false;
+  return REPLACEABLE_NON_UUID_KEYS.has(key);
 }
 
 /**
  * Acrescenta o UUID do clique ao URL da oferta.
- * Escreve sempre `clickora_click_id` e o parâmetro da rede reconhecida.
- * Num domínio desconhecido escreve `subid`, que é o que a MaxWeb e a BuyGoods devolvem.
- * MaxWeb/BuyGoods: também `subid2` (eco {SUBID2}) — o lander MaxWeb troca `subid` pelo id do path.
+ * Escreve sempre `clickora_click_id` e o(s) parâmetro(s) da rede.
  * Não substitui um UUID que a oferta já traz.
  */
 export function appendClickIdToAffiliateUrl(destUrl: string, clickId: string, platform?: string | null): string {
   const platformId = platformFromUrl(destUrl, platform);
   const keys = outboundClickKeys(platformId);
-  const networkKeys = keys.length > 0 ? keys : ["subid"];
+  const networkKeys = keys.length > 0 ? keys : [...UNKNOWN_OUTBOUND_KEYS];
   try {
     const u = new URL(destUrl);
     u.searchParams.set("clickora_click_id", clickId);
     for (const key of networkKeys) {
-      if (shouldWriteNetworkParam(platformId, key, u.searchParams.get(key))) {
+      if (shouldWriteNetworkParam(key, u.searchParams.get(key))) {
         u.searchParams.set(key, clickId);
       }
     }
@@ -55,7 +69,7 @@ export function appendClickIdToAffiliateUrl(destUrl: string, clickId: string, pl
       const re = new RegExp(`(?:^|[?&])${key}=([^&]*)`, "i");
       const m = re.exec(destUrl);
       const existing = m ? decodeURIComponent(m[1] || "") : null;
-      if (shouldWriteNetworkParam(platformId, key, existing)) {
+      if (shouldWriteNetworkParam(key, existing)) {
         parts.push(`${key}=${encodeURIComponent(clickId)}`);
       }
     }
