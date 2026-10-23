@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { analyticsService } from "@/services/analyticsService";
 import { campaignsService } from "@/services/campaignsService";
-import { rangeLast14Days, previousPeriodOfSameLength } from "@/lib/dateRangePresets";
+import { rangeToday, previousPeriodOfSameLength } from "@/lib/dateRangePresets";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { toast } from "sonner";
 import {
@@ -94,7 +94,7 @@ function deviceLabel(d: string) {
 
 /** P&L estilo tracker enterprise — dimensões + grelha densa + totais. */
 export default function ResultsOverviewPage() {
-  const initial = useMemo(() => rangeLast14Days(), []);
+  const initial = useMemo(() => rangeToday(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [compare, setCompare] = useState<{ from: string; to: string } | null>(null);

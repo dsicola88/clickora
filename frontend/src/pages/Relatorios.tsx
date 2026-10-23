@@ -27,6 +27,17 @@ import {
   resolveClickVisitorQuality,
   type ClickVisitorKind,
 } from "@/lib/clickVisitorQuality";
+import { rangeToday } from "@/lib/dateRangePresets";
+import { AFFILIATE_PLATFORMS, EXTRA_OFFER_PLATFORMS } from "@/lib/marketingPlatforms";
+
+/** Redes no filtro de conversões (mesma lista que Integrações / Construtor de URL). */
+const RELATORIO_PLATFORM_OPTIONS = [...new Set([...AFFILIATE_PLATFORMS, ...EXTRA_OFFER_PLATFORMS])].sort((a, b) =>
+  a.localeCompare(b, "pt", { sensitivity: "base" }),
+);
+
+function platformFilterValue(label: string) {
+  return label.toLowerCase().replace(/[\s_\-]+/g, "");
+}
 
 function visitorSituationClass(kind: ClickVisitorKind): string {
   if (kind === "real") return "bg-success/10 text-success";
@@ -84,14 +95,9 @@ function dimCell(value: string | null | undefined, isMacro?: boolean) {
   return v;
 }
 
+/** Ao abrir Relatórios: só o dia de hoje (hora local). */
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - 30);
-  return {
-    from: start.toISOString().slice(0, 10),
-    to: end.toISOString().slice(0, 10),
-  };
+  return rangeToday();
 }
 
 function formatDateTime(iso: string) {
@@ -174,7 +180,10 @@ function CheckoutPageCell({ url, host }: { url?: string | null; host?: string | 
 
 function platformMatches(rowPlatform: string, selected: string) {
   if (!selected || selected === "all") return true;
-  return rowPlatform.toLowerCase().includes(selected.replace(/_/g, "").toLowerCase());
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
+  const row = norm(rowPlatform);
+  const sel = norm(selected);
+  return row === sel || row.includes(sel) || sel.includes(row);
 }
 
 const RELATORIO_TABS = ["acessos", "cliques", "conversoes", "sem-gclid"] as const;
@@ -809,12 +818,13 @@ export default function Relatorios() {
                 <SelectTrigger>
                   <SelectValue placeholder="Plataforma" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-72">
                   <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="buygoods">BuyGoods</SelectItem>
-                  <SelectItem value="clickbank">ClickBank</SelectItem>
-                  <SelectItem value="smartadv">SmartAdv</SelectItem>
-                  <SelectItem value="hotmart">Hotmart</SelectItem>
+                  {RELATORIO_PLATFORM_OPTIONS.map((label) => (
+                    <SelectItem key={label} value={platformFilterValue(label)}>
+                      {label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

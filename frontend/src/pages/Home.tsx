@@ -9,7 +9,7 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { analyticsService } from "@/services/analyticsService";
 import { presellService } from "@/services/presellService";
 import { useAuth } from "@/contexts/AuthContext";
-import { rangeLast14Days } from "@/lib/dateRangePresets";
+import { rangeToday } from "@/lib/dateRangePresets";
 import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
 
 /**
@@ -18,7 +18,7 @@ import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const initial = useMemo(() => rangeLast14Days(), []);
+  const initial = useMemo(() => rangeToday(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
 
@@ -102,8 +102,6 @@ export default function Home() {
         </Button>
       </div>
 
-      <OnboardingChecklistCard compact />
-
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeFilter
           from={from}
@@ -155,6 +153,8 @@ export default function Home() {
           <ArrowRight className="h-4 w-4" />
         </Link>
       </Button>
+
+      <OnboardingChecklistCard compact />
     </div>
   );
 }
