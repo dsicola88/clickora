@@ -33,3 +33,7 @@ Objectivos de serviço para o click path profissional (paridade Voluum no que im
 ## Fora de scope (por agora)
 
 CDN edge global tipo Voluum; multi-região activa-activa.
+
+**Decisão comercial:** não bloqueia venda a afiliados Search — o path same-origin Vercel→Railway com p95 &lt; 400 ms e keep-alive cobre o caso de uso. Edge global fica no roadmap 6–12 meses, não no pitch actual.
+
+**Amostras p50/p95:** in-process por réplica Railway (reinício zera o contador). O click path continua correcto; só a amostra de latência no cartão UI é que recomeça.

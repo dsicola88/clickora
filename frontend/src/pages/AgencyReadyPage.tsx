@@ -7,6 +7,13 @@ import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { BrandKitProCard } from "@/components/BrandKitProCard";
 import { plansService } from "@/services/plansService";
 import { enterpriseService } from "@/services/enterpriseService";
+import { analyticsService } from "@/services/analyticsService";
+
+function isoDaysAgo(n: number) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * Go-to-market Agency (Fase 2): pricing real dos planos + checklist + dual-pillar.
@@ -25,6 +32,17 @@ export default function AgencyReadyPage() {
     queryKey: ["enterprise-onboarding", "agency"],
     queryFn: async () => {
       const { data, error } = await enterpriseService.getOnboardingStatus();
+      if (error) throw new Error(error);
+      return data!;
+    },
+  });
+
+  const from = isoDaysAgo(30);
+  const to = isoDaysAgo(0);
+  const { data: dash } = useQuery({
+    queryKey: ["agency", "proof", from, to],
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getDashboard({ from, to });
       if (error) throw new Error(error);
       return data!;
     },
@@ -51,19 +69,40 @@ export default function AgencyReadyPage() {
     },
   ];
 
+  const arms = dash?.rotator_arm_performance ?? [];
+  const clicks = dash?.total_clicks ?? 0;
+  const sales = dash?.approved_sales_count ?? dash?.total_conversions ?? 0;
+  const onboardingPctLive = onboarding?.progress?.total
+    ? Math.round((onboarding.progress.done / onboarding.progress.total) * 100)
+    : null;
+
   const cases = [
     {
-      niche: "Nutra Search (US/CA/AU)",
+      niche: "Esta conta (30 dias)",
+      result: dash
+        ? `${clicks} visitantes · ${sales} vendas aprovadas · ${arms.length} braço(s) de rotador com caps no P&L.`
+        : "A carregar prova da conta…",
+    },
+    {
+      niche: "Rotador / caps",
       result:
-        "Ads → rotador/presell → hoplink com click id; P&L com custo Google; Situação separa bot/datacenter antes de escalar.",
+        arms.length > 0
+          ? arms
+              .slice(0, 2)
+              .map(
+                (a) =>
+                  `${a.arm_label}: ${a.clicks} cliques` +
+                  (a.max_clicks != null ? ` · cap ${a.clicks_delivered}/${a.max_clicks}` : ""),
+              )
+              .join(" · ")
+          : "Crie um rotador activo — a dimensão Braços/caps aparece em Resultados.",
     },
     {
-      niche: "Ecom / MaxWeb",
-      result: "Postback SUBID2 estável; checklist de macros no hub; primeira venda atribuída no mesmo dia de setup.",
-    },
-    {
-      niche: "Agência multi-conta",
-      result: "Workspaces + white-label Pro; onboarding medido; brand kit sincronizado com a conta.",
+      niche: "Onboarding Agency",
+      result:
+        onboarding?.complete
+          ? `Checklist essencial completo${onboardingPctLive != null ? ` (${onboardingPctLive}%)` : ""}.`
+          : `Progresso ${onboarding?.progress?.done ?? "…"}/${onboarding?.progress?.total ?? "…"} — meta sob 30 min.`,
     },
   ];
 
@@ -74,10 +113,6 @@ export default function AgencyReadyPage() {
     .filter((p) => (p.price_cents ?? 0) > 0 || p.name.toLowerCase().includes("pro"))
     .slice(0, 4);
 
-  const onboardingPct = onboarding?.progress?.total
-    ? Math.round((onboarding.progress.done / onboarding.progress.total) * 100)
-    : null;
-
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
@@ -87,17 +122,24 @@ export default function AgencyReadyPage() {
 
       <TrackPathStatus className="mb-6" />
 
-      {onboarding && !onboarding.complete ? (
+      {onboarding ? (
         <div className="mb-6 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-foreground">Onboarding da conta</p>
+            <p className="text-sm font-medium text-foreground">
+              {onboarding.complete ? "Onboarding essencial completo" : "Onboarding da conta"}
+            </p>
             <p className="text-[11px] text-muted-foreground">
               {onboarding.progress.done}/{onboarding.progress.total} passos essenciais
-              {onboardingPct != null ? ` · ${onboardingPct}%` : ""} — meta sob 30 min para um buyer sério.
+              {onboardingPctLive != null ? ` · ${onboardingPctLive}%` : ""}
+              {onboarding.complete
+                ? " — conta pronta a escalar Ads."
+                : " — meta sob 30 min para um buyer sério."}
             </p>
           </div>
           <Button size="sm" variant="outline" asChild>
-            <Link to="/">Abrir checklist</Link>
+            <Link to={onboarding.complete ? "/resultados" : "/"}>
+              {onboarding.complete ? "Ver resultados" : "Abrir checklist"}
+            </Link>
           </Button>
         </div>
       ) : null}
@@ -149,7 +191,7 @@ export default function AgencyReadyPage() {
           </div>
         </ProPanel>
 
-        <ProPanel title="Referências de uso" description="Padrões que buyers top esperam.">
+        <ProPanel title="Prova desta conta" description="Números reais dos últimos 30 dias — sem cases inventados.">
           <div className="px-4 py-3 space-y-3">
             {cases.map((c) => (
               <div key={c.niche} className="rounded-lg border border-border/50 px-3 py-2.5">
