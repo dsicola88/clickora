@@ -1,9 +1,9 @@
 /**
- * Qualidade do visitante no relatório — só o que dá para afirmar com evidência.
- * «Pago» (Tipo) ≠ humano; aqui não se inventa.
+ * Qualidade do visitante no relatório.
+ * Real = sem bot (UA) nem IP cloud conhecido; Bot / Datacenter = evidência explícita.
  */
 
-export type ClickVisitorKind = "sem_alerta" | "bot" | "datacenter";
+export type ClickVisitorKind = "real" | "bot" | "datacenter";
 
 export type ClickVisitorQuality = {
   kind: ClickVisitorKind;
@@ -20,8 +20,7 @@ type QualityInput = {
 };
 
 /**
- * Prioridade: datacenter (IP) → bot (UA) → sem alerta.
- * Não usa a palavra «Real» — não há prova biométrica de humano.
+ * Prioridade: datacenter (IP) → bot (UA) → real.
  */
 export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality {
   if (e.unqualified) {
@@ -32,7 +31,7 @@ export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality
       label,
       detail:
         (e.unqualified_reason || "").trim() ||
-        "IP em lista explícita de cloud/CDN (AWS/GCP/CDN77). Não é evidência de browser residencial.",
+        "IP em lista explícita de cloud/CDN (AWS/GCP/CDN77). Não é acesso residencial típico.",
     };
   }
   if (e.is_bot) {
@@ -51,14 +50,14 @@ export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality
       kind: "bot",
       label: bot ? `Bot (${bot})` : "Bot",
       detail: bot
-        ? `User-Agent identificado como bot (${bot}). Evidência = UA, não o IP.`
+        ? `User-Agent identificado como bot (${bot}).`
         : "User-Agent identificado como bot.",
     };
   }
   return {
-    kind: "sem_alerta",
-    label: "Sem alerta",
+    kind: "real",
+    label: "Real",
     detail:
-      "Sem bot no User-Agent e sem IP em listas cloud/CDN conhecidas. Não prova que seja um comprador humano.",
+      "Sem bot no User-Agent e sem IP em listas cloud/CDN (AWS/GCP/CDN77). Classificado como visitante real para o relatório.",
   };
 }

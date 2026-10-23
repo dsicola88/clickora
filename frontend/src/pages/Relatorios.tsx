@@ -29,7 +29,7 @@ import {
 } from "@/lib/clickVisitorQuality";
 
 function visitorSituationClass(kind: ClickVisitorKind): string {
-  if (kind === "sem_alerta") return "bg-success/10 text-success";
+  if (kind === "real") return "bg-success/10 text-success";
   if (kind === "bot") return "bg-amber-500/15 text-amber-800 dark:text-amber-300";
   return "bg-destructive/10 text-destructive";
 }
@@ -792,10 +792,9 @@ export default function Relatorios() {
       clicou (GB = Reino Unido, AU = Austrália).{" "}
       <span className="text-foreground/80 font-medium">Tipo</span> = origem do anúncio (Pago / Orgânico) —{" "}
       <em>não</em> diz se é pessoa real.{" "}
-      <span className="text-foreground/80 font-medium">Situação</span> (só evidência):{" "}
-      <em>Sem alerta</em> = sem bot UA nem IP cloud conhecido (não prova humano);{" "}
-      <em>Bot / Crawler Google</em> = User-Agent;{" "}
-      <em>Datacenter (AWS/GCP/CDN77)</em> = IP em lista explícita — não abre hoplink.
+      <span className="text-foreground/80 font-medium">Situação</span>:{" "}
+      <em>Real</em> = sem bot nem IP cloud; <em>Bot / Crawler Google</em> = User-Agent;{" "}
+      <em>Datacenter (AWS/GCP/CDN77)</em> = IP cloud explícito — não abre hoplink.
     </div>
   );
 
@@ -876,8 +875,8 @@ export default function Relatorios() {
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
             <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = abertura da página ou{" "}
-            <em>Checkout</em>. Tipo: <em>Pago</em> = anúncio (não prova humano); Situação: <em>Sem alerta</em> /{" "}
-            <em>Bot</em> / <em>Datacenter</em> (só evidência). País é o do visitante.
+            <em>Checkout</em>. Tipo: <em>Pago</em> = anúncio; Situação: <em>Real</em> / <em>Bot</em> /{" "}
+            <em>Datacenter</em>. País é o do visitante.
             O checkout da rede só aparece depois de configurar o aviso de vendas em Integrações.
           </p>
           <TimezoneAlert />
@@ -989,7 +988,7 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Sem alerta / Bot (UA) / Datacenter (IP cloud explícito). Não inventa humanos."
+                          title="Real = visitante normal; Bot = crawler (UA); Datacenter = IP cloud (AWS/GCP/CDN77)."
                         >
                           Situação
                         </th>
@@ -1126,8 +1125,8 @@ export default function Relatorios() {
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
                 Cliques no período.{" "}
                 <span className="text-foreground/80">
-                  Checkout Page = hoplink. Tipo = anúncio. Situação = Sem alerta / Bot / Datacenter
-                  (só listas explícitas). «Pago» + «Datacenter» ≠ comprador.
+                  Checkout Page = hoplink. Tipo = anúncio. Situação = Real / Bot / Datacenter.
+                  «Pago» + «Datacenter» ≠ comprador.
                 </span>
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
@@ -1207,7 +1206,7 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Sem alerta / Bot (UA) / Datacenter (IP cloud explícito). Não inventa humanos."
+                          title="Real = visitante normal; Bot = crawler (UA); Datacenter = IP cloud (AWS/GCP/CDN77)."
                         >
                           Situação
                         </th>
