@@ -8,13 +8,13 @@ import {
 import { isProtectedGoogleCrawlerUserAgent } from "./detectBot";
 
 describe("datacenter IP", () => {
-  it("152.233.29.1 é CDN77 — explícito para auto-blacklist", () => {
+  it("152.233.29.1 é CDN77 — marcado no relatório (sem auto-blacklist)", () => {
     const net = classifyDatacenterIp("152.233.29.1");
     assert.equal(net?.name, "CDN77");
     assert.equal(isExplicitDatacenterForAutoBlacklist(net), true);
     const place = datacenterClickPlace("::ffff:152.233.29.1");
     assert.equal(place?.unqualified, true);
-    assert.equal(place?.auto_blacklist, true);
+    assert.equal(place?.auto_blacklist, false);
   });
 
   it("IPs EC2 Visivra (bootstrap confirmado) são AWS elegíveis", () => {
@@ -22,7 +22,7 @@ describe("datacenter IP", () => {
       const net = classifyDatacenterIp(ip);
       assert.equal(net?.name, "AWS", ip);
       assert.equal(isExplicitDatacenterForAutoBlacklist(net), true, ip);
-      assert.equal(datacenterClickPlace(ip)?.auto_blacklist, true, ip);
+      assert.equal(datacenterClickPlace(ip)?.auto_blacklist, false, ip);
     }
   });
 

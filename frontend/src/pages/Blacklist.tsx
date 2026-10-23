@@ -195,10 +195,10 @@ export default function Blacklist() {
           A mesma decisão vale para a página, o pixel e o clique. O IP é o do proxy (Railway, Vercel ou Cloudflare), não um cabeçalho à escolha do browser. Intervalos CIDR não são suportados — um endereço por linha.
         </p>
         <p className="text-xs border-t border-border/50 pt-2 mt-2 text-foreground/80">
-          <strong className="font-medium">Auto-blacklist (só evidência explícita):</strong> IP em lista
-          oficial AWS/GCP ou CDN77 confirmado → página segura, sem hoplink, e entra na blacklist.
-          Crawlers Google (AdsBot, Googlebot) <em>nunca</em> são auto-blacklistados. IPs duvidosos:
-          adiciona <em>manualmente</em> abaixo. A 1.ª cobrança no Google Ads já aconteceu no Google.
+          <strong className="font-medium">Bloqueio só manual:</strong> nenhum IP de cloud/datacenter é
+          bloqueado automaticamente. Vê cliques e IPs nos relatórios e adiciona à blacklist abaixo
+          quando quiseres. As regras opcionais desta página (bots, proxy, limite de cliques) só
+          aplicam se as activares.
         </p>
       </div>
 
@@ -241,7 +241,7 @@ export default function Blacklist() {
           <div className="space-y-1">
             <Label htmlFor="guard-proxy">Bloquear proxy / VPN suspeito</Label>
             <p className="text-xs text-muted-foreground">
-              Score de fraude (CF threat, multi-hop, Tor). Complementa o bloqueio de datacenter/cloud.
+              Score de fraude (CF threat, multi-hop, Tor). Opt-in: só bloqueia se activares.
               Pode bloquear VPNs legítimas — teste primeiro.
             </p>
           </div>
@@ -255,12 +255,11 @@ export default function Blacklist() {
 
         <div className="rounded-lg border border-border/60 p-4 space-y-4">
           <div className="space-y-1">
-            <Label>Bloqueio automático: repetir cliques no anúncio (IPv4 ou IPv6)</Label>
+            <Label>Limite opcional de cliques por IP (só se activares)</Label>
             <p className="text-xs text-muted-foreground">
-              Conta apenas cliques já gravados (redirect, API ou evento <span className="font-mono text-[10px]">click</span>).
-              Com <strong className="text-foreground/90">0</strong> fica desligado. O mínimo activo é 30, para um IP de operador móvel
-              não cair na lista. Ao atingir o máximo, esse pedido não abre o hoplink e o IP entra na blacklist. Impressões não entram na
-              conta.
+              Desligado por defeito (<strong className="text-foreground/90">0</strong>). Se definires um máximo (≥30),
+              conta cliques já gravados na janela; ao atingir o limite, esse IP entra na blacklist e o hoplink deixa de
+              abrir. É uma regra que <em>tu</em> ligas — não há bloqueio silencioso de cloud/datacenter.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:items-end">

@@ -104,8 +104,8 @@ export function datacenterClickPlace(ip: string | null | undefined): ClickPlace 
     unqualified: true,
     ip_network: net.name,
     ip_network_place: net.place,
-    unqualified_reason: `Rede ${net.name} (${net.place}, evidência ${net.source || "static"}). IP de cloud/CDN — não é acesso residencial típico. Clique não qualificado; hoplink não abre.`,
-    auto_blacklist: auto,
+    unqualified_reason: `Rede ${net.name} (${net.place}, evidência ${net.source || "static"}). IP de cloud/CDN — marcado no relatório; bloqueio só se o afiliado adicionar à blacklist.`,
+    auto_blacklist: false,
   };
 }
 

@@ -16,7 +16,6 @@ import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
-import { rememberDatacenterBlacklist } from "../lib/rememberDatacenterBlacklist";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
@@ -475,7 +474,8 @@ export const trackController = {
             source,
             medium,
             campaign,
-            ...(place ? {} : { redirect_to: to }),
+            redirect_to: to,
+            // Datacenter só fica no relatório — o afiliado bloqueia manualmente se quiser.
             ...(place ? datacenterClickMeta(ip) : {}),
             ...seen.countryMeta,
             ...(sub1 ? { sub1 } : {}),
@@ -488,26 +488,12 @@ export const trackController = {
           } as Prisma.InputJsonValue,
         },
       });
-      if (!place) {
-        await tx.presellPage.update({
-          where: { id: page.id },
-          data: { clicks: { increment: 1 } },
-        });
-      }
+      await tx.presellPage.update({
+        where: { id: page.id },
+        data: { clicks: { increment: 1 } },
+      });
       return ev;
     });
-
-    if (place) {
-      console.warn("[track.redirect] datacenter sem oferta", { presellId, ip, network: place.ip_network });
-      void rememberDatacenterBlacklist({
-        userId: page.userId,
-        ip,
-        network: place.ip_network,
-        eligible: place.auto_blacklist,
-        userAgent,
-      });
-      return sendSafeVisitorPage(res, page.settings);
-    }
 
     notifyTelegramClick(page.userId, {
       presellTitle: page.title,
@@ -620,38 +606,6 @@ export const trackController = {
       console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
-    if (place) {
-      const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
-      await systemPrisma.trackingEvent.create({
-        data: {
-          userId: rot.userId,
-          presellPageId: rot.contextPresellId,
-          eventType: "click",
-          source,
-          medium,
-          campaign,
-          referrer,
-          country: undefined,
-          ipAddress: ip,
-          userAgent,
-          device,
-          metadata: {
-            rotator_id: rotatorId,
-            ...datacenterClickMeta(ip),
-            ...rotBotMeta,
-          } as Prisma.InputJsonValue,
-        },
-      });
-      console.warn("[track.rotator] datacenter sem oferta", { rotatorId, ip, network: place.ip_network });
-      void rememberDatacenterBlacklist({
-        userId: rot.userId,
-        ip,
-        network: place.ip_network,
-        eligible: place.auto_blacklist,
-        userAgent,
-      });
-      return sendSafeVisitorPage(res, rot.contextPresell.settings);
-    }
     if (countryOnCloakDenyList(rot.contextPresell.settings, country)) {
       console.warn("[track.rotator] país sem oferta", { rotatorId, country });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
@@ -705,6 +659,7 @@ export const trackController = {
           redirect_to: finalUrl,
           rotator_id: rotatorId,
           rotator_arm_id: armIdForMeta,
+          ...(place ? datacenterClickMeta(ip) : {}),
           ...(sub1 ? { sub1 } : {}),
           ...(sub2 ? { sub2 } : {}),
           ...(sub3 ? { sub3 } : {}),

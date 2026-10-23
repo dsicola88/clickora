@@ -382,8 +382,9 @@ export function PresellAdvancedTrackingCollapsible({
                     Página segura por país
                   </p>
                   <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    Os países desta lista vêem o texto seguro, sem oferta. O mesmo texto serve para quem a conta
-                    bloquear (IP, bot, proxy ou rajada). Um browser normal, fora dessas regras, vê a presell completa.
+                    Os países desta lista vêem o texto seguro, sem oferta. O mesmo texto serve a IPs que
+                    adicionares à blacklist (bloqueio manual) ou a regras opt-in (bot/proxy). Sem isso, a
+                    presell completa é servida — não há bloqueio automático de cloud/datacenter.
                   </p>
                 </div>
                 <Switch

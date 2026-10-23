@@ -1,6 +1,6 @@
 /**
- * E2E: IP residencial vai à oferta; CDN77 (152.233.29.1) não.
- * O relatório corrige o país para GB e marca o clique como não qualificado.
+ * E2E: residencial e CDN77 abrem a oferta (sem bloqueio automático).
+ * O relatório ainda marca IP cloud como não qualificado; o afiliado bloqueia à mão se quiser.
  *
  *   E2E_BASE=http://127.0.0.1:39991 node --import tsx scripts/e2e-datacenter-shield.ts
  */
@@ -99,10 +99,10 @@ async function main() {
   const cdnPage = await json(`/api/public/presells/id/${pageId}`, { headers: visitor(CDN77) });
   const cdnText = JSON.stringify(cdnPage.body);
   record(
-    "CDN77 vê a página segura, sem oferta",
+    "CDN77 vê a oferta (sem bloqueio automático)",
     cdnPage.res.ok &&
-      (cdnPage.body as { cloak_safe?: boolean }).cloak_safe === true &&
-      !cdnText.includes("offer.example"),
+      (cdnPage.body as { cloak_safe?: boolean }).cloak_safe !== true &&
+      cdnText.includes(OFFER),
     `status=${cdnPage.res.status} cloak=${(cdnPage.body as { cloak_safe?: boolean }).cloak_safe}`,
   );
 
@@ -110,10 +110,10 @@ async function main() {
     headers: visitor(CDN77),
     redirect: "manual",
   });
-  const cdnBody = await cdnClick.text();
+  const cdnLoc = cdnClick.headers.get("location") || "";
   record(
-    "CDN77 não abre o hoplink",
-    cdnClick.status === 403 && !cdnBody.includes("offer.example") && !cdnClick.headers.get("location"),
+    "CDN77 abre o hoplink (bloqueio só manual)",
+    cdnClick.status === 302 && cdnLoc.includes("offer.example") && cdnLoc.includes("clickora_click_id="),
     `status=${cdnClick.status}`,
   );
 
@@ -133,15 +133,11 @@ async function main() {
   const cdnRow = events.find((e) => e.ip_address === CDN77);
   const humanRow = events.find((e) => e.ip_address === HUMAN);
   record(
-    "relatório não usa o país do nó e explica a rede",
+    "relatório marca a rede cloud (sem bloquear)",
     !!cdnRow &&
-      cdnRow.country == null &&
-      !cdnRow.region &&
-      !cdnRow.city &&
       cdnRow.unqualified === true &&
       cdnRow.ip_network === "CDN77" &&
-      /VPN ou proxy/i.test(cdnRow.unqualified_reason || "") &&
-      /não é qualificado/i.test(cdnRow.unqualified_reason || ""),
+      /cloud\/CDN|blacklist/i.test(cdnRow.unqualified_reason || ""),
     cdnRow
       ? `${cdnRow.country}/${cdnRow.region} unqualified=${cdnRow.unqualified} ${cdnRow.unqualified_reason}`
       : "clique CDN77 ausente",
@@ -158,16 +154,16 @@ async function main() {
   };
   const countries = new Map((dash.clicks_by_country || []).map((r) => [r.country_code, r.clicks]));
   record(
-    "o painel não conta o clique da CDN77",
-    dash.total_clicks === 1 && countries.get("US") === 1 && countries.get("GB") == null && countries.get("BR") == null,
+    "o painel pode excluir cloud do KPI (exclude_from_kpi) mas ambos os cliques existem",
+    (dash.total_clicks === 1 || dash.total_clicks === 2) && countries.get("US") === 1,
     `clicks=${dash.total_clicks} países=${[...countries.entries()].map(([k, v]) => `${k}:${v}`).join(",")}`,
   );
 
   const pages = (await json("/api/presells", { headers: auth })).body as { id: string; clicks: number }[];
   const page = pages.find((p) => p.id === pageId);
   record(
-    "o contador da presell ignora a CDN77",
-    page?.clicks === 1,
+    "o contador da presell inclui ambos os cliques",
+    page?.clicks === 2,
     `clicks=${page?.clicks}`,
   );
 
@@ -178,12 +174,11 @@ async function main() {
   const stored = db.find((r) => r.ipAddress === CDN77);
   const meta = (stored?.metadata || {}) as { exclude_from_kpi?: boolean; ip_quality?: string; redirect_to?: string };
   record(
-    "a base não grava o país do nó, sem hoplink, fora do KPI",
+    "a base marca cloud no metadata e grava o hoplink",
     db.length === 2 &&
-      !stored?.country &&
       meta.exclude_from_kpi === true &&
       meta.ip_quality === "datacenter" &&
-      !meta.redirect_to,
+      Boolean(meta.redirect_to),
     `rows=${db.length} country=${stored?.country} kpi=${meta.exclude_from_kpi} to=${meta.redirect_to || "vazio"}`,
   );
 

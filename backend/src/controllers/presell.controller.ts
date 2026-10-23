@@ -28,10 +28,6 @@ import {
 } from "../lib/presellEnterpriseCloak";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { extractClientIp } from "../lib/clientIp";
-import { resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
-import { datacenterClickPlace } from "../lib/ipNetworkClass";
-import { isGoogleAdsCrawlerUserAgent } from "../lib/detectBot";
-import { rememberDatacenterBlacklist } from "../lib/rememberDatacenterBlacklist";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
 import { assertPublishAllowed, runPresellComplianceAudit } from "../compliance/service";
@@ -805,26 +801,10 @@ async function sendPublicPresell(
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));
   }
   const ip = extractClientIp(req);
-  const visitor = resolveVisitorCountryFromRequest(req, ip);
-  const ua = req.headers["user-agent"] || "";
   /**
-   * Cloud/datacenter → página segura (sem oferta).
-   * Excepção: crawlers oficiais do Google Ads precisam de ver a landing real para aprovação.
+   * Bloqueios automáticos de datacenter/cloud foram removidos.
+   * Só entram regras que o afiliado configurou (geo cloak, blacklist/whitelist manual, bots/proxy opt-in).
    */
-  const dcPlace =
-    visitor.source !== "cdn77" ? datacenterClickPlace(ip) : null;
-  if (dcPlace && !isGoogleAdsCrawlerUserAgent(ua)) {
-    console.info("[presell.public] página segura", { id: page.id, reason: "datacenter" });
-    void rememberDatacenterBlacklist({
-      userId: page.userId,
-      ip,
-      network: dcPlace.ip_network,
-      eligible: dcPlace.auto_blacklist,
-      userAgent: ua,
-    });
-    res.setHeader("Cache-Control", "private, no-store");
-    return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: "datacenter" }));
-  }
   const guard = await enforceTrackingRules({
     ownerUserId: page.userId,
     presellPageId: page.id,

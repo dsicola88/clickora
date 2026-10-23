@@ -42,6 +42,27 @@ describe("clientIp", () => {
     assert.equal(ip, "41.222.10.20");
   });
 
+  it("rewrite Vercel→Railway: peer AWS + X-Vercel-Forwarded-For = visitante", () => {
+    // 15.240.x é AWS (Cape Town) — o que o Railway vê no socket após o rewrite.
+    const ip = extractClientIp(
+      fakeReq(
+        {
+          "x-vercel-forwarded-for": "105.172.181.132",
+          "x-forwarded-for": "15.240.70.222",
+        },
+        { remote: "15.240.70.222" },
+      ),
+    );
+    assert.equal(ip, "105.172.181.132");
+  });
+
+  it("rewrite Vercel→Railway sem XFF útil ainda usa o visitante Vercel", () => {
+    const ip = extractClientIp(
+      fakeReq({ "x-vercel-forwarded-for": "63.124.68.69" }, { remote: "15.240.70.222" }),
+    );
+    assert.equal(ip, "63.124.68.69");
+  });
+
   it("salta IPs privados no XFF e pega o cliente público", () => {
     const ip = extractClientIp(
       fakeReq(
@@ -83,10 +104,10 @@ describe("clientIp", () => {
     assert.equal(ip, "203.0.113.10");
   });
 
-  it("ligação directa usa o socket e ignora cabeçalhos", () => {
+  it("ligação directa usa o socket e ignora cabeçalhos spoofáveis", () => {
     const ip = extractClientIp(
       fakeReq(
-        { "x-client-ip": "1.2.3.4", "x-vercel-forwarded-for": "8.8.8.8", "x-forwarded-for": "1.2.3.4" },
+        { "x-client-ip": "1.2.3.4", "true-client-ip": "8.8.8.8", "x-forwarded-for": "1.2.3.4" },
         { remote: "203.0.113.50" },
       ),
     );

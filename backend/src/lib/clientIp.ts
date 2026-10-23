@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { isCdn77EdgeIp } from "./cdn77Visitor";
 import { isFastlyEdgeIp } from "./fastlyEdges";
+import { classifyDatacenterIp } from "./ipNetworkClass";
 
 /**
  * Extrai o IP público do visitante atrás de Vercel → Railway / Cloudflare.
@@ -128,26 +129,93 @@ function rightmostPublic(csv: string, peer: string): string | null {
   return null;
 }
 
+/** Peer é edge AWS/GCP/CDN77 (quando a lista cloud conhece o bloco). */
+function isCloudPlatformPeer(ip: string): boolean {
+  const net = classifyDatacenterIp(ip);
+  return Boolean(net && (net.name === "AWS" || net.name === "GCP" || net.name === "CDN77"));
+}
+
+/**
+ * Pedido chegou pelo rewrite Vercel → Railway (cabeçalhos que o browser não controla na prática
+ * no mesmo hop; ligação directa ao Railway sem estes headers mantém o socket).
+ */
+function requestFromVercelInfra(req: Request): boolean {
+  return Boolean(
+    headerFirst(req, "x-vercel-forwarded-for") ||
+      headerFirst(req, "x-vercel-id") ||
+      headerFirst(req, "x-vercel-deployment-url"),
+  );
+}
+
+/**
+ * Visitante segundo Vercel (`X-Vercel-Forwarded-For`).
+ * Preferir o primeiro hop público (cliente); a edge pode aparecer à direita.
+ */
+function vercelVisitorIp(req: Request, peer: string): string | null {
+  const raw = headerFirst(req, "x-vercel-forwarded-for");
+  if (!raw) return null;
+  const parts = forwardedParts(raw);
+  for (const ip of parts) {
+    if (!isPrivateOrLocalIp(ip) && ip !== peer && !isTransitEdgeIp(ip) && !isCloudPlatformPeer(ip)) {
+      return ip;
+    }
+  }
+  return rightmostPublic(raw, peer);
+}
+
+/** Cliente no XFF quando o peer é outro hop público (edge Vercel → Railway). */
+function publicClientBesidePeer(xff: string, peer: string): string | null {
+  const parts = forwardedParts(xff);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const ip = parts[i]!;
+    if (!isPrivateOrLocalIp(ip) && ip !== peer && !isTransitEdgeIp(ip) && !isCloudPlatformPeer(ip)) {
+      return ip;
+    }
+  }
+  return null;
+}
+
 /**
  * IP do visitante atrás de Railway / Vercel / Cloudflare.
  * `X-Client-IP` e `True-Client-IP` não escolhem o IP: o browser pode enviá-los.
  * `X-Real-IP` só entra se o hop observado ainda for um nó CDN77.
- * `X-Forwarded-For` só conta quando o último hop é o socket, ou quando o socket é privado.
- * `CF-Connecting-IP` (com `CF-Ray`) e `X-Vercel-Forwarded-For` só entram quando o XFF não tem o cliente
- * — o caso Vercel → Railway, em que o XFF é só o hop.
+ * Rewrite Vercel → Railway: o socket é muitas vezes um IP AWS; o cliente vem em
+ * `X-Vercel-Forwarded-For` e/ou no `X-Forwarded-For` (sem o peer no fim da cadeia).
  */
 export function extractClientIp(req: Request): string {
   const peer = normalizeClientIp(req.socket?.remoteAddress || "");
   const xff = headerFirst(req, "x-forwarded-for");
-  const fromXff = xff ? clientIpFromForwardedChain(xff, peer) : null;
-  if (fromXff) {
-    const unwrapped = unwrapTransitEdge(fromXff, xff);
-    return cdn77RealVisitorIp(req, unwrapped) || unwrapped;
-  }
-
   const xffParts = xff ? forwardedParts(xff) : [];
   const xffTail = xffParts[xffParts.length - 1] || "";
-  const sawProxy = (peer && isPrivateOrLocalIp(peer)) || (peer && xffTail === peer);
+  const viaVercel = requestFromVercelInfra(req);
+  const sawProxy =
+    (peer && isPrivateOrLocalIp(peer)) ||
+    (peer && xffTail === peer) ||
+    (peer && isCloudPlatformPeer(peer)) ||
+    viaVercel;
+
+  const fromXff = xff ? clientIpFromForwardedChain(xff, peer) : null;
+  const vercel = vercelVisitorIp(req, peer);
+  const xffBesidePeer = xff && peer ? publicClientBesidePeer(xff, peer) : null;
+
+  // Vercel → Railway: preferir visitante Vercel / cliente no XFF face ao peer AWS.
+  if (sawProxy && vercel && (!fromXff || fromXff === peer || isTransitEdgeIp(fromXff) || isCloudPlatformPeer(fromXff))) {
+    return unwrapTransitEdge(vercel, xff);
+  }
+  if (sawProxy && !fromXff && xffBesidePeer) {
+    return unwrapTransitEdge(xffBesidePeer, xff);
+  }
+
+  if (fromXff) {
+    const unwrapped = unwrapTransitEdge(fromXff, xff);
+    const viaCdn = cdn77RealVisitorIp(req, unwrapped);
+    if (viaCdn) return viaCdn;
+    if (vercel && sawProxy && (isCloudPlatformPeer(unwrapped) || unwrapped === peer)) {
+      return unwrapTransitEdge(vercel, xff);
+    }
+    return unwrapped;
+  }
+
   if (!sawProxy) {
     const unwrapped = unwrapTransitEdge(peer, xff);
     return cdn77RealVisitorIp(req, unwrapped) || unwrapped;
@@ -159,8 +227,8 @@ export function extractClientIp(req: Request): string {
     if (cf) return unwrapTransitEdge(cf, xff);
   }
 
-  const vercel = rightmostPublic(headerFirst(req, "x-vercel-forwarded-for"), peer);
   if (vercel) return unwrapTransitEdge(vercel, xff);
+  if (xffBesidePeer) return unwrapTransitEdge(xffBesidePeer, xff);
 
   const unwrapped = unwrapTransitEdge(peer, xff);
   return cdn77RealVisitorIp(req, unwrapped) || unwrapped;
