@@ -26,7 +26,7 @@ import { mergeWithDefaultLabels } from "@/lib/planDisplayLabels";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
 import { SalesProductDemo } from "@/components/plans/SalesProductDemo";
-import { coerceLandingExtras } from "@/lib/plansLandingExtras";
+import { coerceLandingExtras, DEFAULT_LANDING_SITE_CHROME } from "@/lib/plansLandingExtras";
 import { resolveSectionsEnabled } from "@/lib/landingSectionLayout";
 import { LandingPageBodySections } from "@/components/plans/LandingPageBodySections";
 import {
@@ -42,10 +42,6 @@ import { DEFAULT_LANDING_HERO_IMAGE, coercePlansHeroVisual } from "@/lib/plansLa
 export default function Plans() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-
-  useEffect(() => {
-    return applyMarketingLandingHead(pathname);
-  }, [pathname]);
   const { user, userPlan, isSuperAdmin } = useAuth();
 
   const { data: landing } = useQuery({
@@ -53,6 +49,16 @@ export default function Plans() {
     queryFn: () => plansLandingService.getPublic(),
     staleTime: 60_000,
   });
+
+  const landingExtrasEarly = coerceLandingExtras(landing?.landing_extras);
+  const seoChrome = landingExtrasEarly.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
+
+  useEffect(() => {
+    return applyMarketingLandingHead(pathname, {
+      title: seoChrome.seo_title,
+      description: seoChrome.seo_description,
+    });
+  }, [pathname, seoChrome.seo_title, seoChrome.seo_description]);
 
   const { data: plans = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["plans"],
@@ -106,23 +112,12 @@ export default function Plans() {
   if (isError) return <ErrorState message="Erro ao carregar planos." onRetry={() => refetch()} />;
   if (plans.length === 0) return <ErrorState message="Nenhum plano disponivel no momento." onRetry={() => refetch()} />;
 
-  const OLD_HERO_TITLES = new Set([
-    "Escolha seu plano",
-    "A plataforma completa para presells e rastreamento",
-    "Publique presells e meça cada clique — sem mentir nos números",
-  ]);
   const defaultHeroTitle = "Da criação da presell ao acompanhamento das vendas. Tudo num só lugar.";
   const defaultHeroSubtitle =
     "Crie páginas para as suas ofertas, prepare as suas campanhas de anúncios e acompanhe os resultados sem precisar de juntar várias ferramentas.";
-  const rawTitle = landing?.hero_title?.trim() ?? "";
-  const heroTitle = !rawTitle || OLD_HERO_TITLES.has(rawTitle) ? defaultHeroTitle : rawTitle;
-  const rawSubtitle = landing?.hero_subtitle?.trim() ?? "";
-  const heroSubtitle =
-    !rawSubtitle ||
-    rawSubtitle.startsWith("Crie páginas que convertem, meça cada clique") ||
-    rawSubtitle.startsWith("Limites por plano nos cartões")
-      ? defaultHeroSubtitle
-      : rawSubtitle;
+  /** Respeita o que o SuperAdmin gravou; só usa default se estiver vazio. */
+  const heroTitle = landing?.hero_title?.trim() || defaultHeroTitle;
+  const heroSubtitle = landing?.hero_subtitle?.trim() || defaultHeroSubtitle;
   const badgeText = landing?.badge_text?.trim() ?? "";
   const introText = landing?.intro_text?.trim() ?? "";
   const footerText = landing?.footer_text?.trim() ?? "";
@@ -143,7 +138,12 @@ export default function Plans() {
   })();
 
   const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
-  const extras = coerceLandingExtras(landing?.landing_extras);
+  const extras = landingExtrasEarly;
+  const chrome = extras.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
+  const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "Clickora";
+  const buyLabel = chrome.buy_label?.trim() || DEFAULT_LANDING_SITE_CHROME.buy_label || "Comprar";
+  const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || "Entrar";
+  const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || "Painel";
   const ts = extras.text_styles ?? undefined;
   const salesDark = extras.appearance === "sales_dark";
   const sectionsOn = resolveSectionsEnabled(extras.sections_enabled);
@@ -210,7 +210,7 @@ export default function Plans() {
         >
           {salesDark ? (
             <Link to="/" className="text-base font-semibold tracking-tight text-white">
-              Clickora
+              {brandLabel}
             </Link>
           ) : null}
           {salesDark ? (
@@ -222,7 +222,7 @@ export default function Plans() {
                 to={user ? "/inicio" : "/auth"}
                 className="text-sm font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
               >
-                {user ? "Painel" : "Entrar"}
+                {user ? panelLabel : loginLabel}
               </Link>
               {showHeroCta ? (
               <Button
@@ -263,7 +263,7 @@ export default function Plans() {
               className="inline-flex items-center justify-center"
             >
               <ShoppingBag className="h-4 w-4 shrink-0" aria-hidden />
-              Comprar
+              {buyLabel}
             </a>
           </Button>
           {user ? (
@@ -287,7 +287,7 @@ export default function Plans() {
             >
               <Link to="/inicio" className="inline-flex items-center justify-center">
                 <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
-                Painel
+                {panelLabel}
               </Link>
             </Button>
           ) : (
@@ -311,7 +311,7 @@ export default function Plans() {
             >
               <Link to="/auth" className="inline-flex items-center justify-center">
                 <LogIn className="h-4 w-4 shrink-0" aria-hidden />
-                Entrar
+                {loginLabel}
               </Link>
             </Button>
           )}
@@ -320,11 +320,11 @@ export default function Plans() {
         </nav>
       </div>
 
-      {salesDark ? null : (
+      {chrome.show_objective_nav && (chrome.objective_links?.length ?? 0) > 0 ? (
       <nav
         className={cn(
           "mb-4 flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3",
-          "border-border/50 bg-muted/35",
+          salesDark ? "border-white/15 bg-white/5" : "border-border/50 bg-muted/35",
         )}
         aria-label="Soluções por objetivo"
       >
@@ -334,45 +334,30 @@ export default function Plans() {
             salesDark ? "text-white/50" : "text-muted-foreground",
           )}
         >
-          Por objetivo
+          {chrome.objective_nav_label?.trim() || "Por objetivo"}
         </span>
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
-          <Link
-            to="/presell-para-afiliados"
-            className={cn(
-              "underline-offset-4 hover:underline",
-              salesDark ? "font-medium text-white" : "font-medium text-primary",
-            )}
-          >
-            Presell para afiliados
-          </Link>
-          <span className={salesDark ? "text-white/35" : "text-muted-foreground/50"} aria-hidden>
-            ·
-          </span>
-          <Link
-            to="/rastreamento-afiliados"
-            className={cn(
-              "underline-offset-4 hover:underline",
-              salesDark ? "font-medium text-white" : "font-medium text-primary",
-            )}
-          >
-            Rastreamento e conversões
-          </Link>
-          <span className={salesDark ? "text-white/35" : "text-muted-foreground/50"} aria-hidden>
-            ·
-          </span>
-          <Link
-            to="/guia-vendas-afiliados"
-            className={cn(
-              "underline-offset-4 hover:underline",
-              salesDark ? "font-medium text-white" : "font-medium text-primary",
-            )}
-          >
-            Guia: presell e tracking
-          </Link>
+          {chrome.objective_links.map((link, idx) => (
+            <span key={`${link.href}-${idx}`} className="inline-flex items-center gap-x-3">
+              {idx > 0 ? (
+                <span className={salesDark ? "text-white/35" : "text-muted-foreground/50"} aria-hidden>
+                  ·
+                </span>
+              ) : null}
+              <Link
+                to={link.href}
+                className={cn(
+                  "underline-offset-4 hover:underline",
+                  salesDark ? "font-medium text-white" : "font-medium text-primary",
+                )}
+              >
+                {link.label}
+              </Link>
+            </span>
+          ))}
         </div>
       </nav>
-      )}
+      ) : null}
 
       {isSuperAdmin && (
         <div
@@ -551,13 +536,28 @@ export default function Plans() {
         </div>
       ) : null}
 
-      {!salesDark ? (
-        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          Stack dual-pillar (tracking + presell) num só plano —{" "}
-          <Link to="/agency" className="text-primary underline-offset-2 hover:underline font-medium">
-            ver checklist Agency
-          </Link>
-          .
+      {chrome.agency_banner_enabled &&
+      (chrome.agency_banner_text?.trim() || chrome.agency_banner_cta_label?.trim()) ? (
+        <div
+          className={cn(
+            "rounded-xl border px-4 py-3 text-sm",
+            salesDark
+              ? "border-white/15 bg-white/5 text-white/75"
+              : "border-border/60 bg-muted/20 text-muted-foreground",
+          )}
+        >
+          {chrome.agency_banner_text?.trim() ? <>{chrome.agency_banner_text.trim()} </> : null}
+          {chrome.agency_banner_cta_label?.trim() ? (
+            <Link
+              to={chrome.agency_banner_href?.trim() || "/agency"}
+              className={cn(
+                "underline-offset-2 hover:underline font-medium",
+                salesDark ? "text-white" : "text-primary",
+              )}
+            >
+              {chrome.agency_banner_cta_label.trim()}
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

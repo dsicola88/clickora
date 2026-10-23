@@ -56,7 +56,7 @@ function planCardCtaLabel(plan: Plan, isCurrent: boolean, labels: Record<string,
   const custom = plan.cta_label?.trim();
   if (custom) return custom;
   if (plan.price_cents === 0 || plan.type === "free_trial") return labels.cta_free ?? "Começar grátis";
-  return "Assinar";
+  return labels.cta_upgrade ?? "Fazer upgrade";
 }
 
 function planTagline(extras: LandingPageBodySectionsProps["extras"], planType: string): string {
@@ -193,12 +193,12 @@ export function LandingPageBodySections({
           />
         );
       case "features":
-        if (!sectionsOn.features || !salesDark || !(extras.features?.cards?.length ?? 0)) {
+        if (!sectionsOn.features || !(extras.features?.cards?.length ?? 0)) {
           return null;
         }
         return <SalesLandingFeatures extras={extras} className="mb-12" />;
       case "stats":
-        if (!sectionsOn.stats || !salesDark || !(extras.stats?.items?.length ?? 0)) {
+        if (!sectionsOn.stats || !(extras.stats?.items?.length ?? 0)) {
           return null;
         }
         return <SalesLandingStats extras={extras} className="mb-12" />;
@@ -645,7 +645,7 @@ export function LandingPageBodySections({
       case "account_plan":
         return null;
       case "faq":
-        if (!sectionsOn.faq || !salesDark || !(extras.faq?.items?.length ?? 0)) {
+        if (!sectionsOn.faq || !(extras.faq?.items?.length ?? 0)) {
           return null;
         }
         return <SalesLandingFaq extras={extras} className="mb-12" />;

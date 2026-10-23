@@ -54,7 +54,13 @@ import {
   type PlansHeroVisual,
 } from "@/lib/plansLandingHeroVisual";
 import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
-import { coerceLandingExtras, type LandingExtrasPublic } from "@/lib/plansLandingExtras";
+import {
+  coerceLandingExtras,
+  DEFAULT_LANDING_SITE_CHROME,
+  type LandingExtrasPublic,
+  type LandingSiteChrome,
+} from "@/lib/plansLandingExtras";
+import { SalesProductDemo } from "@/components/plans/SalesProductDemo";
 import { resolveGalleryCarouselOptions } from "@/lib/landingGalleryCarousel";
 import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
 import { resolveLandingPageTheme } from "@/lib/landingPageTheme";
@@ -508,6 +514,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     for (const id of LANDING_SECTION_IDS) o[id] = true;
     return o;
   });
+  const [siteChrome, setSiteChrome] = useState<LandingSiteChrome>(() => ({
+    ...DEFAULT_LANDING_SITE_CHROME,
+    objective_links: DEFAULT_LANDING_SITE_CHROME.objective_links.map((l) => ({ ...l })),
+  }));
   const [testimonialTitle, setTestimonialTitle] = useState("");
   const [testimonialSubtitle, setTestimonialSubtitle] = useState("");
   const [testimonialItems, setTestimonialItems] = useState<
@@ -635,6 +645,17 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         : [{ label: "", href: "" }],
     );
     setHeroNote(ex.hero_note ?? "");
+    {
+      const sc = ex.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
+      setSiteChrome({
+        ...DEFAULT_LANDING_SITE_CHROME,
+        ...sc,
+        objective_links: (sc.objective_links?.length
+          ? sc.objective_links
+          : DEFAULT_LANDING_SITE_CHROME.objective_links
+        ).map((l) => ({ label: l.label, href: l.href })),
+      });
+    }
     setRecommendedPlanType(ex.recommended_plan_type?.trim() || "none");
     setRecommendedNote(ex.recommended_note ?? "");
     setFreeLimitsNote(ex.free_limits_note ?? "");
@@ -1004,6 +1025,24 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       },
       theme: themePayload,
       text_styles,
+      site_chrome: {
+        brand_label: siteChrome.brand_label?.trim() || null,
+        buy_label: siteChrome.buy_label?.trim() || null,
+        login_label: siteChrome.login_label?.trim() || null,
+        panel_label: siteChrome.panel_label?.trim() || null,
+        show_objective_nav: siteChrome.show_objective_nav,
+        objective_nav_label: siteChrome.objective_nav_label?.trim() || null,
+        objective_links: siteChrome.objective_links
+          .map((l) => ({ label: l.label.trim(), href: l.href.trim() }))
+          .filter((l) => l.label && l.href)
+          .slice(0, 8),
+        agency_banner_enabled: siteChrome.agency_banner_enabled,
+        agency_banner_text: siteChrome.agency_banner_text?.trim() || null,
+        agency_banner_cta_label: siteChrome.agency_banner_cta_label?.trim() || null,
+        agency_banner_href: siteChrome.agency_banner_href?.trim() || null,
+        seo_title: siteChrome.seo_title?.trim() || null,
+        seo_description: siteChrome.seo_description?.trim() || null,
+      },
     };
   };
 
@@ -1045,6 +1084,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       guaranteeFooter,
       sectionOrder,
       sectionsEnabled,
+      siteChrome,
       heroNote,
       recommendedPlanType,
       recommendedNote,
@@ -1320,26 +1360,57 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             }
           >
             <div className="p-2.5">
-              <HeroPreview
-                badgeText={badgeText}
-                heroTitle={heroTitle || "…"}
-                heroSubtitle={heroSubtitle}
-                hasImage={data.has_hero_image}
-                imageUpdatedAt={previewAt}
-                heroFont={heroFont}
-                heroTextAlign={heroTextAlign}
-                heroTitleSize={heroTitleSize}
-                heroTitleWeight={heroTitleWeight}
-                heroSubtitleSize={heroSubtitleSize}
-                heroVisual={heroVisual}
-                textStyles={previewExtras.text_styles ?? undefined}
-                salesTone={appearance === "sales_dark"}
-                landingTheme={appearance === "sales_dark" ? landingTheme : null}
-                className={cn(
-                  "mb-0 border-border/80 shadow-inner",
-                  appearance === "sales_dark" ? "bg-white/[0.06]" : "bg-muted/20",
-                )}
-              />
+              {appearance === "sales_dark" ? (
+                <section
+                  className={cn(
+                    "grid items-start gap-4",
+                    previewExtras.product_demo && sectionsEnabled.product_demo && "md:grid-cols-2",
+                  )}
+                >
+                  <div className="space-y-3">
+                    {badgeText.trim() ? (
+                      <span
+                        className="inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                        style={{
+                          borderColor: previewSalesThemed.badge_border,
+                          backgroundColor: previewSalesThemed.badge_background,
+                          color: previewSalesThemed.badge_text,
+                        }}
+                      >
+                        {badgeText}
+                      </span>
+                    ) : null}
+                    <h3 className="text-lg font-bold leading-snug text-white">{heroTitle || "…"}</h3>
+                    {heroSubtitle.trim() ? (
+                      <p className="text-sm leading-relaxed text-white/75">{heroSubtitle}</p>
+                    ) : null}
+                    {previewExtras.hero_note?.trim() ? (
+                      <p className="text-xs leading-relaxed text-white/60">{previewExtras.hero_note}</p>
+                    ) : null}
+                  </div>
+                  {sectionsEnabled.product_demo && previewExtras.product_demo ? (
+                    <SalesProductDemo demo={previewExtras.product_demo} />
+                  ) : null}
+                </section>
+              ) : (
+                <HeroPreview
+                  badgeText={badgeText}
+                  heroTitle={heroTitle || "…"}
+                  heroSubtitle={heroSubtitle}
+                  hasImage={data.has_hero_image}
+                  imageUpdatedAt={previewAt}
+                  heroFont={heroFont}
+                  heroTextAlign={heroTextAlign}
+                  heroTitleSize={heroTitleSize}
+                  heroTitleWeight={heroTitleWeight}
+                  heroSubtitleSize={heroSubtitleSize}
+                  heroVisual={heroVisual}
+                  textStyles={previewExtras.text_styles ?? undefined}
+                  salesTone={false}
+                  landingTheme={null}
+                  className="mb-0 border-border/80 bg-muted/20 shadow-inner"
+                />
+              )}
               {introText.trim() ? (
                 <div
                   className={cn(
@@ -1556,6 +1627,209 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Navegação, promo e SEO</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      Controla a barra do topo, o atalho Agency e o título/descrição nos motores de busca.
+                    </p>
+                  </div>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Marca (nav)</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        value={siteChrome.brand_label ?? ""}
+                        onChange={(e) => setSiteChrome((p) => ({ ...p, brand_label: e.target.value }))}
+                        maxLength={80}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Botão comprar</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        value={siteChrome.buy_label ?? ""}
+                        onChange={(e) => setSiteChrome((p) => ({ ...p, buy_label: e.target.value }))}
+                        maxLength={40}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Entrar</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        value={siteChrome.login_label ?? ""}
+                        onChange={(e) => setSiteChrome((p) => ({ ...p, login_label: e.target.value }))}
+                        maxLength={40}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Painel</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        value={siteChrome.panel_label ?? ""}
+                        onChange={(e) => setSiteChrome((p) => ({ ...p, panel_label: e.target.value }))}
+                        maxLength={40}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
+                    <Label className="text-xs">Mostrar «Por objetivo»</Label>
+                    <Switch
+                      checked={siteChrome.show_objective_nav}
+                      onCheckedChange={(v) => setSiteChrome((p) => ({ ...p, show_objective_nav: v }))}
+                    />
+                  </div>
+                  {siteChrome.show_objective_nav ? (
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Etiqueta da fila</Label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={siteChrome.objective_nav_label ?? ""}
+                          onChange={(e) =>
+                            setSiteChrome((p) => ({ ...p, objective_nav_label: e.target.value }))
+                          }
+                          maxLength={80}
+                        />
+                      </div>
+                      {siteChrome.objective_links.map((link, idx) => (
+                        <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="Texto"
+                            value={link.label}
+                            onChange={(e) =>
+                              setSiteChrome((p) => ({
+                                ...p,
+                                objective_links: p.objective_links.map((l, i) =>
+                                  i === idx ? { ...l, label: e.target.value } : l,
+                                ),
+                              }))
+                            }
+                          />
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="/rota ou https://…"
+                            value={link.href}
+                            onChange={(e) =>
+                              setSiteChrome((p) => ({
+                                ...p,
+                                objective_links: p.objective_links.map((l, i) =>
+                                  i === idx ? { ...l, href: e.target.value } : l,
+                                ),
+                              }))
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() =>
+                              setSiteChrome((p) => ({
+                                ...p,
+                                objective_links: p.objective_links.filter((_, i) => i !== idx),
+                              }))
+                            }
+                            aria-label="Remover link"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      {siteChrome.objective_links.length < 8 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() =>
+                            setSiteChrome((p) => ({
+                              ...p,
+                              objective_links: [...p.objective_links, { label: "", href: "" }],
+                            }))
+                          }
+                        >
+                          Adicionar link
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
+                    <Label className="text-xs">Banner Agency</Label>
+                    <Switch
+                      checked={siteChrome.agency_banner_enabled}
+                      onCheckedChange={(v) => setSiteChrome((p) => ({ ...p, agency_banner_enabled: v }))}
+                    />
+                  </div>
+                  {siteChrome.agency_banner_enabled ? (
+                    <div className="grid gap-2.5">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Texto do banner</Label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={siteChrome.agency_banner_text ?? ""}
+                          onChange={(e) =>
+                            setSiteChrome((p) => ({ ...p, agency_banner_text: e.target.value }))
+                          }
+                          maxLength={300}
+                        />
+                      </div>
+                      <div className="grid gap-2.5 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Texto do link</Label>
+                          <Input
+                            className="h-8 text-sm"
+                            value={siteChrome.agency_banner_cta_label ?? ""}
+                            onChange={(e) =>
+                              setSiteChrome((p) => ({ ...p, agency_banner_cta_label: e.target.value }))
+                            }
+                            maxLength={80}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">URL do link</Label>
+                          <Input
+                            className="h-8 text-sm"
+                            value={siteChrome.agency_banner_href ?? ""}
+                            onChange={(e) =>
+                              setSiteChrome((p) => ({ ...p, agency_banner_href: e.target.value }))
+                            }
+                            maxLength={500}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="grid gap-2.5">
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">SEO — título da página</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder="Vazio = título padrão de marketing"
+                        value={siteChrome.seo_title ?? ""}
+                        onChange={(e) => setSiteChrome((p) => ({ ...p, seo_title: e.target.value }))}
+                        maxLength={120}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">SEO — descrição</Label>
+                      <Textarea
+                        rows={2}
+                        className="resize-y text-sm"
+                        placeholder="Vazio = descrição padrão de marketing"
+                        value={siteChrome.seo_description ?? ""}
+                        onChange={(e) =>
+                          setSiteChrome((p) => ({ ...p, seo_description: e.target.value }))
+                        }
+                        maxLength={320}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : null}

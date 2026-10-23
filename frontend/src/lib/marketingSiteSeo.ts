@@ -162,13 +162,24 @@ function canonicalWithoutSearchHash(): string {
   return u.toString();
 }
 
+export type MarketingLandingSeoOverrides = {
+  title?: string | null;
+  description?: string | null;
+};
+
 /**
  * SEO para `/`, `/plans`, `/planos` (componente `Plans`).
+ * Overrides opcionais vêm do SuperAdmin (`landing_extras.site_chrome`).
  */
-export function applyMarketingLandingHead(pathname: string): () => void {
+export function applyMarketingLandingHead(
+  pathname: string,
+  overrides?: MarketingLandingSeoOverrides,
+): () => void {
   const before = captureMarketingHeadSnapshot();
   const origin = resolveSiteOrigin();
-  const { title, description } = landingPathInfo(pathname);
+  const base = landingPathInfo(pathname);
+  const title = overrides?.title?.trim() || base.title;
+  const description = overrides?.description?.trim() || base.description;
   const canonical = canonicalWithoutSearchHash();
   const ogImageAbs = `${origin}/placeholder.svg`;
   const robots = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";

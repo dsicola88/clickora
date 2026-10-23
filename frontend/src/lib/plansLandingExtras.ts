@@ -145,6 +145,43 @@ export interface LandingPlanTaglines {
   quarterly: string | null;
 }
 
+/** Nav, promo Agency e SEO da landing — editável no SuperAdmin. */
+export interface LandingSiteChrome {
+  brand_label: string | null;
+  buy_label: string | null;
+  login_label: string | null;
+  panel_label: string | null;
+  show_objective_nav: boolean;
+  objective_nav_label: string | null;
+  objective_links: { label: string; href: string }[];
+  agency_banner_enabled: boolean;
+  agency_banner_text: string | null;
+  agency_banner_cta_label: string | null;
+  agency_banner_href: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+}
+
+export const DEFAULT_LANDING_SITE_CHROME: LandingSiteChrome = {
+  brand_label: "Clickora",
+  buy_label: "Comprar",
+  login_label: "Entrar",
+  panel_label: "Painel",
+  show_objective_nav: true,
+  objective_nav_label: "Por objetivo",
+  objective_links: [
+    { label: "Presell para afiliados", href: "/presell-para-afiliados" },
+    { label: "Rastreamento e conversões", href: "/rastreamento-afiliados" },
+    { label: "Guia: presell e tracking", href: "/guia-vendas-afiliados" },
+  ],
+  agency_banner_enabled: true,
+  agency_banner_text: "Tracking e páginas de pre-sell num só plano —",
+  agency_banner_cta_label: "ver checklist Agency",
+  agency_banner_href: "/agency",
+  seo_title: null,
+  seo_description: null,
+};
+
 export interface LandingExtrasPublic {
   appearance: LandingExtrasAppearance;
   plans_section_label: string | null;
@@ -184,6 +221,8 @@ export interface LandingExtrasPublic {
   theme: LandingPageThemeInput | null;
   /** Tipografia por zona (cor, fonte, tamanho, peso, alinhamento). */
   text_styles: LandingTextStylesPublic | null;
+  /** Nav, Agency banner e SEO. */
+  site_chrome: LandingSiteChrome | null;
 }
 
 /** Alinhado ao backend `DEFAULT_LANDING_EXTRAS` — fallback se a resposta da API estiver incompleta. */
@@ -336,6 +375,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   },
   section_order: ["features", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
+  site_chrome: { ...DEFAULT_LANDING_SITE_CHROME },
   hero_note:
     "O plano grátis está disponível. Cria a conta e fica no Starter, com os limites escritos no cartão. Não pedimos cartão nesta página.",
   product_demo: {
@@ -878,6 +918,44 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
   const textStylesParsed = coerceLandingTextStyles(raw.text_styles);
   const text_styles = Object.keys(textStylesParsed).length ? textStylesParsed : null;
 
+  let site_chrome: LandingSiteChrome | null = null;
+  if (raw.site_chrome !== null && raw.site_chrome !== undefined && isPlainObject(raw.site_chrome)) {
+    const sc = raw.site_chrome;
+    const base = DEFAULT_LANDING_SITE_CHROME;
+    const linksRaw = Array.isArray(sc.objective_links) ? sc.objective_links : null;
+    const links = linksRaw
+      ? linksRaw
+          .map((it) => {
+            if (!isPlainObject(it)) return null;
+            const label = typeof it.label === "string" ? it.label.trim() : "";
+            const href = typeof it.href === "string" ? it.href.trim() : "";
+            if (!label || !href) return null;
+            return { label, href };
+          })
+          .filter((x): x is { label: string; href: string } => Boolean(x))
+          .slice(0, 8)
+      : base.objective_links;
+    site_chrome = {
+      brand_label: optionalText(sc.brand_label, base.brand_label),
+      buy_label: optionalText(sc.buy_label, base.buy_label),
+      login_label: optionalText(sc.login_label, base.login_label),
+      panel_label: optionalText(sc.panel_label, base.panel_label),
+      show_objective_nav:
+        typeof sc.show_objective_nav === "boolean" ? sc.show_objective_nav : base.show_objective_nav,
+      objective_nav_label: optionalText(sc.objective_nav_label, base.objective_nav_label),
+      objective_links: links.length ? links : base.objective_links,
+      agency_banner_enabled:
+        typeof sc.agency_banner_enabled === "boolean"
+          ? sc.agency_banner_enabled
+          : base.agency_banner_enabled,
+      agency_banner_text: optionalText(sc.agency_banner_text, base.agency_banner_text),
+      agency_banner_cta_label: optionalText(sc.agency_banner_cta_label, base.agency_banner_cta_label),
+      agency_banner_href: optionalText(sc.agency_banner_href, base.agency_banner_href),
+      seo_title: optionalText(sc.seo_title, null),
+      seo_description: optionalText(sc.seo_description, null),
+    };
+  }
+
   if (!contentBlocksProvided && !content_blocks?.length) {
     content_blocks = DEFAULT_LANDING_EXTRAS.content_blocks;
   }
@@ -937,5 +1015,6 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     plan_taglines: raw.plan_taglines === null ? null : coercePlanTaglines(raw.plan_taglines),
     theme,
     text_styles,
+    site_chrome: site_chrome ?? DEFAULT_LANDING_EXTRAS.site_chrome,
   };
 }

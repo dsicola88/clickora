@@ -372,6 +372,33 @@ export const landingExtrasSchema = z
     theme: landingExtrasThemeSchema.optional().nullable(),
     /** Tipografia opcional por zona de texto (landing de planos). */
     text_styles: landingExtrasTextStylesSchema.optional().nullable(),
+    /** Nav, banner Agency e SEO — controlados no SuperAdmin. */
+    site_chrome: z
+      .object({
+        brand_label: z.string().max(80).nullable().optional(),
+        buy_label: z.string().max(40).nullable().optional(),
+        login_label: z.string().max(40).nullable().optional(),
+        panel_label: z.string().max(40).nullable().optional(),
+        show_objective_nav: z.boolean().optional(),
+        objective_nav_label: z.string().max(80).nullable().optional(),
+        objective_links: z
+          .array(
+            z.object({
+              label: z.string().max(80),
+              href: z.string().max(500),
+            }),
+          )
+          .max(8)
+          .optional(),
+        agency_banner_enabled: z.boolean().optional(),
+        agency_banner_text: z.string().max(300).nullable().optional(),
+        agency_banner_cta_label: z.string().max(80).nullable().optional(),
+        agency_banner_href: z.string().max(500).nullable().optional(),
+        seo_title: z.string().max(120).nullable().optional(),
+        seo_description: z.string().max(320).nullable().optional(),
+      })
+      .nullable()
+      .optional(),
   })
   .strict();
 
@@ -527,6 +554,25 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
   },
   section_order: ["features", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
+  site_chrome: {
+    brand_label: "Clickora",
+    buy_label: "Comprar",
+    login_label: "Entrar",
+    panel_label: "Painel",
+    show_objective_nav: true,
+    objective_nav_label: "Por objetivo",
+    objective_links: [
+      { label: "Presell para afiliados", href: "/presell-para-afiliados" },
+      { label: "Rastreamento e conversões", href: "/rastreamento-afiliados" },
+      { label: "Guia: presell e tracking", href: "/guia-vendas-afiliados" },
+    ],
+    agency_banner_enabled: true,
+    agency_banner_text: "Tracking e páginas de pre-sell num só plano —",
+    agency_banner_cta_label: "ver checklist Agency",
+    agency_banner_href: "/agency",
+    seo_title: null,
+    seo_description: null,
+  },
   hero_note:
     "O plano grátis está disponível. Cria a conta e fica no Starter, com os limites escritos no cartão. Não pedimos cartão nesta página.",
   product_demo: {
@@ -802,6 +848,17 @@ export function mergeLandingExtras(
       : {}),
     ...(p.theme !== undefined ? { theme: nextTheme } : {}),
     ...(p.text_styles !== undefined ? { text_styles: nextTextStyles } : {}),
+    ...(p.site_chrome !== undefined
+      ? {
+          site_chrome:
+            p.site_chrome === null
+              ? null
+              : {
+                  ...(base.site_chrome && typeof base.site_chrome === "object" ? base.site_chrome : {}),
+                  ...p.site_chrome,
+                },
+        }
+      : {}),
   };
 }
 
