@@ -16,12 +16,20 @@ describe("appendClickIdToAffiliateUrl", () => {
     assert.equal(u.searchParams.get("s1"), null);
   });
 
-  it("um hop MaxWeb num domínio próprio recebe subid", () => {
+  it("um hop MaxWeb num domínio próprio recebe subid e subid2", () => {
     const out = appendClickIdToAffiliateUrl("https://mwebkivo.com/go?a=1", uuid);
     const u = new URL(out);
     assert.equal(u.searchParams.get("subid"), uuid);
+    assert.equal(u.searchParams.get("subid2"), uuid);
     assert.equal(u.searchParams.get("clickora_click_id"), uuid);
     assert.equal(u.searchParams.get("cid"), null);
+  });
+
+  it("MaxWeb sobrescreve subid não-UUID (id do path) e preenche subid2", () => {
+    const out = appendClickIdToAffiliateUrl("https://mwebkivo.com/12679/3986/2/?subid=3986", uuid);
+    const u = new URL(out);
+    assert.equal(u.searchParams.get("subid"), uuid);
+    assert.equal(u.searchParams.get("subid2"), uuid);
   });
 
   it("Digistore recebe cid e sid1, não subid", () => {
@@ -45,11 +53,12 @@ describe("appendClickIdToAffiliateUrl", () => {
     assert.equal(u.searchParams.get("clickora_click_id"), uuid);
   });
 
-  it("BuyGoods recebe subid e não cid", () => {
+  it("BuyGoods recebe subid + subid2 e não cid", () => {
     const out = appendClickIdToAffiliateUrl("https://www.buygoods.com/x?cid=OTHER", uuid);
     const u = new URL(out);
     assert.equal(u.searchParams.get("cid"), "OTHER");
     assert.equal(u.searchParams.get("subid"), uuid);
+    assert.equal(u.searchParams.get("subid2"), uuid);
     assert.equal(u.searchParams.get("sub3"), null);
   });
 

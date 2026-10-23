@@ -199,7 +199,19 @@ function statusFromInstalledUrl(flat: Record<string, string>): string {
 
 function parseSubidCommission(adapterId: string, flat: Record<string, string>): ParsedAffiliatePostback {
   const funnel = funnelFrom(flat);
-  const clickId = firstUuid(flat, ["subid", "SUBID", "clickora_click_id", "subid1", "s1"]);
+  // Preferir clickora_click_id / subid2: a MaxWeb ecoa no lander subid=<path id> (não UUID).
+  const clickId = firstUuid(flat, [
+    "clickora_click_id",
+    "subid2",
+    "SUBID2",
+    "subid",
+    "SUBID",
+    "subid1",
+    "SUBID1",
+    "subid3",
+    "SUBID3",
+    "s1",
+  ]);
   const externalId = firstText(flat, ["ORDERID", "orderid", "order_id"]);
   const amount = moneyFrom(flat, ["COMMISSION_AMOUNT", "commission_amount", "amount"]);
   const currency = currencyFrom(flat, ["currency", "cy", "CURRENCY"]);
@@ -605,6 +617,7 @@ export function buildTestSaleQuery(platform: string, clickId: string, orderId: s
     return {
       platform: id === "maxweb" ? "MaxWeb" : "BuyGoods",
       subid: clickId,
+      subid2: clickId,
       clickora_click_id: clickId,
       orderid: orderId,
       amount: "1.00",

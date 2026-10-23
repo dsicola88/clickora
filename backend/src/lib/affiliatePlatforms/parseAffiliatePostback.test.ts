@@ -96,6 +96,24 @@ test("MaxWeb isolado de Digistore e checkout não aprova", () => {
   assert.equal(visit.outcome.kind, "funnel");
 });
 
+test("MaxWeb: subid=path id (3986) não-UUID; atribui via subid2", () => {
+  const parsed = parseAffiliatePostback({
+    platform: "MaxWeb",
+    flat: {
+      subid: "3986",
+      SUBID: "3986",
+      subid2: UUID,
+      SUBID2: UUID,
+      orderid: "MW-PATH",
+      COMMISSION_AMOUNT: "12.50",
+    },
+  });
+  assert.equal(parsed.adapterId, "maxweb");
+  assert.equal(parsed.outcome.kind, "approved");
+  assert.equal(parsed.clickId, UUID);
+  assert.equal(Number(parsed.amount), 12.5);
+});
+
 test("SmartAdv: approved ganha a checkout no mesmo payload; rejected não é venda", () => {
   const sale = parseAffiliatePostback({
     platform: "SmartAdv",

@@ -1,8 +1,14 @@
-/** Parâmetros de clique escritos no hoplink. Cada rede só recebe os seus. */
+/**
+ * Parâmetros de clique escritos no hoplink. Cada rede só recebe os seus.
+ * MaxWeb/BuyGoods: `subid` + `subid2` — a MaxWeb reescreve o lander com
+ * `subid=<segmento do path>` (ex. 3986) e sessão em `subid2`; o postback
+ * ecoa o que enviámos via {SUBID}/{SUBID2}. `subid2` é o canal estável
+ * (padrão Voluum); `subid` fica como backup para painéis que só usam {SUBID}.
+ */
 const OUTBOUND: Record<string, readonly string[]> = {
   digistore24: ["cid", "sid1"],
-  buygoods: ["subid"],
-  maxweb: ["subid"],
+  buygoods: ["subid", "subid2"],
+  maxweb: ["subid", "subid2"],
   smartadv: ["sub3"],
   hotmart: ["src"],
   clickbank: ["tid"],

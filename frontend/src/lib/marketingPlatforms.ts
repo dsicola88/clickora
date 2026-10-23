@@ -139,10 +139,11 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
   },
   BuyGoods: {
     hint:
-      "BuyGoods: este URL é só a venda ({SUBID}, {ORDERID}, {COMMISSION_AMOUNT}). Não leva status=approved fixo. Checkout Visitors entram pelo pixel HTML ou pelo URL de evento Checkout, nunca por este URL.",
+      "BuyGoods: venda com {SUBID}/{SUBID2} (o hoplink leva o UUID em subid e subid2). Não leva status=approved fixo. Checkout Visitors entram pelo pixel HTML ou pelo URL de evento Checkout, nunca por este URL.",
     params: {
       subid: "{SUBID}",
-      clickora_click_id: "{SUBID}",
+      subid2: "{SUBID2}",
+      clickora_click_id: "{SUBID2}",
       orderid: "{ORDERID}",
       amount: "{COMMISSION_AMOUNT}",
       product: "{PRODUCT_CODENAME}",
@@ -163,10 +164,11 @@ export const AFFILIATE_POSTBACK_PRESETS: Partial<Record<string, AffiliatePostbac
   },
   MaxWeb: {
     hint:
-      "MaxWeb: o parâmetro oficial no hoplink é subid, ecoado como {SUBID}. Este URL é a compra. O evento Checkout Visit da MaxWeb tem de usar o URL de funil (funnel_step=checkout), não este.",
+      "MaxWeb: o hoplink leva o UUID em subid e subid2. No lander a rede pode mostrar subid=<id do path> — ignore isso; o postback tem de ecoar {SUBID2} (e {SUBID} como backup). Este URL é a compra. Checkout Visit usa o URL de funil (funnel_step=checkout), não este.",
     params: {
       subid: "{SUBID}",
-      clickora_click_id: "{SUBID}",
+      subid2: "{SUBID2}",
+      clickora_click_id: "{SUBID2}",
       orderid: "{ORDERID}",
       amount: "{COMMISSION_AMOUNT}",
       product: "{PRODUCT_CODENAME}",
@@ -316,8 +318,8 @@ const FUNNEL_GUIDES: Partial<Record<string, AffiliateFunnelGuide>> = {
     mode: "event_postback",
     panelPath: "MaxWeb → Postback Pixels. Compra neste URL. Checkout Visit no URL de evento (funnel_step=checkout).",
     summary:
-      "A MaxWeb deixa escolher Purchase ou Checkout Visit. O URL de venda não traz status=approved. Cole o URL de funil só no evento Checkout Visit, senão a visita ao checkout conta como venda.",
-    eventClickIdMacro: "{SUBID}",
+      "A MaxWeb deixa escolher Purchase ou Checkout Visit. O URL de venda não traz status=approved. Cole o URL de funil só no evento Checkout Visit, senão a visita ao checkout conta como venda. Use {SUBID2} no click id (o lander pode reescrever subid).",
+    eventClickIdMacro: "{SUBID2}",
     supportsLander: false,
   },
   Hotmart: {
@@ -362,9 +364,12 @@ export function buildAffiliateFunnelEventUrl(
   const guide = getAffiliateFunnelGuide(platform);
   const macro = guide.eventClickIdMacro || "{SUBID}";
   const joiner = eventBaseUrl.includes("?") ? "&" : "?";
-  return (
+  const base =
     `${eventBaseUrl}${joiner}platform=${encodeURIComponent(platform)}` +
-    `&funnel_step=${step}&status=${step}&clickora_click_id=${macro}&subid1=${macro}`
-  );
+    `&funnel_step=${step}&status=${step}&clickora_click_id=${macro}&subid1=${macro}`;
+  if (platform === "MaxWeb" || platform === "BuyGoods") {
+    return `${base}&subid={SUBID}&subid2={SUBID2}`;
+  }
+  return base;
 }
 
