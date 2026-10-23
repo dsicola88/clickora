@@ -28,6 +28,7 @@ import {
 } from "../lib/voluumStyleTrackingParams";
 import { normalizeUtmDimension, isUnreplacedAdMacro } from "../lib/adUrlMacros";
 import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
+import { recordTrackRedirectLatency } from "../lib/opsObservability";
 import { extractClientIp } from "../lib/clientIp";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
@@ -313,6 +314,7 @@ const CLICKORA_EMBED_JS = `(function(){function findSc(){var s=document.currentS
 
 export const trackController = {
   async redirect(req: Request, res: Response) {
+    const t0 = performance.now();
     const presellId = req.params.presellId;
     const parsed = redirectSchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
@@ -507,10 +509,12 @@ export const trackController = {
       presellId: page.id,
     });
     const redirectTo = appendClickIdToAffiliateUrl(to, click.id, offerNetwork);
+    recordTrackRedirectLatency(performance.now() - t0);
     return res.redirect(302, redirectTo);
   },
 
   async rotatorRedirect(req: Request, res: Response) {
+    const t0 = performance.now();
     const rotatorId = req.params.rotatorId;
     if (!z.string().uuid().safeParse(rotatorId).success) {
       return res.status(404).json({ error: "Rotador não encontrado" });
@@ -696,6 +700,7 @@ export const trackController = {
       utm_content,
     });
     const redirectTo = appendClickIdToAffiliateUrl(landed, click.id, offerNetwork);
+    recordTrackRedirectLatency(performance.now() - t0);
     return res.redirect(302, redirectTo);
   },
 

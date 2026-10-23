@@ -1,0 +1,37 @@
+name: Dual Pillar Release Gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run test:dual-pillar-gate
+
+  frontend-presell:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx vitest run src/lib/presellPublishReadiness.test.ts src/lib/presellOfferHrefBake.test.ts src/lib/presellCtaBake.test.ts src/lib/publishPresellFlow.test.ts src/lib/presellEliteQuality.test.ts src/components/RotatorRulesBuilder.test.ts

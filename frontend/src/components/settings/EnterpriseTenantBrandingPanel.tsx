@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { ProPanel } from "@/components/enterprise/ProShell";
 import { toast } from "sonner";
 import { Loader2, Palette } from "lucide-react";
+import { readBrandKitPro, writeBrandKitPro } from "@/lib/brandKitPro";
 
 /**
  * White-label do tenant — disponível quando o plano tem `has_branding === false` (Pro).
@@ -63,7 +64,18 @@ export function EnterpriseTenantBrandingPanel() {
       }
       return saved!;
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      try {
+        const local = readBrandKitPro();
+        writeBrandKitPro({
+          ...local,
+          brandName: saved.brand_name ?? local.brandName,
+          primaryColor: saved.primary_color || local.primaryColor,
+          logoUrl: saved.logo_url ?? local.logoUrl,
+        });
+      } catch {
+        /* ignore */
+      }
       qc.invalidateQueries({ queryKey: ["enterprise-tenant-branding"] });
       qc.invalidateQueries({ queryKey: ["enterprise-onboarding"] });
       toast.success("Marca guardada.");

@@ -551,6 +551,16 @@ export default function Plans() {
         </div>
       ) : null}
 
+      {!salesDark ? (
+        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          Stack dual-pillar (tracking + presell) num só plano —{" "}
+          <Link to="/agency" className="text-primary underline-offset-2 hover:underline font-medium">
+            ver checklist Agency
+          </Link>
+          .
+        </div>
+      ) : null}
+
       {introText ? (
         <div
           className={cn(

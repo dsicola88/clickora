@@ -458,6 +458,21 @@ export const analyticsService = {
         epc: number | null;
         cvr: number | null;
       }>;
+      /** Braços do rotador + caps (Fase 2 Voluum-class). */
+      rotator_arm_performance?: Array<{
+        arm_id: string;
+        arm_label: string;
+        rotator_name: string;
+        max_clicks: number | null;
+        clicks_delivered: number;
+        cap_remaining: number | null;
+        cap_pct: number | null;
+        clicks: number;
+        sales: number;
+        revenue: number;
+        epc: number | null;
+        cvr: number | null;
+      }>;
       keyword_performance?: Array<{
         keyword: string;
         clicks: number;

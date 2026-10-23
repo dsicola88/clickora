@@ -4,6 +4,8 @@ import { ArrowRight, Globe } from "lucide-react";
 import { PRO_PAGE_SHELL, ProPageHeader, ProPanel } from "@/components/enterprise/ProShell";
 import { EnterpriseApiKeysPanel } from "@/components/settings/EnterpriseApiKeysPanel";
 import { EnterpriseTenantBrandingPanel } from "@/components/settings/EnterpriseTenantBrandingPanel";
+import { TrackPathStatus } from "@/components/TrackPathStatus";
+import { BrandKitProCard } from "@/components/BrandKitProCard";
 
 const ADVANCED_LINKS = [
   { to: "/tracking/rotadores", label: "Rotadores" },
@@ -11,6 +13,7 @@ const ADVANCED_LINKS = [
   { to: "/tracking/blacklist", label: "IP e protecções" },
   { to: "/tracking/logs", label: "Registos" },
   { to: "/tracking/url-builder", label: "URL manual" },
+  { to: "/agency", label: "Agency / dual-pillar" },
   { to: "/aulas", label: "Aulas" },
   { to: "/ajuda", label: "Ajuda" },
 ] as const;
@@ -53,8 +56,12 @@ export default function SettingsHubPage() {
         </div>
       </div>
 
-      <div className="min-w-0">
+      <TrackPathStatus className="mb-2" />
+
+      <div className="min-w-0 space-y-4">
         <EnterpriseTenantBrandingPanel />
+        {/* Brand kit local (email suporte / rascunho Free) — sync com white-label acima quando Pro. */}
+        <BrandKitProCard />
       </div>
 
       <ProPanel

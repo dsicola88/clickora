@@ -45,6 +45,13 @@ import {
   type RotatorDeviceRule,
 } from "@/services/trafficRotatorsService";
 import {
+  RotatorRulesBuilder,
+  draftsToPolicy,
+  emptyRuleDraft,
+  policyToDrafts,
+  type RotatorRuleDraft,
+} from "@/components/RotatorRulesBuilder";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -300,23 +307,25 @@ function armsToPayload(arms: ArmForm[]): TrafficRotatorArmInput[] | null {
 }
 
 function resolveRulesPolicyForSubmit(
-  raw: string,
+  drafts: RotatorRuleDraft[],
   editing: TrafficRotatorDto | null,
 ): { ok: true; value: unknown | undefined | null } | { ok: false; error: string } {
-  const t = raw.trim();
+  for (const d of drafts) {
+    if (d.action === "redirect" && !/^https?:\/\//i.test(d.redirect_url.trim())) {
+      return { ok: false, error: "Regra com redirect precisa de URL https válida." };
+    }
+  }
+  const policy = draftsToPolicy(drafts);
   const hadPolicy = Boolean(editing && editing.rules_policy != null);
-  if (!t) {
+  if (!policy) {
     if (!editing) return { ok: true, value: undefined };
-    if (hadPolicy) return { ok: true, value: null };
+    if (hadPolicy && drafts.length === 0) return { ok: true, value: null };
+    if (hadPolicy && drafts.length > 0) {
+      return { ok: false, error: "Regras inválidas — corrija ou remova-as antes de guardar." };
+    }
     return { ok: true, value: undefined };
   }
-  try {
-    const parsed: unknown = JSON.parse(t);
-    if (!editing && parsed === null) return { ok: true, value: undefined };
-    return { ok: true, value: parsed };
-  } catch {
-    return { ok: false, error: "JSON inválido na política de regras." };
-  }
+  return { ok: true, value: policy };
 }
 
 export default function Rotadores() {
@@ -341,8 +350,10 @@ export default function Rotadores() {
   const [stripAccessCode, setStripAccessCode] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [arms, setArms] = useState<ArmForm[]>([emptyArm(0), emptyArm(1)]);
-  const [rulesPolicyText, setRulesPolicyText] = useState("");
+  const [rulesDrafts, setRulesDrafts] = useState<RotatorRuleDraft[]>([]);
   const [rulesPolicyOpen, setRulesPolicyOpen] = useState(false);
+  const [rulesJsonAdvanced, setRulesJsonAdvanced] = useState(false);
+  const [rulesPolicyText, setRulesPolicyText] = useState("");
 
   const { data: presells = [] } = useQuery({
     queryKey: ["presells-rotadores", tenantKey],
@@ -378,8 +389,10 @@ export default function Rotadores() {
     setStripAccessCode(false);
     setIsActive(true);
     setArms([emptyArm(0), emptyArm(1)]);
+    setRulesDrafts([]);
     setRulesPolicyText("");
     setRulesPolicyOpen(false);
+    setRulesJsonAdvanced(false);
   };
 
   const openCreate = () => {
@@ -399,7 +412,9 @@ export default function Rotadores() {
     setStripAccessCode(false);
     setIsActive(r.is_active);
     setArms(dtoToArms(r).length ? dtoToArms(r) : [emptyArm(0)]);
+    setRulesDrafts(policyToDrafts(r.rules_policy));
     setRulesPolicyText(r.rules_policy != null ? JSON.stringify(r.rules_policy, null, 2) : "");
+    setRulesJsonAdvanced(false);
     setDialogOpen(true);
   };
 
@@ -457,7 +472,26 @@ export default function Rotadores() {
       return;
     }
 
-    const rulesRes = resolveRulesPolicyForSubmit(rulesPolicyText, editing);
+    let rulesRes: ReturnType<typeof resolveRulesPolicyForSubmit>;
+    if (rulesJsonAdvanced) {
+      const t = rulesPolicyText.trim();
+      if (!t) {
+        rulesRes = resolveRulesPolicyForSubmit([], editing);
+      } else {
+        try {
+          const parsed: unknown = JSON.parse(t);
+          const hadPolicy = Boolean(editing && editing.rules_policy != null);
+          if (!editing && parsed === null) rulesRes = { ok: true, value: undefined };
+          else if (editing && parsed === null && hadPolicy) rulesRes = { ok: true, value: null };
+          else rulesRes = { ok: true, value: parsed };
+        } catch {
+          toast.error("JSON inválido na política de regras.");
+          return;
+        }
+      }
+    } else {
+      rulesRes = resolveRulesPolicyForSubmit(rulesDrafts, editing);
+    }
     if (!rulesRes.ok) {
       toast.error(rulesRes.error);
       return;
@@ -778,22 +812,68 @@ export default function Rotadores() {
                   size="sm"
                   className="w-full justify-between h-9 px-1 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <span>Política de regras (JSON avançado)</span>
+                  <span>
+                    Regras do rotador
+                    {rulesDrafts.length ? ` (${rulesDrafts.length})` : ""}
+                  </span>
                   {rulesPolicyOpen ? <ChevronUp className="h-4 w-4 opacity-70" /> : <ChevronDown className="h-4 w-4 opacity-70" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2 space-y-2">
-                <p className="text-[11px] text-muted-foreground">
-                  Opcional: regras ao nível do rotador (geo, horários, limites diários, etc.). Deixe vazio para não usar.
-                  Em edição, vazio remove a política existente.
-                </p>
-                <Textarea
-                  value={rulesPolicyText}
-                  onChange={(e) => setRulesPolicyText(e.target.value)}
-                  placeholder={`{\n  "version": 1\n}`}
-                  className="font-mono text-xs min-h-[120px]"
-                  spellCheck={false}
-                />
+              <CollapsibleContent className="pt-2 space-y-3">
+                {!rulesJsonAdvanced ? (
+                  <RotatorRulesBuilder
+                    drafts={rulesDrafts}
+                    onChange={setRulesDrafts}
+                    disabled={!canWriteRotators}
+                  />
+                ) : (
+                  <Textarea
+                    value={rulesPolicyText}
+                    onChange={(e) => setRulesPolicyText(e.target.value)}
+                    placeholder={`{\n  "version": 1,\n  "rules": []\n}`}
+                    className="font-mono text-xs min-h-[120px]"
+                    spellCheck={false}
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-1 text-[11px] text-muted-foreground"
+                  onClick={() => {
+                    if (!rulesJsonAdvanced) {
+                      const p = draftsToPolicy(rulesDrafts);
+                      setRulesPolicyText(p ? JSON.stringify(p, null, 2) : "");
+                      setRulesJsonAdvanced(true);
+                      return;
+                    }
+                    if (rulesPolicyText.trim()) {
+                      try {
+                        setRulesDrafts(policyToDrafts(JSON.parse(rulesPolicyText)));
+                      } catch {
+                        toast.error("JSON inválido — corrija antes de voltar ao editor visual.");
+                        return;
+                      }
+                    } else {
+                      setRulesDrafts([]);
+                    }
+                    setRulesJsonAdvanced(false);
+                  }}
+                >
+                  {rulesJsonAdvanced ? "Usar editor visual" : "JSON avançado"}
+                </Button>
+                {!rulesDrafts.length && !rulesJsonAdvanced ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setRulesDrafts([emptyRuleDraft()])}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Começar com uma regra
+                  </Button>
+                ) : null}
               </CollapsibleContent>
             </Collapsible>
 

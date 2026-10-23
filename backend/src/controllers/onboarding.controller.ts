@@ -17,9 +17,10 @@ export const onboardingController = {
     const access = evaluateSubscriptionAccess(user?.subscription ?? null);
     const plan = user?.subscription?.plan;
 
-    const [presells, domains, rotators, apiKeys, branding, recentClick, recentConv] =
+    const [presells, publishedPresells, domains, rotators, apiKeys, branding, recentClick, recentConv, postbackHits] =
       await Promise.all([
         systemPrisma.presellPage.count({ where: { userId } }),
+        systemPrisma.presellPage.count({ where: { userId, status: "published" } }),
         systemPrisma.customDomain.count({ where: { userId, status: "verified" } }),
         systemPrisma.trafficRotator.count({ where: { userId, isActive: true } }),
         systemPrisma.apiKey.count({ where: { userId, revokedAt: null } }),
@@ -34,6 +35,7 @@ export const onboardingController = {
           orderBy: { createdAt: "desc" },
           select: { id: true },
         }),
+        systemPrisma.postbackLog.count({ where: { userId } }).catch(() => 0),
       ]);
 
     const steps = [
@@ -50,6 +52,12 @@ export const onboardingController = {
         href: "/presells/nova",
       },
       {
+        id: "presell_published",
+        label: "Publicar presell com CTAs rastreados",
+        done: publishedPresells >= 1,
+        href: "/presells",
+      },
+      {
         id: "domain",
         label: "Verificar domínio personalizado",
         done: domains >= 1,
@@ -58,8 +66,14 @@ export const onboardingController = {
       },
       {
         id: "webhook",
-        label: "Webhook de afiliados (plano Pro)",
+        label: "Postback / aviso de vendas (plano)",
         done: Boolean(plan?.affiliateWebhookEnabled),
+        href: "/integracoes/postback",
+      },
+      {
+        id: "postback_macros",
+        label: "Configurar postback com macros (SUBID2 / sid1)",
+        done: postbackHits > 0 || Boolean(recentConv),
         href: "/integracoes/postback",
       },
       {
@@ -73,6 +87,13 @@ export const onboardingController = {
         label: "Registar a primeira conversão",
         done: Boolean(recentConv),
         href: "/integracoes/postback",
+      },
+      {
+        id: "agency_path",
+        label: "Rever checklist Agency (dual-pillar)",
+        done: publishedPresells >= 1 && Boolean(recentClick),
+        href: "/agency",
+        optional: true,
       },
       {
         id: "mfa",

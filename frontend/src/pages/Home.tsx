@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { rangeToday } from "@/lib/dateRangePresets";
 import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
+import { TrackPathStatus } from "@/components/TrackPathStatus";
 
 /**
  * Início: KPIs da conta com filtro de datas · atalho para P&L.
@@ -121,6 +122,7 @@ export default function Home() {
           checks={dash.account_health.checks}
         />
       ) : null}
+      <TrackPathStatus />
 
       {loadingDash ? (
         <LoadingState message="A carregar resultados…" />
@@ -155,12 +157,17 @@ export default function Home() {
         </div>
       )}
 
-      <Button variant="outline" className="gap-2" asChild>
-        <Link to="/resultados">
-          Ver resultados
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" className="gap-2" asChild>
+          <Link to="/resultados">
+            Ver resultados
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/agency">Agency / dual-pillar</Link>
+        </Button>
+      </div>
 
       <OnboardingChecklistCard compact />
     </div>

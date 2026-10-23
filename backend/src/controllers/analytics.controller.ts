@@ -1080,7 +1080,7 @@ export const analyticsController = {
       `),
     ]);
 
-    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows, conversionDayRows, unattributedSaleRow] = await Promise.all([
+    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows, conversionDayRows, unattributedSaleRow, rotatorArmPerfRows] = await Promise.all([
       systemPrisma.$queryRaw<Array<{ country: string; checkouts: bigint }>>(Prisma.sql`
         SELECT
           COALESCE(
@@ -1186,6 +1186,62 @@ export const analyticsController = {
           AND status = 'approved'
           AND click_id IS NULL
       `),
+      /** Braços do rotador + caps (dimensão Voluum-class). */
+      systemPrisma.$queryRaw<
+        Array<{
+          arm_id: string;
+          arm_label: string;
+          rotator_name: string;
+          max_clicks: number | null;
+          clicks_delivered: number;
+          clicks: bigint;
+          sales: bigint;
+          revenue: unknown;
+        }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(TRIM(te.metadata->>'rotator_arm_id'), ''), '(sem braço)') AS arm_id,
+          COALESCE(
+            NULLIF(TRIM(arm.label), ''),
+            NULLIF(TRIM(te.metadata->>'rotator_arm_label'), ''),
+            COALESCE(NULLIF(TRIM(te.metadata->>'rotator_arm_id'), ''), '(sem braço)')
+          ) AS arm_label,
+          COALESCE(NULLIF(TRIM(rot.name), ''), '(rotador)') AS rotator_name,
+          arm.max_clicks AS max_clicks,
+          COALESCE(arm.clicks_delivered, 0) AS clicks_delivered,
+          COUNT(*)::bigint AS clicks,
+          COUNT(c.id)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM tracking_events te
+        LEFT JOIN traffic_rotator_arms arm
+          ON arm.id::text = NULLIF(TRIM(te.metadata->>'rotator_arm_id'), '')
+        LEFT JOIN traffic_rotators rot
+          ON rot.id = arm.rotator_id
+         AND rot.user_id = te.user_id
+        LEFT JOIN conversions c
+          ON c.click_id = te.id
+         AND c.user_id = te.user_id
+         AND c.status = 'approved'
+        WHERE te.user_id = ${userId}
+          AND te.created_at >= ${rangeStart}
+          AND te.created_at <= ${rangeEnd}
+          AND te.event_type::text = 'click'
+          AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+          AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND NULLIF(TRIM(te.metadata->>'rotator_arm_id'), '') IS NOT NULL
+        GROUP BY 1, 2, 3, 4, 5
+        ORDER BY clicks DESC, sales DESC
+        LIMIT 40
+      `).catch(() => [] as Array<{
+        arm_id: string;
+        arm_label: string;
+        rotator_name: string;
+        max_clicks: number | null;
+        clicks_delivered: number;
+        clicks: bigint;
+        sales: bigint;
+        revenue: unknown;
+      }>),
     ]);
 
     /** Colunas de integração em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
@@ -1420,6 +1476,34 @@ export const analyticsController = {
       const revD = Number(row.revenue ?? 0);
       return {
         source: row.source,
+        clicks: clicksD,
+        sales: salesD,
+        revenue: Math.round(revD * 100) / 100,
+        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
+        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+      };
+    });
+
+    const rotator_arm_performance = rotatorArmPerfRows.map((row) => {
+      const clicksD = Number(row.clicks);
+      const salesD = Number(row.sales);
+      const revD = Number(row.revenue ?? 0);
+      const maxCap = row.max_clicks != null ? Number(row.max_clicks) : null;
+      const delivered = Number(row.clicks_delivered ?? 0);
+      const cap_remaining =
+        maxCap != null && Number.isFinite(maxCap) ? Math.max(0, maxCap - delivered) : null;
+      const cap_pct =
+        maxCap != null && maxCap > 0
+          ? Math.min(100, Math.round((delivered / maxCap) * 1000) / 10)
+          : null;
+      return {
+        arm_id: row.arm_id,
+        arm_label: row.arm_label,
+        rotator_name: row.rotator_name,
+        max_clicks: maxCap,
+        clicks_delivered: delivered,
+        cap_remaining,
+        cap_pct,
         clicks: clicksD,
         sales: salesD,
         revenue: Math.round(revD * 100) / 100,
@@ -1875,6 +1959,7 @@ export const analyticsController = {
       offer_performance,
       device_performance,
       source_performance,
+      rotator_arm_performance,
       keyword_performance,
       ad_group_performance,
       click_quota,

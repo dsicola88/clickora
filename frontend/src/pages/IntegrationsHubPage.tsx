@@ -19,6 +19,8 @@ import {
   ProInlineLink,
 } from "@/components/enterprise/ProShell";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
+import { TrackPathStatus } from "@/components/TrackPathStatus";
+import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 
 /**
  * Hub Integrações — go-live operativo para media buyers.
@@ -85,6 +87,7 @@ export default function IntegrationsHubPage() {
       {health ? (
         <AttributionHealthBanner attribution={health.attribution} checks={health.checks} />
       ) : null}
+      <TrackPathStatus />
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <ProPanel title="Go-live" description="Estado real da conta (últimos 14 dias).">
@@ -155,21 +158,24 @@ export default function IntegrationsHubPage() {
               Ouvir agora
             </Button>
           </div>
-          <Link
-            to="/integracoes/postback"
-            className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
-          >
-            <div className="rounded-md bg-primary/10 p-2">
-              <Plug className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">Postback (obrigatório)</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                BuyGoods, SmartAdv, Digistore24 e outras redes.
-              </p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
-          </Link>
+          <div className="space-y-3">
+            <Link
+              to="/integracoes/postback"
+              className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
+            >
+              <div className="rounded-md bg-primary/10 p-2">
+                <Plug className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Postback (obrigatório)</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                  BuyGoods, SmartAdv, Digistore24 e outras redes.
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+            </Link>
+            <PostbackMacroChecklist compact />
+          </div>
 
           <Link
             to="/integracoes/google-ads"

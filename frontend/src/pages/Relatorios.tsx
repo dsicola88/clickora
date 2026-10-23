@@ -30,6 +30,8 @@ import {
 } from "@/lib/clickVisitorQuality";
 import { rangeToday } from "@/lib/dateRangePresets";
 import { AFFILIATE_PLATFORMS, EXTRA_OFFER_PLATFORMS } from "@/lib/marketingPlatforms";
+import { ReportDimensionStrip } from "@/components/ReportDimensionStrip";
+import { downloadTextCsv, reportRowsToCsv } from "@/lib/reportRowsCsv";
 
 /** Redes no filtro de conversões (mesma lista que Integrações / Construtor de URL). */
 const RELATORIO_PLATFORM_OPTIONS = [...new Set([...AFFILIATE_PLATFORMS, ...EXTRA_OFFER_PLATFORMS])].sort((a, b) =>
@@ -223,6 +225,7 @@ export default function Relatorios() {
   const [startDate, setStartDate] = useState(initial.from);
   const [endDate, setEndDate] = useState(initial.to);
   const [applied, setApplied] = useState(initial);
+  const [compareRange, setCompareRange] = useState<{ from: string; to: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [platform, setPlatform] = useState("all");
   const [gclidFilter, setGclidFilter] = useState("");
@@ -258,6 +261,31 @@ export default function Relatorios() {
     setExporting(kind);
     try {
       if (kind === "impression" || kind === "click") {
+        /** Com filtro Situação / pesquisa: exporta o que está no ecrã (enterprise). */
+        const filtered = kind === "impression" ? accessFiltered : clickFiltered;
+        const useFilteredView =
+          (situationFilter && situationFilter !== "all") || Boolean(searchTerm.trim());
+        if (useFilteredView) {
+          const cols = [
+            { key: "ip", header: "IP" },
+            { key: "eventLabel", header: "Evento" },
+            { key: "keyword", header: "Keyword" },
+            { key: "device", header: "Dispositivo" },
+            { key: "country", header: "País" },
+            { key: "type", header: "Tipo" },
+            { key: "status", header: "Situação" },
+            { key: "origin", header: "Origem" },
+            { key: "lastAccess", header: "Quando" },
+          ];
+          const csv = reportRowsToCsv(filtered as unknown as Record<string, unknown>[], cols);
+          const sit = situationFilter !== "all" ? `_${situationFilter}` : "";
+          downloadTextCsv(
+            `tracking-events_${kind === "impression" ? "impressions" : "clicks"}_${applied.from}_${applied.to}${sit}_filtrado.csv`,
+            csv,
+          );
+          toast.success(`Exportadas ${filtered.length} linhas filtradas.`);
+          return;
+        }
         const { data, filename, error } = await analyticsService.downloadEventsCsv({
           event_type: kind === "impression" ? "impression,lead" : "click",
           from: applied.from,
@@ -360,6 +388,43 @@ export default function Relatorios() {
     enabled: tab === "cliques",
   });
 
+  const compareClicksQuery = useQuery({
+    queryKey: ["relatorios", "events", "click", "compare", compareRange?.from, compareRange?.to],
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getEvents({
+        event_type: "click",
+        from: compareRange!.from,
+        to: compareRange!.to,
+        limit: 500,
+      });
+      if (error) throw new Error(error);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: Boolean(compareRange) && tab === "cliques",
+  });
+
+  const compareImpressionsQuery = useQuery({
+    queryKey: [
+      "relatorios",
+      "events",
+      "impression-lead",
+      "compare",
+      compareRange?.from,
+      compareRange?.to,
+    ],
+    queryFn: async () => {
+      const { data, error } = await analyticsService.getEvents({
+        event_type: "impression,lead",
+        from: compareRange!.from,
+        to: compareRange!.to,
+        limit: 500,
+      });
+      if (error) throw new Error(error);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: Boolean(compareRange) && tab === "acessos",
+  });
+
   const conversionsQuery = useQuery({
     queryKey: ["relatorios", "conversions", applied.from, applied.to],
     queryFn: async () => {
@@ -412,7 +477,7 @@ export default function Relatorios() {
     second: "2-digit",
   });
 
-  const applyDateRange = (from: string, to: string) => {
+  const applyDateRange = (from: string, to: string, compare?: { from: string; to: string }) => {
     if (!from || !to) {
       toast.error("Selecione data inicial e final.");
       return;
@@ -427,6 +492,7 @@ export default function Relatorios() {
     setEndDate(to);
     setPage(1);
     setApplied({ from, to });
+    setCompareRange(compare ?? null);
   };
 
   const handleReset = () => {
@@ -434,6 +500,7 @@ export default function Relatorios() {
     setStartDate(from);
     setEndDate(to);
     setApplied({ from, to });
+    setCompareRange(null);
     setSearchTerm("");
     setPlatform("all");
     setGclidFilter("");
@@ -639,45 +706,43 @@ export default function Relatorios() {
     return c;
   }, [tab, clickRows, impressionRows]);
 
-  const accessDisplay = paginate(
-    filterBySituation(
-      filterBySearch(impressionRows, [
-        "ip",
-        "eventLabel",
-        "keyword",
-        "utm_campaign",
-        "utm_content",
-        "device",
-        "country",
-        "region",
-        "origin",
-        "type",
-        "status",
-        "checkout_page",
-        "checkout_host",
-      ]),
-    ),
+  const accessFiltered = filterBySituation(
+    filterBySearch(impressionRows, [
+      "ip",
+      "eventLabel",
+      "keyword",
+      "utm_campaign",
+      "utm_content",
+      "device",
+      "country",
+      "region",
+      "origin",
+      "type",
+      "status",
+      "checkout_page",
+      "checkout_host",
+    ]),
   );
-  const clickDisplay = paginate(
-    filterBySituation(
-      filterBySearch(clickRows, [
-        "ip",
-        "clickId",
-        "eventLabel",
-        "keyword",
-        "utm_campaign",
-        "utm_content",
-        "device",
-        "country",
-        "region",
-        "origin",
-        "type",
-        "status",
-        "checkout_page",
-        "checkout_host",
-      ]),
-    ),
+  const accessDisplay = paginate(accessFiltered);
+  const clickFiltered = filterBySituation(
+    filterBySearch(clickRows, [
+      "ip",
+      "clickId",
+      "eventLabel",
+      "keyword",
+      "utm_campaign",
+      "utm_content",
+      "device",
+      "country",
+      "region",
+      "origin",
+      "type",
+      "status",
+      "checkout_page",
+      "checkout_host",
+    ]),
   );
+  const clickDisplay = paginate(clickFiltered);
   const convDisplay = paginate(
     filterBySearch(
       conversionRowsFiltered.map((r) => ({
@@ -913,7 +978,7 @@ export default function Relatorios() {
           <DateRangeFilter
             from={startDate}
             to={endDate}
-            onApply={(p) => applyDateRange(p.from, p.to)}
+            onApply={(p) => applyDateRange(p.from, p.to, p.compare)}
             showCompare
           />
         </div>
@@ -930,6 +995,40 @@ export default function Relatorios() {
         title="Relatórios"
         subtitle="Eventos e conversões com o mesmo filtro de bots que os resultados. Separadores com URL próprio · exportar CSV."
       />
+
+      {compareRange && (tab === "cliques" || tab === "acessos") ? (
+        <div className="mb-4 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
+          <span>
+            Comparar{" "}
+            <span className="font-mono tabular-nums text-foreground/80">
+              {compareRange.from} → {compareRange.to}
+            </span>
+          </span>
+          {tab === "cliques" ? (
+            <span className="tabular-nums">
+              Cliques: {clickRows.length} vs {compareClicksQuery.data?.length ?? "…"}
+              {compareClicksQuery.data ? (
+                <span className="ml-1 text-foreground/90">
+                  (
+                  {clickRows.length - compareClicksQuery.data.length >= 0 ? "+" : ""}
+                  {clickRows.length - compareClicksQuery.data.length})
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <span className="tabular-nums">
+              Acessos: {impressionRows.length} vs {compareImpressionsQuery.data?.length ?? "…"}
+              {compareImpressionsQuery.data ? (
+                <span className="ml-1 text-foreground/90">
+                  (
+                  {impressionRows.length - compareImpressionsQuery.data.length >= 0 ? "+" : ""}
+                  {impressionRows.length - compareImpressionsQuery.data.length})
+                </span>
+              ) : null}
+            </span>
+          )}
+        </div>
+      ) : null}
 
       <Tabs value={tab} onValueChange={(v) => navigate(`/resultados/relatorios/${v}`)}>
         <TabsList className="bg-card border border-border flex flex-wrap h-auto gap-1 p-1 w-full justify-start sm:w-auto">
@@ -961,6 +1060,7 @@ export default function Relatorios() {
           </p>
           <TimezoneAlert />
           <DateFilters showSituation />
+          <ReportDimensionStrip className="mb-4" rows={impressionRows} />
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -1225,6 +1325,7 @@ export default function Relatorios() {
           <UsageLimitBar />
           <TimezoneAlert />
           <DateFilters showSituation />
+          <ReportDimensionStrip className="mb-4" rows={clickRows} />
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">

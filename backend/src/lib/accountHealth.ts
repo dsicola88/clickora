@@ -42,7 +42,7 @@ export async function buildAccountHealth(args: {
 }): Promise<AccountHealth> {
   const { userId, rangeStart, rangeEnd, pipelineUser, macroClicksInPeriod } = args;
 
-  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale] = await Promise.all([
+  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits] = await Promise.all([
     systemPrisma.$queryRaw<Array<{ total: bigint; unattr: bigint }>>(Prisma.sql`
       SELECT
         COUNT(*)::bigint AS total,
@@ -73,6 +73,7 @@ export async function buildAccountHealth(args: {
     systemPrisma.conversion.count({
       where: { userId, status: "approved" },
     }),
+    systemPrisma.postbackLog.count({ where: { userId } }).catch(() => 0),
   ]);
 
   const approved = Number(attrRow[0]?.total ?? 0);
@@ -117,12 +118,14 @@ export async function buildAccountHealth(args: {
     },
     {
       id: "postback_configured",
-      ok: anySale > 0 || webhookOk,
+      ok: anySale > 0 || postbackHits > 0,
       title: "Vendas da rede",
       detail:
         anySale > 0
           ? "Já há vendas aprovadas da rede"
-          : "Configure o aviso de vendas em Integrações → Vendas da rede e faça uma venda de teste.",
+          : postbackHits > 0
+            ? "Postback recebido — confirme macros (MaxWeb SUBID2 / Digistore sid1) e uma venda de teste."
+            : "Configure o aviso de vendas em Integrações → Vendas da rede e faça uma venda de teste.",
       href: "/integracoes/postback",
     },
     {

@@ -1,9 +1,24 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
-import { getOpsSnapshot, getRequestId, requestIdMiddleware } from "./opsObservability";
+import {
+  getOpsSnapshot,
+  getRequestId,
+  recordTrackRedirectLatency,
+  requestIdMiddleware,
+} from "./opsObservability";
 
 describe("opsObservability", () => {
+  it("recordTrackRedirectLatency actualiza p95 no snapshot", () => {
+    recordTrackRedirectLatency(10);
+    recordTrackRedirectLatency(20);
+    recordTrackRedirectLatency(400);
+    const snap = getOpsSnapshot();
+    assert.ok(snap.track_redirect.samples >= 3);
+    assert.equal(snap.track_redirect.slo_p95_ms, 400);
+    assert.ok(typeof snap.errors_5xx_window_5m === "number");
+  });
+
   it("requestIdMiddleware define X-Request-Id e contadores", () => {
     const before = getOpsSnapshot().requests;
     const headers: Record<string, string> = {};

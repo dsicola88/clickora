@@ -42,6 +42,13 @@ import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
+import { readBrandKitPro } from "@/lib/brandKitPro";
+import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
+import {
+  PresellPublishReadiness,
+  type PublishReadinessItem,
+} from "@/components/PresellPublishReadiness";
+import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -105,6 +112,9 @@ export default function CreatePresellWizardPage() {
   const [copied, setCopied] = useState(false);
   const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish" | "ab" | "rotator">("idle");
   const [mirrorFidelityOk, setMirrorFidelityOk] = useState(true);
+  const [wizardReadiness, setWizardReadiness] = useState<PublishReadinessItem[]>([]);
+  const [importedImageCount, setImportedImageCount] = useState(0);
+  const [lastMirrorHtmlLen, setLastMirrorHtmlLen] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -270,13 +280,19 @@ export default function CreatePresellWizardPage() {
         contactEmail: imported.data?.source_contact_email,
       };
       const importedProduct = String(imported.data?.product_name || imported.data?.title || "").trim();
+      const brandKit = readBrandKitPro();
       const whiteBusinessName =
         businessName.trim() ||
+        brandKit.brandName.trim() ||
         identityFromSource.businessName ||
         importedProduct ||
         operatorName ||
         campaignName.trim();
-      const whiteContactEmail = contactEmail.trim() || identityFromSource.contactEmail || operatorEmail;
+      const whiteContactEmail =
+        contactEmail.trim() ||
+        brandKit.supportEmail.trim() ||
+        identityFromSource.contactEmail ||
+        operatorEmail;
       if (generationNiche === "white" && (!whiteBusinessName || !whiteContactEmail)) {
         throw new Error(
           "No nicho white, indique um e-mail de contacto público (ou configure «Notificar vendas» no perfil). O nome pode ser o do produto ou o seu como afiliado.",
@@ -316,13 +332,13 @@ export default function CreatePresellWizardPage() {
 
       const a = buildContent(type);
       setGenPhase("publish");
-      const publishStatus = a.mirrorOk ? "published" : "draft";
+      /** Cria em draft → bake CTAs com id real → publica se readiness OK. */
       const { data: pageA, error: errA } = await presellService.create({
         title: a.pageTitle,
         slug,
         type,
         language,
-        status: publishStatus,
+        status: "draft",
         video_url: a.video_url,
         tracking: {
           offerUrl: offer,
@@ -333,8 +349,21 @@ export default function CreatePresellWizardPage() {
         ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
       } as never);
       if (errA || !pageA) throw new Error(errA || "Falha ao criar presell");
-      const complianceBlocked = Boolean((pageA as { compliance_blocked?: boolean }).compliance_blocked);
-      if (complianceBlocked) {
+
+      const pubA = await bakeAndMaybePublishPresell({
+        page: pageA,
+        content: a.content as Record<string, unknown>,
+        affiliateLink: String((a.content as Record<string, unknown>).affiliateLink || offer),
+        wantPublished: a.mirrorOk,
+        publicUrl: getPublicPresellFullUrl(customDomains, pageA.custom_domain_id ?? null, pageA),
+      });
+      const pageALive = pubA.page;
+      const complianceBlocked = pubA.complianceBlocked;
+      if (pubA.block && a.mirrorOk) {
+        toast.warning(`Presell em rascunho: ${pubA.block.label}. ${pubA.block.hint || ""}`.trim(), {
+          duration: 8000,
+        });
+      } else if (complianceBlocked) {
         toast.warning(
           "Presell criada em rascunho: a conformidade publicitária impede a publicação automática. Abra a página e corrija os problemas — a aprovação final depende do Google/Microsoft.",
           { duration: 10000 },
@@ -344,7 +373,7 @@ export default function CreatePresellWizardPage() {
       let pageB: typeof pageA | null = null;
       let rotatorUrl: string | null = null;
 
-      if (enableAbTest && a.mirrorOk) {
+      if (enableAbTest && pubA.published) {
         setGenPhase("ab");
         const typeB = abTypeB === type ? defaultAbPresellTypeB(type, generationNiche) : abTypeB;
         const b = buildContent(typeB);
@@ -354,7 +383,7 @@ export default function CreatePresellWizardPage() {
           slug: slugB,
           type: typeB,
           language,
-          status: b.mirrorOk ? "published" : "draft",
+          status: "draft",
           video_url: b.video_url,
           tracking: {
             offerUrl: offer,
@@ -365,18 +394,25 @@ export default function CreatePresellWizardPage() {
           ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
         } as never);
         if (errB || !createdB) throw new Error(errB || "Falha ao criar variante B");
-        pageB = createdB;
+        const pubB = await bakeAndMaybePublishPresell({
+          page: createdB,
+          content: b.content as Record<string, unknown>,
+          affiliateLink: String((b.content as Record<string, unknown>).affiliateLink || offer),
+          wantPublished: b.mirrorOk,
+          publicUrl: getPublicPresellFullUrl(customDomains, createdB.custom_domain_id ?? null, createdB),
+        });
+        pageB = pubB.page;
 
-        if (b.mirrorOk) {
+        if (pubB.published) {
           setGenPhase("rotator");
-          const urlA = getPublicPresellFullUrl(customDomains, pageA.custom_domain_id ?? null, pageA);
+          const urlA = getPublicPresellFullUrl(customDomains, pageALive.custom_domain_id ?? null, pageALive);
           const urlB = getPublicPresellFullUrl(customDomains, pageB.custom_domain_id ?? null, pageB);
           const rotSlug = `ab-${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-5)}`;
           const { data: rotator, error: rotErr } = await trafficRotatorsService.create({
             name: `A/B · ${titleSeed}`.slice(0, 120),
             slug: rotSlug,
             mode: "weighted",
-            context_presell_id: pageA.id,
+            context_presell_id: pageALive.id,
             is_active: true,
             arms: [
               {
@@ -398,15 +434,22 @@ export default function CreatePresellWizardPage() {
         }
       }
 
+      const imgs = Array.isArray(imported.data?.images) ? imported.data.images.length : 0;
+      const mirrorLen =
+        typeof imported.data?.import_mirror_src_doc === "string"
+          ? imported.data.import_mirror_src_doc.length
+          : 0;
       return {
-        page: pageA,
+        page: pageALive,
         pageB,
-        /** Import OK e servidor efectivamente publicou (não ficou draft por conformidade). */
-        mirrorOk: a.mirrorOk && pageA.status === "published" && !complianceBlocked,
+        mirrorOk: pubA.published,
         importPublishable: a.mirrorOk,
         complianceBlocked,
         rotatorUrl,
         importNotes: imported.data?.import_notes ?? [],
+        readinessItems: pubA.readiness,
+        imageCount: imgs,
+        mirrorHtmlLen: mirrorLen,
       };
     },
     onSuccess: async ({
@@ -417,11 +460,17 @@ export default function CreatePresellWizardPage() {
       complianceBlocked,
       rotatorUrl,
       importNotes,
+      readinessItems,
+      imageCount,
+      mirrorHtmlLen,
     }) => {
       setGenPhase("idle");
       setPresellId(page.id);
       setPresellIdB(pageB?.id ?? null);
       setMirrorFidelityOk(mirrorOk);
+      setWizardReadiness(readinessItems ?? []);
+      setImportedImageCount(imageCount ?? 0);
+      setLastMirrorHtmlLen(mirrorHtmlLen ?? 0);
       const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id ?? null, page);
       setPublicUrl(url);
       setReviewVariant("a");
@@ -980,6 +1029,58 @@ export default function CreatePresellWizardPage() {
               de afiliados.
             </p>
           </div>
+          {wizardReadiness.length ? <PresellPublishReadiness items={wizardReadiness} /> : null}
+          {(() => {
+            const kit = readBrandKitPro();
+            const ctaOk = wizardReadiness.some((i) => i.id === "cta_track" && i.ok);
+            /** Espelho sintetico: length real do import + marker de bake se o gate de CTA passou. */
+            const mirrorProxy =
+              (ctaOk ? '<a href="/api/track/r/baked">cta</a>' : "") +
+              (lastMirrorHtmlLen > 0 ? "m".repeat(Math.min(lastMirrorHtmlLen, 1600)) : "");
+            const elite = buildEliteQualityBar({
+              niche: generationNiche,
+              affiliateLink: offerUrl,
+              status: mirrorFidelityOk ? "published" : "draft",
+              publicUrl,
+              customDomainId: customDomainId || null,
+              businessName,
+              contactEmail,
+              brandKitName: kit.brandName,
+              hasAffiliateDisclosure: true,
+              productImagesCount: importedImageCount,
+              mirrorHtml: mirrorProxy,
+            });
+            return (
+              <div className="rounded-xl border border-border/60 bg-card p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">Qualidade elite (nicho)</h3>
+                  <span
+                    className={`text-[11px] tabular-nums font-medium ${
+                      elite.ready ? "text-emerald-600" : "text-muted-foreground"
+                    }`}
+                  >
+                    {elite.score}%
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {elite.ready
+                    ? "Barra OK para anunciar neste nicho."
+                    : "Complete identidade / CTAs / assets antes de escalar Ads."}
+                </p>
+                <ul className="space-y-1.5">
+                  {elite.items
+                    .filter((i) => !["published", "domain"].includes(i.id))
+                    .slice(0, 6)
+                    .map((i) => (
+                      <li key={i.id} className="flex justify-between gap-2 text-[11px]">
+                        <span className={i.ok ? "text-muted-foreground" : "text-foreground"}>{i.label}</span>
+                        <span className="tabular-nums shrink-0">{i.ok ? "OK" : "—"}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            );
+          })()}
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
               <Link to="/integracoes/postback">Configurar postback agora</Link>

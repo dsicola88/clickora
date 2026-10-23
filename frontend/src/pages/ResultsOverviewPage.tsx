@@ -12,6 +12,7 @@ import { analyticsService } from "@/services/analyticsService";
 import { campaignsService } from "@/services/campaignsService";
 import { rangeToday, previousPeriodOfSameLength } from "@/lib/dateRangePresets";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
+import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { toast } from "sonner";
 import {
@@ -32,7 +33,7 @@ import {
   ProTotalStat,
 } from "@/components/enterprise/ProShell";
 
-type DimId = "offers" | "countries" | "campaigns" | "keywords" | "adgroups" | "devices" | "sources";
+type DimId = "offers" | "countries" | "campaigns" | "keywords" | "adgroups" | "devices" | "sources" | "arms";
 
 type ReportRow = {
   id: string;
@@ -49,6 +50,10 @@ type ReportRow = {
   roi: number | null;
   epc: number | null;
   cvr: number | null;
+  /** Cap do braço do rotador (Fase 2). */
+  cap_pct?: number | null;
+  cap_remaining?: number | null;
+  max_clicks?: number | null;
 };
 
 function money(n: number | null | undefined, currency = "USD") {
@@ -93,6 +98,29 @@ function deviceLabel(d: string) {
   return d;
 }
 
+type ExtraCol = "cost" | "profit" | "roi" | "roas" | "cvr" | "epc";
+const EXTRA_COL_LABELS: Record<ExtraCol, string> = {
+  cost: "Custo",
+  profit: "Lucro",
+  roi: "Retorno",
+  roas: "Retorno do gasto",
+  cvr: "Taxa de venda",
+  epc: "Por visita",
+};
+const ALL_EXTRA_COLS: ExtraCol[] = ["cost", "profit", "roi", "roas", "cvr", "epc"];
+const COLS_STORAGE = "dclickora.results.extraCols";
+
+function readExtraCols(): ExtraCol[] {
+  try {
+    const raw = localStorage.getItem(COLS_STORAGE);
+    if (!raw) return [...ALL_EXTRA_COLS];
+    const parsed = JSON.parse(raw) as string[];
+    return ALL_EXTRA_COLS.filter((c) => parsed.includes(c));
+  } catch {
+    return [...ALL_EXTRA_COLS];
+  }
+}
+
 /** P&L estilo tracker enterprise — dimensões + grelha densa + totais. */
 export default function ResultsOverviewPage() {
   const initial = useMemo(() => rangeToday(), []);
@@ -101,6 +129,22 @@ export default function ResultsOverviewPage() {
   const [compare, setCompare] = useState<{ from: string; to: string } | null>(null);
   const [dim, setDim] = useState<DimId>("offers");
   const [q, setQ] = useState("");
+  const [extraCols, setExtraCols] = useState<ExtraCol[]>(() =>
+    typeof window !== "undefined" ? readExtraCols() : [...ALL_EXTRA_COLS],
+  );
+  const [liveRefresh, setLiveRefresh] = useState(false);
+  const colOn = (c: ExtraCol) => extraCols.includes(c);
+  const toggleCol = (c: ExtraCol) => {
+    setExtraCols((prev) => {
+      const next = prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c];
+      try {
+        localStorage.setItem(COLS_STORAGE, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["dashboard", "results", from, to, compare?.from, compare?.to],
@@ -114,6 +158,7 @@ export default function ResultsOverviewPage() {
       if (error) throw new Error(error);
       return data!;
     },
+    refetchInterval: liveRefresh ? 30_000 : false,
   });
 
   const { data: campaigns = [] } = useQuery({
@@ -127,7 +172,16 @@ export default function ResultsOverviewPage() {
 
   const rowsByDim = useMemo((): Record<DimId, ReportRow[]> => {
     if (!data) {
-      return { offers: [], campaigns: [], keywords: [], adgroups: [], countries: [], devices: [], sources: [] };
+      return {
+        offers: [],
+        campaigns: [],
+        keywords: [],
+        adgroups: [],
+        countries: [],
+        devices: [],
+        sources: [],
+        arms: [],
+      };
     }
     const keywords: ReportRow[] = (data.keyword_performance ?? []).map((r) => ({
       id: r.keyword,
@@ -213,6 +267,26 @@ export default function ResultsOverviewPage() {
       epc: r.epc,
       cvr: r.cvr,
     }));
+    const arms: ReportRow[] = (data.rotator_arm_performance ?? []).map((r) => ({
+      id: r.arm_id,
+      label: r.arm_label,
+      sub:
+        r.max_clicks != null
+          ? `${r.rotator_name} · cap ${r.clicks_delivered}/${r.max_clicks}${r.cap_pct != null ? ` (${r.cap_pct}%)` : ""}`
+          : r.rotator_name,
+      clicks: r.clicks,
+      sales: r.sales,
+      revenue: r.revenue,
+      cost: null,
+      profit: null,
+      roas: null,
+      roi: null,
+      epc: r.epc,
+      cvr: r.cvr,
+      max_clicks: r.max_clicks,
+      cap_pct: r.cap_pct,
+      cap_remaining: r.cap_remaining,
+    }));
     const campaignRows: ReportRow[] = [...campaigns]
       .filter((c) => c.stats && (c.stats.clicks > 0 || c.stats.conversions > 0 || (c.spend_amount ?? 0) > 0))
       .map((c) => {
@@ -247,6 +321,7 @@ export default function ResultsOverviewPage() {
       countries,
       devices,
       sources,
+      arms,
     };
   }, [data, campaigns]);
 
@@ -275,11 +350,12 @@ export default function ResultsOverviewPage() {
     { id: "adgroups", label: "Grupos de anúncios", count: rowsByDim.adgroups.length },
     { id: "devices", label: "Dispositivos", count: rowsByDim.devices.length },
     { id: "sources", label: "Fontes", count: rowsByDim.sources.length },
+    { id: "arms", label: "Braços / caps", count: rowsByDim.arms.length },
   ];
 
   const activeRows = rowsByDim[dim].filter((r) => {
     if (!q.trim()) return true;
-    return r.label.toLowerCase().includes(q.trim().toLowerCase());
+    return r.label.toLowerCase().includes(q.trim().toLowerCase()) || (r.sub || "").toLowerCase().includes(q.trim().toLowerCase());
   });
 
   const showCheckouts = dim === "offers" || dim === "countries";
@@ -291,6 +367,7 @@ export default function ResultsOverviewPage() {
     countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
     devices: "Dispositivo do clique. O custo não é dividido por dispositivo.",
     sources: "Origem do clique, por exemplo Google Ads.",
+    arms: "Braços do rotador no período. Cap = limite do braço vs cliques entregues (lifetime do braço).",
   };
 
   const exportCsv = () => {
@@ -298,12 +375,29 @@ export default function ResultsOverviewPage() {
       toast.message("Sem linhas para exportar.");
       return;
     }
-    const headers = ["nome", "visitantes", "checkouts", "vendas", "receita", "custo", "lucro", "retorno_do_gasto", "retorno", "por_visita", "taxa_de_venda"];
+    const headers = [
+      "nome",
+      "detalhe",
+      "visitantes",
+      "checkouts",
+      "vendas",
+      "receita",
+      "custo",
+      "lucro",
+      "retorno_do_gasto",
+      "retorno",
+      "por_visita",
+      "taxa_de_venda",
+      "cap_pct",
+      "cap_restante",
+      "max_clicks",
+    ];
     const lines = [
       headers.join(","),
       ...activeRows.map((r) =>
         [
           JSON.stringify(r.label),
+          JSON.stringify(r.sub ?? ""),
           r.clicks,
           r.checkouts ?? "",
           r.sales,
@@ -314,6 +408,9 @@ export default function ResultsOverviewPage() {
           r.roi ?? "",
           r.epc ?? "",
           r.cvr ?? "",
+          r.cap_pct ?? "",
+          r.cap_remaining ?? "",
+          r.max_clicks ?? "",
         ].join(","),
       ),
     ];
@@ -377,6 +474,7 @@ export default function ResultsOverviewPage() {
           checks={health.checks}
         />
       ) : null}
+      <TrackPathStatus className="mb-4" />
 
       <ProToolbar>
         <DateRangeFilter
@@ -400,6 +498,15 @@ export default function ResultsOverviewPage() {
         <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void refetch()} disabled={isFetching}>
           <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
           Actualizar
+        </Button>
+        <Button
+          variant={liveRefresh ? "secondary" : "ghost"}
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => setLiveRefresh((v) => !v)}
+          title="Actualiza o painel a cada 30 s"
+        >
+          {liveRefresh ? "Live 30s · on" : "Live 30s"}
         </Button>
         {cmp ? (
           <span className="text-[11px] text-muted-foreground">
@@ -613,6 +720,22 @@ export default function ResultsOverviewPage() {
             />
           </div>
           <p className="flex-1 text-[10px] text-muted-foreground leading-snug min-w-[200px]">{dimHint[dim]}</p>
+          <div className="flex flex-wrap gap-1" title="Colunas opcionais (persistidas neste browser)">
+            {ALL_EXTRA_COLS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => toggleCol(c)}
+                className={`rounded border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors ${
+                  colOn(c)
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border/60 text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                {EXTRA_COL_LABELS[c]}
+              </button>
+            ))}
+          </div>
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportCsv} disabled={!activeRows.length}>
             <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
@@ -651,18 +774,20 @@ export default function ResultsOverviewPage() {
                               ? "País"
                               : dim === "devices"
                                 ? "Dispositivo"
-                                : "Fonte"}
+                                : dim === "arms"
+                                  ? "Braço / cap"
+                                  : "Fonte"}
                     </ProReportTh>
                     <ProReportTh>Visitantes</ProReportTh>
                     {showCheckouts ? <ProReportTh>Checkouts</ProReportTh> : null}
                     <ProReportTh>Vendas</ProReportTh>
                     <ProReportTh>Receita</ProReportTh>
-                    <ProReportTh>Custo</ProReportTh>
-                    <ProReportTh>Lucro</ProReportTh>
-                    <ProReportTh>Retorno</ProReportTh>
-                    <ProReportTh>Retorno do gasto</ProReportTh>
-                    <ProReportTh>Taxa de venda</ProReportTh>
-                    <ProReportTh>Por visita</ProReportTh>
+                    {colOn("cost") ? <ProReportTh>Custo</ProReportTh> : null}
+                    {colOn("profit") ? <ProReportTh>Lucro</ProReportTh> : null}
+                    {colOn("roi") ? <ProReportTh>Retorno</ProReportTh> : null}
+                    {colOn("roas") ? <ProReportTh>Retorno do gasto</ProReportTh> : null}
+                    {colOn("cvr") ? <ProReportTh>Taxa de venda</ProReportTh> : null}
+                    {colOn("epc") ? <ProReportTh>Por visita</ProReportTh> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -689,28 +814,38 @@ export default function ResultsOverviewPage() {
                       {showCheckouts ? <ProReportTd>{(row.checkouts ?? 0).toLocaleString("pt-PT")}</ProReportTd> : null}
                       <ProReportTd>{row.sales.toLocaleString("pt-PT")}</ProReportTd>
                       <ProReportTd tone={row.revenue > 0 ? "positive" : undefined}>{money(row.revenue, currency)}</ProReportTd>
-                      <ProReportTd tone="muted">{row.cost != null ? money(row.cost, currency) : "—"}</ProReportTd>
-                      <ProReportTd
-                        tone={
-                          row.profit != null && row.profit < 0
-                            ? "negative"
-                            : row.profit != null && row.profit > 0
-                              ? "positive"
-                              : "muted"
-                        }
-                      >
-                        {row.profit != null ? money(row.profit, currency) : "—"}
-                      </ProReportTd>
-                      <ProReportTd
-                        tone={
-                          row.roi != null && row.roi < 0 ? "negative" : row.roi != null && row.roi > 0 ? "positive" : "muted"
-                        }
-                      >
-                        {pct(row.roi)}
-                      </ProReportTd>
-                      <ProReportTd>{xNum(row.roas)}</ProReportTd>
-                      <ProReportTd>{pct(row.cvr)}</ProReportTd>
-                      <ProReportTd>{money(row.epc, currency)}</ProReportTd>
+                      {colOn("cost") ? (
+                        <ProReportTd tone="muted">{row.cost != null ? money(row.cost, currency) : "—"}</ProReportTd>
+                      ) : null}
+                      {colOn("profit") ? (
+                        <ProReportTd
+                          tone={
+                            row.profit != null && row.profit < 0
+                              ? "negative"
+                              : row.profit != null && row.profit > 0
+                                ? "positive"
+                                : "muted"
+                          }
+                        >
+                          {row.profit != null ? money(row.profit, currency) : "—"}
+                        </ProReportTd>
+                      ) : null}
+                      {colOn("roi") ? (
+                        <ProReportTd
+                          tone={
+                            row.roi != null && row.roi < 0
+                              ? "negative"
+                              : row.roi != null && row.roi > 0
+                                ? "positive"
+                                : "muted"
+                          }
+                        >
+                          {pct(row.roi)}
+                        </ProReportTd>
+                      ) : null}
+                      {colOn("roas") ? <ProReportTd>{xNum(row.roas)}</ProReportTd> : null}
+                      {colOn("cvr") ? <ProReportTd>{pct(row.cvr)}</ProReportTd> : null}
+                      {colOn("epc") ? <ProReportTd>{money(row.epc, currency)}</ProReportTd> : null}
                     </tr>
                   ))}
                 </tbody>

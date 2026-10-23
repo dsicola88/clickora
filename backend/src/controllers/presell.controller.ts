@@ -536,6 +536,12 @@ export const presellController = {
     const requestedType = typeof req.body.type === "string" ? req.body.type : page.type;
     const safeType = coercePresellTypeForNiche(requestedType || "cookies", niche);
 
+    const requestedStatus =
+      typeof req.body.status === "string" &&
+      ["draft", "published", "paused", "archived"].includes(req.body.status)
+        ? (req.body.status as "draft" | "published" | "paused" | "archived")
+        : undefined;
+
     const data: Record<string, unknown> = {
       ...(req.body.title && { title: req.body.title }),
       ...(req.body.slug && { slug: req.body.slug }),
@@ -574,7 +580,7 @@ export const presellController = {
       data.contentFingerprint = null;
     }
 
-    const updated = await systemPrisma.presellPage.update({
+    let updated = await systemPrisma.presellPage.update({
       where: { id: page.id },
       data: data as Prisma.PresellPageUpdateInput,
     });
@@ -590,8 +596,28 @@ export const presellController = {
       }
     }
 
-    // Já publicada: republicação com gate (exceto editor visual `builder` — fica no ar como Elementor).
-    if (
+    // Transição de estado (ex.: wizard draft→published após bake) — mesma gate que create/toggle.
+    if (requestedStatus && requestedStatus !== updated.status) {
+      if (requestedStatus === "published") {
+        updated = await ensurePresellOperatorIdentityOnPage(updated);
+        const gate = await assertPublishAllowed({ page: updated, runIfStale: true });
+        if (!gate.ok) {
+          // Conteúdo já guardado em draft — 200 para o cliente continuar o fluxo (como create).
+          return res.status(200).json({
+            ...mapPresell(updated),
+            compliance_blocked: true,
+            compliance: gate.body,
+            message:
+              "Alterações guardadas em rascunho. Corrija a conformidade e publique novamente.",
+          });
+        }
+      }
+      updated = await systemPrisma.presellPage.update({
+        where: { id: updated.id },
+        data: { status: requestedStatus },
+      });
+    } else if (
+      // Já publicada: republicação com gate (exceto editor visual `builder` — fica no ar como Elementor).
       page.status === "published" &&
       (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)
     ) {

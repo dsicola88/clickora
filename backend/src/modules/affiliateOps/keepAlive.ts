@@ -14,7 +14,13 @@ export function registerKeepAlivePing(): void {
     );
     return;
   }
-  const url = `${base.replace(/\/+$/, "")}/api/health`;
+  /** Aceita host, …/api ou …/api/health — evita /api/api/health quando API_PUBLIC_URL já inclui /api. */
+  const trimmed = base.replace(/\/+$/, "");
+  const url = /\/api\/health$/i.test(trimmed)
+    ? trimmed
+    : /\/api$/i.test(trimmed)
+      ? `${trimmed}/health`
+      : `${trimmed}/api/health`;
   const ms = Math.max(60_000, Number(process.env.KEEP_ALIVE_INTERVAL_MS || 240_000) || 240_000);
 
   const tick = async () => {

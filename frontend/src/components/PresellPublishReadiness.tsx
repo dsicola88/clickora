@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hrefLooksLikeOfferLink } from "@/lib/presellOfferHrefBake";
 
 export type PublishReadinessItem = {
   id: string;
@@ -48,7 +49,25 @@ export function PresellPublishReadiness({ items, className }: Props) {
   );
 }
 
-/** Heurística partilhada: hoplink + track path no HTML espelhado. */
+function isTrackHref(href: string): boolean {
+  return /\/api\/track\/r\//i.test(href) || /\/track\/r\//i.test(href);
+}
+
+/** Conta hrefs comerciais no HTML que ainda não passam por /track/r/. */
+export function countUntrackedOfferHrefs(html: string, affiliateHref = ""): number {
+  if (!html) return 0;
+  let n = 0;
+  const re = /href\s*=\s*(["'])(.*?)\1/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const href = (m[2] || "").trim();
+    if (!href || isTrackHref(href)) continue;
+    if (hrefLooksLikeOfferLink(href, affiliateHref)) n += 1;
+  }
+  return n;
+}
+
+/** Heurística partilhada: hoplink + CTAs baked no HTML espelhado. */
 export function buildPublishReadinessFromPresell(input: {
   status?: string | null;
   affiliateLink?: string | null;
@@ -58,10 +77,12 @@ export function buildPublishReadinessFromPresell(input: {
 }): PublishReadinessItem[] {
   const link = (input.affiliateLink || "").trim();
   const html = input.mirrorHtml || "";
-  const hasTrack =
+  const hasTrackMarker =
     /\/api\/track\/r\//i.test(html) ||
-    /clickora_click_id|\/track\/r\//i.test(html) ||
-    Boolean(link);
+    /clickora_click_id|\/track\/r\//i.test(html);
+  const untracked = countUntrackedOfferHrefs(html, link);
+  /** Hoplink + zero CTAs comerciais crus (bake no save / wizard). */
+  const ctaOk = Boolean(link) && (!html || untracked === 0);
   return [
     {
       id: "published",
@@ -78,8 +99,13 @@ export function buildPublishReadinessFromPresell(input: {
     {
       id: "cta_track",
       label: "CTAs com tracking",
-      ok: hasTrack,
-      hint: "Os botões devem passar por /api/track/r/ com o click id.",
+      ok: ctaOk,
+      hint:
+        untracked > 0
+          ? `${untracked} link(s) de oferta ainda sem /track/r/ — guarde para bake automático.`
+          : hasTrackMarker
+            ? undefined
+            : "Os botões devem passar por /api/track/r/ com o click id.",
     },
     {
       id: "domain",
@@ -88,4 +114,10 @@ export function buildPublishReadinessFromPresell(input: {
       hint: "Ligue um domínio verificado ou use o link público da app.",
     },
   ];
+}
+
+/** Bloqueia «publicar / anunciar» se oferta ou CTAs falharem (gates duros). */
+export function publishBlockedByReadiness(items: PublishReadinessItem[]): PublishReadinessItem | null {
+  const hard = new Set(["offer", "cta_track"]);
+  return items.find((i) => hard.has(i.id) && !i.ok) ?? null;
 }

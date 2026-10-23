@@ -51,7 +51,12 @@ import { getApiBaseUrl, getTrackApiBaseForPublicPresell, getTrackApiBaseUrl } fr
 import {
   PresellPublishReadiness,
   buildPublishReadinessFromPresell,
+  publishBlockedByReadiness,
 } from "@/components/PresellPublishReadiness";
+import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
+import { readBrandKitPro } from "@/lib/brandKitPro";
+import { bakeMirrorOfferHrefsForPresell } from "@/lib/presellCtaBake";
+import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
@@ -237,9 +242,30 @@ export default function PresellDashboard() {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Presell>) => {
-      const { data: created, error } = await presellService.create(data);
+      const wantPublished = data.status === "published";
+      const { data: created, error } = await presellService.create({
+        ...data,
+        status: "draft",
+      });
       if (error) throw new Error(error);
-      return created;
+      if (!created?.id) return created;
+      const content = { ...((created.content || data.content || {}) as Record<string, unknown>) };
+      const affiliate = String(content.affiliateLink ?? "").trim();
+      const pub = await bakeAndMaybePublishPresell({
+        page: created,
+        content,
+        affiliateLink: affiliate,
+        wantPublished,
+        publicUrl: getPublicPresellFullUrl(customDomains, created.custom_domain_id, created),
+      });
+      if (pub.block && wantPublished) {
+        toast.warning(`Em rascunho: ${pub.block.label}. ${pub.block.hint || ""}`.trim());
+      } else if (wantPublished && pub.complianceBlocked) {
+        toast.warning("Presell em rascunho por conformidade. Abra a página, corrija e publique.", {
+          duration: 8000,
+        });
+      }
+      return pub.page;
     },
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
@@ -579,6 +605,24 @@ export default function PresellDashboard() {
         let mirrorToSave = mirrorHtmlDraft.trim();
         const captured = mirrorVisualPreviewRef.current?.captureDocumentHtml()?.trim();
         if (captured && captured.length > 200) mirrorToSave = captured;
+        if (mirrorToSave.length > 0) {
+          mirrorToSave = bakeMirrorOfferHrefsForPresell(mirrorToSave, editingId, ctaAffiliate);
+        }
+        if (editingPage.status === "published") {
+          const block = publishBlockedByReadiness(
+            buildPublishReadinessFromPresell({
+              status: "published",
+              affiliateLink: ctaAffiliate,
+              mirrorHtml: mirrorToSave || undefined,
+              customDomainId: formData.customDomainId || editingPage.custom_domain_id || null,
+              publicUrl: getPublicPresellFullUrl(customDomains, editingPage.custom_domain_id, editingPage),
+            }),
+          );
+          if (block) {
+            toast.error(`Presell publicada: corrija «${block.label}» antes de guardar. ${block.hint || ""}`.trim());
+            return;
+          }
+        }
         const content = {
           ...prevContent,
           affiliateLink: ctaAffiliate,
@@ -710,8 +754,34 @@ export default function PresellDashboard() {
 
   const handleDelete = (id: string) => setDeleteConfirmId(id);
 
-  const toggleStatus = (page: Presell) => {
+  const toggleStatus = async (page: Presell) => {
     const newStatus = page.status === "published" ? "paused" : "published";
+    if (newStatus === "published") {
+      const content = { ...((page.content || {}) as Record<string, unknown>) };
+      const affiliate = String(content.affiliateLink ?? "").trim();
+      let mirror = typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : "";
+      if (mirror) {
+        mirror = bakeMirrorOfferHrefsForPresell(mirror, page.id, affiliate);
+        content.importMirrorSrcDoc = mirror;
+        const { error } = await presellService.update(page.id, { content } as never);
+        if (error) {
+          toast.error(error);
+          return;
+        }
+      }
+      const items = buildPublishReadinessFromPresell({
+        status: "published",
+        affiliateLink: affiliate,
+        mirrorHtml: mirror || null,
+        customDomainId: page.custom_domain_id || null,
+        publicUrl: getPublicPresellFullUrl(customDomains, page.custom_domain_id, page),
+      });
+      const block = publishBlockedByReadiness(items);
+      if (block) {
+        toast.error(`Não publique ainda: ${block.label}. ${block.hint || ""}`.trim());
+        return;
+      }
+    }
     toggleMutation.mutate({ id: page.id, status: newStatus });
   };
 
@@ -1298,6 +1368,53 @@ export default function PresellDashboard() {
                   : presellUrlPreview.fullUrl || null,
               })}
             />
+
+            {(() => {
+              const kit = readBrandKitPro();
+              const imgs = Array.isArray((editingPage?.content as { productImages?: unknown } | undefined)?.productImages)
+                ? ((editingPage!.content as { productImages: unknown[] }).productImages.length)
+                : 0;
+              const elite = buildEliteQualityBar({
+                niche: formData.generationNiche,
+                affiliateLink: formData.affiliateLink,
+                mirrorHtml: mirrorHtmlDraft || undefined,
+                status: editingPage?.status ?? "draft",
+                customDomainId: formData.customDomainId || editingPage?.custom_domain_id || null,
+                publicUrl: editingPage
+                  ? getPublicPresellFullUrl(customDomains, editingPage.custom_domain_id, editingPage)
+                  : presellUrlPreview.fullUrl || null,
+                businessName: configSettings.businessName,
+                contactEmail: configSettings.contactEmail,
+                brandKitName: kit.brandName,
+                hasAffiliateDisclosure: Boolean(configSettings.affiliateDisclosure),
+                productImagesCount: imgs,
+              });
+              return (
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-foreground">Qualidade elite (nicho)</p>
+                    <span
+                      className={`text-[11px] tabular-nums font-medium ${
+                        elite.ready ? "text-emerald-600" : "text-muted-foreground"
+                      }`}
+                    >
+                      {elite.score}%
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {elite.items
+                      .filter((i) => !["published", "domain"].includes(i.id))
+                      .slice(0, 5)
+                      .map((i) => (
+                        <li key={i.id} className="flex justify-between gap-2 text-[11px]">
+                          <span className={i.ok ? "text-muted-foreground" : "text-foreground"}>{i.label}</span>
+                          <span className="tabular-nums shrink-0">{i.ok ? "OK" : "—"}</span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             <Button
               onClick={handleSave}

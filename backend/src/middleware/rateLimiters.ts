@@ -7,6 +7,8 @@ export const authCredentialLimiter = rateLimit({
   max: 80,
   standardHeaders: true,
   legacyHeaders: false,
+  /** trust proxy é intencional (Vercel/Railway); desactiva o throw ERR_ERL_PERMISSIVE_TRUST_PROXY. */
+  validate: { trustProxy: false },
   message: { error: "Demasiadas tentativas. Tente novamente dentro de alguns minutos." },
 });
 
