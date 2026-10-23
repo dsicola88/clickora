@@ -23,6 +23,16 @@ import {
 } from "@/lib/countryDisplay";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
 import { hasPaidNetworkClickId, resolveTrafficType } from "@/lib/networkClickId";
+import {
+  resolveClickVisitorQuality,
+  type ClickVisitorKind,
+} from "@/lib/clickVisitorQuality";
+
+function visitorSituationClass(kind: ClickVisitorKind): string {
+  if (kind === "real") return "bg-success/10 text-success";
+  if (kind === "bot") return "bg-amber-500/15 text-amber-800 dark:text-amber-300";
+  return "bg-destructive/10 text-destructive";
+}
 
 function CountryCell({ code }: { code: string }) {
   const iso = normalizeIsoCountryCode(code === "—" ? "" : code);
@@ -457,8 +467,10 @@ export default function Relatorios() {
         region: regionParts.length ? regionParts.join(" · ") : "—",
         checkout_page: checkoutFromMeta,
         checkout_host: e.checkout_host || "",
-        status: e.unqualified ? "Não qualificado" : e.is_bot ? (e.bot_label || "Bot") : "OK",
-        statusTitle: e.unqualified_reason || "",
+        ...(() => {
+          const q = resolveClickVisitorQuality(e);
+          return { status: q.label, statusKind: q.kind, statusTitle: q.detail };
+        })(),
       };
     });
   }, [impressionsQuery.data]);
@@ -480,6 +492,7 @@ export default function Relatorios() {
         e.checkout_page ||
         (typeof meta.redirect_to === "string" ? meta.redirect_to : "") ||
         "";
+      const quality = resolveClickVisitorQuality(e);
       return {
         id: e.id,
         ip: e.ip_address || "—",
@@ -500,8 +513,9 @@ export default function Relatorios() {
         region: regionParts.length ? regionParts.join(" · ") : "—",
         checkout_page: checkoutFromMeta,
         checkout_host: e.checkout_host || "",
-        status: e.unqualified ? "Não qualificado" : e.is_bot ? (e.bot_label || "Bot") : "OK",
-        statusTitle: e.unqualified_reason || "",
+        status: quality.label,
+        statusKind: quality.kind,
+        statusTitle: quality.detail,
       };
     });
   }, [clicksQuery.data]);
@@ -774,11 +788,13 @@ export default function Relatorios() {
 
   const TimezoneAlert = () => (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
-      Horários dos eventos em UTC na API; nesta tabela vês a hora local do teu browser ({currentTime}).
-      O país é o de quem clicou. Reino Unido aparece como GB, Austrália como AU. Se a visita passa pela CDN77,
-      usa-se o país que a CDN viu no IP real, ou o país desse IP. O país do nó não entra, nem cidade estimada.
-      Sem o IP de quem clicou e sem o país da CDN, a coluna fica vazia. Um IP que é só o nó aparece como
-      «Não qualificado»: não conta como clique bom e não abre o hoplink.
+      Horários em UTC na API; na tabela vês a hora local do browser ({currentTime}). País = IP de quem
+      clicou (GB = Reino Unido, AU = Austrália).{" "}
+      <span className="text-foreground/80 font-medium">Tipo</span> = origem do anúncio (Pago / Orgânico) —{" "}
+      <em>não</em> diz se é pessoa real.{" "}
+      <span className="text-foreground/80 font-medium">Situação</span>:{" "}
+      <em>Real</em> = sem bot nem cloud; <em>Bot</em> = User-Agent de crawler;{" "}
+      <em>Datacenter (AWS/GCP/…)</em> = IP de cloud/CDN — não conta como clique bom e não abre o hoplink.
     </div>
   );
 
@@ -859,8 +875,8 @@ export default function Relatorios() {
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
             <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = abertura da página ou{" "}
-            <em>Checkout</em>. Tipo: <em>Pago</em> = clique de anúncio; <em>Ads (sem ID)</em> = anúncio sem o
-            identificador do clique; <em>Orgânico</em> = sem anúncio. País é o do visitante.
+            <em>Checkout</em>. Tipo: <em>Pago</em> = anúncio (não prova humano); Situação: <em>Real</em> /{" "}
+            <em>Bot</em> / <em>Datacenter</em>. País é o do visitante.
             O checkout da rede só aparece depois de configurar o aviso de vendas em Integrações.
           </p>
           <TimezoneAlert />
@@ -964,8 +980,17 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Origem
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="Pago = anúncio (gclid/UTM). Não indica se o visitante é humano."
+                        >
                           Tipo
+                        </th>
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="Real = pessoa; Bot = crawler; Datacenter = IP cloud (AWS/GCP/…)."
+                        >
+                          Situação
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           País
@@ -975,9 +1000,6 @@ export default function Relatorios() {
                           title="Estado ou região quando o lookup geo do IP traz esse detalhe; nem sempre há dados — país na coluna ao lado."
                         >
                           Estado / região
-                        </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Situação
                         </th>
                       </tr>
                     </thead>
@@ -1032,28 +1054,26 @@ export default function Relatorios() {
                                 title={
                                   row.type === "Ads (sem ID)"
                                     ? "Anúncio sem o identificador do clique (teste ou link incompleto)"
-                                    : undefined
+                                    : row.type === "Pago"
+                                      ? "Sinais de anúncio (gclid/UTM) — não prova visitante humano"
+                                      : undefined
                                 }
                               >
                                 {row.type}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                title={row.statusTitle || undefined}
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${visitorSituationClass(row.statusKind)}`}
+                              >
+                                {row.status}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">
                               <CountryCell code={row.country} />
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
-                            <td className="py-2.5 px-3">
-                              <span
-                                title={row.statusTitle || undefined}
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                  row.status === "OK"
-                                    ? "bg-success/10 text-success"
-                                    : "bg-warning/10 text-warning"
-                                }`}
-                              >
-                                {row.status}
-                              </span>
-                            </td>
                           </tr>
                         ))
                       )}
@@ -1105,7 +1125,8 @@ export default function Relatorios() {
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
                 Cliques no período.{" "}
                 <span className="text-foreground/80">
-                  Checkout Page = hoplink para onde o visitante foi enviado (não é o contador «Checkout Visitors» do BuyGoods).
+                  Checkout Page = hoplink. Tipo = anúncio pago/orgânico. Situação = Real / Bot / Datacenter
+                  (AWS…). «Pago» + «Datacenter» = bot em cloud com parâmetros de Ads — não é comprador.
                 </span>
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
@@ -1177,8 +1198,17 @@ export default function Relatorios() {
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Origem
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="Pago = anúncio (gclid/UTM). Não indica se o visitante é humano."
+                        >
                           Tipo
+                        </th>
+                        <th
+                          className="text-left py-3 px-3 font-medium text-muted-foreground"
+                          title="Real = pessoa; Bot = crawler; Datacenter = IP cloud (AWS/GCP/…)."
+                        >
+                          Situação
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           País
@@ -1188,9 +1218,6 @@ export default function Relatorios() {
                           title="Estado ou região quando o lookup geo do IP traz esse detalhe; nem sempre há dados — país na coluna ao lado."
                         >
                           Estado / região
-                        </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Situação
                         </th>
                       </tr>
                     </thead>
@@ -1242,28 +1269,26 @@ export default function Relatorios() {
                                 title={
                                   row.type === "Ads (sem ID)"
                                     ? "Anúncio sem o identificador do clique (teste ou link incompleto)"
-                                    : undefined
+                                    : row.type === "Pago"
+                                      ? "Sinais de anúncio (gclid/UTM) — não prova visitante humano"
+                                      : undefined
                                 }
                               >
                                 {row.type}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                title={row.statusTitle || undefined}
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${visitorSituationClass(row.statusKind)}`}
+                              >
+                                {row.status}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">
                               <CountryCell code={row.country} />
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
-                            <td className="py-2.5 px-3">
-                              <span
-                                title={row.statusTitle || undefined}
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                  row.status === "OK"
-                                    ? "bg-success/10 text-success"
-                                    : "bg-warning/10 text-warning"
-                                }`}
-                              >
-                                {row.status}
-                              </span>
-                            </td>
                           </tr>
                         ))
                       )}
