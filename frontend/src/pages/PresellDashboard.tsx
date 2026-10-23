@@ -48,6 +48,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
 import { getApiBaseUrl, getTrackApiBaseForPublicPresell, getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import {
+  PresellPublishReadiness,
+  buildPublishReadinessFromPresell,
+} from "@/components/PresellPublishReadiness";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
@@ -1282,6 +1286,18 @@ export default function PresellDashboard() {
                 surface="dashboard"
               />
             </div>
+
+            <PresellPublishReadiness
+              items={buildPublishReadinessFromPresell({
+                status: editingPage?.status ?? "draft",
+                affiliateLink: formData.affiliateLink,
+                mirrorHtml: mirrorHtmlDraft || undefined,
+                customDomainId: formData.customDomainId || editingPage?.custom_domain_id || null,
+                publicUrl: editingPage
+                  ? getPublicPresellFullUrl(customDomains, editingPage.custom_domain_id, editingPage)
+                  : presellUrlPreview.fullUrl || null,
+              })}
+            />
 
             <Button
               onClick={handleSave}

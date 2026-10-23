@@ -11,6 +11,7 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { analyticsService } from "@/services/analyticsService";
 import { campaignsService } from "@/services/campaignsService";
 import { rangeToday, previousPeriodOfSameLength } from "@/lib/dateRangePresets";
+import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { toast } from "sonner";
 import {
@@ -368,6 +369,14 @@ export default function ResultsOverviewPage() {
           </Button>
         }
       />
+
+      {health ? (
+        <AttributionHealthBanner
+          className="mb-4"
+          attribution={health.attribution}
+          checks={health.checks}
+        />
+      ) : null}
 
       <ProToolbar>
         <DateRangeFilter

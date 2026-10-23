@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Search, RotateCcw, Download } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search, RotateCcw, Download, Ban } from "lucide-react";
+import { integrationsService } from "@/services/integrationsService";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -225,8 +226,25 @@ export default function Relatorios() {
   const [searchTerm, setSearchTerm] = useState("");
   const [platform, setPlatform] = useState("all");
   const [gclidFilter, setGclidFilter] = useState("");
+  /** all | real | bot | datacenter */
+  const [situationFilter, setSituationFilter] = useState<string>("all");
   const [perPage, setPerPage] = useState("25");
   const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
+  const blockIpMutation = useMutation({
+    mutationFn: async (ip: string) => {
+      const { error } = await integrationsService.addBlacklist({
+        ip,
+        reason: "Bloqueio manual a partir dos relatórios",
+      });
+      if (error) throw new Error(error);
+    },
+    onSuccess: () => {
+      toast.success("IP adicionado à blacklist (bloqueio manual).");
+      void queryClient.invalidateQueries({ queryKey: ["integrations-blacklist"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Não foi possível bloquear o IP."),
+  });
   const [exporting, setExporting] = useState<
     null | "impression" | "click" | "conversions" | "no-gclid" | "google-ads"
   >(null);
@@ -605,38 +623,60 @@ export default function Relatorios() {
     return { slice, total, pages, page: p };
   };
 
+  const filterBySituation = <T extends { statusKind: ClickVisitorKind }>(rows: T[]) => {
+    if (!situationFilter || situationFilter === "all") return rows;
+    return rows.filter((r) => r.statusKind === situationFilter);
+  };
+
+  const situationCounts = useMemo(() => {
+    const rows = tab === "cliques" ? clickRows : impressionRows;
+    const c = { real: 0, bot: 0, datacenter: 0 };
+    for (const r of rows) {
+      if (r.statusKind === "real") c.real += 1;
+      else if (r.statusKind === "bot") c.bot += 1;
+      else if (r.statusKind === "datacenter") c.datacenter += 1;
+    }
+    return c;
+  }, [tab, clickRows, impressionRows]);
+
   const accessDisplay = paginate(
-    filterBySearch(impressionRows, [
-      "ip",
-      "eventLabel",
-      "keyword",
-      "utm_campaign",
-      "utm_content",
-      "device",
-      "country",
-      "region",
-      "origin",
-      "type",
-      "checkout_page",
-      "checkout_host",
-    ]),
+    filterBySituation(
+      filterBySearch(impressionRows, [
+        "ip",
+        "eventLabel",
+        "keyword",
+        "utm_campaign",
+        "utm_content",
+        "device",
+        "country",
+        "region",
+        "origin",
+        "type",
+        "status",
+        "checkout_page",
+        "checkout_host",
+      ]),
+    ),
   );
   const clickDisplay = paginate(
-    filterBySearch(clickRows, [
-      "ip",
-      "clickId",
-      "eventLabel",
-      "keyword",
-      "utm_campaign",
-      "utm_content",
-      "device",
-      "country",
-      "region",
-      "origin",
-      "type",
-      "checkout_page",
-      "checkout_host",
-    ]),
+    filterBySituation(
+      filterBySearch(clickRows, [
+        "ip",
+        "clickId",
+        "eventLabel",
+        "keyword",
+        "utm_campaign",
+        "utm_content",
+        "device",
+        "country",
+        "region",
+        "origin",
+        "type",
+        "status",
+        "checkout_page",
+        "checkout_host",
+      ]),
+    ),
   );
   const convDisplay = paginate(
     filterBySearch(
@@ -807,9 +847,39 @@ export default function Relatorios() {
     </div>
   );
 
-  const DateFilters = ({ showPlatformGclid }: { showPlatformGclid?: boolean }) => (
+  const DateFilters = ({
+    showPlatformGclid,
+    showSituation,
+  }: {
+    showPlatformGclid?: boolean;
+    showSituation?: boolean;
+  }) => (
     <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
       <div className="flex flex-col lg:flex-row flex-wrap items-end gap-4">
+        {showSituation ? (
+          <div className="space-y-2 min-w-[180px]">
+            <Label>Situação</Label>
+            <Select
+              value={situationFilter}
+              onValueChange={(v) => {
+                setSituationFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Situação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  Todas ({situationCounts.real + situationCounts.bot + situationCounts.datacenter})
+                </SelectItem>
+                <SelectItem value="real">Real ({situationCounts.real})</SelectItem>
+                <SelectItem value="bot">Bot / Crawler ({situationCounts.bot})</SelectItem>
+                <SelectItem value="datacenter">Datacenter ({situationCounts.datacenter})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         {showPlatformGclid ? (
           <>
             <div className="space-y-2 min-w-[180px]">
@@ -890,7 +960,7 @@ export default function Relatorios() {
             O checkout da rede só aparece depois de configurar o aviso de vendas em Integrações.
           </p>
           <TimezoneAlert />
-          <DateFilters />
+          <DateFilters showSituation />
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -1011,12 +1081,13 @@ export default function Relatorios() {
                         >
                           Estado / região
                         </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
                       {accessDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1084,6 +1155,31 @@ export default function Relatorios() {
                               <CountryCell code={row.country} />
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
+                            <td className="py-2.5 px-3">
+                              {row.ip && row.ip !== "—" ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                                  title="Bloquear este IP (blacklist manual)"
+                                  disabled={blockIpMutation.isPending}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Bloquear ${row.ip} na blacklist? O hoplink deixa de abrir para este IP.`,
+                                      )
+                                    ) {
+                                      blockIpMutation.mutate(row.ip);
+                                    }
+                                  }}
+                                >
+                                  <Ban className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
                           </tr>
                         ))
                       )}
@@ -1128,7 +1224,7 @@ export default function Relatorios() {
         <TabsContent value="cliques" className="mt-6 space-y-4">
           <UsageLimitBar />
           <TimezoneAlert />
-          <DateFilters />
+          <DateFilters showSituation />
 
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
@@ -1229,12 +1325,13 @@ export default function Relatorios() {
                         >
                           Estado / região
                         </th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
                       {clickDisplay.slice.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
+                          <td colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
                             Nenhum registo a mostrar neste intervalo.
                           </td>
                         </tr>
@@ -1299,6 +1396,31 @@ export default function Relatorios() {
                               <CountryCell code={row.country} />
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs">{row.region}</td>
+                            <td className="py-2.5 px-3">
+                              {row.ip && row.ip !== "—" ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                                  title="Bloquear este IP (blacklist manual)"
+                                  disabled={blockIpMutation.isPending}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Bloquear ${row.ip} na blacklist? O hoplink deixa de abrir para este IP.`,
+                                      )
+                                    ) {
+                                      blockIpMutation.mutate(row.ip);
+                                    }
+                                  }}
+                                >
+                                  <Ban className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
                           </tr>
                         ))
                       )}

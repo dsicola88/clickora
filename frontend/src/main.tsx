@@ -1,8 +1,10 @@
 import { createRoot } from "react-dom/client";
 import { startPublicPresellPrefetchFromLocation } from "@/lib/publicPresellEarlyPrefetch";
+import { initFrontendSentry } from "@/lib/sentryInit";
 import App from "./App.tsx";
 import "./index.css";
 
+void initFrontendSentry();
 startPublicPresellPrefetchFromLocation();
 
 /** Restaura tema claro/escuro da app (Configurações) antes do 1.º paint. */

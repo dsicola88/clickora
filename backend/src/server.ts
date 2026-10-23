@@ -38,9 +38,16 @@ import { optimizerEnabled } from "./paid/optimizer/config";
 import { registerPaidOptimizerScheduler } from "./paid/optimizer/scheduler";
 import { registerAffiliateOpsScheduler } from "./modules/affiliateOps/scheduler";
 import { registerKeepAlivePing } from "./modules/affiliateOps/keepAlive";
+import {
+  getOpsSnapshot,
+  getRequestId,
+  initOpsObservability,
+  requestIdMiddleware,
+} from "./lib/opsObservability";
 
 initWebPushFromEnv();
 logR2EnvStatus();
+initOpsObservability();
 
 const app = express();
 /** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */
@@ -53,6 +60,7 @@ app.use(
     contentSecurityPolicy: false,
   }),
 );
+app.use(requestIdMiddleware);
 const PORT = process.env.PORT || 3001;
 
 /**
@@ -243,9 +251,14 @@ app.use("/api/paid", paidOauthPublicRouter);
 app.use("/api/paid", paidRouter);
 app.use("/api/public", publicRouter);
 
-// Health check
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+// Health check (+ ops snapshot Fase 0)
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    request_id: getRequestId(req),
+    ops: getOpsSnapshot(),
+  });
 });
 
 // ========================

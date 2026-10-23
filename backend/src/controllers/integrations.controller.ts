@@ -19,6 +19,7 @@ import {
 } from "../lib/affiliatePlatforms/parseAffiliatePostback";
 import { recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 import { extractClientIp } from "../lib/clientIp";
+import { notifyUnattributedSale } from "../lib/opsObservability";
 import {
   bootstrapGoogleAdsAfterOAuth,
   getGoogleAdsApiClientConfigFromEnv,
@@ -827,6 +828,15 @@ export const integrationsController = {
         payload: payloadLog as Prisma.InputJsonValue,
       },
     });
+
+    if (conversionResult === "created_unattributed") {
+      void notifyUnattributedSale({
+        userId: user.id,
+        platform,
+        orderId: externalOrderId ?? null,
+        reason: unattributedReason,
+      });
+    }
 
     return res.status(200).json({
       ok: true,

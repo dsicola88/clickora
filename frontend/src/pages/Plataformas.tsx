@@ -43,6 +43,7 @@ import {
 } from "@/lib/saleChime";
 import { currentPhonePushSupport, hasLocalWebPushSubscription, subscribeToWebPush } from "@/lib/webPushClient";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
+import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 
 export default function Plataformas() {
   const { user, refreshUser, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
@@ -523,6 +524,7 @@ export default function Plataformas() {
                   Testar ligação
                 </Button>
               </div>
+              <PostbackMacroChecklist postbackUrl={examplePostbackUrl} platform={selected} />
               {testPostback.data ? (
                 <div
                   className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${

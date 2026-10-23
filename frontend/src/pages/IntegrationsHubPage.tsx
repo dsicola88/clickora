@@ -18,6 +18,7 @@ import {
   ProStatusDot,
   ProInlineLink,
 } from "@/components/enterprise/ProShell";
+import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 
 /**
  * Hub Integrações — go-live operativo para media buyers.
@@ -80,6 +81,10 @@ export default function IntegrationsHubPage() {
           ) : null
         }
       />
+
+      {health ? (
+        <AttributionHealthBanner attribution={health.attribution} checks={health.checks} />
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <ProPanel title="Go-live" description="Estado real da conta (últimos 14 dias).">

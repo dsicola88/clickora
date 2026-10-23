@@ -529,6 +529,15 @@ export default function Rotadores() {
         </div>
       ) : null}
 
+      <div className="rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 text-sm mb-4 space-y-1.5">
+        <p className="font-medium text-foreground text-sm">Árvore estilo tracker (lander → oferta)</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Anúncio → <strong className="text-foreground/90">URL do rotador</strong> → braços (presells / pesos / geo /
+          device) → cada braço com hoplink. Use modo <em>ponderado</em> para A/B; caps em{" "}
+          <em>preenchimento</em> para esgotar um destino antes do seguinte. Conversões ligam-se à presell do braço.
+        </p>
+      </div>
+
       <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground mb-6 space-y-2">
         <p>
           <strong className="text-foreground/90">URL público:</strong>{" "}

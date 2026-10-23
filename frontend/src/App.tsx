@@ -29,6 +29,7 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Logs = lazy(() => import("./pages/Logs"));
 const Plans = lazy(() => import("./pages/Plans"));
+const AgencyReadyPage = lazy(() => import("./pages/AgencyReadyPage"));
 const LandingRoot = lazy(() =>
   import("./components/LandingRoot").then((m) => ({ default: m.LandingRoot })),
 );
@@ -92,6 +93,8 @@ function BrandingFaviconGate() {
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
   { path: "/aulas", element: <LessonsPage /> },
+  { path: "/agency", element: <AgencyReadyPage /> },
+  { path: "/pronto-agency", element: <AgencyReadyPage /> },
   { path: "/ajuda", element: <InAppUserGuidePage /> },
   { path: "/conta", element: <Account /> },
   { path: "/admin", element: <AdminEntryRedirect /> },

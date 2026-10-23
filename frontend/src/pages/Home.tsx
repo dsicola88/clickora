@@ -11,6 +11,7 @@ import { presellService } from "@/services/presellService";
 import { useAuth } from "@/contexts/AuthContext";
 import { rangeToday } from "@/lib/dateRangePresets";
 import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
+import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 
 /**
  * Início: KPIs da conta com filtro de datas · atalho para P&L.
@@ -113,6 +114,13 @@ export default function Home() {
           }}
         />
       </div>
+
+      {!loadingDash && dash?.account_health ? (
+        <AttributionHealthBanner
+          attribution={dash.account_health.attribution}
+          checks={dash.account_health.checks}
+        />
+      ) : null}
 
       {loadingDash ? (
         <LoadingState message="A carregar resultados…" />

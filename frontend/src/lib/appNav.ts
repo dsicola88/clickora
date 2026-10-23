@@ -61,6 +61,13 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["guia", "tutorial", "aprender", "help", "lições", "licoes"],
   },
   {
+    title: "Pronto Agency",
+    url: "/agency",
+    icon: Rocket,
+    group: "principal",
+    keywords: ["agency", "profissional", "voluum", "renome", "onboarding"],
+  },
+  {
     title: "Presells",
     url: "/presells",
     icon: FileText,
