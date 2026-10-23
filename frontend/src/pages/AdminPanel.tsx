@@ -850,10 +850,13 @@ export default function AdminPanel() {
           {isSuperAdmin ? (
             <>
               <PlansLandingEditor onInvalidateAdmin={invalidateAdmin} />
-              <p className="text-sm text-muted-foreground max-w-2xl">
-                Como super administrador pode alterar preços e limites em tempo real. As alterações aplicam-se a novas faturações e à verificação de
-                limites dos utilizadores.
-              </p>
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+                <p className="text-sm font-medium text-foreground">Preços e limites dos planos</p>
+                <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
+                  Ajuste valores e quotas em tempo real. Aplicam-se a novas faturações e à verificação de limites dos
+                  utilizadores.
+                </p>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {plans.map((p) => (
                   <PlanEditorCard

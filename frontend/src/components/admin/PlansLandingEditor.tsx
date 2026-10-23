@@ -28,7 +28,14 @@ import {
   GripVertical,
   Loader2,
   BadgeCheck,
+  ExternalLink,
+  ListOrdered,
+  Palette,
+  Layers,
+  AlignLeft,
+  Tag,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { PlansLandingHeroBlock } from "@/components/plans/PlansLandingHeroBlock";
 import {
@@ -214,6 +221,31 @@ const OPT_HERO_FOCAL = [
   { value: "center", label: "Centro" },
   { value: "top", label: "Topo (cabeças / horizonte)" },
   { value: "bottom", label: "Baixo" },
+];
+
+type LandingEditorTab =
+  | "structure"
+  | "hero"
+  | "typography"
+  | "sales"
+  | "media"
+  | "copy"
+  | "labels"
+  | "builder";
+
+const LANDING_EDITOR_TABS: {
+  id: LandingEditorTab;
+  label: string;
+  icon: typeof LayoutTemplate;
+}[] = [
+  { id: "structure", label: "Estrutura", icon: ListOrdered },
+  { id: "hero", label: "Hero", icon: AlignLeft },
+  { id: "typography", label: "Tipografia", icon: Type },
+  { id: "sales", label: "Tema", icon: Palette },
+  { id: "media", label: "Imagem", icon: ImageIcon },
+  { id: "copy", label: "Textos", icon: Layers },
+  { id: "labels", label: "Etiquetas", icon: Tag },
+  { id: "builder", label: "Blocos", icon: LayoutTemplate },
 ];
 
 const THEME_FIELD_ROWS: { key: keyof LandingPageThemeInput; label: string; placeholder: string }[] = [
@@ -403,6 +435,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [footerTextAlign, setFooterTextAlign] = useState("center");
   const [footerTextSize, setFooterTextSize] = useState("sm");
   const [saving, setSaving] = useState(false);
+  const [editorTab, setEditorTab] = useState<LandingEditorTab>("hero");
   const [planLabels, setPlanLabels] = useState<Record<string, string>>(() => mergeWithDefaultLabels(undefined));
   const [heroVisual, setHeroVisual] = useState<PlansHeroVisual>(() => ({ ...DEFAULT_PLANS_HERO_VISUAL }));
 
@@ -1224,10 +1257,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   if (isLoading) {
     return (
-      <Card className="border-primary/15">
-        <CardHeader>
-          <CardTitle className="text-lg">Landing da página de planos</CardTitle>
-          <CardDescription>A carregar…</CardDescription>
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader className="py-4">
+          <CardTitle className="text-base">Página de vendas</CardTitle>
+          <CardDescription>A carregar o editor…</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -1235,12 +1268,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   if (isError || !data) {
     return (
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <CardTitle className="text-lg">Landing da página de planos</CardTitle>
+      <Card className="border-destructive/30 shadow-sm">
+        <CardHeader className="py-4">
+          <CardTitle className="text-base">Página de vendas</CardTitle>
           <CardDescription>Não foi possível carregar a configuração.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 pb-4">
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
             Tentar novamente
           </Button>
@@ -1251,118 +1284,323 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
   const previewAt = data.updated_at;
 
-  return (
-    <div className="space-y-6">
-    <Card className="border-primary/20 shadow-sm">
-      <CardHeader className="border-b border-border/60 bg-muted/20">
-        <CardTitle className="text-lg">Ordem e visibilidade das secções</CardTitle>
-        <CardDescription>
-          A primeira entrada da lista corresponde ao bloco mais acima na página (logo após o texto introdutório); use Subir/Descer para
-          alterar. Defina também se cada secção fica visível. «Planos» pode ficar oculto só se não quiser mostrar preços aqui.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2 p-4">
-        {sectionOrder.map((id, index) => (
-          <div
-            key={id}
-            className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/10 px-3 py-2"
-          >
-            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
-              {LANDING_SECTION_LABELS[id]}
-            </span>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground whitespace-nowrap">Mostrar</Label>
-              <Switch
-                checked={sectionsEnabled[id]}
-                onCheckedChange={(v) =>
-                  setSectionsEnabled((prev) => ({ ...prev, [id]: v }))
-                }
-              />
-            </div>
-            <div className="flex items-center gap-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={index === 0}
-                onClick={() => moveSectionInOrder(index, -1)}
-                aria-label="Subir"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={index >= sectionOrder.length - 1}
-                onClick={() => moveSectionInOrder(index, 1)}
-                aria-label="Descer"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-
-    <Card className="overflow-hidden border-primary/20 shadow-sm">
-      <CardHeader className="border-b border-border/60 bg-muted/30">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <LayoutTemplate className="h-5 w-5 text-primary" />
-              Landing da página de planos
-            </CardTitle>
-            <CardDescription className="mt-1 max-w-2xl">
-              Textos (subtítulo, intro e rodapé suportam Markdown para negrito, listas, ligações e imagens por URL), imagem,
-              tipografia e efeitos visuais do hero (overlay, zoom, parallax, botão, animação de entrada). A pré-visualização
-              replica a <span className="font-medium text-foreground">página inicial</span> (
-              <span className="font-medium text-foreground">/</span>
-              ); <span className="font-medium text-foreground">/plans</span> e <span className="font-medium text-foreground">/planos</span>{" "}
-              redirecionam para lá.
-            </CardDescription>
-          </div>
-          <Button type="button" className="gap-2 shrink-0" disabled={saving} onClick={() => saveTexts()}>
-            <Save className="h-4 w-4" />
-            Guardar
-          </Button>
+  const previewPane = (
+    <div className="flex h-full min-h-0 flex-col bg-muted/25">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          Pré-visualização
         </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="grid gap-0 lg:grid-cols-2">
-          <div className="space-y-5 p-6 lg:border-r border-border/60">
-            <div className="space-y-2">
-              <Label htmlFor="pl-badge">Selo / etiqueta (opcional)</Label>
-              <Input
-                id="pl-badge"
-                placeholder="Ex.: Planos e preços"
-                value={badgeText}
-                onChange={(e) => setBadgeText(e.target.value)}
-                maxLength={80}
+        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-[11px]" asChild>
+          <Link to="/" target="_blank" rel="noreferrer">
+            Abrir site
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </Button>
+      </div>
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3",
+          appearance === "sales_dark" ? "shadow-inner" : "bg-background/60",
+        )}
+      >
+        <LandingPageThemeProvider value={appearance === "sales_dark" ? previewSalesThemed : null}>
+          <div
+            className={cn(
+              "overflow-hidden rounded-lg border border-border/50",
+              appearance === "sales_dark" && "min-h-[200px]",
+            )}
+            style={
+              appearance === "sales_dark"
+                ? {
+                    backgroundColor: previewSalesThemed.page_background,
+                    color: previewSalesThemed.heading_on_dark,
+                  }
+                : undefined
+            }
+          >
+            <div className="p-2.5">
+              <HeroPreview
+                badgeText={badgeText}
+                heroTitle={heroTitle || "…"}
+                heroSubtitle={heroSubtitle}
+                hasImage={data.has_hero_image}
+                imageUpdatedAt={previewAt}
+                heroFont={heroFont}
+                heroTextAlign={heroTextAlign}
+                heroTitleSize={heroTitleSize}
+                heroTitleWeight={heroTitleWeight}
+                heroSubtitleSize={heroSubtitleSize}
+                heroVisual={heroVisual}
+                textStyles={previewExtras.text_styles ?? undefined}
+                salesTone={appearance === "sales_dark"}
+                landingTheme={appearance === "sales_dark" ? landingTheme : null}
+                className={cn(
+                  "mb-0 border-border/80 shadow-inner",
+                  appearance === "sales_dark" ? "bg-white/[0.06]" : "bg-muted/20",
+                )}
               />
+              {introText.trim() ? (
+                <div
+                  className={cn(
+                    "mt-3 rounded-lg border border-border/60 bg-card/80 p-3",
+                    resolvedIntroClasses(
+                      {
+                        intro_font: introFont,
+                        intro_text_align: introTextAlign,
+                        intro_text_size: introTextSize,
+                      },
+                      previewExtras.text_styles?.intro,
+                      {
+                        omitColor:
+                          appearance === "sales_dark" || Boolean(previewExtras.text_styles?.intro?.color?.trim()),
+                      },
+                    ),
+                  )}
+                  style={landingTextStyleColorStyle(previewExtras.text_styles?.intro)}
+                >
+                  <LandingMarkdown
+                    content={introText}
+                    surface={
+                      appearance === "sales_dark" && !previewExtras.text_styles?.intro?.color?.trim()
+                        ? "dark_page"
+                        : "inherit"
+                    }
+                    salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                    colorOverrides={
+                      previewExtras.text_styles?.intro?.color?.trim() && previewSalesThemed
+                        ? {
+                            body: previewExtras.text_styles.intro.color!.trim(),
+                            heading: previewExtras.text_styles.intro.color!.trim(),
+                            link: previewSalesThemed.link,
+                            border: previewSalesThemed.nav_border,
+                          }
+                        : null
+                    }
+                  />
+                </div>
+              ) : (
+                <p className="mt-3 text-[11px] italic text-muted-foreground">Sem texto introdutório.</p>
+              )}
+              <div className="mt-3">
+                <LandingPageBodySections
+                  extras={previewExtras}
+                  plans={previewPlans}
+                  planLabels={mergeWithDefaultLabels(planLabels)}
+                  userPlan={null}
+                  previewMode
+                  onSelectPlan={() => {}}
+                />
+              </div>
+              {footerText.trim() ? (
+                <div
+                  className={cn(
+                    "mt-4 rounded-md border border-dashed border-border/80 bg-muted/30 p-2.5",
+                    resolvedFooterClasses(
+                      {
+                        footer_font: footerFont,
+                        footer_text_align: footerTextAlign,
+                        footer_text_size: footerTextSize,
+                      },
+                      previewExtras.text_styles?.footer,
+                      {
+                        omitColor:
+                          appearance === "sales_dark" ||
+                          Boolean(previewExtras.text_styles?.footer?.color?.trim()),
+                      },
+                    ),
+                  )}
+                  style={landingTextStyleColorStyle(previewExtras.text_styles?.footer)}
+                >
+                  <LandingMarkdown
+                    content={footerText}
+                    surface={
+                      appearance === "sales_dark" && !previewExtras.text_styles?.footer?.color?.trim()
+                        ? "dark_page"
+                        : "inherit"
+                    }
+                    salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
+                    colorOverrides={
+                      previewExtras.text_styles?.footer?.color?.trim() && previewSalesThemed
+                        ? {
+                            body: previewExtras.text_styles.footer.color!.trim(),
+                            heading: previewExtras.text_styles.footer.color!.trim(),
+                            link: previewSalesThemed.link,
+                            border: previewSalesThemed.nav_border,
+                          }
+                        : null
+                    }
+                  />
+                </div>
+              ) : null}
+              <div className="mt-4">
+                <SalesLandingLegalFooter extras={previewExtras} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="pl-title">Título principal</Label>
-              <Input id="pl-title" value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} maxLength={200} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pl-sub">Subtítulo</Label>
-              <Textarea
-                id="pl-sub"
-                rows={3}
-                placeholder="Uma frase que explica o valor dos planos…"
-                value={heroSubtitle}
-                onChange={(e) => setHeroSubtitle(e.target.value)}
-                className="resize-y min-h-[72px]"
-              />
-              {MARKDOWN_HINT}
-            </div>
+          </div>
+        </LandingPageThemeProvider>
+      </div>
+    </div>
+  );
 
-            <div className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-4">
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      <div className="sticky top-0 z-20 border-b border-border/70 bg-card/95 backdrop-blur-md supports-[backdrop-filter]:bg-card/90">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
+              <LayoutTemplate className="h-4 w-4 text-primary" />
+              Página de vendas
+            </h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Edite por secção · pré-visualização ao vivo · altera a página inicial (/)
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+              <Link to="/" target="_blank" rel="noreferrer">
+                Ver página
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={saving}
+              onClick={() => void saveTexts()}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Guardar
+            </Button>
+          </div>
+        </div>
+        <div className="flex gap-1 overflow-x-auto px-3 pb-2.5 scrollbar-thin">
+          {LANDING_EDITOR_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = editorTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setEditorTab(tab.id)}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid min-h-[min(72vh,820px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
+        <div className="min-w-0 border-b border-border/60 xl:border-b-0 xl:border-r">
+          <div className="max-h-[min(72vh,820px)] space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
+            {editorTab === "structure" ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Ordem e visibilidade</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    A primeira entrada fica logo após o texto introdutório. «Planos» só deve ficar oculto se não quiser
+                    mostrar preços nesta página.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  {sectionOrder.map((id, index) => (
+                    <div
+                      key={id}
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/10 px-2.5 py-1.5"
+                    >
+                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
+                        {LANDING_SECTION_LABELS[id]}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-[11px] text-muted-foreground whitespace-nowrap">Mostrar</Label>
+                        <Switch
+                          checked={sectionsEnabled[id]}
+                          onCheckedChange={(v) =>
+                            setSectionsEnabled((prev) => ({ ...prev, [id]: v }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={index === 0}
+                          onClick={() => moveSectionInOrder(index, -1)}
+                          aria-label="Subir"
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={index >= sectionOrder.length - 1}
+                          onClick={() => moveSectionInOrder(index, 1)}
+                          aria-label="Descer"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {editorTab === "hero" ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pl-badge">Selo / etiqueta (opcional)</Label>
+                  <Input
+                    id="pl-badge"
+                    placeholder="Ex.: Planos e preços"
+                    value={badgeText}
+                    onChange={(e) => setBadgeText(e.target.value)}
+                    maxLength={80}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pl-title">Título principal</Label>
+                  <Input
+                    id="pl-title"
+                    value={heroTitle}
+                    onChange={(e) => setHeroTitle(e.target.value)}
+                    maxLength={200}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pl-sub">Subtítulo</Label>
+                  <Textarea
+                    id="pl-sub"
+                    rows={3}
+                    placeholder="Uma frase que explica o valor dos planos…"
+                    value={heroSubtitle}
+                    onChange={(e) => setHeroSubtitle(e.target.value)}
+                    className="min-h-[72px] resize-y"
+                  />
+                  {MARKDOWN_HINT}
+                </div>
+              </div>
+            ) : null}
+
+            {editorTab === "typography" ? (
+              <div className="space-y-3">
+            <div className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-3">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Type className="h-4 w-4 text-primary" />
                 Tipografia do hero
@@ -1446,13 +1684,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               </div>
             </div>
 
-            <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.06] p-4 space-y-3">
+            <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.06] p-3 space-y-2.5">
               <p className="text-sm font-semibold text-foreground">Tipografia por zona (opcional)</p>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Cor, tipo de letra, tamanho, peso e alinhamento por bloco. Sobrepõem o tema escuro e os
-                campos base ao lado quando preenchidos. Use «Repor» para voltar ao padrão de cada zona.
+                Cor, letra, tamanho e alinhamento por bloco. Use «Repor» para o padrão de cada zona.
               </p>
-              <div className="max-h-[min(480px,50vh)] space-y-3 overflow-y-auto pr-1">
+              <div className="space-y-2.5 pr-0.5">
                 <PlansLandingTextStyleFields
                   label="Título do hero"
                   value={textStyles.hero_title}
@@ -1595,16 +1832,18 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 />
               </div>
             </div>
+              </div>
+            ) : null}
 
-            <Separator />
-
-            <div className="rounded-lg border border-blue-500/25 bg-blue-500/[0.06] p-4 space-y-4">
+            {editorTab === "sales" ? (
+              <div className="space-y-3">
+            <div className="rounded-lg border border-blue-500/25 bg-blue-500/[0.06] p-3 space-y-3">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Sparkles className="h-4 w-4 text-blue-600" />
-                Tema e secções (estilo página de vendas)
+                Tema e blocos da página
               </p>
-              <p className="text-xs text-muted-foreground">
-                Ative o fundo escuro, os títulos, os cartões, os números, o FAQ e o rodapé legal. Cada secção liga-se e desliga-se na lista de cima. Deixe vazio o que não quiser mostrar.
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Fundo escuro, cores, FAQ, provas e rodapé legal. Visibilidade de cada bloco: aba Estrutura.
               </p>
               <div className="space-y-1.5">
                 <Label className="text-xs">Aparência global</Label>
@@ -2785,9 +3024,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 </Button>
               ) : null}
             </div>
+              </div>
+            ) : null}
 
-            <Separator />
-
+            {editorTab === "media" ? (
+              <div className="space-y-3">
             <div className="space-y-2">
               <Label>Imagem de fundo do hero</Label>
               <p className="text-xs text-muted-foreground">JPG, PNG ou WebP até 2 MB.</p>
@@ -3015,9 +3256,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 ) : null}
               </div>
             </div>
+              </div>
+            ) : null}
 
-            <Separator />
-
+            {editorTab === "copy" ? (
+              <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="pl-intro">Texto antes dos cartões (opcional)</Label>
               <Textarea
@@ -3144,21 +3387,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               </div>
             </div>
 
-            <Separator />
+              </div>
+            ) : null}
 
-            <div className="space-y-3">
+            {editorTab === "labels" ? (
+              <div className="space-y-3">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Type className="h-4 w-4 text-primary" />
+                <Tag className="h-4 w-4 text-primary" />
                 Etiquetas dos cartões de plano
               </p>
-              <p className="text-xs text-muted-foreground">
-                Moeda, textos das secções e botões na página pública (início <span className="font-medium text-foreground">/</span>). Guardar também aplica
-                estas alterações.
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Moeda, textos das secções e botões na página pública. Guarde para aplicar.
               </p>
-              <div className="grid max-h-[min(70vh,520px)] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 {PLAN_LABEL_FORM_FIELDS.map(({ key, title }) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label className="text-xs leading-tight" htmlFor={`plab-${key}`}>
+                  <div key={key} className="space-y-1">
+                    <Label className="text-[11px] leading-tight" htmlFor={`plab-${key}`}>
                       {title}
                     </Label>
                     <Input
@@ -3170,185 +3414,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           [key]: e.target.value,
                         }))
                       }
-                      className="h-9 text-sm"
+                      className="h-8 text-sm"
                     />
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
+              </div>
+            ) : null}
 
-          <div className="bg-muted/20 p-4 lg:min-h-[520px] lg:max-w-[min(100%,520px)] xl:max-w-none">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" />
-              Pré-visualização ao vivo
-            </div>
-            <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
-              Ordem e conteúdo iguais à página pública (inclui secções, planos e rodapé legal). Botões de plano estão inativos aqui.
-            </p>
-            <div
-              className={cn(
-                "max-h-[min(75vh,1100px)] overflow-y-auto overflow-x-hidden rounded-lg border border-border/50",
-                appearance === "sales_dark" ? "shadow-inner" : "bg-background/80",
-              )}
-            >
-              <LandingPageThemeProvider value={appearance === "sales_dark" ? previewSalesThemed : null}>
-                <div
-                  className={cn("p-3", appearance === "sales_dark" && "min-h-[200px]")}
-                  style={
-                    appearance === "sales_dark"
-                      ? {
-                          backgroundColor: previewSalesThemed.page_background,
-                          color: previewSalesThemed.heading_on_dark,
-                        }
-                      : undefined
-                  }
-                >
-                  <HeroPreview
-                    badgeText={badgeText}
-                    heroTitle={heroTitle || "…"}
-                    heroSubtitle={heroSubtitle}
-                    hasImage={data.has_hero_image}
-                    imageUpdatedAt={previewAt}
-                    heroFont={heroFont}
-                    heroTextAlign={heroTextAlign}
-                    heroTitleSize={heroTitleSize}
-                    heroTitleWeight={heroTitleWeight}
-                    heroSubtitleSize={heroSubtitleSize}
-                    heroVisual={heroVisual}
-                    textStyles={previewExtras.text_styles ?? undefined}
-                    salesTone={appearance === "sales_dark"}
-                    landingTheme={appearance === "sales_dark" ? landingTheme : null}
-                    className={cn(
-                      "mb-0 border-border/80 shadow-inner",
-                      appearance === "sales_dark" ? "bg-white/[0.06]" : "bg-muted/20",
-                    )}
-                  />
-                  {introText.trim() ? (
-                    <div
-                      className={cn(
-                        "mt-4 rounded-lg border border-border/60 bg-card/80 p-4",
-                        resolvedIntroClasses(
-                          {
-                            intro_font: introFont,
-                            intro_text_align: introTextAlign,
-                            intro_text_size: introTextSize,
-                          },
-                          previewExtras.text_styles?.intro,
-                          {
-                            omitColor:
-                              appearance === "sales_dark" || Boolean(previewExtras.text_styles?.intro?.color?.trim()),
-                          },
-                        ),
-                      )}
-                      style={landingTextStyleColorStyle(previewExtras.text_styles?.intro)}
-                    >
-                      <LandingMarkdown
-                        content={introText}
-                        surface={
-                          appearance === "sales_dark" && !previewExtras.text_styles?.intro?.color?.trim()
-                            ? "dark_page"
-                            : "inherit"
-                        }
-                        salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
-                        colorOverrides={
-                          previewExtras.text_styles?.intro?.color?.trim() && previewSalesThemed
-                            ? {
-                                body: previewExtras.text_styles.intro.color!.trim(),
-                                heading: previewExtras.text_styles.intro.color!.trim(),
-                                link: previewSalesThemed.link,
-                                border: previewSalesThemed.nav_border,
-                              }
-                            : null
-                        }
-                      />
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-xs italic text-muted-foreground">Sem texto introdutório.</p>
-                  )}
-                  <div className="mt-4">
-                    <LandingPageBodySections
-                      extras={previewExtras}
-                      plans={previewPlans}
-                      planLabels={mergeWithDefaultLabels(planLabels)}
-                      userPlan={null}
-                      previewMode
-                      onSelectPlan={() => {}}
-                    />
-                  </div>
-                  {footerText.trim() ? (
-                    <div
-                      className={cn(
-                        "mt-6 rounded-md border border-dashed border-border/80 bg-muted/30 p-3",
-                        resolvedFooterClasses(
-                          {
-                            footer_font: footerFont,
-                            footer_text_align: footerTextAlign,
-                            footer_text_size: footerTextSize,
-                          },
-                          previewExtras.text_styles?.footer,
-                          {
-                            omitColor:
-                              appearance === "sales_dark" ||
-                              Boolean(previewExtras.text_styles?.footer?.color?.trim()),
-                          },
-                        ),
-                      )}
-                      style={landingTextStyleColorStyle(previewExtras.text_styles?.footer)}
-                    >
-                      <LandingMarkdown
-                        content={footerText}
-                        surface={
-                          appearance === "sales_dark" && !previewExtras.text_styles?.footer?.color?.trim()
-                            ? "dark_page"
-                            : "inherit"
-                        }
-                        salesTheme={appearance === "sales_dark" ? previewSalesThemed : null}
-                        colorOverrides={
-                          previewExtras.text_styles?.footer?.color?.trim() && previewSalesThemed
-                            ? {
-                                body: previewExtras.text_styles.footer.color!.trim(),
-                                heading: previewExtras.text_styles.footer.color!.trim(),
-                                link: previewSalesThemed.link,
-                                border: previewSalesThemed.nav_border,
-                              }
-                            : null
-                        }
-                      />
-                    </div>
-                  ) : null}
-                  <div className="mt-6">
-                    <SalesLandingLegalFooter extras={previewExtras} />
-                  </div>
+            {editorTab === "builder" ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Blocos de conteúdo</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    Vídeo, imagem ou texto Markdown após o intro. Arraste para reordenar · Guarde no topo.
+                  </p>
                 </div>
-              </LandingPageThemeProvider>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <Card className="border-primary/15 shadow-sm">
-      <Collapsible defaultOpen>
-        <CardHeader className="border-b border-border/60 bg-muted/20">
-          <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
-            <div className="min-w-0 space-y-1.5">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <LayoutTemplate className="h-5 w-5 text-primary" />
-                Construtor de conteúdo
-              </CardTitle>
-              <CardDescription>
-                Painel à esquerda com widgets (estilo page builder). A ordem de cima para baixo corresponde à página (após o
-                intro). Vídeos e imagens seguidos aparecem <strong className="text-foreground/90">em fila</strong> (16:9); texto
-                Markdown em largura completa. Reordene com o ícone de grelha (arrastar, com animação) ou com as setas; também
-                funciona com teclado. Guarde no cartão principal ou abaixo.
-              </CardDescription>
-            </div>
-            <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-        </CardHeader>
-        <CollapsibleContent>
-      <CardContent className="space-y-4 p-4 sm:p-6">
         <input
           ref={contentBlockImageFileInputRef}
           type="file"
@@ -3850,15 +3931,29 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         )}
           </div>
         </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
 
-        <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveTexts()}>
-          <Save className="h-4 w-4" />
-          Guardar landing
-        </Button>
-      </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+        <aside className="hidden min-h-0 xl:flex xl:max-h-[min(72vh,820px)] xl:flex-col">
+          {previewPane}
+        </aside>
+      </div>
+
+      <div className="border-t border-border/60 xl:hidden">
+        <Collapsible>
+          <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted/40">
+            Pré-visualização ao vivo
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="max-h-[min(60vh,560px)] overflow-hidden border-t border-border/50">
+              {previewPane}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
     </div>
   );
 }
