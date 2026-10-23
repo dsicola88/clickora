@@ -24,6 +24,7 @@ import { keywordResearchRouter } from "./routes/keywordResearch.routes";
 import { lessonsRouter } from "./routes/lessons.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { isVerifiedCustomDomainOrigin, refreshCustomDomainCache } from "./lib/customDomainCache";
+import { refreshCloudIpRanges } from "./lib/cloudIpRanges";
 import {
   corsCredentialsForPath,
   isAllowedOrigin as corsOriginAllowed,
@@ -259,6 +260,11 @@ void refreshCustomDomainCache();
 setInterval(() => {
   void refreshCustomDomainCache();
 }, 120_000);
+
+void refreshCloudIpRanges();
+setInterval(() => {
+  void refreshCloudIpRanges();
+}, 6 * 60 * 60 * 1000);
 
 if (optimizerEnabled()) {
   registerPaidOptimizerScheduler();

@@ -1,11 +1,12 @@
 /**
  * Redes de datacenter/CDN cujo IP de saída não é um acesso residencial.
- * Cada bloco foi confirmado no registo (RIPE/ARIN), não na base geográfica.
- * 152.233.29.1 está em CDN77-LON (Londres, GB); o GeoIP antigo marcava BR.
+ * CDN77 (confirmado no RIPE) + clouds AWS/GCP (listas públicas + bootstrap).
  */
+import { getCloudDatacenterNetworks } from "./cloudIpRanges";
+
 export type DatacenterNetwork = {
   name: string;
-  /** Sítio do registo, para a coluna região. Não é a cidade do comprador. */
+  /** Sítio do registo / região cloud, para a coluna região. Não é a cidade do comprador. */
   place: string;
   country: string;
   /** Base IPv4 e prefixo. */
@@ -13,7 +14,8 @@ export type DatacenterNetwork = {
   bits: number;
 };
 
-const NETWORKS: DatacenterNetwork[] = [
+/** Blocos fixos (não dependem de fetch). */
+const STATIC_NETWORKS: DatacenterNetwork[] = [
   { name: "CDN77", place: "Londres", country: "GB", base: "152.233.28.0", bits: 23 },
 ];
 
@@ -31,7 +33,7 @@ function ipv4ToInt(ip: string): number | null {
   if (!m) return null;
   const parts = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
   if (parts.some((n) => n > 255)) return null;
-  return (((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0);
+  return (((parts[0]! << 24) | (parts[1]! << 16) | (parts[2]! << 8) | parts[3]!) >>> 0);
 }
 
 function inCidr(ip: number, base: string, bits: number): boolean {
@@ -41,11 +43,21 @@ function inCidr(ip: number, base: string, bits: number): boolean {
   return (ip & mask) === (b & mask);
 }
 
+function allNetworks(): DatacenterNetwork[] {
+  return [...STATIC_NETWORKS, ...getCloudDatacenterNetworks()];
+}
+
 export function classifyDatacenterIp(ip: string | null | undefined): DatacenterNetwork | null {
   if (!ip) return null;
   const n = ipv4ToInt(ip.trim().replace(/^::ffff:/i, ""));
   if (n == null) return null;
-  return NETWORKS.find((net) => inCidr(n, net.base, net.bits)) ?? null;
+  /** Preferir o match mais específico (maior bits). */
+  let best: DatacenterNetwork | null = null;
+  for (const net of allNetworks()) {
+    if (!inCidr(n, net.base, net.bits)) continue;
+    if (!best || net.bits > best.bits) best = net;
+  }
+  return best;
 }
 
 export function datacenterClickPlace(ip: string | null | undefined): ClickPlace | null {
@@ -57,7 +69,7 @@ export function datacenterClickPlace(ip: string | null | undefined): ClickPlace 
     unqualified: true,
     ip_network: net.name,
     ip_network_place: net.place,
-    unqualified_reason: `Rede ${net.name} (${net.place}). Não é um acesso de casa ou telemóvel. Pode ser VPN ou proxy. Este clique não é qualificado e não abre o hoplink.`,
+    unqualified_reason: `Rede ${net.name} (${net.place}). Não é um acesso de casa ou telemóvel. Pode ser VPN, proxy ou bot em cloud. Este clique não é qualificado e não abre o hoplink.`,
   };
 }
 
