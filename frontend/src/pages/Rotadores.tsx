@@ -109,7 +109,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
       const { data: d, error } = await trafficRotatorsService.promoteWinner(rotatorId, {
         metric,
         lookback_days: lookback,
-        min_clicks_per_arm: 0,
+        min_clicks_per_arm: 50,
       });
       if (error) throw new Error(error);
       return d;
@@ -227,7 +227,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
               onClick={() => {
                 if (
                   !confirm(
-                    "Concentrar 100% do tráfego no braço vencedor (segundo a métrica e o período escolhidos)?",
+                    "Concentrar 100% do tráfego no braço vencedor? Só entram braços com ≥ 50 cliques no período (evita crownear sem amostra).",
                   )
                 ) {
                   return;

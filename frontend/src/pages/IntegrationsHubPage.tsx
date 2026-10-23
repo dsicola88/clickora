@@ -31,15 +31,20 @@ export default function IntegrationsHubPage() {
   const [saleChimeOn, setSaleChimeOn] = useState(() => saleChimeEnabled());
   const range = useMemo(() => rangeLast14Days(), []);
 
-  const { data: dash } = useQuery({
+  const { data: dash, isError: dashError, refetch: refetchDash } = useQuery({
     queryKey: ["dashboard", "integrations-health", range.from, range.to],
     queryFn: async () => {
       const { data, error } = await analyticsService.getDashboard({ from: range.from, to: range.to });
-      if (error) return null;
+      if (error) throw new Error(error);
       return data;
     },
     staleTime: 60_000,
   });
+
+  const postbackUrl =
+    typeof dash?.tracking_install?.affiliate_webhook_path === "string"
+      ? dash.tracking_install.affiliate_webhook_path
+      : "";
 
   const health = dash?.account_health;
   const steps = [
@@ -174,7 +179,15 @@ export default function IntegrationsHubPage() {
               </div>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
             </Link>
-            <PostbackMacroChecklist compact />
+            <PostbackMacroChecklist compact postbackUrl={postbackUrl || undefined} />
+            {dashError ? (
+              <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                Não foi possível carregar o health da conta.{" "}
+                <button type="button" className="underline" onClick={() => void refetchDash()}>
+                  Tentar novamente
+                </button>
+              </p>
+            ) : null}
           </div>
 
           <Link

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   affiliateLinkFromPresellContent,
+  affiliateLinkFromPresellPage,
   isRedirectToAllowedOffer,
 } from "./trackOfferRedirectGuard";
 
@@ -10,6 +11,13 @@ describe("trackOfferRedirectGuard", () => {
     assert.equal(
       affiliateLinkFromPresellContent({ affiliate_link: "https://offer.example/buy?hop=1" }),
       "https://offer.example/buy?hop=1",
+    );
+  });
+
+  it("fallback tracking.offerUrl quando content sem affiliate", () => {
+    assert.equal(
+      affiliateLinkFromPresellPage({}, { offerUrl: "https://offer.example/from-tracking" }),
+      "https://offer.example/from-tracking",
     );
   });
 

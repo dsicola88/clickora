@@ -34,7 +34,7 @@ import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 import { fillMissingAdClickIds, forwardAdQueryToUrl, rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
 import {
-  affiliateLinkFromPresellContent,
+  affiliateLinkFromPresellPage,
   isRedirectToAllowedOffer,
 } from "../lib/trackOfferRedirectGuard";
 
@@ -80,7 +80,8 @@ const eventSchema = z.object({
 
 const redirectSchema = z
   .object({
-    to: z.string().url(),
+    /** Opcional: se ausente, usa o hoplink da presell (CTAs bake só com /track/r/:id). */
+    to: z.string().url().optional(),
     source: z.string().optional(),
     medium: z.string().optional(),
     campaign: z.string().optional(),
@@ -319,7 +320,7 @@ export const trackController = {
     const parsed = redirectSchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
     const {
-      to,
+      to: toRaw,
       source,
       medium: mediumRaw,
       campaign: campaignRaw,
@@ -374,7 +375,12 @@ export const trackController = {
       console.warn("[track.redirect] presell não publicada → sem oferta", { presellId, status: page.status });
       return sendSafeVisitorPage(res, page.settings);
     }
-    const configuredOffer = affiliateLinkFromPresellContent(page.content);
+    const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const to = (toRaw && toRaw.trim()) || configuredOffer;
+    if (!to || !/^https?:\/\//i.test(to)) {
+      console.warn("[track.redirect] sem hoplink configurado", { presellId });
+      return sendSafeVisitorPage(res, page.settings);
+    }
     if (!isRedirectToAllowedOffer(to, configuredOffer)) {
       console.warn("[track.redirect] parâmetro to não autorizado", {
         presellId,
@@ -386,7 +392,7 @@ export const trackController = {
           }
         })(),
       });
-      return res.status(400).json({ error: "Destino de oferta inválido para esta presell" });
+      return sendSafeVisitorPage(res, page.settings);
     }
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) {
@@ -590,7 +596,10 @@ export const trackController = {
     }
 
     const accessCheck = await validateOwnerCanTrack(rot.userId);
-    if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
+    if (!accessCheck.ok) {
+      console.warn("[track.rotator] owner sem acesso → sem oferta", { rotatorId });
+      return sendSafeVisitorPage(res, rot.contextPresell.settings);
+    }
 
     const ip = extractClientIp(req);
     const seen = visitorClickPlace(req, ip);

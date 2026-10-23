@@ -452,18 +452,22 @@ export default function CreatePresellWizardPage() {
         mirrorHtmlLen: mirrorLen,
       };
     },
-    onSuccess: async ({
-      page,
-      pageB,
-      mirrorOk,
-      importPublishable,
-      complianceBlocked,
-      rotatorUrl,
-      importNotes,
-      readinessItems,
-      imageCount,
-      mirrorHtmlLen,
-    }) => {
+    onSuccess: async (
+      {
+        page,
+        pageB,
+        mirrorOk,
+        importPublishable,
+        complianceBlocked,
+        rotatorUrl,
+        importNotes,
+        readinessItems,
+        imageCount,
+        mirrorHtmlLen,
+      },
+      _vars,
+      _ctx,
+    ) => {
       setGenPhase("idle");
       setPresellId(page.id);
       setPresellIdB(pageB?.id ?? null);
@@ -485,7 +489,13 @@ export default function CreatePresellWizardPage() {
       void qc.invalidateQueries({ queryKey: ["campaigns"] });
       void qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
       setStep(4);
-      if (rotatorUrl) {
+      const wantedAb = enableAbTest;
+      if (wantedAb && !rotatorUrl) {
+        toast.error(
+          "A/B pedido mas o rotador não foi criado (variante B ou publicação falhou). Use o URL único só depois de corrigir, ou desactive A/B.",
+          { duration: 10000 },
+        );
+      } else if (rotatorUrl) {
         toast.success("A/B criado: 2 landers + rotador 50/50");
       } else if (mirrorOk) {
         toast.success(

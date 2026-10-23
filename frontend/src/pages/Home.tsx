@@ -5,6 +5,7 @@ import { ArrowRight, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
+import { ErrorState } from "@/components/ErrorState";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { analyticsService } from "@/services/analyticsService";
 import { presellService } from "@/services/presellService";
@@ -24,7 +25,12 @@ export default function Home() {
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
 
-  const { data: pages = [], isLoading: loadingPages } = useQuery({
+  const {
+    data: pages = [],
+    isLoading: loadingPages,
+    isError: pagesError,
+    refetch: refetchPages,
+  } = useQuery({
     queryKey: ["presells", "home"],
     queryFn: async () => {
       const { data, error } = await presellService.getAll();
@@ -33,7 +39,13 @@ export default function Home() {
     },
   });
 
-  const { data: dash, isLoading: loadingDash, isFetching } = useQuery({
+  const {
+    data: dash,
+    isLoading: loadingDash,
+    isFetching,
+    isError: dashError,
+    refetch: refetchDash,
+  } = useQuery({
     queryKey: ["dashboard", "home", from, to],
     queryFn: async () => {
       const { data, error } = await analyticsService.getDashboard({ from, to });
@@ -44,6 +56,11 @@ export default function Home() {
   });
 
   if (loadingPages) return <LoadingState message="A carregar…" />;
+  if (pagesError) {
+    return (
+      <ErrorState message="Não foi possível carregar as suas páginas." onRetry={() => void refetchPages()} />
+    );
+  }
 
   const isNew = pages.length === 0;
   const clicks = dash?.total_clicks ?? 0;
@@ -126,6 +143,8 @@ export default function Home() {
 
       {loadingDash ? (
         <LoadingState message="A carregar resultados…" />
+      ) : dashError ? (
+        <ErrorState message="Não foi possível carregar os KPIs." onRetry={() => void refetchDash()} />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[

@@ -6,6 +6,19 @@ export function affiliateLinkFromPresellContent(content: unknown): string {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
+/**
+ * Mesma resolução que a pública (`content.affiliateLink` → `tracking.offerUrl`).
+ * Evita 400 «Destino inválido» quando o wizard antigo só gravou offerUrl no tracking.
+ */
+export function affiliateLinkFromPresellPage(content: unknown, tracking: unknown): string {
+  const fromContent = affiliateLinkFromPresellContent(content);
+  if (fromContent) return fromContent;
+  if (!tracking || typeof tracking !== "object" || Array.isArray(tracking)) return "";
+  const t = tracking as Record<string, unknown>;
+  const raw = t.offerUrl ?? t.offer_url;
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
 function normalizeHostname(host: string): string {
   return host.replace(/^www\./i, "").toLowerCase();
 }

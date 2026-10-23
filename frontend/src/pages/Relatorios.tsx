@@ -1006,8 +1006,10 @@ export default function Relatorios() {
           </span>
           {tab === "cliques" ? (
             <span className="tabular-nums">
-              Cliques: {clickRows.length} vs {compareClicksQuery.data?.length ?? "…"}
-              {compareClicksQuery.data ? (
+              Cliques (amostra ≤500): {clickRows.length} vs {compareClicksQuery.data?.length ?? "…"}
+              {compareClicksQuery.isError ? (
+                <span className="ml-1 text-amber-800 dark:text-amber-300"> · erro ao comparar</span>
+              ) : compareClicksQuery.data ? (
                 <span className="ml-1 text-foreground/90">
                   (
                   {clickRows.length - compareClicksQuery.data.length >= 0 ? "+" : ""}
@@ -1017,8 +1019,10 @@ export default function Relatorios() {
             </span>
           ) : (
             <span className="tabular-nums">
-              Acessos: {impressionRows.length} vs {compareImpressionsQuery.data?.length ?? "…"}
-              {compareImpressionsQuery.data ? (
+              Acessos (amostra ≤500): {impressionRows.length} vs {compareImpressionsQuery.data?.length ?? "…"}
+              {compareImpressionsQuery.isError ? (
+                <span className="ml-1 text-amber-800 dark:text-amber-300"> · erro ao comparar</span>
+              ) : compareImpressionsQuery.data ? (
                 <span className="ml-1 text-foreground/90">
                   (
                   {impressionRows.length - compareImpressionsQuery.data.length >= 0 ? "+" : ""}
@@ -1027,6 +1031,9 @@ export default function Relatorios() {
               ) : null}
             </span>
           )}
+          <span className="w-full text-[10px] opacity-80">
+            Delta baseado nas linhas carregadas (máx. 500). Para totais exactos use Resultados / P&amp;L.
+          </span>
         </div>
       ) : null}
 

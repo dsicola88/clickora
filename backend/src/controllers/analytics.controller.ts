@@ -1219,9 +1219,18 @@ export const analyticsController = {
           ON rot.id = arm.rotator_id
          AND rot.user_id = te.user_id
         LEFT JOIN conversions c
-          ON c.click_id = te.id
-         AND c.user_id = te.user_id
+          ON c.user_id = te.user_id
          AND c.status = 'approved'
+         AND (
+           c.click_id = te.id
+           OR c.click_id IN (
+             SELECT child.id
+             FROM tracking_events child
+             WHERE child.user_id = te.user_id
+               AND child.event_type::text = 'click'
+               AND child.metadata->>'parent_rotator_click_id' = te.id::text
+           )
+         )
         WHERE te.user_id = ${userId}
           AND te.created_at >= ${rangeStart}
           AND te.created_at <= ${rangeEnd}
@@ -1229,6 +1238,8 @@ export const analyticsController = {
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
           AND NULLIF(TRIM(te.metadata->>'rotator_arm_id'), '') IS NOT NULL
+          /** Só hops raiz do rotador — lander CTA herda arm_id via parent e não deve dobrar CVR. */
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1, 2, 3, 4, 5
         ORDER BY clicks DESC, sales DESC
         LIMIT 40

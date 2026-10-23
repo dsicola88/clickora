@@ -3,16 +3,21 @@ import { bakeMirrorOfferHrefsForPresell, trackHrefForPresell } from "@/lib/prese
 import { countUntrackedOfferHrefs } from "@/components/PresellPublishReadiness";
 
 describe("presellCtaBake", () => {
-  it("trackHrefForPresell aponta para /track/r/:id", () => {
-    expect(trackHrefForPresell("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")).toMatch(
-      /\/track\/r\/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee$/,
+  it("trackHrefForPresell aponta para /track/r/:id com to= da oferta", () => {
+    const href = trackHrefForPresell(
+      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "https://mwebkivo.com/1/2/3/",
     );
+    expect(href).toMatch(/\/track\/r\/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\?/);
+    expect(href).toContain("to=");
+    expect(decodeURIComponent(href)).toContain("https://mwebkivo.com/1/2/3/");
   });
 
-  it("bake remove hoplinks crus MaxWeb", () => {
+  it("bake remove hoplinks crus MaxWeb e inclui to=", () => {
     const html = '<a href="https://mwebkivo.com/1/2/3/">Buy</a>';
     const out = bakeMirrorOfferHrefsForPresell(html, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "https://mwebkivo.com/1/2/3/");
     expect(countUntrackedOfferHrefs(out, "https://mwebkivo.com/1/2/3/")).toBe(0);
     expect(out).toMatch(/\/track\/r\//);
+    expect(out).toMatch(/to=/);
   });
 });

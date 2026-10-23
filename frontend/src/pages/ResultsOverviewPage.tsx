@@ -161,14 +161,24 @@ export default function ResultsOverviewPage() {
     refetchInterval: liveRefresh ? 30_000 : false,
   });
 
-  const { data: campaigns = [] } = useQuery({
+  const {
+    data: campaigns = [],
+    refetch: refetchCampaigns,
+    isFetching: fetchingCampaigns,
+  } = useQuery({
     queryKey: ["campaigns", "stats", from, to],
     queryFn: async () => {
       const { data, error } = await campaignsService.list({ with_stats: true, from, to });
-      if (error) return [];
+      if (error) throw new Error(error);
       return data ?? [];
     },
+    refetchInterval: liveRefresh ? 30_000 : false,
   });
+
+  const refreshAll = () => {
+    void refetch();
+    void refetchCampaigns();
+  };
 
   const rowsByDim = useMemo((): Record<DimId, ReportRow[]> => {
     if (!data) {
@@ -361,7 +371,8 @@ export default function ResultsOverviewPage() {
   const showCheckouts = dim === "offers" || dim === "countries";
   const dimHint: Record<DimId, string> = {
     offers: "Uma linha por página. Visitantes são cliques qualificados. Checkouts só entram quando a rede os envia.",
-    campaigns: "Agrupado pela campanha do anúncio. Custo e retorno usam o gasto do período.",
+    campaigns:
+      "Agrupado pela campanha do anúncio. Custo/ROAS do período aparecem quando o sync Google Ads / Automizer está activo.",
     keywords: "Palavra-chave do anúncio. O custo aparece quando o Google Ads do período está ligado.",
     adgroups: "Grupo de anúncios. O custo aparece quando o Google Ads do período está ligado.",
     countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
@@ -495,8 +506,14 @@ export default function ResultsOverviewPage() {
         >
           Vs período anterior
         </Button>
-        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => refreshAll()}
+          disabled={isFetching || fetchingCampaigns}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching || fetchingCampaigns ? "animate-spin" : ""}`} />
           Actualizar
         </Button>
         <Button

@@ -19,7 +19,11 @@ function isoDaysAgo(n: number) {
  * Go-to-market Agency (Fase 2): pricing real dos planos + checklist + dual-pillar.
  */
 export default function AgencyReadyPage() {
-  const { data: plans = [] } = useQuery({
+  const {
+    data: plans = [],
+    isLoading: plansLoading,
+    isError: plansError,
+  } = useQuery({
     queryKey: ["plans", "agency"],
     queryFn: async () => {
       const { data, error } = await plansService.getAll();
@@ -163,8 +167,12 @@ export default function AgencyReadyPage() {
       <div className="grid gap-4 lg:grid-cols-2 mb-8">
         <ProPanel title="Planos (pricing real)" description="Valores do catálogo activo — sem inventar SKUs.">
           <div className="px-4 py-3 space-y-3">
-            {paidPlans.length === 0 ? (
+            {plansLoading ? (
               <p className="text-xs text-muted-foreground">A carregar planos…</p>
+            ) : plansError ? (
+              <p className="text-xs text-amber-800 dark:text-amber-300">Não foi possível carregar o catálogo.</p>
+            ) : paidPlans.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem planos pagos no catálogo activo.</p>
             ) : (
               paidPlans.map((p) => (
                 <div key={p.id} className="rounded-lg border border-border/50 px-3 py-2.5 flex justify-between gap-3">
