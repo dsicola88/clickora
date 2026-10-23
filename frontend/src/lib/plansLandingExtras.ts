@@ -922,9 +922,9 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
   if (raw.site_chrome !== null && raw.site_chrome !== undefined && isPlainObject(raw.site_chrome)) {
     const sc = raw.site_chrome;
     const base = DEFAULT_LANDING_SITE_CHROME;
-    const linksRaw = Array.isArray(sc.objective_links) ? sc.objective_links : null;
-    const links = linksRaw
-      ? linksRaw
+    const linksProvided = Array.isArray(sc.objective_links);
+    const links = linksProvided
+      ? sc.objective_links
           .map((it) => {
             if (!isPlainObject(it)) return null;
             const label = typeof it.label === "string" ? it.label.trim() : "";
@@ -943,7 +943,8 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
       show_objective_nav:
         typeof sc.show_objective_nav === "boolean" ? sc.show_objective_nav : base.show_objective_nav,
       objective_nav_label: optionalText(sc.objective_nav_label, base.objective_nav_label),
-      objective_links: links.length ? links : base.objective_links,
+      /** Lista vazia é válida (admin limpou os links); só cai no default se a chave não veio. */
+      objective_links: linksProvided ? links : base.objective_links,
       agency_banner_enabled:
         typeof sc.agency_banner_enabled === "boolean"
           ? sc.agency_banner_enabled

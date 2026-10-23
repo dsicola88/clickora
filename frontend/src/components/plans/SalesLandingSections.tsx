@@ -166,26 +166,40 @@ export function SalesLandingFeatures({ extras, className }: Props) {
 
 export function SalesLandingStats({ extras, className }: Props) {
   const t = useLandingSalesTheme();
+  const salesDark = useLandingSalesThemeOptional() != null;
   const s = extras.stats;
   const st = extras.text_styles;
   const items = s?.items?.filter((it) => it.value.trim() || it.label.trim()) ?? [];
   if (!items.length) return null;
 
+  const headingColor = salesDark ? t.heading_on_dark : undefined;
+  const mutedColor = salesDark ? t.muted_on_dark : undefined;
+
   return (
     <section
-      className={cn("relative overflow-hidden rounded-2xl border px-6 py-12 md:px-10", className)}
-      style={{
-        borderColor: t.stats_border,
-        background: `linear-gradient(to bottom, ${t.stats_gradient_from}, ${t.stats_gradient_to})`,
-      }}
+      className={cn(
+        "relative overflow-hidden rounded-2xl border px-6 py-12 md:px-10",
+        !salesDark && "border-border/70 bg-muted/30",
+        className,
+      )}
+      style={
+        salesDark
+          ? {
+              borderColor: t.stats_border,
+              background: `linear-gradient(to bottom, ${t.stats_gradient_from}, ${t.stats_gradient_to})`,
+            }
+          : undefined
+      }
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-35"
-        style={{
-          background: `radial-gradient(ellipse at center, ${t.stats_glow}, transparent 70%)`,
-        }}
-        aria-hidden
-      />
+      {salesDark ? (
+        <div
+          className="pointer-events-none absolute inset-0 opacity-35"
+          style={{
+            background: `radial-gradient(ellipse at center, ${t.stats_glow}, transparent 70%)`,
+          }}
+          aria-hidden
+        />
+      ) : null}
       <div className="relative space-y-8">
         {(s?.title?.trim() || s?.subtitle?.trim()) && (
           <div className="text-center space-y-2 max-w-3xl mx-auto">
@@ -193,10 +207,11 @@ export function SalesLandingStats({ extras, className }: Props) {
               <h2
                 className={cn(
                   "text-2xl font-bold tracking-tight md:text-3xl",
+                  !salesDark && !st?.stats_title?.color && "text-foreground",
                   st?.stats_title && landingTextStyleTitleClasses(st.stats_title),
                 )}
                 style={{
-                  ...(!st?.stats_title?.color ? { color: t.heading_on_dark } : {}),
+                  ...(!st?.stats_title?.color && headingColor ? { color: headingColor } : {}),
                   ...landingTextStyleColorStyle(st?.stats_title),
                 }}
               >
@@ -207,11 +222,12 @@ export function SalesLandingStats({ extras, className }: Props) {
               <p
                 className={cn(
                   "whitespace-pre-line leading-relaxed hyphens-auto [text-align-last:center]",
+                  !salesDark && !st?.stats_subtitle?.color && "text-muted-foreground",
                   st?.stats_subtitle && landingTextStyleBodyClasses(st.stats_subtitle),
                   "text-justify",
                 )}
                 style={{
-                  ...(!st?.stats_subtitle?.color ? { color: t.muted_on_dark } : {}),
+                  ...(!st?.stats_subtitle?.color && mutedColor ? { color: mutedColor } : {}),
                   ...landingTextStyleColorStyle(st?.stats_subtitle),
                 }}
               >
@@ -230,10 +246,13 @@ export function SalesLandingStats({ extras, className }: Props) {
             <div key={i} className="text-center">
               <p
                 className={cn(
-                  st?.stat_value ? landingTextStyleStatValueClasses(st.stat_value) : "text-3xl font-extrabold tabular-nums md:text-4xl",
+                  st?.stat_value
+                    ? landingTextStyleStatValueClasses(st.stat_value)
+                    : "text-3xl font-extrabold tabular-nums md:text-4xl",
+                  !salesDark && !st?.stat_value?.color && "text-foreground",
                 )}
                 style={{
-                  ...(!st?.stat_value?.color ? { color: t.heading_on_dark } : {}),
+                  ...(!st?.stat_value?.color && headingColor ? { color: headingColor } : {}),
                   ...landingTextStyleColorStyle(st?.stat_value),
                 }}
               >
@@ -242,11 +261,12 @@ export function SalesLandingStats({ extras, className }: Props) {
               <p
                 className={cn(
                   "mt-2 text-sm leading-relaxed hyphens-auto [text-align-last:center]",
+                  !salesDark && !st?.stat_label?.color && "text-muted-foreground",
                   st?.stat_label && landingTextStyleBodyClasses(st.stat_label),
                   "text-justify",
                 )}
                 style={{
-                  ...(!st?.stat_label?.color ? { color: t.muted_on_dark } : {}),
+                  ...(!st?.stat_label?.color && mutedColor ? { color: mutedColor } : {}),
                   ...landingTextStyleColorStyle(st?.stat_label),
                 }}
               >
@@ -262,22 +282,26 @@ export function SalesLandingStats({ extras, className }: Props) {
 
 export function SalesLandingFaq({ extras, className }: Props) {
   const t = useLandingSalesTheme();
+  const salesDark = useLandingSalesThemeOptional() != null;
   const faq = extras.faq;
   const st = extras.text_styles;
   const items = faq?.items?.filter((it) => it.q.trim()) ?? [];
   if (!items.length) return null;
 
   const title = faq?.title?.trim() || "Perguntas frequentes";
+  const headingColor = salesDark ? t.heading_on_dark : undefined;
+  const mutedColor = salesDark ? t.muted_on_dark : undefined;
 
   return (
     <section className={cn("space-y-6", className)}>
       <h2
         className={cn(
           "text-center text-2xl font-bold tracking-tight md:text-3xl",
+          !salesDark && !st?.faq_title?.color && "text-foreground",
           st?.faq_title && landingTextStyleTitleClasses(st.faq_title),
         )}
         style={{
-          ...(!st?.faq_title?.color ? { color: t.heading_on_dark } : {}),
+          ...(!st?.faq_title?.color && headingColor ? { color: headingColor } : {}),
           ...landingTextStyleColorStyle(st?.faq_title),
         }}
       >
@@ -288,20 +312,24 @@ export function SalesLandingFaq({ extras, className }: Props) {
           <AccordionItem
             key={i}
             value={`faq-${i}`}
-            className="rounded-lg px-4 bg-black/20 data-[state=open]:opacity-[0.98]"
+            className={cn(
+              "rounded-lg px-4 data-[state=open]:opacity-[0.98]",
+              salesDark ? "bg-black/20" : "bg-card border-border/70",
+            )}
             style={{
               borderWidth: 1,
               borderStyle: "solid",
-              borderColor: t.faq_border,
+              borderColor: salesDark ? t.faq_border : undefined,
             }}
           >
             <AccordionTrigger
               className={cn(
                 "text-left hover:no-underline py-4 text-sm md:text-base font-medium",
+                !salesDark && !st?.faq_question?.color && "text-foreground",
                 st?.faq_question && landingTextStyleBodyClasses(st.faq_question),
               )}
               style={{
-                ...(!st?.faq_question?.color ? { color: t.heading_on_dark } : {}),
+                ...(!st?.faq_question?.color && headingColor ? { color: headingColor } : {}),
                 ...landingTextStyleColorStyle(st?.faq_question),
               }}
             >
@@ -310,11 +338,16 @@ export function SalesLandingFaq({ extras, className }: Props) {
             <AccordionContent
               className={cn(
                 "whitespace-pre-line border-t pb-4 pt-3 leading-relaxed hyphens-auto [text-align-last:start]",
+                !salesDark && !st?.faq_answer?.color && "text-muted-foreground",
                 st?.faq_answer && landingTextStyleBodyClasses(st.faq_answer),
                 "text-justify",
               )}
               style={{
-                ...(!st?.faq_answer?.color ? { color: t.muted_on_dark, borderColor: `${t.accent}33` } : { borderColor: `${t.accent}33` }),
+                ...(salesDark
+                  ? !st?.faq_answer?.color
+                    ? { color: mutedColor, borderColor: `${t.accent}33` }
+                    : { borderColor: `${t.accent}33` }
+                  : { borderColor: "hsl(var(--border))" }),
                 ...landingTextStyleColorStyle(st?.faq_answer),
               }}
             >
@@ -329,6 +362,7 @@ export function SalesLandingFaq({ extras, className }: Props) {
 
 export function SalesLandingLegalFooter({ extras, className }: Props) {
   const t = useLandingSalesTheme();
+  const salesDark = useLandingSalesThemeOptional() != null;
   const st = extras.text_styles;
   const lf = extras.legal_footer;
   const lines = lf?.lines ?? [];
@@ -337,14 +371,22 @@ export function SalesLandingLegalFooter({ extras, className }: Props) {
 
   return (
     <footer
-      className={cn("mt-10 pt-8 border-t space-y-4 text-center", className)}
-      style={{ borderColor: t.nav_border }}
+      className={cn(
+        "mt-10 space-y-4 border-t pt-8 text-center",
+        !salesDark && "border-border/60",
+        className,
+      )}
+      style={salesDark ? { borderColor: t.nav_border } : undefined}
     >
       {lines.length > 0 && (
         <div
-          className={cn("space-y-2 max-w-3xl mx-auto", st?.legal_footer && landingTextStyleBodyClasses(st.legal_footer))}
+          className={cn(
+            "mx-auto max-w-3xl space-y-2",
+            !salesDark && !st?.legal_footer?.color && "text-muted-foreground",
+            st?.legal_footer && landingTextStyleBodyClasses(st.legal_footer),
+          )}
           style={{
-            ...(!st?.legal_footer?.color ? { color: t.muted_on_dark } : {}),
+            ...(!st?.legal_footer?.color && salesDark ? { color: t.muted_on_dark } : {}),
             ...landingTextStyleColorStyle(st?.legal_footer),
           }}
         >
@@ -361,10 +403,17 @@ export function SalesLandingLegalFooter({ extras, className }: Props) {
             <a
               key={i}
               href={lnk.href}
-              className="underline-offset-4 hover:underline"
-              style={{
-                ...(!st?.legal_footer?.color ? { color: t.link } : { color: st.legal_footer?.color ?? t.link }),
-              }}
+              className={cn(
+                "underline-offset-4 hover:underline",
+                !salesDark && !st?.legal_footer?.color && "text-primary",
+              )}
+              style={
+                salesDark || st?.legal_footer?.color
+                  ? {
+                      color: st?.legal_footer?.color?.trim() || t.link,
+                    }
+                  : undefined
+              }
             >
               {lnk.label}
             </a>
