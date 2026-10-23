@@ -50,13 +50,11 @@ export function AdNetworkTokensReferenceDialog({ open, onOpenChange, boostPlatfo
         <DialogHeader className="px-6 pt-6 pb-3 shrink-0 text-left space-y-2">
           <DialogTitle className="text-lg">Marcadores dinâmicos das redes</DialogTitle>
           <DialogDescription className="text-sm font-normal leading-relaxed">
-            Escolha a rede onde vai veicular. Cada item copia a <strong className="text-foreground">macro</strong> — a plataforma substitui pelo
-            valor real no clique. No link <span className="font-mono text-[11px]">/track/r/…</span> mapeie palavra-chave para{" "}
+            Escolha a rede onde vai veicular. Cada item copia a <strong className="text-foreground">macro</strong> — a
+            plataforma substitui pelo valor real no clique. No link do anúncio, mapeie palavra-chave para{" "}
             <span className="font-mono text-[11px]">utm_term</span>, criativos para{" "}
             <span className="font-mono text-[11px]">utm_content</span>, extras para{" "}
-            <span className="font-mono text-[11px]">sub1</span>–<span className="font-mono text-[11px]">sub3</span>, ou{" "}
-            <span className="font-mono text-[11px]">cost</span> / <span className="font-mono text-[11px]">var1</span>…
-            <span className="font-mono text-[11px]">var10</span> como em trackers tipo Voluum.
+            <span className="font-mono text-[11px]">sub1</span>–<span className="font-mono text-[11px]">sub3</span>.
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-6 flex-1 min-h-0 flex flex-col gap-3">

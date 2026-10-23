@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Copy,
@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
-import { getApiBaseUrl } from "@/lib/apiOrigin";
 import { useAuth } from "@/contexts/AuthContext";
 import { presellService } from "@/services/presellService";
 import {
@@ -333,7 +332,6 @@ export default function Rotadores() {
   const tenantKey = tenantQueryKey(user);
   const canWriteRotators = userCanWriteRotators(user);
   const qc = useQueryClient();
-  const apiBase = useMemo(() => getApiBaseUrl(), []);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TrafficRotatorDto | null>(null);
@@ -485,7 +483,7 @@ export default function Rotadores() {
           else if (editing && parsed === null && hadPolicy) rulesRes = { ok: true, value: null };
           else rulesRes = { ok: true, value: parsed };
         } catch {
-          toast.error("JSON inválido na política de regras.");
+          toast.error("Formato inválido nas regras avançadas.");
           return;
         }
       }
@@ -564,25 +562,23 @@ export default function Rotadores() {
       ) : null}
 
       <div className="rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 text-sm mb-4 space-y-1.5">
-        <p className="font-medium text-foreground text-sm">Árvore estilo tracker (lander → oferta)</p>
+        <p className="font-medium text-foreground text-sm">Como funciona (anúncio → página → oferta)</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Anúncio → <strong className="text-foreground/90">URL do rotador</strong> → braços (presells / pesos / geo /
-          device) → cada braço com hoplink. Use modo <em>ponderado</em> para A/B; caps em{" "}
-          <em>preenchimento</em> para esgotar um destino antes do seguinte. Conversões ligam-se à presell do braço.
+          Anúncio → <strong className="text-foreground/90">link do rotador</strong> → destinos (páginas / pesos / país /
+          dispositivo) → cada destino com o link da oferta. Use modo <em>ponderado</em> para A/B;{" "}
+          <em>preenchimento</em> esgota um destino antes do seguinte. As vendas ligam-se à página do destino.
         </p>
       </div>
 
       <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground mb-6 space-y-2">
         <p>
-          <strong className="text-foreground/90">URL público:</strong>{" "}
-          <span className="font-mono text-xs">{apiBase}/track/rot/`{"{"}uuid{"}"}`</span> — parâmetros como no redirect
-          (gclid, utm_*, <span className="text-foreground/85">sub1–sub3</span>
-          ). Opcional: <span className="font-mono text-xs">…/rot/UUID/fonte/campanha/criativo</span> para drill-down no
-          caminho. Código: <span className="font-mono text-xs">?access_code=…</span>
+          <strong className="text-foreground/90">Link do rotador:</strong> copie o URL em cada cartão. Pode acrescentar
+          parâmetros do anúncio (gclid, utm_*) e, se quiser, fonte/campanha/criativo no caminho. Código de acesso
+          opcional quando o rotador o pedir.
         </p>
         <p>
           <strong className="text-foreground/90">A/B:</strong> modo <em>ponderado</em> + tabela abaixo em cada cartão;{" "}
-          <strong className="text-foreground/90">Promover vencedor</strong> concentra tráfego no melhor braço (taxa de
+          <strong className="text-foreground/90">Promover vencedor</strong> concentra tráfego no melhor destino (taxa de
           conversão ou receita).
         </p>
       </div>
@@ -851,7 +847,7 @@ export default function Rotadores() {
                       try {
                         setRulesDrafts(policyToDrafts(JSON.parse(rulesPolicyText)));
                       } catch {
-                        toast.error("JSON inválido — corrija antes de voltar ao editor visual.");
+                        toast.error("Formato inválido — corrija antes de voltar ao editor visual.");
                         return;
                       }
                     } else {
@@ -860,7 +856,7 @@ export default function Rotadores() {
                     setRulesJsonAdvanced(false);
                   }}
                 >
-                  {rulesJsonAdvanced ? "Usar editor visual" : "JSON avançado"}
+                  {rulesJsonAdvanced ? "Usar editor visual" : "Modo avançado (texto)"}
                 </Button>
                 {!rulesDrafts.length && !rulesJsonAdvanced ? (
                   <Button

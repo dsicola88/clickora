@@ -92,20 +92,20 @@ export function buildPublishReadinessFromPresell(input: {
     },
     {
       id: "offer",
-      label: "Hoplink / oferta definido",
+      label: "Link da oferta definido",
       ok: /^https?:\/\//i.test(link),
       hint: "Cole o URL da rede (BuyGoods, MaxWeb, Digistore…).",
     },
     {
       id: "cta_track",
-      label: "CTAs com tracking",
+      label: "Botões com rastreamento",
       ok: ctaOk,
       hint:
         untracked > 0
-          ? `${untracked} link(s) de oferta ainda sem /track/r/ — guarde para bake automático.`
+          ? `${untracked} link(s) da oferta ainda sem rastreamento — guarde a página para ligar automaticamente.`
           : hasTrackMarker
             ? undefined
-            : "Os botões devem passar por /api/track/r/ com o click id.",
+            : "Os botões de compra devem passar pelo rastreamento Clickora (com o ID do clique).",
     },
     {
       id: "domain",

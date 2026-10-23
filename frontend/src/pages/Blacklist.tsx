@@ -417,10 +417,9 @@ export default function Blacklist() {
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-900 dark:text-amber-200/90">
-            <strong>Blacklist:</strong> pedidos de <span className="font-mono text-xs">/track/r/…</span>, pixel,{" "}
-            <span className="font-mono text-xs">/track/click</span> e <span className="font-mono text-xs">/track/event</span> com este IP
-            recebem 403 e <strong>não contam</strong>. Outras regras (whitelist, rate limit, UA, bots) aparecem na mesma tabela abaixo
-            quando configuradas.
+            <strong>Blacklist:</strong> cliques e pixels deste IP são bloqueados e{" "}
+            <strong>não contam</strong> nos relatórios. Outras regras (lista branca, limite de ritmo, robots) aparecem
+            na mesma tabela abaixo quando configuradas.
           </p>
         </div>
 

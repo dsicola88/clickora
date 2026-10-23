@@ -476,7 +476,7 @@ export default function PresellDashboard() {
     const url = adsFinalUrlForPage(page);
     void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    toast.success("URL completa para o Ads copiada (presell + UTMs + gclid).");
+    toast.success("URL do anúncio copiada (com parâmetros de campanha).");
     setTimeout(() => setCopiedId(null), 2000);
   };
 

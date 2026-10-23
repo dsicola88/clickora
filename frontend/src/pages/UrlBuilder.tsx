@@ -258,7 +258,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
       key: "sub3",
       value: "",
       keyReadonly: true,
-      valuePlaceholder: "A Clickora preenche o UUID no clique; deixe vazio no hoplink base",
+      valuePlaceholder: "A Clickora preenche o ID do clique; deixe vazio no link base da oferta",
     },
     { key: "sub1", value: "", keyReadonly: true },
     { key: "sub2", value: "", keyReadonly: true },
@@ -443,14 +443,14 @@ export default function UrlBuilder() {
   }, [baseUrl, baseUrlValid, platform]);
 
   const flowSteps = [
-    "Construtor de URL: defines o link da presell com UTMs e IDs de clique (ex.: gclid, fbclid, ttclid) conforme a plataforma escolhida.",
+    "Construtor de URL: defines o link da página com UTMs e IDs de clique (ex.: gclid, fbclid) conforme a plataforma escolhida.",
     "O visitante clica no anúncio; a rede substitui as macros pelos valores reais.",
-    "A presell carrega com esses parâmetros — o tracking regista clique/impressão e guarda IDs no evento.",
-    "No redirect para a oferta, o dclickora acrescenta clickora_click_id (UUID) ao URL do produto (ver também Integrações → Plataformas).",
-    "Em venda aprovada, o postback usa o contrato da rede escolhida em Integrações (não um dicionário único de aliases).",
-    "A API valida o clique, cria a conversão em conversions e atualiza a presell.",
-    "Com Google Ads ativo no Tracking, o gclid (ou gbraid/wbraid) guardado no clique pode ser enviado à API de conversões do Google.",
-    "Com Microsoft/Bing, o msclkid fica no evento de clique; conversões por postback usam o webhook em Integrações (Microsoft Ads) com o mesmo msclkid quando a rede o enviar.",
+    "A página carrega com esses parâmetros — o rastreamento regista o clique e guarda os IDs.",
+    "Ao abrir a oferta, a Clickora acrescenta o ID do clique ao link do produto (ver também Integrações → Plataformas).",
+    "Em venda aprovada, o aviso da rede (postback) usa o contrato escolhido em Integrações.",
+    "A Clickora valida o clique, regista a venda e actualiza a página.",
+    "Com Google Ads activo, o gclid (ou gbraid/wbraid) do clique pode ser enviado às conversões do Google.",
+    "Com Microsoft/Bing, o msclkid fica no clique; as conversões usam o aviso em Integrações (Microsoft Ads) quando a rede o enviar.",
   ];
 
   return (
@@ -802,11 +802,9 @@ export default function UrlBuilder() {
                       ))}
                     </ol>
                     <p className="text-[11px] text-muted-foreground leading-snug border-t border-primary/10 pt-3">
-                      Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da presell (ex.{" "}
-                      <span className="font-mono text-[10px]">https://dclickora.com/p/&lt;uuid-da-presell&gt;</span>
-                      ), não o link direto da rede. O script da presell e o redirect <span className="font-mono">/track/r/…</span> tratam do
-                      resto. Para ver estatística por anúncio, pode sufixar o link de clique:{" "}
-                      <span className="font-mono text-[10px]">…/track/r/&lt;uuid&gt;/fb/meu-anuncio?to=…</span> (até 10 níveis).
+                      Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da
+                      página (o link que a Clickora dá ao publicar), não o link directo da rede. O rastreamento trata do
+                      resto. Para estatística por anúncio, use o Construtor com fonte/campanha/criativo no caminho.
                     </p>
                   </CollapsibleContent>
                 </Collapsible>

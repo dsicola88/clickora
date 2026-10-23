@@ -61,8 +61,8 @@ function CustomDomainRootRedirect() {
         <h1 className="text-xl font-semibold text-foreground">Domínio ativo</h1>
         <p className="text-sm text-muted-foreground">
           {isError
-            ? "Erro ao carregar. Tente /p/ e o ID (UUID) do painel."
-            : "Nenhuma presell publicada aqui — associe domínio e publique no painel."}
+            ? "Erro ao carregar. Publique a página no painel ou contacte o suporte."
+            : "Nenhuma página publicada aqui — associe o domínio e publique no painel."}
         </p>
         <p className="text-sm text-muted-foreground">
           Gerir contas e presells em{" "}

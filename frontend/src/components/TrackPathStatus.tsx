@@ -19,6 +19,7 @@ type HealthBody = {
 
 /**
  * Estado do click path (enterprise): health + p95 amostrado no backend + ping do browser.
+ * Copy voltada a afiliados — sem jargão de infra (Railway, SLO, paths internos).
  */
 export function TrackPathStatus({ className }: { className?: string }) {
   const trackBase = getTrackApiBaseUrl();
@@ -68,36 +69,43 @@ export function TrackPathStatus({ className }: { className?: string }) {
           <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />
         )}
         <div className="min-w-0 space-y-1">
-          <p className="font-medium text-foreground">Click path (tracking)</p>
-          <p className="text-xs text-muted-foreground font-mono break-all">{trackBase}/track/r/…</p>
+          <p className="font-medium text-foreground">Ligação de rastreamento</p>
+          <p className="text-xs text-muted-foreground">
+            Os cliques dos anúncios passam por aqui antes de abrir o link da oferta.
+          </p>
           <p className="text-[11px] text-muted-foreground">
             {isLoading
-              ? "A medir latência…"
+              ? "A verificar…"
               : ok
-                ? `Health OK · ping ${data?.ms} ms${sameOrigin ? " · same-origin" : " · API directa"}`
-                : "Health falhou — confirme Railway always-on e KEEP_ALIVE_URL."}
+                ? `A funcionar · resposta ${data?.ms} ms${sameOrigin ? " · no seu domínio" : ""}`
+                : "A ligação falhou — tente outra vez ou contacte o suporte."}
           </p>
           {ok && data?.track ? (
             <p className="text-[11px] text-muted-foreground tabular-nums">
-              Redirect amostrado: p50 {data.track.p50_ms ?? "—"} ms · p95 {p95 ?? "—"} ms
-              {data.track.samples
-                ? ` · n=${data.track.samples}`
-                : " · sem amostras — gera-se no 1.º clique real em /track/r/"}
-              {p95 != null && !sloOk ? ` · acima do SLO ${slo} ms` : p95 != null ? " · dentro do SLO" : ""}
+              Tempo do redirect: típico {data.track.p50_ms ?? "—"} ms · quase todos{" "}
+              {p95 ?? "—"} ms
+              {!data.track.samples
+                ? " · ainda sem cliques medidos neste período"
+                : ""}
+              {p95 != null && !sloOk
+                ? " · mais lento do que o desejado"
+                : p95 != null
+                  ? " · dentro do alvo"
+                  : ""}
             </p>
           ) : ok ? (
             <p className="text-[11px] text-muted-foreground">
-              Health OK. Amostras p50/p95 aparecem após redirects neste processo (deploy Fase 2).
+              Serviço OK. Os tempos de redirect aparecem após o primeiro clique real.
             </p>
           ) : null}
           {ok && (data?.errors5m ?? 0) > 0 ? (
             <p className="text-[11px] text-amber-800 dark:text-amber-300">
-              {data?.errors5m} erro(s) 5xx nos últimos 5 min (processo actual).
+              Houve {data?.errors5m} falha(s) recentes no rastreamento — se os anúncios estiverem activos,
+              contacte o suporte.
             </p>
           ) : null}
           <p className="text-[10px] text-muted-foreground">
-            SLO alvo: p95 redirect &lt; {slo} ms (EU). Same-origin /api via Vercel é o path correcto;
-            amostras são por réplica Railway (reinício = zero).
+            Alvo: redirect rápido (abaixo de cerca de {slo} ms). Medição no servidor actual.
           </p>
         </div>
       </div>

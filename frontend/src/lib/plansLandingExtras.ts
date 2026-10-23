@@ -317,7 +317,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
         thumbnail_url: "",
         video_url: "",
         quote:
-          "Pagamento do plano na Hotmart com o mesmo e-mail da conta; depois do webhook, o acesso sobe de plano sem pedir suporte manual.",
+          "Pagamento do plano na Hotmart com o mesmo e-mail da conta; depois do pagamento aprovado, o acesso sobe de plano sem pedir suporte manual.",
         name: "Fluxo típico",
         role: "Assinante de plano pago",
         social_handle: null,
@@ -331,7 +331,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
     title: "Como funciona o pagamento",
     lead: "Os planos pagos abrem o checkout da Hotmart. A Clickora não cobra o cartão nesta página.",
     body:
-      "Depois do pagamento aprovado, o webhook ativa o plano se o e-mail da compra for o da conta. Reembolso, prazo e cancelamento são os do produto na Hotmart. Esta página não acrescenta uma garantia de sete dias nem devolve o valor por conta própria. Não há promessa de vendas, ROI ou aprovação dos anúncios.",
+      "Depois do pagamento aprovado, o plano actualiza-se se o e-mail da compra for o da conta. Reembolso, prazo e cancelamento são os do produto na Hotmart. Esta página não acrescenta uma garantia de sete dias nem devolve o valor por conta própria. Não há promessa de vendas, ROI ou aprovação dos anúncios.",
     footer: "O plano grátis não pede cartão aqui. Os limites ficam no cartão Starter.",
   },
   section_order: ["features", "stats", "planos", "guarantee", "faq"],

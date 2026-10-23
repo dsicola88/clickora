@@ -61,8 +61,8 @@ const TRACKING_STEPS: GuideStep[] = [
             Detalhes técnicos (opcional)
           </summary>
           <p className="mt-2 leading-relaxed">
-            O CTA da página passa por <span className="font-mono text-[11px]">/track/r/…</span>, que grava o clique e
-            redirecciona para a oferta com o ID do clique nos parâmetros da rede.
+            O botão da página passa pelo rastreamento Clickora, que grava o clique e redirecciona para a oferta com o
+            ID do clique nos parâmetros da rede.
           </p>
         </details>
       </>

@@ -41,7 +41,7 @@ function situationTotals(rows: Row[]): { label: string; count: number }[] {
   return [
     { label: "Real", count: real },
     { label: "Bot", count: bot },
-    { label: "Datacenter", count: datacenter },
+    { label: "Cloud / servidor", count: datacenter },
   ].filter((x) => x.count > 0);
 }
 

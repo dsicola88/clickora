@@ -56,19 +56,19 @@ export default function AgencyReadyPage() {
     {
       icon: LineChart,
       t: "Tracking profissional",
-      d: "Click ID estável, postbacks multi-rede, Situação Real/Bot/Datacenter, P&L, rotador com caps e regras.",
+      d: "ID de clique estável, avisos de venda da rede, Situação Real/Bot/Cloud, lucro, rotador com limites e regras.",
       href: "/resultados",
     },
     {
       icon: Layers,
       t: "Presell auto + manual",
-      d: "Import → bake CTAs → gate publish. Brand kit e qualidade elite no nicho Search.",
+      d: "Importar página, ligar botões ao rastreamento e publicar com qualidade no nicho Search. Kit de marca incluído.",
       href: "/presells/nova",
     },
     {
       icon: Shield,
       t: "Confiança operativa",
-      d: "Request-id, alertas burst 5xx, unattributed, SLO p95, health da conta.",
+      d: "Avisos de falhas, vendas sem clique atribuído e saúde da conta — sem surpresas no Ads.",
       href: "/integracoes",
     },
   ];
@@ -84,11 +84,11 @@ export default function AgencyReadyPage() {
     {
       niche: "Esta conta (30 dias)",
       result: dash
-        ? `${clicks} visitantes · ${sales} vendas aprovadas · ${arms.length} braço(s) de rotador com caps no P&L.`
+        ? `${clicks} visitantes · ${sales} vendas aprovadas · ${arms.length} destino(s) de rotador no lucro.`
         : "A carregar prova da conta…",
     },
     {
-      niche: "Rotador / caps",
+      niche: "Rotador / limites",
       result:
         arms.length > 0
           ? arms
@@ -96,10 +96,12 @@ export default function AgencyReadyPage() {
               .map(
                 (a) =>
                   `${a.arm_label}: ${a.clicks} cliques` +
-                  (a.max_clicks != null ? ` · cap ${a.clicks_delivered}/${a.max_clicks}` : ""),
+                  (a.max_clicks != null
+                    ? ` · limite ${a.clicks_delivered}/${a.max_clicks}`
+                    : ""),
               )
               .join(" · ")
-          : "Crie um rotador activo — a dimensão Braços/caps aparece em Resultados.",
+          : "Crie um rotador activo — os destinos e limites aparecem em Resultados.",
     },
     {
       niche: "Onboarding Agency",
@@ -121,7 +123,7 @@ export default function AgencyReadyPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Pronto para Agency"
-        subtitle="Stack dual-pillar: tracking de referência + presell de referência — um login, sem Voluum + builder à parte."
+        subtitle="Tracking e páginas de pre-sell num só sítio — um login, sem juntar tracker e builder à parte."
       />
 
       <TrackPathStatus className="mb-6" />

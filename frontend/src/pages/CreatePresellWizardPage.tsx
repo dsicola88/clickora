@@ -1011,8 +1011,8 @@ export default function CreatePresellWizardPage() {
 
           <ul className="space-y-2 text-sm">
             {[
-              ["Cliques no anúncio", "Já no link — gclid/UTMs e redirect /track, sem pixel extra"],
-              ["Click ID na oferta", "Já no hoplink (subid / cid da rede reconhecida)"],
+              ["Cliques no anúncio", "Já no link do anúncio (IDs Google + UTMs) — sem pixel extra"],
+              ["Click ID na oferta", "Já no link da oferta (subid / cid da rede reconhecida)"],
               [
                 "Vendas no painel",
                 "Uma vez: colar o URL de postback na BuyGoods / SmartAdv / Digistore (não no anúncio)",
@@ -1035,8 +1035,8 @@ export default function CreatePresellWizardPage() {
           <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-3 text-xs text-muted-foreground leading-relaxed">
             <p className="font-medium text-foreground mb-1">O link do anúncio já rastreia o clique</p>
             <p>
-              Não acrescente pixels nem parâmetros à mão. O visitante chega com o gclid da Google; o CTA e os cookies
-              passam por <span className="font-mono">/track</span> e o ID vai na oferta. Vendas no painel: em{" "}
+              Não acrescente pixels nem parâmetros à mão. O visitante chega com o ID do clique da Google; os botões e os
+              cookies passam pelo rastreamento Clickora e o ID vai na oferta. Vendas no painel: em{" "}
               <strong className="text-foreground/90">Integrações → Postback</strong> copie o URL uma vez para a rede
               de afiliados.
             </p>
@@ -1077,7 +1077,7 @@ export default function CreatePresellWizardPage() {
                 <p className="text-[11px] text-muted-foreground">
                   {elite.ready
                     ? "Barra OK para anunciar neste nicho."
-                    : "Complete identidade / CTAs / assets antes de escalar Ads."}
+                    : "Complete nome, botões e imagens antes de escalar Ads."}
                 </p>
                 <ul className="space-y-1.5">
                   {elite.items

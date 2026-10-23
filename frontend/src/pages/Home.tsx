@@ -184,7 +184,7 @@ export default function Home() {
           </Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/agency">Agency / dual-pillar</Link>
+          <Link to="/agency">Pronto para Agency</Link>
         </Button>
       </div>
 

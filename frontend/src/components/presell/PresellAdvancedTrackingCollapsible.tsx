@@ -384,7 +384,7 @@ export function PresellAdvancedTrackingCollapsible({
                   <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
                     Os países desta lista vêem o texto seguro, sem oferta. O mesmo texto serve a IPs que
                     adicionares à blacklist (bloqueio manual) ou a regras opt-in (bot/proxy). Sem isso, a
-                    presell completa é servida — não há bloqueio automático de cloud/datacenter.
+                    página completa é servida — sem bloqueio automático de IPs de servidor.
                   </p>
                 </div>
                 <Switch
@@ -414,7 +414,7 @@ export function PresellAdvancedTrackingCollapsible({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Países bloqueados (ISO)</Label>
+                    <Label>Países bloqueados (códigos, ex.: CN, RU)</Label>
                     <Input
                       placeholder="CN, RU"
                       value={String(configSettings.cloakGeoDeny ?? "")}

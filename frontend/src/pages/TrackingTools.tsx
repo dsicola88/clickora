@@ -38,7 +38,7 @@ const TOOLS_BASE = "/tracking/tools";
 const navItems = [
   { to: `${TOOLS_BASE}/ip`, label: "Rastrear IP", icon: MapPin },
   { to: `${TOOLS_BASE}/gclid`, label: "GCLID", icon: Key },
-  { to: `${TOOLS_BASE}/clique`, label: "Clique (UUID)", icon: Fingerprint },
+  { to: `${TOOLS_BASE}/clique`, label: "ID do clique", icon: Fingerprint },
   { to: `${TOOLS_BASE}/postbacks`, label: "Postbacks e conversão Google", icon: Globe },
 ] as const;
 
@@ -406,7 +406,7 @@ function ClickUuidPage() {
   const handleLookupClick = async () => {
     const id = clickIdInput.trim();
     if (!id) {
-      toast.error("Cole o UUID do clique (Relatórios → Click ID).");
+      toast.error("Cole o ID do clique (Relatórios → Click ID).");
       return;
     }
     setClickLookupLoading(true);
@@ -426,12 +426,12 @@ function ClickUuidPage() {
   return (
     <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
       <p className="text-sm text-muted-foreground">
-        Consulta um evento de <span className="text-foreground/90">clique</span> pelo UUID (coluna Click ID nos
+        Consulta um evento de <span className="text-foreground/90">clique</span> pelo ID (coluna Click ID nos
         Relatórios). Útil para confirmar destino do rotador, sub-IDs, GCLID e IP.
       </p>
       <div className="flex flex-col sm:flex-row items-end gap-4">
         <div className="space-y-2 flex-1">
-          <Label>UUID do clique</Label>
+          <Label>ID do clique</Label>
           <Input
             placeholder="ex.: a1b2c3d4-…"
             value={clickIdInput}
@@ -451,9 +451,29 @@ function ClickUuidPage() {
         </Button>
       </div>
       {clickLookup ? (
-        <pre className="text-xs bg-muted/40 border border-border/50 rounded-lg p-4 overflow-x-auto max-h-[min(420px,70vh)] overflow-y-auto">
-          {JSON.stringify(clickLookup, null, 2)}
-        </pre>
+        <dl className="grid gap-2 sm:grid-cols-2 text-xs rounded-lg border border-border/50 bg-muted/20 p-4">
+          {(
+            [
+              ["Destino", clickLookup.redirect_to ?? clickLookup.destination_url ?? clickLookup.to],
+              ["IP", clickLookup.ip],
+              ["País", clickLookup.country],
+              ["GCLID", clickLookup.gclid],
+              ["Campanha", clickLookup.campaign ?? clickLookup.utm_campaign],
+              ["Fonte", clickLookup.source ?? clickLookup.utm_source],
+              ["Sub1", clickLookup.sub1],
+              ["Sub2", clickLookup.sub2],
+              ["Sub3", clickLookup.sub3],
+              ["Quando", clickLookup.created_at ?? clickLookup.timestamp],
+            ] as const
+          )
+            .filter(([, v]) => v != null && String(v).trim() !== "")
+            .map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium text-foreground break-all">{String(value)}</dd>
+              </div>
+            ))}
+        </dl>
       ) : null}
     </div>
   );
@@ -556,7 +576,7 @@ function ManualGoogleConversionForm({
           <p>
             O <strong className="text-foreground/90">GCLID</strong> tem de ser o do clique real (anúncio com etiquetagem automática). Podes obtê-lo na
             URL em que o visitante entrou ou na ferramenta <strong className="text-foreground/90">GCLID</strong> /{" "}
-            <strong className="text-foreground/90">Clique (UUID)</strong> desta página.
+            <strong className="text-foreground/90">ID do clique</strong> desta página.
           </p>
           <p>
             Para o Google Ads receber pela API, liga a conta em{" "}

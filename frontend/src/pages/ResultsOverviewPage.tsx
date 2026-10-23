@@ -283,7 +283,7 @@ export default function ResultsOverviewPage() {
       label: r.arm_label,
       sub:
         r.max_clicks != null
-          ? `${r.rotator_name} · cap ${r.clicks_delivered}/${r.max_clicks}${r.cap_pct != null ? ` (${r.cap_pct}%)` : ""}`
+          ? `${r.rotator_name} · limite ${r.clicks_delivered}/${r.max_clicks}${r.cap_pct != null ? ` (${r.cap_pct}%)` : ""}`
           : r.rotator_name,
       clicks: r.clicks,
       sales: r.sales,
@@ -361,7 +361,7 @@ export default function ResultsOverviewPage() {
     { id: "adgroups", label: "Grupos de anúncios", count: rowsByDim.adgroups.length },
     { id: "devices", label: "Dispositivos", count: rowsByDim.devices.length },
     { id: "sources", label: "Fontes", count: rowsByDim.sources.length },
-    { id: "arms", label: "Braços / caps", count: rowsByDim.arms.length },
+    { id: "arms", label: "Destinos / limites", count: rowsByDim.arms.length },
   ];
 
   const activeRows = rowsByDim[dim].filter((r) => {
@@ -379,7 +379,7 @@ export default function ResultsOverviewPage() {
     countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
     devices: "Dispositivo do clique. O custo não é dividido por dispositivo.",
     sources: "Origem do clique, por exemplo Google Ads.",
-    arms: "Braços do rotador no período. Cap = limite do braço vs cliques entregues (lifetime do braço).",
+    arms: "Destinos do rotador no período. Limite = quantos cliques já usaram o máximo definido.",
   };
 
   const exportCsv = () => {
@@ -803,7 +803,7 @@ export default function ResultsOverviewPage() {
                               : dim === "devices"
                                 ? "Dispositivo"
                                 : dim === "arms"
-                                  ? "Braço / cap"
+                                  ? "Destino / limite"
                                   : "Fonte"}
                     </ProReportTh>
                     <ProReportTh>Visitantes</ProReportTh>
