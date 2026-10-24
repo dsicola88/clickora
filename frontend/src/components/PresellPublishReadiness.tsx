@@ -67,6 +67,18 @@ export function countUntrackedOfferHrefs(html: string, affiliateHref = ""): numb
   return n;
 }
 
+/** Hoplink efectivo: content.affiliateLink ou tracking.offerUrl (wizard antigo). */
+export function resolvePresellAffiliateLink(page: {
+  content?: Record<string, unknown> | null;
+  tracking?: Record<string, unknown> | null;
+}): string {
+  const content = (page.content || {}) as Record<string, unknown>;
+  const tracking = (page.tracking || {}) as Record<string, unknown>;
+  const fromContent = String(content.affiliateLink ?? content.affiliate_link ?? "").trim();
+  if (fromContent) return fromContent;
+  return String(tracking.offerUrl ?? tracking.offer_url ?? "").trim();
+}
+
 /** Heurística partilhada: hoplink + CTAs baked no HTML espelhado. */
 export function buildPublishReadinessFromPresell(input: {
   status?: string | null;

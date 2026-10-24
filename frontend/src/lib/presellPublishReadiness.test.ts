@@ -3,6 +3,7 @@ import {
   buildPublishReadinessFromPresell,
   countUntrackedOfferHrefs,
   publishBlockedByReadiness,
+  resolvePresellAffiliateLink,
 } from "@/components/PresellPublishReadiness";
 
 describe("buildPublishReadinessFromPresell", () => {
@@ -55,5 +56,22 @@ describe("publishBlockedByReadiness", () => {
       mirrorHtml: "",
     });
     expect(publishBlockedByReadiness(items)?.id).toBe("offer");
+  });
+});
+
+describe("resolvePresellAffiliateLink", () => {
+  it("usa content.affiliateLink e cai para tracking.offerUrl", () => {
+    expect(
+      resolvePresellAffiliateLink({
+        content: { affiliateLink: "https://mwebkivo.com/a/" },
+        tracking: { offerUrl: "https://other.example/" },
+      }),
+    ).toBe("https://mwebkivo.com/a/");
+    expect(
+      resolvePresellAffiliateLink({
+        content: {},
+        tracking: { offerUrl: "https://mwebkivo.com/12679/3986/2/?" },
+      }),
+    ).toBe("https://mwebkivo.com/12679/3986/2/?");
   });
 });

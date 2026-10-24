@@ -54,6 +54,7 @@ import {
   PresellPublishReadiness,
   buildPublishReadinessFromPresell,
   publishBlockedByReadiness,
+  resolvePresellAffiliateLink,
 } from "@/components/PresellPublishReadiness";
 import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
 import { readBrandKitPro } from "@/lib/brandKitPro";
@@ -458,7 +459,7 @@ export default function PresellDashboard() {
   const populateFormFromPresell = (page: Presell) => {
     const content = (page.content || {}) as Record<string, unknown>;
     const settings = (page.settings || {}) as Record<string, unknown>;
-    const affiliate = String(content.affiliateLink ?? "");
+    const affiliate = resolvePresellAffiliateLink(page);
     const source = String(content.sourceUrl ?? "");
     setFormData({
       pageName: page.title,
@@ -483,10 +484,16 @@ export default function PresellDashboard() {
   };
 
   /** Abre o formulário com hoplink/URLs já preenchidos — mudar tipo sem reimportar. */
-  const startEditPresell = (page: Presell) => {
-    populateFormFromPresell(page);
-    setEditingId(page.id);
-    setEditingPage(page);
+  const startEditPresell = async (page: Presell) => {
+    // A lista omite `content`/`tracking` (performance) — carregar o detalhe.
+    const { data: full, error } = await presellService.getById(page.id);
+    if (error || !full) {
+      toast.error(error || "Não foi possível carregar a presell para editar.");
+      return;
+    }
+    populateFormFromPresell(full);
+    setEditingId(full.id);
+    setEditingPage(full);
     setCreatorStep(1);
     setShowCreator(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -802,13 +809,31 @@ export default function PresellDashboard() {
   const toggleStatus = async (page: Presell) => {
     const newStatus = page.status === "published" ? "paused" : "published";
     if (newStatus === "published") {
-      const content = { ...((page.content || {}) as Record<string, unknown>) };
-      const affiliate = String(content.affiliateLink ?? "").trim();
+      // Lista não traz content/tracking — sem GET o check achava hoplink em falta.
+      const { data: full, error: loadErr } = await presellService.getById(page.id);
+      if (loadErr || !full) {
+        toast.error(loadErr || "Não foi possível carregar a presell.");
+        return;
+      }
+      const content = { ...((full.content || {}) as Record<string, unknown>) };
+      const affiliate = resolvePresellAffiliateLink(full);
       let mirror = typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : "";
       if (mirror) {
         mirror = bakeMirrorOfferHrefsForPresell(mirror, page.id, affiliate);
         content.importMirrorSrcDoc = mirror;
+        if (affiliate && !String(content.affiliateLink ?? "").trim()) {
+          content.affiliateLink = affiliate;
+        }
         const { error } = await presellService.update(page.id, { content } as never);
+        if (error) {
+          toast.error(error);
+          return;
+        }
+      } else if (affiliate && !String(content.affiliateLink ?? "").trim()) {
+        // Sincroniza offerUrl antigo → content.affiliateLink para próximos checks.
+        const { error } = await presellService.update(page.id, {
+          content: { ...content, affiliateLink: affiliate },
+        } as never);
         if (error) {
           toast.error(error);
           return;
@@ -818,12 +843,16 @@ export default function PresellDashboard() {
         status: "published",
         affiliateLink: affiliate,
         mirrorHtml: mirror || null,
-        customDomainId: page.custom_domain_id || null,
-        publicUrl: getPublicPresellFullUrl(customDomains, page.custom_domain_id, page),
+        customDomainId: full.custom_domain_id || page.custom_domain_id || null,
+        publicUrl: getPublicPresellFullUrl(
+          customDomains,
+          full.custom_domain_id || page.custom_domain_id,
+          full,
+        ),
       });
       const block = publishBlockedByReadiness(items);
       if (block) {
-        toast.error(`Não publique ainda: ${block.label}. ${block.hint || ""}`.trim());
+        toast.error(`Não publique ainda: ${block.hint || block.label}`.trim(), { duration: 9000 });
         return;
       }
     }
