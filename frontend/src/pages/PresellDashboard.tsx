@@ -462,11 +462,20 @@ export default function PresellDashboard() {
     const settings = (page.settings || {}) as Record<string, unknown>;
     const affiliate = resolvePresellAffiliateLink(page);
     const source = String(content.sourceUrl ?? "");
+    const rawNiche = String(content.generationNiche ?? content.generation_niche ?? "").trim();
+    const mirrorLen = String(content.importMirrorSrcDoc ?? content.import_mirror_src_doc ?? "").length;
+    const niche: PresellGenerationNiche =
+      rawNiche === "white" || rawNiche === "black"
+        ? rawNiche
+        : mirrorLen >= 2500
+          ? "white"
+          : "black";
     setFormData({
       pageName: page.title,
       pageSlug: page.slug,
       presellType: page.type,
       language: normalizePresellLocale(page.language),
+      generationNiche: niche,
       productLink: source || affiliate,
       affiliateLink: affiliate,
       customDomainId: page.custom_domain_id ?? "",
@@ -690,6 +699,7 @@ export default function PresellDashboard() {
           ...prevContent,
           affiliateLink: ctaAffiliate,
           sourceUrl: prevContent.sourceUrl ?? importUrl,
+          generationNiche: formData.generationNiche,
           ...(mirrorToSave.length > 0
             ? { importMirrorSrcDoc: mirrorToSave }
             : prevMirror

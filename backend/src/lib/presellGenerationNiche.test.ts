@@ -5,6 +5,7 @@ import {
   defaultPresellTypeForNiche,
   isPresellTypeAllowedForNiche,
   normalizePresellGenerationNiche,
+  resolvePresellGenerationNicheFromContent,
 } from "./presellGenerationNiche";
 import { extractPolicyUrlsFromHtml, extractSourceIdentityFromHtml } from "./presellImporter";
 
@@ -30,6 +31,23 @@ describe("presellGenerationNiche", () => {
     assert.equal(coercePresellTypeForNiche("idade", "white"), "tsl");
     assert.equal(coercePresellTypeForNiche("cookies", "white"), "cookies");
     assert.equal(coercePresellTypeForNiche("fantasma", "black"), "fantasma");
+  });
+
+  it("resolve: espelho longo sem nicho → white; explícito black mantém-se", () => {
+    assert.equal(
+      resolvePresellGenerationNicheFromContent({
+        importMirrorSrcDoc: "x".repeat(3000),
+      }),
+      "white",
+    );
+    assert.equal(
+      resolvePresellGenerationNicheFromContent({
+        generationNiche: "black",
+        importMirrorSrcDoc: "x".repeat(3000),
+      }),
+      "black",
+    );
+    assert.equal(resolvePresellGenerationNicheFromContent({}), "black");
   });
 });
 

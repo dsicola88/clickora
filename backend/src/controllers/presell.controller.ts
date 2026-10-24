@@ -39,6 +39,7 @@ import {
 import {
   coercePresellTypeForNiche,
   normalizePresellGenerationNiche,
+  resolvePresellGenerationNicheFromContent,
 } from "../lib/presellGenerationNiche";
 import { z } from "zod";
 
@@ -527,9 +528,8 @@ export const presellController = {
       (page.content && typeof page.content === "object" && !Array.isArray(page.content)
         ? (page.content as Record<string, unknown>)
         : {});
-    const niche = normalizePresellGenerationNiche(
-      contentForNiche.generationNiche ?? contentForNiche.generation_niche,
-    );
+    // Espelho longo sem nicho explícito → white (não forçar portal black).
+    const niche = resolvePresellGenerationNicheFromContent(contentForNiche);
     if (nextContent) {
       nextContent.generationNiche = niche;
     }
