@@ -121,6 +121,18 @@ describe("buildEditablePageDocument", () => {
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "button");
     expect(bakedButton?.content.href).toBe("https://app.example/track/r/x");
+
+    const redirectBaked = bakePublicOfferHrefs(
+      doc,
+      "https://app.example/track/r/x",
+      "https://offer.example/buy",
+      "https://brand.example/privacy",
+      { cookieRedirectToOffer: true },
+    );
+    const redirectCookie = redirectBaked.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "cookieBanner");
+    expect(redirectCookie?.content.offerHref).toBe("https://app.example/track/r/x");
   });
 
   it("ignora ícones e fotos repetidas e deixa a primeira imagem como capa", () => {

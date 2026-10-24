@@ -1119,6 +1119,8 @@ export default function PublicPresell() {
   }
 
   if (!isGhostPage) {
+    const cookiesGate = getPresellGateKind(page.type) === "cookies";
+    const cookieRedirectToOffer = cookiesGate && isCookieRedirectToOfferEnabled(settings);
     const visualDoc = bakePublicOfferHrefs(
       resolvePresellPageDocument(page.content, {
         title: page.title,
@@ -1130,7 +1132,10 @@ export default function PublicPresell() {
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
-      { unlockCookieOnly: getPresellGateKind(page.type) === "cookies" },
+      {
+        unlockCookieOnly: cookiesGate && !cookieRedirectToOffer,
+        cookieRedirectToOffer,
+      },
     );
     const mirrorHtmlFold =
       visualDoc.sections[0]?.columns[0]?.widgets[0]?.type === "html";

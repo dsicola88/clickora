@@ -31,6 +31,11 @@ export interface CookieBannerContent {
   overlayBlur?: number;
   /** false = textos editados à mão. Ausente ou true com título de stock = idioma da página. */
   followLanguage?: boolean;
+  /**
+   * Com «Ir directo à página de vendas»: Aceitar/Fechar navegam para `/track/r/…`.
+   * Vazio = só desbloqueiam a review (localStorage).
+   */
+  offerHref?: string;
 }
 
 function readDismissed(key: string): boolean {
@@ -103,6 +108,8 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
+  const offerHref = (c.offerHref ?? "").trim();
+  const goOffer = Boolean(offerHref && offerHref !== "#");
   const inBuilder = useBuilderSurface();
   const [dismissed, setDismissed] = useState(false);
 
@@ -126,6 +133,39 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const dismiss = () => {
     writeDismissed(storageKey);
     setDismissed(true);
+  };
+
+  const allowClass: CSSProperties = {
+    flex: 1,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "none",
+    cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+    background: accentColor,
+    color: "#ffffff",
+    fontWeight: 700,
+    fontSize: 15,
+    padding: "12px 16px",
+    borderRadius: 999,
+    textDecoration: "none",
+    boxSizing: "border-box",
+  };
+  const closeClass: CSSProperties = {
+    flex: 1,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+    color: "#334155",
+    fontWeight: 600,
+    fontSize: 15,
+    padding: "12px 16px",
+    borderRadius: 999,
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    textDecoration: "none",
+    boxSizing: "border-box",
   };
 
   const saveCopy = (field: string, next: string) => {
@@ -242,44 +282,38 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           alignItems: "stretch",
         }}
       >
-        <button
-          type="button"
-          onClick={inBuilder ? undefined : dismiss}
-          style={{
-            flex: 1,
-            border: "none",
-            cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
-            background: accentColor,
-            color: "#ffffff",
-            fontWeight: 700,
-            fontSize: 15,
-            padding: "12px 16px",
-            borderRadius: 999,
-          }}
-        >
-          {commit ? (
-            <CookieText field="allowLabel" value={allowLabel} style={{ color: "#ffffff", fontWeight: 700 }} />
-          ) : (
-            allowLabel
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={inBuilder ? undefined : dismiss}
-          style={{
-            flex: 1,
-            cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
-            color: "#334155",
-            fontWeight: 600,
-            fontSize: 15,
-            padding: "12px 16px",
-            borderRadius: 999,
-            border: "1px solid #cbd5e1",
-            background: "#ffffff",
-          }}
-        >
-          {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
-        </button>
+        {goOffer && !inBuilder ? (
+          <a
+            href={offerHref}
+            data-testid="presell-cookie-allow-offer"
+            onClick={dismiss}
+            style={allowClass}
+          >
+            {allowLabel}
+          </a>
+        ) : (
+          <button type="button" onClick={inBuilder ? undefined : dismiss} style={allowClass}>
+            {commit ? (
+              <CookieText field="allowLabel" value={allowLabel} style={{ color: "#ffffff", fontWeight: 700 }} />
+            ) : (
+              allowLabel
+            )}
+          </button>
+        )}
+        {goOffer && !inBuilder ? (
+          <a
+            href={offerHref}
+            data-testid="presell-cookie-close-offer"
+            onClick={dismiss}
+            style={closeClass}
+          >
+            {declineLabel}
+          </a>
+        ) : (
+          <button type="button" onClick={inBuilder ? undefined : dismiss} style={closeClass}>
+            {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
+          </button>
+        )}
       </div>
       {footerNote || commit ? (
         <p style={{ margin: "14px 0 0", fontSize: 12, lineHeight: 1.4, color: "#94a3b8", textAlign: "center" }}>

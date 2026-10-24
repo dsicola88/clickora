@@ -40,6 +40,16 @@ describe("favicon público da presell", () => {
     expect(href).toBe("https://cdn.example/bottle.webp");
   });
 
+  it("usa imagem do espelho quando não há productImages nem favicon", () => {
+    const href = resolvePublicPresellFaviconUrl(
+      page({
+        sourceUrl: "https://mwebkivo.com/offer/",
+        importMirrorSrcDoc: `<html><head><base href="https://cdn.example/"></head><body><img src="https://cdn.example/visivra-bottle.webp" alt="pack"></body></html>`,
+      }),
+    );
+    expect(href).toBe("https://cdn.example/visivra-bottle.webp");
+  });
+
   it("usa faviconUrl guardado no import", () => {
     const href = resolvePublicPresellFaviconUrl(
       page({

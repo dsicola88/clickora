@@ -36,6 +36,44 @@ export function resolvePublicPresellMetaDescription(page: Presell): string {
   return clampMetaDescription(getPresellSeoPrimaryTitle(page) || getPresellProductLabel(page));
 }
 
+/** Extrai URLs de &lt;img&gt; / srcset do espelho importado (páginas sem `productImages`). */
+export function extractProductImageUrlsFromHtml(html: string, baseUrl = ""): string[] {
+  const t = html.trim();
+  if (t.length < 40) return [];
+  let base = baseUrl;
+  const baseTag = t.match(/<base\b[^>]*>/i);
+  if (baseTag) {
+    const href = htmlTagAttr(baseTag[0], "href");
+    const abs = href ? absolutizeAgainst(href, baseUrl || "https://example.invalid/") : "";
+    if (abs && !abs.includes("example.invalid")) base = abs;
+  }
+  const found: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string) => {
+    const abs = absolutizeAgainst(raw, base);
+    if (!abs || !/^https?:\/\//i.test(abs)) return;
+    if (looksLikeAppBrandTitle(abs) || /\/favicon\.svg(\?|$)/i.test(abs)) return;
+    if (seen.has(abs)) return;
+    seen.add(abs);
+    found.push(abs);
+  };
+  const imgRe = /<img\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = imgRe.exec(t)) !== null) {
+    const tag = m[0];
+    const src = htmlTagAttr(tag, "src");
+    if (src) push(src);
+    const srcset = htmlTagAttr(tag, "srcset");
+    if (srcset) {
+      for (const part of srcset.split(",")) {
+        const u = part.trim().split(/\s+/)[0];
+        if (u) push(u);
+      }
+    }
+  }
+  return found;
+}
+
 /** Primeira imagem útil para `og:image` (URL relativo ou absoluto). */
 export function resolvePublicPresellOgImageUrl(page: Presell): string | undefined {
   const c = (page.content || {}) as Record<string, unknown>;
@@ -47,7 +85,17 @@ export function resolvePublicPresellOgImageUrl(page: Presell): string | undefine
   const raw = Array.isArray(c.productImages)
     ? (c.productImages as unknown[]).filter((u): u is string => typeof u === "string" && u.trim().length > 0)
     : [];
-  const ranked = rankPresellProductImages(raw.map((s) => s.trim()));
+  let ranked = rankPresellProductImages(raw.map((s) => s.trim()));
+  if (!ranked[0]) {
+    const source = String(c.sourceUrl ?? c.source_url ?? "").trim();
+    const mirror =
+      typeof c.importMirrorSrcDoc === "string"
+        ? c.importMirrorSrcDoc
+        : typeof c.import_mirror_src_doc === "string"
+          ? c.import_mirror_src_doc
+          : "";
+    ranked = rankPresellProductImages(extractProductImageUrlsFromHtml(mirror, source));
+  }
   return ranked[0]?.trim();
 }
 
