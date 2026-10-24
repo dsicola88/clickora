@@ -617,21 +617,19 @@ export const presellController = {
         data: { status: requestedStatus },
       });
     } else if (
-      // Já publicada: republicação com gate (exceto editor visual `builder` — fica no ar como Elementor).
+      // Já publicada: reauditoria após conteúdo/settings (exceto builder — fica no ar como Elementor).
+      // Não pausar em surpresa: derruba a URL do anúncio. Avisamos; o toggle published→ continua a gate.
       page.status === "published" &&
       (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)
     ) {
       const gate = await assertPublishAllowed({ page: updated, runIfStale: true });
       if (!gate.ok) {
-        const paused = await systemPrisma.presellPage.update({
-          where: { id: updated.id },
-          data: { status: "paused" },
-        });
-        return res.status(403).json({
-          ...gate.body,
-          ...mapPresell(paused),
+        return res.status(200).json({
+          ...mapPresell(updated),
+          compliance_blocked: true,
+          compliance: gate.body,
           message:
-            "A página foi pausada após alterações relevantes. Corrija a conformidade e publique novamente.",
+            "Alterações guardadas. A página continua publicada, mas há avisos de conformidade — reveja antes de escalar anúncios.",
         });
       }
     }

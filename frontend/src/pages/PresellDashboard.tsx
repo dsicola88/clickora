@@ -291,15 +291,37 @@ export default function PresellDashboard() {
       if (error) throw new Error(error);
       return updated;
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       setShowCreator(false);
       setEditingId(null);
       setEditingPage(null);
       resetForm();
-      toast.success("Presell atualizada.");
+      const blocked = Boolean(
+        updated &&
+          typeof updated === "object" &&
+          (updated as { compliance_blocked?: boolean }).compliance_blocked,
+      );
+      if (blocked) {
+        toast.warning(
+          "Presell actualizada. Continua publicada, mas há avisos de conformidade — reveja antes de escalar anúncios.",
+          { duration: 9000 },
+        );
+      } else {
+        toast.success("Presell atualizada.");
+      }
     },
-    onError: () => toast.error("Erro ao guardar alterações."),
+    onError: (e: Error) => {
+      queryClient.invalidateQueries({ queryKey: ["presells"] });
+      const msg = (e.message || "").trim();
+      const pausedHint =
+        /pausad/i.test(msg)
+          ? " Clique em «Pausada» na lista para tentar publicar outra vez."
+          : "";
+      toast.error(`${msg || "Erro ao guardar alterações."}${pausedHint}`.trim(), {
+        duration: 10000,
+      });
+    },
   });
 
   const duplicateMutation = useMutation({
