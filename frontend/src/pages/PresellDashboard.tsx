@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Megaphone,
   MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -457,6 +458,16 @@ export default function PresellDashboard() {
     setMirrorHtmlDraft(
       typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : "",
     );
+  };
+
+  /** Abre o formulário com hoplink/URLs já preenchidos — mudar tipo sem reimportar. */
+  const startEditPresell = (page: Presell) => {
+    populateFormFromPresell(page);
+    setEditingId(page.id);
+    setEditingPage(page);
+    setCreatorStep(1);
+    setShowCreator(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const exitCreator = () => {
@@ -1634,7 +1645,20 @@ export default function PresellDashboard() {
                       {page.title}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">{getPresellTypeLabel(page.type)}</td>
+                  <td className="py-3 px-4 text-muted-foreground">
+                    {canWritePresells ? (
+                      <button
+                        type="button"
+                        onClick={() => startEditPresell(page)}
+                        className="text-left hover:text-foreground hover:underline underline-offset-2 transition-colors"
+                        title="Alterar tipo e opções"
+                      >
+                        {getPresellTypeLabel(page.type)}
+                      </button>
+                    ) : (
+                      getPresellTypeLabel(page.type)
+                    )}
+                  </td>
                   <td className="py-3 px-4 max-w-[min(100vw,22rem)]">
                     <div className="flex flex-col gap-1">
                       <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">
@@ -1681,9 +1705,19 @@ export default function PresellDashboard() {
                       {canWritePresells ? (
                         <button
                           type="button"
+                          onClick={() => startEditPresell(page)}
+                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="Alterar tipo e opções (hoplink mantém-se)"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      {canWritePresells ? (
+                        <button
+                          type="button"
                           onClick={() => navigate(`/presell/builder/${page.id}`)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Editar página"
+                          title="Editar layout / conteúdo"
                         >
                           <LayoutGrid className="h-4 w-4" />
                         </button>
@@ -1743,6 +1777,12 @@ export default function PresellDashboard() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
+                          {canWritePresells ? (
+                            <DropdownMenuItem onClick={() => startEditPresell(page)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Alterar tipo e opções
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuItem
                             disabled={htmlExportBusyId === page.id}
                             onClick={() => void handleCopyHtml(page)}
