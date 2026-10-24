@@ -278,10 +278,11 @@ describe("buildEditablePageDocument", () => {
       .find((w) => w.type === "cookieBanner");
     expect(cookie?.content.policyUrl).toBe("https://brand.example/privacy");
     expect(cookie?.content.offerHref || "").toBe("");
+    // Com espelho, não há CTA React extra («Allow») — os botões vêm do HTML importado.
     const bakedButton = baked.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "button");
-    expect(bakedButton?.content.href).toBe("https://app.example/track/r/x");
+    expect(bakedButton).toBeUndefined();
     expect(String(baked.sections[0].columns[0].widgets[0].content.code)).toContain(
       "https://app.example/track/r/x",
     );

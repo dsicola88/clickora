@@ -114,8 +114,19 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    // Com redirect à oferta: nunca lembrar o dismiss — senão o visitante volta sem banner
+    // (e o Allow parece «não abrir»). Só unlock-only grava localStorage.
+    if (goOffer) {
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
+      }
+      setDismissed(false);
+      return;
+    }
     setDismissed(readDismissed(storageKey));
-  }, [storageKey]);
+  }, [storageKey, goOffer]);
 
   const usesOverlay = cookieBannerUsesPageOverlay({ inBuilder, variant, dismissed });
 
@@ -131,7 +142,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const visible = inBuilder || !dismissed;
 
   const dismiss = () => {
-    writeDismissed(storageKey);
+    if (!goOffer) writeDismissed(storageKey);
     setDismissed(true);
   };
 
@@ -286,7 +297,6 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           <a
             href={offerHref}
             data-testid="presell-cookie-allow-offer"
-            onClick={dismiss}
             style={allowClass}
           >
             {allowLabel}
@@ -304,7 +314,6 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           <a
             href={offerHref}
             data-testid="presell-cookie-close-offer"
-            onClick={dismiss}
             style={closeClass}
           >
             {declineLabel}

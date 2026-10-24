@@ -609,9 +609,13 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     if (stacked.length) sections.push(section);
   }
 
-  if (cookie && white && offer) {
+  /**
+   * CTA extra só quando white cookies NÃO tem espelho (o espelho já traz os botões da oferta).
+   * Evita um segundo «Allow» por baixo da review que compete com o modal e parte o layout.
+   */
+  if (cookie && white && offer && mirrorFold.length <= 80) {
     const lang = source.language || asString(content.language) || "pt-BR";
-    const ctaLabel = cta || getPresellUiStrings(lang).cookieAccept;
+    const ctaLabel = cta || getPresellUiStrings(lang).midCta;
     const ctaSec = createSection(1);
     ctaSec.layout = "boxed";
     ctaSec.contentWidth = 720;
