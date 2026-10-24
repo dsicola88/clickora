@@ -70,13 +70,7 @@ describe("CookieConsentModal", () => {
     expect(screen.getByRole("button", { name: "Allow" })).toBeTruthy();
   });
 
-  it("com navigateOnAccept navega para o href rastreado ao Aceitar", () => {
-    const assign = vi.fn();
-    const prev = window.location;
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { ...prev, assign },
-    });
+  it("com navigateOnAccept os botões são links para o href rastreado", () => {
     render(
       <CookieConsentModal
         language="en"
@@ -87,9 +81,10 @@ describe("CookieConsentModal", () => {
         onAccept={() => {}}
       />,
     );
-    screen.getByRole("button", { name: "Allow" }).click();
-    expect(assign).toHaveBeenCalledWith("/track/r/abc?to=https%3A%2F%2Foffer.example");
-    Object.defineProperty(window, "location", { configurable: true, value: prev });
+    const allow = screen.getByTestId("presell-cookie-allow-offer");
+    expect(allow.getAttribute("href")).toBe("/track/r/abc?to=https%3A%2F%2Foffer.example");
+    const close = screen.getByTestId("presell-cookie-close-offer");
+    expect(close.getAttribute("href")).toBe("/track/r/abc?to=https%3A%2F%2Foffer.example");
   });
 });
 

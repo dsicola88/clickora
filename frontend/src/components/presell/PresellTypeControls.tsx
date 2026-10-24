@@ -62,12 +62,13 @@ export function cookieConsentNavigation(
 export function isCookieRedirectToOfferEnabled(
   settings: Record<string, unknown> | null | undefined,
 ): boolean {
-  return Boolean(settings?.cookieRedirectToOffer);
+  const v = settings?.cookieRedirectToOffer ?? settings?.cookie_redirect_to_offer;
+  return v === true || v === 1 || v === "true" || v === "1";
 }
 
 /**
  * Consentimento de cookies: página bloqueada (só botões do cartão clicáveis).
- * Com navigateOnAccept: Aceitar/Fechar → oferta rastreada; sem: só libera a review.
+ * Com navigateOnAccept: Aceitar/Fechar são links reais para `/track/r/` (redirect fiável).
  */
 export function CookieConsentModal({
   language,
@@ -98,13 +99,19 @@ export function CookieConsentModal({
   }, [accepted]);
   if (accepted) return null;
 
-  const dismiss = (action: "allow" | "dismiss") => {
-    onAccept?.();
-    if (!navigateOnAccept) return;
-    const nav = cookieConsentNavigation(action, redirectHref, fallbackHref);
-    if (nav.kind === "assign") window.location.assign(nav.url);
-  };
+  const offerNav = navigateOnAccept
+    ? cookieConsentNavigation("allow", redirectHref, fallbackHref)
+    : { kind: "stay" as const };
+  const offerUrl = offerNav.kind === "assign" ? offerNav.url : "";
+  const goOffer = Boolean(offerUrl);
+
+  const unlockOnly = () => onAccept?.();
   const policyHref = policyUrl;
+
+  const allowClass =
+    "inline-flex h-12 flex-1 items-center justify-center rounded-full border-0 bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600";
+  const closeClass =
+    "inline-flex h-12 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50";
 
   return (
     <div
@@ -147,20 +154,34 @@ export function CookieConsentModal({
           ) : null}
         </p>
         <div className="mt-6 flex gap-3">
-          <Button
-            type="button"
-            className="h-12 flex-1 rounded-full border-0 bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600"
-            onClick={() => dismiss("allow")}
-          >
-            {L.cookieAllow}
-          </Button>
-          <button
-            type="button"
-            className="h-12 flex-1 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            onClick={() => dismiss("dismiss")}
-          >
-            {L.cookieClose}
-          </button>
+          {goOffer ? (
+            <a
+              href={offerUrl}
+              className={allowClass}
+              data-testid="presell-cookie-allow-offer"
+              onClick={() => onAccept?.()}
+            >
+              {L.cookieAllow}
+            </a>
+          ) : (
+            <Button type="button" className={allowClass} onClick={unlockOnly}>
+              {L.cookieAllow}
+            </Button>
+          )}
+          {goOffer ? (
+            <a
+              href={offerUrl}
+              className={closeClass}
+              data-testid="presell-cookie-close-offer"
+              onClick={() => onAccept?.()}
+            >
+              {L.cookieClose}
+            </a>
+          ) : (
+            <button type="button" className={closeClass} onClick={unlockOnly}>
+              {L.cookieClose}
+            </button>
+          )}
         </div>
         <p className="mt-4 text-center text-xs text-slate-400">{L.cookieFooter}</p>
       </div>

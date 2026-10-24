@@ -174,8 +174,8 @@ const EXPORT_STYLES = `
 .pe-cookie-card p{font-size:.875rem;line-height:1.6;color:#64748b;margin:0 0 .75rem;}
 .pe-cookie-actions{display:flex;flex-direction:column-reverse;gap:.75rem;margin-top:1.5rem;}
 @media(min-width:640px){.pe-cookie-actions{flex-direction:row;}}
-.pe-cookie-actions button{flex:1;padding:.65rem 1rem;border-radius:.5rem;font-weight:600;cursor:pointer;font:inherit;}
-.pe-cookie-close{background:#fff;border:1px solid #e2e8f0;}
+.pe-cookie-actions button,.pe-cookie-actions a{flex:1;padding:.65rem 1rem;border-radius:.5rem;font-weight:600;cursor:pointer;font:inherit;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;}
+.pe-cookie-close{background:#fff;border:1px solid #e2e8f0;color:#334155;}
 .pe-cookie-allow{background:#059669;color:#fff;border:0;}
 .pe-discount-bar{position:fixed;top:0;left:0;right:0;z-index:60;background:#e91e8c;color:#fff;text-align:center;padding:.65rem .75rem;box-shadow:0 4px 12px rgba(0,0,0,.12);}
 .pe-discount-bar .pe-timer{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
@@ -328,10 +328,13 @@ function buildCookieModalHtml(
     ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
     : "";
   const dest = (offerHref || "").trim();
-  const redirectJs =
-    dest && dest !== "#"
-      ? `window.location.assign(${JSON.stringify(dest)});`
-      : `var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";`;
+  const goOffer = Boolean(dest && dest !== "#");
+  const closeCtl = goOffer
+    ? `<a class="pe-cookie-close" id="pe-cookie-close" href="${escapeAttr(dest)}">${escapeHtml(L.close)}</a>`
+    : `<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>`;
+  const allowCtl = goOffer
+    ? `<a class="pe-cookie-allow" id="pe-cookie-allow" href="${escapeAttr(dest)}">${escapeHtml(L.allow)}</a>`
+    : `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <div class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-hidden="true"></div>
 <div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="true">
@@ -339,21 +342,25 @@ function buildCookieModalHtml(
 <p>${escapeHtml(L.body)}</p>
 ${policyLink}
 <div class="pe-cookie-actions">
-<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>
-<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>
+${closeCtl}
+${allowCtl}
 </div>
 <p style="text-align:center;font-size:.75rem;color:#64748b;margin-top:1rem;">${escapeHtml(L.footer)}</p>
 </div>
 </div>
-<script>
+${
+  goOffer
+    ? ""
+    : `<script>
 (function(){
-function dismiss(){${redirectJs}}
+function dismiss(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";}
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
 if(c)c.addEventListener("click",dismiss);
 if(a)a.addEventListener("click",dismiss);
 })();
-</script>`;
+</script>`
+}`;
 }
 
 function buildVslFallbackHtml(

@@ -26,10 +26,12 @@ describe("cookieConsentNavigation", () => {
 });
 
 describe("isCookieRedirectToOfferEnabled", () => {
-  it("só activo com cookieRedirectToOffer true", () => {
+  it("aceita true / 1 / string e snake_case", () => {
     expect(isCookieRedirectToOfferEnabled(undefined)).toBe(false);
     expect(isCookieRedirectToOfferEnabled({})).toBe(false);
     expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: false })).toBe(false);
     expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: true })).toBe(true);
+    expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: "true" })).toBe(true);
+    expect(isCookieRedirectToOfferEnabled({ cookie_redirect_to_offer: 1 })).toBe(true);
   });
 });
