@@ -118,14 +118,14 @@ export function CookieBannerContentEditor({
       />
       <NumberField
         label="Escuridão do fundo (%)"
-        value={typeof c.overlayOpacity === "number" ? c.overlayOpacity : 28}
+        value={typeof c.overlayOpacity === "number" ? c.overlayOpacity : 12}
         onChange={(v) => setContent({ overlayOpacity: v })}
         min={0}
         max={70}
       />
       <NumberField
         label="Desfoque do fundo (px)"
-        value={typeof c.overlayBlur === "number" ? c.overlayBlur : 2}
+        value={typeof c.overlayBlur === "number" ? c.overlayBlur : 0}
         onChange={(v) => setContent({ overlayBlur: v })}
         min={0}
         max={12}

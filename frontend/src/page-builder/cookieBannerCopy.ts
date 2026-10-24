@@ -66,13 +66,15 @@ export function resolveCookieBannerCopy(
   };
 }
 
-export function clampCookieOverlayOpacity(raw: unknown, fallback = 28): number {
+/** Véu suave (~12%): a página por baixo continua legível. */
+export function clampCookieOverlayOpacity(raw: unknown, fallback = 12): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(70, Math.max(0, Math.round(n)));
 }
 
-export function clampCookieOverlayBlur(raw: unknown, fallback = 2): number {
+/** Sem blur por defeito — blur tornava a review ilegível atrás do modal. */
+export function clampCookieOverlayBlur(raw: unknown, fallback = 0): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(12, Math.max(0, Math.round(n)));

@@ -53,7 +53,7 @@ describe("cookie banner language", () => {
   });
 
   it("limita a escuridão e o blur do overlay", () => {
-    expect(clampCookieOverlayOpacity(28)).toBe(28);
+    expect(clampCookieOverlayOpacity(12)).toBe(12);
     expect(clampCookieOverlayOpacity(200)).toBe(70);
     expect(clampCookieOverlayBlur(-1)).toBe(0);
   });

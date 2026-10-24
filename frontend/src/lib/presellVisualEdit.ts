@@ -389,8 +389,8 @@ function offerCookie(_offer: string, policyHref: string, language?: string | nul
     policyLabel: L.cookiePolicy,
     footerNote: L.cookieFooter,
     followLanguage: false,
-    overlayOpacity: 28,
-    overlayBlur: 2,
+    overlayOpacity: 12,
+    overlayBlur: 0,
     policyUrl: policyHref || "/privacidade",
   };
   return cookie;

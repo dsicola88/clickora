@@ -114,15 +114,15 @@ export function CookieConsentModal({
       aria-labelledby="cookie-policy-title"
       data-testid="presell-cookie-sheet"
     >
-      {/* Fundo inerte: bloqueia a página; não é botão nem navega. */}
+      {/* Véu leve: a review por baixo continua legível; o cartão destaca-se sozinho. */}
       <div
         data-testid="presell-cookie-backdrop"
-        className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-slate-900/10"
         aria-hidden="true"
       />
       <div
         data-testid="presell-cookie-card"
-        className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/20 bg-white px-6 py-7 text-slate-900 shadow-2xl"
+        className="relative z-10 w-full max-w-[420px] rounded-2xl border border-slate-200/90 bg-white/95 px-6 py-7 text-slate-900 shadow-[0_18px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-[1px]"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="cookie-policy-title" className="text-xl font-bold tracking-tight text-slate-950">
