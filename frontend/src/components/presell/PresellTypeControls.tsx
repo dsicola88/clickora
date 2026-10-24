@@ -43,8 +43,8 @@ function num(v: unknown, fallback: number): number {
 }
 
 /**
- * Resolve destino da oferta (ex.: Continuar para a oferta).
- * O consentimento em si não navega — só os botões do modal são interativos.
+ * Resolve destino da oferta quando «cookieRedirectToOffer» está activo.
+ * Sem URL válida o modal fica na página (só desbloqueia).
  */
 export function cookieConsentNavigation(
   _action: "allow" | "dismiss",
@@ -58,15 +58,25 @@ export function cookieConsentNavigation(
   return { kind: "assign", url };
 }
 
+/** `settings.cookieRedirectToOffer` — páginas antigas sem a chave = só desbloqueiam a review. */
+export function isCookieRedirectToOfferEnabled(
+  settings: Record<string, unknown> | null | undefined,
+): boolean {
+  return Boolean(settings?.cookieRedirectToOffer);
+}
+
 /**
  * Consentimento de cookies: página bloqueada (só botões do cartão clicáveis).
- * Aceitar libera a presell; o fundo não navega nem fecha o modal.
+ * Com navigateOnAccept: Aceitar/Fechar → oferta rastreada; sem: só libera a review.
  */
 export function CookieConsentModal({
   language,
   policyUrl,
+  redirectHref = "",
+  fallbackHref = "",
   accepted,
   onAccept,
+  navigateOnAccept = false,
 }: {
   language: string;
   policyUrl: string;
@@ -74,7 +84,7 @@ export function CookieConsentModal({
   fallbackHref?: string;
   accepted: boolean;
   onAccept?: () => void;
-  /** @deprecated Cookies só desbloqueiam a página; a oferta fica nos CTAs explícitos. */
+  /** Se true, Aceitar/Fechar vão para a oferta (`/track/r/…`). */
   navigateOnAccept?: boolean;
 }) {
   const L = getPresellUiStrings(language);
@@ -88,7 +98,12 @@ export function CookieConsentModal({
   }, [accepted]);
   if (accepted) return null;
 
-  const dismiss = () => onAccept?.();
+  const dismiss = (action: "allow" | "dismiss") => {
+    onAccept?.();
+    if (!navigateOnAccept) return;
+    const nav = cookieConsentNavigation(action, redirectHref, fallbackHref);
+    if (nav.kind === "assign") window.location.assign(nav.url);
+  };
   const policyHref = policyUrl;
 
   return (
@@ -135,14 +150,14 @@ export function CookieConsentModal({
           <Button
             type="button"
             className="h-12 flex-1 rounded-full border-0 bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600"
-            onClick={dismiss}
+            onClick={() => dismiss("allow")}
           >
             {L.cookieAllow}
           </Button>
           <button
             type="button"
             className="h-12 flex-1 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            onClick={dismiss}
+            onClick={() => dismiss("dismiss")}
           >
             {L.cookieClose}
           </button>

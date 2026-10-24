@@ -19,6 +19,7 @@ import {
   mergeParamsIntoAffiliateUrl,
   PresellGateFields,
   useCookieAcceptedState,
+  isCookieRedirectToOfferEnabled,
   type GatePayload,
 } from "@/components/presell/PresellTypeControls";
 import {
@@ -1256,7 +1257,7 @@ export default function PublicPresell() {
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
-          navigateOnAccept={false}
+          navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
         />
       ) : null}
 

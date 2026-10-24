@@ -3,7 +3,7 @@
  *
  * | Tipo        | Comportamento |
  * |-------------|----------------|
- * | cookies     | Modal de cookies; cliques redirecionam para o link da presell. |
+ * | cookies     | Modal de cookies; com settings.cookieRedirectToOffer, Aceitar/Fechar → oferta rastreada; senão só libera a review. |
  * | desconto    | Faixa de urgência + modal. CTA, fechar e o fundo vão para a oferta rastreada. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
  * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |

@@ -99,6 +99,8 @@ export default function CreatePresellWizardPage() {
   const [enableAbTest, setEnableAbTest] = useState(false);
   const [abTypeB, setAbTypeB] = useState("desconto");
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
+  /** Tipo cookies: Aceitar → oferta (ligado por defeito em páginas novas). */
+  const [cookieRedirectToOffer, setCookieRedirectToOffer] = useState(true);
   const [minAge, setMinAge] = useState("18");
   const [manualYoutubeUrl, setManualYoutubeUrl] = useState("");
   const [campaignId, setCampaignId] = useState<string | null>(null);
@@ -321,6 +323,7 @@ export default function CreatePresellWizardPage() {
           ...settingsBase,
           affiliateDisclosure: defaultAffiliateDisclosureSetting(language),
           minAge: minAge.trim() || "18",
+          ...(type === "cookies" ? { cookieRedirectToOffer } : {}),
         },
         policyFromImport,
       );
@@ -378,6 +381,11 @@ export default function CreatePresellWizardPage() {
         const typeB = abTypeB === type ? defaultAbPresellTypeB(type, generationNiche) : abTypeB;
         const b = buildContent(typeB);
         const slugB = `${slugFromTitle(titleSeed)}-b-${Date.now().toString(36).slice(-4)}`;
+        const settingsB: Record<string, unknown> = {
+          ...settings,
+          ...(typeB === "cookies" ? { cookieRedirectToOffer } : {}),
+        };
+        if (typeB !== "cookies") delete settingsB.cookieRedirectToOffer;
         const { data: createdB, error: errB } = await presellService.create({
           title: `${a.pageTitle} (B)`,
           slug: slugB,
@@ -390,7 +398,7 @@ export default function CreatePresellWizardPage() {
             affiliateNetwork: platform ?? undefined,
           },
           content: b.content,
-          settings,
+          settings: settingsB,
           ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
         } as never);
         if (errB || !createdB) throw new Error(errB || "Falha ao criar variante B");
@@ -887,20 +895,34 @@ export default function CreatePresellWizardPage() {
 
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Opções do tipo</p>
-            {presellType === "cookies" && generationNiche === "black" ? (
-              <div className="space-y-2">
-                <Label htmlFor="cookiePolicy">URL política de cookies (opcional)</Label>
-                <Input
-                  id="cookiePolicy"
-                  type="url"
-                  placeholder="https://…"
-                  value={cookiePolicyUrl}
-                  onChange={(e) => setCookiePolicyUrl(e.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  No black, «Aceitar» só abre o portal informativo — a oferta fica no botão da página (como afiliado
-                  intermediário).
-                </p>
+            {presellType === "cookies" ? (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-medium text-foreground">Ir directo à página de vendas</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Ligado: «Aceitar» / «Fechar» no modal de cookies abrem a oferta (com rastreamento). Desligado: só
+                      liberam a review — o visitante clica depois num botão da página.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={cookieRedirectToOffer}
+                    onCheckedChange={setCookieRedirectToOffer}
+                    aria-label="Ir directo à página de vendas após cookies"
+                  />
+                </div>
+                {generationNiche === "black" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="cookiePolicy">URL política de cookies (opcional)</Label>
+                    <Input
+                      id="cookiePolicy"
+                      type="url"
+                      placeholder="https://…"
+                      value={cookiePolicyUrl}
+                      onChange={(e) => setCookiePolicyUrl(e.target.value)}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {["idade", "idade_sexo", "idade_pais"].includes(presellType) ? (

@@ -49,6 +49,11 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   privacyPolicyUrl: "",
   cookiePolicyUrl: "",
   affiliateDisclosure: "",
+  /**
+   * Tipo cookies: Aceitar/Fechar no modal → oferta rastreada (`/track/r/`).
+   * false / ausente = só desbloqueia a review (comportamento das páginas antigas).
+   */
+  cookieRedirectToOffer: false,
 };
 
 /**
@@ -89,6 +94,7 @@ export function hydratePresellConfigSettings(
     privacyPolicyUrl: String(s.privacyPolicyUrl ?? ""),
     cookiePolicyUrl: String(s.cookiePolicyUrl ?? ""),
     affiliateDisclosure: String(s.affiliateDisclosure ?? ""),
+    cookieRedirectToOffer: Boolean(s.cookieRedirectToOffer),
     ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
       ? { operatorDocument: s.operatorDocument }
       : {}),

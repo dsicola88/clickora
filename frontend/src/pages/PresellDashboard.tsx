@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale } from "@/lib/presellUiStrings";
 import { toast } from "sonner";
@@ -345,6 +346,8 @@ export default function PresellDashboard() {
 
   const [typeOptions, setTypeOptions] = useState({
     cookiePolicyUrl: "",
+    /** Tipo cookies: modal → oferta rastreada (novo por defeito). */
+    cookieRedirectToOffer: true,
     minAge: "18",
     /** Só VSL: se o import não achar vídeo, colar link do YouTube (watch ou youtu.be). */
     manualYoutubeUrl: "",
@@ -423,7 +426,7 @@ export default function PresellDashboard() {
     });
     setCreatorStep(1);
     setSlugTouchedByUser(false);
-    setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
+    setTypeOptions({ cookiePolicyUrl: "", cookieRedirectToOffer: true, minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
     setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
     setMirrorHtmlDraft("");
@@ -446,6 +449,7 @@ export default function PresellDashboard() {
     setSlugTouchedByUser(true);
     setTypeOptions({
       cookiePolicyUrl: String(settings.cookiePolicyUrl ?? ""),
+      cookieRedirectToOffer: Boolean(settings.cookieRedirectToOffer),
       minAge: String(settings.minAge ?? "18"),
       manualYoutubeUrl: page.video_url || "",
     });
@@ -546,12 +550,20 @@ export default function PresellDashboard() {
     }
   };
 
-  const buildPresellSettingsPayload = (): PresellSettings => ({
-    ...(configSettings as PresellSettings),
-    headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
-    cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
-    minAge: typeOptions.minAge,
-  });
+  const buildPresellSettingsPayload = (): PresellSettings => {
+    const base: PresellSettings = {
+      ...(configSettings as PresellSettings),
+      headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
+      cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
+      minAge: typeOptions.minAge,
+    };
+    if (formData.presellType === "cookies") {
+      base.cookieRedirectToOffer = typeOptions.cookieRedirectToOffer;
+    } else {
+      delete base.cookieRedirectToOffer;
+    }
+    return base;
+  };
 
   const handleSave = async () => {
     const result = presellAutoCreatorSchema.safeParse(formData);
@@ -1075,18 +1087,37 @@ export default function PresellDashboard() {
                 idade, VSL, etc.).
               </p>
               {formData.presellType === "cookies" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="cookiePolicyUrl">URL da política de cookies / privacidade (opcional)</Label>
-                  <Input
-                    id="cookiePolicyUrl"
-                    type="url"
-                    placeholder="https://..."
-                    value={typeOptions.cookiePolicyUrl}
-                    onChange={(e) => setTypeOptions((o) => ({ ...o, cookiePolicyUrl: e.target.value }))}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Modal de cookies. Qualquer clique, incluindo a política, vai para o link rastreado da oferta. Sem destino, o modal fica.
-                  </p>
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-card-foreground">Ir directo à página de vendas</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Ligado: «Aceitar» / «Fechar» abrem a oferta com rastreamento Clickora. Desligado: só liberam a
+                        review — o visitante usa os botões da página.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={typeOptions.cookieRedirectToOffer}
+                      onCheckedChange={(v) =>
+                        setTypeOptions((o) => ({ ...o, cookieRedirectToOffer: Boolean(v) }))
+                      }
+                      aria-label="Ir directo à página de vendas após cookies"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cookiePolicyUrl">URL da política de cookies / privacidade (opcional)</Label>
+                    <Input
+                      id="cookiePolicyUrl"
+                      type="url"
+                      placeholder="https://..."
+                      value={typeOptions.cookiePolicyUrl}
+                      onChange={(e) => setTypeOptions((o) => ({ ...o, cookiePolicyUrl: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      O link da política abre num separador (não envia para a oferta). Sem hoplink, o modal só
+                      desbloqueia a página.
+                    </p>
+                  </div>
                 </div>
               ) : null}
               {["idade", "idade_sexo", "idade_pais"].includes(formData.presellType) ? (

@@ -168,7 +168,7 @@ const EXPORT_STYLES = `
 .pe-gate-box .pe-radio-row{display:flex;align-items:center;gap:.5rem;margin:.35rem 0;}
 .pe-gate-box .pe-hint{font-size:.75rem;color:#64748b;margin-top:.35rem;}
 .pe-cookie-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;}
-.pe-cookie-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);border:0;cursor:pointer;}
+.pe-cookie-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);border:0;cursor:default;pointer-events:auto;}
 .pe-cookie-card{position:relative;z-index:10;max-width:28rem;width:100%;border-radius:1rem;border:1px solid rgba(0,0,0,.1);background:#fff;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);}
 .pe-cookie-card h2{font-size:1.25rem;font-weight:700;margin:0 0 1rem;}
 .pe-cookie-card p{font-size:.875rem;line-height:1.6;color:#64748b;margin:0 0 .75rem;}
@@ -316,14 +316,24 @@ function buildInteractiveGateHtml(
   return parts.join("");
 }
 
-function buildCookieModalHtml(language: string, policyUrl: string): string {
+function buildCookieModalHtml(
+  language: string,
+  policyUrl: string,
+  /** Quando definido (hoplink rastreado), Aceitar/Fechar vão para a oferta. */
+  offerHref?: string,
+): string {
   const L = cookieTexts(language);
   const policyHref = policyUrl.trim();
   const policyLink = policyHref
     ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
     : "";
+  const dest = (offerHref || "").trim();
+  const redirectJs =
+    dest && dest !== "#"
+      ? `window.location.assign(${JSON.stringify(dest)});`
+      : `var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";`;
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
-<button type="button" class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-label="${escapeAttr(L.close)}"></button>
+<div class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-hidden="true"></div>
 <div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="true">
 <h2>${escapeHtml(L.title)}</h2>
 <p>${escapeHtml(L.body)}</p>
@@ -337,11 +347,9 @@ ${policyLink}
 </div>
 <script>
 (function(){
-function dismiss(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";}
-var b=document.getElementById("pe-cookie-backdrop");
+function dismiss(){${redirectJs}}
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
-if(b)b.addEventListener("click",dismiss);
 if(c)c.addEventListener("click",dismiss);
 if(a)a.addEventListener("click",dismiss);
 })();
@@ -707,7 +715,12 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let core = "";
   if (gateKind === "cookies") {
-    core += buildCookieModalHtml(page.language, cookiePolicyUrl);
+    const cookieRedirect = Boolean(settings.cookieRedirectToOffer);
+    core += buildCookieModalHtml(
+      page.language,
+      cookiePolicyUrl,
+      cookieRedirect ? href : undefined,
+    );
   }
 
   core +=

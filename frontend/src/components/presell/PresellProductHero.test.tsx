@@ -69,6 +69,28 @@ describe("CookieConsentModal", () => {
     expect(screen.getByRole("heading", { name: "Cookie Policy" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Allow" })).toBeTruthy();
   });
+
+  it("com navigateOnAccept navega para o href rastreado ao Aceitar", () => {
+    const assign = vi.fn();
+    const prev = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...prev, assign },
+    });
+    render(
+      <CookieConsentModal
+        language="en"
+        policyUrl=""
+        redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
+        accepted={false}
+        navigateOnAccept
+        onAccept={() => {}}
+      />,
+    );
+    screen.getByRole("button", { name: "Allow" }).click();
+    expect(assign).toHaveBeenCalledWith("/track/r/abc?to=https%3A%2F%2Foffer.example");
+    Object.defineProperty(window, "location", { configurable: true, value: prev });
+  });
 });
 
 describe("DiscountPresellOverlay", () => {

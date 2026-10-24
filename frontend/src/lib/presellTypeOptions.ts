@@ -29,7 +29,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "cookies",
         name: "Cookies (consentimento)",
         description:
-          "Modal profissional de cookies e privacidade. Fluxo explícito para o visitante; ideal quando a campanha exige consentimento visível.",
+          "Modal profissional de cookies e privacidade. Na criação pode escolher: Aceitar leva directo à oferta, ou só libera a review.",
       },
       {
         id: "fantasma",
