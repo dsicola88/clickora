@@ -60,6 +60,7 @@ import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
 import { readBrandKitPro } from "@/lib/brandKitPro";
 import { bakeMirrorOfferHrefsForPresell } from "@/lib/presellCtaBake";
 import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
+import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
@@ -597,6 +598,9 @@ export default function PresellDashboard() {
       cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
       minAge: typeOptions.minAge,
     };
+    if (!String(base.affiliateDisclosure ?? "").trim()) {
+      base.affiliateDisclosure = defaultAffiliateDisclosureSetting(formData.language);
+    }
     if (formData.presellType === "cookies") {
       base.cookieRedirectToOffer = typeOptions.cookieRedirectToOffer;
     } else {
@@ -654,13 +658,18 @@ export default function PresellDashboard() {
           }
         }
         const prevContent = editingPage.content as Record<string, unknown>;
+        const prevMirror = String(
+          prevContent.importMirrorSrcDoc ?? prevContent.import_mirror_src_doc ?? "",
+        ).trim();
         let mirrorToSave = mirrorHtmlDraft.trim();
         const captured = mirrorVisualPreviewRef.current?.captureDocumentHtml()?.trim();
         if (captured && captured.length > 200) mirrorToSave = captured;
+        // Nunca apagar o espelho se o rascunho veio vazio (ex.: lista sem content).
+        if (!mirrorToSave && prevMirror) mirrorToSave = prevMirror;
         if (mirrorToSave.length > 0) {
           mirrorToSave = bakeMirrorOfferHrefsForPresell(mirrorToSave, editingId, ctaAffiliate);
         }
-        if (editingPage.status === "published") {
+        if (editingPage.status === "published" || editingPage.status === "paused") {
           const block = publishBlockedByReadiness(
             buildPublishReadinessFromPresell({
               status: "published",
@@ -671,7 +680,9 @@ export default function PresellDashboard() {
             }),
           );
           if (block) {
-            toast.error(`Presell publicada: corrija «${block.label}» antes de guardar. ${block.hint || ""}`.trim());
+            toast.error(
+              `Presell: corrija «${block.hint || block.label}» antes de guardar.`.trim(),
+            );
             return;
           }
         }
@@ -679,7 +690,11 @@ export default function PresellDashboard() {
           ...prevContent,
           affiliateLink: ctaAffiliate,
           sourceUrl: prevContent.sourceUrl ?? importUrl,
-          ...(mirrorToSave.length > 0 ? { importMirrorSrcDoc: mirrorToSave } : { importMirrorSrcDoc: "" }),
+          ...(mirrorToSave.length > 0
+            ? { importMirrorSrcDoc: mirrorToSave }
+            : prevMirror
+              ? { importMirrorSrcDoc: prevMirror }
+              : {}),
         };
         await updateMutation.mutateAsync({
           id: editingId,
