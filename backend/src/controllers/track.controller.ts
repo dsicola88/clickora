@@ -39,6 +39,7 @@ import { extractClientIp } from "../lib/clientIp";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 import { fillMissingAdClickIds, forwardAdQueryToUrl, rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
+import { isForbiddenPublicTrackEventType } from "../lib/trackPublicEventPolicy";
 import {
   affiliateLinkFromPresellPage,
   isRedirectToAllowedOffer,
@@ -83,6 +84,12 @@ const eventSchema = z.object({
   campaign: z.string().optional(),
   referrer: z.string().optional(),
 });
+
+function cleanAdClickId(raw: string | undefined | null): string | undefined {
+  const v = typeof raw === "string" ? raw.trim() : "";
+  if (!v || isUnreplacedAdMacro(v)) return undefined;
+  return v;
+}
 
 const redirectSchema = z
   .object({
@@ -464,7 +471,14 @@ export const trackController = {
       }
     }
     const adIds = fillMissingAdClickIds(
-      { gclid, gbraid, wbraid, msclkid, fbclid, ttclid },
+      {
+        gclid: cleanAdClickId(gclid),
+        gbraid: cleanAdClickId(gbraid),
+        wbraid: cleanAdClickId(wbraid),
+        msclkid: cleanAdClickId(msclkid),
+        fbclid: cleanAdClickId(fbclid),
+        ttclid: cleanAdClickId(ttclid),
+      },
       rotatorParentMeta.parent_rotator_click_id ? parentMetadata : null,
     );
 
@@ -948,6 +962,13 @@ export const trackController = {
     if (!parsed.success) return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
     const { presell_id, event_type, metadata, value, currency, transaction_id, gclid, fbclid, ttclid, msclkid, source, medium, campaign, referrer } = parsed.data;
 
+    if (isForbiddenPublicTrackEventType(event_type)) {
+      return res.status(403).json({
+        error:
+          "Conversões não são aceites em POST /track/event. Use o postback da rede de afiliados ou Integrações.",
+      });
+    }
+
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
@@ -985,6 +1006,7 @@ export const trackController = {
 
     const seen = visitorClickPlace(req, evIp);
     const { device: evDevice, botMeta: evBotMeta } = deviceAndBotMeta(evUa, { headers: req.headers as Record<string, string | string[] | undefined>, ip: evIp });
+    const cloudMeta = seen.place ? datacenterClickMeta(evIp) : reportCloudClickMeta(evIp);
     await systemPrisma.trackingEvent.create({
       data: {
         userId: page.userId,
@@ -1007,19 +1029,12 @@ export const trackController = {
           msclkid,
           ...evBotMeta,
           ...seen.countryMeta,
+          ...cloudMeta,
         }) as Prisma.InputJsonValue,
         ipAddress: evIp,
         userAgent: evUa,
       },
     });
-
-    // Increment conversions if applicable
-    if (["conversion", "sale"].includes(event_type)) {
-      await systemPrisma.presellPage.update({
-        where: { id: presell_id },
-        data: { conversions: { increment: 1 } },
-      });
-    }
 
     res.json({ tracked: true });
   },

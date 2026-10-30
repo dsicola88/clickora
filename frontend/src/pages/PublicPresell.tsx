@@ -1089,6 +1089,20 @@ export default function PublicPresell() {
         />
       );
     }
+    const builderCookieRedirect = isCookieRedirectToOfferEnabled(settings);
+    const builderHasCookieBanner = builderDoc.sections.some((section) =>
+      section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
+    );
+    const bakedBuilderDoc = bakePublicOfferHrefs(
+      builderDoc,
+      href,
+      affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
+      cookiePolicyUrl,
+      {
+        unlockCookieOnly: builderHasCookieBanner && !builderCookieRedirect,
+        cookieRedirectToOffer: builderHasCookieBanner && builderCookieRedirect,
+      },
+    );
     return (
       <PresellPublicLocaleProvider language={uiLang}>
       <div className="min-h-screen bg-background pb-12">
@@ -1097,6 +1111,7 @@ export default function PublicPresell() {
           settings={settings}
           trackHref={href}
           language={uiLang}
+          suppressWhileCookieGate={builderHasCookieBanner && builderCookieRedirect}
         />
         <div
           ref={bodyCodeMountRef}
@@ -1106,7 +1121,7 @@ export default function PublicPresell() {
         />
         <Suspense fallback={null}>
           <PublicBuilderPresellView
-            doc={builderDoc}
+            doc={bakedBuilderDoc}
             trackOfferHref={href || undefined}
             offerUrl={
               affiliateLink.trim() && affiliateLink.trim() !== "#"
