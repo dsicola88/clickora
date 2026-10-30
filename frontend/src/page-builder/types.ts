@@ -425,6 +425,8 @@ export interface PageDocument {
     background?: string;
     maxContentWidth: number;
     globalDesign?: PageGlobalDesign;
+    /** Id do tema/preset da biblioteca (ex.: dclickora-market). */
+    themePreset?: string;
   };
   /** Popups / modais da página. */
   popups?: PagePopup[];

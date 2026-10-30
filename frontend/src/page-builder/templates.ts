@@ -2,6 +2,10 @@ import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createSection, createWidget, id } from "./factory";
 import { buildSectionsFromRecipe, VISIVRA_PAGE_IDENTITY } from "./section-blocks";
 import { presellNeotonicsTemplate, presellNitricBoostTemplate } from "./templates.dtcOffers";
+import {
+  createDefaultSalesLandingDocument,
+  DCLICKORA_SALES_THEME_ID,
+} from "@/lib/salesLandingBuilderDoc";
 
 export interface TemplateDefinition {
   id: string;
@@ -10,6 +14,8 @@ export interface TemplateDefinition {
   description: string;
   thumbnail: string;
   build: () => SectionNode[];
+  /** Quando definido, substitui a página completa (settings + secções). */
+  buildDocument?: () => PageDocument;
 }
 
 /** Helper to build a configured widget. */
@@ -2088,7 +2094,20 @@ const presellDtcVisionTemplate: TemplateDefinition = {
 };
 
 
+/** Tema oficial dclickora (/planos) — estilo mercado escuro, dados reais. */
+const landingDclickoraSalesTemplate: TemplateDefinition = {
+  id: DCLICKORA_SALES_THEME_ID,
+  name: "Tema dclickora — vendas",
+  category: "landing",
+  description:
+    "Landing oficial: hero dclickora, prova, funil 01–03, capacidades reais, planos vivos, FAQ e Hotmart — cores e copy da app",
+  thumbnail: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80",
+  build: () => createDefaultSalesLandingDocument().sections,
+  buildDocument: () => createDefaultSalesLandingDocument(),
+};
+
 export const TEMPLATES: TemplateDefinition[] = [
+  landingDclickoraSalesTemplate,
   landingPageTemplate,
   landingNavHeroTemplate,
   landingProDarkTemplate,

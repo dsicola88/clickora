@@ -234,11 +234,11 @@ function EmptyCanvasDropZone({
           onClick={onOpenTemplates}
           className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-editor-accent"
         >
-          <LayoutTemplate className="h-4 w-4" /> Modelos
+          <LayoutTemplate className="h-4 w-4" /> Temas
         </button>
       </div>
       <p className="max-w-sm text-[11px] text-slate-400">
-        Também pode arrastar «Menu», «Botão», «Lista com ícones» ou «Banner de cookies» da barra esquerda.
+        Abra Temas para «Tema dclickora — vendas», ou arraste widgets da barra esquerda.
       </p>
     </div>
   );

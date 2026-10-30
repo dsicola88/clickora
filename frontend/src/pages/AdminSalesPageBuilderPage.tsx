@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { PresellBuilderEmbedProvider } from "@/contexts/PresellBuilderEmbedContext";
 import { adminService } from "@/services/adminService";
-import { asSalesPageDocument, createDefaultSalesLandingDocument } from "@/lib/salesLandingBuilderDoc";
+import {
+  asSalesPageDocument,
+  createDefaultSalesLandingDocument,
+  salesDocumentHasMarketTheme,
+} from "@/lib/salesLandingBuilderDoc";
 import { coerceLandingExtras } from "@/lib/plansLandingExtras";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
 import type { PageDocument } from "@/page-builder/types";
@@ -21,7 +25,8 @@ const PageEditor = lazy(() =>
   import("@/page-builder/components/PageEditor").then((m) => ({ default: m.PageEditor })),
 );
 
-const STORAGE_KEY = "clickora:sales-landing-builder:v1";
+const STORAGE_KEY = "clickora:sales-landing-builder:v2";
+const THEME_APPLY_FLAG = "clickora:sales-landing-theme:dclickora-market-v2";
 const ADMIN_KEY = ["admin-plans-landing"] as const;
 const PUBLIC_KEY = ["plans-landing-public"] as const;
 
@@ -75,17 +80,35 @@ export default function AdminSalesPageBuilderPage() {
       const extras = coerceLandingExtras(row?.landing_extras);
       const published = asSalesPageDocument(extras.page_document);
       const local = readLocalDraft();
-      const doc =
-        published ??
-        local ??
-        createDefaultSalesLandingDocument({
-          heroTitle: row?.hero_title,
-          heroSubtitle: row?.hero_subtitle ?? undefined,
-        });
+      const themeOpts = {
+        heroTitle: row?.hero_title,
+        heroSubtitle: row?.hero_subtitle ?? undefined,
+      };
+      let forceTheme = false;
+      try {
+        forceTheme = typeof window !== "undefined" && !window.localStorage.getItem(THEME_APPLY_FLAG);
+      } catch {
+        forceTheme = true;
+      }
+      const preferExisting =
+        !forceTheme &&
+        (salesDocumentHasMarketTheme(published) || salesDocumentHasMarketTheme(local));
+      const doc = forceTheme
+        ? createDefaultSalesLandingDocument(themeOpts)
+        : preferExisting
+          ? (salesDocumentHasMarketTheme(published) ? published : local)!
+          : published ?? local ?? createDefaultSalesLandingDocument(themeOpts);
 
       if (cancelled) return;
       setPageBuilderStorageKey(STORAGE_KEY);
       useBuilder.getState().hydrateDocument(doc);
+      if (forceTheme) {
+        try {
+          window.localStorage.setItem(THEME_APPLY_FLAG, "1");
+        } catch {
+          /* ignore */
+        }
+      }
       lastCloudDocJsonRef.current = published ? JSON.stringify(published) : "";
       setEditorReady(true);
     };

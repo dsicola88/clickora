@@ -42,7 +42,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
   const title = c.title ?? "Escolha o plano certo";
   const subtitle =
     c.subtitle ?? "Preços e limites vêm da base de dados — edite-os no admin em Planos.";
-  const accent = c.accentColor ?? "#e63946";
+  const accent = c.accentColor ?? "#38bdf8";
   const cardBg = c.cardBg ?? "#ffffff";
   const textColor = c.textColor ?? "#0f172a";
   const ctaBg = c.ctaBg ?? accent;

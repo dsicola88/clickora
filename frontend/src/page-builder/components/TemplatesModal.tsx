@@ -55,13 +55,12 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
       return;
     }
     const state = useBuilder.getState();
-    const newSections = t.build();
-    if (mode === "replace") {
-      // Replace via store — we do this by manipulating doc directly through public APIs.
-      // Easiest: reset then add each section. But reset clears the whole doc nicely.
-      state.replaceSections(newSections);
+    if (mode === "replace" && t.buildDocument) {
+      state.hydrateDocument(t.buildDocument());
+    } else if (mode === "replace") {
+      state.replaceSections(t.build());
     } else {
-      state.appendSections(newSections);
+      state.appendSections(t.build());
     }
     setPendingTemplate(null);
     onClose();
@@ -79,7 +78,12 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
         <header className="flex items-center justify-between border-b border-editor-border px-5 py-4">
           <div className="flex items-center gap-2">
             <LayoutTemplate className="h-5 w-5 text-editor-accent" />
-            <h2 className="text-base font-semibold">Biblioteca de modelos</h2>
+            <div>
+              <h2 className="text-base font-semibold">Temas e modelos</h2>
+              <p className="text-[11px] text-editor-fg-muted">
+                Tema dclickora — vendas aplica a landing oficial com planos vivos.
+              </p>
+            </div>
           </div>
           <button
             type="button"

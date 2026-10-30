@@ -204,9 +204,15 @@ export function EditorTopbar() {
         <IconBtn label="Blocos (do zero)" onClick={() => setBlocksOpen(true)}>
           <Blocks className="h-4 w-4" />
         </IconBtn>
-        <IconBtn label="Modelos" onClick={() => setTemplatesOpen(true)}>
-          <LayoutTemplate className="h-4 w-4" />
-        </IconBtn>
+        <button
+          type="button"
+          onClick={() => setTemplatesOpen(true)}
+          title="Temas e modelos"
+          className="flex h-8 items-center gap-1.5 rounded-md bg-editor-panel-2 px-2.5 text-xs font-semibold text-editor-fg transition-colors hover:bg-editor-border"
+        >
+          <LayoutTemplate className="h-3.5 w-3.5 text-editor-accent" />
+          <span>Temas</span>
+        </button>
         <IconBtn
           label="Estrutura"
           onClick={() => toggleStructurePanel()}
