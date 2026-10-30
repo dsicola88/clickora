@@ -590,7 +590,7 @@ export default function Plataformas() {
                       {funnelGuide.mode === "html_funnel_pixels"
                         ? "Pixel HTML"
                         : funnelGuide.mode === "event_postback"
-                          ? "Event postback"
+                          ? "Aviso de evento"
                           : "Só venda (típico)"}
                     </span>
                   </div>
@@ -600,7 +600,7 @@ export default function Plataformas() {
                   </p>
                   <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed border-t border-border/40 pt-2">
                     Sempre disponível sem pixel: <strong className="text-foreground/85">Clique</strong> (saída para a
-                    oferta) e <strong className="text-foreground/85">Venda</strong> (postback acima). Checkout na
+                    oferta) e <strong className="text-foreground/85">Venda</strong> (aviso acima). Checkout na
                     dclickora só depois de a rede disparar pixel/evento.
                   </p>
                 </div>
@@ -662,7 +662,7 @@ export default function Plataformas() {
                 {funnelGuide.mode === "event_postback" && checkoutEventUrl ? (
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">
-                      URL Event postback — Checkout (não use como Conversion/venda)
+                      URL de aviso — Checkout (não uses como venda)
                     </Label>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                       <Input
@@ -717,8 +717,8 @@ export default function Plataformas() {
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     É a mesma base do URL de cima, <strong className="text-foreground/90">sem</strong> as macros{" "}
                     <span className="font-mono">{"{SUBID}"}</span>, <span className="font-mono">{"{ORDERID}"}</span>, etc.
-                    Só precisa dela se a rede pedir o endpoint à parte e as macros noutro formulário — ou para suporte.
-                    Na BuyGoods normalmente <strong className="text-foreground/90">não usa</strong> esta; usa «Copiar com macros».
+                    Só precisas dela se a rede pedir o endereço à parte. Na BuyGoods normalmente{" "}
+                    <strong className="text-foreground/90">não uses</strong> esta; usa «Copiar URL de aviso».
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                     <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10 opacity-90" />
@@ -773,7 +773,7 @@ export default function Plataformas() {
                   {isAdmin ? (
                     <p>
                       <strong className="text-foreground/90">Webhook Hotmart do dclickora</strong> (assinaturas da app) é outro endpoint:{" "}
-                      <span className="font-mono">/api/webhooks/hotmart</span> — não confundir com postback de afiliado.
+                      <span className="font-mono">/api/webhooks/hotmart</span> — não confundir com o aviso de venda de afiliado.
                     </p>
                   ) : null}
                 </div>
