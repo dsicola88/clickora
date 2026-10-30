@@ -75,7 +75,9 @@ export default defineConfig(() => ({
           // Não forçar todo o lucide num único icons-vendor (~760 kB): ícones do
           // page-builder usam dynamicIconImports (chunks por ícone). Named imports
           // ficam nos chunks das rotas.
-          if (norm.includes("/node_modules/recharts/")) return "charts-vendor";
+          // Não separar `recharts` num charts-vendor: o Rollup gerava TDZ
+          // ("Cannot access 'S' before initialization") e a SPA ficava com
+          // #root vazio em produção (dclickora.com em branco).
         },
       },
     },
