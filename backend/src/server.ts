@@ -31,6 +31,7 @@ import {
   isPublicTrackingPath,
 } from "./lib/corsPolicy";
 import { repairPlanSchemaColumns } from "./lib/schemaRepair";
+import { assertProductionEncryptionKey } from "./lib/fieldEncryption";
 import { initWebPushFromEnv } from "./lib/webPush";
 import { logPaidEnvStatus } from "./paid/paidEnvCheck";
 import { logR2EnvStatus } from "./lib/r2Storage";
@@ -45,6 +46,8 @@ import {
   requestIdMiddleware,
 } from "./lib/opsObservability";
 
+/** Produção: ENCRYPTION_KEY obrigatória (JWT já falha no import de `jwt.ts`). */
+assertProductionEncryptionKey();
 initWebPushFromEnv();
 logR2EnvStatus();
 initOpsObservability();
