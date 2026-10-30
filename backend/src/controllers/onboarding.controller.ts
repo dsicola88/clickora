@@ -3,6 +3,7 @@ import { systemPrisma } from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { isR2Configured } from "../lib/r2Storage";
+import { summarizeUserDomainGoLive } from "../lib/customDomainGoLiveSummary";
 
 /**
  * Checklist enterprise: o que falta na conta para operar afiliado profissional.
@@ -17,7 +18,7 @@ export const onboardingController = {
     const access = evaluateSubscriptionAccess(user?.subscription ?? null);
     const plan = user?.subscription?.plan;
 
-    const [presells, publishedPresells, domains, rotators, apiKeys, branding, recentClick, recentConv, postbackHits] =
+    const [presells, publishedPresells, domains, rotators, apiKeys, branding, recentClick, recentConv, postbackHits, domainGoLive] =
       await Promise.all([
         systemPrisma.presellPage.count({ where: { userId } }),
         systemPrisma.presellPage.count({ where: { userId, status: "published" } }),
@@ -36,6 +37,13 @@ export const onboardingController = {
           select: { id: true },
         }),
         systemPrisma.postbackLog.count({ where: { userId } }).catch(() => 0),
+        summarizeUserDomainGoLive(userId).catch(() => ({
+          verified_hosting: 0,
+          https_ready_hosting: 0,
+          ssl_provisioning: 0,
+          misconfigured: 0,
+          ad_ready_hosting: 0,
+        })),
       ]);
 
     const steps = [
@@ -59,10 +67,17 @@ export const onboardingController = {
       },
       {
         id: "domain",
-        label: "Verificar domínio personalizado",
+        label: "Verificar domínio personalizado (DNS)",
         done: domains >= 1,
         href: "/configuracoes",
         /** Arranque funciona no domínio da app; custom domain é o próximo nível. */
+        optional: true,
+      },
+      {
+        id: "domain_https",
+        label: "Domínio com HTTPS pronto (Final URL)",
+        done: domainGoLive.ad_ready_hosting >= 1,
+        href: "/configuracoes",
         optional: true,
       },
       {

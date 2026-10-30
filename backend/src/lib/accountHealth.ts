@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { isGoogleAdsMetricsReadyForUser } from "../modules/googleAds/googleAds.service";
 import { planAllowsAffiliateWebhook } from "./planAffiliateWebhook";
+import { summarizeUserDomainGoLive } from "./customDomainGoLiveSummary";
 
 export type AccountHealthCheck = {
   id: string;
@@ -42,7 +43,8 @@ export async function buildAccountHealth(args: {
 }): Promise<AccountHealth> {
   const { userId, rangeStart, rangeEnd, pipelineUser, macroClicksInPeriod } = args;
 
-  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits] = await Promise.all([
+  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits, domainGoLive] =
+    await Promise.all([
     systemPrisma.$queryRaw<Array<{ total: bigint; unattr: bigint }>>(Prisma.sql`
       SELECT
         COUNT(*)::bigint AS total,
@@ -74,6 +76,13 @@ export async function buildAccountHealth(args: {
       where: { userId, status: "approved" },
     }),
     systemPrisma.postbackLog.count({ where: { userId } }).catch(() => 0),
+    summarizeUserDomainGoLive(userId).catch(() => ({
+      verified_hosting: 0,
+      https_ready_hosting: 0,
+      ssl_provisioning: 0,
+      misconfigured: 0,
+      ad_ready_hosting: 0,
+    })),
   ]);
 
   const approved = Number(attrRow[0]?.total ?? 0);
@@ -165,6 +174,24 @@ export async function buildAccountHealth(args: {
           ? "Os links do período trazem a palavra-chave e o anúncio."
           : `${macroClicksInPeriod} clique(s) chegaram com o link por preencher. Confirme o endereço do anúncio.`,
       href: "/tracking/url-builder",
+    },
+    {
+      id: "domain_https",
+      ok:
+        domainGoLive.verified_hosting === 0 ||
+        domainGoLive.ad_ready_hosting > 0,
+      title: "Domínio pronto para anúncios (HTTPS)",
+      detail:
+        domainGoLive.verified_hosting === 0
+          ? "A usar o domínio da app — OK para testes. Para Final URL própria, verifique o domínio e aguarde HTTPS pronto."
+          : domainGoLive.ad_ready_hosting > 0
+            ? `${domainGoLive.ad_ready_hosting} domínio(s) hosting pronto(s) para Final URL.`
+            : domainGoLive.misconfigured > 0
+              ? "DNS mal configurado na Vercel — corrija o CNAME/A em Configurações → Domínios."
+              : domainGoLive.ssl_provisioning > 0
+                ? "DNS verificado, mas o SSL ainda está a provisionar — não use esse hostname em anúncios até «HTTPS pronto»."
+                : "Domínio verificado sem HTTPS pronto. Abra Configurações → Domínios.",
+      href: "/configuracoes",
     },
   ];
 

@@ -86,6 +86,8 @@ export function buildPublishReadinessFromPresell(input: {
   mirrorHtml?: string | null;
   customDomainId?: string | null;
   publicUrl?: string | null;
+  /** Domínio Vercel ainda sem HTTPS pronto — não use em Final URL. */
+  customDomainHttpsPending?: boolean;
 }): PublishReadinessItem[] {
   const link = (input.affiliateLink || "").trim();
   const html = input.mirrorHtml || "";
@@ -95,6 +97,9 @@ export function buildPublishReadinessFromPresell(input: {
   const untracked = countUntrackedOfferHrefs(html, link);
   /** Hoplink + zero CTAs comerciais crus (bake no save / wizard). */
   const ctaOk = Boolean(link) && (!html || untracked === 0);
+  const domainOk =
+    !input.customDomainHttpsPending &&
+    Boolean(input.customDomainId || (input.publicUrl && /^https?:\/\//i.test(input.publicUrl)));
   return [
     {
       id: "published",
@@ -122,8 +127,10 @@ export function buildPublishReadinessFromPresell(input: {
     {
       id: "domain",
       label: "URL pública / domínio",
-      ok: Boolean(input.customDomainId || (input.publicUrl && /^https?:\/\//i.test(input.publicUrl))),
-      hint: "Ligue um domínio verificado ou use o link público da app.",
+      ok: domainOk,
+      hint: input.customDomainHttpsPending
+        ? "O domínio ainda está com SSL a provisionar — use o link da app ou aguarde «HTTPS pronto»."
+        : "Ligue um domínio com HTTPS pronto ou use o link público da app.",
     },
   ];
 }

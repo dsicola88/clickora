@@ -21,10 +21,30 @@ export function isHostingCapableDomain(d: {
   return d.purpose !== "tracking";
 }
 
+/**
+ * Pronto para Final URL / ads:
+ * - DNS verificado sem Vercel (SSL do próprio host), ou
+ * - Vercel com `https_ready` / `ssl_state === https_ready`.
+ * Domínio Vercel só «DNS verificado» NÃO entra — evita https:// partido em anúncios.
+ */
+export function isCustomDomainAdReady(d: CustomDomainDto): boolean {
+  if (d.status !== "verified" || !isHostingCapableDomain(d)) return false;
+  if (d.https_ready === true || d.ssl_state === "https_ready") return true;
+  if (!d.vercel_domain_registered) return true;
+  return false;
+}
+
 export function listVerifiedHostingDomains(
   domains: CustomDomainDto[] | null | undefined,
 ): CustomDomainDto[] {
   return (domains ?? []).filter((d) => d.status === "verified" && isHostingCapableDomain(d));
+}
+
+/** Hosting verificado e seguro para colar em anúncios. */
+export function listAdReadyHostingDomains(
+  domains: CustomDomainDto[] | null | undefined,
+): CustomDomainDto[] {
+  return (domains ?? []).filter(isCustomDomainAdReady);
 }
 
 /**
@@ -35,9 +55,10 @@ export function listVerifiedHostingDomains(
 export function resolveDefaultCustomDomainIdForAccount(
   domains: CustomDomainDto[] | null | undefined,
 ): string | null {
-  const verified = listVerifiedHostingDomains(domains);
-  if (verified.length === 0) return null;
-  const sorted = [...verified].sort((a, b) => {
+  const ready = listAdReadyHostingDomains(domains);
+  const pool = ready.length > 0 ? ready : listVerifiedHostingDomains(domains);
+  if (pool.length === 0) return null;
+  const sorted = [...pool].sort((a, b) => {
     if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
@@ -45,25 +66,26 @@ export function resolveDefaultCustomDomainIdForAccount(
 }
 
 /**
- * Resolve o URL base para uma presell: override por domínio, senão domínio padrão da conta, senão primeiro verificado.
+ * Resolve o URL base para uma presell: override por domínio ad-ready, senão padrão, senão origem da app.
+ * Domínios Vercel só com DNS (sem HTTPS pronto) são ignorados — evita Final URL partida.
  */
 export function getPublicPresellOriginForPresell(
   domains: CustomDomainDto[] | null | undefined,
   presellCustomDomainId: string | null | undefined,
 ): string {
   const list = domains ?? [];
-  const verifiedHosting = listVerifiedHostingDomains(list);
+  const adReady = listAdReadyHostingDomains(list);
   if (presellCustomDomainId) {
-    const pick = verifiedHosting.find((d) => d.id === presellCustomDomainId);
+    const pick = adReady.find((d) => d.id === presellCustomDomainId);
     if (pick) return `https://${pick.hostname}`;
-    /** Domínio tracking legado na ficha: não usar como lander — cair no padrão hosting. */
+    /** Domínio tracking / SSL ainda a provisionar: não usar como lander. */
   }
   const defaultId = resolveDefaultCustomDomainIdForAccount(domains);
   if (defaultId) {
-    const pick = verifiedHosting.find((d) => d.id === defaultId);
+    const pick = adReady.find((d) => d.id === defaultId);
     if (pick) return `https://${pick.hostname}`;
   }
-  if (verifiedHosting[0]) return `https://${verifiedHosting[0].hostname}`;
+  if (adReady[0]) return `https://${adReady[0].hostname}`;
   return getPublicPresellOrigin(null);
 }
 

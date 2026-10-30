@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Activity, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getTrackApiBaseUrl, getResolvedPublicApiBaseUrl } from "@/config/publicApiUrl";
+import { getTrackApiBaseUrl, getResolvedPublicApiBaseUrl, resolveTrackApiBaseForPanelEmbed } from "@/config/publicApiUrl";
+import { customDomainService } from "@/services/customDomainService";
+import { useAuth } from "@/contexts/AuthContext";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { cn } from "@/lib/utils";
 
 type HealthBody = {
@@ -18,13 +21,28 @@ type HealthBody = {
 };
 
 /**
- * Estado do click path (enterprise): health + p95 amostrado no backend + ping do browser.
- * Copy voltada a afiliados — sem jargão de infra (Railway, SLO, paths internos).
+ * Estado do click path (enterprise): health no host de tracking da conta (go.) se existir,
+ * senão API da app. Evita «verde» no painel enquanto go. está partido.
  */
 export function TrackPathStatus({ className }: { className?: string }) {
-  const trackBase = getTrackApiBaseUrl();
+  const { user } = useAuth();
+  const tenantKey = tenantQueryKey(user);
   const appApi = getResolvedPublicApiBaseUrl();
+
+  const { data: domains = [] } = useQuery({
+    queryKey: ["custom-domain", tenantKey, "track-path"],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.list();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+    enabled: Boolean(tenantKey),
+    staleTime: 60_000,
+  });
+
+  const trackBase = resolveTrackApiBaseForPanelEmbed(domains);
   const healthUrl = `${trackBase.replace(/\/+$/, "")}/health`;
+  const usingAccountTrackHost = trackBase !== getTrackApiBaseUrl() && trackBase !== "/api";
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["track-path-health", healthUrl],
@@ -72,13 +90,16 @@ export function TrackPathStatus({ className }: { className?: string }) {
           <p className="font-medium text-foreground">Ligação de rastreamento</p>
           <p className="text-xs text-muted-foreground">
             Os cliques dos anúncios passam por aqui antes de abrir o link da oferta.
+            {usingAccountTrackHost ? " A verificar o domínio de tracking da conta." : ""}
           </p>
           <p className="text-[11px] text-muted-foreground">
             {isLoading
               ? "A verificar…"
               : ok
-                ? `A funcionar · resposta ${data?.ms} ms${sameOrigin ? " · no seu domínio" : ""}`
-                : "A ligação falhou — tente outra vez ou contacte o suporte."}
+                ? `A funcionar · resposta ${data?.ms} ms${sameOrigin ? " · no seu domínio" : usingAccountTrackHost ? " · domínio go./tracking" : ""}`
+                : usingAccountTrackHost
+                  ? "O domínio de tracking da conta não respondeu — confirme DNS/HTTPS em Configurações → Domínios."
+                  : "A ligação falhou — tente outra vez ou contacte o suporte."}
           </p>
           {ok && data?.track ? (
             <p className="text-[11px] text-muted-foreground tabular-nums">
