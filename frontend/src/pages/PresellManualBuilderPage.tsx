@@ -144,8 +144,12 @@ export default function PresellManualBuilderPage() {
     const uid = user?.id;
     if (!uid) return "";
     const apiBase = resolveTrackApiBaseForPanelEmbed(customDomains, publicPresellTestUrl);
-    return buildClickoraEmbedScriptHtml({ apiBase, userId: uid });
-  }, [user?.id, customDomains, publicPresellTestUrl]);
+    return buildClickoraEmbedScriptHtml({
+      apiBase,
+      userId: uid,
+      ...(routeId ? { presellId: routeId } : {}),
+    });
+  }, [user?.id, customDomains, publicPresellTestUrl, routeId]);
 
   const trackingHealthScore = useMemo(
     () =>

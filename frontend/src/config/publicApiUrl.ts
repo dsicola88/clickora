@@ -133,16 +133,20 @@ export function getTrackApiBaseForAccountDomains(
       (d.purpose === "tracking" || d.purpose === "both" || d.purpose == null),
   );
   if (!eligible.length) return null;
+  const byCreatedAsc = (a: AccountDomainForTrack, b: AccountDomainForTrack) => {
+    const ta = a.created_at ? Date.parse(a.created_at) : 0;
+    const tb = b.created_at ? Date.parse(b.created_at) : 0;
+    return ta - tb;
+  };
+  /** Mesma ordem que `preferredTrackApiBaseForUser`: default → tracking (mais antigo) → both. */
   const preferred =
     eligible.find((d) => d.is_default_tracking) ??
-    eligible.find((d) => d.purpose === "tracking") ??
+    [...eligible].filter((d) => d.purpose === "tracking").sort(byCreatedAsc)[0] ??
     [...eligible]
       .filter((d) => d.purpose === "both" || d.purpose == null)
       .sort((a, b) => {
         if (Boolean(a.is_default) !== Boolean(b.is_default)) return a.is_default ? -1 : 1;
-        const ta = a.created_at ? Date.parse(a.created_at) : 0;
-        const tb = b.created_at ? Date.parse(b.created_at) : 0;
-        return ta - tb;
+        return byCreatedAsc(a, b);
       })[0] ??
     eligible[0];
   if (!preferred?.hostname) return null;

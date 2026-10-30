@@ -46,6 +46,25 @@ describe("getTrackApiBaseForAccountDomains", () => {
       ]),
     ).toBe("https://go.marca.com/api");
   });
+
+  it("among tracking-only without default, prefers oldest created_at", () => {
+    expect(
+      getTrackApiBaseForAccountDomains([
+        {
+          hostname: "z.marca.com",
+          status: "verified",
+          purpose: "tracking",
+          created_at: "2026-06-01T00:00:00.000Z",
+        },
+        {
+          hostname: "a.marca.com",
+          status: "verified",
+          purpose: "tracking",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ]),
+    ).toBe("https://a.marca.com/api");
+  });
 });
 
 describe("resolveTrackApiBaseForExport", () => {
