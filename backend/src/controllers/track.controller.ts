@@ -21,6 +21,7 @@ import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
+import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination } from "../lib/trafficRotator.service";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
@@ -497,8 +498,8 @@ export const trackController = {
             medium,
             campaign,
             redirect_to: to,
-            // Datacenter só fica no relatório — o afiliado bloqueia manualmente se quiser.
-            ...(place ? datacenterClickMeta(ip) : {}),
+            // Cloud/datacenter → exclude_from_kpi (Situação Cloud alinhada ao KPI). Sem auto-blacklist.
+            ...(place ? datacenterClickMeta(ip) : reportCloudClickMeta(ip)),
             ...seen.countryMeta,
             ...(sub1 ? { sub1 } : {}),
             ...(sub2 ? { sub2 } : {}),
@@ -686,7 +687,7 @@ export const trackController = {
           redirect_to: finalUrl,
           rotator_id: rotatorId,
           rotator_arm_id: armIdForMeta,
-          ...(place ? datacenterClickMeta(ip) : {}),
+          ...(place ? datacenterClickMeta(ip) : reportCloudClickMeta(ip)),
           ...(sub1 ? { sub1 } : {}),
           ...(sub2 ? { sub2 } : {}),
           ...(sub3 ? { sub3 } : {}),
@@ -753,7 +754,8 @@ export const trackController = {
 
     const seen = visitorClickPlace(req, ip);
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
-    const metadataMerged = { ...attr.metadata, ...botMeta, ...seen.countryMeta };
+    const cloudMeta = seen.place ? datacenterClickMeta(ip) : reportCloudClickMeta(ip);
+    const metadataMerged = { ...attr.metadata, ...botMeta, ...seen.countryMeta, ...cloudMeta };
     const metadata =
       Object.keys(metadataMerged).length > 0 ? (metadataMerged as Prisma.InputJsonValue) : undefined;
 

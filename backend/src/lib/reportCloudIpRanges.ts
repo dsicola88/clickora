@@ -88,3 +88,19 @@ export function classifyReportCloudIp(ip: string | null | undefined): ReportClou
   }
   return best;
 }
+
+/** Metadata de ingest (clique) — alinha KPI a Situação Cloud sem auto-blacklist. */
+export function reportCloudClickMeta(ip: string | null | undefined): Record<string, unknown> {
+  const net = classifyReportCloudIp(ip);
+  if (!net) return {};
+  return {
+    ip_quality: "datacenter",
+    ip_network: net.name,
+    ip_network_place: net.place,
+    unqualified: true,
+    unqualified_reason: `Rede ${net.name} (${net.place}). Cloud/hosting — fora do KPI; só relatório.`,
+    exclude_from_kpi: true,
+    datacenter_auto_blacklist: false,
+    report_cloud_only: true,
+  };
+}

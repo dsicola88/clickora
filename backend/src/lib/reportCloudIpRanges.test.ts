@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { classifyReportCloudIp } from "./reportCloudIpRanges";
+import { classifyReportCloudIp, reportCloudClickMeta } from "./reportCloudIpRanges";
 import { classifyDatacenterIp } from "./ipNetworkClass";
 
 describe("reportCloudIpRanges (só relatório)", () => {
@@ -24,5 +24,13 @@ describe("reportCloudIpRanges (só relatório)", () => {
 
   it("IP de documentação continua null", () => {
     assert.equal(classifyReportCloudIp("203.0.113.50"), null);
+  });
+
+  it("reportCloudClickMeta define exclude_from_kpi sem auto-blacklist", () => {
+    const meta = reportCloudClickMeta("66.102.8.131");
+    assert.equal(meta.exclude_from_kpi, true);
+    assert.equal(meta.ip_network, "Google");
+    assert.equal(meta.datacenter_auto_blacklist, false);
+    assert.equal(meta.report_cloud_only, true);
   });
 });

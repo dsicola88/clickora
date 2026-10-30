@@ -293,12 +293,11 @@ function mapConversionForApi(
  */
 function sqlExcludeBotAndKpiNoise(includeBots: boolean): Prisma.Sql {
   if (includeBots) return Prisma.empty;
+  // Alinhado a planClickQuota / campaignPerf: bots e exclude_from_kpi fora do KPI.
+  // Cloud (Situação) continua visível com include_bots / filtro Cloud — não reintroduzir datacenter.
   return Prisma.sql`
     AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
-    AND (
-      NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
-      OR COALESCE(metadata->>'ip_quality', '') = 'datacenter'
-    )
+    AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
   `;
 }
 

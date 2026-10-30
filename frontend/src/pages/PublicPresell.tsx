@@ -804,6 +804,9 @@ export default function PublicPresell() {
   const showCookieModal = getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted;
 
   useEffect(() => {
+    // Tipo cookies: o CookieBannerWidget (documento) gere o overflow.
+    // CookieConsentModal quase nunca monta neste path — este lock deixava scroll preso após Allow.
+    if (getPresellGateKind(page?.type || "") === "cookies") return;
     if (showCookieModal) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
@@ -811,7 +814,7 @@ export default function PublicPresell() {
         document.body.style.overflow = prev;
       };
     }
-  }, [showCookieModal]);
+  }, [showCookieModal, page?.type]);
 
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
