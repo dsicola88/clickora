@@ -31,7 +31,7 @@ export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality
       label,
       detail:
         (e.unqualified_reason || "").trim() ||
-        "IP em lista explícita de cloud/CDN (AWS/GCP/CDN77). Não é acesso residencial típico.",
+        "IP em lista explícita de cloud/CDN (AWS/GCP/CDN77/Google/Azure…). Não é acesso residencial típico. Só relatório — a página pública não muda.",
     };
   }
   if (e.is_bot) {
@@ -58,6 +58,6 @@ export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality
     kind: "real",
     label: "Real",
     detail:
-      "Sem bot no User-Agent e sem IP em listas cloud/CDN (AWS/GCP/CDN77). Classificado como visitante real para o relatório.",
+      "Sem bot no User-Agent e sem IP em listas cloud/CDN (AWS/GCP/CDN77/Google/Azure…). Classificado como visitante real para o relatório.",
   };
 }

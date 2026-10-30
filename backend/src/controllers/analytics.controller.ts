@@ -107,6 +107,8 @@ function mapTrackingEventForApi(e: {
     (typeof metadata.utm_campaign === "string" && metadata.utm_campaign.trim()
       ? metadata.utm_campaign.trim()
       : null);
+  const gbraidMeta = typeof metadata.gbraid === "string" ? metadata.gbraid : null;
+  const wbraidMeta = typeof metadata.wbraid === "string" ? metadata.wbraid : null;
   const traffic_type = resolveTrafficType({
     source: e.source,
     medium: e.medium,
@@ -115,6 +117,8 @@ function mapTrackingEventForApi(e: {
     msclkid,
     fbclid,
     ttclid,
+    gbraid: gbraidMeta,
+    wbraid: wbraidMeta,
   });
   const uaParsed = parseUserAgent(e.userAgent);
   const metaBrowser = typeof metadata.browser === "string" ? metadata.browser : null;

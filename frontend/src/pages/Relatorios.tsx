@@ -140,6 +140,8 @@ function paidLabel(e: TrackingEvent) {
   const m = typeof meta.msclkid === "string" ? meta.msclkid : e.msclkid || "";
   const f = typeof meta.fbclid === "string" ? meta.fbclid : "";
   const t = typeof meta.ttclid === "string" ? meta.ttclid : "";
+  const gb = typeof meta.gbraid === "string" ? meta.gbraid : "";
+  const wb = typeof meta.wbraid === "string" ? meta.wbraid : "";
   const resolved =
     e.traffic_type ||
     resolveTrafficType({
@@ -150,10 +152,14 @@ function paidLabel(e: TrackingEvent) {
       msclkid: m,
       fbclid: f,
       ttclid: t,
+      gbraid: gb,
+      wbraid: wb,
     });
   if (resolved === "paid") return "Pago";
   if (resolved === "paid_untracked") return "Ads (sem ID)";
-  if (hasPaidNetworkClickId({ gclid: g, msclkid: m, fbclid: f, ttclid: t })) return "Pago";
+  if (hasPaidNetworkClickId({ gclid: g, msclkid: m, fbclid: f, ttclid: t, gbraid: gb, wbraid: wb })) {
+    return "Pago";
+  }
   return "Orgânico";
 }
 
@@ -912,7 +918,9 @@ export default function Relatorios() {
       <em>não</em> diz se é pessoa real.{" "}
       <span className="text-foreground/80 font-medium">Situação</span>:{" "}
       <em>Real</em> = visitante normal; <em>Bot</em> = robot/crawler;{" "}
-      <em>Cloud / servidor</em> = IP de datacenter — não abre o link da oferta.
+      <em>Cloud / servidor</em> = IP de datacenter (AWS/GCP/Google/Azure…).{" "}
+      <span className="text-foreground/80 font-medium">Tipo</span>: <em>Pago</em> = GCLID/wbraid/gbraid
+      real; <em>Ads (sem ID)</em> = UTM/cpc sem ID de clique.
     </div>
   );
 
@@ -1065,9 +1073,10 @@ export default function Relatorios() {
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
             <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = abertura da página ou{" "}
-            <em>Checkout</em>. Tipo: <em>Pago</em> = anúncio; Situação: <em>Real</em> / <em>Bot</em> /{" "}
-            <em>Cloud / servidor</em>. País é o do visitante.
-            O checkout da rede só aparece depois de configurar o aviso de vendas em Integrações.
+            <em>Checkout</em>. Tipo: <em>Pago</em> = ID de clique real; <em>Ads (sem ID)</em> = Ads/UTM sem
+            GCLID. Situação: <em>Real</em> / <em>Bot</em> / <em>Cloud / servidor</em> (só análise — não muda a
+            página). País é o do visitante. O checkout da rede só aparece depois de configurar o aviso de
+            vendas em Integrações.
           </p>
           <TimezoneAlert />
           <DateFilters showSituation />

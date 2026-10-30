@@ -19,12 +19,16 @@ export function hasPaidNetworkClickId(meta: {
   msclkid?: string | null;
   fbclid?: string | null;
   ttclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
 }): boolean {
   return (
     isRealNetworkClickId(meta.gclid) ||
     isRealNetworkClickId(meta.msclkid) ||
     isRealNetworkClickId(meta.fbclid) ||
-    isRealNetworkClickId(meta.ttclid)
+    isRealNetworkClickId(meta.ttclid) ||
+    isRealNetworkClickId(meta.gbraid) ||
+    isRealNetworkClickId(meta.wbraid)
   );
 }
 
@@ -40,6 +44,8 @@ export function hasPaidAdSourceSignals(args: {
   msclkid?: string | null;
   fbclid?: string | null;
   ttclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
 }): boolean {
   if (hasPaidNetworkClickId(args)) return true;
   const src = `${args.source || ""} ${args.utm_source || ""}`.trim();
@@ -50,7 +56,9 @@ export function hasPaidAdSourceSignals(args: {
     (args.gclid && !isRealNetworkClickId(args.gclid) && String(args.gclid).trim().length > 0) ||
     (args.msclkid && !isRealNetworkClickId(args.msclkid) && String(args.msclkid).trim().length > 0) ||
     (args.fbclid && !isRealNetworkClickId(args.fbclid) && String(args.fbclid).trim().length > 0) ||
-    (args.ttclid && !isRealNetworkClickId(args.ttclid) && String(args.ttclid).trim().length > 0);
+    (args.ttclid && !isRealNetworkClickId(args.ttclid) && String(args.ttclid).trim().length > 0) ||
+    (args.gbraid && !isRealNetworkClickId(args.gbraid) && String(args.gbraid).trim().length > 0) ||
+    (args.wbraid && !isRealNetworkClickId(args.wbraid) && String(args.wbraid).trim().length > 0);
   return Boolean(maybeMacro);
 }
 
@@ -64,6 +72,8 @@ export function resolveTrafficType(args: {
   msclkid?: string | null;
   fbclid?: string | null;
   ttclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
 }): TrafficTypeLabel {
   if (hasPaidNetworkClickId(args)) return "paid";
   if (hasPaidAdSourceSignals(args)) return "paid_untracked";

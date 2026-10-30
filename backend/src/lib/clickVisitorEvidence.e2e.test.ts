@@ -90,6 +90,33 @@ describe("E2E evidência → Situação (sem inventar)", () => {
     assert.equal(situationLabel(ev), "Real");
   });
 
+  it("Google 66.102.x + UA residencial → Datacenter (Google) no relatório", () => {
+    for (const ip of ["66.102.8.131", "66.102.8.132"]) {
+      const ev = resolveClickVisitorEvidence({
+        ipAddress: ip,
+        userAgent: SAFARI_IOS,
+        metadata: { source: "google_ads", medium: "cpc" },
+      });
+      assert.equal(ev.evidence, "report_cloud_ip", ip);
+      assert.equal(ev.unqualified, true, ip);
+      assert.equal(ev.ip_network, "Google", ip);
+      assert.equal(situationLabel(ev), "Datacenter (Google)", ip);
+      // Não é elegível para auto-blacklist (só relatório).
+      assert.equal(isExplicitDatacenterForAutoBlacklist(classifyDatacenterIp(ip)), false, ip);
+    }
+  });
+
+  it("Azure 23.100.x → Datacenter (Azure) no relatório", () => {
+    const ev = resolveClickVisitorEvidence({
+      ipAddress: "23.100.50.10",
+      userAgent: SAFARI_IOS,
+      metadata: {},
+    });
+    assert.equal(ev.evidence, "report_cloud_ip");
+    assert.equal(ev.ip_network, "Azure");
+    assert.equal(situationLabel(ev), "Datacenter (Azure)");
+  });
+
   it("sem IP e sem UA de bot → Real (não inventa Datacenter)", () => {
     const ev = resolveClickVisitorEvidence({
       ipAddress: null,

@@ -28,4 +28,19 @@ describe("networkClickId", () => {
     );
     assert.equal(resolveTrafficType({ source: "direct", medium: "none" }), "organic");
   });
+
+  it("gbraid/wbraid reais contam como Pago", () => {
+    assert.equal(
+      resolveTrafficType({ source: "google_ads", medium: "cpc", wbraid: "CjwKCAjwRealWbraid" }),
+      "paid",
+    );
+    assert.equal(
+      resolveTrafficType({ source: "google_ads", medium: "cpc", gbraid: "0AAAAARealGbraid" }),
+      "paid",
+    );
+    assert.equal(
+      resolveTrafficType({ source: "google_ads", medium: "cpc", gclid: "{gclid}", wbraid: "{wbraid}" }),
+      "paid_untracked",
+    );
+  });
 });
