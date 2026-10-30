@@ -4,12 +4,20 @@
  */
 import {
   getResolvedPublicApiBaseUrl,
+  getTrackApiBaseForAccountDomains,
   getTrackApiBaseForPublicPresell,
   getTrackApiBaseUrl,
   normalizeToApiBaseUrl,
+  resolveTrackApiBaseForExport,
 } from "@/config/publicApiUrl";
 
-export { normalizeToApiBaseUrl, getTrackApiBaseUrl, getTrackApiBaseForPublicPresell };
+export {
+  normalizeToApiBaseUrl,
+  getTrackApiBaseUrl,
+  getTrackApiBaseForPublicPresell,
+  getTrackApiBaseForAccountDomains,
+  resolveTrackApiBaseForExport,
+};
 
 /** @deprecated Preferir `getResolvedPublicApiBaseUrl()` — mantido para chamadas que ainda passam `raw` manual. */
 export function normalizeApiBaseUrl(raw: string | undefined): string {

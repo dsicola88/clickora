@@ -24,6 +24,7 @@ export function CustomDomainSettings() {
   const tenantKey = tenantQueryKey(user);
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
+  const [newPurpose, setNewPurpose] = useState<"hosting" | "tracking" | "both">("both");
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const { data: domains = [], isLoading } = useQuery({
@@ -58,7 +59,7 @@ export function CustomDomainSettings() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (hostname: string) => customDomainService.create(hostname),
+    mutationFn: (hostname: string) => customDomainService.create(hostname, newPurpose),
     onSuccess: (res) => {
       if (res.error) {
         toast.error(res.error);
@@ -143,6 +144,40 @@ export function CustomDomainSettings() {
     },
   });
 
+  const purposeMutation = useMutation({
+    mutationFn: async ({
+      id,
+      purpose,
+    }: {
+      id: string;
+      purpose: "hosting" | "tracking" | "both";
+    }) => {
+      const res = await customDomainService.setPurpose(id, purpose);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      toast.success("Finalidade do domínio atualizada.");
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Não foi possível guardar a finalidade.");
+    },
+  });
+
+  const defaultTrackingMutation = useMutation({
+    mutationFn: (id: string) => customDomainService.setDefaultTracking(id),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      toast.success("Domínio de tracking padrão atualizado.");
+    },
+    onError: () => toast.error("Não foi possível definir o tracking padrão."),
+  });
+
   const copy = async (label: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -205,12 +240,25 @@ export function CustomDomainSettings() {
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
             id="new-custom-hostname"
-            placeholder="www.seusite.com"
+            placeholder="www.seusite.com ou go.seusite.com"
             value={newHostname}
             onChange={(e) => setNewHostname(e.target.value)}
             disabled={createMutation.isPending || (quota != null && !quota.can_add)}
             className="font-mono text-sm"
           />
+          <Select
+            value={newPurpose}
+            onValueChange={(v) => setNewPurpose(v as "hosting" | "tracking" | "both")}
+          >
+            <SelectTrigger className="w-full sm:w-[11rem] shrink-0">
+              <SelectValue placeholder="Finalidade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="both">Lander + tracking</SelectItem>
+              <SelectItem value="hosting">Só lander</SelectItem>
+              <SelectItem value="tracking">Só tracking</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             className="shrink-0"
@@ -227,7 +275,10 @@ export function CustomDomainSettings() {
             {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Sem https:// — só o hostname.</p>
+        <p className="text-xs text-muted-foreground">
+          Sem https://. Use <strong className="text-foreground">Só tracking</strong> em{" "}
+          <code className="text-[11px]">go.</code> para /api/track separado da lander.
+        </p>
       </div>
 
       {isLoading ? (
@@ -261,12 +312,35 @@ export function CustomDomainSettings() {
                     </span>
                     {normalizeDomainStatus(d.status) === "verified" && d.is_default && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> Padrão
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> Padrão lander
                       </span>
                     )}
+                    {d.is_default_tracking && (d.purpose === "tracking" || d.purpose === "both" || !d.purpose) && (
+                      <span className="text-xs text-sky-700 dark:text-sky-400">Tracking padrão</span>
+                    )}
+                    <Select
+                      value={d.purpose ?? "both"}
+                      onValueChange={(v) =>
+                        purposeMutation.mutate({
+                          id: d.id,
+                          purpose: v as "hosting" | "tracking" | "both",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-7 w-[9.5rem] text-[11px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="both">Lander + track</SelectItem>
+                        <SelectItem value="hosting">Só lander</SelectItem>
+                        <SelectItem value="tracking">Só tracking</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-wrap gap-1 shrink-0">
-                    {normalizeDomainStatus(d.status) === "verified" && !d.is_default && (
+                    {normalizeDomainStatus(d.status) === "verified" &&
+                      !d.is_default &&
+                      d.purpose !== "tracking" && (
                       <Button
                         type="button"
                         variant="outline"
@@ -275,7 +349,21 @@ export function CustomDomainSettings() {
                         disabled={defaultMutation.isPending}
                         onClick={() => defaultMutation.mutate(d.id)}
                       >
-                        Tornar padrão
+                        Padrão lander
+                      </Button>
+                    )}
+                    {normalizeDomainStatus(d.status) === "verified" &&
+                      !d.is_default_tracking &&
+                      (d.purpose === "tracking" || d.purpose === "both") && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        disabled={defaultTrackingMutation.isPending}
+                        onClick={() => defaultTrackingMutation.mutate(d.id)}
+                      >
+                        Padrão tracking
                       </Button>
                     )}
                     {isPending && (
@@ -387,7 +475,8 @@ export function CustomDomainSettings() {
                     onCopy={(fieldId, text) => void copy(fieldId, text)}
                   />
                 )}
-                {normalizeDomainStatus(d.status) === "verified" && (
+                {normalizeDomainStatus(d.status) === "verified" &&
+                  d.purpose !== "tracking" && (
                   <div className="space-y-2 pt-3 border-t border-border/40">
                     <Label className="text-xs font-medium text-card-foreground">
                       Presell ao abrir <span className="font-mono text-[11px]">https://{d.hostname}/</span>
@@ -428,3 +517,4 @@ export function CustomDomainSettings() {
     </div>
   );
 }
+

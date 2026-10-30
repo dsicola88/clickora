@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Prisma, type EventType } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
 import { createPostbackToken } from "../lib/postbackToken";
-import { publicApiBaseFromRequest } from "../lib/publicApiBase";
+import { publicApiBaseFromRequest, trackApiBaseForUser } from "../lib/publicApiBase";
 import {
   fetchGoogleAdsAccountMetrics,
   getGoogleAdsApiClientConfigFromEnv,
@@ -1377,6 +1377,7 @@ export const analyticsController = {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     const apiBase = publicApiBaseFromRequest(req);
+    const trackApiBase = await trackApiBaseForUser(req, userId);
     const postbackToken = createPostbackToken(userId);
 
     const googleAdsLive = pipelineUser ? isGoogleAdsClickUploadReadyForUser(pipelineUser) : false;
@@ -1547,6 +1548,94 @@ export const analyticsController = {
         cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
       };
     });
+
+    /** Rollup por rotador (pai) — mesma JOIN de vendas que braços; só hops raiz. */
+    let rotator_performance: Array<{
+      rotator_id: string;
+      rotator_name: string;
+      clicks: number;
+      sales: number;
+      revenue: number;
+      epc: number | null;
+      cvr: number | null;
+    }> = [];
+    let entry_clicks = clicks;
+    try {
+      const [rotatorPerfRows, entryRows] = await Promise.all([
+        systemPrisma.$queryRaw<
+          Array<{
+            rotator_id: string;
+            rotator_name: string;
+            clicks: bigint;
+            sales: bigint;
+            revenue: unknown;
+          }>
+        >(Prisma.sql`
+          SELECT
+            COALESCE(NULLIF(TRIM(te.metadata->>'rotator_id'), ''), '(sem rotador)') AS rotator_id,
+            COALESCE(NULLIF(TRIM(rot.name), ''), COALESCE(NULLIF(TRIM(te.metadata->>'rotator_id'), ''), '(sem rotador)')) AS rotator_name,
+            COUNT(*)::bigint AS clicks,
+            COUNT(c.id)::bigint AS sales,
+            COALESCE(SUM(c.amount), 0) AS revenue
+          FROM tracking_events te
+          LEFT JOIN traffic_rotators rot
+            ON rot.id::text = NULLIF(TRIM(te.metadata->>'rotator_id'), '')
+           AND rot.user_id = te.user_id
+          LEFT JOIN conversions c
+            ON c.user_id = te.user_id
+           AND c.status = 'approved'
+           AND (
+             c.click_id = te.id
+             OR c.click_id IN (
+               SELECT child.id
+               FROM tracking_events child
+               WHERE child.user_id = te.user_id
+                 AND child.event_type::text = 'click'
+                 AND child.metadata->>'parent_rotator_click_id' = te.id::text
+             )
+           )
+          WHERE te.user_id = ${userId}
+            AND te.created_at >= ${rangeStart}
+            AND te.created_at <= ${rangeEnd}
+            AND te.event_type::text = 'click'
+            AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+            AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+            AND NULLIF(TRIM(te.metadata->>'rotator_id'), '') IS NOT NULL
+            AND te.metadata->>'parent_rotator_click_id' IS NULL
+          GROUP BY 1, 2
+          ORDER BY clicks DESC, sales DESC
+          LIMIT 40
+        `),
+        systemPrisma.$queryRaw<Array<{ entry_clicks: bigint }>>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS entry_clicks
+          FROM tracking_events te
+          WHERE te.user_id = ${userId}
+            AND te.created_at >= ${rangeStart}
+            AND te.created_at <= ${rangeEnd}
+            AND te.event_type::text = 'click'
+            AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
+            AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+            AND te.metadata->>'parent_rotator_click_id' IS NULL
+        `),
+      ]);
+      rotator_performance = rotatorPerfRows.map((row) => {
+        const clicksD = Number(row.clicks);
+        const salesD = Number(row.sales);
+        const revD = Number(row.revenue ?? 0);
+        return {
+          rotator_id: row.rotator_id,
+          rotator_name: row.rotator_name,
+          clicks: clicksD,
+          sales: salesD,
+          revenue: Math.round(revD * 100) / 100,
+          epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
+          cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+        };
+      });
+      entry_clicks = Number(entryRows[0]?.entry_clicks ?? clicks);
+    } catch (e) {
+      console.warn("[analytics.getDashboard] rotator_performance / entry_clicks", e);
+    }
 
     /** Compat: mapa simples de cliques por país (UI antiga / Home). */
     const clicks_by_country = country_performance.map((row) => {
@@ -1947,6 +2036,9 @@ export const analyticsController = {
 
     res.json({
       total_clicks: clicks,
+      /** Cliques raiz (sem parent_rotator_click_id) — evita doble-count lander após rotador. */
+      entry_clicks,
+      total_hops: clicks,
       total_impressions: impressions,
       /** Alias histórico: igual a vendas aprovadas (postback). */
       total_conversions: conversions,
@@ -1970,9 +2062,9 @@ export const analyticsController = {
       account_health,
       tracking_install: {
         user_id: userId,
-        embed_js_url: `${apiBase}/track/v2/clickora.min.js`,
+        embed_js_url: `${trackApiBase}/track/v2/clickora.min.js`,
         csv_upload_url: postbackToken
-          ? `${apiBase}/track/conversions/csv?token=${encodeURIComponent(postbackToken)}`
+          ? `${trackApiBase}/track/conversions/csv?token=${encodeURIComponent(postbackToken)}`
           : null,
         affiliate_webhook_path: "/integrations/affiliate-webhook",
         google_ads_postback_path: "/track/postback/google-ads",
@@ -1996,6 +2088,7 @@ export const analyticsController = {
       device_performance,
       source_performance,
       rotator_arm_performance,
+      rotator_performance,
       keyword_performance,
       ad_group_performance,
       click_quota,

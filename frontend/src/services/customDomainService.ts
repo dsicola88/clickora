@@ -8,9 +8,10 @@ export const customDomainService = {
   quota() {
     return apiClient.get<CustomDomainQuotaDto>("/custom-domain/quota");
   },
-  create(hostname: string) {
+  create(hostname: string, purpose: "hosting" | "tracking" | "both" = "both") {
     return apiClient.post<CustomDomainDto>("/custom-domain", {
       hostname,
+      purpose,
     });
   },
   verify(id: string) {
@@ -18,6 +19,17 @@ export const customDomainService = {
   },
   setDefault(id: string) {
     return apiClient.patch<CustomDomainDto[]>(`/custom-domain/${encodeURIComponent(id)}/default`, {});
+  },
+  setPurpose(id: string, purpose: "hosting" | "tracking" | "both") {
+    return apiClient.patch<CustomDomainDto[]>(`/custom-domain/${encodeURIComponent(id)}/purpose`, {
+      purpose,
+    });
+  },
+  setDefaultTracking(id: string) {
+    return apiClient.patch<CustomDomainDto[]>(
+      `/custom-domain/${encodeURIComponent(id)}/default-tracking`,
+      {},
+    );
   },
   setRootPresell(domainId: string, presellId: string | null) {
     return apiClient.patch<CustomDomainDto[]>(`/custom-domain/${encodeURIComponent(domainId)}/root-presell`, {

@@ -336,6 +336,9 @@ export const analyticsService = {
     const qs = query.toString();
     return apiClient.get<{
       total_clicks: number;
+      /** Cliques raiz (sem hop lander após rotador). */
+      entry_clicks?: number;
+      total_hops?: number;
       total_impressions: number;
       total_conversions: number;
       ctr: number;
@@ -467,6 +470,16 @@ export const analyticsService = {
         clicks_delivered: number;
         cap_remaining: number | null;
         cap_pct: number | null;
+        clicks: number;
+        sales: number;
+        revenue: number;
+        epc: number | null;
+        cvr: number | null;
+      }>;
+      /** Rollup por rotador (hops raiz). */
+      rotator_performance?: Array<{
+        rotator_id: string;
+        rotator_name: string;
         clicks: number;
         sales: number;
         revenue: number;

@@ -59,7 +59,12 @@ export const presellService = {
 
   /** Raiz do domínio personalizado: id da presell publicada ligada a este domínio (Host). */
   async getRootPresellIdForHost() {
-    return apiClient.get<{ id: string }>(`/public/custom-domain/root-presell`);
+    return apiClient.get<{
+      id: string | null;
+      purpose?: string;
+      code?: string;
+      message?: string;
+    }>(`/public/custom-domain/root-presell`);
   },
 
   async getAll() {

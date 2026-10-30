@@ -109,3 +109,44 @@ export function getTrackApiBaseForPublicPresell(publicPresellUrl: string): strin
   }
   return getTrackApiBaseUrl();
 }
+
+/**
+ * Preferência de domínio de tracking da conta (purpose tracking/both).
+ * Usar ao bakear CTAs/embeds quando o afiliado tem `go.marca.com` separado do lander.
+ */
+export function getTrackApiBaseForAccountDomains(
+  domains: Array<{
+    hostname: string;
+    status: string;
+    purpose?: string | null;
+    is_default_tracking?: boolean | null;
+  }>,
+): string | null {
+  const trackOnly = import.meta.env.VITE_PUBLIC_TRACK_API_URL?.trim();
+  if (trackOnly) return normalizeToApiBaseUrl(trackOnly);
+  const eligible = domains.filter(
+    (d) =>
+      d.status === "verified" &&
+      (d.purpose === "tracking" || d.purpose === "both" || d.purpose == null),
+  );
+  if (!eligible.length) return null;
+  const preferred =
+    eligible.find((d) => d.is_default_tracking) ??
+    eligible.find((d) => d.purpose === "tracking") ??
+    eligible[0];
+  if (!preferred?.hostname) return null;
+  return normalizeToApiBaseUrl(`https://${preferred.hostname}/api`);
+}
+
+/** Export/embed: domínio de tracking da conta se existir; senão host da lander. */
+export function resolveTrackApiBaseForExport(
+  domains: Array<{
+    hostname: string;
+    status: string;
+    purpose?: string | null;
+    is_default_tracking?: boolean | null;
+  }>,
+  publicPresellUrl: string,
+): string {
+  return getTrackApiBaseForAccountDomains(domains) ?? getTrackApiBaseForPublicPresell(publicPresellUrl);
+}

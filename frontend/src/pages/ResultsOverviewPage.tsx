@@ -33,7 +33,16 @@ import {
   ProTotalStat,
 } from "@/components/enterprise/ProShell";
 
-type DimId = "offers" | "countries" | "campaigns" | "keywords" | "adgroups" | "devices" | "sources" | "arms";
+type DimId =
+  | "offers"
+  | "countries"
+  | "campaigns"
+  | "keywords"
+  | "adgroups"
+  | "devices"
+  | "sources"
+  | "rotators"
+  | "arms";
 
 type ReportRow = {
   id: string;
@@ -278,6 +287,19 @@ export default function ResultsOverviewPage() {
       epc: r.epc,
       cvr: r.cvr,
     }));
+    const rotators: ReportRow[] = (data.rotator_performance ?? []).map((r) => ({
+      id: r.rotator_id,
+      label: r.rotator_name,
+      clicks: r.clicks,
+      sales: r.sales,
+      revenue: r.revenue,
+      cost: null,
+      profit: null,
+      roas: null,
+      roi: null,
+      epc: r.epc,
+      cvr: r.cvr,
+    }));
     const arms: ReportRow[] = (data.rotator_arm_performance ?? []).map((r) => ({
       id: r.arm_id,
       label: r.arm_label,
@@ -332,6 +354,7 @@ export default function ResultsOverviewPage() {
       countries,
       devices,
       sources,
+      rotators,
       arms,
     };
   }, [data, campaigns]);
@@ -342,7 +365,8 @@ export default function ResultsOverviewPage() {
   const mb = data.media_buyer;
   const health = data.account_health;
   const currency = "USD";
-  const clicks = data.total_clicks ?? 0;
+  const clicks = data.entry_clicks ?? data.total_clicks ?? 0;
+  const hopClicks = data.total_hops ?? data.total_clicks ?? clicks;
   const impressions = data.total_impressions ?? 0;
   const conversions = data.approved_sales_count ?? data.total_conversions ?? 0;
   const revenue = mb?.revenue ?? data.revenue ?? 0;
@@ -361,6 +385,7 @@ export default function ResultsOverviewPage() {
     { id: "adgroups", label: "Grupos de anúncios", count: rowsByDim.adgroups.length },
     { id: "devices", label: "Dispositivos", count: rowsByDim.devices.length },
     { id: "sources", label: "Fontes", count: rowsByDim.sources.length },
+    { id: "rotators", label: "Rotadores", count: rowsByDim.rotators.length },
     { id: "arms", label: "Destinos / limites", count: rowsByDim.arms.length },
   ];
 
@@ -379,6 +404,7 @@ export default function ResultsOverviewPage() {
     countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
     devices: "Dispositivo do clique. O custo não é dividido por dispositivo.",
     sources: "Origem do clique, por exemplo Google Ads.",
+    rotators: "Cliques raiz por rotador (sem dobrar o hop da lander). Vendas atribuídas via click ID ou filhos.",
     arms: "Destinos do rotador no período. Limite = quantos cliques já usaram o máximo definido.",
   };
 
@@ -568,9 +594,13 @@ export default function ResultsOverviewPage() {
 
       <ProKpiGrid>
         <ProKpiCell
-          label="Visitantes"
+          label="Visitantes (entrada)"
           value={clicks.toLocaleString("pt-PT")}
-          hint="Cliques qualificados"
+          hint={
+            hopClicks > clicks
+              ? `Raiz ${clicks.toLocaleString("pt-PT")} · hops ${hopClicks.toLocaleString("pt-PT")}`
+              : "Cliques raiz (sem dobrar lander após rotador)"
+          }
           delta={deltaLabel(cmp?.delta.clicks_pct)}
         />
         <ProKpiCell
@@ -593,7 +623,18 @@ export default function ResultsOverviewPage() {
           value={money(revenue, currency)}
           delta={deltaLabel(cmp?.delta.revenue_pct)}
         />
-        <ProKpiCell label="Custo" value={money(mb?.spend ?? null, currency)} hint={spendSourceLabel(mb?.spend_source)} />
+        <ProKpiCell
+          label="Custo"
+          value={money(mb?.spend ?? null, currency)}
+          hint={
+            mb?.spend_by_platform
+              ? Object.entries(mb.spend_by_platform)
+                  .filter(([, v]) => v > 0)
+                  .map(([k, v]) => `${k.replace(/_/g, " ")} ${money(v, currency)}`)
+                  .join(" · ") || spendSourceLabel(mb?.spend_source)
+              : spendSourceLabel(mb?.spend_source)
+          }
+        />
         <ProKpiCell
           label="Lucro"
           value={money(mb?.profit ?? null, currency)}

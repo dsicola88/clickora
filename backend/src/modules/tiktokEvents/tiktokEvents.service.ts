@@ -213,7 +213,7 @@ export async function syncConversionToTikTokEvents(
   if (!isTikTokEventsReadyForUser(user)) {
     if (adMode === "refund") return;
     await markTikTokSkip(conv.id, "skipped_disabled", {
-      reason: "A integração TikTok (Events API) está inactiva ou faltam Pixel e token de acesso.",
+      reason: "Faltam Pixel ID e/ou token TikTok Events em Integrações → Pixels.",
     });
     return;
   }

@@ -173,6 +173,16 @@ function makeTrackClickUrl(
     const v = queryParam(search, k);
     if (v) clickUrl.searchParams.set(k, v);
   }
+  /** Cookies do Pixel (Meta/TikTok) → CAPI / Events API no clique de oferta. */
+  try {
+    const ck = typeof document !== "undefined" ? document.cookie || "" : "";
+    const fbp = ck.match(/(?:^|;)\s*_fbp=([^;]+)/);
+    if (fbp?.[1]) clickUrl.searchParams.set("fbp", decodeURIComponent(fbp[1].trim()));
+    const ttp = ck.match(/(?:^|;)\s*_ttp=([^;]+)/);
+    if (ttp?.[1]) clickUrl.searchParams.set("ttp", decodeURIComponent(ttp[1].trim()));
+  } catch {
+    /* ignore */
+  }
   return clickUrl.toString();
 }
 

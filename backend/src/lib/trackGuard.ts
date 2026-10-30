@@ -56,6 +56,8 @@ export async function enforceTrackingRules(args: {
   /** Só para `click`: aplica limite configurável na conta (auto-blacklist por IP). */
   recordedEventType?: "click" | "other";
   headers?: Record<string, string | string[] | undefined>;
+  /** Já consumido no início do handler (antes do lookup da página). */
+  skipRateLimit?: boolean;
 }): Promise<
   | { ok: true; ipKey: string }
   | {
@@ -77,7 +79,7 @@ export async function enforceTrackingRules(args: {
   const ip = args.ip || "";
   const ipKeyForLog = normalizeIpForMatch(ip);
 
-  if (!(await consumeTrackRateLimitAsync(ip))) {
+  if (!args.skipRateLimit && !(await consumeTrackRateLimitAsync(ip))) {
     void logGuardBlock({
       ownerUserId,
       presellPageId,

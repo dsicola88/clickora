@@ -28,6 +28,8 @@ function mapRow(d: {
   status: string;
   verifiedAt: Date | null;
   isDefault: boolean;
+  purpose?: string;
+  isDefaultTracking?: boolean;
   rootPresellId: string | null;
   vercelDomainRegistered: boolean;
   vercelVerificationJson: Prisma.JsonValue | null;
@@ -41,6 +43,8 @@ function mapRow(d: {
     status: d.status,
     verified_at: d.verifiedAt?.toISOString() ?? null,
     is_default: d.isDefault,
+    purpose: d.purpose ?? "both",
+    is_default_tracking: d.isDefaultTracking ?? false,
     root_presell_id: d.rootPresellId ?? null,
     vercel_domain_registered: d.vercelDomainRegistered,
     vercel_verification: (d.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? null,
@@ -100,6 +104,11 @@ export const customDomainController = {
   async create(req: Request, res: Response) {
     const userId = billingUserId(req);
     const hostnameRaw = typeof req.body?.hostname === "string" ? req.body.hostname : "";
+    const purposeRaw = typeof req.body?.purpose === "string" ? req.body.purpose.trim() : "both";
+    const purpose =
+      purposeRaw === "hosting" || purposeRaw === "tracking" || purposeRaw === "both"
+        ? purposeRaw
+        : "both";
     let hostname: string;
     try {
       hostname = normalizeHostname(hostnameRaw);
@@ -154,6 +163,9 @@ export const customDomainController = {
       vercelVerifiedImmediately = vr.verified;
     }
 
+    const trackingCount = await prisma.customDomain.count({
+      where: { userId, OR: [{ purpose: "tracking" }, { purpose: "both" }], isDefaultTracking: true },
+    });
     const row = await prisma.customDomain.create({
       data: {
         userId,
@@ -161,7 +173,10 @@ export const customDomainController = {
         verificationToken: token,
         status: vercelVerifiedImmediately ? "verified" : "pending",
         verifiedAt: vercelVerifiedImmediately ? new Date() : null,
-        isDefault: isFirst,
+        isDefault: isFirst && purpose !== "tracking",
+        purpose,
+        isDefaultTracking:
+          (purpose === "tracking" || purpose === "both") && trackingCount === 0,
         vercelDomainRegistered: vercelRegistered,
         vercelVerificationJson: vercelVerification.length
           ? (vercelVerification as unknown as Prisma.InputJsonValue)
@@ -325,6 +340,80 @@ export const customDomainController = {
     return res.json({ ok: true, domains: list.map(mapRow) });
   },
 
+  async setPurpose(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const id = req.params.id;
+    const purposeRaw = typeof req.body?.purpose === "string" ? req.body.purpose.trim() : "";
+    if (purposeRaw !== "hosting" && purposeRaw !== "tracking" && purposeRaw !== "both") {
+      return res.status(400).json({ error: "purpose inválido (hosting | tracking | both)." });
+    }
+    const domain = await prisma.customDomain.findFirst({ where: { id, userId } });
+    if (!domain) return res.status(404).json({ error: "Domínio não encontrado." });
+
+    const data: { purpose: "hosting" | "tracking" | "both"; isDefaultTracking?: boolean; isDefault?: boolean } = {
+      purpose: purposeRaw,
+    };
+    if (purposeRaw === "tracking") {
+      data.isDefault = false;
+    }
+    if (purposeRaw === "hosting") {
+      data.isDefaultTracking = false;
+    }
+
+    await systemPrisma.customDomain.update({ where: { id: domain.id }, data });
+    if (purposeRaw === "tracking" || purposeRaw === "both") {
+      const hasTrackDefault = await prisma.customDomain.findFirst({
+        where: {
+          userId,
+          isDefaultTracking: true,
+          OR: [{ purpose: "tracking" }, { purpose: "both" }],
+        },
+      });
+      if (!hasTrackDefault) {
+        await systemPrisma.customDomain.update({
+          where: { id: domain.id },
+          data: { isDefaultTracking: true },
+        });
+      }
+    }
+    await refreshCustomDomainCache();
+    const list = await prisma.customDomain.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
+    });
+    return res.json(list.map(mapRow));
+  },
+
+  async setDefaultTracking(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const id = req.params.id;
+    const row = await prisma.customDomain.findFirst({
+      where: {
+        id,
+        userId,
+        status: "verified",
+        OR: [{ purpose: "tracking" }, { purpose: "both" }],
+      },
+    });
+    if (!row) {
+      return res.status(404).json({
+        error: "Domínio verificado com finalidade tracking/both não encontrado.",
+      });
+    }
+
+    await systemPrisma.$transaction([
+      systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefaultTracking: false } }),
+      systemPrisma.customDomain.update({ where: { id: row.id }, data: { isDefaultTracking: true } }),
+    ]);
+    await refreshCustomDomainCache();
+
+    const list = await prisma.customDomain.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
+    });
+    return res.json(list.map(mapRow));
+  },
+
   async setRootPresell(req: Request, res: Response) {
     const userId = billingUserId(req);
     const id = req.params.id;
@@ -336,6 +425,11 @@ export const customDomainController = {
     if (!domain) return res.status(404).json({ error: "Domínio não encontrado." });
     if (domain.status !== "verified") {
       return res.status(400).json({ error: "Só é possível após o domínio estar verificado." });
+    }
+    if (domain.purpose === "tracking") {
+      return res.status(400).json({
+        error: "Domínio só de tracking não abre presell na raiz — use purpose hosting ou both.",
+      });
     }
 
     if (presellId === null) {

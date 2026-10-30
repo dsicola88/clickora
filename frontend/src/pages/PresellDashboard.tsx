@@ -49,7 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
-import { getApiBaseUrl, getTrackApiBaseForPublicPresell, getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import { getApiBaseUrl, getTrackApiBaseUrl, resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
 import {
   PresellPublishReadiness,
   buildPublishReadinessFromPresell,
@@ -544,7 +544,7 @@ export default function PresellDashboard() {
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
       const html = buildPresellStandaloneHtml(data, {
-        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        apiBase: resolveTrackApiBaseForExport(customDomains, publicUrl),
         publicPageUrl: publicUrl,
         format: "htmlWidget",
       });
@@ -577,7 +577,7 @@ export default function PresellDashboard() {
         return;
       }
       const html = buildPresellStandaloneHtml(data, {
-        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        apiBase: resolveTrackApiBaseForExport(customDomains, publicUrl),
         publicPageUrl: publicUrl,
         format: "document",
       });

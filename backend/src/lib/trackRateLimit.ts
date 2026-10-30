@@ -73,6 +73,15 @@ function consumeMemory(ip: string): boolean {
   return true;
 }
 
+/** INCR + PEXPIRE atómicos (evita chave sem TTL sob corrida entre réplicas). */
+const REDIS_INCR_EXPIRE_LUA = `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return n
+`;
+
 async function consumeRedis(ip: string): Promise<boolean> {
   const client = getRedis();
   if (!client) return consumeMemory(ip);
@@ -82,10 +91,7 @@ async function consumeRedis(ip: string): Promise<boolean> {
     if (client.status !== "ready") {
       await client.connect();
     }
-    const n = await client.incr(key);
-    if (n === 1) {
-      await client.pexpire(key, WINDOW_MS);
-    }
+    const n = Number(await client.eval(REDIS_INCR_EXPIRE_LUA, 1, key, String(WINDOW_MS)));
     return n <= MAX;
   } catch (e) {
     if (!redisWarned) {

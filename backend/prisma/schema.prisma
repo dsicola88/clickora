@@ -94,6 +94,13 @@ enum CustomDomainStatus {
   verified
 }
 
+/** Papel do hostname: lander, tracking (/api/track) ou ambos. */
+enum CustomDomainPurpose {
+  hosting
+  tracking
+  both
+}
+
 /** Papel dentro de um workspace (equipa). */
 enum WorkspaceRole {
   owner
@@ -279,6 +286,10 @@ model CustomDomain {
   status              CustomDomainStatus @default(pending)
   verifiedAt          DateTime?          @map("verified_at")
   isDefault           Boolean            @default(false) @map("is_default")
+  /** hosting = lander; tracking = preferido para /api/track; both = os dois. */
+  purpose             CustomDomainPurpose @default(both)
+  /** Preferido para pixel/redirect quando vários tracking/both existem. */
+  isDefaultTracking   Boolean            @default(false) @map("is_default_tracking")
   /** Domínio registado na API Vercel (projeto do site) — verificação via Vercel + CNAME. */
   vercelDomainRegistered Boolean         @default(false) @map("vercel_domain_registered")
   /** Último desafio de verificação devolvido pela Vercel (TXT, etc.) para mostrar na UI. */

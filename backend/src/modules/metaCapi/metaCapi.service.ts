@@ -208,7 +208,7 @@ export async function syncConversionToMetaCapi(
   if (!isMetaCapiReadyForUser(user)) {
     if (adMode === "refund") return;
     await markMetaCapiSkip(conv.id, "skipped_disabled", {
-      reason: "A integração Meta (CAPI) está inactiva ou faltam Pixel ID e token de acesso.",
+      reason: "Faltam Pixel ID e/ou token Meta CAPI em Integrações → Pixels.",
     });
     return;
   }

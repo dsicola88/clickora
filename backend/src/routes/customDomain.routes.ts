@@ -12,5 +12,7 @@ customDomainRouter.get("/quota", customDomainController.quota);
 customDomainRouter.post("/", customDomainController.create);
 customDomainRouter.post("/:id/verify", customDomainController.verify);
 customDomainRouter.patch("/:id/default", customDomainController.setDefault);
+customDomainRouter.patch("/:id/purpose", customDomainController.setPurpose);
+customDomainRouter.patch("/:id/default-tracking", customDomainController.setDefaultTracking);
 customDomainRouter.patch("/:id/root-presell", customDomainController.setRootPresell);
 customDomainRouter.delete("/:id", customDomainController.remove);

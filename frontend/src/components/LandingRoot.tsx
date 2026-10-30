@@ -32,15 +32,20 @@ function CustomDomainRootRedirect() {
     queryKey: ["public-custom-domain-root-presell", hostname],
     queryFn: async () => {
       const { data: payload, error } = await presellService.getRootPresellIdForHost();
-      if (payload?.id) {
-        if (hostname) writeCachedRootPresellId(hostname, payload.id);
-        return payload.id;
+      if (payload && typeof payload === "object" && "purpose" in payload && (payload as { purpose?: string }).purpose === "tracking") {
+        if (hostname) clearCachedRootPresellId(hostname);
+        return { kind: "tracking" as const };
+      }
+      const id = payload && typeof payload === "object" && "id" in payload ? (payload as { id?: string | null }).id : null;
+      if (id) {
+        if (hostname) writeCachedRootPresellId(hostname, id);
+        return { kind: "presell" as const, id };
       }
       if (hostname) clearCachedRootPresellId(hostname);
       if (error) throw new Error(error);
-      return null;
+      return { kind: "empty" as const };
     },
-    initialData: cachedId ?? undefined,
+    initialData: cachedId ? { kind: "presell" as const, id: cachedId } : undefined,
     /** Com cache em sessionStorage, força refetch no mount para refletir mudanças no painel. */
     initialDataUpdatedAt: cachedId ? 0 : undefined,
     staleTime: 60_000,
@@ -51,8 +56,29 @@ function CustomDomainRootRedirect() {
     return <div className="min-h-screen bg-background" aria-busy="true" aria-label="A carregar" />;
   }
 
-  if (data) {
-    return <Navigate to={`/p/${data}`} replace />;
+  if (data?.kind === "presell" && data.id) {
+    return <Navigate to={`/p/${data.id}`} replace />;
+  }
+
+  if (data?.kind === "tracking") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 text-center">
+        <div className="max-w-md space-y-4">
+          <h1 className="text-xl font-semibold text-foreground">Domínio de tracking</h1>
+          <p className="text-sm text-muted-foreground">
+            Este hostname serve <code className="text-xs">/api/track/…</code> (pixel e redirects). A lander
+            publica-se no domínio de hosting.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Conta em{" "}
+            <a href={mainSite} className="text-primary underline underline-offset-2 font-medium">
+              dclickora
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

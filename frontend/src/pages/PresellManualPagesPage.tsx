@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
-import { getTrackApiBaseForPublicPresell } from "@/lib/apiOrigin";
+import { resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
@@ -150,7 +150,7 @@ export default function PresellManualPagesPage() {
         return;
       }
       const html = buildPresellStandaloneHtml(data, {
-        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        apiBase: resolveTrackApiBaseForExport(customDomains, publicUrl),
         publicPageUrl: publicUrl,
         format: "htmlWidget",
       });
@@ -174,7 +174,7 @@ export default function PresellManualPagesPage() {
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
       const html = buildPresellStandaloneHtml(data, {
-        apiBase: getTrackApiBaseForPublicPresell(publicUrl),
+        apiBase: resolveTrackApiBaseForExport(customDomains, publicUrl),
         publicPageUrl: publicUrl,
         format: "document",
       });

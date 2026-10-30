@@ -129,8 +129,10 @@ const redirectSchema = z
     utm_term: z.string().optional(),
     utm_content: z.string().optional(),
     msclkid: z.string().optional(),
-    /** Cookie Meta _fbp (opcional) — pode vir em query se o lander o passar. */
+    /** Cookie Meta _fbp (opcional) — query do lander ou Cookie header. */
     fbp: z.string().optional(),
+    /** Cookie TikTok _ttp (opcional). */
+    ttp: z.string().optional(),
     /** Sub-IDs (estilo ClickMagick) para segmentar fontes no relatório. */
     sub1: z.string().max(512).optional(),
     sub2: z.string().max(512).optional(),
@@ -247,6 +249,21 @@ function compactTrackingMeta(obj: Record<string, unknown>): Record<string, unkno
     out[k] = v;
   }
   return out;
+}
+
+/** Lê cookie de primeiro partido no pedido (ex.: `_fbp` / `_ttp` no host da lander). */
+function requestCookieValue(req: Request, name: string): string | undefined {
+  const raw = req.headers.cookie;
+  if (!raw || typeof raw !== "string") return undefined;
+  const re = new RegExp(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`);
+  const m = raw.match(re);
+  if (!m?.[1]) return undefined;
+  try {
+    const v = decodeURIComponent(m[1].trim());
+    return v || undefined;
+  } catch {
+    return m[1].trim() || undefined;
+  }
 }
 
 /** Query string do GET /track/pixel/… — mesma atribuição que o redirect de clique (UTMs + IDs de rede). */
@@ -367,7 +384,8 @@ export const trackController = {
       gbraid,
       wbraid,
       fbclid,
-      fbp,
+      fbp: fbpRaw,
+      ttp: ttpRaw,
       ttclid,
       utm_term: utmTermRaw,
       utm_content: utmContentRaw,
@@ -403,6 +421,8 @@ export const trackController = {
     );
     const pathMetaJson = pathSubForMetadata(pathMeta) as Record<string, string | string[]>;
     const voluumMeta = voluumStyleMetadata(parsed.data);
+    const fbp = (typeof fbpRaw === "string" && fbpRaw.trim()) || requestCookieValue(req, "_fbp");
+    const ttp = (typeof ttpRaw === "string" && ttpRaw.trim()) || requestCookieValue(req, "_ttp");
 
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -520,6 +540,7 @@ export const trackController = {
             fbclid: adIds.fbclid,
             fbp,
             ttclid: adIds.ttclid,
+            ttp,
             msclkid: adIds.msclkid,
             utm_term,
             utm_content,
@@ -587,7 +608,8 @@ export const trackController = {
       gbraid,
       wbraid,
       fbclid,
-      fbp,
+      fbp: rotFbpRaw,
+      ttp: rotTtpRaw,
       ttclid,
       utm_term: rotUtmTermRaw,
       utm_content: rotUtmContentRaw,
@@ -601,6 +623,8 @@ export const trackController = {
       access_code,
       network: rotatorNetwork,
     } = q;
+    const fbp = (typeof rotFbpRaw === "string" && rotFbpRaw.trim()) || requestCookieValue(req, "_fbp");
+    const ttp = (typeof rotTtpRaw === "string" && rotTtpRaw.trim()) || requestCookieValue(req, "_ttp");
     const utm_term = realUtmDimensionBody(rotUtmTermRaw);
     const utm_content = realUtmDimensionBody(rotUtmContentRaw);
     const medium =
@@ -709,6 +733,7 @@ export const trackController = {
           fbclid,
           fbp,
           ttclid,
+          ttp,
           msclkid,
           utm_term,
           utm_content,

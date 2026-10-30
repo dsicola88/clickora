@@ -26,6 +26,10 @@ export interface CustomDomainDto {
   status: "pending" | "verified";
   verified_at: string | null;
   is_default: boolean;
+  /** hosting = lander; tracking = /api/track; both = os dois. */
+  purpose?: "hosting" | "tracking" | "both";
+  /** Preferido para pixel/redirect quando há vários tracking/both. */
+  is_default_tracking?: boolean;
   /** Presell que abre em `https://hostname/`; null/omitido = automático (mais recentemente atualizada publicada). */
   root_presell_id?: string | null;
   created_at: string;
