@@ -475,8 +475,22 @@ export async function syncAdCostsForAllUsers(lookbackDays = 7): Promise<{
   return { users: users.length, google_ok, meta_ok, tiktok_ok };
 }
 
-export async function syncAdCostsForUser(userId: string, lookbackDays = 14): Promise<void> {
+export type SyncAdCostsForUserResult = {
+  google: { ok: boolean; rows?: number; error?: string };
+  meta: { ok: boolean; rows?: number; error?: string };
+  tiktok: { ok: boolean; rows?: number; error?: string };
+};
+
+export async function syncAdCostsForUser(
+  userId: string,
+  lookbackDays = 14,
+): Promise<SyncAdCostsForUserResult> {
   const { from, to } = rangeDays(lookbackDays);
+  const empty = {
+    google: { ok: false, error: "user_missing" },
+    meta: { ok: false, error: "user_missing" },
+    tiktok: { ok: false, error: "user_missing" },
+  };
   const u = await systemPrisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -492,10 +506,15 @@ export async function syncAdCostsForUser(userId: string, lookbackDays = 14): Pro
       tiktokEventsAccessToken: true,
     },
   });
-  if (!u) return;
-  await syncGoogleForUser(u, from, to);
-  await syncMetaForUser(u, from, to);
-  await syncTikTokForUser(u, from, to);
+  if (!u) return empty;
+  const g = await syncGoogleForUser(u, from, to);
+  const m = await syncMetaForUser(u, from, to);
+  const t = await syncTikTokForUser(u, from, to);
+  return {
+    google: g.ok ? { ok: true, rows: g.rows } : { ok: false, error: g.error },
+    meta: m.ok ? { ok: true, rows: m.rows } : { ok: false, error: m.error },
+    tiktok: t.ok ? { ok: true, rows: t.rows } : { ok: false, error: t.error },
+  };
 }
 
 /** Evita unused Prisma import warnings in some toolchains. */

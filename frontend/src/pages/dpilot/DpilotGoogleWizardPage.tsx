@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { parseDpilotLandingQuery } from "@/lib/dpilotPresellHandoff";
+import { parseDpilotLandingQuery, sanitizeLandingUrlForAdsFinal } from "@/lib/dpilotPresellHandoff";
 import { Check, CircleDashed, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -489,8 +489,10 @@ export function DpilotGoogleWizardPage() {
         google_manual_search_plan = mp.plan;
       }
 
+      const landingForAds =
+        sanitizeLandingUrlForAdsFinal(parsed.data.landingUrl) || parsed.data.landingUrl;
       const body: Parameters<typeof paidAdsService.postGoogleCampaignPlan>[1] = {
-        landingUrl: parsed.data.landingUrl,
+        landingUrl: landingForAds,
         offer: parsed.data.offer,
         objective: parsed.data.objective,
         dailyBudgetUsd: parsed.data.dailyBudgetUsd,

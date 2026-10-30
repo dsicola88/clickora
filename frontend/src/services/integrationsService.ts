@@ -268,6 +268,17 @@ export const integrationsService = {
         ok: boolean;
         created_at: string;
       }>;
+      cost_sync?: {
+        google: { ok: boolean; rows?: number; error?: string };
+        meta: { ok: boolean; rows?: number; error?: string };
+        tiktok: { ok: boolean; rows?: number; error?: string };
+      };
+      automizer_run?: {
+        evaluated: number;
+        paused: number;
+        dry_run: number;
+        skipped: number;
+      };
     }>("/integrations/affiliate-automizer");
   },
 

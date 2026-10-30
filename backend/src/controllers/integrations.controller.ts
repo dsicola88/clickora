@@ -1913,18 +1913,57 @@ export const integrationsController = {
       },
     });
 
+    let cost_sync: Awaited<
+      ReturnType<(typeof import("../modules/affiliateOps/costSync.service"))["syncAdCostsForUser"]>
+    > | null = null;
+    let automizer_run: Awaited<
+      ReturnType<
+        (typeof import("../modules/affiliateOps/keywordAutomizer.service"))["runKeywordAutomizerForUser"]
+      >
+    > | null = null;
+
     if (d.sync_costs_now) {
       const { syncAdCostsForUser } = await import("../modules/affiliateOps/costSync.service");
-      void syncAdCostsForUser(userId, 14).catch((e) => console.error("[syncAdCostsForUser]", e));
+      try {
+        cost_sync = await syncAdCostsForUser(userId, 14);
+      } catch (e) {
+        console.error("[syncAdCostsForUser]", e);
+        cost_sync = {
+          google: { ok: false, error: e instanceof Error ? e.message : String(e) },
+          meta: { ok: false, error: "skipped" },
+          tiktok: { ok: false, error: "skipped" },
+        };
+      }
     }
     if (d.run_automizer_now) {
       const { runKeywordAutomizerForUser } = await import(
         "../modules/affiliateOps/keywordAutomizer.service"
       );
-      void runKeywordAutomizerForUser(userId).catch((e) => console.error("[runKeywordAutomizer]", e));
+      try {
+        automizer_run = await runKeywordAutomizerForUser(userId);
+      } catch (e) {
+        console.error("[runKeywordAutomizer]", e);
+        automizer_run = { evaluated: 0, paused: 0, dry_run: 0, skipped: 1 };
+      }
     }
 
-    return integrationsController.getAffiliateAutomizer(req, res);
+    let base: Record<string, unknown> = {};
+    const captureRes = {
+      status() {
+        return this;
+      },
+      json(body: unknown) {
+        base = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+        return this;
+      },
+    };
+    await integrationsController.getAffiliateAutomizer(req, captureRes as unknown as Response);
+
+    return res.json({
+      ...base,
+      ...(cost_sync ? { cost_sync } : {}),
+      ...(automizer_run ? { automizer_run } : {}),
+    });
   },
 
   async listWhitelist(req: Request, res: Response) {

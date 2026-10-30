@@ -62,11 +62,35 @@ export default function AffiliateAutomizerPage() {
         ...extra,
       });
       if (error) throw new Error(error);
-      return d;
+      return { data: d, extra };
     },
-    onSuccess: () => {
-      toast.success("Definições guardadas.");
+    onSuccess: ({ data: d, extra }) => {
       void qc.invalidateQueries({ queryKey: ["affiliate-automizer"] });
+      if (extra?.sync_costs_now && d?.cost_sync) {
+        const parts: string[] = [];
+        if (d.cost_sync.google.ok) parts.push(`Google OK (${d.cost_sync.google.rows ?? 0} dias)`);
+        else if (d.cost_sync.google.error && d.cost_sync.google.error !== "google_not_ready")
+          parts.push(`Google: ${d.cost_sync.google.error}`);
+        else parts.push("Google: ligue a conta em Integrações");
+        if (d.cost_sync.meta.ok) parts.push(`Meta OK (${d.cost_sync.meta.rows ?? 0})`);
+        else if (metaAct.trim() && d.cost_sync.meta.error && d.cost_sync.meta.error !== "meta_not_configured")
+          parts.push(`Meta: ${d.cost_sync.meta.error}`);
+        if (d.cost_sync.tiktok.ok) parts.push(`TikTok OK (${d.cost_sync.tiktok.rows ?? 0})`);
+        else if (ttAdv.trim() && d.cost_sync.tiktok.error && d.cost_sync.tiktok.error !== "tiktok_not_configured")
+          parts.push(`TikTok: ${d.cost_sync.tiktok.error}`);
+        const anyOk = d.cost_sync.google.ok || d.cost_sync.meta.ok || d.cost_sync.tiktok.ok;
+        if (anyOk) toast.success("Custos actualizados", { description: parts.join(" · ") });
+        else toast.error("Não foi possível sincronizar custos", { description: parts.join(" · ") });
+        return;
+      }
+      if (extra?.run_automizer_now && d?.automizer_run) {
+        const r = d.automizer_run;
+        toast.success("Automizer executado", {
+          description: `Avaliadas ${r.evaluated} · pausadas ${r.paused} · simulação ${r.dry_run} · ignoradas ${r.skipped}`,
+        });
+        return;
+      }
+      toast.success("Definições guardadas.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -114,7 +138,7 @@ export default function AffiliateAutomizerPage() {
 
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <Label>Gasto mín. (USD)</Label>
+            <Label>Gasto mín.</Label>
             <Input
               type="number"
               min={1}
@@ -122,6 +146,7 @@ export default function AffiliateAutomizerPage() {
               disabled={locked}
               onChange={(e) => setMinSpend(Number(e.target.value) || 15)}
             />
+            <p className="text-[10px] text-muted-foreground">Moeda da conta Google Ads (não força USD).</p>
           </div>
           <div className="space-y-1.5">
             <Label>Cliques mín.</Label>
@@ -164,7 +189,9 @@ export default function AffiliateAutomizerPage() {
             disabled={locked}
             onChange={(e) => setTtAdv(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Precisa da ligação de anúncios do TikTok.</p>
+          <p className="text-xs text-muted-foreground">
+            Precisa de token Marketing API do TikTok (o token só Events API não lê gasto).
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
