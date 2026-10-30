@@ -49,6 +49,7 @@ import {
   type KeywordResearch,
 } from "@/services/keywordResearchService";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
+import { buildTrackedPresellUrl } from "@/services/campaignsService";
 import {
   defaultMarketForLanguage,
   GRINGA_AFFILIATE_PLATFORMS,
@@ -793,7 +794,16 @@ export default function KeywordsPage() {
                   </Button>
                   {isHttpUrl(finalUrl.trim()) ? (
                     <Button type="button" size="sm" variant="outline" asChild>
-                      <Link to={dpilotAdsHandoffHref(finalUrl.trim())} className="gap-1.5">
+                      <Link
+                        to={dpilotAdsHandoffHref(
+                          buildTrackedPresellUrl(
+                            finalUrl.trim(),
+                            research?.product || "pesquisa",
+                            "Google Ads",
+                          ),
+                        )}
+                        className="gap-1.5"
+                      >
                         <ExternalLink className="h-3.5 w-3.5" />
                         Assistente Google Ads
                       </Link>

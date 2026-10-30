@@ -16,7 +16,8 @@ export function registerAffiliateOpsScheduler(): void {
       costCron,
       async () => {
         try {
-          const r = await syncAdCostsForAllUsers(7);
+          /** 14 dias: cobre a maioria dos ranges de Resultados sem sobrescrever live GAQL. */
+          const r = await syncAdCostsForAllUsers(14);
           console.log("[affiliate-ops] cost_sync", JSON.stringify({ ...r, at: new Date().toISOString() }));
         } catch (e) {
           console.error("[affiliate-ops] cost_sync_error", e instanceof Error ? e.message : e);

@@ -1878,9 +1878,26 @@ export const analyticsController = {
     /** Gasto manual na campanha é lifetime — não misturar com receita do período (mentiria ROAS/CPA). */
     let manual_spend_lifetime: number | null = null;
     if (persisted.total > 0) {
-      spend = persisted.total;
-      spend_source = "persisted";
-      spend_by_platform = persisted.by_platform;
+      const persistedGoogle = Number(persisted.by_platform.google_ads ?? 0);
+      const liveG = googleSpendLive != null && googleSpendLive > 0 ? googleSpendLive : 0;
+      /**
+       * Sync horário só cobre ~7–14 dias. Se o GAQL live do intervalo pedido
+       * trouxer mais Google do que o persistido, substitui a fatia Google
+       * (evita ROAS inflacionado em ranges longos com sync parcial).
+       */
+      if (liveG > persistedGoogle + 0.01) {
+        const other = Math.max(0, persisted.total - persistedGoogle);
+        spend = Math.round((liveG + other) * 100) / 100;
+        spend_by_platform = {
+          ...persisted.by_platform,
+          google_ads: Math.round(liveG * 100) / 100,
+        };
+        spend_source = other > 0.01 ? "persisted" : "google_ads";
+      } else {
+        spend = persisted.total;
+        spend_source = "persisted";
+        spend_by_platform = persisted.by_platform;
+      }
       spend_currency = google_ads_metrics?.currency_code ?? "USD";
     } else if (googleSpendLive != null && googleSpendLive > 0) {
       spend = Math.round(googleSpendLive * 100) / 100;
@@ -1912,7 +1929,7 @@ export const analyticsController = {
         code: "manual_spend_lifetime",
         severity: "warning",
         title: "Gasto manual fora do período",
-        detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "USD"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período só usam gasto Google Ads do mesmo intervalo — actualize o gasto por campanha alinhado às datas ou ligue o Google Ads.`,
+        detail: `Há ${manual_spend_lifetime.toFixed(2)} ${spend_currency ?? "USD"} indicados nas campanhas (total acumulado). Lucro/ROAS/CPA do período usam custo sincronizado (Google/Meta/TikTok) ou Google Ads live do mesmo intervalo — não este total lifetime. Actualize custos em Integrações → Custos automáticos ou ligue o Google Ads.`,
       });
     }
     let account_health: Awaited<ReturnType<typeof buildAccountHealth>> | null = null;

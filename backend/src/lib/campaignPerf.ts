@@ -159,7 +159,7 @@ export function buildMediaBuyerAlerts(args: {
       severity: "info",
       title: "Retorno incompleto",
       detail:
-        "Lucro e retorno ficam em branco até haver custo do Google Ads no mesmo período. O valor escrito à mão na campanha não entra neste cálculo.",
+        "Lucro e retorno ficam em branco até haver custo do período (sync em Custos automáticos ou Google Ads live). O valor escrito à mão na campanha não entra neste cálculo.",
     });
   }
 

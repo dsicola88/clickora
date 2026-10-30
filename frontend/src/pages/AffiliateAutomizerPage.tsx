@@ -66,6 +66,11 @@ export default function AffiliateAutomizerPage() {
     },
     onSuccess: ({ data: d, extra }) => {
       void qc.invalidateQueries({ queryKey: ["affiliate-automizer"] });
+      if (extra?.sync_costs_now) {
+        void qc.invalidateQueries({ queryKey: ["analytics"] });
+        void qc.invalidateQueries({ queryKey: ["results"] });
+        void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      }
       if (extra?.sync_costs_now && d?.cost_sync) {
         const parts: string[] = [];
         if (d.cost_sync.google.ok) parts.push(`Google OK (${d.cost_sync.google.rows ?? 0} dias)`);

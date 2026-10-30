@@ -364,7 +364,7 @@ export default function ResultsOverviewPage() {
 
   const mb = data.media_buyer;
   const health = data.account_health;
-  const currency = "USD";
+  const currency = (mb?.spend_currency || "USD").toUpperCase();
   const clicks = data.entry_clicks ?? data.total_clicks ?? 0;
   const hopClicks = data.total_hops ?? data.total_clicks ?? clicks;
   const impressions = data.total_impressions ?? 0;
