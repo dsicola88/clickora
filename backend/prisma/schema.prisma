@@ -49,6 +49,15 @@ enum PresellComplianceGate {
   ready_for_review
 }
 
+/** Fila de auditorias de conformidade (worker dedicado / embedded). */
+enum PresellComplianceJobStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+}
+
 enum EventType {
   click
   impression
@@ -202,6 +211,7 @@ model User {
   keywordResearches    KeywordResearch[]
   complianceAudits     PresellComplianceAudit[]
   complianceDecisions  PresellComplianceDecision[]
+  complianceJobs       PresellComplianceJob[]
 
   /** Módulo anúncios (ex-Dpiloto) — dados escopados ao dono da conta (tenant). */
   paidAdsProjects              PaidAdsProject[]
@@ -398,6 +408,7 @@ model PresellPage {
   trafficRotatorsAsContext TrafficRotator[] @relation("RotatorContextPresell")
   complianceAudits PresellComplianceAudit[]
   complianceDecisions PresellComplianceDecision[]
+  complianceJobs PresellComplianceJob[]
 
   @@unique([userId, slug])
   @@index([userId])
@@ -406,6 +417,35 @@ model PresellPage {
   @@index([customDomainId])
   @@index([complianceGate])
   @@map("presell_pages")
+}
+
+/** Job assíncrono de auditoria de conformidade (dedupe activo via índice parcial na migration). */
+model PresellComplianceJob {
+  id                   String                     @id @default(uuid())
+  userId               String                     @map("user_id")
+  presellId            String                     @map("presell_id")
+  contentFingerprint   String                     @map("content_fingerprint") @db.VarChar(64)
+  skipDestinationProbe Boolean                    @default(true) @map("skip_destination_probe")
+  status               PresellComplianceJobStatus @default(pending)
+  attempts             Int                        @default(0)
+  maxAttempts          Int                        @default(3) @map("max_attempts")
+  runAfter             DateTime                   @default(now()) @map("run_after")
+  leaseOwner           String?                    @map("lease_owner") @db.VarChar(128)
+  leaseUntil           DateTime?                  @map("lease_until")
+  lastError            String?                    @map("last_error") @db.VarChar(500)
+  startedAt            DateTime?                  @map("started_at")
+  finishedAt           DateTime?                  @map("finished_at")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell PresellPage @relation(fields: [presellId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAfter])
+  @@index([presellId, status])
+  @@index([userId, createdAt])
+  @@index([leaseUntil])
+  @@map("presell_compliance_jobs")
 }
 
 /** Resultado persistido de uma auditoria de conformidade (Google Ads / Microsoft Advertising). */
