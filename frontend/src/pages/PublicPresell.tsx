@@ -920,6 +920,13 @@ export default function PublicPresell() {
       /^Página não encontrada\.?$/i.test(raw.trim())
     ) {
       msg = "Esta página não está disponível.";
+      if (id && !isPresellUuidParam(id)) {
+        msg =
+          "Em dclickora.com o link público usa /p/<UUID>. O slug só funciona no teu domínio personalizado verificado.";
+      }
+    } else if (/domínio personalizado|PRESHELL_SLUG|identificador \(UUID\)/i.test(raw)) {
+      msg =
+        "Em dclickora.com o link público usa /p/<UUID>. O slug só funciona no teu domínio personalizado verificado.";
     }
     const isNotFound =
       raw.trim() === "Página não encontrada" ||

@@ -281,6 +281,21 @@ function dtoToArms(r: TrafficRotatorDto): ArmForm[] {
   }));
 }
 
+/** Em dclickora.com / preview o /p/ público só resolve UUID — slug dá 404. */
+function isBrokenMainHostPresellPath(url: string): boolean {
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    if (!/(^|\.)dclickora\.com$/i.test(host) && !/localhost|127\.0\.0\.1/i.test(host)) return false;
+    const m = u.pathname.match(/^\/p\/([^/]+)\/?$/i);
+    if (!m) return false;
+    const param = decodeURIComponent(m[1]);
+    return !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(param);
+  } catch {
+    return false;
+  }
+}
+
 function armsToPayload(arms: ArmForm[]): TrafficRotatorArmInput[] | null {
   const out: TrafficRotatorArmInput[] = [];
   arms.forEach((a, i) => {
@@ -467,6 +482,16 @@ export default function Rotadores() {
     const armPayload = armsToPayload(arms);
     if (!name.trim() || !slug.trim() || !contextPresellId || !armPayload) {
       toast.error("Preencha nome, slug, presell de contexto e pelo menos um URL de destino válido.");
+      return;
+    }
+    const badPaths = [
+      ...armPayload.map((a) => a.destination_url),
+      backupUrl.trim() || "",
+    ].filter((u) => u && isBrokenMainHostPresellPath(u));
+    if (badPaths.length) {
+      toast.error(
+        "Em dclickora.com use /p/<UUID> da presell (não o slug). Copie o link público no editor da página.",
+      );
       return;
     }
 
@@ -809,7 +834,8 @@ export default function Rotadores() {
               />
               <p className="text-[11px] text-muted-foreground">
                 Usado quando nenhum braço se aplica <em>e</em> quando um destino HTTP falha a verificação rápida (5xx /
-                timeout / 404). Links WhatsApp não são sondados — o rodízio continua normal.
+                timeout / 404). Links WhatsApp não são sondados — o rodízio continua normal. Em dclickora.com o destino
+                deve ser <span className="font-mono">/p/&lt;uuid&gt;</span> (slug só em domínio personalizado).
               </p>
             </div>
 
@@ -942,18 +968,44 @@ export default function Rotadores() {
                   braço voltam a zero (os cliques antigos permanecem nos relatórios).
                 </p>
               ) : null}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <Label className="text-base">Destinos (braços)</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => setArms((prev) => [...prev, emptyArm(prev.length)])}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Braço
-                </Button>
+                <div className="flex items-center gap-2">
+                  {contextPresellId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[11px]"
+                      onClick={() => {
+                        const origin =
+                          typeof window !== "undefined" ? window.location.origin : "https://www.dclickora.com";
+                        const pub = `${origin.replace(/\/+$/, "")}/p/${contextPresellId}`;
+                        setArms((prev) => {
+                          const next = [...prev];
+                          const idx = next.findIndex((a) => !a.destination_url.trim());
+                          const i = idx >= 0 ? idx : 0;
+                          next[i] = { ...next[i], destination_url: pub };
+                          return next;
+                        });
+                        if (!backupUrl.trim()) setBackupUrl(pub);
+                        toast.message("URL público /p/<uuid> inserido.");
+                      }}
+                    >
+                      Inserir URL da presell de contexto
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => setArms((prev) => [...prev, emptyArm(prev.length)])}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Braço
+                  </Button>
+                </div>
               </div>
 
               {arms.map((arm, idx) => (
