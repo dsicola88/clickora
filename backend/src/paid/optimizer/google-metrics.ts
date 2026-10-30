@@ -3,6 +3,7 @@
  */
 import { getAccessFromRefreshToken, getGoogleDeveloperToken, runGoogleAdsSearch } from "../google-ads.api";
 import { prisma } from "../paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "../tokenSecrets";
 
 const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
 
@@ -29,7 +30,7 @@ export async function fetchGoogleCampaignCostMicros(args: {
 
   let access: string;
   try {
-    ({ access_token: access } = await getAccessFromRefreshToken(conn.tokenRef));
+    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Token Google." };
   }

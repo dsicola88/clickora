@@ -8,6 +8,7 @@ import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./
 import { GOOGLE_GEO_CRITERION_IDS } from "./geo-google";
 import { GOOGLE_ADS_LANGUAGE_NUMERIC_ID, normalizeGoogleLanguageCode } from "./language-google";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 export type PlannerSnapshot = {
   monthly_volume: number;
@@ -201,7 +202,7 @@ export async function fetchKeywordPlannerMetrics(
 
   let access: string;
   try {
-    ({ access_token: access } = await getAccessFromRefreshToken(conn.tokenRef));
+    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
   } catch {
     return { ok: false };
   }

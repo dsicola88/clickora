@@ -8,6 +8,7 @@ import type {
 
 import { resolveMetaPageId } from "./meta-ads.creative";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
@@ -51,10 +52,10 @@ async function getMetaToken(projectId: string): Promise<{ err: string } | { toke
   if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.adAccountId) {
     return { err: "Ligue a conta Meta (OAuth) e o Ad Account." };
   }
-  if (conn.tokenRef.startsWith("state:")) {
+  if (isOAuthPendingToken(conn.tokenRef)) {
     return { err: "Sessão Meta inválida." };
   }
-  return { token: conn.tokenRef };
+  return { token: loadPaidToken(conn.tokenRef)! };
 }
 
 export async function applyMetaAdsetDailyBudget(

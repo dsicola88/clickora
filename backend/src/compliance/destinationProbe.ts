@@ -2,9 +2,9 @@ import {
   IMPORT_MAX_REDIRECTS,
   PresellImportBlockedError,
   assertExternalProductUrl,
-  isBlockedIpAddress,
+  vetImportUrl,
 } from "../lib/presellImportSsrf";
-import { lookup } from "node:dns/promises";
+import { nodeImportRequest } from "../lib/presellSafeFetch";
 import type { DestinationProbeResult } from "./types";
 
 const PROBE_TIMEOUT_MS = 8_000;
@@ -27,9 +27,19 @@ function registrableLike(host: string): string {
   return parts.slice(-2).join(".");
 }
 
+function headerGet(
+  headers: Record<string, string | string[] | undefined>,
+  name: string,
+): string {
+  const value = headers[name] ?? headers[name.toLowerCase()];
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 /**
  * Probe SSRF-safe do destino da oferta.
- * Não executa JavaScript da página. Valida DNS e cada hop de redirect.
+ * Não executa JavaScript da página. Em cada hop: vet URL + DNS + pin de IP no socket
+ * (mesmo padrão que `presellSafeFetch` / import).
  */
 export async function probeDestinationUrl(rawUrl: string | null | undefined): Promise<DestinationProbeResult> {
   const empty: DestinationProbeResult = {
@@ -100,74 +110,31 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
         };
       }
 
-      // Revalidar host + DNS em cada hop (mitiga DNS rebinding / redirect para privado).
-      assertExternalProductUrl(current);
-      const records = await lookup(u.hostname, { all: true, verbatim: true });
-      for (const rec of records) {
-        if (isBlockedIpAddress(rec.address)) {
-          throw new PresellImportBlockedError();
-        }
-      }
+      // Revalidar host + DNS e pin de IP no connect (mitiga rebinding TOCTOU).
+      const vetted = await vetImportUrl(current);
+      const signal = AbortSignal.timeout(PROBE_TIMEOUT_MS);
+      const exchange = await nodeImportRequest({
+        url: vetted.url,
+        addresses: vetted.addresses,
+        signal,
+        maxBytes: PROBE_MAX_BODY_BYTES,
+        headers: {
+          "User-Agent": PROBE_UA,
+          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+          Range: `bytes=0-${PROBE_MAX_BODY_BYTES - 1}`,
+        },
+      });
 
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-      let res: Response;
-      try {
-        res = await fetch(current, {
-          method: "GET",
-          redirect: "manual",
-          signal: controller.signal,
-          headers: {
-            "User-Agent": PROBE_UA,
-            Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-            Range: `bytes=0-${PROBE_MAX_BODY_BYTES - 1}`,
-          },
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-
-      statusCode = res.status;
-      const declared = Number(res.headers.get("content-length") || "0");
-      if (Number.isFinite(declared) && declared > PROBE_MAX_BODY_BYTES * 4) {
-        // Resposta declaradamente enorme: não consumir o corpo; tratar como verificável só ao nível HTTP.
-        try {
-          res.body?.cancel();
-        } catch {
-          /* ignore */
-        }
-      } else if (res.body && statusCode >= 200 && statusCode < 300) {
-        // Consumir no máximo PROBE_MAX_BODY_BYTES e descartar o resto.
-        const reader = res.body.getReader();
-        let read = 0;
-        while (read < PROBE_MAX_BODY_BYTES) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          read += value?.byteLength ?? 0;
-          if (read >= PROBE_MAX_BODY_BYTES) {
-            try {
-              await reader.cancel();
-            } catch {
-              /* ignore */
-            }
-            break;
-          }
-        }
-      }
+      statusCode = exchange.status;
       if (statusCode === 403 || statusCode === 401) {
-        const server = (res.headers.get("server") || "").toLowerCase();
+        const server = headerGet(exchange.headers, "server").toLowerCase();
         if (server.includes("cloudflare") || server.includes("akamai")) {
           crawlerBlocked = true;
         }
       }
 
       if (statusCode >= 300 && statusCode < 400) {
-        try {
-          res.body?.cancel();
-        } catch {
-          /* ignore */
-        }
-        const loc = res.headers.get("location");
+        const loc = headerGet(exchange.headers, "location");
         if (!loc) break;
         const next = new URL(loc, current).toString();
         redirectCount += 1;
@@ -226,6 +193,9 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
       };
     }
     const name = e instanceof Error ? e.name : "";
+    const message = e instanceof Error ? e.message : "network";
+    const timedOut =
+      name === "AbortError" || name === "TimeoutError" || /aborted|timeout/i.test(message);
     return {
       attempted: true,
       ok: false,
@@ -239,8 +209,8 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
       initialHost,
       finalHost: hostOf(current),
       crawlerBlocked,
-      errorCode: name === "AbortError" ? "timeout" : "network",
-      errorMessage: e instanceof Error ? e.message : "network",
+      errorCode: timedOut ? "timeout" : "network",
+      errorMessage: message,
       hops,
     };
   }

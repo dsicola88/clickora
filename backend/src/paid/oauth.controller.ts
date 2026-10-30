@@ -17,6 +17,7 @@ import {
   metaOAuthRedirectUri,
   tiktokOAuthRedirectUri,
 } from "./paidOauthEnv";
+import { isOAuthPendingToken, loadPaidToken, storePaidToken } from "./tokenSecrets";
 
 const TIKTOK_TOKEN_URL = "https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/";
 const DEFAULT_TIKTOK_AUTH_BASE = "https://ads.tiktok.com/marketing_api/auth";
@@ -132,7 +133,7 @@ export const oauthController = {
         where: { id: conn.id },
         data: {
           status: "connected",
-          tokenRef: refresh_token,
+          tokenRef: storePaidToken(refresh_token),
           googleCustomerId: customerId,
           accountName: name,
           lastSyncAt: new Date(),
@@ -286,7 +287,7 @@ export const oauthController = {
         where: { id: conn.id },
         data: {
           status: "connected",
-          tokenRef: finalToken,
+          tokenRef: storePaidToken(finalToken),
           adAccountId,
           accountName,
           businessId,
@@ -415,8 +416,8 @@ export const oauthController = {
         where: { id: conn.id },
         data: {
           status: "connected",
-          tokenRef: accessToken!,
-          refreshTokenRef: refreshToken ?? null,
+          tokenRef: storePaidToken(accessToken!),
+          refreshTokenRef: storePaidToken(refreshToken ?? null),
           advertiserId,
           accountName,
           lastSyncAt: new Date(),
@@ -497,10 +498,11 @@ export const oauthController = {
       where: { projectId: body.data.projectId },
       select: { id: true, tokenRef: true },
     });
-    if (conn?.tokenRef && !conn.tokenRef.startsWith("state:")) {
+    const metaPlain = loadPaidToken(conn?.tokenRef);
+    if (metaPlain && !isOAuthPendingToken(metaPlain)) {
       try {
         await fetch(
-          `https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(conn.tokenRef)}`,
+          `https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(metaPlain)}`,
           { method: "DELETE" },
         );
       } catch {

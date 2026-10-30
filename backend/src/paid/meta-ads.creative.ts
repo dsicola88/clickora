@@ -6,6 +6,7 @@ import { paidLog } from "../lib/paidLog";
 import { getPaidMetaAssetsRoot } from "../lib/paidMetaAssetUpload";
 import { readPaidAssetFile } from "./paid-asset-file";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
@@ -54,13 +55,13 @@ export type MetaPagesResult =
 /** Páginas geridas pelo utilizador ligado (Graph `me/accounts`), para escolha no assistente. */
 export async function listMetaPagesForProject(projectId: string): Promise<MetaPagesResult> {
   const conn = await prisma.paidAdsMetaConnection.findUnique({ where: { projectId } });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || conn.tokenRef.startsWith("state:")) {
+  if (!conn || conn.status !== "connected" || !loadPaidToken(conn.tokenRef) || isOAuthPendingToken(conn.tokenRef)) {
     return { ok: false, error: "Ligue a conta Meta (OAuth) para listar as suas Páginas." };
   }
   const url = new URL(`${GRAPH}/me/accounts`);
   url.searchParams.set("fields", "id,name,category,tasks");
   url.searchParams.set("limit", "100");
-  url.searchParams.set("access_token", conn.tokenRef);
+  url.searchParams.set("access_token", loadPaidToken(conn.tokenRef)!);
   const res = await fetch(url.toString());
   const j = (await res.json()) as {
     data?: Array<{ id?: string; name?: string; category?: string; tasks?: string[] }>;

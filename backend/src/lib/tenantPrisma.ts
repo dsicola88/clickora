@@ -18,6 +18,8 @@ const USER_ID_MODELS = [
   "customDomain",
   "userRole",
   "keywordResearch",
+  /** Campanhas de afiliado (UI Tracking) — antes só filtradas manualmente no controller. */
+  "affiliateCampaign",
 ] as const;
 
 const MUTATING_PLAN_OPS = new Set(["create", "createMany", "update", "updateMany", "delete", "deleteMany", "upsert"]);

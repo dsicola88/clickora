@@ -2,7 +2,20 @@ import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import type { WorkspaceRole } from "@prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET || "changeme";
+function resolveJwtSecret(): string {
+  const raw = (process.env.JWT_SECRET || "").trim();
+  if (process.env.NODE_ENV === "production") {
+    if (!raw || raw === "changeme" || raw.length < 32) {
+      throw new Error(
+        "JWT_SECRET em falta ou inseguro em produção (mín. 32 caracteres; não use 'changeme').",
+      );
+    }
+    return raw;
+  }
+  return raw || "changeme";
+}
+
+const JWT_SECRET = resolveJwtSecret();
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || "7d") as SignOptions["expiresIn"];
 
 export interface JwtPayload {

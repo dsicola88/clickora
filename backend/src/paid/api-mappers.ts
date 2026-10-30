@@ -12,6 +12,21 @@ import type {
 
 /** DTOs em snake_case (organization_id = user_id do tenant, compat. UI). */
 
+/**
+ * Nunca devolver OAuth tokens/refresh ao cliente.
+ * `token_ref` / `refresh_token_ref` eram o segredo em claro (P0).
+ * Mantém campos booleanos para a UI saber se há credencial / estado OAuth pendente.
+ */
+function mapSecretTokenPresence(tokenRef: string | null | undefined): {
+  has_token: boolean;
+  oauth_pending: boolean;
+} {
+  const t = (tokenRef ?? "").trim();
+  if (!t) return { has_token: false, oauth_pending: false };
+  if (t.startsWith("state:")) return { has_token: false, oauth_pending: true };
+  return { has_token: true, oauth_pending: false };
+}
+
 export function mapGuardrails(g: PaidAdsGuardrails) {
   return {
     id: g.id,
@@ -33,6 +48,7 @@ export function mapGuardrails(g: PaidAdsGuardrails) {
 }
 
 export function mapGoogleAdsConnection(c: PaidAdsGoogleAdsConnection) {
+  const secrets = mapSecretTokenPresence(c.tokenRef);
   return {
     id: c.id,
     user_id: c.userId,
@@ -41,7 +57,10 @@ export function mapGoogleAdsConnection(c: PaidAdsGoogleAdsConnection) {
     google_customer_id: c.googleCustomerId,
     account_name: c.accountName,
     status: c.status,
-    token_ref: c.tokenRef,
+    has_token: secrets.has_token,
+    oauth_pending: secrets.oauth_pending,
+    /** @deprecated nunca contém o segredo — sempre null (compat. clientes antigos). */
+    token_ref: null as string | null,
     last_sync_at: c.lastSyncAt?.toISOString() ?? null,
     error_message: c.errorMessage,
     created_at: c.createdAt.toISOString(),
@@ -50,6 +69,7 @@ export function mapGoogleAdsConnection(c: PaidAdsGoogleAdsConnection) {
 }
 
 export function mapMetaConnection(c: PaidAdsMetaConnection) {
+  const secrets = mapSecretTokenPresence(c.tokenRef);
   return {
     id: c.id,
     user_id: c.userId,
@@ -61,7 +81,10 @@ export function mapMetaConnection(c: PaidAdsMetaConnection) {
     page_id: c.pageId,
     page_name: c.pageName,
     status: c.status,
-    token_ref: c.tokenRef,
+    has_token: secrets.has_token,
+    oauth_pending: secrets.oauth_pending,
+    /** @deprecated nunca contém o segredo — sempre null (compat. clientes antigos). */
+    token_ref: null as string | null,
     last_sync_at: c.lastSyncAt?.toISOString() ?? null,
     error_message: c.errorMessage,
     created_at: c.createdAt.toISOString(),
@@ -70,6 +93,7 @@ export function mapMetaConnection(c: PaidAdsMetaConnection) {
 }
 
 export function mapTikTokConnection(c: PaidAdsTikTokConnection) {
+  const secrets = mapSecretTokenPresence(c.tokenRef);
   return {
     id: c.id,
     user_id: c.userId,
@@ -78,8 +102,13 @@ export function mapTikTokConnection(c: PaidAdsTikTokConnection) {
     advertiser_id: c.advertiserId,
     account_name: c.accountName,
     status: c.status,
-    token_ref: c.tokenRef,
-    refresh_token_ref: c.refreshTokenRef,
+    has_token: secrets.has_token,
+    oauth_pending: secrets.oauth_pending,
+    has_refresh_token: Boolean((c.refreshTokenRef ?? "").trim()),
+    /** @deprecated nunca contém o segredo — sempre null. */
+    token_ref: null as string | null,
+    /** @deprecated nunca contém o segredo — sempre null. */
+    refresh_token_ref: null as string | null,
     last_sync_at: c.lastSyncAt?.toISOString() ?? null,
     error_message: c.errorMessage,
     created_at: c.createdAt.toISOString(),

@@ -4,6 +4,7 @@
  */
 import { prisma } from "./paidPrisma";
 import { paidLog } from "../lib/paidLog";
+import { loadPaidToken, storePaidToken } from "./tokenSecrets";
 
 const REFRESH_PATH = "oauth2/refresh_token/";
 const TIKTOK_BASE = "https://business-api.tiktok.com/open_api/v1.3";
@@ -62,8 +63,8 @@ export async function refreshTikTokAccessToken(
   await prisma.paidAdsTikTokConnection.update({
     where: { id: connectionId },
     data: {
-      tokenRef: newAccess,
-      refreshTokenRef: newRefresh,
+      tokenRef: storePaidToken(newAccess),
+      refreshTokenRef: storePaidToken(newRefresh),
       lastSyncAt: new Date(),
       errorMessage: null,
     },
@@ -87,12 +88,12 @@ export async function ensureTikTokAccessToken(projectId: string): Promise<
     return { ok: false, error: "Token em falta. Volte a ligar o TikTok (OAuth) na app." };
   }
   if (!conn.refreshTokenRef) {
-    return { ok: true, accessToken: conn.tokenRef, advertiserId: conn.advertiserId, connectionId: conn.id };
+    return { ok: true, accessToken: loadPaidToken(conn.tokenRef)!, advertiserId: conn.advertiserId, connectionId: conn.id };
   }
   const last = conn.lastSyncAt?.getTime() ?? 0;
   const stale = Date.now() - last > PROACTIVE_REFRESH_AFTER_MS;
   if (stale) {
-    const r = await refreshTikTokAccessToken(conn.id, conn.refreshTokenRef);
+    const r = await refreshTikTokAccessToken(conn.id, loadPaidToken(conn.refreshTokenRef)!);
     if (r.ok) {
       return {
         ok: true,
@@ -113,7 +114,7 @@ export async function ensureTikTokAccessToken(projectId: string): Promise<
       error: `Token TikTok inválido ou expirado: ${r.error} Volte a ligar a conta em «Ligações».`,
     };
   }
-  return { ok: true, accessToken: conn.tokenRef, advertiserId: conn.advertiserId, connectionId: conn.id };
+  return { ok: true, accessToken: loadPaidToken(conn.tokenRef)!, advertiserId: conn.advertiserId, connectionId: conn.id };
 }
 
 /** Códigos / mensagens que sugerem access token inválido — tenta refresh uma vez. */
@@ -155,7 +156,7 @@ async function tiktokWithTokenRetry<T>(
       code: env.code,
       requestId: env.request_id,
     });
-    const r = await refreshTikTokAccessToken(conn.id, conn.refreshTokenRef);
+    const r = await refreshTikTokAccessToken(conn.id, loadPaidToken(conn.refreshTokenRef)!);
     if (r.ok) {
       env = await run(r.accessToken);
     }

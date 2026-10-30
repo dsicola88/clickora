@@ -3,6 +3,7 @@
  */
 import { getAccessFromRefreshToken, getGoogleDeveloperToken, runGoogleAdsSearch } from "./google-ads.api";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
 
@@ -26,7 +27,7 @@ async function googleAccessCtx(projectId: string): Promise<
   if (!dev) return { ok: false, error: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
   let access: string;
   try {
-    ({ access_token: access } = await getAccessFromRefreshToken(conn.tokenRef));
+    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Token Google inválido." };
   }

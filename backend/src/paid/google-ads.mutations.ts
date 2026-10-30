@@ -22,6 +22,7 @@ import { publishGoogleCampaignAssetExtensions } from "./google-ads-asset-extensi
 import { removeGoogleCampaignExtensionAssetLinks } from "./google-ads-campaign-assets-sync";
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
 
@@ -62,7 +63,7 @@ async function ctxForProject(
   if (!dev) return { err: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
   let access: string;
   try {
-    ({ access_token: access } = await getAccessFromRefreshToken(conn.tokenRef));
+    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
   } catch (e) {
     return { err: e instanceof Error ? e.message : "Token Google inválido." };
   }

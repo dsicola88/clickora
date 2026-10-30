@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { authenticate } from "../middleware/authenticate";
+import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 import { paidMetaAssetUpload } from "../lib/paidMetaAssetUpload";
 import { paidTiktokAssetUpload } from "../lib/paidTiktokAssetUpload";
 import { oauthController } from "../paid/oauth.controller";
@@ -7,7 +8,8 @@ import { paidController } from "../paid/paid.controller";
 import { requireDpilotPlan } from "../paid/requireDpilotPlan";
 
 const paidRouter = Router();
-paidRouter.use(authenticate, requireDpilotPlan);
+/** Assinatura activa + flag de plano de anúncios (antes só havia requireDpilotPlan). */
+paidRouter.use(authenticate, requireActiveSubscription, requireDpilotPlan);
 
 function handleMetaAssetUpload(req: Request, res: Response, next: NextFunction) {
   paidMetaAssetUpload.single("file")(req, res, (err: unknown) => {

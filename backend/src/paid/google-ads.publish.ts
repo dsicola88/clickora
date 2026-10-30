@@ -18,6 +18,7 @@ import {
   readGoogleAssetExtensionsFromBidding,
 } from "./google-ads-asset-extensions-publish";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 /** ISO-3166 alpha-2 → google geoTargetConstants/id (exportado também em geo-google.ts). */
 const GEO_ID = GOOGLE_GEO_CRITERION_IDS;
@@ -315,7 +316,7 @@ export async function publishGoogleSearchCampaignFromLocal(
 
   let access: string;
   try {
-    ({ access_token: access } = await getAccessFromRefreshToken(conn.tokenRef));
+    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
   } catch (e) {
     const m = e instanceof Error ? e.message : "Falha ao renovar o token Google.";
     return { ok: false, error: m };

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import prisma from "../lib/prisma";
+import { systemPrisma } from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import { loadCampaignPerf, type CampaignPerf } from "../lib/campaignPerf";
 
@@ -118,7 +118,7 @@ const presellInclude = {
 /** Lista campanhas; se a migração spend_* ainda não correu em produção, não derruba a página. */
 async function findCampaignsForUser(userId: string): Promise<CampaignRow[]> {
   try {
-    const rows = await prisma.affiliateCampaign.findMany({
+    const rows = await systemPrisma.affiliateCampaign.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
       include: presellInclude,
@@ -127,7 +127,7 @@ async function findCampaignsForUser(userId: string): Promise<CampaignRow[]> {
   } catch (e) {
     if (!isMissingColumnError(e)) throw e;
     console.warn("[campaigns] spend_* em falta — lista sem gasto (correr migrate deploy)");
-    const rows = await prisma.affiliateCampaign.findMany({
+    const rows = await systemPrisma.affiliateCampaign.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
       select: {
@@ -152,7 +152,7 @@ async function findCampaignsForUser(userId: string): Promise<CampaignRow[]> {
 
 async function findCampaignById(userId: string, id: string): Promise<CampaignRow | null> {
   try {
-    const row = await prisma.affiliateCampaign.findFirst({
+    const row = await systemPrisma.affiliateCampaign.findFirst({
       where: { id, userId },
       include: presellInclude,
     });
@@ -160,7 +160,7 @@ async function findCampaignById(userId: string, id: string): Promise<CampaignRow
   } catch (e) {
     if (!isMissingColumnError(e)) throw e;
     console.warn("[campaigns] spend_* em falta — getById sem gasto");
-    const row = await prisma.affiliateCampaign.findFirst({
+    const row = await systemPrisma.affiliateCampaign.findFirst({
       where: { id, userId },
       select: {
         id: true,
@@ -268,11 +268,11 @@ export const campaignsController = {
     const d = parsed.data;
 
     if (d.presell_id) {
-      const p = await prisma.presellPage.findFirst({ where: { id: d.presell_id, userId } });
+      const p = await systemPrisma.presellPage.findFirst({ where: { id: d.presell_id, userId } });
       if (!p) return res.status(400).json({ error: "Presell inválida" });
     }
 
-    const created = await prisma.affiliateCampaign.create({
+    const created = await systemPrisma.affiliateCampaign.create({
       data: {
         userId,
         name: d.name.trim(),
@@ -308,7 +308,7 @@ export const campaignsController = {
 
     const d = parsed.data;
     if (d.presell_id) {
-      const p = await prisma.presellPage.findFirst({ where: { id: d.presell_id, userId } });
+      const p = await systemPrisma.presellPage.findFirst({ where: { id: d.presell_id, userId } });
       if (!p) return res.status(400).json({ error: "Presell inválida" });
     }
 
@@ -333,7 +333,7 @@ export const campaignsController = {
     }
 
     try {
-      const updated = await prisma.affiliateCampaign.update({
+      const updated = await systemPrisma.affiliateCampaign.update({
         where: { id: existing.id },
         data,
         include: {
@@ -370,7 +370,7 @@ export const campaignsController = {
     const userId = billingUserId(req);
     const existing = await findCampaignById(userId, req.params.id);
     if (!existing) return res.status(404).json({ error: "Campanha não encontrada" });
-    await prisma.affiliateCampaign.delete({ where: { id: existing.id } });
+    await systemPrisma.affiliateCampaign.deleteMany({ where: { id: existing.id, userId } });
     res.json({ ok: true });
   },
 };

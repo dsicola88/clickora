@@ -40,6 +40,8 @@ Checklist de deploy: **[docs/DEPLOYMENT.md — §6](docs/DEPLOYMENT.md)**.
 
 ## Deploy (produção)
 
+**Auditoria empresarial (2026-10-30):** [docs/AUDITORIA_EMPRESARIAL_DCLICKORA.md](docs/AUDITORIA_EMPRESARIAL_DCLICKORA.md) · [Arquitetura](docs/ARQUITETURA_DCLICKORA.md) · [Guia do desenvolvedor](docs/GUIA_DESENVOLVEDOR_DCLICKORA.md) · [Variáveis de ambiente](docs/VARIAVEIS_AMBIENTE_DCLICKORA.md) · [Fluxos funcionais](docs/FLUXOS_FUNCIONAIS_DCLICKORA.md).
+
 Configuração Vercel + Railway, variáveis `VITE_PUBLIC_API_URL`, CORS e checklist: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.  
 Passo a passo frontend ↔ backend e login/CORS: **[docs/ENV-SETUP.md](docs/ENV-SETUP.md)**.  
 Imagens (presells, favicon, landing) na Cloudflare — guia simples: **[docs/IMAGENS-E-ARMAZENAMENTO.md](docs/IMAGENS-E-ARMAZENAMENTO.md)**.  
@@ -60,12 +62,13 @@ Na raiz do projeto:
 docker compose up -d
 ```
 
-Isso sobe PostgreSQL em `localhost:5433` (usuário `clickora`, senha `clickora`, banco `clickora`).
+Isso sobe PostgreSQL em `localhost:5434` (usuário `clickora`, senha `clickora`, banco `clickora`).  
+(A porta **5434** evita conflito com outros Postgres locais na 5433.)
 
 Copie `backend/.env.example` para `backend/.env` e use:
 
 ```env
-DATABASE_URL="postgresql://clickora:clickora@localhost:5433/clickora?schema=public"
+DATABASE_URL="postgresql://clickora:clickora@localhost:5434/clickora?schema=public"
 FRONTEND_URL="http://localhost:8080"
 ```
 
@@ -80,12 +83,16 @@ Em **produção** (Railway / CI, sem prompts interactivos): `npm run api:db:migr
 
 ### Usuários de teste (após o seed)
 
-| Perfil | E-mail | Senha | Plano |
-|--------|--------|-------|--------|
-| Super Admin | `dclickora@gmail.com` | (ver `backend/prisma/seed.ts`) | Premium / anual (ilimitado) |
-| Admin + Pro (mensal) | `adminpro@dclickora.com` | `pro123456` | Pro |
-| Admin + Pro (anual) | `admin@dclickora.com` | `admin123456` | Premium |
-| Utilizador (testes) | `daniel@gmail.com` | `daniel123456` | Pro |
+Passwords e e-mails exactos: ver `backend/prisma/seed.ts` (podem mudar). Contas actuais do seed:
+
+| Perfil | E-mail | Plano |
+|--------|--------|-------|
+| Super Admin | `danielclickora@gmail.com` | Pro mensal |
+| Utilizador | `danielclickora1@gmail.com` | Pro mensal |
+| Admin | `danielclickora2@gmail.com` | Pro mensal |
+| Super Admin gerenciador | `dclickora2026@gmail.com` | Pro anual |
+
+
 
 ## Configuracao
 

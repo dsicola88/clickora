@@ -16,6 +16,7 @@ import {
 } from "./meta-ads.creative";
 import { metaGraphAdsetBiddingFields } from "./meta-tiktok-bidding";
 import { prisma } from "./paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
@@ -244,7 +245,7 @@ export async function publishMetaCreateCampaignFromLocal(
     paidLog("error", "meta.publish.no_connection", { projectId, campaignId });
     return { ok: false, error: "Ligue a conta Meta (OAuth) e selecione um Ad Account." };
   }
-  if (conn.tokenRef.startsWith("state:")) {
+  if (isOAuthPendingToken(conn.tokenRef)) {
     paidLog("error", "meta.publish.invalid_token_state", { projectId, campaignId });
     return { ok: false, error: "Sessão Meta inválida; volte a conectar." };
   }
@@ -277,7 +278,7 @@ export async function publishMetaCreateCampaignFromLocal(
     return { ok: false, error: specErr };
   }
 
-  const token = conn.tokenRef;
+  const token = loadPaidToken(conn.tokenRef)!;
   const act = normActId(conn.adAccountId);
   const actPath = `${act}/`;
 

@@ -1,7 +1,8 @@
 # Clickora — PostgreSQL para desenvolvimento local
 # Uso: docker compose up -d
 # Depois: npm run api:db:migrate && npm run api:db:seed
-# DATABASE_URL no backend/.env deve apontar para localhost:5433 (porta mapeada abaixo)
+# DATABASE_URL no backend/.env deve apontar para localhost:5434 (porta mapeada abaixo).
+# Nota: 5433 costuma estar ocupada por outros contentores Postgres na máquina do developer.
 
 services:
   postgres:
@@ -9,7 +10,7 @@ services:
     container_name: clickora-postgres
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: clickora
       POSTGRES_PASSWORD: clickora

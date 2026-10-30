@@ -8,6 +8,7 @@ import { paidLog } from "../lib/paidLog";
 import { getAccessFromRefreshToken, getGoogleDeveloperToken, runGoogleAdsSearch } from "./google-ads.api";
 import { prisma } from "./paidPrisma";
 import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
+import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
@@ -70,7 +71,7 @@ export async function reconcileProjectCampaigns(projectId: string): Promise<{
     if (!dev) return { ok: false as const, err: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
     let access: string;
     try {
-      ({ access_token: access } = await getAccessFromRefreshToken(conn.tokenRef));
+      ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
     } catch (e) {
       return { ok: false as const, err: e instanceof Error ? e.message : "Token Google inválido." };
     }
@@ -79,10 +80,10 @@ export async function reconcileProjectCampaigns(projectId: string): Promise<{
 
   const metaToken = (async () => {
     const conn = await prisma.paidAdsMetaConnection.findUnique({ where: { projectId } });
-    if (!conn?.tokenRef || conn.tokenRef.startsWith("state:") || !conn.adAccountId) {
+    if (!conn?.tokenRef || isOAuthPendingToken(conn.tokenRef) || !conn.adAccountId) {
       return { ok: false as const, err: "Meta não ligado." };
     }
-    return { ok: true as const, token: conn.tokenRef };
+    return { ok: true as const, token: loadPaidToken(conn.tokenRef)! };
   })();
 
   const g = await googleCtx;
