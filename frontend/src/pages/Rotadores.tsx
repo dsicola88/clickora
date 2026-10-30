@@ -539,7 +539,7 @@ export default function Rotadores() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         title="Rotadores de tráfego"
-        description="Um link: A/B ponderado, geo, mobile/desktop, sub1–3 — presell opcional para conversões."
+        description="A/B, WhatsApp em rodízio, ofertas afiliado, contingência com URL de recurso — nível enterprise / Voluum-style."
         actions={
           canWriteRotators ? (
             <Button
@@ -561,25 +561,30 @@ export default function Rotadores() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 text-sm mb-4 space-y-1.5">
-        <p className="font-medium text-foreground text-sm">Como funciona (anúncio → página → oferta)</p>
+      <div className="rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 text-sm mb-4 space-y-2">
+        <p className="font-medium text-foreground text-sm">Casos de uso enterprise</p>
+        <ul className="text-xs text-muted-foreground leading-relaxed list-disc pl-4 space-y-1">
+          <li>
+            <strong className="text-foreground/90">Teste A/B:</strong> modo <em>ponderado</em> 50/50 (ou 70/30) entre
+            páginas de vendas; estatísticas + «Promover vencedor».
+          </li>
+          <li>
+            <strong className="text-foreground/90">WhatsApp / atendimento:</strong> modo <em>sequencial</em> com vários{" "}
+            <span className="font-mono">wa.me/…</span> — rodízio igual entre vendedores.
+          </li>
+          <li>
+            <strong className="text-foreground/90">Ofertas afiliado:</strong> vários hoplinks; compare conversão/receita
+            na tabela A/B.
+          </li>
+          <li>
+            <strong className="text-foreground/90">Contingência:</strong> defina <em>URL de recurso</em>. Se um destino
+            HTTP cair (5xx/timeout/404), o rotador falha automaticamente para outro braço ou para o recurso — sem
+            desperdiçar cliques de anúncio.
+          </li>
+        </ul>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Anúncio → <strong className="text-foreground/90">link do rotador</strong> → destinos (páginas / pesos / país /
-          dispositivo) → cada destino com o link da oferta. Use modo <em>ponderado</em> para A/B;{" "}
-          <em>preenchimento</em> esgota um destino antes do seguinte. As vendas ligam-se à página do destino.
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground mb-6 space-y-2">
-        <p>
-          <strong className="text-foreground/90">Link do rotador:</strong> copie o URL em cada cartão. Pode acrescentar
-          parâmetros do anúncio (gclid, utm_*) e, se quiser, fonte/campanha/criativo no caminho. Código de acesso
-          opcional quando o rotador o pedir.
-        </p>
-        <p>
-          <strong className="text-foreground/90">A/B:</strong> modo <em>ponderado</em> + tabela abaixo em cada cartão;{" "}
-          <strong className="text-foreground/90">Promover vencedor</strong> concentra tráfego no melhor destino (taxa de
-          conversão ou receita).
+          Anúncio → <strong className="text-foreground/90">link do rotador</strong> (gclid/utm/subs estilo Voluum) →
+          destino. Cliques e conversões ligam-se à presell de contexto.
         </p>
       </div>
 
@@ -720,6 +725,59 @@ export default function Rotadores() {
                   ))}
                 </SelectContent>
               </Select>
+              {!editing && canWriteRotators ? (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setMode("weighted");
+                      setArms([
+                        { ...emptyArm(0), label: "Página A", weight: "50" },
+                        { ...emptyArm(1), label: "Página B", weight: "50" },
+                      ]);
+                      toast.message("Preset A/B 50/50 — preencha os URLs das páginas.");
+                    }}
+                  >
+                    Preset A/B 50/50
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setMode("sequential");
+                      setArms([
+                        { ...emptyArm(0), label: "Vendedor 1", destination_url: "https://wa.me/", weight: "100" },
+                        { ...emptyArm(1), label: "Vendedor 2", destination_url: "https://wa.me/", weight: "100" },
+                        { ...emptyArm(2), label: "Vendedor 3", destination_url: "https://wa.me/", weight: "100" },
+                      ]);
+                      toast.message("Preset WhatsApp sequencial — complete os números wa.me/…");
+                    }}
+                  >
+                    Preset WhatsApp rodízio
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setMode("weighted");
+                      setArms([
+                        { ...emptyArm(0), label: "Oferta 1", weight: "50" },
+                        { ...emptyArm(1), label: "Oferta 2", weight: "50" },
+                      ]);
+                      toast.message("Preset ofertas afiliado — cole os hoplinks.");
+                    }}
+                  >
+                    Preset ofertas
+                  </Button>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -743,12 +801,16 @@ export default function Rotadores() {
             </div>
 
             <div className="space-y-2">
-              <Label>URL de recurso (opcional)</Label>
+              <Label>URL de recurso / contingência (recomendado)</Label>
               <Input
                 value={backupUrl}
                 onChange={(e) => setBackupUrl(e.target.value)}
-                placeholder="https://… quando nenhum braço se aplica"
+                placeholder="https://… página segura se o destino cair ou for bloqueado"
               />
+              <p className="text-[11px] text-muted-foreground">
+                Usado quando nenhum braço se aplica <em>e</em> quando um destino HTTP falha a verificação rápida (5xx /
+                timeout / 404). Links WhatsApp não são sondados — o rodízio continua normal.
+              </p>
             </div>
 
             <div className="space-y-2">
