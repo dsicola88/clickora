@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Layers, LineChart, Shield, Building2 } from "
 import { Button } from "@/components/ui/button";
 import { PRO_PAGE_SHELL, ProPageHeader, ProPanel } from "@/components/enterprise/ProShell";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { BrandKitProCard } from "@/components/BrandKitProCard";
 import { plansService } from "@/services/plansService";
 import { enterpriseService } from "@/services/enterpriseService";
@@ -126,6 +127,7 @@ export default function AgencyReadyPage() {
         subtitle="Tracking e páginas de pre-sell num só sítio — um login, sem juntar tracker e builder à parte."
       />
 
+      <SyncHealthBanner className="mb-4" syncHealth={dash?.sync_health} />
       <TrackPathStatus className="mb-6" />
 
       {onboarding ? (

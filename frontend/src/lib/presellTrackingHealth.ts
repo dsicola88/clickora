@@ -146,6 +146,13 @@ export function computePresellTrackingHealth(input: {
     detail:
       "Em Resultados → Funil: impressão → clique → checkout → venda; conferir Pago vs Orgânico e lucro só com custo do período.",
   });
+  items.push({
+    id: "e2e-ads-upload",
+    label: "E2E: envios Ads + custos",
+    status: "info",
+    detail:
+      "Em Integrações / Relatórios: falhas Google·Meta·TikTok a zero, vendas sem gclid/fbclid/ttclid revistas, custos sync ≤48h.",
+  });
 
   const weights: Record<TrackingHealthStatus, number> = { ok: 1, info: 0.75, warn: 0.4 };
   const readyScore = Math.round(

@@ -92,6 +92,7 @@ describe("E2E media buyer ready (fechável em código)", () => {
     expect(items.some((i) => i.id === "e2e-postback")).toBe(true);
     expect(items.some((i) => i.id === "e2e-smoke")).toBe(true);
     expect(items.some((i) => i.id === "e2e-funnel")).toBe(true);
+    expect(items.some((i) => i.id === "e2e-ads-upload")).toBe(true);
     expect(items.find((i) => i.id === "networks")?.status).toBe("info");
   });
 });

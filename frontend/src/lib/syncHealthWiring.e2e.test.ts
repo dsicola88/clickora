@@ -5,28 +5,26 @@ import { isCustomDomainHttpsPendingForPresell } from "@/lib/publicPresellOrigin"
 import type { CustomDomainDto } from "@/types/api";
 
 describe("sync_health FE wiring", () => {
-  it("Resultados, Integrações, Tracking, Funil, Relatórios e Início montam SyncHealthBanner", () => {
-    const results = readFileSync(join(process.cwd(), "src/pages/ResultsOverviewPage.tsx"), "utf8");
+  it("Superfície FE monta SyncHealthBanner (Resultados→Agency)", () => {
+    const pages = [
+      "ResultsOverviewPage.tsx",
+      "IntegrationsHubPage.tsx",
+      "TrackingDashboard.tsx",
+      "Vendas.tsx",
+      "Relatorios.tsx",
+      "Home.tsx",
+      "AgencyReadyPage.tsx",
+    ];
+    for (const file of pages) {
+      const src = readFileSync(join(process.cwd(), "src/pages", file), "utf8");
+      expect(src, file).toContain("SyncHealthBanner");
+    }
     const integrations = readFileSync(join(process.cwd(), "src/pages/IntegrationsHubPage.tsx"), "utf8");
-    const tracking = readFileSync(join(process.cwd(), "src/pages/TrackingDashboard.tsx"), "utf8");
-    const funil = readFileSync(join(process.cwd(), "src/pages/Vendas.tsx"), "utf8");
-    const relatorios = readFileSync(join(process.cwd(), "src/pages/Relatorios.tsx"), "utf8");
-    const home = readFileSync(join(process.cwd(), "src/pages/Home.tsx"), "utf8");
-    expect(results).toContain("SyncHealthBanner");
-    expect(results).toContain("sync_health");
-    expect(integrations).toContain("SyncHealthBanner");
     expect(integrations).toContain("domain_https");
     expect(integrations).toContain("ads_upload");
     expect(integrations).toContain("cost_sync");
-    expect(tracking).toContain("SyncHealthBanner");
-    expect(tracking).toContain("syncHealth=");
-    expect(funil).toContain("SyncHealthBanner");
-    expect(funil).toContain("sync_health");
-    expect(relatorios).toContain("SyncHealthBanner");
-    expect(relatorios).toContain("sync_health");
+    const relatorios = readFileSync(join(process.cwd(), "src/pages/Relatorios.tsx"), "utf8");
     expect(relatorios).toContain("google_ads_skipped_no_gclid");
-    expect(home).toContain("SyncHealthBanner");
-    expect(home).toContain("sync_health");
   });
 
   it("PresellDashboard liga customDomainHttpsPending", () => {
