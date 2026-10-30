@@ -51,4 +51,11 @@ export const MEDIA_BUYER_E2E_CHECKLIST: MediaBuyerE2eStep[] = [
     detail: "Em Relatórios → Cliques, copiar IPs Datacenter para exclusões de IP; pedir crédito IVT se aplicável.",
     href: "/resultados/relatorios/cliques",
   },
+  {
+    id: "ads_upload",
+    label: "8. Envios Ads + custos frescos",
+    detail:
+      "Em Integrações / Relatórios: zero falhas Google·Meta·TikTok, vendas sem gclid/fbclid/ttclid revistas, custos sync ≤48h.",
+    href: "/integracoes",
+  },
 ];

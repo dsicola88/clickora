@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { rangeToday } from "@/lib/dateRangePresets";
 import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
 
 /**
@@ -139,6 +140,7 @@ export default function Home() {
           checks={dash.account_health.checks}
         />
       ) : null}
+      {!loadingDash ? <SyncHealthBanner syncHealth={dash?.sync_health} /> : null}
       <TrackPathStatus />
 
       {loadingDash ? (

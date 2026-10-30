@@ -39,14 +39,15 @@ describe("E2E media buyer ready (fechável em código)", () => {
     expect(formatGoogleAdsIpExclusionList(exclusion)).toBe("18.144.100.168");
   });
 
-  it("checklist media buyer tem funil + rotadores + postback + smoke + ivt", () => {
-    expect(MEDIA_BUYER_E2E_CHECKLIST.length).toBeGreaterThanOrEqual(7);
+  it("checklist media buyer tem funil + rotadores + postback + smoke + ivt + ads_upload", () => {
+    expect(MEDIA_BUYER_E2E_CHECKLIST.length).toBeGreaterThanOrEqual(8);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "postback")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "smoke")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "funnel")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "funnel")?.href).toBe("/resultados/funil");
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "rotators")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "ivt")).toBe(true);
+    expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "ads_upload")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "postback")?.href).toBe("/integracoes/postback");
     expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "smoke")?.href).toBe(
       "/resultados/relatorios/cliques",
@@ -54,6 +55,7 @@ describe("E2E media buyer ready (fechável em código)", () => {
     expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "ivt")?.href).toBe(
       "/resultados/relatorios/cliques",
     );
+    expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "ads_upload")?.href).toBe("/integracoes");
   });
 
   it("cloud+bot Visivra: Situação Datacenter gera exclusão Google (contrato UI)", () => {

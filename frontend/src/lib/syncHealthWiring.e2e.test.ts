@@ -5,12 +5,13 @@ import { isCustomDomainHttpsPendingForPresell } from "@/lib/publicPresellOrigin"
 import type { CustomDomainDto } from "@/types/api";
 
 describe("sync_health FE wiring", () => {
-  it("Resultados, Integrações, Tracking, Funil e Relatórios montam SyncHealthBanner", () => {
+  it("Resultados, Integrações, Tracking, Funil, Relatórios e Início montam SyncHealthBanner", () => {
     const results = readFileSync(join(process.cwd(), "src/pages/ResultsOverviewPage.tsx"), "utf8");
     const integrations = readFileSync(join(process.cwd(), "src/pages/IntegrationsHubPage.tsx"), "utf8");
     const tracking = readFileSync(join(process.cwd(), "src/pages/TrackingDashboard.tsx"), "utf8");
     const funil = readFileSync(join(process.cwd(), "src/pages/Vendas.tsx"), "utf8");
     const relatorios = readFileSync(join(process.cwd(), "src/pages/Relatorios.tsx"), "utf8");
+    const home = readFileSync(join(process.cwd(), "src/pages/Home.tsx"), "utf8");
     expect(results).toContain("SyncHealthBanner");
     expect(results).toContain("sync_health");
     expect(integrations).toContain("SyncHealthBanner");
@@ -24,6 +25,8 @@ describe("sync_health FE wiring", () => {
     expect(relatorios).toContain("SyncHealthBanner");
     expect(relatorios).toContain("sync_health");
     expect(relatorios).toContain("google_ads_skipped_no_gclid");
+    expect(home).toContain("SyncHealthBanner");
+    expect(home).toContain("sync_health");
   });
 
   it("PresellDashboard liga customDomainHttpsPending", () => {
