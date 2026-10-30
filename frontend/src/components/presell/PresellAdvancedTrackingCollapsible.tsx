@@ -383,8 +383,7 @@ export function PresellAdvancedTrackingCollapsible({
                   </p>
                   <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
                     Os países desta lista vêem o texto seguro, sem oferta. O mesmo texto serve a IPs que
-                    adicionares à blacklist (bloqueio manual) ou a regras opt-in (bot/proxy). Sem isso, a
-                    página completa é servida — sem bloqueio automático de IPs de servidor.
+                    adicionares à blacklist (bloqueio manual) ou a regras opt-in (bot/proxy).
                   </p>
                 </div>
                 <Switch
@@ -394,6 +393,18 @@ export function PresellAdvancedTrackingCollapsible({
               </div>
               {configSettings.enterpriseCloak ? (
                 <div className="space-y-3">
+                  <p
+                    className={cn(
+                      "text-[11px] leading-relaxed rounded-md border px-2.5 py-2",
+                      isEditor
+                        ? "border-amber-500/40 bg-amber-500/10 text-editor-fg"
+                        : "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100",
+                    )}
+                  >
+                    Aviso Google Ads / Meta: mostrar conteúdo diferente por país ou IP pode violar políticas
+                    de cloaking. Usa só com critério (ex. compliance local) e mantém a landing que o AdsBot
+                    vê alinhada com o anúncio. Crawlers oficiais do Google não devem ser bloqueados.
+                  </p>
                   <div className="space-y-2">
                     <Label>Título da página segura</Label>
                     <Input

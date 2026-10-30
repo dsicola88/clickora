@@ -125,6 +125,21 @@ export function computePresellTrackingHealth(input: {
     });
   }
 
+  items.push({
+    id: "e2e-postback",
+    label: "E2E: postback da rede",
+    status: "info",
+    detail:
+      "Antes de escalar: cola o URL de postback (com click id) no painel da rede. Sem isto a venda não fecha na Clickora.",
+  });
+  items.push({
+    id: "e2e-smoke",
+    label: "E2E: smoke test Ads",
+    status: "info",
+    detail:
+      "Budget baixo → 1 clique real → Relatórios (Situação Real) → confirmar postback/conversão. Só depois escalar.",
+  });
+
   const weights: Record<TrackingHealthStatus, number> = { ok: 1, info: 0.75, warn: 0.4 };
   const readyScore = Math.round(
     (items.reduce((a, it) => a + weights[it.status], 0) / items.length) * 100,

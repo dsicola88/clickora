@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, RotateCcw, Download, Ban } from "lucide-react";
+import { Search, RotateCcw, Download, Ban, Copy } from "lucide-react";
 import { integrationsService } from "@/services/integrationsService";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,10 @@ import { rangeToday } from "@/lib/dateRangePresets";
 import { AFFILIATE_PLATFORMS, EXTRA_OFFER_PLATFORMS } from "@/lib/marketingPlatforms";
 import { ReportDimensionStrip } from "@/components/ReportDimensionStrip";
 import { downloadTextCsv, reportRowsToCsv } from "@/lib/reportRowsCsv";
+import {
+  collectDatacenterIpsForGoogleAdsExclusion,
+  formatGoogleAdsIpExclusionList,
+} from "@/lib/googleAdsIpExclusion";
 
 /** Redes no filtro de conversões (mesma lista que Integrações / Construtor de URL). */
 const RELATORIO_PLATFORM_OPTIONS = [...new Set([...AFFILIATE_PLATFORMS, ...EXTRA_OFFER_PLATFORMS])].sort((a, b) =>
@@ -620,6 +624,29 @@ export default function Relatorios() {
       };
     });
   }, [clicksQuery.data]);
+
+  const datacenterIpsForAds = useMemo(
+    () => collectDatacenterIpsForGoogleAdsExclusion(clickRows),
+    [clickRows],
+  );
+
+  const copyDatacenterIpsForGoogleAds = async () => {
+    if (datacenterIpsForAds.length === 0) {
+      toast.message("Sem IPs cloud neste período", {
+        description: "Filtra Situação = Cloud/Datacenter ou alarga as datas.",
+      });
+      return;
+    }
+    const text = formatGoogleAdsIpExclusionList(datacenterIpsForAds);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${datacenterIpsForAds.length} IP(s) copiados`, {
+        description: "Cola em Google Ads → Campanha → Exclusões de IP (um por linha).",
+      });
+    } catch {
+      toast.error("Não foi possível copiar. Usa Descarregar CSV e filtra Situação.");
+    }
+  };
 
   const conversionRowsFiltered = useMemo(() => {
     let rows = Array.isArray(conversionsQuery.data) ? conversionsQuery.data : [];
@@ -1354,6 +1381,19 @@ export default function Relatorios() {
                 </span>
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
+                  disabled={clicksQuery.isLoading || clicksQuery.isError}
+                  title="Copia IPs Situação=Datacenter para exclusões no Google Ads"
+                  onClick={() => void copyDatacenterIpsForGoogleAds()}
+                >
+                  <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  IPs cloud p/ Google Ads
+                  {datacenterIpsForAds.length > 0 ? ` (${datacenterIpsForAds.length})` : ""}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"

@@ -7,6 +7,7 @@ import {
   PRESELL_QA_UTM,
   type TrackingHealthItem,
 } from "@/lib/presellTrackingHealth";
+import { MEDIA_BUYER_E2E_CHECKLIST } from "@/lib/mediaBuyerE2eChecklist";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { cn } from "@/lib/utils";
 
@@ -153,6 +154,40 @@ export function PresellTrackingHealthPanel({
           </Button>
         </div>
       ) : null}
+
+      <div
+        className={cn(
+          "pt-2 border-t border-dashed space-y-1.5",
+          isEditor ? "border-editor-border/60" : "border-border/50",
+        )}
+      >
+        <p className={cn("text-[11px] font-medium", isEditor ? "text-editor-fg" : "text-foreground")}>
+          Antes de escalar (media buyer)
+        </p>
+        <ol className={cn("list-decimal list-inside space-y-1 text-[11px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
+          {MEDIA_BUYER_E2E_CHECKLIST.map((step) => (
+            <li key={step.id} className="leading-relaxed">
+              <span className={isEditor ? "text-editor-fg/90" : "text-foreground/85"}>{step.label.replace(/^\d+\.\s*/, "")}</span>
+              {" — "}
+              {step.detail}
+              {step.href ? (
+                <>
+                  {" "}
+                  <Link
+                    to={step.href}
+                    className={cn(
+                      "underline underline-offset-2",
+                      isEditor ? "text-editor-fg/90" : "text-foreground/85",
+                    )}
+                  >
+                    abrir
+                  </Link>
+                </>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
