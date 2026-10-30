@@ -200,7 +200,7 @@ export default function Plataformas() {
     if (!examplePostbackUrl) return;
     navigator.clipboard.writeText(examplePostbackUrl);
     setCopiedExample(true);
-    toast.success("URL de exemplo (com macros) copiada!");
+    toast.success("URL de aviso copiada!");
     setTimeout(() => setCopiedExample(false), 2000);
   }, [examplePostbackUrl]);
 
@@ -301,22 +301,21 @@ export default function Plataformas() {
             Escolha a <strong className="text-foreground/90">rede</strong> à esquerda. O cartão à direita adapta-se ao que essa rede permite de verdade.
           </li>
           <li>
-            <strong className="text-foreground/90">Vendas:</strong> Copiar com macros → cole no postback / IPN da rede (Conversion).
+            <strong className="text-foreground/90">Vendas:</strong> Copiar URL → cola no aviso de venda da rede.
           </li>
           <li>
-            <strong className="text-foreground/90">Checkout (opcional):</strong> no bloco Funil — pixel HTML (ex. BuyGoods) ou Event postback (ex. SmartAdv). Se a rede só notifica venda, o bloco diz-lhe isso sem inventar Checkout Visitors.
+            <strong className="text-foreground/90">Checkout (opcional):</strong> no bloco Funil — pixel HTML (ex. BuyGoods) ou aviso de evento (ex. SmartAdv). Se a rede só notifica venda, o bloco diz-te isso.
           </li>
           <li>
-            Na <strong className="text-foreground/90">presell</strong>, use o hoplink oficial — a Clickora acrescenta o ID do clique
-            (BuyGoods → <span className="font-mono text-[11px]">subid</span>, SmartAdv →{" "}
-            <span className="font-mono text-[11px]">sub3</span>, Digistore → <span className="font-mono text-[11px]">cid</span>).
+            Na <strong className="text-foreground/90">página</strong>, usa o link oficial da oferta — a Clickora
+            acrescenta o ID do clique automaticamente.
           </li>
           <li>
-            Venda aprovada → Conversões. Evento Checkout → Relatórios → Acessos (não conta como venda).
+            Venda aprovada → Conversões. Checkout → Relatórios → Acessos (não conta como venda).
           </li>
         </ol>
         <p className="mt-4 text-xs text-muted-foreground border-t border-border/50 pt-3">
-          Se o postback de venda chegar sem ID de clique, a venda <strong className="text-foreground/90">ainda é registada</strong> como não atribuída — não se perde o registo; só falta a ligação ao anúncio.
+          Se o aviso de venda chegar sem ID do clique, a venda <strong className="text-foreground/90">ainda é registada</strong> — não se perde; só falta a ligação ao anúncio.
         </p>
       </div>
 
@@ -363,7 +362,7 @@ export default function Plataformas() {
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Siga os passos do cartão <strong className="text-foreground/90">Como configurar</strong> acima. Na conta{" "}
-                <strong className="text-foreground/90">{selected}</strong>, use o postback completo (com macros). Quando houver conversão, a rede
+                <strong className="text-foreground/90">{selected}</strong>, usa o URL de aviso completo. Quando houver conversão, a rede
                 chama a dclickora. A venda aprovada chega por e-mail mesmo com a conta fechada.
               </p>
             </div>
@@ -492,7 +491,7 @@ export default function Plataformas() {
                 </span>
               </div>
               <p className="text-sm text-foreground/90 leading-relaxed">
-                Clique <strong>Copiar com macros</strong> e cole em{" "}
+                Clique <strong>Copiar URL de aviso</strong> e cola em{" "}
                 {selected === "BuyGoods" ? (
                   <>
                     BuyGoods → <strong>Setup → Affiliates → Postback Pixels → Add</strong>
@@ -502,7 +501,7 @@ export default function Plataformas() {
                 ) : (
                   <>o painel de Postback / IPN da {selected}</>
                 )}
-                . As macros entre chaves são preenchidas pela rede na venda. Campanhas que já estão a correr mantêm o postback que já foi colado: a venda continua a entrar, sem ser preciso substituir o URL.
+                . Os campos entre chaves são preenchidos pela rede na venda. Campanhas que já estão a correr mantêm o URL que já foi colado.
               </p>
               <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-background/80 border border-border/50 px-3 py-2">
                 <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}
@@ -511,7 +510,7 @@ export default function Plataformas() {
                 <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background h-auto min-h-[3rem] py-2 flex-1 min-w-[12rem]" />
                 <Button type="button" className="gap-2 shrink-0 sm:self-start" onClick={handleCopyExample}>
                   {copiedExample ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  Copiar com macros
+                  Copiar URL de aviso
                 </Button>
                 <Button
                   type="button"
@@ -560,7 +559,7 @@ export default function Plataformas() {
                 <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide">Como validar de ponta a ponta</p>
                 <ol className="list-decimal pl-4 space-y-1 leading-relaxed">
                   <li>
-                    Cole o URL com macros na {selected} e guarde.
+                    Cola o URL de aviso na {selected} e guarda.
                   </li>
                   <li>
                     Abra o <strong className="text-foreground/90">link da campanha</strong> (o do anúncio) no browser e clique no CTA da oferta — gera um clique real.

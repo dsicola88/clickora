@@ -999,8 +999,8 @@ export default function PresellDashboard() {
                     publica a página e o SSL.
                   </li>
                   <li>
-                    Criar a <span className="font-medium text-foreground/90">presell</span> com o visual do produto + o{" "}
-                    <span className="font-medium text-foreground/90">hoplink</span> da rede.
+                    Criar a <span className="font-medium text-foreground/90">página</span> com o visual do produto + o{" "}
+                    <span className="font-medium text-foreground/90">link da oferta</span> da rede.
                   </li>
                   <li>
                     No anúncio usa só o link público{" "}
@@ -1143,13 +1143,13 @@ export default function PresellDashboard() {
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Espelhamos esta página (layout, CSS, imagens) na presell. Use a{" "}
                     <span className="font-medium text-foreground/90">sales page pública</span>, não o checkout.
-                    O hoplink abaixo é o destino rastreado dos CTAs.
+                    O link da oferta abaixo é o destino do botão (com rastreamento).
                   </p>
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/[0.04] p-3 sm:p-4">
                   <Label htmlFor="affiliateLinkOpt" className="text-foreground">
-                    2) Hoplink da rede — destino do botão{" "}
+                    2) Link da oferta — destino do botão{" "}
                     <span className="text-destructive font-normal">(obrigatório)</span>
                   </Label>
                   <Input
@@ -1735,10 +1735,9 @@ export default function PresellDashboard() {
       </div>
 
       <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/20 px-3 py-2 leading-relaxed">
-        <span className="font-medium text-card-foreground">URL para o Ads:</span> use{" "}
-        <span className="font-medium text-card-foreground">Copiar URL Ads</span> — inclui a presell, UTMs e{" "}
-        <code className="text-[11px] bg-background px-1 rounded">gclid</code>, pronta a colar no anúncio. O slug é só
-        nome interno. O hoplink fica no botão da página — não uses a página do produto no anúncio. Exportar HTML está em{" "}
+        <span className="font-medium text-card-foreground">URL para o Ads:</span> usa{" "}
+        <span className="font-medium text-card-foreground">Copiar URL Ads</span> — fica pronta a colar no anúncio. O
+        link da oferta fica no botão da página — não uses a página do produto no anúncio. Exportar HTML está em{" "}
         <span className="font-medium text-card-foreground">Mais</span>.
       </p>
 
@@ -1789,7 +1788,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => handleCopyAdsUrl(page)}
                           className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors inline-flex items-center gap-1"
-                          title="Copiar URL completa com UTMs e gclid para o Google Ads"
+                          title="Copiar URL completa para colar no Google Ads"
                         >
                           {copiedId === page.id ? (
                             <>
@@ -1826,7 +1825,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => startEditPresell(page)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Alterar tipo e opções (hoplink mantém-se)"
+                          title="Alterar tipo e opções (link da oferta mantém-se)"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
