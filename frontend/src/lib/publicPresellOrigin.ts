@@ -13,14 +13,29 @@ export function getPublicPresellOrigin(verifiedHostname?: string | null): string
   return "https://www.dclickora.com";
 }
 
+/** Lander / links públicos — exclui purpose=tracking. */
+export function isHostingCapableDomain(d: {
+  purpose?: string | null;
+  status?: string;
+}): boolean {
+  return d.purpose !== "tracking";
+}
+
+export function listVerifiedHostingDomains(
+  domains: CustomDomainDto[] | null | undefined,
+): CustomDomainDto[] {
+  return (domains ?? []).filter((d) => d.status === "verified" && isHostingCapableDomain(d));
+}
+
 /**
  * ID do domínio verificado quando a presell não tem `custom_domain_id` explícito.
  * Alinhado com o backend e a migração: `is_default` primeiro, depois o mais antigo (`created_at`).
+ * Ignora domínios só de tracking.
  */
 export function resolveDefaultCustomDomainIdForAccount(
   domains: CustomDomainDto[] | null | undefined,
 ): string | null {
-  const verified = (domains ?? []).filter((d) => d.status === "verified");
+  const verified = listVerifiedHostingDomains(domains);
   if (verified.length === 0) return null;
   const sorted = [...verified].sort((a, b) => {
     if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
@@ -37,17 +52,18 @@ export function getPublicPresellOriginForPresell(
   presellCustomDomainId: string | null | undefined,
 ): string {
   const list = domains ?? [];
-  const verified = list.filter((d) => d.status === "verified");
+  const verifiedHosting = listVerifiedHostingDomains(list);
   if (presellCustomDomainId) {
-    const pick = verified.find((d) => d.id === presellCustomDomainId);
+    const pick = verifiedHosting.find((d) => d.id === presellCustomDomainId);
     if (pick) return `https://${pick.hostname}`;
+    /** Domínio tracking legado na ficha: não usar como lander — cair no padrão hosting. */
   }
   const defaultId = resolveDefaultCustomDomainIdForAccount(domains);
   if (defaultId) {
-    const pick = verified.find((d) => d.id === defaultId);
+    const pick = verifiedHosting.find((d) => d.id === defaultId);
     if (pick) return `https://${pick.hostname}`;
   }
-  if (verified[0]) return `https://${verified[0].hostname}`;
+  if (verifiedHosting[0]) return `https://${verifiedHosting[0].hostname}`;
   return getPublicPresellOrigin(null);
 }
 

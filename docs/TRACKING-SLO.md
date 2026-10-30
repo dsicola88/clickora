@@ -14,7 +14,7 @@ Objectivos de serviço para o click path profissional (paridade Voluum no que im
 ## Click path recomendado
 
 1. **Produção (domínio do afiliado):** same-origin `/api/track/r/…` (rewrite Vercel → Railway). IP via `X-Vercel-Forwarded-For`.
-2. **Domínio de tracking first-class:** em Configurações → Domínios, escolha finalidade **Só tracking** (ex. `go.marca.com`) e **Padrão tracking**. A lander fica em `www` (hosting/both). Pixel e redirects preferem o host de tracking; a raiz de `go` não abre presell.
+2. **Domínio de tracking first-class:** em Configurações → Domínios, escolha finalidade **Só tracking** (ex. `go.marca.com`) e **Padrão tracking**. A lander fica em `www` (hosting/both). Pixel e redirects preferem o host de tracking; a raiz de `go` não abre presell. Domínios `tracking` **não** entram no seletor de lander nem em `custom_domain_id` / `is_default` lander.
 3. **Override:** `VITE_PUBLIC_TRACK_API_URL=https://<railway>/api` se o proxy Vercel adicionar latência ou falhar.
 4. **Keep-alive:** `KEEP_ALIVE_URL` / `PUBLIC_API_URL` no backend para evitar cold start.
 5. **Rate limit:** IP limitado **antes** do lookup da página (`Retry-After` + Redis Lua atómico quando `REDIS_URL` está definido).

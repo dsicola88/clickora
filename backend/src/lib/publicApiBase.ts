@@ -36,7 +36,7 @@ export async function trackApiBaseForUser(req: Request, userId: string): Promise
         OR: [{ purpose: "tracking" }, { purpose: "both" }],
       },
       select: { hostname: true, purpose: true, isDefaultTracking: true },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ isDefaultTracking: "desc" }, { updatedAt: "desc" }],
       take: 20,
     });
     if (!domains.length) return fallback;

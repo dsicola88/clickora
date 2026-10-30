@@ -101,6 +101,11 @@ async function resolveCustomDomainIdForUser(userId: string, raw: string | null):
   if (!d) {
     throw new Error("Domínio inválido ou não verificado.");
   }
+  if (d.purpose === "tracking") {
+    throw new Error(
+      "Domínio só de tracking não pode alojar lander — escolha hosting ou both, ou o domínio padrão da conta.",
+    );
+  }
   return raw;
 }
 
@@ -138,7 +143,11 @@ async function ensurePresellOperatorIdentityOnPage(page: PresellPage): Promise<P
 
 async function resolveDefaultVerifiedCustomDomainIdForUser(userId: string): Promise<string | null> {
   const row = await prisma.customDomain.findFirst({
-    where: { userId, status: "verified" },
+    where: {
+      userId,
+      status: "verified",
+      OR: [{ purpose: "hosting" }, { purpose: "both" }],
+    },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     select: { id: true },
   });

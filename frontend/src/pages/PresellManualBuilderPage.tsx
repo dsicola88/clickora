@@ -45,6 +45,7 @@ import { PresellAdvancedTrackingCollapsible } from "@/components/presell/Presell
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 import {
   getPublicPresellFullUrl,
+  listVerifiedHostingDomains,
   resolveDefaultCustomDomainIdForAccount,
 } from "@/lib/publicPresellOrigin";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
@@ -155,7 +156,8 @@ export default function PresellManualBuilderPage() {
     staleTime: 60_000,
   });
 
-  const hasVerifiedCustomDomain = customDomains.some((d) => d.status === "verified");
+  const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
+  const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
 
   const publicPresellTestUrl = useMemo(() => {
     if (!routeId) return null;
@@ -626,9 +628,7 @@ export default function PresellManualBuilderPage() {
               </SelectTrigger>
               <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg shadow-lg [&_[role=option]]:text-editor-fg [&_[role=option]:focus]:bg-editor-panel-2">
                 <SelectItem value="default">Domínio padrão</SelectItem>
-                {customDomains
-                  .filter((d) => d.status === "verified")
-                  .map((d) => (
+                {verifiedHostingDomains.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
                       {d.hostname}
                     </SelectItem>

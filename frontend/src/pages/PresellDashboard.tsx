@@ -66,6 +66,7 @@ import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
   getPublicPresellFullUrl,
   getPublicPresellOriginForPresell,
+  listVerifiedHostingDomains,
   resolveDefaultCustomDomainIdForAccount,
 } from "@/lib/publicPresellOrigin";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
@@ -208,7 +209,8 @@ export default function PresellDashboard() {
     staleTime: 60_000,
   });
 
-  const hasVerifiedCustomDomain = customDomains.some((d) => d.status === "verified");
+  const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
+  const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
 
   const { data: pages = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["presells", tenantKey],
@@ -1344,9 +1346,7 @@ export default function PresellDashboard() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="default">Domínio padrão da conta</SelectItem>
-                        {customDomains
-                          .filter((d) => d.status === "verified")
-                          .map((d) => (
+                        {verifiedHostingDomains.map((d) => (
                             <SelectItem key={d.id} value={d.id}>
                               {d.hostname}
                               {d.is_default ? " (padrão)" : ""}

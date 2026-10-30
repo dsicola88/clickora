@@ -126,7 +126,7 @@ export function getTrackApiBaseForAccountDomains(
   if (trackOnly) return normalizeToApiBaseUrl(trackOnly);
   const eligible = domains.filter(
     (d) =>
-      d.status === "verified" &&
+      String(d.status).toLowerCase() === "verified" &&
       (d.purpose === "tracking" || d.purpose === "both" || d.purpose == null),
   );
   if (!eligible.length) return null;

@@ -21,7 +21,7 @@ import { campaignsService, buildTrackedPresellUrl } from "@/services/campaignsSe
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import { trafficRotatorsService } from "@/services/trafficRotatorsService";
-import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
+import { getPublicPresellFullUrl, listVerifiedHostingDomains } from "@/lib/publicPresellOrigin";
 import { resolveVideoEmbedSrc, buildYoutubeEmbedUrlForPresell } from "@/lib/youtubeEmbed";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeOption } from "@/lib/presellTypeOptions";
@@ -716,7 +716,7 @@ export default function CreatePresellWizardPage() {
             <Label>País (anúncio)</Label>
             <Input value={country} onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))} />
           </div>
-          {customDomains.filter((d) => d.status === "verified").length > 1 ? (
+          {listVerifiedHostingDomains(customDomains).length > 1 ? (
             <div className="space-y-2 max-w-xl">
               <Label>Domínio do anúncio</Label>
               <Select
@@ -728,9 +728,7 @@ export default function CreatePresellWizardPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Domínio padrão da conta</SelectItem>
-                  {customDomains
-                    .filter((d) => d.status === "verified")
-                    .map((d) => (
+                  {listVerifiedHostingDomains(customDomains).map((d) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.hostname}
                         {d.is_default ? " (padrão)" : ""}

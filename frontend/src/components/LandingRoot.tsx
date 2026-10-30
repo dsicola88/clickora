@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   clearCachedRootPresellId,
-  readCachedRootPresellId,
   writeCachedRootPresellId,
 } from "@/lib/customDomainRootPresellCache";
 import { presellService } from "@/services/presellService";
@@ -26,9 +25,8 @@ function CustomDomainRootRedirect() {
     import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
 
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  const cachedId = hostname ? readCachedRootPresellId(hostname) : null;
 
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, isFetched } = useQuery({
     queryKey: ["public-custom-domain-root-presell", hostname],
     queryFn: async () => {
       const { data: payload, error } = await presellService.getRootPresellIdForHost();
@@ -45,14 +43,15 @@ function CustomDomainRootRedirect() {
       if (error) throw new Error(error);
       return { kind: "empty" as const };
     },
-    initialData: cachedId ? { kind: "presell" as const, id: cachedId } : undefined,
-    /** Com cache em sessionStorage, força refetch no mount para refletir mudanças no painel. */
-    initialDataUpdatedAt: cachedId ? 0 : undefined,
     staleTime: 60_000,
     retry: 1,
   });
 
-  if (isPending && !cachedId) {
+  /**
+   * Não redirecionar só com sessionStorage: se o host passou a purpose=tracking,
+   * um id em cache falharia a abrir lander no domínio de tracking.
+   */
+  if (isPending || !isFetched) {
     return <div className="min-h-screen bg-background" aria-busy="true" aria-label="A carregar" />;
   }
 

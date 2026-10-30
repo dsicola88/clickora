@@ -20,6 +20,11 @@ import {
   type VercelVerificationChallenge,
 } from "../lib/vercelProjectDomains";
 import { resolveCustomDomainQuotaForUser } from "../lib/customDomainLimits";
+import {
+  hostingCapablePurposeFilter,
+  isHostingCapablePurpose,
+  trackingCapablePurposeFilter,
+} from "../lib/customDomainPurpose";
 
 function mapRow(d: {
   id: string;
@@ -66,14 +71,18 @@ function mapRow(d: {
   return base;
 }
 
-/** Garante exatamente um `is_default` quando ainda há domínios após remoção ou estado inconsistente. */
+/** Garante no máximo um `is_default` lander (nunca purpose=tracking). */
 async function ensureDefaultDomainForUser(userId: string): Promise<void> {
+  await systemPrisma.customDomain.updateMany({
+    where: { userId, purpose: "tracking", isDefault: true },
+    data: { isDefault: false },
+  });
   const hasDefault = await systemPrisma.customDomain.findFirst({
-    where: { userId, isDefault: true },
+    where: { userId, isDefault: true, ...hostingCapablePurposeFilter },
   });
   if (hasDefault) return;
   const first = await systemPrisma.customDomain.findFirst({
-    where: { userId },
+    where: { userId, ...hostingCapablePurposeFilter },
     orderBy: { createdAt: "asc" },
   });
   if (!first) return;
@@ -164,7 +173,11 @@ export const customDomainController = {
     }
 
     const trackingCount = await prisma.customDomain.count({
-      where: { userId, OR: [{ purpose: "tracking" }, { purpose: "both" }], isDefaultTracking: true },
+      where: { userId, ...trackingCapablePurposeFilter, isDefaultTracking: true },
+    });
+    const hostingDefaultExists = await prisma.customDomain.findFirst({
+      where: { userId, isDefault: true, ...hostingCapablePurposeFilter },
+      select: { id: true },
     });
     const row = await prisma.customDomain.create({
       data: {
@@ -173,7 +186,7 @@ export const customDomainController = {
         verificationToken: token,
         status: vercelVerifiedImmediately ? "verified" : "pending",
         verifiedAt: vercelVerifiedImmediately ? new Date() : null,
-        isDefault: isFirst && purpose !== "tracking",
+        isDefault: purpose !== "tracking" && !hostingDefaultExists,
         purpose,
         isDefaultTracking:
           (purpose === "tracking" || purpose === "both") && trackingCount === 0,
@@ -184,7 +197,7 @@ export const customDomainController = {
       },
     });
 
-    if (vercelVerifiedImmediately) {
+    if (vercelVerifiedImmediately || isFirst) {
       await ensureDefaultDomainForUser(userId);
     }
 
@@ -218,16 +231,9 @@ export const customDomainController = {
           },
         });
 
-        const hasVerifiedDefault = await prisma.customDomain.findFirst({
-          where: { userId, status: "verified", isDefault: true },
-        });
-        if (!hasVerifiedDefault) {
-          await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-          out = await systemPrisma.customDomain.update({
-            where: { id: out.id },
-            data: { isDefault: true },
-          });
-        }
+        await ensureDefaultDomainForUser(userId);
+        out =
+          (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
 
         await refreshCustomDomainCache();
         return res.json({ verified: true, ...mapRow(out) });
@@ -279,16 +285,9 @@ export const customDomainController = {
       data: { status: "verified", verifiedAt: new Date() },
     });
 
-    const hasVerifiedDefault = await prisma.customDomain.findFirst({
-      where: { userId, status: "verified", isDefault: true },
-    });
-    if (!hasVerifiedDefault) {
-      await prisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-      out = await systemPrisma.customDomain.update({
-        where: { id: out.id },
-        data: { isDefault: true },
-      });
-    }
+    await ensureDefaultDomainForUser(userId);
+    out =
+      (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
 
     await refreshCustomDomainCache();
 
@@ -300,6 +299,11 @@ export const customDomainController = {
     const id = req.params.id;
     const row = await prisma.customDomain.findFirst({ where: { id, userId, status: "verified" } });
     if (!row) return res.status(404).json({ error: "Domínio verificado não encontrado." });
+    if (!isHostingCapablePurpose(row.purpose)) {
+      return res.status(400).json({
+        error: "Domínio só de tracking não pode ser o padrão da lander. Use purpose hosting ou both.",
+      });
+    }
 
     await systemPrisma.$transaction([
       systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
@@ -361,12 +365,15 @@ export const customDomainController = {
     }
 
     await systemPrisma.customDomain.update({ where: { id: domain.id }, data });
+    if (purposeRaw === "tracking") {
+      await ensureDefaultDomainForUser(userId);
+    }
     if (purposeRaw === "tracking" || purposeRaw === "both") {
       const hasTrackDefault = await prisma.customDomain.findFirst({
         where: {
           userId,
           isDefaultTracking: true,
-          OR: [{ purpose: "tracking" }, { purpose: "both" }],
+          ...trackingCapablePurposeFilter,
         },
       });
       if (!hasTrackDefault) {
@@ -392,7 +399,7 @@ export const customDomainController = {
         id,
         userId,
         status: "verified",
-        OR: [{ purpose: "tracking" }, { purpose: "both" }],
+        ...trackingCapablePurposeFilter,
       },
     });
     if (!row) {
