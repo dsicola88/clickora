@@ -715,7 +715,7 @@ export default function Plataformas() {
                 <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-4">
                   <Label className="font-semibold text-muted-foreground">URL base (só o token)</Label>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    É a mesma base do URL de cima, <strong className="text-foreground/90">sem</strong> as macros{" "}
+                    É a mesma base do URL de cima, <strong className="text-foreground/90">sem</strong> os campos{" "}
                     <span className="font-mono">{"{SUBID}"}</span>, <span className="font-mono">{"{ORDERID}"}</span>, etc.
                     Só precisas dela se a rede pedir o endereço à parte. Na BuyGoods normalmente{" "}
                     <strong className="text-foreground/90">não uses</strong> esta; usa «Copiar URL de aviso».
