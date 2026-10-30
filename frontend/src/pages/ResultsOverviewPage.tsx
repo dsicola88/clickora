@@ -12,6 +12,7 @@ import { analyticsService } from "@/services/analyticsService";
 import { campaignsService } from "@/services/campaignsService";
 import { rangeToday, previousPeriodOfSameLength } from "@/lib/dateRangePresets";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { countryDisplayLabel, countryFlagEmoji, normalizeIsoCountryCode } from "@/lib/countryDisplay";
 import { toast } from "sonner";
@@ -521,6 +522,7 @@ export default function ResultsOverviewPage() {
           checks={health.checks}
         />
       ) : null}
+      <SyncHealthBanner className="mb-4" syncHealth={data.sync_health} />
       <TrackPathStatus className="mb-4" />
 
       <ProToolbar>

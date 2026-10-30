@@ -20,6 +20,7 @@ import {
 } from "@/components/enterprise/ProShell";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 
 /**
@@ -72,6 +73,12 @@ export default function IntegrationsHubPage() {
       href: "/integracoes/google-ads",
       d: "Ligar Google → custos + conversões automáticos.",
     },
+    {
+      t: "Domínio HTTPS pronto",
+      id: "domain_https",
+      href: "/configuracoes",
+      d: "Final URL só com HTTPS pronto (DNS verificado ≠ SSL).",
+    },
   ] as const;
 
   return (
@@ -92,6 +99,7 @@ export default function IntegrationsHubPage() {
       {health ? (
         <AttributionHealthBanner attribution={health.attribution} checks={health.checks} />
       ) : null}
+      <SyncHealthBanner syncHealth={dash?.sync_health} />
       <TrackPathStatus />
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">

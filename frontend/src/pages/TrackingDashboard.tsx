@@ -35,6 +35,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { cn } from "@/lib/utils";
 import { integrationsService } from "@/services/integrationsService";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
@@ -50,48 +51,6 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 const GOOGLE_OAUTH_PLAYGROUND = "https://developers.google.com/oauthplayground/";
 const GOOGLE_ADS_OAUTH_DOC = "https://developers.google.com/google-ads/api/docs/oauth/overview";
 const GOOGLE_CLOUD_CREDENTIALS = "https://console.cloud.google.com/apis/credentials";
-
-function SyncHealthBanner({
-  dashboard,
-}: {
-  dashboard: {
-    sync_health?: {
-      period_days: number;
-      google_ads_failed: number;
-      meta_capi_failed: number;
-      tiktok_events_failed?: number;
-    };
-  } | null;
-}) {
-  const sh = dashboard?.sync_health;
-  if (!sh) return null;
-  const tt = sh.tiktok_events_failed ?? 0;
-  const total = sh.google_ads_failed + sh.meta_capi_failed + tt;
-  if (total <= 0) return null;
-  const parts: string[] = [];
-  if (sh.google_ads_failed > 0) {
-    parts.push(`${sh.google_ads_failed} conversão(ões) com falha no Google Ads`);
-  }
-  if (sh.meta_capi_failed > 0) {
-    parts.push(`${sh.meta_capi_failed} conversão(ões) com falha na Meta CAPI`);
-  }
-  if (tt > 0) {
-    parts.push(`${tt} conversão(ões) com falha no TikTok Events API`);
-  }
-  return (
-    <Alert className="border-amber-500/35 bg-amber-500/[0.07] text-foreground">
-      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-      <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envios para plataformas de anúncios</AlertTitle>
-      <AlertDescription className="text-sm text-muted-foreground">
-        Últimos {sh.period_days}d (UTC): {parts.join(" · ")}. Detalhes e sync em{" "}
-        <Link className="font-medium text-primary underline underline-offset-2" to="/tracking/relatorios">
-          Relatórios → Conversões
-        </Link>
-        {" — "}revise tokens/IDs nas secções abaixo.
-      </AlertDescription>
-    </Alert>
-  );
-}
 
 function SetupAssistantCallout() {
   return (
@@ -1838,7 +1797,7 @@ export default function TrackingDashboard() {
           greeting={firstName ? `Olá, ${firstName}` : "Bem-vindo"}
         />
 
-        <SyncHealthBanner dashboard={dashboard} />
+        <SyncHealthBanner syncHealth={dashboard?.sync_health} />
         <DashboardUserGuide variant="tracking" />
         <SetupAssistantCallout />
 
@@ -2028,7 +1987,7 @@ export default function TrackingDashboard() {
         }
       />
 
-      <SyncHealthBanner dashboard={dashboard} />
+      <SyncHealthBanner syncHealth={dashboard?.sync_health} />
       <DashboardUserGuide variant="tracking" />
       <SetupAssistantCallout />
 
