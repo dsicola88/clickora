@@ -19,6 +19,7 @@ import {
 import { isFastlyEdgeIp } from "../lib/fastlyEdges";
 import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
+import { consumeTrackRateLimitAsync } from "../lib/trackRateLimit";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
@@ -44,6 +45,16 @@ import {
   affiliateLinkFromPresellPage,
   isRedirectToAllowedOffer,
 } from "../lib/trackOfferRedirectGuard";
+
+/** Rate limit por IP antes do lookup da página (protege DB sob flood). */
+async function earlyTrackRateLimit(req: Request, res: Response): Promise<boolean> {
+  const ip = extractClientIp(req);
+  if (await consumeTrackRateLimitAsync(ip)) return false;
+  res.setHeader("Retry-After", "60");
+  res.setHeader("X-RateLimit-Scope", "track-ip");
+  res.status(429).json({ error: "Demasiados pedidos. Tente mais tarde." });
+  return true;
+}
 
 const clickSchema = z.object({
   presell_id: z.string().min(1),
@@ -252,6 +263,8 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   const fbclid = realClickIdQuery(query, "fbclid");
   const ttclid = realClickIdQuery(query, "ttclid");
   const msclkid = realClickIdQuery(query, "msclkid");
+  const fbp = firstQueryString(query, "fbp");
+  const ttp = firstQueryString(query, "ttp");
   const sub1 = firstQueryString(query, "sub1");
   const sub2 = firstQueryString(query, "sub2");
   const sub3 = firstQueryString(query, "sub3");
@@ -263,7 +276,9 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
     gbraid,
     wbraid,
     fbclid,
+    fbp,
     ttclid,
+    ttp,
     msclkid,
     utm_term,
     utm_content,
@@ -333,11 +348,12 @@ function expressWildcardPathSuffix(req: Request): string | undefined {
  * - presell: data-presell-id ou path /p/{uuid}.
  * - Copia gclid/UTMs da query + _fbp para metadata (Ads → atribuição).
  */
-const CLICKORA_EMBED_JS = `(function(){function findSc(){var s=document.currentScript;if(s&&s.src)return s;var a=document.getElementsByTagName("script");for(var i=a.length-1;i>=0;i--){if(a[i].src&&/clickora\\.min\\.js/i.test(a[i].src))return a[i];}return null;}var sc=findSc();if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;try{var q=new URLSearchParams(location.search||"");["gclid","gbraid","wbraid","fbclid","ttclid","msclkid","utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(function(k){var v=q.get(k);if(v)md[k]=v;});}catch(e){}var cm=typeof document!=="undefined"&&document.cookie?document.cookie.match(/(?:^|;)\\s*_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
+const CLICKORA_EMBED_JS = `(function(){function findSc(){var s=document.currentScript;if(s&&s.src)return s;var a=document.getElementsByTagName("script");for(var i=a.length-1;i>=0;i--){if(a[i].src&&/clickora\\.min\\.js/i.test(a[i].src))return a[i];}return null;}var sc=findSc();if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;try{if(typeof location!=="undefined"&&location.href){md.landing_url=String(location.href).slice(0,2000);md.page_url=md.landing_url;}var q=new URLSearchParams(location.search||"");["gclid","gbraid","wbraid","fbclid","ttclid","msclkid","utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(function(k){var v=q.get(k);if(v)md[k]=v;});}catch(e){}try{var ck=typeof document!=="undefined"?document.cookie:"";var cm=ck?ck.match(/(?:^|;)\\s*_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}var tm=ck?ck.match(/(?:^|;)\\s*_ttp=([^;]+)/):null;if(tm){var tp=decodeURIComponent(tm[1].trim());if(tp)md.ttp=tp;}}catch(e2){}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
 export const trackController = {
   async redirect(req: Request, res: Response) {
     const t0 = performance.now();
+    if (await earlyTrackRateLimit(req, res)) return;
     const presellId = req.params.presellId;
     const parsed = redirectSchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
@@ -434,6 +450,7 @@ export const trackController = {
       headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "redirect",
       recordedEventType: "click",
+      skipRateLimit: true,
     });
     if (!guard.ok) {
       console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
@@ -550,6 +567,7 @@ export const trackController = {
 
   async rotatorRedirect(req: Request, res: Response) {
     const t0 = performance.now();
+    if (await earlyTrackRateLimit(req, res)) return;
     const rotatorId = req.params.rotatorId;
     if (!z.string().uuid().safeParse(rotatorId).success) {
       return res.status(404).json({ error: "Rotador não encontrado" });
@@ -643,6 +661,7 @@ export const trackController = {
       headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "rotator_redirect",
       recordedEventType: "click",
+      skipRateLimit: true,
     });
     if (!guard.ok) {
       console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
@@ -748,6 +767,7 @@ export const trackController = {
   },
 
   async pixel(req: Request, res: Response) {
+    if (await earlyTrackRateLimit(req, res)) return;
     const presellId = req.params.presellId;
     const attr = impressionAttributionFromPixelQuery(req.query);
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
@@ -766,6 +786,7 @@ export const trackController = {
       headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "pixel",
       recordedEventType: "other",
+      skipRateLimit: true,
     });
     if (!guard.ok) {
       return sendTrackingPixelGif(res);
@@ -810,6 +831,7 @@ export const trackController = {
   },
 
   async trackClick(req: Request, res: Response) {
+    if (await earlyTrackRateLimit(req, res)) return;
     const parsed = clickSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
     const {
@@ -852,6 +874,7 @@ export const trackController = {
       headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "api_click",
       recordedEventType: "click",
+      skipRateLimit: true,
     });
     if (!guard.ok) {
       return res.status(guard.status).json({ error: guard.error });

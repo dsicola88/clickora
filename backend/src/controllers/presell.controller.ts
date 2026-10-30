@@ -20,6 +20,7 @@ import { getRequestHostname, hostnameLookupVariants } from "../lib/requestHost";
 import { getVerifiedOwnerIdForHostname } from "../lib/customDomainCache";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
+import { mergeAccountPixelsIntoSettings } from "../lib/accountPixelsMerge";
 import { billingUserId } from "../lib/requestContext";
 import { denyIfCannotWritePresells } from "./workspace.controller";
 import {
@@ -258,10 +259,20 @@ export const presellController = {
     const variants = hostnameLookupVariants(host);
     const cd = await systemPrisma.customDomain.findFirst({
       where: { status: "verified", userId: ownerId, hostname: { in: variants } },
-      select: { id: true, rootPresellId: true },
+      select: { id: true, rootPresellId: true, purpose: true },
     });
     if (!cd) {
       return res.status(404).json({ error: "Domínio não encontrado.", code: "ROOT_PRESELL_NO_DOMAIN" });
+    }
+
+    if (cd.purpose === "tracking") {
+      return res.status(200).json({
+        id: null,
+        purpose: "tracking",
+        code: "TRACKING_DOMAIN_ROOT",
+        message:
+          "Este hostname é só de tracking. Use /api/track/… neste domínio; a lander fica no domínio de hosting.",
+      });
     }
 
     let page = null as
@@ -923,6 +934,7 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
   const base = mapPresell(page);
   return {
     ...base,
+    settings: mergeAccountPixelsIntoSettings(base.settings, page.user),
     content: slimPublicContent(base.content),
     clicks: undefined,
     impressions: undefined,

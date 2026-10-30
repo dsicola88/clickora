@@ -20,12 +20,13 @@ function tiktokEventTrackUrl(): string {
   return TIKTOK_EVENT_TRACK_URL_LIVE;
 }
 
+/** Pronto se pixel + token (sem interruptor extra). */
 export function isTikTokEventsReadyForUser(user: {
-  tiktokEventsEnabled: boolean;
+  tiktokEventsEnabled?: boolean;
   tiktokPixelId: string | null | undefined;
   tiktokEventsAccessToken: string | null | undefined;
 }): boolean {
-  if (!user.tiktokEventsEnabled || !user.tiktokPixelId?.trim()) return false;
+  if (!user.tiktokPixelId?.trim()) return false;
   const raw = user.tiktokEventsAccessToken?.trim();
   if (!raw) return false;
   return Boolean(decryptSecretField(raw)?.trim());

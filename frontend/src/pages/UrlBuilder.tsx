@@ -131,7 +131,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
       valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)",
     },
     { key: "utm_content", value: "{{ad.name}}" },
-    { key: "fbclid", value: "", highlight: true },
+    // Meta acrescenta fbclid sozinha no URL final — não forçar fbclid= vazio.
   ],
   "TikTok Ads": [
     { key: "utm_source", value: "tiktok" },

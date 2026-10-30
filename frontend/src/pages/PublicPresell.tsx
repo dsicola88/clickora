@@ -202,6 +202,15 @@ function buildImpressionPixelUrl(apiBase: string, pageId: string, pageSearch: UR
     const v = pageSearch.get(k);
     if (v) params.set(k, v);
   }
+  try {
+    const ck = typeof document !== "undefined" ? document.cookie || "" : "";
+    const fbp = ck.match(/(?:^|;)\s*_fbp=([^;]+)/);
+    if (fbp?.[1]) params.set("fbp", decodeURIComponent(fbp[1].trim()));
+    const ttp = ck.match(/(?:^|;)\s*_ttp=([^;]+)/);
+    if (ttp?.[1]) params.set("ttp", decodeURIComponent(ttp[1].trim()));
+  } catch {
+    /* ignore */
+  }
   const u = resolveApiUrl(apiBase, `/track/pixel/${pageId}.gif`);
   u.search = params.toString();
   return u.toString();

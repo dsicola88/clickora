@@ -1245,7 +1245,9 @@ export const integrationsController = {
 
     if (d.meta_capi_enabled !== undefined) data.metaCapiEnabled = d.meta_capi_enabled;
     if (d.meta_pixel_id !== undefined) {
-      const t = d.meta_pixel_id.replace(/\D/g, "");
+      const raw = d.meta_pixel_id.trim();
+      const fromInit = raw.match(/fbq\s*\(\s*['"]init['"]\s*,\s*['"](\d{10,20})['"]/i);
+      const t = (fromInit?.[1] || raw).replace(/\D/g, "");
       data.metaPixelId = t || null;
     }
     if (d.clear_meta_access_token) data.metaAccessToken = null;
@@ -1261,7 +1263,8 @@ export const integrationsController = {
       await prisma.user.update({ where: { id: userId }, data });
     }
 
-    const user = await prisma.user.findUnique({
+    // Auto-activar quando Pixel + token existem (menos um interruptor para o utilizador).
+    const after = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         metaCapiEnabled: true,
@@ -1270,15 +1273,25 @@ export const integrationsController = {
         metaCapiTestEventCode: true,
       },
     });
-    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+    if (!after) return res.status(404).json({ error: "Utilizador não encontrado" });
+    const hasCreds =
+      Boolean(after.metaPixelId?.trim()) && Boolean(decryptSecretField(after.metaAccessToken)?.trim());
+    if (hasCreds && !after.metaCapiEnabled && d.meta_capi_enabled !== false) {
+      await prisma.user.update({ where: { id: userId }, data: { metaCapiEnabled: true } });
+      after.metaCapiEnabled = true;
+    }
+    if (!hasCreds && after.metaCapiEnabled && (d.clear_meta_access_token || data.metaPixelId === null)) {
+      await prisma.user.update({ where: { id: userId }, data: { metaCapiEnabled: false } });
+      after.metaCapiEnabled = false;
+    }
 
     res.json({
       ok: true,
-      meta_capi_enabled: user.metaCapiEnabled,
-      meta_pixel_id: user.metaPixelId ?? "",
-      has_access_token: Boolean(user.metaAccessToken?.trim()),
-      meta_capi_test_event_code: user.metaCapiTestEventCode ?? "",
-      can_send: isMetaCapiReadyForUser(user),
+      meta_capi_enabled: after.metaCapiEnabled,
+      meta_pixel_id: after.metaPixelId ?? "",
+      has_access_token: Boolean(after.metaAccessToken?.trim()),
+      meta_capi_test_event_code: after.metaCapiTestEventCode ?? "",
+      can_send: isMetaCapiReadyForUser(after),
     });
   },
 
@@ -1329,7 +1342,9 @@ export const integrationsController = {
 
     if (d.tiktok_events_enabled !== undefined) data.tiktokEventsEnabled = d.tiktok_events_enabled;
     if (d.tiktok_pixel_id !== undefined) {
-      const t = d.tiktok_pixel_id.trim();
+      const raw = d.tiktok_pixel_id.trim();
+      const fromLoad = raw.match(/ttq\.load\s*\(\s*['"]([A-Z0-9]{10,64})['"]/i);
+      const t = (fromLoad?.[1] || raw).replace(/[^A-Za-z0-9]/g, "");
       data.tiktokPixelId = t || null;
     }
     if (d.clear_tiktok_events_access_token) data.tiktokEventsAccessToken = null;
@@ -1345,7 +1360,7 @@ export const integrationsController = {
       await prisma.user.update({ where: { id: userId }, data });
     }
 
-    const user = await prisma.user.findUnique({
+    const after = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         tiktokEventsEnabled: true,
@@ -1354,15 +1369,30 @@ export const integrationsController = {
         tiktokEventsTestEventCode: true,
       },
     });
-    if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+    if (!after) return res.status(404).json({ error: "Utilizador não encontrado" });
+    const hasCreds =
+      Boolean(after.tiktokPixelId?.trim()) &&
+      Boolean(decryptSecretField(after.tiktokEventsAccessToken)?.trim());
+    if (hasCreds && !after.tiktokEventsEnabled && d.tiktok_events_enabled !== false) {
+      await prisma.user.update({ where: { id: userId }, data: { tiktokEventsEnabled: true } });
+      after.tiktokEventsEnabled = true;
+    }
+    if (
+      !hasCreds &&
+      after.tiktokEventsEnabled &&
+      (d.clear_tiktok_events_access_token || data.tiktokPixelId === null)
+    ) {
+      await prisma.user.update({ where: { id: userId }, data: { tiktokEventsEnabled: false } });
+      after.tiktokEventsEnabled = false;
+    }
 
     res.json({
       ok: true,
-      tiktok_events_enabled: user.tiktokEventsEnabled,
-      tiktok_pixel_id: user.tiktokPixelId ?? "",
-      has_access_token: Boolean(user.tiktokEventsAccessToken?.trim()),
-      tiktok_events_test_event_code: user.tiktokEventsTestEventCode ?? "",
-      can_send: isTikTokEventsReadyForUser(user),
+      tiktok_events_enabled: after.tiktokEventsEnabled,
+      tiktok_pixel_id: after.tiktokPixelId ?? "",
+      has_access_token: Boolean(after.tiktokEventsAccessToken?.trim()),
+      tiktok_events_test_event_code: after.tiktokEventsTestEventCode ?? "",
+      can_send: isTikTokEventsReadyForUser(after),
     });
   },
 

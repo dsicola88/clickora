@@ -20,12 +20,16 @@ function metaGraphOrigin(): string {
   return "https://graph.facebook.com";
 }
 
+/**
+ * Pronto a enviar se Pixel + token existem.
+ * Sem interruptor extra: credenciais = envio activo (pausar = apagar o token).
+ */
 export function isMetaCapiReadyForUser(user: {
-  metaCapiEnabled: boolean;
+  metaCapiEnabled?: boolean;
   metaPixelId: string | null | undefined;
   metaAccessToken: string | null | undefined;
 }): boolean {
-  if (!user.metaCapiEnabled || !user.metaPixelId?.trim()) return false;
+  if (!user.metaPixelId?.trim()) return false;
   const raw = user.metaAccessToken?.trim();
   if (!raw) return false;
   return Boolean(decryptSecretField(raw)?.trim());

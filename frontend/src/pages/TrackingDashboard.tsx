@@ -751,6 +751,7 @@ export function MetaCapiIntegrationCard({
   setMetaTestCode,
   saveMetaCapi,
   integrationsLocked = false,
+  autoMode = false,
 }: {
   metaCapi:
     | {
@@ -771,6 +772,8 @@ export function MetaCapiIntegrationCard({
   setMetaTestCode: (v: string) => void;
   saveMetaCapi: { mutate: () => void; isPending: boolean };
   integrationsLocked?: boolean;
+  /** Esconde o interruptor — Pixel + token = envio automático. */
+  autoMode?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
@@ -797,24 +800,41 @@ export function MetaCapiIntegrationCard({
 
       <Alert className="border-indigo-500/35 bg-indigo-500/[0.07]">
         <Info className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-        <AlertTitle className="text-sm text-foreground">Boas práticas (Meta Business)</AlertTitle>
+        <AlertTitle className="text-sm text-foreground">
+          {autoMode ? "Uma vez na conta — todas as páginas" : "Boas práticas (Meta Business)"}
+        </AlertTitle>
         <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
-          <p>
-            Crie o token em <strong className="text-foreground/90">Definições empresariais</strong> → <strong className="text-foreground/90">Permissões e identidade</strong> (ou a partir do Pixel) com âmbito adequado; restrinja
-            a equipas e rode o token se suspeitar de exposição.
-          </p>
-          <p>
-            O servidor envia <span className="font-mono text-[11px]">order_id</span> (postback) e, quando existir, a URL de origem do clique — parâmetros recomendados pela Meta para o Event Match Quality.
-          </p>
+          {autoMode ? (
+            <p>
+              Cole o <strong className="text-foreground/90">Pixel ID</strong> e o <strong className="text-foreground/90">token CAPI</strong>. O
+              envio de vendas aprovadas e o PageView nas landers ligam-se sozinhos — sem configurar página a página.
+            </p>
+          ) : (
+            <>
+              <p>
+                Crie o token em <strong className="text-foreground/90">Definições empresariais</strong> →{" "}
+                <strong className="text-foreground/90">Permissões e identidade</strong> (ou a partir do Pixel) com âmbito adequado; restrinja
+                a equipas e rode o token se suspeitar de exposição.
+              </p>
+              <p>
+                O servidor envia <span className="font-mono text-[11px]">order_id</span> (postback) e, quando existir, a URL de origem do clique —
+                parâmetros recomendados pela Meta para o Event Match Quality.
+              </p>
+            </>
+          )}
         </AlertDescription>
       </Alert>
 
-      <div className="flex items-center gap-3">
-        <Switch id="meta-capi-enabled" checked={metaEnabled} disabled={integrationsLocked} onCheckedChange={setMetaEnabled} />
-        <Label htmlFor="meta-capi-enabled" className="text-sm cursor-pointer">
-          Ativar envio de conversões aprovadas
-        </Label>
-      </div>
+      {!autoMode ? (
+        <div className="flex items-center gap-3">
+          <Switch id="meta-capi-enabled" checked={metaEnabled} disabled={integrationsLocked} onCheckedChange={setMetaEnabled} />
+          <Label htmlFor="meta-capi-enabled" className="text-sm cursor-pointer">
+            Ativar envio de conversões aprovadas
+          </Label>
+        </div>
+      ) : metaCapi?.can_send ? (
+        <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Envio automático activo (Pixel + token).</p>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
@@ -903,6 +923,7 @@ export function TiktokEventsIntegrationCard({
   setTtTestCode,
   saveTiktok,
   integrationsLocked = false,
+  autoMode = false,
 }: {
   tiktok:
     | {
@@ -923,6 +944,7 @@ export function TiktokEventsIntegrationCard({
   setTtTestCode: (v: string) => void;
   saveTiktok: { mutate: () => void; isPending: boolean };
   integrationsLocked?: boolean;
+  autoMode?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-6 space-y-4">
@@ -949,21 +971,35 @@ export function TiktokEventsIntegrationCard({
 
       <Alert className="border-rose-500/35 bg-rose-500/[0.07]">
         <Info className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-        <AlertTitle className="text-sm text-foreground">Credenciais no TikTok for Business</AlertTitle>
+        <AlertTitle className="text-sm text-foreground">
+          {autoMode ? "Uma vez na conta — todas as páginas" : "Credenciais no TikTok for Business"}
+        </AlertTitle>
         <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
-          <p>
-            O <strong className="text-foreground/90">código do pixel</strong> (event_source_id) e o <strong className="text-foreground/90">token de acesso</strong> (Events / Measurement) vêm do Events Manager, não do SDK no browser. Use o
-            separador de testes de eventos para validar antes de produção.
-          </p>
+          {autoMode ? (
+            <p>
+              Cole o código do pixel e o Access-Token. O PageView nas landers e o Purchase após postback activam-se
+              sozinhos.
+            </p>
+          ) : (
+            <p>
+              O <strong className="text-foreground/90">código do pixel</strong> (event_source_id) e o{" "}
+              <strong className="text-foreground/90">token de acesso</strong> (Events / Measurement) vêm do Events Manager, não
+              do SDK no browser. Use o separador de testes de eventos para validar antes de produção.
+            </p>
+          )}
         </AlertDescription>
       </Alert>
 
-      <div className="flex items-center gap-3">
-        <Switch id="tiktok-events-enabled" checked={ttEnabled} disabled={integrationsLocked} onCheckedChange={setTtEnabled} />
-        <Label htmlFor="tiktok-events-enabled" className="text-sm cursor-pointer">
-          Ativar envio de conversões aprovadas
-        </Label>
-      </div>
+      {!autoMode ? (
+        <div className="flex items-center gap-3">
+          <Switch id="tiktok-events-enabled" checked={ttEnabled} disabled={integrationsLocked} onCheckedChange={setTtEnabled} />
+          <Label htmlFor="tiktok-events-enabled" className="text-sm cursor-pointer">
+            Ativar envio de conversões aprovadas
+          </Label>
+        </div>
+      ) : tiktok?.can_send ? (
+        <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Envio automático activo (pixel + token).</p>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">

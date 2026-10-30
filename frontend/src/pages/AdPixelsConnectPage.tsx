@@ -72,7 +72,7 @@ export default function AdPixelsConnectPage() {
   const saveMetaCapi = useMutation({
     mutationFn: async () => {
       const body: Parameters<typeof integrationsService.patchMetaCapiSettings>[0] = {
-        meta_capi_enabled: metaEnabled,
+        meta_capi_enabled: true,
         meta_pixel_id: metaPixelId,
         meta_capi_test_event_code: metaTestCode,
       };
@@ -93,7 +93,7 @@ export default function AdPixelsConnectPage() {
   const saveTiktokEvents = useMutation({
     mutationFn: async () => {
       const body: Parameters<typeof integrationsService.patchTiktokEventsSettings>[0] = {
-        tiktok_events_enabled: ttEnabled,
+        tiktok_events_enabled: true,
         tiktok_pixel_id: ttPixelId,
         tiktok_events_test_event_code: ttTestCode,
       };
@@ -139,8 +139,8 @@ export default function AdPixelsConnectPage() {
 
       <ProAlert
         severity="info"
-        title="Dois níveis de «inteligência»"
-        detail="(1) Pixel no browser da presell — PageView / Lead. (2) Este ecrã — Purchase servidor a servidor após postback, com fbclid/ttclid/gclid do clique. Sem o ID de clique no URL do anúncio, a rede não atribui."
+        title="Configuração mínima"
+        detail="Guarde Pixel ID + token uma vez. O PageView entra sozinho nas landers publicadas e o Purchase segue para a rede após o postback (fbclid/ttclid no URL do anúncio)."
       />
 
       <div className="space-y-5 max-w-3xl">
@@ -156,6 +156,7 @@ export default function AdPixelsConnectPage() {
           setMetaTestCode={setMetaTestCode}
           saveMetaCapi={saveMetaCapi}
           integrationsLocked={locked}
+          autoMode
         />
 
         <TiktokEventsIntegrationCard
@@ -170,6 +171,7 @@ export default function AdPixelsConnectPage() {
           setTtTestCode={setTtTestCode}
           saveTiktok={saveTiktokEvents}
           integrationsLocked={locked}
+          autoMode
         />
       </div>
     </div>
