@@ -25,7 +25,7 @@
 | 1 | Auditoria e diagnóstico, sem alterações | `audit/dclickora-diagnostico` | **Concluída** |
 | 2 | Correção dos problemas P0 e P1 | `fix/p0-p1-seguranca-isolamento` | **Concluída** |
 | 3 | Performance e otimização | `perf/etapa3-otimizacao` | **Concluída** (A7–A11 + login/analytics/pool) |
-| 4 | Testes de carga | **staging apenas** — nunca BD/API de produção | Pendente |
+| 4 | Testes de carga | `load/etapa4-carga-staging` | **Parcial** — health medido; mutações bloqueadas (ver `TESTES_CARGA_DCLICKORA.md`) |
 | 5 | Segurança e isolamento | branch de security | Pendente (E2E IDOR, Redis rate-limit, etc.) |
 | 6 | Documentação completa | docs nesta e branches seguintes | Rascunhos criados |
 | 7 | Testes finais e relatório | staging + relatório de aceitação | Pendente |
