@@ -31,7 +31,10 @@ describe("sync_health FE wiring", () => {
     const health = readFileSync(join(process.cwd(), "../backend/src/lib/accountHealth.ts"), "utf8");
     expect(analytics).toContain("sync_health");
     expect(analytics).toContain("google_ads_failed");
+    expect(analytics).toContain("meta_capi_skipped_no_fbclid");
+    expect(analytics).toContain("tiktok_events_skipped_no_ttclid");
     expect(health).toContain('id: "domain_https"');
+    expect(health).toContain("/resultados/relatorios/conversoes");
   });
 
   it("HTTPS pending só para Vercel verificado sem https_ready", () => {

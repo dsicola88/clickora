@@ -502,7 +502,11 @@ export const analyticsService = {
         /** Vendas aprovadas sem gclid — não sobem ao Google Ads offline. */
         google_ads_skipped_no_gclid?: number;
         meta_capi_failed: number;
+        /** Vendas aprovadas sem fbclid — não sobem à Meta CAPI. */
+        meta_capi_skipped_no_fbclid?: number;
         tiktok_events_failed: number;
+        /** Vendas aprovadas sem ttclid — não sobem ao TikTok Events. */
+        tiktok_events_skipped_no_ttclid?: number;
       };
       google_ads_metrics?: {
         impressions: number;

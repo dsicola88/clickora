@@ -7,7 +7,9 @@ export type SyncHealthPayload = {
   google_ads_failed: number;
   google_ads_skipped_no_gclid?: number;
   meta_capi_failed: number;
+  meta_capi_skipped_no_fbclid?: number;
   tiktok_events_failed?: number;
+  tiktok_events_skipped_no_ttclid?: number;
 };
 
 /**
@@ -23,8 +25,15 @@ export function SyncHealthBanner({
   if (!syncHealth) return null;
   const tt = syncHealth.tiktok_events_failed ?? 0;
   const noGclid = syncHealth.google_ads_skipped_no_gclid ?? 0;
+  const noFbclid = syncHealth.meta_capi_skipped_no_fbclid ?? 0;
+  const noTtclid = syncHealth.tiktok_events_skipped_no_ttclid ?? 0;
   const total =
-    syncHealth.google_ads_failed + syncHealth.meta_capi_failed + tt + noGclid;
+    syncHealth.google_ads_failed +
+    syncHealth.meta_capi_failed +
+    tt +
+    noGclid +
+    noFbclid +
+    noTtclid;
   if (total <= 0) return null;
   const parts: string[] = [];
   if (syncHealth.google_ads_failed > 0) {
@@ -36,8 +45,14 @@ export function SyncHealthBanner({
   if (syncHealth.meta_capi_failed > 0) {
     parts.push(`${syncHealth.meta_capi_failed} conversão(ões) com falha na Meta CAPI`);
   }
+  if (noFbclid > 0) {
+    parts.push(`${noFbclid} venda(s) sem fbclid (não enviadas à Meta CAPI)`);
+  }
   if (tt > 0) {
     parts.push(`${tt} conversão(ões) com falha no TikTok Events API`);
+  }
+  if (noTtclid > 0) {
+    parts.push(`${noTtclid} venda(s) sem ttclid (não enviadas ao TikTok)`);
   }
   return (
     <Alert className={`border-amber-500/35 bg-amber-500/[0.07] text-foreground ${className ?? ""}`}>

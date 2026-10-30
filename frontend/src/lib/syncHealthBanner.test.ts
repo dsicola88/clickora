@@ -8,7 +8,9 @@ function shouldShowSyncHealth(sh: SyncHealthPayload | null | undefined): boolean
     sh.google_ads_failed +
     sh.meta_capi_failed +
     (sh.tiktok_events_failed ?? 0) +
-    (sh.google_ads_skipped_no_gclid ?? 0);
+    (sh.google_ads_skipped_no_gclid ?? 0) +
+    (sh.meta_capi_skipped_no_fbclid ?? 0) +
+    (sh.tiktok_events_skipped_no_ttclid ?? 0);
   return total > 0;
 }
 
@@ -20,7 +22,9 @@ describe("SyncHealthBanner visibility", () => {
         google_ads_failed: 0,
         google_ads_skipped_no_gclid: 0,
         meta_capi_failed: 0,
+        meta_capi_skipped_no_fbclid: 0,
         tiktok_events_failed: 0,
+        tiktok_events_skipped_no_ttclid: 0,
       }),
     ).toBe(false);
   });
@@ -32,6 +36,27 @@ describe("SyncHealthBanner visibility", () => {
         google_ads_failed: 0,
         google_ads_skipped_no_gclid: 3,
         meta_capi_failed: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("mostra skipped_no_fbclid / skipped_no_ttclid sem failed", () => {
+    expect(
+      shouldShowSyncHealth({
+        period_days: 7,
+        google_ads_failed: 0,
+        meta_capi_failed: 0,
+        meta_capi_skipped_no_fbclid: 2,
+        tiktok_events_failed: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSyncHealth({
+        period_days: 7,
+        google_ads_failed: 0,
+        meta_capi_failed: 0,
+        tiktok_events_failed: 0,
+        tiktok_events_skipped_no_ttclid: 1,
       }),
     ).toBe(true);
   });

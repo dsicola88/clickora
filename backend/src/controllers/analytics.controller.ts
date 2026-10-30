@@ -1865,23 +1865,36 @@ export const analyticsController = {
       google_ads_failed: number;
       google_ads_skipped_no_gclid: number;
       meta_capi_failed: number;
+      meta_capi_skipped_no_fbclid: number;
       tiktok_events_failed: number;
+      tiktok_events_skipped_no_ttclid: number;
     } = {
       period_days: 7,
       google_ads_failed: 0,
       google_ads_skipped_no_gclid: 0,
       meta_capi_failed: 0,
+      meta_capi_skipped_no_fbclid: 0,
       tiktok_events_failed: 0,
+      tiktok_events_skipped_no_ttclid: 0,
     };
     try {
       const [sh] = await systemPrisma.$queryRaw<
-        Array<{ g: bigint | null; gclid: bigint | null; m: bigint | null; t: bigint | null }>
+        Array<{
+          g: bigint | null;
+          gclid: bigint | null;
+          m: bigint | null;
+          fbclid: bigint | null;
+          t: bigint | null;
+          ttclid: bigint | null;
+        }>
       >(Prisma.sql`
         SELECT
           COUNT(*) FILTER (WHERE google_ads_sync = 'failed')::bigint AS g,
           COUNT(*) FILTER (WHERE google_ads_sync = 'skipped_no_gclid')::bigint AS gclid,
           COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m,
-          COUNT(*) FILTER (WHERE tiktok_events_sync = 'failed')::bigint AS t
+          COUNT(*) FILTER (WHERE meta_capi_sync = 'skipped_no_fbclid')::bigint AS fbclid,
+          COUNT(*) FILTER (WHERE tiktok_events_sync = 'failed')::bigint AS t,
+          COUNT(*) FILTER (WHERE tiktok_events_sync = 'skipped_no_ttclid')::bigint AS ttclid
         FROM conversions
         WHERE user_id = ${userId}
           AND status = 'approved'
@@ -1892,7 +1905,9 @@ export const analyticsController = {
         google_ads_failed: Number(sh?.g ?? 0),
         google_ads_skipped_no_gclid: Number(sh?.gclid ?? 0),
         meta_capi_failed: Number(sh?.m ?? 0),
+        meta_capi_skipped_no_fbclid: Number(sh?.fbclid ?? 0),
         tiktok_events_failed: Number(sh?.t ?? 0),
+        tiktok_events_skipped_no_ttclid: Number(sh?.ttclid ?? 0),
       };
     } catch (e) {
       console.warn("[analytics.getDashboard] sync_health indisponível (colunas ou BD)", e);

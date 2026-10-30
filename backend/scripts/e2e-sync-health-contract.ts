@@ -21,13 +21,30 @@ function main() {
   const customCtrl = readFileSync(join(root, "controllers/customDomain.controller.ts"), "utf8");
 
   record(
-    "getDashboard emite sync_health (failed + skipped_no_gclid)",
+    "getDashboard emite sync_health (failed + skipped click-ids)",
     analytics.includes("sync_health") &&
       analytics.includes("google_ads_failed") &&
       analytics.includes("google_ads_skipped_no_gclid") &&
       analytics.includes("skipped_no_gclid") &&
       analytics.includes("meta_capi_failed") &&
-      analytics.includes("tiktok_events_failed"),
+      analytics.includes("meta_capi_skipped_no_fbclid") &&
+      analytics.includes("skipped_no_fbclid") &&
+      analytics.includes("tiktok_events_failed") &&
+      analytics.includes("tiktok_events_skipped_no_ttclid") &&
+      analytics.includes("skipped_no_ttclid"),
+    "ok",
+  );
+
+  const banner = readFileSync(
+    join(process.cwd(), "../frontend/src/components/SyncHealthBanner.tsx"),
+    "utf8",
+  );
+  record(
+    "SyncHealthBanner cobre fbclid/ttclid",
+    banner.includes("meta_capi_skipped_no_fbclid") &&
+      banner.includes("tiktok_events_skipped_no_ttclid") &&
+      banner.includes("sem fbclid") &&
+      banner.includes("sem ttclid"),
     "ok",
   );
   record(

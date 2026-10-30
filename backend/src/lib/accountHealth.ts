@@ -163,7 +163,7 @@ export async function buildAccountHealth(args: {
         approved === 0
           ? "Sem vendas no período."
           : `${attributed} de ${approved} vendas estão ligadas a um clique (${attribution_rate ?? 0}%). ${unattr} sem clique.`,
-      href: "/resultados/conversoes",
+      href: "/resultados/relatorios/conversoes",
     },
     {
       id: "macros",
