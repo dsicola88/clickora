@@ -25,10 +25,10 @@
 | 1 | Auditoria e diagnóstico, sem alterações | `audit/dclickora-diagnostico` | **Concluída** |
 | 2 | Correção dos problemas P0 e P1 | `fix/p0-p1-seguranca-isolamento` | **Concluída** |
 | 3 | Performance e otimização | `perf/etapa3-otimizacao` | **Concluída** (A7–A11 + login/analytics/pool) |
-| 4 | Testes de carga | `load/etapa4-carga-staging` | **Parcial** — ver `TESTES_CARGA_DCLICKORA.md` | **Parcial** — health medido; mutações bloqueadas (ver `TESTES_CARGA_DCLICKORA.md`) |
-| 5 | Segurança e isolamento | `security/etapa5-isolamento` | **Concluída em código** — ver `SEGURANCA_E_ISOLAMENTO.md` | Pendente (E2E IDOR, Redis rate-limit, etc.) |
-| 6 | Documentação completa | docs nesta e branches seguintes | Rascunhos criados |
-| 7 | Testes finais e relatório | staging + relatório de aceitação | Pendente |
+| 4 | Testes de carga | `load/etapa4-carga-staging` | **Parcial** — health medido; mutações bloqueadas (`TESTES_CARGA_*`) |
+| 5 | Segurança e isolamento | `security/etapa5-isolamento` | **Concluída em código** — re-run E2E IDOR local pendente |
+| 6 | Documentação completa | `docs/etapa6-documentacao-completa` | **Concluída** — `INDICE_*` |
+| 7 | Testes finais e relatório | `report/etapa7-aceitacao-final` | **Concluída** — `RELATORIO_ACEITACAO_FINAL_*` |
 
 **Regra crítica:** testes de carga e scripts destrutivos **só em staging** com Postgres próprio. Hosts Railway / `DATABASE_URL` de produção devem ser **bloqueados** pelos scripts de carga.
 
@@ -261,25 +261,26 @@ Comando: `cd frontend && npm run build` (sessão 2026-10-30).
 | 3 Performance | Feito | `perf/etapa3-otimizacao` + `OTIMIZACAO_PERFORMANCE_*` |
 | 4 Carga | Feito (parcial métricas) | `load/etapa4-carga-staging` + `TESTES_CARGA_*` |
 | 5 Isolamento | Feito (suite E2E re-run local pendente) | `security/etapa5-isolamento` + `SEGURANCA_E_ISOLAMENTO.md` |
-| 6 Documentação | **Em entrega** | `docs/etapa6-documentacao-completa` + `INDICE_*` |
-| 7 Testes finais / relatório | Pendente | — |
+| 6 Documentação | Feito | `docs/etapa6-documentacao-completa` + `INDICE_*` |
+| 7 Testes finais / relatório | Feito | `report/etapa7-aceitacao-final` + `RELATORIO_ACEITACAO_FINAL_*` |
 
 **Não declarar** capacidade 1k–10k users sem relatório de carga datado em staging com percentis.
 
 ---
 
-## Tabela de aceitação (actualizada pós Etapas 2–6)
+## Tabela de aceitação (actualizada pós Etapas 2–7)
 
 | Área | Estado | Evidência |
 |------|--------|-----------|
 | Performance | **Melhorada** — build + batch + índices + Redis opcional; CWV runtime não medido | `OTIMIZACAO_PERFORMANCE_*` |
-| Escalabilidade | **Parcial** — smoke health; mutações staging local pendentes | `TESTES_CARGA_*` |
+| Escalabilidade | **Parcial** — smoke health; mutações staging local pendentes | `TESTES_CARGA_*` + Etapa 7 |
 | Segurança | **P0/P1 endereçados** — suite IDOR local a revalidar | `SEGURANCA_E_ISOLAMENTO.md` |
-| Presells / Tracking / Paid / Billing | **Parcial** | unitários; E2E produto parcial |
+| Presells / Tracking / Paid / Billing | **Parcial** | unitários 350+78; E2E produto parcial |
 | Base de dados | **Parcial** | schema + índices; carga mutante local pendente |
-| Documentação | **Completa para manutenção** (Etapa 6) | `INDICE_DOCUMENTACAO_*` |
-| Produção | **Não declarado pronto** sem checklist §13 + Etapa 7 | — |
+| Documentação | **Completa para manutenção** | `INDICE_DOCUMENTACAO_*` |
+| Aceitação formal | **Veredicto condicional** | `RELATORIO_ACEITACAO_FINAL_*` |
+| Produção | **Não declarado pronto** sem checklist §13 | — |
 
 ---
 
-*Relatório vivo: Etapa 1 diagnosticou; Etapas 2–5 corrigiram código; Etapa 6 consolida docs. Afirmações de capacidade de utilizadores exigem Etapa 7 + carga staging datada.*
+*Programa 7 etapas concluído em branches dedicadas. Afirmações de capacidade de utilizadores exigem carga staging datada com percentis — ver relatório de aceitação.*

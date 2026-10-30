@@ -49,6 +49,7 @@ Checklist de deploy: **[docs/DEPLOYMENT.md — §6](docs/DEPLOYMENT.md)**.
 | Env vars | [Variáveis de ambiente](docs/VARIAVEIS_AMBIENTE_DCLICKORA.md) · [ENV-SETUP](docs/ENV-SETUP.md) |
 | Deploy Vercel + Railway | [DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Auditoria P0–P3 | [AUDITORIA_EMPRESARIAL](docs/AUDITORIA_EMPRESARIAL_DCLICKORA.md) |
+| Aceitação final (Etapa 7) | [RELATORIO_ACEITACAO_FINAL](docs/RELATORIO_ACEITACAO_FINAL_DCLICKORA.md) |
 | Performance | [OTIMIZACAO_PERFORMANCE](docs/OTIMIZACAO_PERFORMANCE_DCLICKORA.md) |
 | Carga (staging only) | [TESTES_CARGA](docs/TESTES_CARGA_DCLICKORA.md) |
 | Segurança / IDOR | [SEGURANCA_E_ISOLAMENTO](docs/SEGURANCA_E_ISOLAMENTO.md) |

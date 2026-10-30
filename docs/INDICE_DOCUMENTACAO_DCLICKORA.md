@@ -34,7 +34,7 @@
 | 4 | Carga (nunca produção) | `load/etapa4-carga-staging` | `TESTES_CARGA_DCLICKORA.md` |
 | 5 | Isolamento / IDOR | `security/etapa5-isolamento` | `SEGURANCA_E_ISOLAMENTO.md` |
 | 6 | Documentação completa | `docs/etapa6-documentacao-completa` | **este índice** |
-| 7 | Testes finais + relatório | (seguinte) | relatório de aceitação |
+| 7 | Testes finais + relatório | `report/etapa7-aceitacao-final` | [RELATORIO_ACEITACAO_FINAL_DCLICKORA.md](./RELATORIO_ACEITACAO_FINAL_DCLICKORA.md) |
 
 **Regra transversal:** scripts `load-*` e `security-isolation-suite` **recusam** Railway / `dclickora.com` e mutações sem `DATABASE_URL` localhost + `ALLOW_MUTATING_LOAD_TEST=1`.
 
