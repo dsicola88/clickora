@@ -1850,13 +1850,34 @@ export const integrationsController = {
         keywordAutomizerLookbackDays: true,
         metaAdsAccountId: true,
         tiktokAdvertiserId: true,
+        googleAdsEnabled: true,
+        googleAdsCustomerId: true,
+        googleAdsConversionActionId: true,
+        googleAdsLoginCustomerId: true,
+        googleAdsRefreshToken: true,
       },
     });
     if (!u) return res.status(404).json({ error: "Utilizador não encontrado" });
-    const logs = await prisma.affiliateAutomizerLog.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 30,
+    const [logs, lastCost] = await Promise.all([
+      prisma.affiliateAutomizerLog.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      prisma.adPlatformCostDaily
+        .findFirst({
+          where: { userId },
+          orderBy: { syncedAt: "desc" },
+          select: { syncedAt: true },
+        })
+        .catch(() => null),
+    ]);
+    const { evaluateCostSyncFreshness } = await import("../lib/accountHealth");
+    const { isGoogleAdsMetricsReadyForUser } = await import("../modules/googleAds/googleAds.service");
+    const googleReady = isGoogleAdsMetricsReadyForUser(u);
+    const freshness = evaluateCostSyncFreshness({
+      syncedAt: lastCost?.syncedAt,
+      googleReady,
     });
     return res.json({
       enabled: u.keywordAutomizerEnabled,
@@ -1866,6 +1887,10 @@ export const integrationsController = {
       lookback_days: u.keywordAutomizerLookbackDays,
       meta_ads_account_id: u.metaAdsAccountId,
       tiktok_advertiser_id: u.tiktokAdvertiserId,
+      last_cost_sync_at: lastCost?.syncedAt?.toISOString() ?? null,
+      cost_sync_ok: freshness.ok,
+      cost_sync_stale: freshness.stale,
+      google_ads_ready: googleReady,
       recent_logs: logs.map((l) => ({
         id: l.id,
         action: l.action,

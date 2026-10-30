@@ -79,3 +79,51 @@ export function resolveTrafficType(args: {
   if (hasPaidAdSourceSignals(args)) return "paid_untracked";
   return "organic";
 }
+
+const CLICK_ID_KEYS = ["gclid", "gbraid", "wbraid", "msclkid", "fbclid", "ttclid"] as const;
+
+/** Macros literais presentes (ex. `{gclid}`) — link de template, não clique real. */
+export function listUnreplacedClickIdMacros(args: {
+  gclid?: string | null;
+  msclkid?: string | null;
+  fbclid?: string | null;
+  ttclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
+}): string[] {
+  const out: string[] = [];
+  for (const k of CLICK_ID_KEYS) {
+    const raw = args[k];
+    if (raw == null) continue;
+    const v = String(raw).trim();
+    if (!v) continue;
+    if (!isRealNetworkClickId(v)) out.push(k);
+  }
+  return out;
+}
+
+/**
+ * Texto do tooltip «Tipo» — accionável, sem inventar causa.
+ * `visitorKind` opcional: cloud Google + UTM ≠ comprador.
+ */
+export function explainTrafficTypeLabel(
+  args: Parameters<typeof resolveTrafficType>[0] & {
+    visitorKind?: "real" | "bot" | "datacenter" | null;
+  },
+): string {
+  const kind = resolveTrafficType(args);
+  if (kind === "paid") {
+    return "ID de clique real (gclid/gbraid/wbraid/msclkid/fbclid/ttclid). Pode atribuir conversão às Ads.";
+  }
+  if (kind === "organic") {
+    return "Sem sinais de anúncio (UTM/cpc) nem ID de clique.";
+  }
+  const macros = listUnreplacedClickIdMacros(args);
+  if (macros.length > 0) {
+    return `Macro não substituída (${macros.join(", ")}). Abre o anúncio real no Google Ads — não copies o URL do Construtor com {gclid}. Auto-tagging da conta deve estar ligado.`;
+  }
+  if (args.visitorKind === "datacenter") {
+    return "UTM/cpc sem ID de clique + IP cloud. Tipicamente AdsBot, preview ou servidor — não é comprador. Confirma auto-tagging e que a Final URL preserva ?gclid=…";
+  }
+  return "UTM/cpc sem gclid/gbraid/wbraid. No Google Ads: Definições da conta → auto-tagging ON; Final URL (ou suffix) com UTMs; testa a landing com ?gclid=TesTER-123 e confirma que o parâmetro fica na barra.";
+}

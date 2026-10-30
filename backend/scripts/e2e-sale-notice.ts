@@ -173,12 +173,19 @@ async function main() {
       title: "Venda E2E",
       slug: `e2e-sale-${stamp}`,
       type: "tsl",
-      status: "published",
+      status: "draft",
       content: { title: "Venda E2E", affiliateLink: OFFER, salesText: "Oferta" },
     }),
   });
   const pageId = (created.body as { id?: string })?.id;
   if (!pageId) throw new Error("presell " + JSON.stringify(created.body));
+
+  /** Bypass compliance gate — este E2E valida avisos de venda, não ads publish. */
+  await systemPrisma.presellPage.update({
+    where: { id: pageId },
+    data: { status: "published", complianceGate: "ready_for_review" },
+  });
+  record("presell forçada a published (bypass compliance)", true, pageId);
 
   const click = await origFetch(`${BASE}/api/track/r/${pageId}?to=${encodeURIComponent(OFFER)}`, {
     headers: { "user-agent": "Mozilla/5.0 Chrome/124", accept: "application/json" },

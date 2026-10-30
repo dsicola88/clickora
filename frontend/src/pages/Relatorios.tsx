@@ -24,7 +24,7 @@ import {
   normalizeIsoCountryCode,
 } from "@/lib/countryDisplay";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
-import { resolveTrafficType } from "@/lib/networkClickId";
+import { explainTrafficTypeLabel, resolveTrafficType } from "@/lib/networkClickId";
 import {
   resolveClickVisitorQuality,
   type ClickVisitorKind,
@@ -139,30 +139,30 @@ function originFromEvent(e: TrackingEvent) {
   return "—";
 }
 
-function paidLabel(e: TrackingEvent) {
+function paidTrafficArgs(e: TrackingEvent) {
   const meta = e.metadata || {};
-  const g = typeof meta.gclid === "string" ? meta.gclid : e.gclid || "";
-  const m = typeof meta.msclkid === "string" ? meta.msclkid : e.msclkid || "";
-  const f = typeof meta.fbclid === "string" ? meta.fbclid : "";
-  const t = typeof meta.ttclid === "string" ? meta.ttclid : "";
-  const gb = typeof meta.gbraid === "string" ? meta.gbraid : "";
-  const wb = typeof meta.wbraid === "string" ? meta.wbraid : "";
-  const resolved =
-    e.traffic_type ||
-    resolveTrafficType({
-      source: e.source,
-      medium: e.medium,
-      utm_source: e.utm_source,
-      gclid: g,
-      msclkid: m,
-      fbclid: f,
-      ttclid: t,
-      gbraid: gb,
-      wbraid: wb,
-    });
+  return {
+    source: e.source,
+    medium: e.medium,
+    utm_source: e.utm_source,
+    gclid: typeof meta.gclid === "string" ? meta.gclid : e.gclid || "",
+    msclkid: typeof meta.msclkid === "string" ? meta.msclkid : e.msclkid || "",
+    fbclid: typeof meta.fbclid === "string" ? meta.fbclid : "",
+    ttclid: typeof meta.ttclid === "string" ? meta.ttclid : "",
+    gbraid: typeof meta.gbraid === "string" ? meta.gbraid : "",
+    wbraid: typeof meta.wbraid === "string" ? meta.wbraid : "",
+  };
+}
+
+function paidLabel(e: TrackingEvent) {
+  const resolved = e.traffic_type || resolveTrafficType(paidTrafficArgs(e));
   if (resolved === "paid") return "Pago";
   if (resolved === "paid_untracked") return "Ads (sem ID)";
   return "Orgânico";
+}
+
+function paidTypeTitle(e: TrackingEvent, visitorKind: ClickVisitorKind) {
+  return explainTrafficTypeLabel({ ...paidTrafficArgs(e), visitorKind });
 }
 
 function CheckoutPageCell({ url, host }: { url?: string | null; host?: string | null }) {
@@ -239,6 +239,8 @@ export default function Relatorios() {
   const [gclidFilter, setGclidFilter] = useState("");
   /** all | real | bot | datacenter */
   const [situationFilter, setSituationFilter] = useState<string>("all");
+  /** all | paid | paid_untracked | organic */
+  const [trafficTypeFilter, setTrafficTypeFilter] = useState<string>("all");
   const [perPage, setPerPage] = useState("25");
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
@@ -272,7 +274,9 @@ export default function Relatorios() {
         /** Com filtro Situação / pesquisa: exporta o que está no ecrã (enterprise). */
         const filtered = kind === "impression" ? accessFiltered : clickFiltered;
         const useFilteredView =
-          (situationFilter && situationFilter !== "all") || Boolean(searchTerm.trim());
+          (situationFilter && situationFilter !== "all") ||
+          (trafficTypeFilter && trafficTypeFilter !== "all") ||
+          Boolean(searchTerm.trim());
         if (useFilteredView) {
           const cols = [
             { key: "ip", header: "IP" },
@@ -560,6 +564,7 @@ export default function Relatorios() {
         e.checkout_page ||
         (typeof meta.redirect_to === "string" ? meta.redirect_to : "") ||
         "";
+      const q = resolveClickVisitorQuality(e);
       return {
         id: e.id,
         ip: e.ip_address || "—",
@@ -575,14 +580,15 @@ export default function Relatorios() {
         os: e.os || "—",
         origin: originFromEvent(e),
         type: paidLabel(e),
+        typeKind: e.traffic_type || resolveTrafficType(paidTrafficArgs(e)),
+        typeTitle: paidTypeTitle(e, q.kind),
         country: e.country || "—",
         region: regionParts.length ? regionParts.join(" · ") : "—",
         checkout_page: checkoutFromMeta,
         checkout_host: e.checkout_host || "",
-        ...(() => {
-          const q = resolveClickVisitorQuality(e);
-          return { status: q.label, statusKind: q.kind, statusTitle: q.detail };
-        })(),
+        status: q.label,
+        statusKind: q.kind,
+        statusTitle: q.detail,
       };
     });
   }, [impressionsQuery.data]);
@@ -621,6 +627,8 @@ export default function Relatorios() {
         os: e.os || "—",
         origin: originFromEvent(e),
         type: paidLabel(e),
+        typeKind: e.traffic_type || resolveTrafficType(paidTrafficArgs(e)),
+        typeTitle: paidTypeTitle(e, quality.kind),
         country: e.country || "—",
         region: regionParts.length ? regionParts.join(" · ") : "—",
         checkout_page: checkoutFromMeta,
@@ -736,6 +744,11 @@ export default function Relatorios() {
     return rows.filter((r) => r.statusKind === situationFilter);
   };
 
+  const filterByTrafficType = <T extends { typeKind: string }>(rows: T[]) => {
+    if (!trafficTypeFilter || trafficTypeFilter === "all") return rows;
+    return rows.filter((r) => r.typeKind === trafficTypeFilter);
+  };
+
   const situationCounts = useMemo(() => {
     const rows = tab === "cliques" ? clickRows : impressionRows;
     const c = { real: 0, bot: 0, datacenter: 0 };
@@ -747,41 +760,56 @@ export default function Relatorios() {
     return c;
   }, [tab, clickRows, impressionRows]);
 
-  const accessFiltered = filterBySituation(
-    filterBySearch(impressionRows, [
-      "ip",
-      "eventLabel",
-      "keyword",
-      "utm_campaign",
-      "utm_content",
-      "device",
-      "country",
-      "region",
-      "origin",
-      "type",
-      "status",
-      "checkout_page",
-      "checkout_host",
-    ]),
+  const trafficTypeCounts = useMemo(() => {
+    const rows = tab === "cliques" ? clickRows : impressionRows;
+    const c = { paid: 0, paid_untracked: 0, organic: 0 };
+    for (const r of rows) {
+      if (r.typeKind === "paid") c.paid += 1;
+      else if (r.typeKind === "paid_untracked") c.paid_untracked += 1;
+      else c.organic += 1;
+    }
+    return c;
+  }, [tab, clickRows, impressionRows]);
+
+  const accessFiltered = filterByTrafficType(
+    filterBySituation(
+      filterBySearch(impressionRows, [
+        "ip",
+        "eventLabel",
+        "keyword",
+        "utm_campaign",
+        "utm_content",
+        "device",
+        "country",
+        "region",
+        "origin",
+        "type",
+        "status",
+        "checkout_page",
+        "checkout_host",
+      ]),
+    ),
   );
   const accessDisplay = paginate(accessFiltered);
-  const clickFiltered = filterBySituation(
-    filterBySearch(clickRows, [
-      "ip",
-      "clickId",
-      "eventLabel",
-      "keyword",
-      "utm_campaign",
-      "utm_content",
-      "device",
-      "country",
-      "region",
-      "origin",
-      "type",
-      "status",
-      "checkout_page",
-      "checkout_host",
-    ]),
+  const clickFiltered = filterByTrafficType(
+    filterBySituation(
+      filterBySearch(clickRows, [
+        "ip",
+        "clickId",
+        "eventLabel",
+        "keyword",
+        "utm_campaign",
+        "utm_content",
+        "device",
+        "country",
+        "region",
+        "origin",
+        "type",
+        "status",
+        "checkout_page",
+        "checkout_host",
+      ]),
+    ),
   );
   const clickDisplay = paginate(clickFiltered);
   const convDisplay = paginate(
@@ -965,6 +993,7 @@ export default function Relatorios() {
     <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
       <div className="flex flex-col lg:flex-row flex-wrap items-end gap-4">
         {showSituation ? (
+          <>
           <div className="space-y-2 min-w-[180px]">
             <Label>Situação</Label>
             <Select
@@ -987,6 +1016,31 @@ export default function Relatorios() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2 min-w-[180px]">
+            <Label>Tipo</Label>
+            <Select
+              value={trafficTypeFilter}
+              onValueChange={(v) => {
+                setTrafficTypeFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  Todos ({trafficTypeCounts.paid + trafficTypeCounts.paid_untracked + trafficTypeCounts.organic})
+                </SelectItem>
+                <SelectItem value="paid">Pago ({trafficTypeCounts.paid})</SelectItem>
+                <SelectItem value="paid_untracked">
+                  Ads (sem ID) ({trafficTypeCounts.paid_untracked})
+                </SelectItem>
+                <SelectItem value="organic">Orgânico ({trafficTypeCounts.organic})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          </>
         ) : null}
         {showPlatformGclid ? (
           <>
@@ -1041,6 +1095,21 @@ export default function Relatorios() {
         subtitle="Eventos e conversões com o mesmo filtro de bots que os resultados. Separadores com URL próprio · exportar CSV."
       />
       <SyncHealthBanner className="mb-4" syncHealth={dashQuery.data?.sync_health} />
+
+      {(tab === "cliques" || tab === "acessos") && trafficTypeCounts.paid_untracked > 0 ? (
+        <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">
+          <p className="font-medium text-amber-950 dark:text-amber-100">
+            {trafficTypeCounts.paid_untracked} acesso(s) «Ads (sem ID)» neste período
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Há UTM/cpc (ex. google_ads) mas falta gclid/gbraid/wbraid real. No Google Ads: Conta → Definições →
+            auto-tagging ligado; na Final URL (ou suffix) mantém UTMs; testa a landing com{" "}
+            <span className="font-mono text-[11px]">?gclid=TesTER-123</span> e confirma que o parâmetro fica na
+            barra. IP «Datacenter (Google)» + sem ID costuma ser AdsBot/preview — não é comprador. Filtra Tipo =
+            Ads (sem ID) abaixo para rever.
+          </p>
+        </div>
+      ) : null}
 
       {compareRange && (tab === "cliques" || tab === "acessos") ? (
         <div className="mb-4 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
@@ -1291,13 +1360,7 @@ export default function Relatorios() {
                                       ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                                       : "bg-muted text-muted-foreground"
                                 }`}
-                                title={
-                                  row.type === "Ads (sem ID)"
-                                    ? "Anúncio sem o identificador do clique (teste ou link incompleto)"
-                                    : row.type === "Pago"
-                                      ? "Sinais de anúncio (gclid/UTM) — não prova visitante humano"
-                                      : undefined
-                                }
+                                title={row.typeTitle || undefined}
                               >
                                 {row.type}
                               </span>
@@ -1546,13 +1609,7 @@ export default function Relatorios() {
                                       ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                                       : "bg-muted text-muted-foreground"
                                 }`}
-                                title={
-                                  row.type === "Ads (sem ID)"
-                                    ? "Anúncio sem o identificador do clique (teste ou link incompleto)"
-                                    : row.type === "Pago"
-                                      ? "Sinais de anúncio (gclid/UTM) — não prova visitante humano"
-                                      : undefined
-                                }
+                                title={row.typeTitle || undefined}
                               >
                                 {row.type}
                               </span>

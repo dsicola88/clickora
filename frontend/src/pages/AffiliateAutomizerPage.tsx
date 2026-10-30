@@ -115,6 +115,36 @@ export default function AffiliateAutomizerPage() {
         subtitle="Pausa palavras-chave sem vendas e actualiza o custo em Resultados. Comece em simulação."
       />
 
+      {data && (data.cost_sync_stale || !data.cost_sync_ok) ? (
+        <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">
+          <p className="font-medium text-amber-950 dark:text-amber-100">
+            {data.cost_sync_stale
+              ? "Custos desactualizados (>48h)"
+              : "Ainda sem custo do período"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            {data.last_cost_sync_at
+              ? `Última sync: ${new Date(data.last_cost_sync_at).toLocaleString("pt-PT")}. `
+              : null}
+            {data.google_ads_ready
+              ? "Actualize custos agora para o ROAS do período ficar correcto."
+              : "Ligue o Google Ads em Integrações para sincronizar custos."}{" "}
+            <Link to="/integracoes/google-ads" className="font-medium text-primary underline underline-offset-2">
+              Google Ads
+            </Link>
+          </p>
+        </div>
+      ) : null}
+
+      {!dryRun && enabled ? (
+        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+          <p className="font-medium text-foreground">Modo real activo</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A simulação está desligada — «Aplicar pausas agora» pausa keywords de verdade no Google Ads.
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
       <section className="max-w-none space-y-5 rounded-lg border border-border/70 bg-card p-5">
         <div className="flex items-start gap-3">
@@ -126,6 +156,14 @@ export default function AffiliateAutomizerPage() {
             <p>
               Comece em <strong className="text-foreground">simulação</strong> (só regista o que pausaria). Depois desligue a simulação.
             </p>
+            {data?.last_cost_sync_at && data.cost_sync_ok ? (
+              <p className="text-[11px]">
+                Custos OK · última sync{" "}
+                <span className="font-mono tabular-nums text-foreground/80">
+                  {new Date(data.last_cost_sync_at).toLocaleString("pt-PT")}
+                </span>
+              </p>
+            ) : null}
           </div>
         </div>
 

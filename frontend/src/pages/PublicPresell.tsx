@@ -215,9 +215,17 @@ function buildImpressionPixelUrl(apiBase: string, pageId: string, pageSearch: UR
     "sub3",
     ...VOLUUM_STYLE_TRACKING_KEYS,
   ] as const;
+  const clickIdKeys = new Set(["gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid"]);
   for (const k of keys) {
-    const v = pageSearch.get(k);
-    if (v) params.set(k, v);
+    const raw = pageSearch.get(k)?.trim();
+    if (!raw) continue;
+    /** Não gravar macros literais `{gclid}` — senão o relatório marca Ads (sem ID) falso. */
+    if (clickIdKeys.has(k)) {
+      if (!isRealNetworkClickId(raw)) continue;
+    } else if (/^\{[\w.]+\}$/.test(raw) || /^\{\{/.test(raw) || /^%7B[\w.]+%7D$/i.test(raw)) {
+      continue;
+    }
+    params.set(k, raw);
   }
   try {
     const ck = typeof document !== "undefined" ? document.cookie || "" : "";

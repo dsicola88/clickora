@@ -259,6 +259,11 @@ export const integrationsService = {
       lookback_days: number;
       meta_ads_account_id: string | null;
       tiktok_advertiser_id: string | null;
+      /** ISO — última sync de custos (ad_platform_cost_daily). */
+      last_cost_sync_at?: string | null;
+      cost_sync_ok?: boolean;
+      cost_sync_stale?: boolean;
+      google_ads_ready?: boolean;
       recent_logs: Array<{
         id: string;
         action: string;

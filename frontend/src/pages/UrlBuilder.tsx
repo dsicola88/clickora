@@ -605,13 +605,21 @@ export default function UrlBuilder() {
                   className="font-mono text-sm max-w-4xl"
                 />
                 {platform === "Google Ads" && (
-                  <p className="text-[11px] text-muted-foreground max-w-4xl">
-                    Usa o URL da página presell (rota <span className="font-mono">/p/…</span>). Os parâmetros incluem{" "}
-                    <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
-                      gclid=&#123;gclid&#125;
-                    </strong>{" "}
-                    e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
-                  </p>
+                  <div className="space-y-1.5 max-w-4xl text-[11px] text-muted-foreground">
+                    <p>
+                      Usa o URL da página presell (rota <span className="font-mono">/p/…</span>). Os parâmetros incluem{" "}
+                      <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
+                        gclid=&#123;gclid&#125;
+                      </strong>{" "}
+                      e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
+                    </p>
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-amber-950 dark:text-amber-100">
+                      Obrigatório: Conta Google Ads → Definições → <strong>auto-tagging ligado</strong>. Sem isso o
+                      relatório marca «Ads (sem ID)» (UTM sem gclid). Preferir o{" "}
+                      <strong>sufixo do URL final</strong> abaixo; não abras o link do Construtor com{" "}
+                      <span className="font-mono">{"{gclid}"}</span> literal no browser.
+                    </p>
+                  </div>
                 )}
               </div>
 
