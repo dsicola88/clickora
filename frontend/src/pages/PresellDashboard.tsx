@@ -69,6 +69,7 @@ import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
   getPublicPresellFullUrl,
+  isCustomDomainHttpsPendingForPresell,
   getPublicPresellOriginForPresell,
   listVerifiedHostingDomains,
   resolveDefaultCustomDomainIdForAccount,
@@ -279,6 +280,10 @@ export default function PresellDashboard() {
         wantPublished,
         publicUrl,
         trackApiBase: resolveTrackApiBaseForExport(customDomains, publicUrl),
+        customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(
+          customDomains,
+          created.custom_domain_id,
+        ),
       });
       if (pub.block && wantPublished) {
         toast.warning(`Em rascunho: ${pub.block.label}. ${pub.block.hint || ""}`.trim());
@@ -714,6 +719,10 @@ export default function PresellDashboard() {
               mirrorHtml: mirrorToSave || undefined,
               customDomainId: formData.customDomainId || editingPage.custom_domain_id || null,
               publicUrl: getPublicPresellFullUrl(customDomains, editingPage.custom_domain_id, editingPage),
+              customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(
+                customDomains,
+                formData.customDomainId || editingPage.custom_domain_id || null,
+              ),
             }),
           );
           if (block) {
@@ -898,16 +907,14 @@ export default function PresellDashboard() {
           return;
         }
       }
+      const domainId = full.custom_domain_id || page.custom_domain_id || null;
       const items = buildPublishReadinessFromPresell({
         status: "published",
         affiliateLink: affiliate,
         mirrorHtml: mirror || null,
-        customDomainId: full.custom_domain_id || page.custom_domain_id || null,
-        publicUrl: getPublicPresellFullUrl(
-          customDomains,
-          full.custom_domain_id || page.custom_domain_id,
-          full,
-        ),
+        customDomainId: domainId,
+        publicUrl: getPublicPresellFullUrl(customDomains, domainId, full),
+        customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(customDomains, domainId),
       });
       const block = publishBlockedByReadiness(items);
       if (block) {
@@ -1516,6 +1523,10 @@ export default function PresellDashboard() {
                 publicUrl: editingPage
                   ? getPublicPresellFullUrl(customDomains, editingPage.custom_domain_id, editingPage)
                   : presellUrlPreview.fullUrl || null,
+                customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(
+                  customDomains,
+                  formData.customDomainId || editingPage?.custom_domain_id || null,
+                ),
               })}
             />
 

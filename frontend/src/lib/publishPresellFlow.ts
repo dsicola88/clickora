@@ -19,6 +19,8 @@ export async function bakeAndMaybePublishPresell(args: {
   publicUrl?: string | null;
   /** Base /api preferida (domínio tracking da conta ou host da lander). */
   trackApiBase?: string | null;
+  /** Domínio Vercel seleccionado ainda sem HTTPS pronto. */
+  customDomainHttpsPending?: boolean;
 }): Promise<{
   page: Presell;
   readiness: PublishReadinessItem[];
@@ -47,6 +49,7 @@ export async function bakeAndMaybePublishPresell(args: {
     mirrorHtml: typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : null,
     customDomainId: args.page.custom_domain_id || null,
     publicUrl: args.publicUrl || null,
+    customDomainHttpsPending: args.customDomainHttpsPending,
   });
   const block = publishBlockedByReadiness(readinessPreview);
   const tryPublish = args.wantPublished && !block;
@@ -67,6 +70,7 @@ export async function bakeAndMaybePublishPresell(args: {
     mirrorHtml: typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : null,
     customDomainId: live.custom_domain_id || null,
     publicUrl: args.publicUrl || null,
+    customDomainHttpsPending: args.customDomainHttpsPending,
   });
 
   return {

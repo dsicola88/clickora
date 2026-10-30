@@ -21,7 +21,11 @@ import { campaignsService, buildTrackedPresellUrl } from "@/services/campaignsSe
 import { presellService } from "@/services/presellService";
 import { customDomainService } from "@/services/customDomainService";
 import { trafficRotatorsService } from "@/services/trafficRotatorsService";
-import { getPublicPresellFullUrl, listVerifiedHostingDomains } from "@/lib/publicPresellOrigin";
+import {
+  getPublicPresellFullUrl,
+  isCustomDomainHttpsPendingForPresell,
+  listVerifiedHostingDomains,
+} from "@/lib/publicPresellOrigin";
 import { resolveVideoEmbedSrc, buildYoutubeEmbedUrlForPresell } from "@/lib/youtubeEmbed";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeOption } from "@/lib/presellTypeOptions";
@@ -364,6 +368,10 @@ export default function CreatePresellWizardPage() {
         wantPublished: a.mirrorOk,
         publicUrl: publicUrlA,
         trackApiBase: resolveTrackApiBaseForExport(customDomains, publicUrlA),
+        customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(
+          customDomains,
+          pageA.custom_domain_id ?? null,
+        ),
       });
       const pageALive = pubA.page;
       const complianceBlocked = pubA.complianceBlocked;
@@ -415,6 +423,10 @@ export default function CreatePresellWizardPage() {
           wantPublished: b.mirrorOk,
           publicUrl: publicUrlB,
           trackApiBase: resolveTrackApiBaseForExport(customDomains, publicUrlB),
+          customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(
+            customDomains,
+            createdB.custom_domain_id ?? null,
+          ),
         });
         pageB = pubB.page;
 

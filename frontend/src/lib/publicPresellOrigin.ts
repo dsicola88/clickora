@@ -48,6 +48,22 @@ export function listAdReadyHostingDomains(
 }
 
 /**
+ * Presell aponta a um domínio Vercel ainda sem HTTPS pronto.
+ * Usado na checklist de publicação (aviso — Final URL cai na app).
+ */
+export function isCustomDomainHttpsPendingForPresell(
+  domains: CustomDomainDto[] | null | undefined,
+  customDomainId: string | null | undefined,
+): boolean {
+  const id = customDomainId?.trim();
+  if (!id) return false;
+  const d = (domains ?? []).find((x) => x.id === id);
+  if (!d || d.status !== "verified" || d.purpose === "tracking") return false;
+  if (!d.vercel_domain_registered) return false;
+  return !isCustomDomainAdReady(d);
+}
+
+/**
  * ID do domínio verificado quando a presell não tem `custom_domain_id` explícito.
  * Alinhado com o backend e a migração: `is_default` primeiro, depois o mais antigo (`created_at`).
  * Ignora domínios só de tracking.
