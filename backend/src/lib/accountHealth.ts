@@ -30,6 +30,22 @@ export type AccountHealth = {
   timezone: "UTC";
 };
 
+/** Com Google Ads ligado, sync de custos >48h → ROAS do período não é de confiança. */
+export const COST_SYNC_STALE_MS = 48 * 60 * 60 * 1000;
+
+export function evaluateCostSyncFreshness(args: {
+  syncedAt: Date | null | undefined;
+  googleReady: boolean;
+  nowMs?: number;
+  maxAgeMs?: number;
+}): { ok: boolean; stale: boolean } {
+  const { syncedAt, googleReady } = args;
+  if (!syncedAt) return { ok: false, stale: false };
+  const age = (args.nowMs ?? Date.now()) - syncedAt.getTime();
+  const stale = googleReady && age > (args.maxAgeMs ?? COST_SYNC_STALE_MS);
+  return { ok: !stale, stale };
+}
+
 /**
  * Saúde operacional da conta — o que um media buyer verifica antes de confiar no ROAS.
  */
@@ -102,8 +118,13 @@ export async function buildAccountHealth(args: {
 
   const webhookOk = planAllowsAffiliateWebhook(sub?.plan);
   const googleOk = pipelineUser ? isGoogleAdsMetricsReadyForUser(pipelineUser) : false;
-  const costOk = Boolean(costSyncRow?.syncedAt);
   const last_cost_sync_at = costSyncRow?.syncedAt?.toISOString() ?? null;
+  const costFreshness = evaluateCostSyncFreshness({
+    syncedAt: costSyncRow?.syncedAt,
+    googleReady: googleOk,
+  });
+  const costStale = costFreshness.stale;
+  const costOk = costFreshness.ok;
 
   const checks: AccountHealthCheck[] = [
     {
@@ -162,7 +183,9 @@ export async function buildAccountHealth(args: {
       title: "Custos do período",
       detail: costOk
         ? `Última actualização ${last_cost_sync_at ? new Date(last_cost_sync_at).toLocaleString("pt-PT") : ""}`
-        : "Ainda sem custo do período. Ligue o Google Ads ou actualize os custos.",
+        : costStale
+          ? `Custos desactualizados (última sync há mais de 48h). Actualize em Integrações → Automizer.`
+          : "Ainda sem custo do período. Ligue o Google Ads ou actualize os custos.",
       href: "/integracoes/automizer",
     },
     {

@@ -61,12 +61,26 @@ function main() {
     "ok",
   );
   record(
-    "account_health inclui domain_https + ads_upload",
+    "account_health inclui domain_https + ads_upload + cost freshness",
     health.includes('id: "domain_https"') &&
       health.includes("summarizeUserDomainGoLive") &&
       health.includes('id: "ads_upload"') &&
       health.includes("loadSyncHealth") &&
-      health.includes("formatSyncHealthDetail"),
+      health.includes("formatSyncHealthDetail") &&
+      health.includes("evaluateCostSyncFreshness") &&
+      health.includes("COST_SYNC_STALE_MS") &&
+      health.includes("desactualizados"),
+    "ok",
+  );
+
+  const reportHref = readFileSync(
+    join(process.cwd(), "../frontend/src/lib/syncHealthReportHref.ts"),
+    "utf8",
+  );
+  record(
+    "SyncHealthBanner deep-link sem-gclid",
+    reportHref.includes("/resultados/relatorios/sem-gclid") &&
+      banner.includes("syncHealthReportHref"),
     "ok",
   );
 

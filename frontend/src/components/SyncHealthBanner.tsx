@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { syncHealthReportHref, syncHealthReportLabel } from "@/lib/syncHealthReportHref";
 
 export type SyncHealthPayload = {
   period_days: number;
@@ -54,14 +55,15 @@ export function SyncHealthBanner({
   if (noTtclid > 0) {
     parts.push(`${noTtclid} venda(s) sem ttclid (não enviadas ao TikTok)`);
   }
+  const reportHref = syncHealthReportHref(syncHealth);
   return (
     <Alert className={`border-amber-500/35 bg-amber-500/[0.07] text-foreground ${className ?? ""}`}>
       <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
       <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envios para plataformas de anúncios</AlertTitle>
       <AlertDescription className="text-sm text-muted-foreground">
         Últimos {syncHealth.period_days}d (UTC): {parts.join(" · ")}. Detalhes em{" "}
-        <Link className="font-medium text-primary underline underline-offset-2" to="/resultados/relatorios/conversoes">
-          Relatórios → Conversões
+        <Link className="font-medium text-primary underline underline-offset-2" to={reportHref}>
+          {syncHealthReportLabel(reportHref)}
         </Link>
         {" — "}revise tokens/IDs em Integrações.
       </AlertDescription>
