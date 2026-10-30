@@ -739,7 +739,7 @@ function GoogleAdsOfflineFileExportCard({
   );
 }
 
-function MetaCapiIntegrationCard({
+export function MetaCapiIntegrationCard({
   metaCapi,
   metaEnabled,
   setMetaEnabled,
@@ -891,7 +891,7 @@ function MetaCapiIntegrationCard({
   );
 }
 
-function TiktokEventsIntegrationCard({
+export function TiktokEventsIntegrationCard({
   tiktok,
   ttEnabled,
   setTtEnabled,
