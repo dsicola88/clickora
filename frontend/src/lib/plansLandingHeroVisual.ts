@@ -33,7 +33,7 @@ export const DEFAULT_PLANS_HERO_VISUAL: PlansHeroVisual = {
   min_height_mobile_px: 420,
   min_height_desktop_px: 560,
   cta_enabled: true,
-  cta_label: "Começar grátis",
+  cta_label: "Testar gratuitamente",
   cta_href: "/auth",
 };
 

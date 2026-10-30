@@ -41,6 +41,8 @@ import { DEFAULT_LANDING_HERO_IMAGE, coercePlansHeroVisual } from "@/lib/plansLa
 import { asSalesPageDocument } from "@/lib/salesLandingBuilderDoc";
 import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
+import { SalesLandingPromoOverlays } from "@/components/plans/SalesLandingPromoOverlays";
+import { DEFAULT_SALES_LANDING_PROMOS } from "@/lib/salesLandingPromos";
 
 export default function Plans() {
   const navigate = useNavigate();
@@ -123,7 +125,8 @@ export default function Plans() {
 
   if (builderDoc) {
     const chrome = landingExtrasEarly.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
-    const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "Clickora";
+    const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "dclickora";
+    const brandLogo = chrome.brand_logo_url?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_logo_url;
     const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || "Entrar";
     const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || "Painel";
     const salesThemed = resolveLandingPageTheme(landingExtrasEarly.theme);
@@ -131,9 +134,11 @@ export default function Plans() {
       (typeof builderDoc.settings?.background === "string" && builderDoc.settings.background) ||
       salesThemed.page_background ||
       "#0b1220";
+    const promos = landingExtrasEarly.promos ?? DEFAULT_SALES_LANDING_PROMOS;
 
     return (
       <div className="min-h-svh w-full" style={{ backgroundColor: pageBg }}>
+        <SalesLandingPromoOverlays promos={promos} accentFallback={salesThemed.accent} />
         <div
           className="sticky top-0 z-40 border-b backdrop-blur-md"
           style={{
@@ -145,8 +150,12 @@ export default function Plans() {
             className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6"
             aria-label="Ações da página"
           >
-            <Link to="/" className="text-base font-semibold tracking-tight text-white">
-              {brandLabel}
+            <Link to="/" className="flex items-center gap-2 text-base font-semibold tracking-tight text-white">
+              {brandLogo ? (
+                <img src={brandLogo} alt={brandLabel} className="h-9 w-auto object-contain" />
+              ) : (
+                brandLabel
+              )}
             </Link>
             <div className="flex items-center gap-3 sm:gap-5">
               {userPlan ? (
@@ -182,9 +191,9 @@ export default function Plans() {
   if (isError) return <ErrorState message="Erro ao carregar planos." onRetry={() => refetch()} />;
   if (plans.length === 0) return <ErrorState message="Nenhum plano disponivel no momento." onRetry={() => refetch()} />;
 
-  const defaultHeroTitle = "Da criação da presell ao acompanhamento das vendas. Tudo num só lugar.";
+  const defaultHeroTitle = "CONHEÇA O TRACKING E A PRESELL QUE FECHAM O FUNIL";
   const defaultHeroSubtitle =
-    "Crie páginas para as suas ofertas, prepare as suas campanhas de anúncios e acompanhe os resultados sem precisar de juntar várias ferramentas.";
+    "Trackeie cliques e vendas com precisão. Publique presells sem WordPress e aumente o controlo do funil — teste grátis sem cartão nesta página.";
   /** Respeita o que o SuperAdmin gravou; só usa default se estiver vazio. */
   const heroTitle = landing?.hero_title?.trim() || defaultHeroTitle;
   const heroSubtitle = landing?.hero_subtitle?.trim() || defaultHeroSubtitle;
@@ -210,10 +219,22 @@ export default function Plans() {
   const lb = mergeWithDefaultLabels(landing?.plan_display_labels);
   const extras = landingExtrasEarly;
   const chrome = extras.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
-  const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "Clickora";
+  const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "dclickora";
+  const brandLogo = chrome.brand_logo_url?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_logo_url;
   const buyLabel = chrome.buy_label?.trim() || DEFAULT_LANDING_SITE_CHROME.buy_label || "Comprar";
   const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || "Entrar";
   const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || "Painel";
+  const secondaryCtaOn =
+    chrome.hero_secondary_cta_enabled !== false &&
+    Boolean(chrome.hero_secondary_cta_label?.trim() || DEFAULT_LANDING_SITE_CHROME.hero_secondary_cta_label);
+  const secondaryCtaLabel =
+    chrome.hero_secondary_cta_label?.trim() ||
+    DEFAULT_LANDING_SITE_CHROME.hero_secondary_cta_label ||
+    "Falar com especialista";
+  const secondaryCtaHref =
+    chrome.hero_secondary_cta_href?.trim() ||
+    DEFAULT_LANDING_SITE_CHROME.hero_secondary_cta_href ||
+    "/auth";
   const ts = extras.text_styles ?? undefined;
   const salesDark = extras.appearance === "sales_dark";
   const sectionsOn = resolveSectionsEnabled(extras.sections_enabled);
@@ -221,6 +242,7 @@ export default function Plans() {
   const heroCtaLabel = heroVisual.cta_label?.trim() ?? "";
   const heroCtaHref = heroVisual.cta_href?.trim() || "#planos";
   const showHeroCta = heroVisual.cta_enabled && Boolean(heroCtaLabel);
+  const promos = extras.promos ?? DEFAULT_SALES_LANDING_PROMOS;
   const showProductDemo = sectionsOn.product_demo && extras.product_demo != null;
   const salesThemed = resolveLandingPageTheme(extras.theme);
   const numLocale = lb.locale || "pt-BR";
@@ -257,6 +279,7 @@ export default function Plans() {
             : undefined
         }
       >
+      <SalesLandingPromoOverlays promos={promos} accentFallback={salesThemed.accent} />
       <div
         className={cn(
           APP_PAGE_SHELL_LOOSE,
@@ -279,8 +302,12 @@ export default function Plans() {
           aria-label="Ações da página"
         >
           {salesDark ? (
-            <Link to="/" className="text-base font-semibold tracking-tight text-white">
-              {brandLabel}
+            <Link to="/" className="flex items-center gap-2 text-base font-semibold tracking-tight text-white">
+              {brandLogo ? (
+                <img src={brandLogo} alt={brandLabel} className="h-9 w-auto max-w-[160px] object-contain" />
+              ) : (
+                brandLabel
+              )}
             </Link>
           ) : null}
           {salesDark ? (
@@ -491,19 +518,33 @@ export default function Plans() {
                 {extras.hero_note}
               </p>
             ) : null}
-            {showHeroCta ? (
-              <Button
-                size="lg"
-                className="h-12 border-0 px-6 text-base text-white hover:opacity-[0.92]"
-                style={{
-                  backgroundColor: salesThemed.accent,
-                  boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
-                  ...resolvedAccentButtonRadiusStyle(salesThemed),
-                }}
-                asChild
-              >
-                <a href={heroCtaHref}>{heroCtaLabel}</a>
-              </Button>
+            {(showHeroCta || secondaryCtaOn) ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                {showHeroCta ? (
+                  <Button
+                    size="lg"
+                    className="h-12 border-0 px-6 text-base font-semibold text-[#0b1220] hover:opacity-[0.92]"
+                    style={{
+                      backgroundColor: salesThemed.accent,
+                      boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
+                      ...resolvedAccentButtonRadiusStyle(salesThemed),
+                    }}
+                    asChild
+                  >
+                    <a href={heroCtaHref}>{heroCtaLabel}</a>
+                  </Button>
+                ) : null}
+                {secondaryCtaOn ? (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-12 border-white/25 bg-transparent px-6 text-base text-white hover:bg-white/10"
+                    asChild
+                  >
+                    <a href={secondaryCtaHref}>{secondaryCtaLabel}</a>
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
           {showProductDemo && extras.product_demo ? <SalesProductDemo demo={extras.product_demo} /> : null}

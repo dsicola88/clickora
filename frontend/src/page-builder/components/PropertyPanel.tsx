@@ -334,6 +334,7 @@ function WidgetPanel({
       hint={
         <p className="text-[10px] leading-relaxed text-editor-fg-muted">
           A editar este elemento. Conteúdo = texto/link · Estilo = cores e tipografia · Avançado =
+          motion Pro (entrada no scroll, sticky, mouse, hover) ·
           margem, posição e CSS.
         </p>
       }

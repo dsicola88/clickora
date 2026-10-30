@@ -4,6 +4,11 @@ import type { LandingSectionId } from "./landingSectionLayout";
 import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
 import type { LandingTextStylesPublic } from "@/lib/plansLandingTextStyles";
 import { coerceLandingTextStyles } from "@/lib/plansLandingTextStyles";
+import {
+  coerceSalesLandingPromos,
+  DEFAULT_SALES_LANDING_PROMOS,
+  type SalesLandingPromos,
+} from "@/lib/salesLandingPromos";
 
 export type LandingExtrasAppearance = "default" | "sales_dark";
 
@@ -148,9 +153,15 @@ export interface LandingPlanTaglines {
 /** Nav, promo Agency e SEO da landing — editável no SuperAdmin. */
 export interface LandingSiteChrome {
   brand_label: string | null;
+  /** URL do logotipo (ex. /brand-dclickora.png). Vazio = só texto. */
+  brand_logo_url: string | null;
   buy_label: string | null;
   login_label: string | null;
   panel_label: string | null;
+  /** Segundo CTA do hero (ghost), estilo Utmify. */
+  hero_secondary_cta_enabled: boolean;
+  hero_secondary_cta_label: string | null;
+  hero_secondary_cta_href: string | null;
   show_objective_nav: boolean;
   objective_nav_label: string | null;
   objective_links: { label: string; href: string }[];
@@ -163,23 +174,29 @@ export interface LandingSiteChrome {
 }
 
 export const DEFAULT_LANDING_SITE_CHROME: LandingSiteChrome = {
-  brand_label: "Clickora",
+  brand_label: "dclickora",
+  brand_logo_url: "/brand-dclickora.png",
   buy_label: "Comprar",
   login_label: "Entrar",
   panel_label: "Painel",
+  hero_secondary_cta_enabled: true,
+  hero_secondary_cta_label: "Falar com especialista",
+  hero_secondary_cta_href: "/auth",
   show_objective_nav: true,
-  objective_nav_label: "Por objetivo",
+  objective_nav_label: "Produto",
   objective_links: [
-    { label: "Presell para afiliados", href: "/presell-para-afiliados" },
-    { label: "Rastreamento e conversões", href: "/rastreamento-afiliados" },
-    { label: "Guia: presell e tracking", href: "/guia-vendas-afiliados" },
+    { label: "Presell", href: "/presell-para-afiliados" },
+    { label: "Tracking", href: "/rastreamento-afiliados" },
+    { label: "Preços", href: "/planos#planos" },
+    { label: "Guia", href: "/guia-vendas-afiliados" },
   ],
-  agency_banner_enabled: true,
-  agency_banner_text: "Tracking e páginas de pre-sell num só plano —",
-  agency_banner_cta_label: "ver checklist Agency",
+  agency_banner_enabled: false,
+  agency_banner_text: null,
+  agency_banner_cta_label: null,
   agency_banner_href: "/agency",
-  seo_title: null,
-  seo_description: null,
+  seo_title: "dclickora — Presell, tracking e planos para afiliados",
+  seo_description:
+    "Crie presells, prepare campanhas e rastreie vendas num só painel. Teste grátis sem cartão nesta página.",
 };
 
 export interface LandingExtrasPublic {
@@ -223,6 +240,8 @@ export interface LandingExtrasPublic {
   text_styles: LandingTextStylesPublic | null;
   /** Nav, Agency banner e SEO. */
   site_chrome: LandingSiteChrome | null;
+  /** Barra sticky + popups de desconto / exit / scroll — configuráveis no admin. */
+  promos: SalesLandingPromos | null;
   /** Landing renderizada pelo page-builder (mesmo modelo da presell manual). */
   builder_enabled?: boolean;
   /** Documento PageDocument publicado (sections → columns → widgets). */
@@ -233,47 +252,48 @@ export interface LandingExtrasPublic {
 export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   appearance: "sales_dark",
   plans_section_label: "PLANOS",
-  plans_section_title: "Escolha pelo que precisa agora",
+  plans_section_title: "Escolha o plano certo para a sua operação",
   plans_section_subtitle:
-    "Compare o que cada plano inclui. O número de páginas é o máximo que a conta deixa criar. O número de cliques é a quota do mês no painel: o anúncio não é cortado ao passar essa quota. O plano grátis não pede cartão nesta página.",
+    "Preços e limites sincronizados com o admin. Comece grátis sem cartão nesta página — faça upgrade quando a operação pedir mais páginas, cliques e postback.",
   features: {
-    title: "O que leva no mesmo dia",
+    title: "Uma plataforma. Do anúncio à venda confirmada.",
     subtitle:
-      "A presell, as palavras-chave, os títulos do anúncio e o rastreio dos cliques. Sem WordPress e sem alojamento à parte. A venda entra nos planos que recebem o aviso da rede.",
+      "Presell, keywords, criativos e rastreio no mesmo fluxo — sem WordPress, sem folha de cálculo e sem tracker à parte.",
     cards: [
       {
-        title: "A presell no ar, sem WordPress",
-        body: "Não instala alojamento, tema nem plugins. Cria a página da oferta no editor — cookies, desconto, VSL ou TSL — e publica. O clique do anúncio chega a uma página sua.",
+        title: "Presell no ar em minutos",
+        body: "Editor visual com cookies, VSL/TSL e oferta. Publique no domínio dclickora ou no seu. O clique do anúncio aterra numa página sua.",
       },
       {
-        title: "Palavras-chave da oferta",
-        body: "Indica o produto, o idioma e se a pessoa está a comprar, a comparar ou só a descobrir. Recebe a lista de pesquisas para usar no anúncio, em vez de a escrever numa folha.",
+        title: "Keywords e anúncios prontos",
+        body: "Gere listas de pesquisa e rascunhos de títulos/descrições para Google e Microsoft. Revê, copia e lança na plataforma de ads.",
       },
       {
-        title: "Títulos e texto do anúncio",
-        body: "No mesmo passo recebe títulos, descrições, caminhos, sitelinks e destaques, já contados para Google Ads e Microsoft Advertising. Copia para a campanha. A publicação continua na plataforma de anúncios.",
+        title: "Tracking de clique e venda",
+        body: "Campanha e palavra-chave viajam com o clique. A venda entra no painel quando a rede envia o postback — Hotmart, Digistore, ClickBank e mais.",
       },
       {
-        title: "Cliques e vendas rastreados",
-        body: "O link do anúncio leva a campanha e a palavra-chave. Vê o clique quando chega. A venda entra no painel nos planos que incluem o aviso da rede.",
+        title: "Atribuição que fecha o ciclo",
+        body: "Veja qual campanha e keyword trouxeram o clique e a conversão. Menos ferramentas, menos furos no funil.",
       },
       {
-        title: "Campanha e venda juntas",
-        body: "A campanha e a palavra-chave ficam ao lado da venda confirmada, nos planos que recebem o aviso da rede. O custo do anúncio só entra quando o Google aceita a leitura.",
+        title: "Domínio e marca sua",
+        body: "Nos planos elegíveis, ligue o domínio, verifique DNS e publique. A operação escala sem mudar de stack.",
       },
       {
-        title: "Uma conta, em vez de quatro ferramentas",
-        body: "Página, palavras-chave, anúncio e rastreio deixam de estar em sítios diferentes. Começa sem construtor de sites, sem folha de keywords e sem tracker à parte.",
+        title: "Enterprise-ready",
+        body: "Contas isoladas, planos configuráveis, checkout Hotmart e painel com quotas claras — pensado para afiliados e media buyers.",
       },
     ],
   },
   stats: {
-    title: "Para quem é",
-    subtitle: "Quem anuncia uma oferta e quer a página, o anúncio e os números no mesmo lugar.",
+    title: "Feito para quem escala tráfego",
+    subtitle: "Do primeiro teste ao funil com várias ofertas — sem montar cinco ferramentas.",
     items: [
-      { value: "A começar", label: "Publica a primeira presell e recebe palavras-chave e títulos sem montar um site." },
-      { value: "Já anuncia", label: "Junta a página, o texto do anúncio e o postback, e deixa o WordPress de fora." },
-      { value: "Várias ofertas", label: "Vê que campanha e que palavra-chave trouxeram o clique e a venda." },
+      { value: "1 painel", label: "Presell + tracking + planos no mesmo login." },
+      { value: "0 WP", label: "Sem alojamento, tema ou plugins para a landing." },
+      { value: "Postback", label: "Vendas das redes entram nos planos que incluem aviso." },
+      { value: "Grátis", label: "Starter sem cartão nesta página — limites no cartão." },
     ],
   },
   faq: {
@@ -281,88 +301,67 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
     items: [
       {
         q: "O plano grátis inclui o quê?",
-        a:
-          "Cria a conta e fica no Starter. O cartão mostra quantas presells e quantos cliques por mês pode usar. Não pedimos cartão nesta página. A marca Clickora pode aparecer no rodapé. O postback das redes fica nos planos pagos.",
+        a: "Cria a conta e fica no Starter. O cartão mostra quantas presells e cliques por mês. Não pedimos cartão nesta página. O postback das redes fica nos planos pagos.",
       },
       {
-        q: "Como cancelo ou peço reembolso?",
-        a:
-          "O pagamento dos planos pagos corre na Hotmart. O prazo, o cancelamento e o reembolso são os desse produto. A Clickora não acrescenta uma garantia de sete dias nesta página.",
+        q: "Como funciona o pagamento?",
+        a: "Planos pagos abrem o checkout Hotmart. Após aprovação, o plano activa se o e-mail da compra for o da conta. Reembolso e cancelamento seguem as regras Hotmart.",
       },
       {
-        q: "Como funciona o pagamento Hotmart?",
-        a:
-          "Nos planos pagos, o botão abre o checkout da Hotmart. Depois do pagamento aprovado, o plano activa se o e-mail da compra for o da conta. Se o checkout não estiver ligado, a página avisa.",
+        q: "Preciso de WordPress?",
+        a: "Não. A presell publica na dclickora. Domínio próprio (quando o plano inclui) aponta para essa página — não é hosting à parte.",
       },
       {
-        q: "Preciso de WordPress ou de alojamento?",
-        a:
-          "Não. A presell publica na Clickora. Não instala WordPress, tema nem plugins. O domínio próprio, quando o plano o inclui, aponta para essa página: não é um alojamento à parte.",
-      },
-      {
-        q: "Posso usar o meu domínio nas presells?",
-        a:
-          "Sim, nos planos que incluem domínio personalizado: adicione o domínio em Configurações, siga a verificação DNS e publique. O número de domínios permitido depende do plano.",
-      },
-      {
-        q: "A pesquisa de anúncios publica no Google ou na Microsoft?",
-        a:
-          "Não. Recebe palavras-chave e um rascunho para rever: títulos, descrições, caminhos, sitelinks e destaques. O CSV é um ficheiro de revisão, não a importação oficial. A aprovação das plataformas não é garantida. Se a geração inteligente não estiver disponível, o texto usa o modelo do idioma do mercado e isso fica indicado.",
-      },
-      {
-        q: "A Clickora garante vendas ou ROI?",
-        a:
-          "Não. A plataforma fornece páginas, tracking e relatórios. Conversões e lucro dependem da oferta, da rede de afiliados, dos anúncios e do tráfego. Não inventamos cliques nem testemunhos de ganhos.",
+        q: "A dclickora garante ROI?",
+        a: "Não. Fornecemos páginas, tracking e relatórios. Resultados dependem da oferta, da rede e do tráfego. Não inventamos métricas nem testemunhos de ganhos.",
       },
     ],
   },
   legal_footer: {
     lines: [
-      "Clickora — presell, palavras-chave, anúncio e rastreio para afiliados.",
-      "Pagamentos de planos via Hotmart quando o checkout está configurado. Resultados comerciais não são garantidos.",
+      "dclickora — presell, tracking e planos para afiliados.",
+      "Pagamentos via Hotmart quando o checkout está configurado. Resultados comerciais não são garantidos.",
     ],
     links: [
       { label: "Criar conta", href: "/auth" },
       { label: "Entrar", href: "/auth" },
       { label: "Presell", href: "/presell-para-afiliados" },
-      { label: "Rastreamento", href: "/rastreamento-afiliados" },
-      { label: "Guia", href: "/guia-vendas-afiliados" },
+      { label: "Tracking", href: "/rastreamento-afiliados" },
       { label: "Privacidade", href: "/privacidade" },
       { label: "Termos", href: "/termos" },
     ],
   },
   content_blocks: [],
   testimonials: {
-    enabled: false,
-    title: "O que o fluxo resolve no dia a dia",
-    subtitle:
-      "Citações sobre o uso da ferramenta — não são promessas de rendimento. Cada conta vê os seus próprios números.",
+    enabled: true,
+    title: "O que resolve no dia a dia",
+    subtitle: "Cenários reais de uso — não são promessas de rendimento.",
     items: [
       {
         thumbnail_url: "",
         video_url: "",
         quote:
-          "Preciso de cookies, VSL ou desconto no ar no mesmo dia — sem montar WordPress — e copiar o URL do anúncio com GCLID e palavra-chave.",
-        name: "Fluxo típico",
-        role: "Afiliado de tráfego pago",
+          "Preciso de cookies, VSL ou desconto no ar no mesmo dia — sem WordPress — e o URL do anúncio já com GCLID e keyword.",
+        name: "Afiliado de tráfego pago",
+        role: "Funil completo",
         social_handle: null,
       },
       {
         thumbnail_url: "",
         video_url: "",
         quote:
-          "Quero ver no painel qual campanha e keyword geraram o clique, e fechar a venda quando a rede manda o postback — não inventar métricas.",
-        name: "Fluxo típico",
-        role: "Media buyer",
+          "Quero ver no painel qual campanha e keyword geraram o clique e fechar a venda quando a rede manda o postback.",
+        name: "Media buyer",
+        role: "Atribuição",
         social_handle: null,
       },
       {
         thumbnail_url: "",
         video_url: "",
         quote:
-          "Pagamento do plano na Hotmart com o mesmo e-mail da conta; depois do pagamento aprovado, o acesso sobe de plano sem pedir suporte manual.",
-        name: "Fluxo típico",
-        role: "Assinante de plano pago",
+          "Pagamento na Hotmart com o mesmo e-mail da conta; depois do pagamento, o plano sobe sem ticket de suporte.",
+        name: "Assinante",
+        role: "Planos pagos",
         social_handle: null,
       },
     ],
@@ -371,50 +370,52 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtrasPublic = {
   guarantee: {
     enabled: true,
     seal_image_url: null,
-    title: "Como funciona o pagamento",
-    lead: "Os planos pagos abrem o checkout da Hotmart. A Clickora não cobra o cartão nesta página.",
-    body:
-      "Depois do pagamento aprovado, o plano actualiza-se se o e-mail da compra for o da conta. Reembolso, prazo e cancelamento são os do produto na Hotmart. Esta página não acrescenta uma garantia de sete dias nem devolve o valor por conta própria. Não há promessa de vendas, ROI ou aprovação dos anúncios.",
-    footer: "O plano grátis não pede cartão aqui. Os limites ficam no cartão Starter.",
+    title: "Pagamento transparente",
+    lead: "Planos pagos via Hotmart. A dclickora não cobra o cartão nesta página.",
+    body: "Após aprovação, o plano actualiza-se com o e-mail da compra. Reembolso e cancelamento são os do produto Hotmart. Sem promessa de vendas, ROI ou aprovação de anúncios.",
+    footer: "Starter grátis aqui — limites no cartão do plano.",
   },
-  section_order: ["features", "stats", "planos", "guarantee", "faq"],
+  section_order: ["features", "stats", "testimonials", "planos", "guarantee", "faq"],
   sections_enabled: null,
   site_chrome: { ...DEFAULT_LANDING_SITE_CHROME },
-  hero_note:
-    "O plano grátis está disponível. Cria a conta e fica no Starter, com os limites escritos no cartão. Não pedimos cartão nesta página.",
+  promos: structuredClone(DEFAULT_SALES_LANDING_PROMOS),
+  hero_note: "Teste grátis sem cartão nesta página. Upgrade quando a operação pedir mais escala.",
   product_demo: {
-    offer_name: "Oferta de exemplo",
-    nav_items: ["Presell", "Palavras-chave", "Anúncio", "Rastreio"],
+    offer_name: "Oferta em destaque",
+    nav_items: ["Presell", "Keywords", "Anúncio", "Tracking"],
     presell_status: "No ar",
-    presell_note: "Publicada na Clickora. Sem WordPress.",
-    keywords_label: "Palavras-chave",
-    keywords: [
-      "comprar oferta de exemplo",
-      "oferta de exemplo vale a pena",
-      "o que é oferta de exemplo",
-    ],
+    presell_note: "Publicada na dclickora · sem WordPress",
+    keywords_label: "Keywords",
+    keywords: ["comprar oferta", "vale a pena", "melhor alternativa"],
     keyword_meta: "frase",
     ad_label: "Título do anúncio",
-    ad_title: "Ver Oferta de exemplo",
-    ad_meta: "22/30",
+    ad_title: "Ver oferta com tracking completo",
+    ad_meta: "28/30",
     rows: [
       { label: "Campanha", value: "pesquisa" },
-      { label: "Clique", value: "1 exemplo" },
-      { label: "Venda", value: "à espera do postback" },
+      { label: "Clique", value: "atribuído" },
+      { label: "Venda", value: "postback" },
     ],
-    caption:
-      "Exemplo da interface. Postback recebido de Hotmart, Digistore24, ClickBank, BuyGoods, JVZoo e SmartAdv.",
+    caption: "Pré-visualização da interface. Postbacks: Hotmart, Digistore24, ClickBank, BuyGoods, JVZoo, SmartAdv.",
   },
   recommended_plan_type: "monthly",
-  recommended_note: "O aviso de vendas e os anúncios seguem os interruptores de cada cartão.",
-  free_limits_note: "Serve para testar o fluxo, não para uma campanha em escala.",
+  recommended_note: "Recomendado para quem já anuncia e precisa de postback e quotas maiores.",
+  free_limits_note: "Ideal para validar o fluxo antes de escalar.",
   plan_taglines: {
-    free_trial: "Para experimentar o fluxo, com poucas páginas e poucos cliques.",
-    monthly: "Para quem já anuncia. O aviso de vendas segue o interruptor deste cartão.",
-    annual: "Para o ano inteiro. Domínios e anúncios seguem os números e os interruptores deste cartão.",
+    free_trial: "Comece sem cartão — limites claros no cartão Starter.",
+    monthly: "Para quem já escala. Postback e quotas conforme o cartão.",
+    annual: "Melhor custo anual. Domínios e features segundo o plano.",
     quarterly: null,
   },
-  theme: null,
+  theme: {
+    page_background: "#070b16",
+    nav_background: "rgba(7,11,22,0.92)",
+    accent: "#38bdf8",
+    accent_hover: "#7dd3fc",
+    heading_on_dark: "#f8fafc",
+    muted_on_dark: "#94a3b8",
+    link: "#67e8f9",
+  },
   text_styles: null,
 };
 
@@ -941,9 +942,22 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
       : base.objective_links;
     site_chrome = {
       brand_label: optionalText(sc.brand_label, base.brand_label),
+      brand_logo_url: optionalText(sc.brand_logo_url, base.brand_logo_url),
       buy_label: optionalText(sc.buy_label, base.buy_label),
       login_label: optionalText(sc.login_label, base.login_label),
       panel_label: optionalText(sc.panel_label, base.panel_label),
+      hero_secondary_cta_enabled:
+        typeof sc.hero_secondary_cta_enabled === "boolean"
+          ? sc.hero_secondary_cta_enabled
+          : base.hero_secondary_cta_enabled,
+      hero_secondary_cta_label: optionalText(
+        sc.hero_secondary_cta_label,
+        base.hero_secondary_cta_label,
+      ),
+      hero_secondary_cta_href: optionalText(
+        sc.hero_secondary_cta_href,
+        base.hero_secondary_cta_href,
+      ),
       show_objective_nav:
         typeof sc.show_objective_nav === "boolean" ? sc.show_objective_nav : base.show_objective_nav,
       objective_nav_label: optionalText(sc.objective_nav_label, base.objective_nav_label),
@@ -960,6 +974,11 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
       seo_description: optionalText(sc.seo_description, null),
     };
   }
+
+  const promos =
+    raw.promos === null
+      ? null
+      : coerceSalesLandingPromos(raw.promos ?? DEFAULT_SALES_LANDING_PROMOS);
 
   if (!contentBlocksProvided && !content_blocks?.length) {
     content_blocks = DEFAULT_LANDING_EXTRAS.content_blocks;
@@ -1021,6 +1040,7 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     theme,
     text_styles,
     site_chrome: site_chrome ?? DEFAULT_LANDING_EXTRAS.site_chrome,
+    promos: promos ?? DEFAULT_LANDING_EXTRAS.promos,
     builder_enabled: raw.builder_enabled === true,
     page_document: (() => {
       if (raw.page_document === null) return null;

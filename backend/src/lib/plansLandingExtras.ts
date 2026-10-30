@@ -376,9 +376,13 @@ export const landingExtrasSchema = z
     site_chrome: z
       .object({
         brand_label: z.string().max(80).nullable().optional(),
+        brand_logo_url: z.string().max(500).nullable().optional(),
         buy_label: z.string().max(40).nullable().optional(),
         login_label: z.string().max(40).nullable().optional(),
         panel_label: z.string().max(40).nullable().optional(),
+        hero_secondary_cta_enabled: z.boolean().optional(),
+        hero_secondary_cta_label: z.string().max(80).nullable().optional(),
+        hero_secondary_cta_href: z.string().max(500).nullable().optional(),
         show_objective_nav: z.boolean().optional(),
         objective_nav_label: z.string().max(80).nullable().optional(),
         objective_links: z
@@ -396,6 +400,48 @@ export const landingExtrasSchema = z
         agency_banner_href: z.string().max(500).nullable().optional(),
         seo_title: z.string().max(120).nullable().optional(),
         seo_description: z.string().max(320).nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+    /** Barra sticky + popups (exit / timed / scroll) — descontos e CTAs. */
+    promos: z
+      .object({
+        sticky_bar: z
+          .object({
+            enabled: z.boolean().optional(),
+            text: z.string().max(400).optional(),
+            cta_label: z.string().max(80).nullable().optional(),
+            cta_href: z.string().max(500).nullable().optional(),
+            discount_code: z.string().max(64).nullable().optional(),
+            dismissible: z.boolean().optional(),
+            accent: z.string().max(64).nullable().optional(),
+            text_color: z.string().max(64).nullable().optional(),
+            background: z.string().max(240).nullable().optional(),
+          })
+          .optional(),
+        popups: z
+          .array(
+            z.object({
+              id: z.string().max(64),
+              enabled: z.boolean().optional(),
+              trigger: z.enum(["exit_intent", "timed", "scroll", "manual"]).optional(),
+              delay_ms: z.number().int().min(0).max(600_000).optional(),
+              scroll_percent: z.number().int().min(0).max(100).optional(),
+              badge: z.string().max(80).nullable().optional(),
+              title: z.string().max(200),
+              body: z.string().max(1200).optional(),
+              discount_code: z.string().max(64).nullable().optional(),
+              discount_hint: z.string().max(300).nullable().optional(),
+              cta_label: z.string().max(80),
+              cta_href: z.string().max(500),
+              secondary_label: z.string().max(80).nullable().optional(),
+              secondary_href: z.string().max(500).nullable().optional(),
+              once_per_session: z.boolean().optional(),
+              accent: z.string().max(64).nullable().optional(),
+            }),
+          )
+          .max(8)
+          .optional(),
       })
       .nullable()
       .optional(),
@@ -562,26 +608,82 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
   section_order: ["features", "stats", "planos", "guarantee", "faq"],
   sections_enabled: null,
   site_chrome: {
-    brand_label: "Clickora",
+    brand_label: "dclickora",
+    brand_logo_url: "/brand-dclickora.png",
     buy_label: "Comprar",
     login_label: "Entrar",
     panel_label: "Painel",
+    hero_secondary_cta_enabled: true,
+    hero_secondary_cta_label: "Falar com especialista",
+    hero_secondary_cta_href: "/auth",
     show_objective_nav: true,
-    objective_nav_label: "Por objetivo",
+    objective_nav_label: "Produto",
     objective_links: [
-      { label: "Presell para afiliados", href: "/presell-para-afiliados" },
-      { label: "Rastreamento e conversões", href: "/rastreamento-afiliados" },
-      { label: "Guia: presell e tracking", href: "/guia-vendas-afiliados" },
+      { label: "Presell", href: "/presell-para-afiliados" },
+      { label: "Tracking", href: "/rastreamento-afiliados" },
+      { label: "Preços", href: "/planos#planos" },
+      { label: "Guia", href: "/guia-vendas-afiliados" },
     ],
-    agency_banner_enabled: true,
-    agency_banner_text: "Tracking e páginas de pre-sell num só plano —",
-    agency_banner_cta_label: "ver checklist Agency",
+    agency_banner_enabled: false,
+    agency_banner_text: null,
+    agency_banner_cta_label: null,
     agency_banner_href: "/agency",
-    seo_title: null,
-    seo_description: null,
+    seo_title: "dclickora — Presell, tracking e planos para afiliados",
+    seo_description:
+      "Crie presells, prepare campanhas e rastreie vendas num só painel. Teste grátis sem cartão nesta página.",
   },
-  hero_note:
-    "O plano grátis está disponível. Cria a conta e fica no Starter, com os limites escritos no cartão. Não pedimos cartão nesta página.",
+  promos: {
+    sticky_bar: {
+      enabled: true,
+      text: "Oferta de lançamento — teste grátis sem cartão. Planos pagos com setup guiado.",
+      cta_label: "Ver planos",
+      cta_href: "#planos",
+      discount_code: null,
+      dismissible: true,
+      accent: null,
+      text_color: "#0b1220",
+      background: "linear-gradient(90deg,#67e8f9 0%,#a78bfa 55%,#fb7185 100%)",
+    },
+    popups: [
+      {
+        id: "exit_launch",
+        enabled: true,
+        trigger: "exit_intent",
+        delay_ms: 0,
+        scroll_percent: 0,
+        badge: "Antes de sair",
+        title: "Leve o tracking e a presell no mesmo lugar",
+        body: "Crie a conta grátis agora. Sem cartão nesta página.",
+        discount_code: null,
+        discount_hint: null,
+        cta_label: "Testar gratuitamente",
+        cta_href: "/auth",
+        secondary_label: "Ver planos",
+        secondary_href: "#planos",
+        once_per_session: true,
+        accent: "#38bdf8",
+      },
+      {
+        id: "scroll_plans",
+        enabled: true,
+        trigger: "scroll",
+        delay_ms: 0,
+        scroll_percent: 55,
+        badge: "Pronto para escalar?",
+        title: "Compare os planos e comece hoje",
+        body: "Presell, keywords, anúncio e rastreio num só painel.",
+        discount_code: null,
+        discount_hint: null,
+        cta_label: "Escolher plano",
+        cta_href: "#planos",
+        secondary_label: "Falar com especialista",
+        secondary_href: "/auth",
+        once_per_session: true,
+        accent: "#22d3ee",
+      },
+    ],
+  },
+  hero_note: "Teste grátis sem cartão nesta página. Upgrade quando a operação pedir mais escala.",
   product_demo: {
     offer_name: "Oferta de exemplo",
     nav_items: ["Presell", "Palavras-chave", "Anúncio", "Rastreio"],
@@ -866,6 +968,7 @@ export function mergeLandingExtras(
                 },
         }
       : {}),
+    ...(p.promos !== undefined ? { promos: p.promos } : {}),
     ...(p.builder_enabled !== undefined ? { builder_enabled: p.builder_enabled } : {}),
     ...(p.page_document !== undefined ? { page_document: p.page_document } : {}),
   };

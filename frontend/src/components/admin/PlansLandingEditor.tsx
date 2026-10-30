@@ -62,10 +62,17 @@ import {
 import { mergeWithDefaultLabels, PLAN_LABEL_FORM_FIELDS } from "@/lib/planDisplayLabels";
 import {
   coerceLandingExtras,
+  DEFAULT_LANDING_EXTRAS,
   DEFAULT_LANDING_SITE_CHROME,
   type LandingExtrasPublic,
   type LandingSiteChrome,
 } from "@/lib/plansLandingExtras";
+import {
+  DEFAULT_SALES_LANDING_PROMOS,
+  newBlankSalesPromoPopup,
+  type SalesLandingPromos,
+  type SalesPromoPopup,
+} from "@/lib/salesLandingPromos";
 import { SalesProductDemo } from "@/components/plans/SalesProductDemo";
 import { resolveGalleryCarouselOptions } from "@/lib/landingGalleryCarousel";
 import type { LandingPageThemeInput } from "@/lib/landingPageTheme";
@@ -527,6 +534,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     ...DEFAULT_LANDING_SITE_CHROME,
     objective_links: DEFAULT_LANDING_SITE_CHROME.objective_links.map((l) => ({ ...l })),
   }));
+  const [promos, setPromos] = useState<SalesLandingPromos>(() =>
+    structuredClone(DEFAULT_SALES_LANDING_PROMOS),
+  );
   const [testimonialTitle, setTestimonialTitle] = useState("");
   const [testimonialSubtitle, setTestimonialSubtitle] = useState("");
   const [testimonialItems, setTestimonialItems] = useState<
@@ -665,6 +675,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         ).map((l) => ({ label: l.label, href: l.href })),
       });
     }
+    setPromos(
+      ex.promos
+        ? structuredClone(ex.promos)
+        : structuredClone(DEFAULT_SALES_LANDING_PROMOS),
+    );
     setRecommendedPlanType(ex.recommended_plan_type?.trim() || "none");
     setRecommendedNote(ex.recommended_note ?? "");
     setFreeLimitsNote(ex.free_limits_note ?? "");
@@ -1036,9 +1051,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       text_styles,
       site_chrome: {
         brand_label: siteChrome.brand_label?.trim() || null,
+        brand_logo_url: siteChrome.brand_logo_url?.trim() || null,
         buy_label: siteChrome.buy_label?.trim() || null,
         login_label: siteChrome.login_label?.trim() || null,
         panel_label: siteChrome.panel_label?.trim() || null,
+        hero_secondary_cta_enabled: siteChrome.hero_secondary_cta_enabled,
+        hero_secondary_cta_label: siteChrome.hero_secondary_cta_label?.trim() || null,
+        hero_secondary_cta_href: siteChrome.hero_secondary_cta_href?.trim() || null,
         show_objective_nav: siteChrome.show_objective_nav,
         objective_nav_label: siteChrome.objective_nav_label?.trim() || null,
         objective_links: siteChrome.objective_links
@@ -1051,6 +1070,32 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         agency_banner_href: siteChrome.agency_banner_href?.trim() || null,
         seo_title: siteChrome.seo_title?.trim() || null,
         seo_description: siteChrome.seo_description?.trim() || null,
+      },
+      promos: {
+        sticky_bar: {
+          ...promos.sticky_bar,
+          text: promos.sticky_bar.text.trim(),
+          cta_label: promos.sticky_bar.cta_label?.trim() || null,
+          cta_href: promos.sticky_bar.cta_href?.trim() || null,
+          discount_code: promos.sticky_bar.discount_code?.trim() || null,
+          accent: promos.sticky_bar.accent?.trim() || null,
+          text_color: promos.sticky_bar.text_color?.trim() || null,
+          background: promos.sticky_bar.background?.trim() || null,
+        },
+        popups: promos.popups.slice(0, 8).map((p) => ({
+          ...p,
+          id: p.id.trim() || `promo_${Date.now()}`,
+          badge: p.badge?.trim() || null,
+          title: p.title.trim(),
+          body: p.body.trim(),
+          discount_code: p.discount_code?.trim() || null,
+          discount_hint: p.discount_hint?.trim() || null,
+          cta_label: p.cta_label.trim() || "Continuar",
+          cta_href: p.cta_href.trim() || "#planos",
+          secondary_label: p.secondary_label?.trim() || null,
+          secondary_href: p.secondary_href?.trim() || null,
+          accent: p.accent?.trim() || null,
+        })),
       },
     };
   };
@@ -1094,6 +1139,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       sectionOrder,
       sectionsEnabled,
       siteChrome,
+      promos,
       heroNote,
       recommendedPlanType,
       recommendedNote,
@@ -1773,6 +1819,18 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
+                      <Label className="text-[11px]">Logo URL</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder="/brand-dclickora.png"
+                        value={siteChrome.brand_logo_url ?? ""}
+                        onChange={(e) =>
+                          setSiteChrome((p) => ({ ...p, brand_logo_url: e.target.value }))
+                        }
+                        maxLength={500}
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <Label className="text-[11px]">Botão comprar</Label>
                       <Input
                         className="h-8 text-sm"
@@ -1800,6 +1858,47 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                   </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
+                    <Label className="text-xs">2.º CTA do hero (outline)</Label>
+                    <Switch
+                      checked={siteChrome.hero_secondary_cta_enabled}
+                      onCheckedChange={(v) =>
+                        setSiteChrome((p) => ({ ...p, hero_secondary_cta_enabled: v }))
+                      }
+                    />
+                  </div>
+                  {siteChrome.hero_secondary_cta_enabled ? (
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Texto 2.º CTA</Label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={siteChrome.hero_secondary_cta_label ?? ""}
+                          onChange={(e) =>
+                            setSiteChrome((p) => ({
+                              ...p,
+                              hero_secondary_cta_label: e.target.value,
+                            }))
+                          }
+                          maxLength={80}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">URL 2.º CTA</Label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={siteChrome.hero_secondary_cta_href ?? ""}
+                          onChange={(e) =>
+                            setSiteChrome((p) => ({
+                              ...p,
+                              hero_secondary_cta_href: e.target.value,
+                            }))
+                          }
+                          maxLength={500}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
                     <Label className="text-xs">Mostrar «Por objetivo»</Label>
                     <Switch
@@ -1954,6 +2053,417 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        Popups e promoções
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                        Barra sticky, exit intent, timed e scroll — códigos de desconto e CTAs
+                        100% editáveis.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setPromos(structuredClone(DEFAULT_SALES_LANDING_PROMOS));
+                        toast.message("Template de promoções enterprise aplicado (grave para publicar).");
+                      }}
+                    >
+                      Restaurar template
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
+                    <Label className="text-xs">Barra sticky no topo</Label>
+                    <Switch
+                      checked={promos.sticky_bar.enabled}
+                      onCheckedChange={(v) =>
+                        setPromos((p) => ({
+                          ...p,
+                          sticky_bar: { ...p.sticky_bar, enabled: v },
+                        }))
+                      }
+                    />
+                  </div>
+                  {promos.sticky_bar.enabled ? (
+                    <div className="grid gap-2.5">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Texto da barra</Label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={promos.sticky_bar.text}
+                          onChange={(e) =>
+                            setPromos((p) => ({
+                              ...p,
+                              sticky_bar: { ...p.sticky_bar, text: e.target.value },
+                            }))
+                          }
+                          maxLength={400}
+                        />
+                      </div>
+                      <div className="grid gap-2.5 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">CTA</Label>
+                          <Input
+                            className="h-8 text-sm"
+                            value={promos.sticky_bar.cta_label ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                sticky_bar: { ...p.sticky_bar, cta_label: e.target.value },
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">URL</Label>
+                          <Input
+                            className="h-8 text-sm"
+                            value={promos.sticky_bar.cta_href ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                sticky_bar: { ...p.sticky_bar, cta_href: e.target.value },
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Código desconto</Label>
+                          <Input
+                            className="h-8 text-sm"
+                            value={promos.sticky_bar.discount_code ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                sticky_bar: { ...p.sticky_bar, discount_code: e.target.value },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
+                        <Label className="text-xs">Permitir fechar (sessão)</Label>
+                        <Switch
+                          checked={promos.sticky_bar.dismissible}
+                          onCheckedChange={(v) =>
+                            setPromos((p) => ({
+                              ...p,
+                              sticky_bar: { ...p.sticky_bar, dismissible: v },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs font-semibold">Popups</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={promos.popups.length >= 8}
+                        onClick={() =>
+                          setPromos((p) => ({
+                            ...p,
+                            popups: [...p.popups, newBlankSalesPromoPopup()].slice(0, 8),
+                          }))
+                        }
+                      >
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        Adicionar
+                      </Button>
+                    </div>
+                    {promos.popups.map((popup, idx) => (
+                      <div
+                        key={popup.id}
+                        className="space-y-2 rounded-md border border-border/60 bg-background/60 p-2.5"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={popup.enabled}
+                              onCheckedChange={(v) =>
+                                setPromos((p) => ({
+                                  ...p,
+                                  popups: p.popups.map((x, i) =>
+                                    i === idx ? { ...x, enabled: v } : x,
+                                  ),
+                                }))
+                              }
+                            />
+                            <span className="text-xs font-medium">{popup.id}</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.filter((_, i) => i !== idx),
+                              }))
+                            }
+                            aria-label="Remover popup"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Disparo</Label>
+                            <Select
+                              value={popup.trigger}
+                              onValueChange={(v) =>
+                                setPromos((p) => ({
+                                  ...p,
+                                  popups: p.popups.map((x, i) =>
+                                    i === idx
+                                      ? {
+                                          ...x,
+                                          trigger: v as SalesPromoPopup["trigger"],
+                                        }
+                                      : x,
+                                  ),
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="exit_intent">Exit intent</SelectItem>
+                                <SelectItem value="timed">Timed (delay)</SelectItem>
+                                <SelectItem value="scroll">Scroll %</SelectItem>
+                                <SelectItem value="manual">Manual (off)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {popup.trigger === "timed" ? (
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Delay (ms)</Label>
+                              <Input
+                                type="number"
+                                className="h-8 text-sm"
+                                value={popup.delay_ms}
+                                onChange={(e) =>
+                                  setPromos((p) => ({
+                                    ...p,
+                                    popups: p.popups.map((x, i) =>
+                                      i === idx
+                                        ? { ...x, delay_ms: Number(e.target.value) || 0 }
+                                        : x,
+                                    ),
+                                  }))
+                                }
+                              />
+                            </div>
+                          ) : null}
+                          {popup.trigger === "scroll" ? (
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Scroll %</Label>
+                              <Input
+                                type="number"
+                                className="h-8 text-sm"
+                                value={popup.scroll_percent}
+                                onChange={(e) =>
+                                  setPromos((p) => ({
+                                    ...p,
+                                    popups: p.popups.map((x, i) =>
+                                      i === idx
+                                        ? {
+                                            ...x,
+                                            scroll_percent: Number(e.target.value) || 0,
+                                          }
+                                        : x,
+                                    ),
+                                  }))
+                                }
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="Badge"
+                            value={popup.badge ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.map((x, i) =>
+                                  i === idx ? { ...x, badge: e.target.value } : x,
+                                ),
+                              }))
+                            }
+                          />
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="Código desconto"
+                            value={popup.discount_code ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.map((x, i) =>
+                                  i === idx ? { ...x, discount_code: e.target.value } : x,
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+                        <Input
+                          className="h-8 text-sm"
+                          placeholder="Título"
+                          value={popup.title}
+                          onChange={(e) =>
+                            setPromos((p) => ({
+                              ...p,
+                              popups: p.popups.map((x, i) =>
+                                i === idx ? { ...x, title: e.target.value } : x,
+                              ),
+                            }))
+                          }
+                        />
+                        <Textarea
+                          rows={2}
+                          className="resize-y text-sm"
+                          placeholder="Corpo"
+                          value={popup.body}
+                          onChange={(e) =>
+                            setPromos((p) => ({
+                              ...p,
+                              popups: p.popups.map((x, i) =>
+                                i === idx ? { ...x, body: e.target.value } : x,
+                              ),
+                            }))
+                          }
+                        />
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="CTA"
+                            value={popup.cta_label}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.map((x, i) =>
+                                  i === idx ? { ...x, cta_label: e.target.value } : x,
+                                ),
+                              }))
+                            }
+                          />
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="CTA URL"
+                            value={popup.cta_href}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.map((x, i) =>
+                                  i === idx ? { ...x, cta_href: e.target.value } : x,
+                                ),
+                              }))
+                            }
+                          />
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="2.º botão"
+                            value={popup.secondary_label ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.map((x, i) =>
+                                  i === idx ? { ...x, secondary_label: e.target.value } : x,
+                                ),
+                              }))
+                            }
+                          />
+                          <Input
+                            className="h-8 text-sm"
+                            placeholder="2.º URL (vazio = só fecha)"
+                            value={popup.secondary_href ?? ""}
+                            onChange={(e) =>
+                              setPromos((p) => ({
+                                ...p,
+                                popups: p.popups.map((x, i) =>
+                                  i === idx ? { ...x, secondary_href: e.target.value } : x,
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      setAppearance(DEFAULT_LANDING_EXTRAS.appearance);
+                      setPlansSectionLabel(DEFAULT_LANDING_EXTRAS.plans_section_label ?? "");
+                      setPlansSectionTitle(DEFAULT_LANDING_EXTRAS.plans_section_title ?? "");
+                      setPlansSectionSubtitle(DEFAULT_LANDING_EXTRAS.plans_section_subtitle ?? "");
+                      setFeatTitle(DEFAULT_LANDING_EXTRAS.features?.title ?? "");
+                      setFeatSubtitle(DEFAULT_LANDING_EXTRAS.features?.subtitle ?? "");
+                      setFeatCards(
+                        (DEFAULT_LANDING_EXTRAS.features?.cards ?? []).map((c) => ({
+                          title: c.title,
+                          body: c.body,
+                          image_url: c.image_url ?? "",
+                        })),
+                      );
+                      setStatTitle(DEFAULT_LANDING_EXTRAS.stats?.title ?? "");
+                      setStatSubtitle(DEFAULT_LANDING_EXTRAS.stats?.subtitle ?? "");
+                      setStatItems(
+                        (DEFAULT_LANDING_EXTRAS.stats?.items ?? []).map((s) => ({
+                          value: s.value,
+                          label: s.label,
+                        })),
+                      );
+                      setFaqTitle(DEFAULT_LANDING_EXTRAS.faq?.title ?? "");
+                      setFaqItems(
+                        (DEFAULT_LANDING_EXTRAS.faq?.items ?? []).map((f) => ({
+                          q: f.q,
+                          a: f.a,
+                        })),
+                      );
+                      setHeroNote(DEFAULT_LANDING_EXTRAS.hero_note ?? "");
+                      setSiteChrome({
+                        ...DEFAULT_LANDING_SITE_CHROME,
+                        objective_links: DEFAULT_LANDING_SITE_CHROME.objective_links.map((l) => ({
+                          ...l,
+                        })),
+                      });
+                      setPromos(structuredClone(DEFAULT_SALES_LANDING_PROMOS));
+                      setSectionOrder(
+                        (DEFAULT_LANDING_EXTRAS.section_order ?? DEFAULT_LANDING_SECTION_ORDER).slice(),
+                      );
+                      if (DEFAULT_LANDING_EXTRAS.theme) {
+                        setLandingTheme({ ...DEFAULT_LANDING_EXTRAS.theme });
+                      }
+                      toast.success(
+                        "Template enterprise carregado no editor — grave a landing para publicar no site.",
+                      );
+                    }}
+                  >
+                    Aplicar template enterprise completo (textos + promos)
+                  </Button>
                 </div>
               </div>
             ) : null}
