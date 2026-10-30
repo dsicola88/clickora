@@ -57,6 +57,9 @@ const LAZY: Partial<Record<WidgetType, LazyRender>> = {
   priceTable: lz(() =>
     import("./widgets/PriceTableWidget").then((m) => ({ default: m.PriceTableWidget })),
   ),
+  livePlans: lz(() =>
+    import("./widgets/LivePlansWidget").then((m) => ({ default: m.LivePlansWidget })),
+  ),
   ctaBox: lz(() => import("./widgets/CtaBoxWidget").then((m) => ({ default: m.CtaBoxWidget }))),
   flipBox: lz(() => import("./widgets/FlipBoxWidget").then((m) => ({ default: m.FlipBoxWidget }))),
   progressTracker: lz(() =>

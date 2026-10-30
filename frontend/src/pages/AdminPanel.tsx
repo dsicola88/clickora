@@ -31,6 +31,9 @@ import {
   FlaskConical,
   Timer,
   GraduationCap,
+  LayoutTemplate,
+  ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -44,6 +47,8 @@ import { AdminPasswordDialog } from "@/components/admin/AdminPasswordDialog";
 import { PlanEditorCard } from "@/components/admin/PlanEditorCard";
 import { PlansLandingEditor } from "@/components/admin/PlansLandingEditor";
 import { AdminLessonsPanel } from "@/components/admin/AdminLessonsPanel";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { coerceLandingExtras } from "@/lib/plansLandingExtras";
 import type { AdminUser } from "@/types/api";
 
 const PUBLIC_BRANDING_KEY = ["public-branding"] as const;
@@ -849,12 +854,58 @@ export default function AdminPanel() {
         <div className="space-y-4 mt-6">
           {isSuperAdmin ? (
             <>
-              <PlansLandingEditor onInvalidateAdmin={invalidateAdmin} />
+              {(() => {
+                const extras = coerceLandingExtras(plansLandingForEditors?.landing_extras);
+                const builderOn = extras.builder_enabled === true && Boolean(extras.page_document);
+                return (
+                  <Card className="border-border/80 overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-1.5">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <LayoutTemplate className="h-5 w-5 text-primary" />
+                            Página de vendas
+                          </CardTitle>
+                          <CardDescription className="max-w-2xl leading-relaxed">
+                            Editor visual tipo Elementor — o mesmo do builder manual de presell. Arraste blocos,
+                            edite no painel e publique. Use o widget <strong>Planos (vivos)</strong> para a grelha
+                            com preços reais da base de dados.
+                          </CardDescription>
+                          {builderOn ? (
+                            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                              Modo visual activo — a landing pública usa o documento publicado.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Ainda no editor clássico. Abra o visual e clique em Publicar para activar.
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                          <Button asChild className="gap-1.5">
+                            <NavLink to="/admin/sales-page-builder">
+                              <LayoutTemplate className="h-4 w-4" />
+                              Abrir editor visual
+                            </NavLink>
+                          </Button>
+                          <Button variant="outline" size="default" className="gap-1.5" asChild>
+                            <a href="/" target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                              Ver página
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                );
+              })()}
+
               <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
                 <p className="text-sm font-medium text-foreground">Preços e limites dos planos</p>
                 <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
                   Ajuste valores e quotas em tempo real. Aplicam-se a novas faturações e à verificação de limites dos
-                  utilizadores.
+                  utilizadores. Estes cartões alimentam o widget «Planos (vivos)» no editor visual.
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -870,6 +921,20 @@ export default function AdminPanel() {
               {plans.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">Sem planos na base de dados</p>
               )}
+
+              <Collapsible defaultOpen={false} className="rounded-lg border border-border/60">
+                <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium hover:bg-muted/40">
+                  <span>Editor clássico (SEO, nav, tema e secções antigas)</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="border-t border-border/60 px-2 pb-4 pt-2 sm:px-4">
+                  <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+                    Use só se precisar de campos legados (hero tipado, FAQ fixa, site chrome). Preferimos o editor
+                    visual acima para layout e conteúdo.
+                  </p>
+                  <PlansLandingEditor onInvalidateAdmin={invalidateAdmin} />
+                </CollapsibleContent>
+              </Collapsible>
             </>
           ) : (
             <Card className="border-border/80">

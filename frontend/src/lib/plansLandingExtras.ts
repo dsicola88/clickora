@@ -223,6 +223,10 @@ export interface LandingExtrasPublic {
   text_styles: LandingTextStylesPublic | null;
   /** Nav, Agency banner e SEO. */
   site_chrome: LandingSiteChrome | null;
+  /** Landing renderizada pelo page-builder (mesmo modelo da presell manual). */
+  builder_enabled?: boolean;
+  /** Documento PageDocument publicado (sections → columns → widgets). */
+  page_document?: unknown | null;
 }
 
 /** Alinhado ao backend `DEFAULT_LANDING_EXTRAS` — fallback se a resposta da API estiver incompleta. */
@@ -1017,5 +1021,14 @@ export function coerceLandingExtras(raw: unknown): LandingExtrasPublic {
     theme,
     text_styles,
     site_chrome: site_chrome ?? DEFAULT_LANDING_EXTRAS.site_chrome,
+    builder_enabled: raw.builder_enabled === true,
+    page_document: (() => {
+      if (raw.page_document === null) return null;
+      if (!isPlainObject(raw.page_document)) return null;
+      if (!Array.isArray(raw.page_document.sections) || raw.page_document.sections.length === 0) {
+        return null;
+      }
+      return raw.page_document;
+    })(),
   };
 }

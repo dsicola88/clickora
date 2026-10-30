@@ -301,6 +301,22 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       margin: r(spacing(0, 0, 16, 0)),
     },
   }),
+  livePlans: () => ({
+    content: {
+      sectionLabel: "PLANOS",
+      title: "Escolha o plano certo",
+      subtitle: "Preços e limites vêm da base de dados — edite-os no admin em Planos.",
+      showHeader: true,
+      accentColor: "#e63946",
+      cardBg: "#ffffff",
+      textColor: "#0f172a",
+      ctaBg: "#e63946",
+      ctaColor: "#ffffff",
+    },
+    styles: {
+      padding: r(spacing(8, 0, 8, 0)),
+    },
+  }),
   priceTable: () => ({
     content: {
       badge: "Mais popular",

@@ -399,6 +399,13 @@ export const landingExtrasSchema = z
       })
       .nullable()
       .optional(),
+    /**
+     * Editor visual tipo Elementor (mesmo PageDocument do builder de presell).
+     * Quando `builder_enabled`, a landing pública renderiza `page_document`.
+     */
+    builder_enabled: z.boolean().optional(),
+    /** Árvore sections→columns→widgets; validação fina no editor. */
+    page_document: z.any().nullable().optional(),
   })
   .strict();
 
@@ -859,6 +866,8 @@ export function mergeLandingExtras(
                 },
         }
       : {}),
+    ...(p.builder_enabled !== undefined ? { builder_enabled: p.builder_enabled } : {}),
+    ...(p.page_document !== undefined ? { page_document: p.page_document } : {}),
   };
 }
 

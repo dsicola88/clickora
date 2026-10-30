@@ -630,6 +630,8 @@ function WidgetContentTab({
       return <AnimatedHeadlineContentEditor content={c} setContent={setContent} />;
     case "priceTable":
       return <PriceTableContentEditor content={c} setContent={setContent} />;
+    case "livePlans":
+      return <LivePlansContentEditor content={c} setContent={setContent} />;
     case "ctaBox":
       return <CtaBoxContentEditor content={c} setContent={setContent} />;
     case "flipBox":
@@ -3453,6 +3455,76 @@ function AnimatedHeadlineContentEditor({
           label="Cor de destaque"
           value={(content.highlightColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ highlightColor: v })}
+        />
+      </Section>
+    </>
+  );
+}
+
+function LivePlansContentEditor({
+  content,
+  setContent,
+}: {
+  content: Record<string, unknown>;
+  setContent: (p: Record<string, unknown>) => void;
+}) {
+  return (
+    <>
+      <Section title="Planos vivos (API)">
+        <p className="text-[11px] leading-snug text-editor-fg-muted">
+          Os cartões vêm dos planos reais na base de dados. Edite preços e limites em Admin → Planos.
+        </p>
+        <label className="flex items-center gap-2 text-xs text-editor-fg">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-editor-border"
+            checked={content.showHeader !== false}
+            onChange={(e) => setContent({ showHeader: e.target.checked })}
+          />
+          Mostrar cabeçalho da secção
+        </label>
+        <TextField
+          label="Etiqueta"
+          value={(content.sectionLabel as string) ?? ""}
+          onChange={(v) => setContent({ sectionLabel: v })}
+        />
+        <TextField
+          label="Título"
+          value={(content.title as string) ?? ""}
+          onChange={(v) => setContent({ title: v })}
+        />
+        <TextareaField
+          label="Subtítulo"
+          value={(content.subtitle as string) ?? ""}
+          onChange={(v) => setContent({ subtitle: v })}
+          rows={3}
+        />
+      </Section>
+      <Section title="Cores">
+        <ColorField
+          label="Destaque"
+          value={(content.accentColor as string) ?? "#e63946"}
+          onChange={(v) => setContent({ accentColor: v })}
+        />
+        <ColorField
+          label="Fundo do cartão"
+          value={(content.cardBg as string) ?? "#ffffff"}
+          onChange={(v) => setContent({ cardBg: v })}
+        />
+        <ColorField
+          label="Texto"
+          value={(content.textColor as string) ?? "#0f172a"}
+          onChange={(v) => setContent({ textColor: v })}
+        />
+        <ColorField
+          label="Botão (fundo)"
+          value={(content.ctaBg as string) ?? "#e63946"}
+          onChange={(v) => setContent({ ctaBg: v })}
+        />
+        <ColorField
+          label="Botão (texto)"
+          value={(content.ctaColor as string) ?? "#ffffff"}
+          onChange={(v) => setContent({ ctaColor: v })}
         />
       </Section>
     </>

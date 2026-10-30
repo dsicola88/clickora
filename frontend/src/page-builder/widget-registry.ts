@@ -58,6 +58,7 @@ import { CountdownWidget } from "./widgets/CountdownWidget";
 import { GalleryWidget } from "./widgets/GalleryWidget";
 import { AnimatedHeadlineWidget } from "./widgets/AnimatedHeadlineWidget";
 import { PriceTableWidget } from "./widgets/PriceTableWidget";
+import { LivePlansWidget } from "./widgets/LivePlansWidget";
 import { CtaBoxWidget } from "./widgets/CtaBoxWidget";
 import { FlipBoxWidget } from "./widgets/FlipBoxWidget";
 import { ProgressTrackerWidget } from "./widgets/ProgressTrackerWidget";
@@ -189,6 +190,13 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
     category: "pro",
     icon: Tag,
     Render: PriceTableWidget,
+  },
+  livePlans: {
+    type: "livePlans",
+    label: "Planos (vivos)",
+    category: "pro",
+    icon: LayoutGrid,
+    Render: LivePlansWidget,
   },
   ctaBox: {
     type: "ctaBox",

@@ -20,6 +20,8 @@ export type WidgetType =
   | "imageCarousel"
   | "animatedHeadline"
   | "priceTable"
+  /** Grelha de planos vivos (API `/plans`) — para a landing de vendas do admin. */
+  | "livePlans"
   | "ctaBox"
   | "flipBox"
   | "progressTracker"

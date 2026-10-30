@@ -61,6 +61,7 @@ const AffiliateAutomizerPage = lazy(() => import("./pages/AffiliateAutomizerPage
 const KeywordsPage = lazy(() => import("./pages/KeywordsPage"));
 const LessonsPage = lazy(() => import("./pages/LessonsPage"));
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
+const AdminSalesPageBuilderPage = lazy(() => import("./pages/AdminSalesPageBuilderPage"));
 
 function RouteFallback() {
   return (
@@ -203,6 +204,22 @@ function AuthenticatedAppShell() {
                     }
                   >
                     <PresellManualBuilderPage />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/sales-page-builder"
+              element={
+                <ProtectedRoute>
+                  <Suspense
+                    fallback={
+                      <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
+                        Carregando editor…
+                      </div>
+                    }
+                  >
+                    <AdminSalesPageBuilderPage />
                   </Suspense>
                 </ProtectedRoute>
               }

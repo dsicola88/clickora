@@ -38,6 +38,9 @@ import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { LandingPageThemeProvider } from "@/contexts/LandingPageThemeContext";
 import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
 import { DEFAULT_LANDING_HERO_IMAGE, coercePlansHeroVisual } from "@/lib/plansLandingHeroVisual";
+import { asSalesPageDocument } from "@/lib/salesLandingBuilderDoc";
+import { PageRenderer } from "@/page-builder/components/PageRenderer";
+import { applyTrackingToDocument } from "@/page-builder/tracking";
 
 export default function Plans() {
   const navigate = useNavigate();
@@ -107,6 +110,73 @@ export default function Plans() {
     }
     toast.success("Plano atualizado com sucesso!");
   };
+
+  const builderDoc =
+    landingExtrasEarly.builder_enabled === true
+      ? asSalesPageDocument(landingExtrasEarly.page_document)
+      : null;
+
+  useEffect(() => {
+    if (!builderDoc?.tracking) return () => {};
+    return applyTrackingToDocument(builderDoc.tracking);
+  }, [builderDoc]);
+
+  if (builderDoc) {
+    const chrome = landingExtrasEarly.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
+    const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "Clickora";
+    const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || "Entrar";
+    const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || "Painel";
+    const salesThemed = resolveLandingPageTheme(landingExtrasEarly.theme);
+    const pageBg =
+      (typeof builderDoc.settings?.background === "string" && builderDoc.settings.background) ||
+      salesThemed.page_background ||
+      "#0b1220";
+
+    return (
+      <div className="min-h-svh w-full" style={{ backgroundColor: pageBg }}>
+        <div
+          className="sticky top-0 z-40 border-b backdrop-blur-md"
+          style={{
+            backgroundColor: salesThemed.nav_background || "rgba(11,18,32,0.92)",
+            borderColor: salesThemed.nav_border || "rgba(255,255,255,0.08)",
+          }}
+        >
+          <nav
+            className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6"
+            aria-label="Ações da página"
+          >
+            <Link to="/" className="text-base font-semibold tracking-tight text-white">
+              {brandLabel}
+            </Link>
+            <div className="flex items-center gap-3 sm:gap-5">
+              {userPlan ? (
+                <span className="hidden text-sm text-white/60 sm:inline">{userPlan.plan_name}</span>
+              ) : null}
+              <Link
+                to={user ? "/inicio" : "/auth"}
+                className="text-sm font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
+              >
+                {user ? panelLabel : loginLabel}
+              </Link>
+              <Button
+                size="sm"
+                className="h-10 border-0 px-4 text-white hover:opacity-[0.92]"
+                style={{
+                  backgroundColor: salesThemed.accent,
+                  boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
+                  ...resolvedAccentButtonRadiusStyle(salesThemed),
+                }}
+                asChild
+              >
+                <a href="#planos">{chrome.buy_label?.trim() || "Comprar"}</a>
+              </Button>
+            </div>
+          </nav>
+        </div>
+        <PageRenderer doc={builderDoc} />
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingState message="Carregando planos..." />;
   if (isError) return <ErrorState message="Erro ao carregar planos." onRetry={() => refetch()} />;
