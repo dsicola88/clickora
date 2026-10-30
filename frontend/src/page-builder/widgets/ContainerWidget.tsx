@@ -3,8 +3,7 @@ import { Suspense, type CSSProperties } from "react";
 import { useNestedRender } from "../nested-render";
 import { stylesToCssWidgetContent, stylesToCssWidgetShell } from "../style-utils";
 import type { DeviceType, FlexAlign, FlexDirection, FlexJustify, FlexWrapMode, WidgetNode } from "../types";
-import { WidgetInlineStyle } from "../widget-custom-css";
-import { motionClassName, widgetHasMotion } from "../widget-motion";
+import { WidgetMotionShell } from "../components/WidgetMotionShell";
 import { readContainerChildren } from "../widget-tree";
 import { resolvePublicWidgetRender } from "../widget-public-render";
 
@@ -112,23 +111,18 @@ function PublicContainer({
         if (!Render) return null;
         const shell = stylesToCssWidgetShell(child.styles, device);
         const noShrink = shell.flexShrink === 0;
-        const motionCls = widgetHasMotion(child.effects, child.content)
-          ? motionClassName(child.id)
-          : "";
-        const className =
-          [child.cssClasses?.trim(), motionCls].filter(Boolean).join(" ") || undefined;
         return (
-          <div
+          <WidgetMotionShell
             key={child.id}
+            widget={child}
             id={child.cssId?.trim() || undefined}
-            className={className}
+            className={child.cssClasses?.trim() || undefined}
             style={{ ...shell, minWidth: noShrink ? "auto" : 0 }}
           >
-            <WidgetInlineStyle widget={child} />
             <Suspense fallback={null}>
               <Render widget={child} device={device} />
             </Suspense>
-          </div>
+          </WidgetMotionShell>
         );
       })}
     </div>

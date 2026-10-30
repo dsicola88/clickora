@@ -12,7 +12,8 @@ import { WIDGET_REGISTRY } from "../widget-registry";
 import { NestedRenderProvider } from "../nested-render";
 import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WidgetInlineStyle } from "../widget-custom-css";
-import { motionClassName, widgetHasMotion } from "../widget-motion";
+import { useWidgetMotionRuntime, widgetMotionClassNames } from "./WidgetMotionShell";
+import { cn } from "@/lib/utils";
 import { InlineEditProvider } from "../inline-edit";
 import {
   Plus,
@@ -566,17 +567,16 @@ function ColumnView({
 
 function StaticWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const def = WIDGET_REGISTRY[widget.type];
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  useWidgetMotionRuntime(node, widget);
   if (!def) return null;
   const shell = stylesToCssWidgetShell(widget.styles, device);
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
-  const motionCls = widgetHasMotion(widget.effects, widget.content)
-    ? motionClassName(widget.id)
-    : "";
-  const className = [wcls, motionCls].filter(Boolean).join(" ") || undefined;
   return (
     <div
-      className={className}
+      ref={setNode}
+      className={cn(wcls, widgetMotionClassNames(widget)) || undefined}
       id={wid || undefined}
       style={{ ...shell, minWidth: shell.flexShrink === 0 ? "auto" : 0 }}
     >
@@ -619,9 +619,8 @@ function EditableWidget({
 
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
-  const motionCls = widgetHasMotion(widget.effects, widget.content)
-    ? motionClassName(widget.id)
-    : "";
+  const [motionNode, setMotionNode] = useState<HTMLDivElement | null>(null);
+  useWidgetMotionRuntime(motionNode, widget);
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `slot:${widget.id}`,
@@ -663,8 +662,16 @@ function EditableWidget({
 
   return (
     <div
-      ref={widget.type === "container" ? undefined : setDropRef}
-      className={`group/widget relative${wcls ? ` ${wcls}` : ""}${motionCls ? ` ${motionCls}` : ""}${isDragging ? " opacity-40" : ""}`}
+      ref={(el) => {
+        setMotionNode(el);
+        if (widget.type !== "container") setDropRef(el);
+      }}
+      className={cn(
+        "group/widget relative",
+        wcls,
+        widgetMotionClassNames(widget),
+        isDragging && "opacity-40",
+      )}
       id={wid || undefined}
       style={{
         ...shell,

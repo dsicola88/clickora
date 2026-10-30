@@ -136,12 +136,21 @@ export interface BaseStyles {
   opacity?: number;
 }
 
-/** Motion Effects (Elementor Advanced) — independente por widget. */
+/** Motion Effects (Elementor Advanced / Pro+) — independente por widget. */
 export interface WidgetEffects {
   entranceAnimation?: string;
   entranceDurationMs?: number;
   entranceDelayMs?: number;
   entranceEasing?: string;
+  /**
+   * `scroll` = ao entrar no viewport (Elementor Pro default).
+   * `load` = ao carregar a página.
+   */
+  entranceTrigger?: "scroll" | "load";
+  /** Se true, a entrada só corre uma vez (padrão Elementor). */
+  entranceOnce?: boolean;
+  /** % do elemento visível para disparar (0–100). */
+  entranceThreshold?: number;
   transform?: string;
   hoverTransform?: string;
   hoverBoxShadow?: string;
@@ -152,6 +161,28 @@ export interface WidgetEffects {
   hoverBorderColor?: string;
   transitionDurationMs?: number;
   transitionEasing?: string;
+  /** position:sticky no wrapper (Elementor Sticky). */
+  sticky?: boolean;
+  /** Offset `top` em px quando sticky. */
+  stickyOffsetPx?: number;
+  /** Efeitos contínuos (loop). */
+  continuousAnimation?: string;
+  continuousDurationMs?: number;
+  /**
+   * Scrolling Effects (Elementor Pro): movimento ligado ao scroll do viewport.
+   * `none` | `vertical` | `horizontal` | `transparency` | `blur` | `rotate` | `scale`
+   */
+  scrollingEffect?: string;
+  /** Intensidade 0–100 (default 40). */
+  scrollingSpeed?: number;
+  /** Invert direction. */
+  scrollingReverse?: boolean;
+  /** Mouse Effects — tilt 3D. */
+  mouseTilt?: boolean;
+  mouseTiltMaxDeg?: number;
+  /** Mouse track — deslocamento 2D. */
+  mouseTrack?: boolean;
+  mouseTrackPx?: number;
 }
 
 export interface WidgetNode {

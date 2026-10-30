@@ -1,11 +1,16 @@
 import type { WidgetEffects, WidgetNode } from "../types";
 import {
+  CONTINUOUS_ANIMATION_OPTIONS,
   EASING_PRESET_OPTIONS,
   ENTRANCE_ANIMATION_OPTIONS,
+  ENTRANCE_TRIGGER_OPTIONS,
   HOVER_PRESET_OPTIONS,
+  SCROLLING_EFFECT_OPTIONS,
   resolveWidgetEffects,
 } from "../widget-motion";
 import { ColorField, NumberField, SelectField, TextareaField } from "./PropertyControls";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -19,8 +24,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * Motion Effects (Elementor Advanced) — comum a todos os widgets.
- * Guarda em `widget.effects` (independente do tipo).
+ * Motion Effects nível Elementor Pro+ — comum a todos os widgets (aba Avançado).
  */
 export function WidgetEffectsEditor({
   widget,
@@ -39,7 +43,8 @@ export function WidgetEffectsEditor({
     <>
       <Section title="Animação à entrada">
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-          Como no Elementor: cada elemento tem a sua animação ao aparecer na página.
+          Como no Elementor Pro: dispara ao scroll (viewport) ou no load — duração, atraso e curva
+          por elemento.
         </p>
         <SelectField
           label="Tipo"
@@ -47,9 +52,15 @@ export function WidgetEffectsEditor({
           options={[...ENTRANCE_ANIMATION_OPTIONS]}
           onChange={(v) => patch({ entranceAnimation: v })}
         />
+        <SelectField
+          label="Disparo"
+          value={e.entranceTrigger ?? "scroll"}
+          options={[...ENTRANCE_TRIGGER_OPTIONS]}
+          onChange={(v) => patch({ entranceTrigger: v === "load" ? "load" : "scroll" })}
+        />
         <NumberField
           label="Duração (ms)"
-          value={e.entranceDurationMs ?? 600}
+          value={e.entranceDurationMs ?? 700}
           min={0}
           max={10000}
           onChange={(v) => patch({ entranceDurationMs: v })}
@@ -63,10 +74,123 @@ export function WidgetEffectsEditor({
         />
         <SelectField
           label="Curva (easing)"
-          value={e.entranceEasing ?? "cubic-bezier(0.4, 0, 0.2, 1)"}
+          value={e.entranceEasing ?? "cubic-bezier(0.22, 1, 0.36, 1)"}
           options={[...EASING_PRESET_OPTIONS]}
           onChange={(v) => patch({ entranceEasing: v })}
         />
+        <NumberField
+          label="Limiar viewport (%)"
+          value={e.entranceThreshold ?? 12}
+          min={0}
+          max={100}
+          onChange={(v) => patch({ entranceThreshold: v })}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-[11px] text-editor-fg">Só uma vez</Label>
+          <Switch
+            checked={e.entranceOnce !== false}
+            onCheckedChange={(v) => patch({ entranceOnce: v })}
+          />
+        </div>
+      </Section>
+
+      <Section title="Scrolling effects">
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          Movimento ligado ao scroll (Elementor Pro Scrolling Effects).
+        </p>
+        <SelectField
+          label="Efeito"
+          value={e.scrollingEffect ?? "none"}
+          options={[...SCROLLING_EFFECT_OPTIONS]}
+          onChange={(v) => patch({ scrollingEffect: v })}
+        />
+        {(e.scrollingEffect || "none") !== "none" ? (
+          <>
+            <NumberField
+              label="Intensidade (0–100)"
+              value={e.scrollingSpeed ?? 40}
+              min={0}
+              max={100}
+              onChange={(v) => patch({ scrollingSpeed: v })}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[11px] text-editor-fg">Inverter direção</Label>
+              <Switch
+                checked={Boolean(e.scrollingReverse)}
+                onCheckedChange={(v) => patch({ scrollingReverse: v })}
+              />
+            </div>
+          </>
+        ) : null}
+      </Section>
+
+      <Section title="Mouse effects">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-[11px] text-editor-fg">Tilt 3D</Label>
+          <Switch
+            checked={Boolean(e.mouseTilt)}
+            onCheckedChange={(v) => patch({ mouseTilt: v })}
+          />
+        </div>
+        {e.mouseTilt ? (
+          <NumberField
+            label="Máx. graus"
+            value={e.mouseTiltMaxDeg ?? 8}
+            min={1}
+            max={30}
+            onChange={(v) => patch({ mouseTiltMaxDeg: v })}
+          />
+        ) : null}
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-[11px] text-editor-fg">Track (seguir rato)</Label>
+          <Switch
+            checked={Boolean(e.mouseTrack)}
+            onCheckedChange={(v) => patch({ mouseTrack: v })}
+          />
+        </div>
+        {e.mouseTrack ? (
+          <NumberField
+            label="Deslocamento (px)"
+            value={e.mouseTrackPx ?? 12}
+            min={1}
+            max={60}
+            onChange={(v) => patch({ mouseTrackPx: v })}
+          />
+        ) : null}
+      </Section>
+
+      <Section title="Sticky">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-[11px] text-editor-fg">Fixar ao scroll</Label>
+          <Switch checked={Boolean(e.sticky)} onCheckedChange={(v) => patch({ sticky: v })} />
+        </div>
+        {e.sticky ? (
+          <NumberField
+            label="Offset top (px)"
+            value={e.stickyOffsetPx ?? 0}
+            min={0}
+            max={400}
+            onChange={(v) => patch({ stickyOffsetPx: v })}
+          />
+        ) : null}
+      </Section>
+
+      <Section title="Animação contínua">
+        <SelectField
+          label="Loop"
+          value={e.continuousAnimation ?? "none"}
+          options={[...CONTINUOUS_ANIMATION_OPTIONS]}
+          onChange={(v) => patch({ continuousAnimation: v })}
+        />
+        {(e.continuousAnimation || "none") !== "none" ? (
+          <NumberField
+            label="Duração do ciclo (ms)"
+            value={e.continuousDurationMs ?? 3000}
+            min={400}
+            max={20000}
+            onChange={(v) => patch({ continuousDurationMs: v })}
+          />
+        ) : null}
       </Section>
 
       <Section title="Transformação e transição">
@@ -79,14 +203,14 @@ export function WidgetEffectsEditor({
         />
         <NumberField
           label="Duração hover (ms)"
-          value={e.transitionDurationMs ?? 200}
+          value={e.transitionDurationMs ?? 280}
           min={0}
           max={5000}
           onChange={(v) => patch({ transitionDurationMs: v })}
         />
         <SelectField
           label="Curva da transição"
-          value={e.transitionEasing ?? "ease"}
+          value={e.transitionEasing ?? "cubic-bezier(0.4, 0, 0.2, 1)"}
           options={[...EASING_PRESET_OPTIONS]}
           onChange={(v) => patch({ transitionEasing: v })}
         />

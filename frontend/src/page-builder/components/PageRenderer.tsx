@@ -12,8 +12,7 @@ import {
 import { resolvePublicWidgetRender } from "../widget-public-render";
 import { LcpMediaScope } from "../lcp-media";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
-import { WidgetInlineStyle } from "../widget-custom-css";
-import { motionClassName, widgetHasMotion } from "../widget-motion";
+import { WidgetMotionShell } from "./WidgetMotionShell";
 
 /**
  * Read-only renderer for a PageDocument.
@@ -134,17 +133,18 @@ function ColumnRender({
         const shell = stylesToCssWidgetShell(widget.styles, device);
         const wid = widget.cssId?.trim();
         const wcls = widget.cssClasses?.trim();
-        const motionCls = widgetHasMotion(widget.effects, widget.content)
-          ? motionClassName(widget.id)
-          : "";
-        const className = [wcls, motionCls].filter(Boolean).join(" ") || undefined;
         return (
-          <div key={widget.id} id={wid || undefined} className={className} style={shell}>
-            <WidgetInlineStyle widget={widget} />
+          <WidgetMotionShell
+            key={widget.id}
+            widget={widget}
+            id={wid || undefined}
+            className={wcls || undefined}
+            style={shell}
+          >
             <Suspense fallback={null}>
               <Render widget={widget} device={device} />
             </Suspense>
-          </div>
+          </WidgetMotionShell>
         );
       })}
     </div>
