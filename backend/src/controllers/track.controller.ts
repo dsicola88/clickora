@@ -10,7 +10,12 @@ import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePostback";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
 import { notifyTelegramClick } from "../lib/telegramNotifications";
-import { countrySourceMeta, lookupIpForTools, resolveVisitorCountryFromRequest } from "../lib/cdn77Visitor";
+import {
+  countrySourceMeta,
+  isCdn77EdgeIp,
+  lookupIpForTools,
+  resolveVisitorCountryFromRequest,
+} from "../lib/cdn77Visitor";
 import { isFastlyEdgeIp } from "../lib/fastlyEdges";
 import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
@@ -296,7 +301,8 @@ function visitorClickPlace(req: Request, ip: string) {
     };
   }
   const visitor = resolveVisitorCountryFromRequest(req, ip);
-  const place = visitor.source === "cdn77" ? null : datacenterClickPlace(ip);
+  // País CDN77 ≠ saltar cloud: o IP gravado é o visitante; AWS/GCP ainda vão para exclude_from_kpi.
+  const place = isCdn77EdgeIp(ip) ? null : datacenterClickPlace(ip);
   const country = visitor.country;
   return {
     visitor,

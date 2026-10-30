@@ -18,7 +18,6 @@ import {
 import { geoLookupFromIp } from "../lib/countryFromIp";
 import { locationForStoredClick } from "../lib/cdn77Visitor";
 import { sqlVisitorCountry } from "../lib/edgeCountrySql";
-import { datacenterClickPlace } from "../lib/ipNetworkClass";
 import { resolveClickVisitorEvidence } from "../lib/clickVisitorEvidence";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
@@ -84,8 +83,8 @@ function mapTrackingEventForApi(e: {
   const rawContent = typeof metadata.utm_content === "string" ? metadata.utm_content.trim() : "";
   const geo = geoLookupFromIp(e.ipAddress ?? null);
   const storedCountry = e.country && String(e.country).trim() ? String(e.country).trim().toUpperCase() : null;
-  const fromCdnVisitor = metadata.country_source === "cdn77";
-  const datacenter = fromCdnVisitor ? null : datacenterClickPlace(e.ipAddress);
+  // Situação vem de resolveClickVisitorEvidence (inclui cloud mesmo com geo CDN77).
+  // locationForStoredClick ignora `datacenter`; passamos null para não sugerir país de cloud.
   const visitorEvidence = resolveClickVisitorEvidence({
     ipAddress: e.ipAddress,
     userAgent: e.userAgent,
@@ -95,7 +94,7 @@ function mapTrackingEventForApi(e: {
     ip: e.ipAddress,
     storedCountry,
     countrySource: metadata.country_source,
-    datacenter,
+    datacenter: null,
     geo,
   });
   const country = located.country;

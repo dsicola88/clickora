@@ -80,14 +80,26 @@ describe("E2E evidência → Situação (sem inventar)", () => {
     assert.equal(situationLabel(ev), "Real");
   });
 
-  it("CDN77 country_source não marca o IP do nó como datacenter do visitante", () => {
+  it("IP de nó CDN77 → Datacenter (CDN77), mesmo com country_source", () => {
     const ev = resolveClickVisitorEvidence({
       ipAddress: "152.233.29.1",
       userAgent: SAFARI_IOS,
       metadata: { country_source: "cdn77" },
     });
-    assert.equal(ev.unqualified, false);
-    assert.equal(situationLabel(ev), "Real");
+    assert.equal(ev.unqualified, true);
+    assert.equal(ev.ip_network, "CDN77");
+    assert.equal(situationLabel(ev), "Datacenter (CDN77)");
+  });
+
+  it("AWS + country_source cdn77 (geo CDN, IP visitante cloud) → Datacenter (AWS)", () => {
+    const ev = resolveClickVisitorEvidence({
+      ipAddress: "18.144.100.168",
+      userAgent: SAFARI_IOS,
+      metadata: { country_source: "cdn77" },
+    });
+    assert.equal(ev.evidence, "datacenter_ip");
+    assert.equal(ev.ip_network, "AWS");
+    assert.equal(situationLabel(ev), "Datacenter (AWS)");
   });
 
   it("Google 66.102.x + UA residencial → Datacenter (Google) no relatório", () => {
