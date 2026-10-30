@@ -17,6 +17,8 @@ export async function bakeAndMaybePublishPresell(args: {
   affiliateLink: string;
   wantPublished: boolean;
   publicUrl?: string | null;
+  /** Base /api preferida (domínio tracking da conta ou host da lander). */
+  trackApiBase?: string | null;
 }): Promise<{
   page: Presell;
   readiness: PublishReadinessItem[];
@@ -30,7 +32,12 @@ export async function bakeAndMaybePublishPresell(args: {
   if (mirrorRaw) {
     content = {
       ...content,
-      importMirrorSrcDoc: bakeMirrorOfferHrefsForPresell(mirrorRaw, args.page.id, affiliate),
+      importMirrorSrcDoc: bakeMirrorOfferHrefsForPresell(
+        mirrorRaw,
+        args.page.id,
+        affiliate,
+        args.trackApiBase,
+      ),
     };
   }
 

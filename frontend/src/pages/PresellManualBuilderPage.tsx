@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { PresellBuilderEmbedProvider } from "@/contexts/PresellBuilderEmbedContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import { getTrackApiBaseForAccountDomains, getTrackApiBaseUrl } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
@@ -110,11 +110,6 @@ export default function PresellManualBuilderPage() {
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(true);
   const [publishDrawer, setPublishDrawer] = useState(false);
 
-  const trackingEmbedScript = useMemo(() => {
-    const uid = user?.id;
-    if (!uid) return "";
-    return buildClickoraEmbedScriptHtml({ apiBase: getTrackApiBaseUrl(), userId: uid });
-  }, [user?.id]);
   const contentRef = useRef<Record<string, unknown>>({});
   const pageTypeRef = useRef("builder");
   const lastCloudDocJsonRef = useRef("");
@@ -125,6 +120,27 @@ export default function PresellManualBuilderPage() {
   const [lastCloudSavedAt, setLastCloudSavedAt] = useState<number | null>(null);
   const draftBootstrapRef = useRef(false);
   const cloudInflightRef = useRef(false);
+
+  const { data: customDomains = [] } = useQuery({
+    queryKey: ["custom-domain", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.list();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+    enabled: !!tenantKey,
+    staleTime: 60_000,
+  });
+
+  const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
+  const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
+
+  const trackingEmbedScript = useMemo(() => {
+    const uid = user?.id;
+    if (!uid) return "";
+    const apiBase = getTrackApiBaseForAccountDomains(customDomains) ?? getTrackApiBaseUrl();
+    return buildClickoraEmbedScriptHtml({ apiBase, userId: uid });
+  }, [user?.id, customDomains]);
 
   const trackingHealthScore = useMemo(
     () =>
@@ -144,20 +160,6 @@ export default function PresellManualBuilderPage() {
       return { ...prev, headerCode: next };
     });
   }, [trackingEmbedScript]);
-
-  const { data: customDomains = [] } = useQuery({
-    queryKey: ["custom-domain", tenantKey],
-    queryFn: async () => {
-      const { data, error } = await customDomainService.list();
-      if (error) throw new Error(error);
-      return data ?? [];
-    },
-    enabled: !!tenantKey,
-    staleTime: 60_000,
-  });
-
-  const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
-  const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
 
   const publicPresellTestUrl = useMemo(() => {
     if (!routeId) return null;

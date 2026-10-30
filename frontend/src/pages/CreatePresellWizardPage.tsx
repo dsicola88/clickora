@@ -40,7 +40,7 @@ import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
-import { getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import { getTrackApiBaseForAccountDomains, getTrackApiBaseUrl, resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
 import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
 import { readBrandKitPro } from "@/lib/brandKitPro";
 import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
@@ -329,7 +329,10 @@ export default function CreatePresellWizardPage() {
       );
       const uid = user?.id;
       if (uid) {
-        const embed = buildClickoraEmbedScriptHtml({ apiBase: getTrackApiBaseUrl(), userId: uid });
+        const embed = buildClickoraEmbedScriptHtml({
+          apiBase: getTrackApiBaseForAccountDomains(customDomains) ?? getTrackApiBaseUrl(),
+          userId: uid,
+        });
         settings.headerCode = mergeClickoraTrackingIntoHeader(String(settings.headerCode ?? ""), embed);
       }
 
@@ -353,12 +356,14 @@ export default function CreatePresellWizardPage() {
       } as never);
       if (errA || !pageA) throw new Error(errA || "Falha ao criar presell");
 
+      const publicUrlA = getPublicPresellFullUrl(customDomains, pageA.custom_domain_id ?? null, pageA);
       const pubA = await bakeAndMaybePublishPresell({
         page: pageA,
         content: a.content as Record<string, unknown>,
         affiliateLink: String((a.content as Record<string, unknown>).affiliateLink || offer),
         wantPublished: a.mirrorOk,
-        publicUrl: getPublicPresellFullUrl(customDomains, pageA.custom_domain_id ?? null, pageA),
+        publicUrl: publicUrlA,
+        trackApiBase: resolveTrackApiBaseForExport(customDomains, publicUrlA),
       });
       const pageALive = pubA.page;
       const complianceBlocked = pubA.complianceBlocked;
@@ -402,12 +407,14 @@ export default function CreatePresellWizardPage() {
           ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
         } as never);
         if (errB || !createdB) throw new Error(errB || "Falha ao criar variante B");
+        const publicUrlB = getPublicPresellFullUrl(customDomains, createdB.custom_domain_id ?? null, createdB);
         const pubB = await bakeAndMaybePublishPresell({
           page: createdB,
           content: b.content as Record<string, unknown>,
           affiliateLink: String((b.content as Record<string, unknown>).affiliateLink || offer),
           wantPublished: b.mirrorOk,
-          publicUrl: getPublicPresellFullUrl(customDomains, createdB.custom_domain_id ?? null, createdB),
+          publicUrl: publicUrlB,
+          trackApiBase: resolveTrackApiBaseForExport(customDomains, publicUrlB),
         });
         pageB = pubB.page;
 

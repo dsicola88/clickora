@@ -49,7 +49,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
-import { getApiBaseUrl, getTrackApiBaseUrl, resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
+import {
+  getApiBaseUrl,
+  getTrackApiBaseForAccountDomains,
+  getTrackApiBaseUrl,
+  resolveTrackApiBaseForExport,
+} from "@/lib/apiOrigin";
 import {
   PresellPublishReadiness,
   buildPublishReadinessFromPresell,
@@ -177,12 +182,28 @@ export default function PresellDashboard() {
     setSearchParams({ [PRESELL_DASH_ANALYTICS_TAB_PARAM]: v }, { replace: true });
   };
 
+  const { data: customDomains = [] } = useQuery({
+    queryKey: ["custom-domain", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.list();
+      if (error) throw new Error(error);
+      return data ?? [];
+    },
+    enabled: !!tenantKey,
+    staleTime: 60_000,
+  });
+
+  const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
+  const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
+
   /** Mesmo padrão do Tracking → dashboard: script async no &lt;head&gt; da presell. */
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    return buildClickoraEmbedScriptHtml({ apiBase: getTrackApiBaseUrl(), userId: uid });
-  }, [user?.id]);
+    const apiBase =
+      getTrackApiBaseForAccountDomains(customDomains) ?? getTrackApiBaseUrl();
+    return buildClickoraEmbedScriptHtml({ apiBase, userId: uid });
+  }, [user?.id, customDomains]);
 
   /**
    * Nova presell: junta o script Clickora ao head ao abrir o formulário.
@@ -197,20 +218,6 @@ export default function PresellDashboard() {
       return { ...prev, headerCode: next };
     });
   }, [showCreator, editingId, trackingEmbedScript]);
-
-  const { data: customDomains = [] } = useQuery({
-    queryKey: ["custom-domain", tenantKey],
-    queryFn: async () => {
-      const { data, error } = await customDomainService.list();
-      if (error) throw new Error(error);
-      return data ?? [];
-    },
-    enabled: !!tenantKey,
-    staleTime: 60_000,
-  });
-
-  const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
-  const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
 
   const { data: pages = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["presells", tenantKey],
@@ -257,12 +264,14 @@ export default function PresellDashboard() {
       if (!created?.id) return created;
       const content = { ...((created.content || data.content || {}) as Record<string, unknown>) };
       const affiliate = String(content.affiliateLink ?? "").trim();
+      const publicUrl = getPublicPresellFullUrl(customDomains, created.custom_domain_id, created);
       const pub = await bakeAndMaybePublishPresell({
         page: created,
         content,
         affiliateLink: affiliate,
         wantPublished,
-        publicUrl: getPublicPresellFullUrl(customDomains, created.custom_domain_id, created),
+        publicUrl,
+        trackApiBase: resolveTrackApiBaseForExport(customDomains, publicUrl),
       });
       if (pub.block && wantPublished) {
         toast.warning(`Em rascunho: ${pub.block.label}. ${pub.block.hint || ""}`.trim());
@@ -678,7 +687,17 @@ export default function PresellDashboard() {
         // Nunca apagar o espelho se o rascunho veio vazio (ex.: lista sem content).
         if (!mirrorToSave && prevMirror) mirrorToSave = prevMirror;
         if (mirrorToSave.length > 0) {
-          mirrorToSave = bakeMirrorOfferHrefsForPresell(mirrorToSave, editingId, ctaAffiliate);
+          const pubUrl = getPublicPresellFullUrl(
+            customDomains,
+            formData.customDomainId || editingPage.custom_domain_id,
+            editingPage,
+          );
+          mirrorToSave = bakeMirrorOfferHrefsForPresell(
+            mirrorToSave,
+            editingId,
+            ctaAffiliate,
+            resolveTrackApiBaseForExport(customDomains, pubUrl),
+          );
         }
         if (editingPage.status === "published" || editingPage.status === "paused") {
           const block = publishBlockedByReadiness(
@@ -846,7 +865,13 @@ export default function PresellDashboard() {
       const affiliate = resolvePresellAffiliateLink(full);
       let mirror = typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : "";
       if (mirror) {
-        mirror = bakeMirrorOfferHrefsForPresell(mirror, page.id, affiliate);
+        const pubUrl = getPublicPresellFullUrl(customDomains, full.custom_domain_id || page.custom_domain_id, full);
+        mirror = bakeMirrorOfferHrefsForPresell(
+          mirror,
+          page.id,
+          affiliate,
+          resolveTrackApiBaseForExport(customDomains, pubUrl),
+        );
         content.importMirrorSrcDoc = mirror;
         if (affiliate && !String(content.affiliateLink ?? "").trim()) {
           content.affiliateLink = affiliate;

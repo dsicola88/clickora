@@ -20,4 +20,13 @@ describe("presellCtaBake", () => {
     expect(out).toMatch(/\/track\/r\//);
     expect(out).toMatch(/to=/);
   });
+
+  it("respeita apiBase absoluto do domínio de tracking", () => {
+    const href = trackHrefForPresell(
+      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "https://offer.example/",
+      "https://go.marca.com/api",
+    );
+    expect(href.startsWith("https://go.marca.com/api/track/r/")).toBe(true);
+  });
 });
