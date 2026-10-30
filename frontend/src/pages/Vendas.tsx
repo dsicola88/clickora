@@ -165,7 +165,7 @@ export default function Vendas() {
       <SyncHealthBanner className="mb-4" syncHealth={data.sync_health} />
       <ProPageHeader
         title="Funil de conversões"
-        subtitle="Impressão → clique → checkout → venda aprovada. Contagens com os mesmos filtros KPI que Resultados (sem bots nem ruído de relatório)."
+        subtitle="Visitas → cliques → checkout → vendas. Os mesmos números limpos que em Resultados (sem robots nem IPs de servidor)."
         meta={
           <>
             <span className="font-mono tabular-nums">
@@ -211,7 +211,7 @@ export default function Vendas() {
                     <strong className="text-foreground">Pago:</strong> {definitions.paid}
                   </li>
                   <li>
-                    <strong className="text-foreground">Ads sem ID:</strong> {definitions.paid_untracked}
+                    <strong className="text-foreground">Sem ID do clique:</strong> {definitions.paid_untracked}
                   </li>
                   <li>
                     <strong className="text-foreground">Orgânico:</strong> {definitions.organic}
@@ -359,7 +359,7 @@ export default function Vendas() {
                 </p>
               </div>
               <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ads sem ID</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Sem ID do clique</p>
                 <p className="text-lg font-semibold tabular-nums">{int(traffic.paid_untracked_sales)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {pct(traffic.paid_untracked_pct)} · {money(traffic.paid_untracked_revenue, currency)}
@@ -407,7 +407,7 @@ export default function Vendas() {
                   <Area
                     type="monotone"
                     dataKey="ads_sem_id"
-                    name="Ads sem ID"
+                    name="Sem ID do clique"
                     stroke="hsl(38 88% 50%)"
                     fill="hsl(38 88% 50%)"
                     fillOpacity={0.2}

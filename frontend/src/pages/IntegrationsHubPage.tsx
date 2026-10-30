@@ -53,43 +53,43 @@ export default function IntegrationsHubPage() {
       t: "Presell publicada",
       id: "presell_published",
       href: "/presells/nova",
-      d: "Espelho da oferta + click ID no hoplink (subid / sub3 / cid).",
+      d: "Página no ar com o link da oferta no botão.",
     },
     {
-      t: "Postback",
+      t: "Aviso de venda",
       id: "postback_configured",
       href: "/integracoes/postback",
-      d: "URL com macros na BuyGoods / SmartAdv / Digistore.",
+      d: "URL de aviso colado na BuyGoods / SmartAdv / Digistore.",
     },
     {
-      t: "Campanha + URL Ads",
+      t: "Campanha + URL do anúncio",
       id: "campaign_linked",
       href: "/campanhas",
-      d: "utm_campaign slug · utm_term={keyword} · utm_content={adgroupid}.",
+      d: "URL gerada pela Clickora colada no Google Ads.",
     },
     {
-      t: "Google Ads + sync",
+      t: "Google Ads ligado",
       id: "google_ads",
       href: "/integracoes/google-ads",
-      d: "Ligar Google → custos + conversões automáticos.",
+      d: "Custos e vendas enviados automaticamente.",
     },
     {
-      t: "Custos do período (≤48h)",
+      t: "Custos actualizados",
       id: "cost_sync",
       href: "/integracoes/automizer",
-      d: "Sync recente — ROAS do período só é de confiança com custo actualizado.",
+      d: "Última sincronização há menos de 48h — senão o lucro fica incompleto.",
     },
     {
-      t: "Envios Ads (gclid/fbclid/ttclid)",
+      t: "Envios às redes de anúncios",
       id: "ads_upload",
       href: "/resultados/relatorios/conversoes",
-      d: "Falhas de API ou vendas sem click-id nos últimos 7 dias.",
+      d: "Erros de envio ou vendas sem ID do clique nos últimos 7 dias.",
     },
     {
-      t: "Domínio HTTPS pronto",
+      t: "Domínio com cadeado HTTPS",
       id: "domain_https",
       href: "/configuracoes",
-      d: "Final URL só com HTTPS pronto (DNS verificado ≠ SSL).",
+      d: "O link do anúncio deve abrir em HTTPS (DNS sozinho não chega).",
     },
   ] as const;
 
@@ -240,13 +240,13 @@ export default function IntegrationsHubPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                Meta CAPI + TikTok Events
+                Pixels Meta e TikTok
                 <Badge variant="secondary" className="text-[10px]">
                   Pixels
                 </Badge>
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Purchase servidor→rede após postback (fbclid / ttclid).
+                Envia a venda à Meta e ao TikTok depois do aviso da rede.
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -267,7 +267,7 @@ export default function IntegrationsHubPage() {
                 </Badge>
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Sync diário · pause keywords sem receita · auditoria.
+                Actualiza custos e pausa palavras-chave sem vendas.
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -283,7 +283,7 @@ export default function IntegrationsHubPage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">Envio Google / Meta / TikTok</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Offline / CAPI / Events — depois do postback estável.
+                Envio avançado às redes — depois do aviso de venda estável.
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />

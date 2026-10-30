@@ -2,7 +2,7 @@ import type { SyncHealthPayload } from "@/components/SyncHealthBanner";
 
 /**
  * Destino do deep-link do SyncHealthBanner.
- * Só «Sem clique Google» quando o problema dominante é skipped_no_gclid (sem falhas API).
+ * Só «Sem ID Google» quando o problema dominante é skipped_no_gclid (sem falhas API).
  */
 export function syncHealthReportHref(sh: SyncHealthPayload): string {
   const noGclid = sh.google_ads_skipped_no_gclid ?? 0;
@@ -20,6 +20,6 @@ export function syncHealthReportHref(sh: SyncHealthPayload): string {
 
 export function syncHealthReportLabel(href: string): string {
   return href.endsWith("/sem-gclid")
-    ? "Relatórios → Sem clique Google"
+    ? "Relatórios → Sem ID Google"
     : "Relatórios → Conversões";
 }

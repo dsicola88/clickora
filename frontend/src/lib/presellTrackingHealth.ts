@@ -32,7 +32,7 @@ function hasAnyNetworkTag(s: PresellConfigSettings): boolean {
 const AW_CONV = /^AW-[0-9]+\/.+/i;
 
 /**
- * Checklist por presell — só usa dados desta página (multi-tenant).
+ * Checklist por presell — linguagem simples (multi-tenant).
  */
 export function computePresellTrackingHealth(input: {
   configSettings: PresellConfigSettings;
@@ -47,23 +47,23 @@ export function computePresellTrackingHealth(input: {
   if (!offer) {
     items.push({
       id: "offer",
-      label: "Link da oferta (afiliado)",
+      label: "Link da oferta",
       status: "warn",
-      detail: "Falta o hoplink da rede. Sem ele o marketplace não te atribui o clique.",
+      detail: "Falta o link da rede de afiliados. Sem ele a venda não é atribuída.",
     });
   } else if (!isValidOfferUrl(offer)) {
     items.push({
       id: "offer",
-      label: "Link da oferta (afiliado)",
+      label: "Link da oferta",
       status: "warn",
-      detail: "Usa um URL completo com https://",
+      detail: "Usa um endereço completo com https://",
     });
   } else {
     items.push({
       id: "offer",
-      label: "Link da oferta (afiliado)",
+      label: "Link da oferta",
       status: "ok",
-      detail: "O botão da presell envia o visitante para este hoplink (rastreado).",
+      detail: "O botão da página envia o visitante para este link (com rastreamento).",
     });
   }
 
@@ -72,30 +72,30 @@ export function computePresellTrackingHealth(input: {
       id: "clickora",
       label: "Rastreamento Clickora",
       status: "ok",
-      detail: "O script da conta será fundido no head ao guardar.",
+      detail: "O script da conta será incluído ao guardar.",
     });
   } else {
     items.push({
       id: "clickora",
       label: "Rastreamento Clickora",
       status: "warn",
-      detail: "Inicia sessão para incluir o script de cliques no head.",
+      detail: "Inicia sessão para incluir o rastreamento de cliques.",
     });
   }
 
   if (hasAnyNetworkTag(configSettings)) {
     items.push({
       id: "networks",
-      label: "Tags de anúncios (Meta / TikTok / Google / Bing)",
+      label: "Pixels de anúncios",
       status: "ok",
-      detail: "Há IDs ou script de pixel configurados nesta presell.",
+      detail: "Há pixels configurados nesta página (Meta, TikTok, Google ou Bing).",
     });
   } else {
     items.push({
       id: "networks",
-      label: "Tags de anúncios (opcional)",
+      label: "Pixels de anúncios (opcional)",
       status: "info",
-      detail: "Podes colar IDs ou o script completo de Meta, TikTok, Google Ads ou Bing abaixo.",
+      detail: "Podes colar IDs ou o script completo de Meta, TikTok, Google Ads ou Bing.",
     });
   }
 
@@ -103,9 +103,9 @@ export function computePresellTrackingHealth(input: {
   if (gce && !AW_CONV.test(gce)) {
     items.push({
       id: "aw-format",
-      label: "Formato conversão Google Ads",
+      label: "Conversão Google Ads",
       status: "warn",
-      detail: "Recomendado: AW-123456789/AbCdEfGh (ID de conversão / etiqueta).",
+      detail: "Formato esperado: AW-123456789/AbCdEfGh (código que o Google te dá).",
     });
   }
 
@@ -114,44 +114,44 @@ export function computePresellTrackingHealth(input: {
       id: "published",
       label: "Página publicada",
       status: "ok",
-      detail: "Usa o link de teste abaixo para validar UTMs e pixels antes de escalar tráfego.",
+      detail: "Usa o link de teste abaixo antes de aumentar o orçamento.",
     });
   } else {
     items.push({
       id: "published",
       label: "Link público",
       status: "info",
-      detail: "Após guardar, copia o URL /p/… para testar no depurador de tags.",
+      detail: "Depois de guardar, copia o link público para testar.",
     });
   }
 
   items.push({
     id: "e2e-postback",
-    label: "E2E: postback da rede",
+    label: "Aviso de venda da rede",
     status: "info",
     detail:
-      "Antes de escalar: cola o URL de postback (com click id) no painel da rede. Sem isto a venda não fecha na Clickora.",
+      "Antes de escalar: cola o URL de aviso de venda no painel da rede. Sem isto a venda não aparece na Clickora.",
   });
   items.push({
     id: "e2e-smoke",
-    label: "E2E: smoke test Ads",
+    label: "Teste com anúncio pequeno",
     status: "info",
     detail:
-      "Budget baixo → 1 clique real → Relatórios (Situação Real) → confirmar postback/conversão. Só depois escalar.",
+      "Orçamento baixo → 1 clique real → Relatórios (Situação Real) → confirmar a venda. Só depois aumenta o budget.",
   });
   items.push({
     id: "e2e-funnel",
-    label: "E2E: funil + ROI",
+    label: "Funil e lucro",
     status: "info",
     detail:
-      "Em Resultados → Funil: impressão → clique → checkout → venda; conferir Pago vs Orgânico e lucro só com custo do período.",
+      "Em Resultados → Funil: visitas → cliques → checkout → vendas; confere Pago vs Orgânico e lucro com custo do período.",
   });
   items.push({
     id: "e2e-ads-upload",
-    label: "E2E: envios Ads + custos",
+    label: "Envios às redes e custos",
     status: "info",
     detail:
-      "Em Integrações / Relatórios: falhas Google·Meta·TikTok a zero, vendas sem gclid/fbclid/ttclid revistas, custos sync ≤48h.",
+      "Em Integrações / Relatórios: sem falhas de envio, vendas sem ID do clique revistas, custos actualizados.",
   });
 
   const weights: Record<TrackingHealthStatus, number> = { ok: 1, info: 0.75, warn: 0.4 };

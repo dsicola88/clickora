@@ -103,8 +103,7 @@ export function listUnreplacedClickIdMacros(args: {
 }
 
 /**
- * Texto do tooltip «Tipo» — accionável, sem inventar causa.
- * `visitorKind` opcional: cloud Google + UTM ≠ comprador.
+ * Tooltip «Tipo» — linguagem simples para o afiliado.
  */
 export function explainTrafficTypeLabel(
   args: Parameters<typeof resolveTrafficType>[0] & {
@@ -113,17 +112,17 @@ export function explainTrafficTypeLabel(
 ): string {
   const kind = resolveTrafficType(args);
   if (kind === "paid") {
-    return "ID de clique real (gclid/gbraid/wbraid/msclkid/fbclid/ttclid). Pode atribuir conversão às Ads.";
+    return "Clique veio do anúncio com ID completo — podes ligar a venda ao Google/Meta/TikTok.";
   }
   if (kind === "organic") {
-    return "Sem sinais de anúncio (UTM/cpc) nem ID de clique.";
+    return "Sem sinais de anúncio pago (nem campanha nem ID de clique).";
   }
   const macros = listUnreplacedClickIdMacros(args);
   if (macros.length > 0) {
-    return `Macro não substituída (${macros.join(", ")}). Abre o anúncio real no Google Ads — não copies o URL do Construtor com {gclid}. Auto-tagging da conta deve estar ligado.`;
+    return "O link ainda tem {…} por preencher. Não abras o URL copiado no browser — clica no anúncio real no Google Ads.";
   }
   if (args.visitorKind === "datacenter") {
-    return "UTM/cpc sem ID de clique + IP cloud. Tipicamente AdsBot, preview ou servidor — não é comprador. Confirma auto-tagging e que a Final URL preserva ?gclid=…";
+    return "Parece robot ou servidor do Google a visitar a página — não é um comprador. Ignora estas linhas ao analisar vendas.";
   }
-  return "UTM/cpc sem gclid/gbraid/wbraid. No Google Ads: Definições da conta → auto-tagging ON; Final URL (ou suffix) com UTMs; testa a landing com ?gclid=TesTER-123 e confirma que o parâmetro fica na barra.";
+  return "Campanha detectada, mas sem ID do clique. Confirma em Google Ads → Configurações da conta → Codificação automática = Sim, e cola a URL gerada pela Clickora (não abras o link de teste no browser).";
 }

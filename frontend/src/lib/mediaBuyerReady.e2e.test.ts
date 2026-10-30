@@ -32,7 +32,7 @@ describe("E2E media buyer ready (fechável em código)", () => {
       const q = resolveClickVisitorQuality(e);
       return { ip: e.ip_address || "—", statusKind: q.kind, status: q.label };
     });
-    expect(ui[0]?.status).toBe("Datacenter (AWS)");
+    expect(ui[0]?.status).toBe("Cloud (AWS)");
     expect(ui[1]?.status).toBe("Real");
     const exclusion = collectDatacenterIpsForGoogleAdsExclusion(ui);
     expect(exclusion).toEqual(["18.144.100.168"]);
@@ -58,8 +58,8 @@ describe("E2E media buyer ready (fechável em código)", () => {
     expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "ads_upload")?.href).toBe("/integracoes");
   });
 
-  it("cloud+bot Visivra: Situação Datacenter gera exclusão Google (contrato UI)", () => {
-    // Regressão: se Relatórios omitir include_bots, exclude_from_kpi esconde estes IPs.
+  it("cloud+bot Visivra: Situação Cloud gera exclusão Google (contrato UI)", () => {
+    // Regressão: se Relatórios omitir include_bots, cloud fica escondida.
     const cloud = resolveClickVisitorQuality({
       is_bot: false,
       unqualified: true,
@@ -72,7 +72,7 @@ describe("E2E media buyer ready (fechável em código)", () => {
     });
     expect(cloud.kind).toBe("datacenter");
     expect(bot.kind).toBe("bot");
-    expect(bot.label).toMatch(/Crawler Google/);
+    expect(bot.label).toBe("Robot Google");
     expect(
       collectDatacenterIpsForGoogleAdsExclusion([
         { ip: "18.144.100.168", statusKind: cloud.kind },

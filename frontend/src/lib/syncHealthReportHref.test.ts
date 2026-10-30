@@ -10,7 +10,7 @@ describe("syncHealthReportHref", () => {
       meta_capi_failed: 0,
     });
     expect(href).toBe("/resultados/relatorios/sem-gclid");
-    expect(syncHealthReportLabel(href)).toMatch(/Sem clique Google/);
+    expect(syncHealthReportLabel(href)).toBe("Relatórios → Sem ID Google");
   });
 
   it("vai a conversões com falhas API ou outros skips", () => {

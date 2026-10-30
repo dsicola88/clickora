@@ -658,11 +658,11 @@ export default function PresellDashboard() {
     const importUrl = formData.productLink.trim();
     const ctaAffiliate = formData.affiliateLink.trim();
     if (!ctaAffiliate) {
-      toast.error("Indique o hoplink da rede (destino do botão). Sem ele o marketplace não atribui o clique.");
+      toast.error("Indica o link da oferta da rede (destino do botão). Sem ele a venda não é atribuída.");
       setCreatorStep(1);
       setFormErrors((prev) => ({
         ...prev,
-        affiliateLink: "Cole o hoplink da rede (obrigatório).",
+        affiliateLink: "Cola o link da oferta da rede (obrigatório).",
       }));
       return;
     }

@@ -690,15 +690,15 @@ export async function loadConversionFunnel(args: {
     alerts,
     keywords,
     definitions: {
-      impressions: "Eventos impression no período, sem bots nem tráfego excluído dos KPIs.",
-      clicks: "Eventos click no período (mesmos filtros KPI que Resultados).",
-      checkouts: "Eventos lead com funnel_step=checkout (página de checkout / hoplink).",
-      sales: "Conversões aprovadas por postback da rede — fonte de verdade de receita.",
-      paid: "Venda ligada a clique com ID de rede real (gclid, gbraid, wbraid, msclkid, fbclid ou ttclid).",
+      impressions: "Aberturas da página no período (sem robots nem IPs de servidor).",
+      clicks: "Cliques no botão da oferta no período (mesmos filtros limpos que Resultados).",
+      checkouts: "Visitantes que chegaram à página de checkout / oferta.",
+      sales: "Vendas aprovadas avisadas pela rede — a receita que conta.",
+      paid: "Venda ligada a um clique de anúncio com ID completo.",
       paid_untracked:
-        "Sinais de ads (UTM/medium) sem ID de clique real — não conta como Pago atribuível.",
-      organic: "Sem ID de rede nem sinais de ads no clique (ou venda sem clique atribuído).",
-      kpi_noise: "Bots e IPs de relatório cloud (exclude_from_kpi) ficam fora destas contagens.",
+        "Campanha de anúncios detectada, mas sem ID do clique — não conta como Pago atribuível.",
+      organic: "Sem anúncio pago no clique (ou venda sem clique associado).",
+      kpi_noise: "Robots e IPs de servidor ficam fora destas contagens.",
     },
   };
 

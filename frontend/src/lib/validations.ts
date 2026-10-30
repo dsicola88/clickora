@@ -54,7 +54,7 @@ const presellCreatorStep1Fields = z.object({
   language: z.string().min(1, "Selecione o idioma"),
   affiliateLink: z
     .string()
-    .min(1, "Cole o hoplink da rede (destino do botão — obrigatório)")
+    .min(1, "Cole o link da oferta da rede (destino do botão — obrigatório)")
     .url("Hoplink inválido. Use um URL completo (https://...)"),
 });
 
@@ -69,7 +69,7 @@ export const presellCreatorStep1Schema = presellCreatorStep1Fields
     path: ["affiliateLink"],
   })
   .refine((d) => !isBlockedProductUrl(d.affiliateLink), {
-    message: "Use o hoplink público da rede (não localhost).",
+    message: "Usa o link público da oferta (não localhost).",
     path: ["affiliateLink"],
   });
 
@@ -89,7 +89,7 @@ export const presellAutoCreatorSchema = presellCreatorStep1Fields
     path: ["affiliateLink"],
   })
   .refine((d) => !isBlockedProductUrl(d.affiliateLink), {
-    message: "Use o hoplink público da rede (não localhost).",
+    message: "Usa o link público da oferta (não localhost).",
     path: ["affiliateLink"],
   });
 

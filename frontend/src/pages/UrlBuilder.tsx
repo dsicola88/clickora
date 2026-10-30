@@ -457,7 +457,7 @@ export default function UrlBuilder() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title="Construtor de URL"
-        subtitle="Link da presell com UTMs e click IDs para colar no anúncio. O botão da página usa o hoplink (tracking no redirect)."
+        subtitle="Monta o link da página para colar no anúncio. O botão da página continua a usar o teu link da oferta."
         actions={
           <Button
             type="button"
@@ -614,10 +614,9 @@ export default function UrlBuilder() {
                       e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
                     </p>
                     <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-amber-950 dark:text-amber-100">
-                      Obrigatório: Conta Google Ads → Definições → <strong>auto-tagging ligado</strong>. Sem isso o
-                      relatório marca «Ads (sem ID)» (UTM sem gclid). Preferir o{" "}
-                      <strong>sufixo do URL final</strong> abaixo; não abras o link do Construtor com{" "}
-                      <span className="font-mono">{"{gclid}"}</span> literal no browser.
+                      Em Google Ads → Configurações da conta → <strong>Codificação automática = Sim</strong>. Prefere
+                      o <strong>sufixo do URL final</strong> abaixo. Não abras este link no browser para testar — usa
+                      um clique real no anúncio.
                     </p>
                   </div>
                 )}

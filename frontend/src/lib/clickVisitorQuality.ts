@@ -1,6 +1,6 @@
 /**
- * Qualidade do visitante no relatório.
- * Real = sem bot (UA) nem IP cloud conhecido; Bot / Datacenter = evidência explícita.
+ * Qualidade do visitante no relatório (rótulos para o afiliado).
+ * Real = pessoa; Bot = robot; Cloud = IP de servidor.
  */
 
 export type ClickVisitorKind = "real" | "bot" | "datacenter";
@@ -20,18 +20,19 @@ type QualityInput = {
 };
 
 /**
- * Prioridade: datacenter (IP) → bot (UA) → real.
+ * Prioridade: cloud (IP) → bot → real.
  */
 export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality {
   if (e.unqualified) {
     const net = (e.ip_network || "").trim();
-    const label = net ? `Datacenter (${net})` : "Datacenter";
+    const label = net ? `Cloud (${net})` : "Cloud";
+    const reason = (e.unqualified_reason || "").trim();
     return {
       kind: "datacenter",
       label,
-      detail:
-        (e.unqualified_reason || "").trim() ||
-        "IP em lista explícita de cloud/CDN (AWS/GCP/CDN77/Google/Azure…). Não é acesso residencial típico. Só relatório — a página pública não muda.",
+      detail: reason
+        ? reason.replace(/\bDatacenter\b/gi, "Cloud").replace(/\bexclude_from_kpi\b/gi, "fora dos totais")
+        : "IP de servidor ou rede cloud (não é um visitante residencial típico). Só afecta o relatório — a página não muda.",
     };
   }
   if (e.is_bot) {
@@ -41,23 +42,22 @@ export function resolveClickVisitorQuality(e: QualityInput): ClickVisitorQuality
     if (isGoogle) {
       return {
         kind: "bot",
-        label: bot ? `Crawler Google (${bot})` : "Crawler Google",
+        label: "Robot Google",
         detail:
-          "User-Agent de crawler oficial Google. Não deve ir à blacklist — necessário para anúncios/SEO.",
+          "Robot oficial do Google (anúncios ou pesquisa). Não bloqueies este IP — o Google precisa dele.",
       };
     }
     return {
       kind: "bot",
-      label: bot ? `Bot (${bot})` : "Bot",
+      label: bot ? `Robot (${bot})` : "Robot",
       detail: bot
-        ? `User-Agent identificado como bot (${bot}).`
-        : "User-Agent identificado como bot.",
+        ? `Identificado como robot (${bot}).`
+        : "Identificado como robot (não é um visitante normal).",
     };
   }
   return {
     kind: "real",
     label: "Real",
-    detail:
-      "Sem bot no User-Agent e sem IP em listas cloud/CDN (AWS/GCP/CDN77/Google/Azure…). Classificado como visitante real para o relatório.",
+    detail: "Parece um visitante normal (sem robot nem IP de servidor conhecido).",
   };
 }

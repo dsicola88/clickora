@@ -71,7 +71,7 @@ export function PresellTrackingHealthPanel({
             Saúde do rastreamento
           </h3>
           <p className={cn("text-[11px] mt-0.5", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-            Checklist antes de escalar tráfego pago — específico desta página.{" "}
+            Checklist antes de aumentar o orçamento — desta página.{" "}
             <Link
               to="/resultados/relatorios/cliques"
               className={cn(
@@ -172,7 +172,7 @@ export function PresellTrackingHealthPanel({
         )}
       >
         <p className={cn("text-[11px] font-medium", isEditor ? "text-editor-fg" : "text-foreground")}>
-          Antes de escalar (media buyer)
+          Antes de aumentar o orçamento
         </p>
         <ol className={cn("list-decimal list-inside space-y-1 text-[11px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
           {MEDIA_BUYER_E2E_CHECKLIST.map((step) => (

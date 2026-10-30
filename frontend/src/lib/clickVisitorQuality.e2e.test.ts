@@ -1,19 +1,18 @@
 /**
  * Contrato E2E: payload da API analytics → etiqueta Situação.
- * Só usa campos de evidência (is_bot / unqualified / ip_network) — nada inventado no UI.
  */
 import { describe, expect, it } from "vitest";
 import { resolveClickVisitorQuality } from "./clickVisitorQuality";
 
 describe("E2E API → Situação UI", () => {
-  it("Datacenter (AWS) a partir da API", () => {
+  it("Cloud (AWS) a partir da API", () => {
     const q = resolveClickVisitorQuality({
       is_bot: false,
       unqualified: true,
       ip_network: "AWS",
       unqualified_reason: "Rede AWS (us-west-1, evidência bootstrap_confirmed).",
     });
-    expect(q.label).toBe("Datacenter (AWS)");
+    expect(q.label).toBe("Cloud (AWS)");
     expect(q.kind).toBe("datacenter");
   });
 
@@ -27,16 +26,16 @@ describe("E2E API → Situação UI", () => {
     expect(q.kind).toBe("real");
   });
 
-  it("Bot a partir da API", () => {
+  it("Robot a partir da API", () => {
     const q = resolveClickVisitorQuality({
       is_bot: true,
       bot_label: "SEO/crawler",
       unqualified: false,
     });
-    expect(q.label).toBe("Bot (SEO/crawler)");
+    expect(q.label).toBe("Robot (SEO/crawler)");
   });
 
-  it("UI não inventa Datacenter sem unqualified", () => {
+  it("UI não inventa Cloud sem unqualified", () => {
     const q = resolveClickVisitorQuality({
       is_bot: false,
       unqualified: false,
@@ -45,13 +44,13 @@ describe("E2E API → Situação UI", () => {
     expect(q.label).toBe("Real");
   });
 
-  it("Datacenter ganha a Bot se a API mandar os dois", () => {
+  it("Cloud ganha a Robot se a API mandar os dois", () => {
     const q = resolveClickVisitorQuality({
       is_bot: true,
       bot_label: "Google",
       unqualified: true,
       ip_network: "AWS",
     });
-    expect(q.label).toBe("Datacenter (AWS)");
+    expect(q.label).toBe("Cloud (AWS)");
   });
 });

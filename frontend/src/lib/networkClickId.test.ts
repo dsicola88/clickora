@@ -5,18 +5,18 @@ import {
   resolveTrafficType,
 } from "./networkClickId";
 
-describe("explainTrafficTypeLabel (Ads sem ID)", () => {
-  it("Pago com gclid real", () => {
+describe("explainTrafficTypeLabel (Sem ID do clique)", () => {
+  it("Pago com ID real", () => {
     expect(
       explainTrafficTypeLabel({
         source: "google_ads",
         medium: "cpc",
         gclid: "EAIaIQobChMI_real",
       }),
-    ).toMatch(/ID de clique real/);
+    ).toMatch(/ID completo/i);
   });
 
-  it("macro literal {gclid} explica Construtor / auto-tagging", () => {
+  it("macro literal explica não abrir no browser", () => {
     const msg = explainTrafficTypeLabel({
       source: "google_ads",
       medium: "cpc",
@@ -26,28 +26,26 @@ describe("explainTrafficTypeLabel (Ads sem ID)", () => {
       "paid_untracked",
     );
     expect(listUnreplacedClickIdMacros({ gclid: "{gclid}" })).toEqual(["gclid"]);
-    expect(msg).toMatch(/Macro não substituída/);
-    expect(msg).toMatch(/auto-tagging/i);
+    expect(msg).toMatch(/não abras/i);
+    expect(msg).toMatch(/anúncio real/i);
   });
 
-  it("UTM sem ID + cloud Google → AdsBot/preview", () => {
+  it("campanha + cloud → não é comprador", () => {
     const msg = explainTrafficTypeLabel({
       source: "google_ads",
       medium: "cpc",
       utm_source: "google_ads",
       visitorKind: "datacenter",
     });
-    expect(msg).toMatch(/AdsBot|preview|cloud/i);
-    expect(msg).toMatch(/auto-tagging/i);
+    expect(msg).toMatch(/não é um comprador/i);
   });
 
-  it("UTM Real AU sem gclid → checklist Final URL", () => {
+  it("campanha real sem ID → Codificação automática", () => {
     const msg = explainTrafficTypeLabel({
       source: "google_ads",
       medium: "cpc",
       visitorKind: "real",
     });
-    expect(msg).toMatch(/auto-tagging ON/i);
-    expect(msg).toMatch(/gclid=TesTER-123/);
+    expect(msg).toMatch(/Codificação automática/i);
   });
 });

@@ -38,34 +38,34 @@ export function SyncHealthBanner({
   if (total <= 0) return null;
   const parts: string[] = [];
   if (syncHealth.google_ads_failed > 0) {
-    parts.push(`${syncHealth.google_ads_failed} conversão(ões) com falha no Google Ads`);
+    parts.push(`${syncHealth.google_ads_failed} venda(s) com erro ao enviar ao Google Ads`);
   }
   if (noGclid > 0) {
-    parts.push(`${noGclid} venda(s) sem gclid (não enviadas ao Google Ads)`);
+    parts.push(`${noGclid} venda(s) sem ID do Google (não enviadas)`);
   }
   if (syncHealth.meta_capi_failed > 0) {
-    parts.push(`${syncHealth.meta_capi_failed} conversão(ões) com falha na Meta CAPI`);
+    parts.push(`${syncHealth.meta_capi_failed} venda(s) com erro ao enviar à Meta`);
   }
   if (noFbclid > 0) {
-    parts.push(`${noFbclid} venda(s) sem fbclid (não enviadas à Meta CAPI)`);
+    parts.push(`${noFbclid} venda(s) sem ID da Meta (não enviadas)`);
   }
   if (tt > 0) {
-    parts.push(`${tt} conversão(ões) com falha no TikTok Events API`);
+    parts.push(`${tt} venda(s) com erro ao enviar ao TikTok`);
   }
   if (noTtclid > 0) {
-    parts.push(`${noTtclid} venda(s) sem ttclid (não enviadas ao TikTok)`);
+    parts.push(`${noTtclid} venda(s) sem ID do TikTok (não enviadas)`);
   }
   const reportHref = syncHealthReportHref(syncHealth);
   return (
     <Alert className={`border-amber-500/35 bg-amber-500/[0.07] text-foreground ${className ?? ""}`}>
       <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-      <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envios para plataformas de anúncios</AlertTitle>
+      <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envio de vendas às redes de anúncios</AlertTitle>
       <AlertDescription className="text-sm text-muted-foreground">
-        Últimos {syncHealth.period_days}d (UTC): {parts.join(" · ")}. Detalhes em{" "}
+        Últimos {syncHealth.period_days} dias: {parts.join(" · ")}. Ver{" "}
         <Link className="font-medium text-primary underline underline-offset-2" to={reportHref}>
           {syncHealthReportLabel(reportHref)}
         </Link>
-        {" — "}revise tokens/IDs em Integrações.
+        {" — "}confere as ligações em Integrações.
       </AlertDescription>
     </Alert>
   );

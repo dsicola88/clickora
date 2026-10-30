@@ -157,7 +157,7 @@ function paidTrafficArgs(e: TrackingEvent) {
 function paidLabel(e: TrackingEvent) {
   const resolved = e.traffic_type || resolveTrafficType(paidTrafficArgs(e));
   if (resolved === "paid") return "Pago";
-  if (resolved === "paid_untracked") return "Ads (sem ID)";
+  if (resolved === "paid_untracked") return "Sem ID do clique";
   return "Orgânico";
 }
 
@@ -647,8 +647,8 @@ export default function Relatorios() {
 
   const copyDatacenterIpsForGoogleAds = async () => {
     if (datacenterIpsForAds.length === 0) {
-      toast.message("Sem IPs cloud neste período", {
-        description: "Filtra Situação = Cloud/Datacenter ou alarga as datas.",
+      toast.message("Sem IPs de servidor neste período", {
+        description: "Filtra Situação = Cloud ou alarga as datas.",
       });
       return;
     }
@@ -659,7 +659,7 @@ export default function Relatorios() {
         description: "Cola em Google Ads → Campanha → Exclusões de IP (um por linha).",
       });
     } catch {
-      toast.error("Não foi possível copiar. Usa Descarregar CSV e filtra Situação.");
+      toast.error("Não foi possível copiar. Descarrega o CSV e filtra Situação = Cloud.");
     }
   };
 
@@ -904,9 +904,9 @@ export default function Relatorios() {
   const syncLabel = (sync: string | null) => {
     if (sync === "sent") return { ok: true, text: "Enviado" };
     if (!sync || sync === "skipped_pending") return { ok: false, text: "Pendente" };
-    if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem clique Meta" };
-    if (sync === "skipped_no_ttclid") return { ok: false, text: "Sem clique TikTok" };
-    if (sync === "skipped_no_gclid") return { ok: false, text: "Sem clique Google" };
+    if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem ID Meta" };
+    if (sync === "skipped_no_ttclid") return { ok: false, text: "Sem ID TikTok" };
+    if (sync === "skipped_no_gclid") return { ok: false, text: "Sem ID Google" };
     if (sync === "skipped_disabled") return { ok: false, text: "Desligado" };
     if (sync === "skipped_no_config") return { ok: false, text: "Conta por ligar" };
     if (sync === "failed") return { ok: false, text: "Erro API" };
@@ -971,15 +971,9 @@ export default function Relatorios() {
 
   const TimezoneAlert = () => (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
-      Horas na tabela: fuso do seu browser ({currentTime}). País = de quem clicou (GB = Reino Unido, AU =
-      Austrália).{" "}
-      <span className="text-foreground/80 font-medium">Tipo</span> = origem do anúncio (Pago / Orgânico) —{" "}
-      <em>não</em> diz se é pessoa real.{" "}
-      <span className="text-foreground/80 font-medium">Situação</span>:{" "}
-      <em>Real</em> = visitante normal; <em>Bot</em> = robot/crawler;{" "}
-      <em>Cloud / servidor</em> = IP de datacenter (AWS/GCP/Google/Azure…).{" "}
-      <span className="text-foreground/80 font-medium">Tipo</span>: <em>Pago</em> = GCLID/wbraid/gbraid
-      real; <em>Ads (sem ID)</em> = UTM/cpc sem ID de clique.
+      Horas no teu fuso ({currentTime}). País = de quem visitou.{" "}
+      <span className="text-foreground/80 font-medium">Tipo</span>: Pago / Sem ID do clique / Orgânico.{" "}
+      <span className="text-foreground/80 font-medium">Situação</span>: Real / Robot / Cloud.
     </div>
   );
 
@@ -1011,8 +1005,8 @@ export default function Relatorios() {
                   Todas ({situationCounts.real + situationCounts.bot + situationCounts.datacenter})
                 </SelectItem>
                 <SelectItem value="real">Real ({situationCounts.real})</SelectItem>
-                <SelectItem value="bot">Bot / Crawler ({situationCounts.bot})</SelectItem>
-                <SelectItem value="datacenter">Cloud / servidor ({situationCounts.datacenter})</SelectItem>
+                <SelectItem value="bot">Robot ({situationCounts.bot})</SelectItem>
+                <SelectItem value="datacenter">Cloud ({situationCounts.datacenter})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1034,7 +1028,7 @@ export default function Relatorios() {
                 </SelectItem>
                 <SelectItem value="paid">Pago ({trafficTypeCounts.paid})</SelectItem>
                 <SelectItem value="paid_untracked">
-                  Ads (sem ID) ({trafficTypeCounts.paid_untracked})
+                  Sem ID do clique ({trafficTypeCounts.paid_untracked})
                 </SelectItem>
                 <SelectItem value="organic">Orgânico ({trafficTypeCounts.organic})</SelectItem>
               </SelectContent>
@@ -1092,21 +1086,19 @@ export default function Relatorios() {
     <div className={APP_PAGE_SHELL_PRO}>
       <ProPageHeader
         title="Relatórios"
-        subtitle="Eventos e conversões com o mesmo filtro de bots que os resultados. Separadores com URL próprio · exportar CSV."
+        subtitle="Visitas, cliques e vendas. Filtra por situação e tipo · exportar CSV."
       />
       <SyncHealthBanner className="mb-4" syncHealth={dashQuery.data?.sync_health} />
 
       {(tab === "cliques" || tab === "acessos") && trafficTypeCounts.paid_untracked > 0 ? (
         <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">
           <p className="font-medium text-amber-950 dark:text-amber-100">
-            {trafficTypeCounts.paid_untracked} acesso(s) «Ads (sem ID)» neste período
+            {trafficTypeCounts.paid_untracked} visita(s) sem ID do clique neste período
           </p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            Há UTM/cpc (ex. google_ads) mas falta gclid/gbraid/wbraid real. No Google Ads: Conta → Definições →
-            auto-tagging ligado; na Final URL (ou suffix) mantém UTMs; testa a landing com{" "}
-            <span className="font-mono text-[11px]">?gclid=TesTER-123</span> e confirma que o parâmetro fica na
-            barra. IP «Datacenter (Google)» + sem ID costuma ser AdsBot/preview — não é comprador. Filtra Tipo =
-            Ads (sem ID) abaixo para rever.
+            A campanha aparece, mas falta o ID do clique do Google. Confirma: Configurações da conta → Codificação
+            automática = Sim; cola a URL que a Clickora gera (não abras o link de teste no browser). Linhas Cloud
+            (Google) costumam ser robots — não são compradores. Filtra Tipo = Sem ID do clique para rever.
           </p>
         </div>
       ) : null}
@@ -1165,10 +1157,10 @@ export default function Relatorios() {
           </TabsTrigger>
           <TabsTrigger
             value="sem-gclid"
-            title="Vendas sem o identificador do clique no Google (gclid/gbraid/wbraid)"
+            title="Vendas sem ID do clique do Google — não enviadas ao Google Ads"
             className="shrink-0 max-w-[200px] sm:max-w-none text-left leading-tight"
           >
-            Sem clique Google
+            Sem ID Google
             {noGclidAlertCount > 0 ? (
               <span className="ml-1.5 inline-flex min-w-[1.25rem] justify-center rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-amber-900 dark:text-amber-200">
                 {noGclidAlertCount}
@@ -1181,10 +1173,9 @@ export default function Relatorios() {
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
             <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = abertura da página ou{" "}
-            <em>Checkout</em>. Tipo: <em>Pago</em> = GCLID/wbraid/gbraid real; <em>Ads (sem ID)</em> = Ads/UTM
-            sem ID de clique. Situação: <em>Real</em> / <em>Bot</em> / <em>Cloud / servidor</em> (só análise —
-            não muda a página). País é o do visitante. O checkout da rede só aparece depois de configurar o
-            aviso de vendas em Integrações.
+            <em>Checkout</em>. Tipo: <em>Pago</em> = anúncio com ID; <em>Sem ID do clique</em> = campanha sem ID
+            completo. Situação: <em>Real</em> / <em>Robot</em> / <em>Cloud</em> (só análise — não muda a página).
+            País é o do visitante.
           </p>
           <TimezoneAlert />
           <DateFilters showSituation />
@@ -1290,13 +1281,13 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Pago = anúncio (gclid/UTM). Não indica se o visitante é humano."
+                          title="Pago = anúncio com ID do clique. Não prova que é pessoa."
                         >
                           Tipo
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Real = visitante normal; Bot = robot; Cloud = IP de servidor/datacenter."
+                          title="Real = pessoa; Robot = robot; Cloud = servidor."
                         >
                           Situação
                         </th>
@@ -1356,7 +1347,7 @@ export default function Relatorios() {
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                   row.type === "Pago"
                                     ? "bg-primary/10 text-primary"
-                                    : row.type === "Ads (sem ID)"
+                                    : row.type === "Sem ID do clique"
                                       ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                                       : "bg-muted text-muted-foreground"
                                 }`}
@@ -1455,7 +1446,7 @@ export default function Relatorios() {
                 Cliques no período.{" "}
                 <span className="text-foreground/80">
                   Checkout = link da oferta. Tipo = anúncio. Situação = Real / Bot / Cloud.
-                  «Pago» + «Cloud» ≠ comprador.
+                  Pago + Cloud ≠ comprador.
                 </span>
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
@@ -1465,11 +1456,11 @@ export default function Relatorios() {
                   size="sm"
                   className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
                   disabled={clicksQuery.isLoading || clicksQuery.isError}
-                  title="Copia IPs Situação=Datacenter para exclusões no Google Ads"
+                  title="Copia IPs Cloud para excluir no Google Ads"
                   onClick={() => void copyDatacenterIpsForGoogleAds()}
                 >
                   <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  IPs cloud p/ Google Ads
+                  Copiar IPs para o Google
                   {datacenterIpsForAds.length > 0 ? ` (${datacenterIpsForAds.length})` : ""}
                 </Button>
                 <Button
@@ -1542,13 +1533,13 @@ export default function Relatorios() {
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Pago = anúncio (gclid/UTM). Não indica se o visitante é humano."
+                          title="Pago = anúncio com ID do clique. Não prova que é pessoa."
                         >
                           Tipo
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Real = visitante normal; Bot = robot; Cloud = IP de servidor/datacenter."
+                          title="Real = pessoa; Robot = robot; Cloud = servidor."
                         >
                           Situação
                         </th>
@@ -1605,7 +1596,7 @@ export default function Relatorios() {
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                   row.type === "Pago"
                                     ? "bg-primary/10 text-primary"
-                                    : row.type === "Ads (sem ID)"
+                                    : row.type === "Sem ID do clique"
                                       ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                                       : "bg-muted text-muted-foreground"
                                 }`}
@@ -2049,7 +2040,7 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Vendas cujo clique não tem o identificador do Google.
+                Vendas sem ID do clique do Google (não foram enviadas ao Google Ads).
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                 <Button
