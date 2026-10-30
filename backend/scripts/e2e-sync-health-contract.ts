@@ -47,6 +47,19 @@ function main() {
       banner.includes("sem ttclid"),
     "ok",
   );
+
+  const relatorios = readFileSync(
+    join(process.cwd(), "../frontend/src/pages/Relatorios.tsx"),
+    "utf8",
+  );
+  record(
+    "Relatórios monta SyncHealthBanner + badge sem-gclid",
+    relatorios.includes("SyncHealthBanner") &&
+      relatorios.includes("sync_health") &&
+      relatorios.includes("google_ads_skipped_no_gclid") &&
+      relatorios.includes('value="sem-gclid"'),
+    "ok",
+  );
   record(
     "account_health inclui domain_https + ads_upload",
     health.includes('id: "domain_https"') &&

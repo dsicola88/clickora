@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { APP_PAGE_SHELL_PRO } from "@/lib/appPageLayout";
 import { ProPageHeader } from "@/components/enterprise/ProShell";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { analyticsService } from "@/services/analyticsService";
 import type { TrackingEvent } from "@/types/api";
 import { LoadingState } from "@/components/LoadingState";
@@ -884,21 +885,21 @@ export default function Relatorios() {
     return { ok: false, text: sync };
   };
 
-  const quotaQuery = useQuery({
-    queryKey: ["relatorios", "click-quota", applied.from, applied.to],
+  const dashQuery = useQuery({
+    queryKey: ["relatorios", "dashboard", applied.from, applied.to],
     queryFn: async () => {
       const { data, error } = await analyticsService.getDashboard({
         from: applied.from,
         to: applied.to,
       });
       if (error) throw new Error(error);
-      return data?.click_quota ?? null;
+      return data!;
     },
   });
 
   const UsageLimitBar = () => {
-    const q = quotaQuery.data;
-    if (quotaQuery.isLoading) {
+    const q = dashQuery.data?.click_quota ?? null;
+    if (dashQuery.isLoading) {
       return (
         <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm text-muted-foreground">
           A carregar quota de cliques…
@@ -1031,12 +1032,15 @@ export default function Relatorios() {
     </div>
   );
 
+  const noGclidAlertCount = dashQuery.data?.sync_health?.google_ads_skipped_no_gclid ?? 0;
+
   return (
     <div className={APP_PAGE_SHELL_PRO}>
       <ProPageHeader
         title="Relatórios"
         subtitle="Eventos e conversões com o mesmo filtro de bots que os resultados. Separadores com URL próprio · exportar CSV."
       />
+      <SyncHealthBanner className="mb-4" syncHealth={dashQuery.data?.sync_health} />
 
       {compareRange && (tab === "cliques" || tab === "acessos") ? (
         <div className="mb-4 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
@@ -1092,10 +1096,15 @@ export default function Relatorios() {
           </TabsTrigger>
           <TabsTrigger
             value="sem-gclid"
-            title="Vendas sem o identificador do clique no Google"
+            title="Vendas sem o identificador do clique no Google (gclid/gbraid/wbraid)"
             className="shrink-0 max-w-[200px] sm:max-w-none text-left leading-tight"
           >
             Sem clique Google
+            {noGclidAlertCount > 0 ? (
+              <span className="ml-1.5 inline-flex min-w-[1.25rem] justify-center rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-amber-900 dark:text-amber-200">
+                {noGclidAlertCount}
+              </span>
+            ) : null}
           </TabsTrigger>
         </TabsList>
 
