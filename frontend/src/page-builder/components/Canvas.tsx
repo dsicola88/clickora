@@ -13,6 +13,9 @@ import { NestedRenderProvider } from "../nested-render";
 import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WidgetInlineStyle } from "../widget-custom-css";
 import { useWidgetMotionRuntime, widgetMotionClassNames } from "./WidgetMotionShell";
+import { interactionsForTrigger, runWidgetInteraction, widgetHasInteractions } from "../widget-interactions";
+import { widgetMaskStyle } from "../widget-mask";
+import { WidgetConditionGate } from "./WidgetConditionGate";
 import { cn } from "@/lib/utils";
 import { InlineEditProvider } from "../inline-edit";
 import {
@@ -27,6 +30,9 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
+import { SectionBackgroundLayers, sectionNeedsRelativeChrome } from "../section-chrome";
+import { PageGlobalDesignVars } from "../page-global-design";
+import { PagePopupOverlays } from "../page-popups";
 import { SECTION_LAYOUTS } from "../section-layouts";
 import { BlocksModal } from "./BlocksModal";
 import { TemplatesModal } from "./TemplatesModal";
@@ -72,6 +78,7 @@ export function Canvas() {
       }}
     >
       <div className={`flex min-h-full justify-center ${preview ? "p-0" : "p-6"}`}>
+        <PageGlobalDesignVars settings={doc.settings}>
         <div
           className="flex min-h-full flex-col bg-white shadow-2xl transition-[width] duration-200"
           style={{
@@ -149,6 +156,8 @@ export function Canvas() {
             </div>
           )}
         </div>
+        {preview ? <PagePopupOverlays doc={doc} enabled /> : null}
+        </PageGlobalDesignVars>
       </div>
       {menu && !preview ? <CanvasContextMenu menu={menu} onClose={() => setMenu(null)} /> : null}
       <BlocksModal open={blocksOpen} onClose={() => setBlocksOpen(false)} />
@@ -183,7 +192,7 @@ function EmptyCanvasDropZone({
       <div className="max-w-lg">
         <h3 className="mb-1 text-lg font-semibold text-slate-900">Monte a página do zero</h3>
         <p className="text-sm leading-relaxed text-slate-500">
-          Fluxo tipo Elementor: escolha a estrutura de colunas, arraste widgets da esquerda e estilize no
+          Escolha a estrutura de colunas, arraste widgets da esquerda e estilize no
           painel direito. Ou use blocos / modelo e edite tudo depois.
         </p>
       </div>
@@ -266,6 +275,7 @@ function SectionView({
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
   const bgVideo = (section.backgroundVideoUrl ?? "").trim();
   const hasBgVideo = bgVideo.length > 0;
+  const needsChrome = sectionNeedsRelativeChrome(section, hasBgVideo);
   const isStickyOrFixed =
     resolveResponsive(section.styles.position, device) === "sticky" ||
     resolveResponsive(section.styles.position, device) === "fixed";
@@ -281,7 +291,7 @@ function SectionView({
       onContextMenu={(event) => onContextMenu(event, { kind: "section", id: section.id })}
       style={{
         ...sectionStyle,
-        ...(hasBgVideo && !isStickyOrFixed
+        ...(needsChrome && !isStickyOrFixed
           ? { position: "relative", overflow: "hidden" as const }
           : {}),
         ...(isStickyOrFixed
@@ -301,6 +311,7 @@ function SectionView({
       }}
     >
       {hasBgVideo ? <SectionBackgroundVideo rawUrl={bgVideo} pointerEventsNone /> : null}
+      <SectionBackgroundLayers section={section} />
 
       {!preview && (
         <div
@@ -573,16 +584,39 @@ function StaticWidget({ widget, device }: { widget: WidgetNode; device: DeviceTy
   const shell = stylesToCssWidgetShell(widget.styles, device);
   const wid = widget.cssId?.trim();
   const wcls = widget.cssClasses?.trim();
+  const hasIx = widgetHasInteractions(widget);
   return (
-    <div
-      ref={setNode}
-      className={cn(wcls, widgetMotionClassNames(widget)) || undefined}
-      id={wid || undefined}
-      style={{ ...shell, minWidth: shell.flexShrink === 0 ? "auto" : 0 }}
-    >
-      <WidgetInlineStyle widget={widget} />
-      <def.Render widget={widget} device={device} />
-    </div>
+    <WidgetConditionGate widget={widget} device={device} editorMode={false}>
+      <div
+        ref={setNode}
+        className={cn(wcls, widgetMotionClassNames(widget)) || undefined}
+        id={wid || undefined}
+        style={{
+          ...shell,
+          ...widgetMaskStyle(widget),
+          minWidth: shell.flexShrink === 0 ? "auto" : 0,
+          ...(hasIx ? { cursor: "pointer" } : null),
+        }}
+        onClick={
+          hasIx
+            ? (e) => {
+                e.stopPropagation();
+                for (const ix of interactionsForTrigger(widget, "click")) runWidgetInteraction(ix);
+              }
+            : undefined
+        }
+        onMouseEnter={
+          hasIx
+            ? () => {
+                for (const ix of interactionsForTrigger(widget, "hover")) runWidgetInteraction(ix);
+              }
+            : undefined
+        }
+      >
+        <WidgetInlineStyle widget={widget} />
+        <def.Render widget={widget} device={device} />
+      </div>
+    </WidgetConditionGate>
   );
 }
 
@@ -675,6 +709,7 @@ function EditableWidget({
       id={wid || undefined}
       style={{
         ...shell,
+        ...widgetMaskStyle(widget),
         minWidth: containerId ? (shell.flexShrink === 0 ? "auto" : 0) : shell.minWidth,
       }}
       onClick={(e) => {
@@ -706,7 +741,7 @@ function EditableWidget({
             : "group-hover/widget:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--editor-widget)_55%,transparent)]"
         }`}
       />
-      {/* Handle tipo Elementor: canto superior esquerdo — deixa claro que é o ELEMENTO, não a secção */}
+      {/* Handle no canto superior esquerdo — deixa claro que é o ELEMENTO, não a secção */}
       <div
         className={`absolute -left-px -top-px z-20 flex items-stretch overflow-hidden rounded-br-md bg-editor-widget text-white shadow-md transition-opacity ${
           isSelected || isDragging ? "opacity-100" : "opacity-0 group-hover/widget:opacity-100"

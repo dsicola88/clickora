@@ -673,7 +673,7 @@ export const presellController = {
         data: { status: requestedStatus },
       });
     } else if (
-      // Já publicada: reauditoria após conteúdo/settings (exceto builder — fica no ar como Elementor).
+      // Já publicada: reauditoria após conteúdo/settings (exceto builder — fica no ar de imediato).
       // Não pausar em surpresa: derruba a URL do anúncio. Avisamos; o toggle published→ continua a gate.
       page.status === "published" &&
       (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)

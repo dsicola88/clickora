@@ -1,4 +1,4 @@
-/** Motion Effects nível Elementor Pro+ — aplicável a qualquer widget. */
+/** Efeitos de movimento — aplicável a qualquer widget. */
 
 import type { WidgetEffects } from "./types";
 
@@ -51,6 +51,25 @@ export const SCROLLING_EFFECT_OPTIONS = [
   { value: "rotate", label: "Rodar" },
   { value: "scale", label: "Escala" },
 ] as const;
+
+export const MOTION_PATH_OPTIONS = [
+  { value: "none", label: "Nenhum" },
+  { value: "lineH", label: "Linha horizontal" },
+  { value: "lineV", label: "Linha vertical" },
+  { value: "arc", label: "Arco" },
+  { value: "circle", label: "Círculo" },
+  { value: "zigzag", label: "Zigzag" },
+  { value: "figure8", label: "Oito (∞)" },
+] as const;
+
+const MOTION_PATH_D: Record<string, string> = {
+  lineH: "M0,0 L80,0",
+  lineV: "M0,0 L0,80",
+  arc: "M0,40 Q40,0 80,40",
+  circle: "M40,0 A40,40 0 1,1 39.9,0",
+  zigzag: "M0,20 L20,0 L40,20 L60,0 L80,20",
+  figure8: "M40,20 C10,20 10,60 40,60 C70,60 70,20 40,20 C10,20 10,-20 40,-20 C70,-20 70,20 40,20",
+};
 
 export const HOVER_PRESET_OPTIONS = [
   { value: "", label: "Nenhum (custom / vazio)" },
@@ -289,6 +308,12 @@ export function resolveWidgetEffects(
     mouseTiltMaxDeg: numish(effects?.mouseTiltMaxDeg ?? c.mouseTiltMaxDeg, 8),
     mouseTrack: boolish(effects?.mouseTrack ?? c.mouseTrack, false),
     mouseTrackPx: numish(effects?.mouseTrackPx ?? c.mouseTrackPx, 12),
+    motionPath:
+      effects?.motionPath ??
+      (typeof c.motionPath === "string" ? c.motionPath : undefined) ??
+      "none",
+    motionPathDurationMs: numish(effects?.motionPathDurationMs ?? c.motionPathDurationMs, 4000),
+    motionPathLoop: boolish(effects?.motionPathLoop ?? c.motionPathLoop, true),
   };
 }
 
@@ -372,6 +397,17 @@ export function buildWidgetMotionCss(
     css += `.${cls}.pb-fx{transform:translate3d(var(--pb-tx,0px),var(--pb-ty,0px),0) rotateX(var(--pb-rx,0deg)) rotateY(var(--pb-ry,0deg)) scale(var(--pb-sc,1)) rotate(var(--pb-rot,0deg));opacity:var(--pb-op,1);filter:blur(var(--pb-bl,0px))}`;
   }
 
+  const path = (e.motionPath || "none").trim();
+  const pathD = MOTION_PATH_D[path];
+  if (pathD) {
+    const pathDur = Math.max(600, e.motionPathDurationMs ?? 4000);
+    const pathLoop = e.motionPathLoop !== false;
+    const kf = `pb_path_${sid}`;
+    css += `.${cls}.pb-path{offset-path:path('${pathD}');offset-rotate:0deg;offset-distance:0%;animation:${kf} ${pathDur}ms linear ${pathLoop ? "infinite" : "1 forwards"}}`;
+    css += `@keyframes ${kf}{to{offset-distance:100%}}`;
+    css += `@media (prefers-reduced-motion:reduce){.${cls}.pb-path{animation:none;offset-path:none}}`;
+  }
+
   return css;
 }
 
@@ -383,10 +419,12 @@ export function widgetHasMotion(
   const entrance = (e.entranceAnimation || "none").trim();
   const cont = (e.continuousAnimation || "none").trim();
   const scrollFx = (e.scrollingEffect || "none").trim();
+  const path = (e.motionPath || "none").trim();
   return Boolean(
     (entrance && entrance !== "none") ||
       (cont && cont !== "none") ||
       (scrollFx && scrollFx !== "none") ||
+      (path && path !== "none") ||
       e.sticky ||
       e.mouseTilt ||
       e.mouseTrack ||

@@ -3,12 +3,20 @@ import { createPortal } from "react-dom";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
 import { useBuilderSurface } from "../builder-surface";
-import { cookieBannerUsesPageOverlay } from "../cookieBannerOverlay";
+import { cookieBannerLocksPage, cookieBannerUsesPageOverlay } from "../cookieBannerOverlay";
 import {
   clampCookieOverlayBlur,
   clampCookieOverlayOpacity,
   resolveCookieBannerCopy,
 } from "../cookieBannerCopy";
+import {
+  buildOverlayEntranceAnimation,
+  overlayCardWidthStyle,
+  overlayHostStyle,
+  resolveOverlayPosition,
+  type OverlayAnimation,
+  type OverlayPosition,
+} from "../overlay-placement";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 import { useInlineEdit } from "../inline-edit";
 
@@ -21,21 +29,30 @@ export interface CookieBannerContent {
   policyUrl: string;
   footerNote?: string;
   accentColor: string;
-  /** modal = overlay centrado (tipo Ads); corner = canto flutuante */
-  variant: "modal" | "corner";
-  position: "bottom-right" | "bottom-left";
+  /** modal = overlay centrado; corner = canto; bar = faixa top/bottom */
+  variant: "modal" | "corner" | "bar";
+  position:
+    | "center"
+    | "top"
+    | "bottom"
+    | "top-left"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-right";
   storageKey: string;
   /** Escurece/blur o fundo no modo modal */
   backdrop: boolean;
   overlayOpacity?: number;
   overlayBlur?: number;
-  /** false = textos editados à mão. Ausente ou true com título de stock = idioma da página. */
   followLanguage?: boolean;
-  /**
-   * Com «Ir directo à página de vendas»: Aceitar/Fechar navegam para `/track/r/…`.
-   * Vazio = só desbloqueiam a review (localStorage).
-   */
   offerHref?: string;
+  animation?: OverlayAnimation;
+  animationDurationMs?: number;
+  delayMs?: number;
+  maxWidthPx?: number;
+  offsetXPx?: number;
+  offsetYPx?: number;
+  showCloseButton?: boolean;
 }
 
 function readDismissed(key: string): boolean {
@@ -89,6 +106,17 @@ function CookieText({
   );
 }
 
+function resolveCookieVariant(raw: unknown): "modal" | "corner" | "bar" {
+  if (raw === "corner" || raw === "bar" || raw === "modal") return raw;
+  return "modal";
+}
+
+function defaultPositionForVariant(variant: "modal" | "corner" | "bar"): OverlayPosition {
+  if (variant === "modal") return "center";
+  if (variant === "bar") return "bottom";
+  return "bottom-right";
+}
+
 export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const c = widget.content as Partial<CookieBannerContent>;
   const pageLanguage = usePresellPublicLocale();
@@ -102,8 +130,11 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const footerNote = copy.footerNote;
   const policyUrl = (c.policyUrl ?? "/privacidade").trim() || "/privacidade";
   const accentColor = c.accentColor ?? "#2563eb";
-  const variant = c.variant === "corner" ? "corner" : "modal";
-  const position = c.position ?? "bottom-right";
+  const variant = resolveCookieVariant(c.variant);
+  const position = resolveOverlayPosition(
+    c.position,
+    defaultPositionForVariant(variant),
+  ) as CookieBannerContent["position"];
   const backdrop = c.backdrop !== false;
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
@@ -112,10 +143,9 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const goOffer = Boolean(offerHref && offerHref !== "#");
   const inBuilder = useBuilderSurface();
   const [dismissed, setDismissed] = useState(false);
+  const [delayReady, setDelayReady] = useState(() => !c.delayMs || c.delayMs <= 0 || inBuilder);
 
   useEffect(() => {
-    // Com redirect à oferta: nunca lembrar o dismiss — senão o visitante volta sem banner
-    // (e o Allow parece «não abrir»). Só unlock-only grava localStorage.
     if (goOffer) {
       try {
         window.localStorage.removeItem(storageKey);
@@ -128,18 +158,34 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     setDismissed(readDismissed(storageKey));
   }, [storageKey, goOffer]);
 
+  useEffect(() => {
+    if (inBuilder) {
+      setDelayReady(true);
+      return;
+    }
+    const delay = Math.max(0, c.delayMs ?? 0);
+    if (delay <= 0) {
+      setDelayReady(true);
+      return;
+    }
+    setDelayReady(false);
+    const t = window.setTimeout(() => setDelayReady(true), delay);
+    return () => clearTimeout(t);
+  }, [c.delayMs, inBuilder]);
+
   const usesOverlay = cookieBannerUsesPageOverlay({ inBuilder, variant, dismissed });
+  const locksPage = cookieBannerLocksPage({ variant, backdrop });
 
   useEffect(() => {
-    if (!usesOverlay || !backdrop) return;
+    if (!usesOverlay || !locksPage) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [usesOverlay, backdrop]);
+  }, [usesOverlay, locksPage]);
 
-  const visible = inBuilder || !dismissed;
+  const visible = inBuilder || (!dismissed && delayReady);
 
   const dismiss = () => {
     if (!goOffer) writeDismissed(storageKey);
@@ -188,6 +234,15 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     return <div style={stylesToCssWidgetContent(widget.styles, device)} aria-hidden />;
   }
 
+  const mode =
+    variant === "bar" ? "bar" : variant === "corner" ? "toast" : ("modal" as const);
+  const isBar = variant === "bar" || position === "top" || position === "bottom";
+  const maxW = c.maxWidthPx ?? (variant === "corner" ? 340 : 420);
+  const anim = !inBuilder
+    ? buildOverlayEntranceAnimation(c.animation ?? "fadeUp", c.animationDurationMs ?? 320)
+    : null;
+  const showCloseX = c.showCloseButton === true;
+
   const card = (
     <aside
       role="dialog"
@@ -195,137 +250,179 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       aria-label={title}
       data-testid={usesOverlay ? "presell-cookie-card" : "builder-cookie-banner"}
       data-variant={variant}
+      data-position={position}
       style={{
-        ...(variant === "modal"
-          ? {
-              position: "relative" as const,
-              zIndex: 2,
-              width: "min(420px, calc(100vw - 32px))",
-              borderRadius: 16,
-              padding: "28px 28px 24px",
-              boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.35)",
-            }
-          : {
-              position: "fixed" as const,
-              bottom: 20,
-              ...(position === "bottom-left" ? { left: 20 } : { right: 20 }),
-              zIndex: 9995,
-              width: "min(340px, calc(100vw - 40px))",
-              borderRadius: 10,
-              padding: "18px 18px 16px",
-              borderTop: `4px solid ${accentColor}`,
-              boxShadow: "0 12px 40px rgba(15, 23, 42, 0.18)",
-            }),
+        position: "relative",
+        zIndex: 2,
+        ...overlayCardWidthStyle({ mode, position, maxWidthPx: maxW }),
+        borderRadius: isBar ? 0 : variant === "corner" ? 10 : 16,
+        padding: isBar ? "14px 18px" : variant === "modal" ? "28px 28px 24px" : "18px 18px 16px",
+        borderTop: variant === "corner" ? `4px solid ${accentColor}` : undefined,
+        boxShadow:
+          variant === "bar"
+            ? "0 4px 24px rgba(15, 23, 42, 0.12)"
+            : variant === "modal"
+              ? "0 25px 50px -12px rgba(15, 23, 42, 0.35)"
+              : "0 12px 40px rgba(15, 23, 42, 0.18)",
         background: "#ffffff",
         fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
+        pointerEvents: "auto",
+        ...(anim ? { animation: anim.animation } : null),
       }}
     >
-      <p
-        style={{
-          margin: "0 0 12px",
-          fontSize: variant === "modal" ? 22 : 14,
-          fontWeight: 800,
-          color: "#0f172a",
-          lineHeight: 1.25,
-          letterSpacing: -0.2,
-        }}
-      >
-        {commit ? (
-          <span
-            contentEditable
-            suppressContentEditableWarning
-            onMouseDown={(event) => event.stopPropagation()}
-            onBlur={(event) => {
-              const next = event.currentTarget.textContent ?? "";
-              if (next !== title) saveCopy("title", next);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-            }}
-          >
-            {title}
-          </span>
-        ) : (
-          title
-        )}
-      </p>
-      <p style={{ margin: "0 0 18px", fontSize: 14, lineHeight: 1.6, color: "#475569" }}>
-        {commit ? (
-          <span
-            contentEditable
-            suppressContentEditableWarning
-            onMouseDown={(event) => event.stopPropagation()}
-            onBlur={(event) => {
-              const next = event.currentTarget.textContent ?? "";
-              if (next !== body) saveCopy("body", next);
-            }}
-          >
-            {body}
-          </span>
-        ) : (
-          body
-        )}{" "}
-        {commit ? (
-          <CookieText
-            field="policyLabel"
-            value={policyLabel}
-            style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
-          />
-        ) : (
-          <a
-            href={policyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
-          >
-            {policyLabel}
-          </a>
-        )}
-        .
-      </p>
+      {anim ? <style>{anim.keyframes}</style> : null}
+      {showCloseX && !inBuilder ? (
+        <button
+          type="button"
+          aria-label="Fechar"
+          onClick={dismiss}
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 10,
+            border: "none",
+            background: "transparent",
+            color: "#64748b",
+            cursor: "pointer",
+            fontSize: 20,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      ) : null}
       <div
         style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "stretch",
+          display: isBar ? "flex" : "block",
+          alignItems: isBar ? "center" : undefined,
+          gap: isBar ? 16 : undefined,
+          flexWrap: isBar ? "wrap" : undefined,
+          paddingRight: showCloseX ? 24 : 0,
         }}
       >
-        {goOffer && !inBuilder ? (
-          <a
-            href={offerHref}
-            data-testid="presell-cookie-allow-offer"
-            style={allowClass}
+        <div style={{ flex: isBar ? "1 1 220px" : undefined }}>
+          <p
+            style={{
+              margin: isBar ? "0 0 4px" : "0 0 12px",
+              fontSize: variant === "modal" ? 22 : 14,
+              fontWeight: 800,
+              color: "#0f172a",
+              lineHeight: 1.25,
+              letterSpacing: -0.2,
+            }}
           >
-            {allowLabel}
-          </a>
-        ) : (
-          <button type="button" onClick={inBuilder ? undefined : dismiss} style={allowClass}>
             {commit ? (
-              <CookieText field="allowLabel" value={allowLabel} style={{ color: "#ffffff", fontWeight: 700 }} />
+              <span
+                contentEditable
+                suppressContentEditableWarning
+                onMouseDown={(event) => event.stopPropagation()}
+                onBlur={(event) => {
+                  const next = event.currentTarget.textContent ?? "";
+                  if (next !== title) saveCopy("title", next);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                }}
+              >
+                {title}
+              </span>
             ) : (
-              allowLabel
+              title
             )}
-          </button>
-        )}
-        {goOffer && !inBuilder ? (
-          <a
-            href={offerHref}
-            data-testid="presell-cookie-close-offer"
-            style={closeClass}
+          </p>
+          <p
+            style={{
+              margin: isBar ? 0 : "0 0 18px",
+              fontSize: isBar ? 13 : 14,
+              lineHeight: 1.6,
+              color: "#475569",
+            }}
           >
-            {declineLabel}
-          </a>
-        ) : (
-          <button type="button" onClick={inBuilder ? undefined : dismiss} style={closeClass}>
-            {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
-          </button>
-        )}
+            {commit ? (
+              <span
+                contentEditable
+                suppressContentEditableWarning
+                onMouseDown={(event) => event.stopPropagation()}
+                onBlur={(event) => {
+                  const next = event.currentTarget.textContent ?? "";
+                  if (next !== body) saveCopy("body", next);
+                }}
+              >
+                {body}
+              </span>
+            ) : (
+              body
+            )}{" "}
+            {commit ? (
+              <CookieText
+                field="policyLabel"
+                value={policyLabel}
+                style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
+              />
+            ) : (
+              <a
+                href={policyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
+              >
+                {policyLabel}
+              </a>
+            )}
+            .
+          </p>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "stretch",
+            flexShrink: 0,
+            minWidth: isBar ? 220 : undefined,
+            width: isBar ? undefined : "100%",
+          }}
+        >
+          {goOffer && !inBuilder ? (
+            <a href={offerHref} data-testid="presell-cookie-allow-offer" style={allowClass}>
+              {allowLabel}
+            </a>
+          ) : (
+            <button type="button" onClick={inBuilder ? undefined : dismiss} style={allowClass}>
+              {commit ? (
+                <CookieText
+                  field="allowLabel"
+                  value={allowLabel}
+                  style={{ color: "#ffffff", fontWeight: 700 }}
+                />
+              ) : (
+                allowLabel
+              )}
+            </button>
+          )}
+          {goOffer && !inBuilder ? (
+            <a href={offerHref} data-testid="presell-cookie-close-offer" style={closeClass}>
+              {declineLabel}
+            </a>
+          ) : (
+            <button type="button" onClick={inBuilder ? undefined : dismiss} style={closeClass}>
+              {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
+            </button>
+          )}
+        </div>
       </div>
       {footerNote || commit ? (
-        <p style={{ margin: "14px 0 0", fontSize: 12, lineHeight: 1.4, color: "#94a3b8", textAlign: "center" }}>
+        <p
+          style={{
+            margin: "14px 0 0",
+            fontSize: 12,
+            lineHeight: 1.4,
+            color: "#94a3b8",
+            textAlign: "center",
+          }}
+        >
           {commit ? (
             <span
               contentEditable
@@ -351,8 +448,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       ) : null}
       {inBuilder ? (
         <p style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.45, color: "#94a3b8" }}>
-          Clique nos textos para editar. O fundo escuro e os botões também estão no painel à direita. Na página
-          publicada o aviso cobre a oferta.
+          Modo, posição, atraso e animação no painel à direita — mesmo nível dos popups da página.
         </p>
       ) : null}
     </aside>
@@ -378,16 +474,18 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     <div
       data-testid="builder-cookie-modal-root"
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9995,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
+        ...overlayHostStyle({
+          mode,
+          position,
+          offsetXPx: c.offsetXPx ?? 20,
+          offsetYPx: c.offsetYPx ?? 20,
+          zIndex: 9995,
+          backdrop: false,
+        }),
+        ...(variant === "modal" ? { inset: 0 } : null),
       }}
     >
-      {backdrop ? (
+      {variant === "modal" && backdrop ? (
         <div
           aria-hidden
           data-testid="presell-cookie-backdrop"
@@ -397,6 +495,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
             background: `rgba(15, 23, 42, ${overlayOpacity / 100})`,
             backdropFilter: overlayBlur > 0 ? `blur(${overlayBlur}px)` : "none",
             WebkitBackdropFilter: overlayBlur > 0 ? `blur(${overlayBlur}px)` : "none",
+            pointerEvents: "none",
           }}
         />
       ) : null}

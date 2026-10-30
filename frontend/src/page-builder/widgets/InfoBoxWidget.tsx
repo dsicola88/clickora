@@ -47,7 +47,7 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
               : "flex-start",
         textAlign: isSide ? "left" : align,
         gap: 16,
-        // Content bg wins over Style when set (Elementor Content vs Style).
+        // Content bg wins over Style when set.
         background: c.bg ?? visual.background ?? "transparent",
         borderRadius: c.borderRadius ?? (visual.borderRadius as number | string | undefined) ?? 0,
       }}

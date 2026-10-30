@@ -4,7 +4,7 @@
  * Variáveis também em :root[data-editor-theme] para menus portados (Radix).
  */
 
-/* ——— Studio escuro (padrão Elementor) ——— */
+/* ——— Studio escuro ——— */
 :root[data-editor-theme="studio-dark"],
 .page-builder-scope,
 .page-builder-scope[data-editor-theme="studio-dark"] {

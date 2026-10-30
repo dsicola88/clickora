@@ -3,6 +3,7 @@ import {
   useEffect,
   useState,
   type CSSProperties,
+  type MouseEvent,
   type ReactNode,
   type Ref,
 } from "react";
@@ -13,7 +14,13 @@ import {
   widgetHasMotion,
   widgetNeedsMotionRuntime,
 } from "../widget-motion";
+import {
+  interactionsForTrigger,
+  runWidgetInteraction,
+  widgetHasInteractions,
+} from "../widget-interactions";
 import { WidgetInlineStyle } from "../widget-custom-css";
+import { widgetMaskStyle } from "../widget-mask";
 import { cn } from "@/lib/utils";
 
 /** Classes CSS de motion (entrada scroll, loop, fx layer). */
@@ -24,11 +31,13 @@ export function widgetMotionClassNames(widget: WidgetNode): string {
   const scrollEntrance = entrance !== "none" && e.entranceTrigger !== "load";
   const cont = (e.continuousAnimation || "none").trim();
   const scrollFx = (e.scrollingEffect || "none").trim();
+  const path = (e.motionPath || "none").trim();
   const useFx = e.mouseTilt || e.mouseTrack || (scrollFx && scrollFx !== "none");
   return cn(
     motionClassName(widget.id),
     scrollEntrance && "pb-ent-scroll",
     cont !== "none" && "pb-loop",
+    path !== "none" && "pb-path",
     useFx && "pb-fx",
   );
 }
@@ -219,7 +228,7 @@ type ShellProps = {
   outerRef?: Ref<HTMLDivElement>;
 };
 
-/** Invólucro público: CSS motion + runtime (scroll / mouse / sticky). */
+/** Invólucro público: CSS motion + runtime (scroll / mouse / sticky) + interações. */
 export function WidgetMotionShell({
   widget,
   className,
@@ -232,12 +241,34 @@ export function WidgetMotionShell({
   const [node, setNode] = useState<HTMLDivElement | null>(null);
   useWidgetMotionRuntime(node, widget);
 
+  const onClick = (e: MouseEvent) => {
+    if (editorMode) return;
+    const list = interactionsForTrigger(widget, "click");
+    if (list.length === 0) return;
+    e.preventDefault();
+    for (const ix of list) runWidgetInteraction(ix);
+  };
+
+  const onMouseEnter = () => {
+    if (editorMode) return;
+    for (const ix of interactionsForTrigger(widget, "hover")) runWidgetInteraction(ix);
+  };
+
+  const hasIx = widgetHasInteractions(widget) && !editorMode;
+
   return (
     <div
       ref={mergeRefs(setNode, outerRef)}
       id={id}
       className={cn(className, widgetMotionClassNames(widget))}
-      style={{ ...style, ...widgetStickyStyle(widget, editorMode) }}
+      style={{
+        ...style,
+        ...widgetStickyStyle(widget, editorMode),
+        ...widgetMaskStyle(widget),
+        ...(hasIx ? { cursor: "pointer" } : null),
+      }}
+      onClick={hasIx ? onClick : undefined}
+      onMouseEnter={hasIx ? onMouseEnter : undefined}
     >
       <WidgetInlineStyle widget={widget} />
       {children}

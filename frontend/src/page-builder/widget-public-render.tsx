@@ -101,6 +101,16 @@ const LAZY: Partial<Record<WidgetType, LazyRender>> = {
   menuAnchor: lz(() =>
     import("./widgets/MenuAnchorWidget").then((m) => ({ default: m.MenuAnchorWidget })),
   ),
+  lottie: lz(() => import("./widgets/LottieWidget").then((m) => ({ default: m.LottieWidget }))),
+  offCanvas: lz(() =>
+    import("./widgets/OffCanvasWidget").then((m) => ({ default: m.OffCanvasWidget })),
+  ),
+  shareButtons: lz(() =>
+    import("./widgets/ShareButtonsWidget").then((m) => ({ default: m.ShareButtonsWidget })),
+  ),
+  tableOfContents: lz(() =>
+    import("./widgets/TableOfContentsWidget").then((m) => ({ default: m.TableOfContentsWidget })),
+  ),
 };
 
 /** Resolve o Render público (core síncrono ou lazy). */

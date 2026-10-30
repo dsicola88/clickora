@@ -13,6 +13,10 @@ import { resolvePublicWidgetRender } from "../widget-public-render";
 import { LcpMediaScope } from "../lcp-media";
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { WidgetMotionShell } from "./WidgetMotionShell";
+import { SectionBackgroundLayers, sectionNeedsRelativeChrome } from "../section-chrome";
+import { PageGlobalDesignVars } from "../page-global-design";
+import { PagePopupOverlays } from "../page-popups";
+import { WidgetConditionGate } from "./WidgetConditionGate";
 
 /**
  * Read-only renderer for a PageDocument.
@@ -28,16 +32,19 @@ export function PageRenderer({
 }) {
   return (
     <LcpMediaScope>
-      <div
-        style={{
-          background: doc.settings.background ?? "#ffffff",
-          minHeight: "100%",
-        }}
-      >
-        {doc.sections.map((section) => (
-          <SectionRender key={section.id} section={section} device={device} />
-        ))}
-      </div>
+      <PageGlobalDesignVars settings={doc.settings}>
+        <div
+          style={{
+            background: doc.settings.background ?? "#ffffff",
+            minHeight: "100%",
+          }}
+        >
+          {doc.sections.map((section) => (
+            <SectionRender key={section.id} section={section} device={device} />
+          ))}
+        </div>
+        <PagePopupOverlays doc={doc} enabled />
+      </PageGlobalDesignVars>
     </LcpMediaScope>
   );
 }
@@ -50,6 +57,7 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
   const stacked = isSectionStacked(direction);
   const bgVideo = (section.backgroundVideoUrl ?? "").trim();
   const hasBgVideo = bgVideo.length > 0;
+  const needsChrome = sectionNeedsRelativeChrome(section, hasBgVideo);
 
   const isStickyOrFixed =
     resolveResponsive(section.styles.position, device) === "sticky" ||
@@ -61,7 +69,7 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
       data-header={isStickyOrFixed ? "1" : undefined}
       style={{
         ...sectionStyle,
-        ...(hasBgVideo && !isStickyOrFixed
+        ...(needsChrome && !isStickyOrFixed
           ? { position: "relative", overflow: "hidden" as const }
           : {}),
         ...(isStickyOrFixed
@@ -76,10 +84,11 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
       }}
     >
       {hasBgVideo ? <SectionBackgroundVideo rawUrl={bgVideo} pointerEventsNone /> : null}
+      <SectionBackgroundLayers section={section} />
       <div
         style={{
           position: "relative",
-          zIndex: 1,
+          zIndex: 2,
           maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
           marginLeft: "auto",
           marginRight: "auto",
@@ -134,17 +143,18 @@ function ColumnRender({
         const wid = widget.cssId?.trim();
         const wcls = widget.cssClasses?.trim();
         return (
-          <WidgetMotionShell
-            key={widget.id}
-            widget={widget}
-            id={wid || undefined}
-            className={wcls || undefined}
-            style={shell}
-          >
-            <Suspense fallback={null}>
-              <Render widget={widget} device={device} />
-            </Suspense>
-          </WidgetMotionShell>
+          <WidgetConditionGate key={widget.id} widget={widget} device={device}>
+            <WidgetMotionShell
+              widget={widget}
+              id={wid || undefined}
+              className={wcls || undefined}
+              style={shell}
+            >
+              <Suspense fallback={null}>
+                <Render widget={widget} device={device} />
+              </Suspense>
+            </WidgetMotionShell>
+          </WidgetConditionGate>
         );
       })}
     </div>

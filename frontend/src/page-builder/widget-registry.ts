@@ -39,7 +39,14 @@ import {
   Anchor,
   Hash,
   ImagePlus,
+  Clapperboard,
+  PanelRightOpen,
+  ListOrdered,
 } from "lucide-react";
+import { LottieWidget } from "./widgets/LottieWidget";
+import { OffCanvasWidget } from "./widgets/OffCanvasWidget";
+import { ShareButtonsWidget } from "./widgets/ShareButtonsWidget";
+import { TableOfContentsWidget } from "./widgets/TableOfContentsWidget";
 import { ContainerWidget } from "./widgets/ContainerWidget";
 import { CookieBannerWidget } from "./widgets/CookieBannerWidget";
 import { HeadingWidget } from "./widgets/HeadingWidget";
@@ -340,10 +347,38 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetDefinition> = {
   },
   cookieBanner: {
     type: "cookieBanner",
-    label: "Cookies (modal/canto)",
+    label: "Cookies (modal/canto/barra)",
     category: "basic",
     icon: Cookie,
     Render: CookieBannerWidget,
+  },
+  lottie: {
+    type: "lottie",
+    label: "Lottie",
+    category: "pro",
+    icon: Clapperboard,
+    Render: LottieWidget,
+  },
+  offCanvas: {
+    type: "offCanvas",
+    label: "Off-canvas",
+    category: "pro",
+    icon: PanelRightOpen,
+    Render: OffCanvasWidget,
+  },
+  shareButtons: {
+    type: "shareButtons",
+    label: "Partilha",
+    category: "pro",
+    icon: Share2,
+    Render: ShareButtonsWidget,
+  },
+  tableOfContents: {
+    type: "tableOfContents",
+    label: "Índice",
+    category: "pro",
+    icon: ListOrdered,
+    Render: TableOfContentsWidget,
   },
 };
 

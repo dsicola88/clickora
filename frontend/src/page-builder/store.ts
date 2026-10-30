@@ -121,6 +121,7 @@ interface BuilderState {
   updateSeo: (seo: PageSeo) => void;
   updateTracking: (tracking: PageTrackingConfig) => void;
   updateSettings: (patch: Partial<PageDocument["settings"]>) => void;
+  updatePopups: (popups: PageDocument["popups"]) => void;
 
   // History
   undo: () => void;
@@ -587,6 +588,10 @@ export const useBuilder = create<BuilderState>((set, get) => {
       mutate((doc) => {
         doc.settings = { ...doc.settings, ...patch };
       }),
+    updatePopups: (popups) =>
+      mutate((doc) => {
+        doc.popups = popups ?? [];
+      }, "Popups"),
 
     undo: () => {
       const { history, historyLabels, doc, future, futureLabels, linkedLibraryId } = get();

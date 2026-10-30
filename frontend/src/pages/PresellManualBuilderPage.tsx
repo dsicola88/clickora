@@ -298,16 +298,48 @@ export default function PresellManualBuilderPage() {
         language,
         content,
         settings: buildSettingsPayload(),
-        /** Rascunho só no POST; a seguir publicamos de imediato (sem fila de aprovação). */
-        status: "draft",
         ...(hasVerifiedCustomDomain && customDomainId
           ? { custom_domain_id: customDomainId }
           : {}),
       };
 
+      const complianceBlockedMessage = (row: {
+        compliance_blocked?: boolean;
+        compliance?: {
+          error?: string;
+          message?: string;
+          critical_issues?: Array<{ name?: string; evidence?: string; remediation?: string }>;
+        };
+        message?: string;
+      } | null) => {
+        if (!row?.compliance_blocked) return null;
+        const issues = (row.compliance?.critical_issues || [])
+          .map((r) => (r.name || r.evidence || r.remediation || "").trim())
+          .filter(Boolean)
+          .slice(0, 4);
+        const base =
+          row.compliance?.error ||
+          row.message ||
+          "Publicação bloqueada pelas verificações internas.";
+        return issues.length ? `${base}: ${issues.join(" · ")}` : base;
+      };
+
       if (routeId) {
-        const { data: updated, error } = await presellService.update(routeId, payload);
+        /**
+         * Não forçar `draft` no PUT: páginas já no ar ficavam offline entre o update e o
+         * toggleStatus (compliance pode demorar vários segundos) — inaceitável para media buyers.
+         * Publicamos com status=published no mesmo PUT; só fazemos PATCH se ainda não estiver published.
+         */
+        const { data: updated, error } = await presellService.update(routeId, {
+          ...payload,
+          status: "published",
+        });
         if (error) throw new Error(error);
+        const blocked = complianceBlockedMessage(
+          updated as Parameters<typeof complianceBlockedMessage>[0],
+        );
+        if (blocked) throw new Error(blocked);
+        if (updated?.status === "published") return updated;
         const { data: published, error: pubErr } = await presellService.toggleStatus(routeId, "published");
         if (pubErr) throw new Error(pubErr);
         return published || updated;
@@ -317,28 +349,9 @@ export default function PresellManualBuilderPage() {
         status: "published",
       });
       if (error) throw new Error(error);
-      const createdRow = created as
-        | (Presell & {
-            compliance_blocked?: boolean;
-            compliance?: {
-              error?: string;
-              message?: string;
-              critical_issues?: Array<{ name?: string; evidence?: string; remediation?: string }>;
-            };
-            message?: string;
-          })
-        | null;
-      if (createdRow?.compliance_blocked) {
-        const issues = (createdRow.compliance?.critical_issues || [])
-          .map((r) => (r.name || r.evidence || r.remediation || "").trim())
-          .filter(Boolean)
-          .slice(0, 4);
-        const base =
-          createdRow.compliance?.error ||
-          createdRow.message ||
-          "Publicação bloqueada pelas verificações internas.";
-        throw new Error(issues.length ? `${base}: ${issues.join(" · ")}` : base);
-      }
+      const createdRow = created as Parameters<typeof complianceBlockedMessage>[0] & Presell;
+      const createBlocked = complianceBlockedMessage(createdRow);
+      if (createBlocked) throw new Error(createBlocked);
       if (created?.id && created.status !== "published") {
         const { data: published, error: pubErr } = await presellService.toggleStatus(created.id, "published");
         if (pubErr) throw new Error(pubErr);

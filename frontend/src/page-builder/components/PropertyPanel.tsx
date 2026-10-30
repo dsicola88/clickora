@@ -10,11 +10,13 @@ import type {
   ResponsiveStyles,
   ResponsiveValue,
   SectionNode,
+  ShapeDividerConfig,
   SpacingValue,
   TypographyValue,
   WidgetNode,
   WidgetType,
 } from "../types";
+import { SHAPE_DIVIDER_PRESETS } from "../section-chrome";
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { locateWidget } from "../widget-tree";
 import { Settings2, Trash2, Plus, GripVertical } from "lucide-react";
@@ -25,7 +27,9 @@ import type { SocialNetwork } from "../widgets/SocialIconsWidget";
 import type { TabItem } from "../widgets/TabsWidget";
 import { ButtonWidgetEditor } from "./editors/ButtonWidgetEditor";
 import { WidgetEffectsEditor } from "./WidgetEffectsEditor";
-import type { WidgetEffects } from "../types";
+import { WidgetInteractionsEditor } from "./WidgetInteractionsEditor";
+import { WidgetConditionsEditor, WidgetMaskEditor } from "./WidgetConditionsEditor";
+import type { WidgetConditions, WidgetEffects, WidgetInteraction } from "../types";
 import {
   ColorField,
   NumberField,
@@ -334,7 +338,7 @@ function WidgetPanel({
       hint={
         <p className="text-[10px] leading-relaxed text-editor-fg-muted">
           A editar este elemento. Conteúdo = texto/link · Estilo = cores e tipografia · Avançado =
-          motion Pro (entrada no scroll, sticky, mouse, hover) ·
+          animações (entrada no scroll, sticky, mouse, hover) ·
           margem, posição e CSS.
         </p>
       }
@@ -373,6 +377,17 @@ function WidgetPanel({
             updateWidget(section.id, column.id, widget.id, { effects })
           }
           effectsWidget={widget}
+          interactions={widget.interactions}
+          onInteractions={(interactions) =>
+            updateWidget(section.id, column.id, widget.id, { interactions })
+          }
+          conditions={widget.conditions}
+          onConditions={(conditions) =>
+            updateWidget(section.id, column.id, widget.id, { conditions })
+          }
+          cssMask={widget.cssMask}
+          cssMaskCustom={widget.cssMaskCustom}
+          onMask={(patch) => updateWidget(section.id, column.id, widget.id, patch)}
         />
       )}
     </PanelShell>
@@ -870,6 +885,188 @@ function WidgetContentTab({
       );
     case "cookieBanner":
       return <CookieBannerContentEditor content={c} setContent={setContent} />;
+    case "offCanvas":
+      return (
+        <Section title="Off-canvas">
+          <TextField
+            label="Texto do botão"
+            value={(c.buttonLabel as string) ?? "Menu"}
+            onChange={(v) => setContent({ buttonLabel: v })}
+          />
+          <SelectField
+            label="Lado do painel"
+            value={(c.side as string) ?? "right"}
+            options={[
+              { value: "right", label: "Direita" },
+              { value: "left", label: "Esquerda" },
+            ]}
+            onChange={(v) => setContent({ side: v })}
+          />
+          <SelectField
+            label="Posição do botão"
+            value={(c.position as string) ?? "bottom-right"}
+            options={[
+              { value: "bottom-right", label: "Canto inferior direito" },
+              { value: "bottom-left", label: "Canto inferior esquerdo" },
+              { value: "top-right", label: "Canto superior direito" },
+              { value: "top-left", label: "Canto superior esquerdo" },
+            ]}
+            onChange={(v) => setContent({ position: v })}
+          />
+          <NumberField
+            label="Largura do painel (px)"
+            value={(c.width as number) ?? 340}
+            min={240}
+            max={640}
+            onChange={(v) => setContent({ width: v })}
+          />
+          <TextareaField
+            label="HTML do painel"
+            value={(c.html as string) ?? ""}
+            onChange={(v) => setContent({ html: v })}
+            rows={6}
+          />
+          <ColorField
+            label="Fundo do painel"
+            value={(c.panelBg as string) ?? "#0f172a"}
+            onChange={(v) => setContent({ panelBg: v })}
+          />
+          <ColorField
+            label="Texto do painel"
+            value={(c.panelColor as string) ?? "#f8fafc"}
+            onChange={(v) => setContent({ panelColor: v })}
+          />
+          <ColorField
+            label="Fundo do botão"
+            value={(c.buttonBg as string) ?? "#e63946"}
+            onChange={(v) => setContent({ buttonBg: v })}
+          />
+          <ColorField
+            label="Texto do botão"
+            value={(c.buttonColor as string) ?? "#ffffff"}
+            onChange={(v) => setContent({ buttonColor: v })}
+          />
+        </Section>
+      );
+    case "shareButtons":
+      return (
+        <Section title="Partilha">
+          <TextField
+            label="Texto partilhado"
+            value={(c.text as string) ?? ""}
+            onChange={(v) => setContent({ text: v })}
+          />
+          <TextField
+            label="URL (vazio = página actual)"
+            value={(c.url as string) ?? ""}
+            onChange={(v) => setContent({ url: v })}
+            placeholder="https://…"
+          />
+          <TextareaField
+            label="Redes (JSON)"
+            value={JSON.stringify((c.networks as string[]) ?? ["whatsapp", "facebook", "twitter", "copy"])}
+            onChange={(v) => {
+              try {
+                const parsed = JSON.parse(v) as unknown;
+                if (Array.isArray(parsed)) setContent({ networks: parsed });
+              } catch {
+                /* ignore invalid while typing */
+              }
+            }}
+            rows={2}
+          />
+          <p className="text-[10px] text-editor-fg-muted">
+            Valores: whatsapp, facebook, twitter, linkedin, copy
+          </p>
+          <ColorField
+            label="Fundo botões"
+            value={(c.buttonBg as string) ?? "#0f172a"}
+            onChange={(v) => setContent({ buttonBg: v })}
+          />
+          <ColorField
+            label="Texto botões"
+            value={(c.buttonColor as string) ?? "#ffffff"}
+            onChange={(v) => setContent({ buttonColor: v })}
+          />
+        </Section>
+      );
+    case "tableOfContents":
+      return (
+        <Section title="Índice">
+          <TextField
+            label="Título"
+            value={(c.title as string) ?? "Índice"}
+            onChange={(v) => setContent({ title: v })}
+          />
+          <SelectField
+            label="Automático (h2–h4 com id)"
+            value={(c.auto as boolean) !== false ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não (só manuais)" },
+            ]}
+            onChange={(v) => setContent({ auto: v === "yes" })}
+          />
+          <ColorField
+            label="Cor dos links"
+            value={(c.linkColor as string) ?? "#0f172a"}
+            onChange={(v) => setContent({ linkColor: v })}
+          />
+          <ColorField
+            label="Hover"
+            value={(c.hoverColor as string) ?? "#e63946"}
+            onChange={(v) => setContent({ hoverColor: v })}
+          />
+        </Section>
+      );
+    case "lottie":
+      return (
+        <Section title="Lottie">
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+            Cola o URL de um ficheiro JSON Lottie (LottieFiles, CDN, R2).
+          </p>
+          <TextareaField
+            label="URL do JSON"
+            value={(c.src as string) ?? ""}
+            onChange={(v) => setContent({ src: v })}
+            rows={3}
+            placeholder="https://assets….lottiefiles.com/….json"
+          />
+          <NumberField
+            label="Largura (px)"
+            value={(c.width as number) ?? 280}
+            min={40}
+            max={1200}
+            onChange={(v) => setContent({ width: v })}
+          />
+          <NumberField
+            label="Velocidade"
+            value={(c.speed as number) ?? 1}
+            min={0.1}
+            max={5}
+            step={0.1}
+            onChange={(v) => setContent({ speed: v })}
+          />
+          <SelectField
+            label="Loop"
+            value={(c.loop as boolean) !== false ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ loop: v === "yes" })}
+          />
+          <SelectField
+            label="Autoplay"
+            value={(c.autoplay as boolean) !== false ? "yes" : "no"}
+            options={[
+              { value: "yes", label: "Sim" },
+              { value: "no", label: "Não" },
+            ]}
+            onChange={(v) => setContent({ autoplay: v === "yes" })}
+          />
+        </Section>
+      );
     case "container":
       return (
         <Section title="Contentor">
@@ -1007,7 +1204,7 @@ function WidgetContentTab({
 }
 
 /**
- * Estilo Elementor completo — igual para TODOS os widgets (independente do tipo).
+ * Estilo completo — igual para TODOS os widgets (independente do tipo).
  * Conteúdo específico fica na aba Conteúdo; motion/hover avançado na aba Avançado.
  */
 function WidgetStyleTab({
@@ -1034,7 +1231,7 @@ function WidgetStyleTab({
     <>
       <div className="border-b border-editor-border px-3 py-2">
         <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          Estilo deste elemento (como Elementor). Dispositivo ativo:{" "}
+          Estilo deste elemento. Dispositivo ativo:{" "}
           <span className="font-semibold text-editor-fg">{device}</span>. Hover e animação de entrada →{" "}
           <span className="font-semibold text-editor-fg">Avançado</span>.
         </p>
@@ -1314,7 +1511,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
           <SectionElementsPicker section={section} />
           <Section title="Estrutura de colunas">
             <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-              Altere o layout como no Elementor. Widgets de colunas removidas passam para a última coluna.
+              Altere o layout de colunas. Widgets de colunas removidas passam para a última coluna.
             </p>
             <div className="grid grid-cols-4 gap-1.5">
               {(
@@ -1456,10 +1653,119 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               value={section.styles.background ?? ""}
               onChange={(v) => setStyles({ background: v })}
             />
-            <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-              Com vídeo de fundo, podes usar um fundo semitransparente (ex.{" "}
-              <span className="font-mono">rgba(0,0,0,0.45)</span>) para escurecer o vídeo por baixo do conteúdo.
+          </Section>
+          <Section title="Imagem de fundo">
+            <BuilderImageUrlField
+              label="URL da imagem"
+              value={section.backgroundImageUrl ?? ""}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundImageUrl: v.trim() ? v : undefined,
+                })
+              }
+              placeholder="https://…"
+            />
+            <SelectField
+              label="Tamanho"
+              value={section.backgroundImageSize ?? "cover"}
+              options={[
+                { value: "cover", label: "Cobrir (cover)" },
+                { value: "contain", label: "Conter (contain)" },
+                { value: "auto", label: "Automático" },
+              ]}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundImageSize: v as "cover" | "contain" | "auto",
+                })
+              }
+            />
+            <TextField
+              label="Posição"
+              value={section.backgroundImagePosition ?? "center center"}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundImagePosition: v.trim() || undefined,
+                })
+              }
+              placeholder="center center"
+            />
+            <TextareaField
+              label="Slideshow (URLs, uma por linha)"
+              value={(section.backgroundSlideshow ?? []).join("\n")}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundSlideshow: v
+                    .split("\n")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                })
+              }
+              rows={3}
+              placeholder={"https://…/1.jpg\nhttps://…/2.jpg"}
+            />
+            {(section.backgroundSlideshow ?? []).length > 0 ? (
+              <NumberField
+                label="Intervalo slideshow (ms)"
+                value={section.backgroundSlideshowMs ?? 5000}
+                min={1500}
+                max={60000}
+                onChange={(v) => updateSection(section.id, { backgroundSlideshowMs: v })}
+              />
+            ) : null}
+          </Section>
+          <Section title="Overlay de fundo">
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+              Camada sobre cor, imagem ou vídeo de fundo.
             </p>
+            <ColorField
+              label="Cor do overlay"
+              value={section.backgroundOverlay?.color ?? ""}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundOverlay: {
+                    ...section.backgroundOverlay,
+                    color: v.trim() ? v : undefined,
+                  },
+                })
+              }
+            />
+            <NumberField
+              label="Opacidade (%)"
+              value={section.backgroundOverlay?.opacity ?? 50}
+              min={0}
+              max={100}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundOverlay: {
+                    ...section.backgroundOverlay,
+                    opacity: v,
+                    color: section.backgroundOverlay?.color || "rgba(0,0,0,1)",
+                  },
+                })
+              }
+            />
+            <SelectField
+              label="Blend mode"
+              value={section.backgroundOverlay?.blendMode ?? "normal"}
+              options={[
+                { value: "normal", label: "Normal" },
+                { value: "multiply", label: "Multiply" },
+                { value: "screen", label: "Screen" },
+                { value: "overlay", label: "Overlay" },
+                { value: "darken", label: "Darken" },
+                { value: "lighten", label: "Lighten" },
+                { value: "soft-light", label: "Soft light" },
+              ]}
+              onChange={(v) =>
+                updateSection(section.id, {
+                  backgroundOverlay: {
+                    ...section.backgroundOverlay,
+                    blendMode: v,
+                    color: section.backgroundOverlay?.color || "rgba(0,0,0,1)",
+                  },
+                })
+              }
+            />
           </Section>
           <Section title="Vídeo de fundo (opcional)">
             <TextareaField
@@ -1478,6 +1784,16 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               desativar.
             </p>
           </Section>
+          <ShapeDividerFields
+            title="Shape divider — topo"
+            config={section.shapeDividerTop}
+            onChange={(shapeDividerTop) => updateSection(section.id, { shapeDividerTop })}
+          />
+          <ShapeDividerFields
+            title="Shape divider — fundo"
+            config={section.shapeDividerBottom}
+            onChange={(shapeDividerBottom) => updateSection(section.id, { shapeDividerBottom })}
+          />
           <SpacingSection styles={section.styles} device={device} setStyles={setStyles} />
         </>
       )}
@@ -1493,6 +1809,80 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
         />
       )}
     </PanelShell>
+  );
+}
+
+function ShapeDividerFields({
+  title,
+  config,
+  onChange,
+}: {
+  title: string;
+  config: ShapeDividerConfig | undefined;
+  onChange: (next: ShapeDividerConfig | undefined) => void;
+}) {
+  const c = config ?? {};
+  const preset = c.preset ?? "none";
+  const patch = (partial: Partial<ShapeDividerConfig>) => {
+    const next = { ...c, ...partial };
+    if ((next.preset ?? "none") === "none") {
+      onChange(undefined);
+      return;
+    }
+    onChange(next);
+  };
+  return (
+    <Section title={title}>
+      <SelectField
+        label="Forma"
+        value={preset}
+        options={[...SHAPE_DIVIDER_PRESETS]}
+        onChange={(v) => patch({ preset: v, color: c.color || "#ffffff", heightPx: c.heightPx ?? 80 })}
+      />
+      {preset !== "none" ? (
+        <>
+          <ColorField
+            label="Cor"
+            value={c.color ?? "#ffffff"}
+            onChange={(v) => patch({ color: v })}
+          />
+          <NumberField
+            label="Altura (px)"
+            value={c.heightPx ?? 80}
+            min={8}
+            max={400}
+            onChange={(v) => patch({ heightPx: v })}
+          />
+          <SelectField
+            label="Inverter"
+            value={c.invert ? "yes" : "no"}
+            options={[
+              { value: "no", label: "Não" },
+              { value: "yes", label: "Sim" },
+            ]}
+            onChange={(v) => patch({ invert: v === "yes" })}
+          />
+          <SelectField
+            label="Espelhar"
+            value={c.flip ? "yes" : "no"}
+            options={[
+              { value: "no", label: "Não" },
+              { value: "yes", label: "Sim" },
+            ]}
+            onChange={(v) => patch({ flip: v === "yes" })}
+          />
+          <SelectField
+            label="Trazer para a frente"
+            value={c.bringToFront ? "yes" : "no"}
+            options={[
+              { value: "no", label: "Não" },
+              { value: "yes", label: "Sim" },
+            ]}
+            onChange={(v) => patch({ bringToFront: v === "yes" })}
+          />
+        </>
+      ) : null}
+    </Section>
   );
 }
 
@@ -1721,6 +2111,13 @@ function AdvancedTab({
   effects,
   onEffects,
   effectsWidget,
+  interactions,
+  onInteractions,
+  conditions,
+  onConditions,
+  cssMask,
+  cssMaskCustom,
+  onMask,
 }: {
   styles: BaseStyles & ResponsiveStyles;
   device: DeviceType;
@@ -1737,6 +2134,13 @@ function AdvancedTab({
   effects?: WidgetEffects;
   onEffects?: (effects: WidgetEffects) => void;
   effectsWidget?: WidgetNode;
+  interactions?: WidgetInteraction[];
+  onInteractions?: (interactions: WidgetInteraction[]) => void;
+  conditions?: WidgetConditions;
+  onConditions?: (conditions: WidgetConditions | undefined) => void;
+  cssMask?: string;
+  cssMaskCustom?: string;
+  onMask?: (patch: { cssMask?: string; cssMaskCustom?: string }) => void;
 }) {
   const clearableZ = resolveResponsive(styles.zIndex, device);
   const zStr =
@@ -1750,6 +2154,24 @@ function AdvancedTab({
         <WidgetEffectsEditor
           widget={{ ...effectsWidget, effects }}
           onChange={onEffects}
+        />
+      ) : null}
+      {effectsWidget && onInteractions ? (
+        <WidgetInteractionsEditor
+          widget={{ ...effectsWidget, interactions }}
+          onChange={onInteractions}
+        />
+      ) : null}
+      {effectsWidget && onConditions ? (
+        <WidgetConditionsEditor
+          widget={{ ...effectsWidget, conditions }}
+          onChange={onConditions}
+        />
+      ) : null}
+      {effectsWidget && onMask ? (
+        <WidgetMaskEditor
+          widget={{ ...effectsWidget, cssMask, cssMaskCustom }}
+          onChange={onMask}
         />
       ) : null}
       {showLayout ? (
@@ -2316,7 +2738,7 @@ function NavMenuContentEditor({
       });
       return;
     }
-    // Como no Elementor: sticky/fixed na secção da barra — conteúdo sobe por baixo.
+    // Sticky/fixed na secção da barra — conteúdo sobe por baixo.
     updateSection(section.id, {
       styles: {
         ...section.styles,
@@ -2392,7 +2814,7 @@ function NavMenuContentEditor({
         }}
       />
 
-      <Section title="Disposição (Elementor)">
+      <Section title="Disposição">
         <SelectField
           label="Layout"
           value={(content.layout as string) ?? "horizontal"}
@@ -2400,9 +2822,28 @@ function NavMenuContentEditor({
             { value: "horizontal", label: "Horizontal" },
             { value: "vertical", label: "Vertical" },
             { value: "dropdown", label: "Dropdown" },
+            { value: "mega", label: "Mega menu" },
           ]}
           onChange={(v) => setContent({ layout: v })}
         />
+        {(content.layout as string) === "mega" ? (
+          <>
+            <NumberField
+              label="Largura do mega (px)"
+              value={(content.megaWidth as number) ?? 720}
+              min={320}
+              max={1200}
+              onChange={(v) => setContent({ megaWidth: v })}
+            />
+            <NumberField
+              label="Colunas"
+              value={(content.megaColumns as number) ?? 3}
+              min={2}
+              max={6}
+              onChange={(v) => setContent({ megaColumns: v })}
+            />
+          </>
+        ) : null}
         <SelectField
           label="Alinhamento"
           value={(content.align as string) ?? "center"}
@@ -2442,7 +2883,7 @@ function NavMenuContentEditor({
           onChange={(v) => applySticky(v as NavStickyMode)}
         />
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-          Sticky/fixa aplica-se à secção do menu (como no Elementor). O conteúdo sobe por baixo da
+          Sticky/fixa aplica-se à secção do menu. O conteúdo sobe por baixo da
           barra; fundo branco e z-index 200 são definidos automaticamente.
         </p>
       </Section>
@@ -2526,7 +2967,7 @@ function NavMenuContentEditor({
         />
       </Section>
 
-      <Section title="Mobile (Elementor)">
+      <Section title="Telemóvel">
         <NumberField
           label="Breakpoint (px)"
           value={(content.mobileBreakpoint as number) ?? 767}

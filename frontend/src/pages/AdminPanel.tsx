@@ -867,7 +867,7 @@ export default function AdminPanel() {
                             Página de vendas
                           </CardTitle>
                           <CardDescription className="max-w-2xl leading-relaxed">
-                            Editor visual tipo Elementor — o mesmo do builder manual de presell. Arraste blocos,
+                            Editor visual — o mesmo do builder manual de presell. Arraste blocos,
                             edite no painel e publique. Use o widget <strong>Planos (vivos)</strong> para a grelha
                             com preços reais da base de dados.
                           </CardDescription>

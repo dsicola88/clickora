@@ -45,110 +45,208 @@ export function CookieBannerContentEditor({
     },
     pageLanguage,
   );
+  const variant = (c.variant as string) ?? "modal";
   return (
-    <Section title="Consentimento de cookies">
-      <SelectField
-        label="Textos"
-        value={followsLanguage ? "locale" : "custom"}
-        options={[
-          { value: "custom", label: "Texto próprio (editável)" },
-          { value: "locale", label: "Seguir o idioma da página" },
-        ]}
-        onChange={(v) => setContent({ followLanguage: v === "locale" })}
-      />
-      <SelectField
-        label="Estilo"
-        value={(c.variant as string) ?? "modal"}
-        options={[
-          { value: "modal", label: "Modal centrado (recomendado Ads)" },
-          { value: "corner", label: "Canto flutuante" },
-        ]}
-        onChange={(v) => setContent({ variant: v })}
-      />
-      <TextField
-        label="Título"
-        value={copy.title}
-        onChange={(v) => setContent({ title: v, followLanguage: false })}
-      />
-      <TextareaField
-        label="Texto (antes do link da política)"
-        value={copy.body}
-        onChange={(v) => setContent({ body: v, followLanguage: false })}
-        rows={4}
-      />
-      <TextField
-        label="Botão aceitar"
-        value={copy.allowLabel}
-        onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
-      />
-      <TextField
-        label="Botão fechar"
-        value={copy.declineLabel}
-        onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
-      />
-      <TextField
-        label="Texto do link da política"
-        value={copy.policyLabel}
-        onChange={(v) => setContent({ policyLabel: v, followLanguage: false })}
-      />
-      <TextField
-        label="Rodapé do aviso"
-        value={copy.footerNote}
-        onChange={(v) => setContent({ footerNote: v, followLanguage: false })}
-      />
-      <TextField
-        label="URL da política"
-        value={(c.policyUrl as string) ?? "/privacidade"}
-        onChange={(v) => setContent({ policyUrl: v })}
-        placeholder="/privacidade"
-      />
-      <ColorField
-        label="Cor do botão Aceitar"
-        value={(c.accentColor as string) ?? "#2563eb"}
-        onChange={(v) => setContent({ accentColor: v })}
-      />
-      <SelectField
-        label="Fundo escurecido (modal)"
-        value={c.backdrop === false ? "off" : "on"}
-        options={[
-          { value: "on", label: "Sim" },
-          { value: "off", label: "Não" },
-        ]}
-        onChange={(v) => setContent({ backdrop: v === "on" })}
-      />
-      <NumberField
-        label="Escuridão do fundo (%)"
-        value={typeof c.overlayOpacity === "number" ? c.overlayOpacity : 12}
-        onChange={(v) => setContent({ overlayOpacity: v })}
-        min={0}
-        max={70}
-      />
-      <NumberField
-        label="Desfoque do fundo (px)"
-        value={typeof c.overlayBlur === "number" ? c.overlayBlur : 0}
-        onChange={(v) => setContent({ overlayBlur: v })}
-        min={0}
-        max={12}
-      />
-      <SelectField
-        label="Posição (só canto)"
-        value={(c.position as string) ?? "bottom-right"}
-        options={[
-          { value: "bottom-right", label: "Canto inferior direito" },
-          { value: "bottom-left", label: "Canto inferior esquerdo" },
-        ]}
-        onChange={(v) => setContent({ position: v })}
-      />
-      <TextField
-        label="Chave localStorage"
-        value={(c.storageKey as string) ?? "clickora-cookie-banner"}
-        onChange={(v) => setContent({ storageKey: v })}
-      />
-      <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-        Título, corpo, botões e rodapé editam-se aqui ou no canvas. O fundo escuro só aparece na página publicada.
-        Permitir e Fechar seguem o hoplink rastreado; o link da política continua a ser a política.
-      </p>
-    </Section>
+    <>
+      <Section title="Modo e posição">
+        <SelectField
+          label="Modo"
+          value={variant}
+          options={[
+            { value: "modal", label: "Modal centrado (recomendado Ads)" },
+            { value: "corner", label: "Canto / toast flutuante" },
+            { value: "bar", label: "Barra topo / fundo" },
+          ]}
+          onChange={(v) => {
+            const patch: Record<string, unknown> = { variant: v };
+            if (v === "modal") patch.position = "center";
+            if (v === "bar" && c.position !== "top" && c.position !== "bottom") patch.position = "bottom";
+            if (v === "corner" && (c.position === "center" || c.position === "top" || c.position === "bottom")) {
+              patch.position = "bottom-right";
+            }
+            setContent(patch);
+          }}
+        />
+        <SelectField
+          label="Posição"
+          value={(c.position as string) ?? (variant === "modal" ? "center" : variant === "bar" ? "bottom" : "bottom-right")}
+          options={
+            variant === "modal"
+              ? [{ value: "center", label: "Centro" }]
+              : variant === "bar"
+                ? [
+                    { value: "top", label: "Topo" },
+                    { value: "bottom", label: "Fundo" },
+                  ]
+                : [
+                    { value: "top-left", label: "Canto superior esquerdo" },
+                    { value: "top-right", label: "Canto superior direito" },
+                    { value: "bottom-left", label: "Canto inferior esquerdo" },
+                    { value: "bottom-right", label: "Canto inferior direito" },
+                  ]
+          }
+          onChange={(v) => setContent({ position: v })}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField
+            label="Offset X (px)"
+            value={typeof c.offsetXPx === "number" ? c.offsetXPx : 20}
+            onChange={(v) => setContent({ offsetXPx: v })}
+            min={0}
+            max={120}
+          />
+          <NumberField
+            label="Offset Y (px)"
+            value={typeof c.offsetYPx === "number" ? c.offsetYPx : 20}
+            onChange={(v) => setContent({ offsetYPx: v })}
+            min={0}
+            max={120}
+          />
+        </div>
+        <NumberField
+          label="Largura máx. (px)"
+          value={typeof c.maxWidthPx === "number" ? c.maxWidthPx : variant === "corner" ? 340 : 420}
+          onChange={(v) => setContent({ maxWidthPx: v })}
+          min={240}
+          max={720}
+        />
+      </Section>
+
+      <Section title="Tempo e animação">
+        <NumberField
+          label="Atraso de entrada (ms)"
+          value={typeof c.delayMs === "number" ? c.delayMs : 0}
+          onChange={(v) => setContent({ delayMs: v })}
+          min={0}
+          max={30000}
+        />
+        <SelectField
+          label="Animação"
+          value={(c.animation as string) ?? "fadeUp"}
+          options={[
+            { value: "none", label: "Nenhuma" },
+            { value: "fade", label: "Fade" },
+            { value: "fadeUp", label: "Fade + subir" },
+            { value: "fadeDown", label: "Fade + descer" },
+            { value: "scale", label: "Escala" },
+            { value: "slideLeft", label: "Deslizar da esquerda" },
+            { value: "slideRight", label: "Deslizar da direita" },
+            { value: "slideUp", label: "Deslizar de baixo" },
+            { value: "slideDown", label: "Deslizar de cima" },
+          ]}
+          onChange={(v) => setContent({ animation: v })}
+        />
+        <NumberField
+          label="Duração da animação (ms)"
+          value={typeof c.animationDurationMs === "number" ? c.animationDurationMs : 320}
+          onChange={(v) => setContent({ animationDurationMs: v })}
+          min={80}
+          max={3000}
+        />
+      </Section>
+
+      <Section title="Conteúdo">
+        <SelectField
+          label="Textos"
+          value={followsLanguage ? "locale" : "custom"}
+          options={[
+            { value: "custom", label: "Texto próprio (editável)" },
+            { value: "locale", label: "Seguir o idioma da página" },
+          ]}
+          onChange={(v) => setContent({ followLanguage: v === "locale" })}
+        />
+        <TextField
+          label="Título"
+          value={copy.title}
+          onChange={(v) => setContent({ title: v, followLanguage: false })}
+        />
+        <TextareaField
+          label="Texto (antes do link da política)"
+          value={copy.body}
+          onChange={(v) => setContent({ body: v, followLanguage: false })}
+          rows={4}
+        />
+        <TextField
+          label="Botão aceitar"
+          value={copy.allowLabel}
+          onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
+        />
+        <TextField
+          label="Botão fechar"
+          value={copy.declineLabel}
+          onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
+        />
+        <TextField
+          label="Texto do link da política"
+          value={copy.policyLabel}
+          onChange={(v) => setContent({ policyLabel: v, followLanguage: false })}
+        />
+        <TextField
+          label="Rodapé do aviso"
+          value={copy.footerNote}
+          onChange={(v) => setContent({ footerNote: v, followLanguage: false })}
+        />
+        <TextField
+          label="URL da política"
+          value={(c.policyUrl as string) ?? "/privacidade"}
+          onChange={(v) => setContent({ policyUrl: v })}
+          placeholder="/privacidade"
+        />
+        <SelectField
+          label="Botão × de fechar"
+          value={c.showCloseButton === true ? "on" : "off"}
+          options={[
+            { value: "off", label: "Oculto" },
+            { value: "on", label: "Visível" },
+          ]}
+          onChange={(v) => setContent({ showCloseButton: v === "on" })}
+        />
+      </Section>
+
+      <Section title="Estilo">
+        <ColorField
+          label="Cor do botão Aceitar"
+          value={(c.accentColor as string) ?? "#2563eb"}
+          onChange={(v) => setContent({ accentColor: v })}
+        />
+        {variant === "modal" ? (
+          <>
+            <SelectField
+              label="Fundo escurecido"
+              value={c.backdrop === false ? "off" : "on"}
+              options={[
+                { value: "on", label: "Sim" },
+                { value: "off", label: "Não" },
+              ]}
+              onChange={(v) => setContent({ backdrop: v === "on" })}
+            />
+            <NumberField
+              label="Escuridão do fundo (%)"
+              value={typeof c.overlayOpacity === "number" ? c.overlayOpacity : 12}
+              onChange={(v) => setContent({ overlayOpacity: v })}
+              min={0}
+              max={70}
+            />
+            <NumberField
+              label="Desfoque do fundo (px)"
+              value={typeof c.overlayBlur === "number" ? c.overlayBlur : 0}
+              onChange={(v) => setContent({ overlayBlur: v })}
+              min={0}
+              max={12}
+            />
+          </>
+        ) : null}
+        <TextField
+          label="Chave localStorage"
+          value={(c.storageKey as string) ?? "clickora-cookie-banner"}
+          onChange={(v) => setContent({ storageKey: v })}
+        />
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+          Mesmo sistema de posição/modo/tempo dos popups da página. Na página publicada o aviso cobre a
+          oferta no modo modal.
+        </p>
+      </Section>
+    </>
   );
 }
 

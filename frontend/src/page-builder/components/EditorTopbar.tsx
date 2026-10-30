@@ -22,6 +22,8 @@ import {
   MoreHorizontal,
   FileJson,
   Blocks,
+  Palette,
+  MessageSquarePlus,
 } from "lucide-react";
 import { BlocksModal } from "./BlocksModal";
 import type { DeviceType } from "../types";
@@ -39,6 +41,8 @@ import { TemplatesModal } from "./TemplatesModal";
 import { PublishModal } from "./PublishModal";
 import { SeoModal } from "./SeoModal";
 import { TrackingModal } from "./TrackingModal";
+import { PageSettingsModal } from "./PageSettingsModal";
+import { PopupsModal } from "./PopupsModal";
 import { useEditorChromeThemeContextOptional } from "../EditorChromeThemeContext";
 
 const DEVICES: Array<{ id: DeviceType; Icon: typeof Monitor; label: string }> = [
@@ -78,6 +82,8 @@ export function EditorTopbar() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
   const [trackingOpen, setTrackingOpen] = useState(false);
+  const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
+  const [popupsOpen, setPopupsOpen] = useState(false);
 
   useEffect(() => {
     setNameDraft(doc.name);
@@ -258,6 +264,14 @@ export function EditorTopbar() {
               <FolderOpen className="mr-2 h-4 w-4" />
               Páginas guardadas
             </DropdownMenuItem>
+            <DropdownMenuItem className={menuItem} onClick={() => setPageSettingsOpen(true)}>
+              <Palette className="mr-2 h-4 w-4" />
+              Design global
+            </DropdownMenuItem>
+            <DropdownMenuItem className={menuItem} onClick={() => setPopupsOpen(true)}>
+              <MessageSquarePlus className="mr-2 h-4 w-4" />
+              Popups
+            </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={() => setSeoOpen(true)}>
               <Search className="mr-2 h-4 w-4" />
               SEO
@@ -295,6 +309,8 @@ export function EditorTopbar() {
       {!presellEmbed ? <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} /> : null}
       <SeoModal open={seoOpen} onClose={() => setSeoOpen(false)} />
       <TrackingModal open={trackingOpen} onClose={() => setTrackingOpen(false)} />
+      <PageSettingsModal open={pageSettingsOpen} onClose={() => setPageSettingsOpen(false)} />
+      <PopupsModal open={popupsOpen} onClose={() => setPopupsOpen(false)} />
     </header>
   );
 }

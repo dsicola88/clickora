@@ -25,6 +25,7 @@ export function normalizeImportedDocument(raw: PageDocument): PageDocument {
     settings: raw.settings && typeof raw.settings === "object"
       ? { maxContentWidth: 1140, background: "#ffffff", ...raw.settings }
       : base.settings,
+    popups: Array.isArray(raw.popups) ? raw.popups : [],
     seo: raw.seo,
     tracking: raw.tracking,
     updatedAt: Date.now(),

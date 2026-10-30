@@ -19,9 +19,20 @@ export interface FaqContent {
   accentColor: string;
 }
 
+/** Aceita `question`/`answer` (canónico) e aliases legados `q`/`a` de payloads antigos. */
+function normalizeFaqItems(raw: unknown[]): FaqItem[] {
+  return raw.map((row, idx) => {
+    const o = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+    const question = String(o.question ?? o.q ?? "").trim();
+    const answer = String(o.answer ?? o.a ?? "").trim();
+    const id = String(o.id ?? `faq_${idx}`);
+    return { id, question, answer };
+  });
+}
+
 export function FaqWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const c = widget.content as Partial<FaqContent>;
-  const items = c.items ?? [];
+  const items = normalizeFaqItems(Array.isArray(c.items) ? c.items : []);
   const allowMultiple = c.allowMultiple ?? false;
   const defaultOpen = c.defaultOpen ?? 0;
   const itemBg = c.itemBg ?? "#ffffff";

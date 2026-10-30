@@ -2,10 +2,12 @@ import { nanoid } from "nanoid";
 import type {
   ColumnNode,
   PageDocument,
+  PagePopup,
   ResponsiveValue,
   SectionNode,
   SpacingValue,
   TypographyValue,
+  WidgetInteraction,
   WidgetNode,
   WidgetType,
 } from "./types";
@@ -514,6 +516,61 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       padding: r(spacing(0, 0, 0, 0)),
     },
   }),
+  lottie: () => ({
+    content: {
+      src: "",
+      loop: true,
+      autoplay: true,
+      speed: 1,
+      width: 280,
+    },
+    styles: {
+      align: r("center"),
+      margin: r(spacing(0, 0, 16, 0)),
+    },
+  }),
+  offCanvas: () => ({
+    content: {
+      side: "right",
+      width: 340,
+      buttonLabel: "Menu",
+      html: "<h3>Painel</h3><p>Links, contacto ou oferta.</p><p><a href=\"#\">Ir para oferta</a></p>",
+      panelBg: "#0f172a",
+      panelColor: "#f8fafc",
+      buttonBg: "#e63946",
+      buttonColor: "#ffffff",
+      position: "bottom-right",
+    },
+    styles: { margin: r(spacing(0, 0, 0, 0)) },
+  }),
+  shareButtons: () => ({
+    content: {
+      networks: ["whatsapp", "facebook", "twitter", "copy"],
+      text: "Confira isto",
+      url: "",
+      buttonBg: "#0f172a",
+      buttonColor: "#ffffff",
+      gap: 8,
+    },
+    styles: {
+      align: r("center"),
+      margin: r(spacing(0, 0, 16, 0)),
+    },
+  }),
+  tableOfContents: () => ({
+    content: {
+      title: "Índice",
+      auto: true,
+      items: [],
+      linkColor: "#0f172a",
+      hoverColor: "#e63946",
+    },
+    styles: {
+      padding: r(spacing(16, 16, 16, 16)),
+      background: "#f8fafc",
+      margin: r(spacing(0, 0, 16, 0)),
+    },
+  }),
   cookieBanner: () => ({
     content: {
       title: "Cookie Policy",
@@ -529,7 +586,14 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       footerNote: "Your privacy matters to us.",
       overlayOpacity: 12,
       overlayBlur: 0,
-      position: "bottom-right",
+      position: "center",
+      animation: "fadeUp",
+      animationDurationMs: 320,
+      delayMs: 0,
+      maxWidthPx: 420,
+      offsetXPx: 20,
+      offsetYPx: 20,
+      showCloseButton: false,
       storageKey: "clickora-cookie-banner",
     },
     styles: {
@@ -666,7 +730,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       src: "",
       alt: "Imagem",
       title: "Caixa com imagem",
-      description: "Título + imagem + texto, como o Image Box do Elementor.",
+      description: "Título + imagem + texto numa caixa.",
       href: "",
       titleColor: "#0f172a",
       descColor: "#64748b",
@@ -754,6 +818,51 @@ export function createEmptyPage(name = "Página sem título"): PageDocument {
     name,
     sections: [],
     settings: { maxContentWidth: 1140, background: "#ffffff" },
+    popups: [],
     updatedAt: Date.now(),
+  };
+}
+
+export function createPagePopup(name = "Novo popup"): PagePopup {
+  return {
+    id: id("pop_"),
+    name,
+    enabled: true,
+    trigger: "onLoad",
+    delayMs: 800,
+    oncePerSession: true,
+    backdrop: true,
+    backdropClose: true,
+    backdropOpacity: 55,
+    maxWidthPx: 480,
+    displayMode: "modal",
+    position: "center",
+    animation: "fadeUp",
+    animationDurationMs: 320,
+    showCloseButton: true,
+    offsetXPx: 16,
+    offsetYPx: 16,
+    borderRadiusPx: 16,
+    zIndex: 99990,
+    title: "Oferta especial",
+    html: "<p>Adicione a sua mensagem aqui.</p>",
+    ctaLabel: "Quero saber mais",
+    ctaHref: "#",
+    background: "#ffffff",
+    textColor: "#0f172a",
+    ctaBg: "#e63946",
+    ctaColor: "#ffffff",
+  };
+}
+
+export function createWidgetInteraction(
+  partial: Partial<WidgetInteraction> = {},
+): WidgetInteraction {
+  return {
+    id: id("ix_"),
+    trigger: "click",
+    action: "openUrl",
+    url: "",
+    ...partial,
   };
 }

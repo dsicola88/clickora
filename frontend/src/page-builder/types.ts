@@ -43,7 +43,15 @@ export type WidgetType =
   | "googleMaps"
   | "menuAnchor"
   | "cookieBanner"
-  | "container";
+  | "container"
+  /** Lottie / DotLottie. */
+  | "lottie"
+  /** Painel lateral (off-canvas). */
+  | "offCanvas"
+  /** Botões de partilha social. */
+  | "shareButtons"
+  /** Índice / tabela de conteúdos por âncoras. */
+  | "tableOfContents";
 
 export interface PageSeo {
   title?: string;
@@ -136,18 +144,18 @@ export interface BaseStyles {
   opacity?: number;
 }
 
-/** Motion Effects (Elementor Advanced / Pro+) — independente por widget. */
+/** Efeitos de movimento — independente por widget. */
 export interface WidgetEffects {
   entranceAnimation?: string;
   entranceDurationMs?: number;
   entranceDelayMs?: number;
   entranceEasing?: string;
   /**
-   * `scroll` = ao entrar no viewport (Elementor Pro default).
+   * `scroll` = ao entrar no viewport.
    * `load` = ao carregar a página.
    */
   entranceTrigger?: "scroll" | "load";
-  /** Se true, a entrada só corre uma vez (padrão Elementor). */
+  /** Se true, a entrada só corre uma vez. */
   entranceOnce?: boolean;
   /** % do elemento visível para disparar (0–100). */
   entranceThreshold?: number;
@@ -155,13 +163,13 @@ export interface WidgetEffects {
   hoverTransform?: string;
   hoverBoxShadow?: string;
   hoverOpacity?: number;
-  /** Cores de hover (Elementor Style → Hover) — todos os widgets. */
+  /** Cores de hover — todos os widgets. */
   hoverColor?: string;
   hoverBackground?: string;
   hoverBorderColor?: string;
   transitionDurationMs?: number;
   transitionEasing?: string;
-  /** position:sticky no wrapper (Elementor Sticky). */
+  /** position:sticky no wrapper. */
   sticky?: boolean;
   /** Offset `top` em px quando sticky. */
   stickyOffsetPx?: number;
@@ -169,7 +177,7 @@ export interface WidgetEffects {
   continuousAnimation?: string;
   continuousDurationMs?: number;
   /**
-   * Scrolling Effects (Elementor Pro): movimento ligado ao scroll do viewport.
+   * Efeitos de scroll: movimento ligado ao scroll do viewport.
    * `none` | `vertical` | `horizontal` | `transparency` | `blur` | `rotate` | `scale`
    */
   scrollingEffect?: string;
@@ -183,6 +191,50 @@ export interface WidgetEffects {
   /** Mouse track — deslocamento 2D. */
   mouseTrack?: boolean;
   mouseTrackPx?: number;
+  /**
+   * Percurso de movimento (motion path).
+   * `none` | `lineH` | `lineV` | `arc` | `circle` | `zigzag` | `figure8`
+   */
+  motionPath?: string;
+  /** Duração do ciclo do percurso (ms). */
+  motionPathDurationMs?: number;
+  /** Percurso em loop contínuo (default true). */
+  motionPathLoop?: boolean;
+}
+
+/** Condições de visibilidade do widget. */
+export interface WidgetConditions {
+  /** Atraso após load antes de mostrar (ms). */
+  showAfterMs?: number;
+  /** Só mostrar depois de X% de scroll (0–100). */
+  showAtScrollPercent?: number;
+  /** Ocultar em desktop / tablet / mobile (além de visibility nos estilos). */
+  hideDesktop?: boolean;
+  hideTablet?: boolean;
+  hideMobile?: boolean;
+}
+
+/** Disparo de interação no widget. */
+export type WidgetInteractionTrigger = "click" | "hover";
+
+/** Acção de interação no widget. */
+export type WidgetInteractionAction =
+  | "openUrl"
+  | "scrollTo"
+  | "openPopup"
+  | "show"
+  | "hide"
+  | "toggle";
+
+export interface WidgetInteraction {
+  id: string;
+  trigger: WidgetInteractionTrigger;
+  action: WidgetInteractionAction;
+  /** openUrl */
+  url?: string;
+  openInNewTab?: boolean;
+  /** scrollTo → #id ; show/hide/toggle → cssId do alvo ; openPopup → id do popup */
+  targetId?: string;
 }
 
 export interface WidgetNode {
@@ -193,12 +245,90 @@ export interface WidgetNode {
   styles: BaseStyles & ResponsiveStyles;
   /** Entrada / hover / transform — cada widget independente. */
   effects?: WidgetEffects;
+  /** Interações (clique/hover → acção). */
+  interactions?: WidgetInteraction[];
+  /** Condições de exibição. */
+  conditions?: WidgetConditions;
+  /**
+   * Máscara CSS (clip).
+   * `none` | `circle` | `ellipse` | `diamond` | `hexagon` | `blob` | `custom`
+   */
+  cssMask?: string;
+  /** clip-path custom quando cssMask = custom. */
+  cssMaskCustom?: string;
   /** Atributo `id` HTML (aba Avançado). */
   cssId?: string;
   /** Custom CSS class names (advanced tab). */
   cssClasses?: string;
   /** CSS cru injetado num `<style>` dentro do invólucro do widget (aba Avançado). */
   customCss?: string;
+}
+
+/** Popup / modal da página (disparado por tempo, scroll, exit ou interação). */
+export type PagePopupTrigger = "onLoad" | "onScroll" | "exitIntent" | "manual";
+
+export type PagePopupPosition =
+  | "center"
+  | "top"
+  | "bottom"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "left"
+  | "right";
+
+export type PagePopupDisplayMode = "modal" | "bar" | "slide-in" | "toast";
+
+export type PagePopupAnimation =
+  | "none"
+  | "fade"
+  | "fadeUp"
+  | "fadeDown"
+  | "scale"
+  | "slideLeft"
+  | "slideRight"
+  | "slideUp"
+  | "slideDown";
+
+export interface PagePopup {
+  id: string;
+  name: string;
+  enabled?: boolean;
+  trigger: PagePopupTrigger;
+  /** Atraso após load / scroll / exit (ms). */
+  delayMs?: number;
+  /** % de scroll (0–100) quando trigger = onScroll. */
+  scrollPercent?: number;
+  /** Só uma vez por sessão do browser. */
+  oncePerSession?: boolean;
+  backdrop?: boolean;
+  backdropClose?: boolean;
+  maxWidthPx?: number;
+  title?: string;
+  html?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+  background?: string;
+  textColor?: string;
+  /** Cor do botão CTA. */
+  ctaBg?: string;
+  ctaColor?: string;
+  /** Modo de apresentação. */
+  displayMode?: PagePopupDisplayMode;
+  /** Posição no ecrã. */
+  position?: PagePopupPosition;
+  /** Animação de entrada. */
+  animation?: PagePopupAnimation;
+  animationDurationMs?: number;
+  animationEasing?: string;
+  zIndex?: number;
+  borderRadiusPx?: number;
+  offsetXPx?: number;
+  offsetYPx?: number;
+  showCloseButton?: boolean;
+  /** Opacidade do backdrop 0–100 (quando activo). */
+  backdropOpacity?: number;
 }
 
 export type FlexDirection = "row" | "column" | "row-reverse" | "column-reverse";
@@ -228,6 +358,26 @@ export interface ColumnNode {
   widgets: WidgetNode[];
 }
 
+/** Overlay de fundo da secção. */
+export interface SectionBackgroundOverlay {
+  color?: string;
+  /** 0–100 (default 50). */
+  opacity?: number;
+  /** CSS mix-blend-mode. */
+  blendMode?: string;
+}
+
+/** Divisor de forma (topo ou fundo da secção). */
+export interface ShapeDividerConfig {
+  preset?: string;
+  color?: string;
+  heightPx?: number;
+  flip?: boolean;
+  /** Inverte verticalmente o SVG. */
+  invert?: boolean;
+  bringToFront?: boolean;
+}
+
 export interface SectionNode {
   id: string;
   /** "boxed" constrains content width, "full" stretches to viewport. */
@@ -237,10 +387,33 @@ export interface SectionNode {
   columnGap: ResponsiveValue<number>;
   /** YouTube ou Bunny Stream — vídeo em autoplay silencioso atrás do conteúdo da seção. */
   backgroundVideoUrl?: string;
+  /** Imagem de fundo da secção. */
+  backgroundImageUrl?: string;
+  backgroundImageSize?: "cover" | "contain" | "auto";
+  backgroundImagePosition?: string;
+  /** Overlay sobre cor/imagem/vídeo de fundo. */
+  backgroundOverlay?: SectionBackgroundOverlay;
+  /** Slideshow de imagens de fundo (URLs). */
+  backgroundSlideshow?: string[];
+  /** Intervalo do slideshow (ms). */
+  backgroundSlideshowMs?: number;
+  shapeDividerTop?: ShapeDividerConfig;
+  shapeDividerBottom?: ShapeDividerConfig;
   /** Direção, alinhamento e quebra do contentor. As colunas são os filhos flex. */
   flex?: FlexLayout;
   styles: BaseStyles & ResponsiveStyles;
   columns: ColumnNode[];
+}
+
+/** Cores/tipografia globais da página. */
+export interface PageGlobalDesign {
+  primary?: string;
+  secondary?: string;
+  text?: string;
+  accent?: string;
+  muted?: string;
+  fontPrimary?: string;
+  fontSecondary?: string;
 }
 
 export interface PageDocument {
@@ -251,7 +424,10 @@ export interface PageDocument {
   settings: {
     background?: string;
     maxContentWidth: number;
+    globalDesign?: PageGlobalDesign;
   };
+  /** Popups / modais da página. */
+  popups?: PagePopup[];
   /** Per-page SEO metadata used in the public route and HTML export. */
   seo?: PageSeo;
   /** Per-page analytics/tracking integrations. */

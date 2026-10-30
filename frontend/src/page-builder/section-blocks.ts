@@ -1,6 +1,6 @@
 /**
  * Blocos de secção reutilizáveis — montar páginas DTC do zero sem template completo
- * (fluxo tipo Elementor: estrutura → widgets → estilo).
+ * (fluxo: estrutura → widgets → estilo).
  */
 import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createSection, createWidget, id } from "./factory";

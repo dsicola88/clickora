@@ -446,7 +446,7 @@ export const landingExtrasSchema = z
       .nullable()
       .optional(),
     /**
-     * Editor visual tipo Elementor (mesmo PageDocument do builder de presell).
+     * Editor visual (mesmo PageDocument do builder de presell).
      * Quando `builder_enabled`, a landing pública renderiza `page_document`.
      */
     builder_enabled: z.boolean().optional(),

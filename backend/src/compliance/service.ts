@@ -297,7 +297,7 @@ export async function assertPublishAllowed(args: {
     videoUrl: args.page.videoUrl,
   });
 
-  /** Elementor-style: editar → domínio → Publicar → no ar (rastreio no head). */
+  /** Fluxo: editar → domínio → Publicar → no ar (rastreio no head). */
   if (isInstantPublishPresellType(args.page.type)) {
     void runPresellComplianceAudit({
       presell: { ...args.page, contentFingerprint: signals.contentFingerprint },

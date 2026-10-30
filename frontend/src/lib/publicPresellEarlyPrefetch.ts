@@ -154,7 +154,10 @@ export function startPublicPresellPrefetchFromLocation(): void {
   startPublicPresellPrefetchForParam(param);
 }
 
-/** Idempotente: regista o mesmo pedido se ainda não existir (primeiro render de PublicPresell). */
+/**
+ * Prefetch por param enquanto o pedido corre. Não reutiliza resultado já resolvido —
+ * senão republicar a mesma /p/… na mesma sessão SPA servia conteúdo antigo forever.
+ */
 export function startPublicPresellPrefetchForParam(param: string): void {
   const p = param.trim();
   if (!p || inflight.has(p)) return;
@@ -164,9 +167,14 @@ export function startPublicPresellPrefetchForParam(param: string): void {
 /**
  * Aguarda o prefetch iniciado para este parâmetro. `undefined` = não há prefetch;
  * `null` = pedido falhou (4xx/rede); aí o queryFn pode repetir com o cliente habitual.
+ * Consumo one-shot: remove do mapa para a próxima visita refetchar.
  */
 export async function getPublicPresellPrefetchResult(param: string): Promise<Presell | null | undefined> {
   const p = inflight.get(param);
   if (!p) return undefined;
-  return p;
+  try {
+    return await p;
+  } finally {
+    inflight.delete(param);
+  }
 }

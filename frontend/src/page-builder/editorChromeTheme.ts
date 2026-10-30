@@ -17,7 +17,7 @@ export const EDITOR_CHROME_THEMES: EditorChromeTheme[] = [
   {
     id: "studio-dark",
     label: "Studio escuro",
-    description: "Padrão Elementor — painéis escuros, canvas claro",
+    description: "Painéis escuros, canvas claro — visual de estúdio",
     swatches: ["#1e2128", "#2a2e38", "#e11d48"],
   },
   {

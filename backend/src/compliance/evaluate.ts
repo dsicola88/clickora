@@ -1064,7 +1064,7 @@ export function listRuleDefinitions(): RuleDefinition[] {
 
 /**
  * Gate interna de Ads (wizard / tipos gerados).
- * Editor visual (`builder`) publica como Elementor — ver `isInstantPublishPresellType`.
+ * Editor visual (`builder`) publica de imediato — ver `isInstantPublishPresellType`.
  */
 export function canPublishForAds(gate: ComplianceGate): boolean {
   return gate === "ready_for_review";

@@ -1,4 +1,4 @@
-/** Estruturas de colunas (estilo Elementor) — partilhadas pelo canvas e pelo painel. */
+/** Estruturas de colunas — partilhadas pelo canvas e pelo painel. */
 export const SECTION_LAYOUTS: Array<{ label: string; widths: number[]; title: string }> = [
   { label: "1", widths: [100], title: "1 coluna" },
   { label: "2", widths: [50, 50], title: "2 colunas iguais" },

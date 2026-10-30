@@ -6,7 +6,7 @@ import {
 import { WIDGET_REGISTRY } from "./widget-registry";
 import { SECTION_LAYOUTS } from "./section-layouts";
 
-describe("blocos do zero (Elementor-style)", () => {
+describe("blocos do zero", () => {
   it("tem blocos para nav, hero, prova, cta e cookies", () => {
     const ids = SECTION_BLOCKS.map((b) => b.id);
     expect(ids).toContain("block-nav-order");

@@ -77,7 +77,7 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
             <div>
               <h2 className="text-base font-semibold">Blocos — montar do zero</h2>
               <p className="text-[11px] text-editor-fg-muted">
-                Como no Elementor: escolha estruturas e widgets, ou insira blocos prontos e edite tudo.
+                Escolha estruturas e widgets, ou insira blocos prontos e edite tudo.
               </p>
             </div>
           </div>

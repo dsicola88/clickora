@@ -674,6 +674,9 @@ export default function PublicPresell() {
       throw new Error(error || "Página não encontrada");
     },
     enabled: !!id,
+    /** Após editar/publicar, remount da mesma /p/… tem de ir à API — não servir cache stale. */
+    staleTime: 0,
+    refetchOnMount: "always",
     /** Railway a acordar: 502/timeout no 1.º pedido — repetir antes de mostrar erro. */
     retry: 3,
     retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),

@@ -5,6 +5,7 @@ import {
   ENTRANCE_ANIMATION_OPTIONS,
   ENTRANCE_TRIGGER_OPTIONS,
   HOVER_PRESET_OPTIONS,
+  MOTION_PATH_OPTIONS,
   SCROLLING_EFFECT_OPTIONS,
   resolveWidgetEffects,
 } from "../widget-motion";
@@ -24,7 +25,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * Motion Effects nível Elementor Pro+ — comum a todos os widgets (aba Avançado).
+ * Efeitos de movimento — comum a todos os widgets (aba Avançado).
  */
 export function WidgetEffectsEditor({
   widget,
@@ -43,7 +44,7 @@ export function WidgetEffectsEditor({
     <>
       <Section title="Animação à entrada">
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-          Como no Elementor Pro: dispara ao scroll (viewport) ou no load — duração, atraso e curva
+          Dispara ao scroll (viewport) ou no load — duração, atraso e curva
           por elemento.
         </p>
         <SelectField
@@ -96,7 +97,7 @@ export function WidgetEffectsEditor({
 
       <Section title="Scrolling effects">
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-          Movimento ligado ao scroll (Elementor Pro Scrolling Effects).
+          Movimento ligado ao scroll da página.
         </p>
         <SelectField
           label="Efeito"
@@ -190,6 +191,36 @@ export function WidgetEffectsEditor({
             max={20000}
             onChange={(v) => patch({ continuousDurationMs: v })}
           />
+        ) : null}
+      </Section>
+
+      <Section title="Percurso de movimento">
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          O elemento percorre um caminho (arco, círculo, zigzag…).
+        </p>
+        <SelectField
+          label="Percurso"
+          value={e.motionPath ?? "none"}
+          options={[...MOTION_PATH_OPTIONS]}
+          onChange={(v) => patch({ motionPath: v })}
+        />
+        {(e.motionPath || "none") !== "none" ? (
+          <>
+            <NumberField
+              label="Duração (ms)"
+              value={e.motionPathDurationMs ?? 4000}
+              min={600}
+              max={30000}
+              onChange={(v) => patch({ motionPathDurationMs: v })}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[11px] text-editor-fg">Loop</Label>
+              <Switch
+                checked={e.motionPathLoop !== false}
+                onCheckedChange={(v) => patch({ motionPathLoop: v })}
+              />
+            </div>
+          </>
         ) : null}
       </Section>
 
