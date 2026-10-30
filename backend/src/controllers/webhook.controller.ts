@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
+import { hashPassword, passwordBcryptRounds } from "../lib/passwordCrypto";
 import { systemPrisma } from "../lib/prisma";
 import { normalizeSubscriptionStatus, periodEndByPlan } from "../lib/subscription";
 import { sendTransactionalEmail } from "../lib/mailer";
@@ -179,7 +179,7 @@ async function findOrCreateUser(
   }
 
   const provisionalPassword = crypto.randomBytes(18).toString("base64url");
-  const passwordHash = await bcrypt.hash(provisionalPassword, 12);
+  const passwordHash = await hashPassword(provisionalPassword, passwordBcryptRounds());
 
   const user = await systemPrisma.user.create({
     data: {

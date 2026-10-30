@@ -337,107 +337,130 @@ function mapDbTrackingEventRow(r: TrackingEventListRow) {
 
 export const analyticsController = {
   async getSummary(req: Request, res: Response) {
-    const { from, to, presell_id } = req.query;
+    const { from, to, presell_id, all } = req.query;
     const userId = billingUserId(req);
+    const wantAll =
+      all === "1" || all === "true" || all === "yes";
 
-    const rangeStart =
+    /**
+     * Sem `from`/`to` e sem `all=1`, limita a 90 dias para evitar full-scan de
+     * tracking_events sob concorrência. Clientes que precisam de histórico completo
+     * passam `all=1` ou um intervalo explícito.
+     */
+    const DEFAULT_SUMMARY_DAYS = 90;
+    let rangeStart =
       from && typeof from === "string" && !Number.isNaN(new Date(from).getTime())
         ? new Date(from)
         : null;
-    const rangeEnd =
+    let rangeEnd =
       to && typeof to === "string" && !Number.isNaN(new Date(to).getTime()) ? new Date(to) : null;
+    if (!wantAll && !rangeStart && !rangeEnd) {
+      rangeStart = new Date(Date.now() - DEFAULT_SUMMARY_DAYS * 24 * 60 * 60 * 1000);
+    }
     const presellId = presell_id && typeof presell_id === "string" ? presell_id : null;
-
-    const eventRows = await systemPrisma.$queryRaw<
-      Array<{ presell_page_id: string | null; event_type: string; cnt: bigint }>
-    >(Prisma.sql`
-      SELECT presell_page_id, event_type::text AS event_type, COUNT(*)::bigint AS cnt
-      FROM tracking_events
-      WHERE user_id = ${userId}
-        ${presellId ? Prisma.sql`AND presell_page_id = ${presellId}` : Prisma.empty}
-        ${rangeStart ? Prisma.sql`AND created_at >= ${rangeStart}` : Prisma.empty}
-        ${rangeEnd ? Prisma.sql`AND created_at <= ${rangeEnd}` : Prisma.empty}
-        ${sqlExcludeBotAndKpiNoise(false)}
-      GROUP BY presell_page_id, event_type
-    `);
-
-    const events = eventRows.map((r) => ({
-      presellPageId: r.presell_page_id,
-      eventType: r.event_type as EventType,
-      _count: Number(r.cnt),
-    }));
 
     const convWhere: Prisma.ConversionWhereInput = { userId, status: "approved" };
     if (presellId) convWhere.presellId = presellId;
-    if (from || to) {
+    if (rangeStart || rangeEnd) {
       convWhere.createdAt = {};
-      if (from && typeof from === "string") convWhere.createdAt.gte = new Date(from);
-      if (to && typeof to === "string") convWhere.createdAt.lte = new Date(to);
-    }
-    const conversionRows = await prisma.conversion.groupBy({
-      by: ["presellId"],
-      where: convWhere,
-      _count: true,
-      _sum: { amount: true },
-    });
-
-    // Group by presell (+ bucket explícito para vendas sem atribuição)
-    const empty = (pid: string): AnalyticsSummaryItem => ({
-      presell_id: pid,
-      clicks: 0,
-      impressions: 0,
-      ctr: 0,
-      conversions: 0,
-      revenue: 0,
-      conversion_rate: 0,
-    });
-    const summaryMap: Record<string, AnalyticsSummaryItem> = {};
-    for (const e of events) {
-      const pid = e.presellPageId || "unknown";
-      if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
-      if (e.eventType === "click") summaryMap[pid].clicks = e._count;
-      if (e.eventType === "impression") summaryMap[pid].impressions = e._count;
-    }
-    /** Só vendas aprovadas (postback) — não somar eventos tracking conversion/sale (evita 2×). */
-    for (const c of conversionRows) {
-      const pid = c.presellId || "unattributed";
-      if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
-      summaryMap[pid].conversions += c._count;
-      const amt = c._sum.amount;
-      if (amt != null) summaryMap[pid].revenue += Number(amt);
+      if (rangeStart) convWhere.createdAt.gte = rangeStart;
+      if (rangeEnd) convWhere.createdAt.lte = rangeEnd;
     }
 
-    const result = Object.values(summaryMap).map((s) => ({
-      ...s,
-      ctr: s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0,
-      conversion_rate: s.clicks > 0 ? (s.conversions / s.clicks) * 100 : 0,
-    }));
+    try {
+      const [eventRows, conversionRows, convByCampaign] = await Promise.all([
+        systemPrisma.$queryRaw<
+          Array<{ presell_page_id: string | null; event_type: string; cnt: bigint }>
+        >(Prisma.sql`
+          SELECT presell_page_id, event_type::text AS event_type, COUNT(*)::bigint AS cnt
+          FROM tracking_events
+          WHERE user_id = ${userId}
+            ${presellId ? Prisma.sql`AND presell_page_id = ${presellId}` : Prisma.empty}
+            ${rangeStart ? Prisma.sql`AND created_at >= ${rangeStart}` : Prisma.empty}
+            ${rangeEnd ? Prisma.sql`AND created_at <= ${rangeEnd}` : Prisma.empty}
+            ${sqlExcludeBotAndKpiNoise(false)}
+          GROUP BY presell_page_id, event_type
+        `),
+        prisma.conversion.groupBy({
+          by: ["presellId"],
+          where: convWhere,
+          _count: true,
+          _sum: { amount: true },
+        }),
+        prisma.conversion.groupBy({
+          by: ["campaign"],
+          where: convWhere,
+          _count: true,
+          _sum: { amount: true },
+        }),
+      ]);
 
-    const byCampaignMap: Record<string, { campaign: string; conversions: number; revenue: number }> = {};
-    const convByCampaign = await prisma.conversion.groupBy({
-      by: ["campaign"],
-      where: convWhere,
-      _count: true,
-      _sum: { amount: true },
-    });
-    for (const row of convByCampaign) {
-      const campaign = row.campaign?.trim() || "(sem campanha)";
-      byCampaignMap[campaign] = {
-        campaign,
-        conversions: row._count,
-        revenue: row._sum.amount != null ? Number(row._sum.amount) : 0,
-      };
-    }
+      const events = eventRows.map((r) => ({
+        presellPageId: r.presell_page_id,
+        eventType: r.event_type as EventType,
+        _count: Number(r.cnt),
+      }));
 
-    // Compat: clientes antigos esperam array. Com ?detail=1 devolve objecto com by_campaign.
-    if (req.query.detail === "1" || req.query.detail === "true") {
-      return res.json({
-        by_presell: result,
-        by_campaign: Object.values(byCampaignMap),
+      // Group by presell (+ bucket explícito para vendas sem atribuição)
+      const empty = (pid: string): AnalyticsSummaryItem => ({
+        presell_id: pid,
+        clicks: 0,
+        impressions: 0,
+        ctr: 0,
+        conversions: 0,
+        revenue: 0,
+        conversion_rate: 0,
       });
-    }
+      const summaryMap: Record<string, AnalyticsSummaryItem> = {};
+      for (const e of events) {
+        const pid = e.presellPageId || "unknown";
+        if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
+        if (e.eventType === "click") summaryMap[pid].clicks = e._count;
+        if (e.eventType === "impression") summaryMap[pid].impressions = e._count;
+      }
+      /** Só vendas aprovadas (postback) — não somar eventos tracking conversion/sale (evita 2×). */
+      for (const c of conversionRows) {
+        const pid = c.presellId || "unattributed";
+        if (!summaryMap[pid]) summaryMap[pid] = empty(pid);
+        summaryMap[pid].conversions += c._count;
+        const amt = c._sum.amount;
+        if (amt != null) summaryMap[pid].revenue += Number(amt);
+      }
 
-    res.json(result);
+      const result = Object.values(summaryMap).map((s) => ({
+        ...s,
+        ctr: s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0,
+        conversion_rate: s.clicks > 0 ? (s.conversions / s.clicks) * 100 : 0,
+      }));
+
+      const byCampaignMap: Record<string, { campaign: string; conversions: number; revenue: number }> = {};
+      for (const row of convByCampaign) {
+        const campaign = row.campaign?.trim() || "(sem campanha)";
+        byCampaignMap[campaign] = {
+          campaign,
+          conversions: row._count,
+          revenue: row._sum.amount != null ? Number(row._sum.amount) : 0,
+        };
+      }
+
+      // Compat: clientes antigos esperam array. Com ?detail=1 devolve objecto com by_campaign.
+      if (req.query.detail === "1" || req.query.detail === "true") {
+        return res.json({
+          by_presell: result,
+          by_campaign: Object.values(byCampaignMap),
+          range: {
+            from: rangeStart?.toISOString() ?? null,
+            to: rangeEnd?.toISOString() ?? null,
+            all: wantAll,
+          },
+        });
+      }
+
+      res.json(result);
+    } catch (err) {
+      console.error("[analytics.getSummary]", err instanceof Error ? err.message : err);
+      return res.status(503).json({ error: "Analytics temporariamente indisponível. Tente novamente." });
+    }
   },
 
   async getEvents(req: Request, res: Response) {

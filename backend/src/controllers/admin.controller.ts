@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import bcrypt from "bcryptjs";
+import { hashPassword, passwordBcryptRounds } from "../lib/passwordCrypto";
 import { Prisma, type AppRole, type PlanType, type SubscriptionStatus } from "@prisma/client";
 import { z } from "zod";
 import { prismaAdmin } from "../lib/prisma";
@@ -428,7 +428,7 @@ export const adminController = {
       return res.status(403).json({ error: "Apenas o super administrador pode alterar senhas de administradores." });
     }
 
-    const hash = await bcrypt.hash(parsed.data.new_password, 12);
+    const hash = await hashPassword(parsed.data.new_password, passwordBcryptRounds());
     await prismaAdmin.user.update({
       where: { id: userId },
       data: { password: hash },

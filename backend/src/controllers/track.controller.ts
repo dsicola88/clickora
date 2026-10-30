@@ -1318,6 +1318,7 @@ export const trackController = {
   /**
    * Importa conversões a partir de CSV (ex.: Google Ads offline).
    * Corpo: texto CSV. Coluna de GCLID detectada pelo cabeçalho ou primeira coluna.
+   * Batch: lookups agregados + createMany (sem N+1 por linha).
    */
   async conversionsCsv(req: Request, res: Response) {
     const token = req.query.token?.toString();
@@ -1341,9 +1342,15 @@ export const trackController = {
     );
     if (valueCol < 0) valueCol = 1;
 
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-    let imported = 0;
+    const CSV_MAX_ROWS = Math.max(100, Number(process.env.TRACK_CSV_MAX_ROWS ?? 5_000));
+    const dataRowsAll = hasHeader ? rows.slice(1) : rows;
+    const truncated = dataRowsAll.length > CSV_MAX_ROWS;
+    const dataRows = truncated ? dataRowsAll.slice(0, CSV_MAX_ROWS) : dataRowsAll;
+
+    type ParsedRow = { gclid: string; numVal: number };
+    const parsed: ParsedRow[] = [];
     let skipped = 0;
+    const seenGclidInFile = new Set<string>();
 
     for (const row of dataRows) {
       const gclid = (row[gclidCol] || "").replace(/^"|"$/g, "").trim();
@@ -1351,97 +1358,158 @@ export const trackController = {
         skipped++;
         continue;
       }
+      if (seenGclidInFile.has(gclid)) {
+        skipped++;
+        continue;
+      }
+      seenGclidInFile.add(gclid);
+      const rawVal = row[valueCol]?.replace(/^"|"$/g, "").trim() ?? "";
+      const value = Number.parseFloat(rawVal.replace(",", "."));
+      parsed.push({ gclid, numVal: Number.isFinite(value) ? value : 0 });
+    }
 
-      const click = await systemPrisma.trackingEvent.findFirst({
-        where: {
-          userId,
-          eventType: "click",
-          metadata: { path: ["gclid"], equals: gclid },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+    if (parsed.length === 0) {
+      return res.json({ ok: true, imported: 0, skipped, truncated, max_rows: CSV_MAX_ROWS });
+    }
 
+    const gclids = parsed.map((p) => p.gclid);
+
+    type ClickRow = {
+      presellPageId: string | null;
+      campaign: string | null;
+      referrer: string | null;
+      gclid: string;
+    };
+    const clickRows = await systemPrisma.$queryRaw<ClickRow[]>(Prisma.sql`
+      SELECT DISTINCT ON (metadata->>'gclid')
+        presell_page_id AS "presellPageId",
+        campaign,
+        referrer,
+        metadata->>'gclid' AS gclid
+      FROM tracking_events
+      WHERE user_id = ${userId}
+        AND event_type = 'click'
+        AND metadata->>'gclid' IN (${Prisma.join(gclids)})
+      ORDER BY metadata->>'gclid', created_at DESC
+    `);
+    const clickByGclid = new Map(clickRows.filter((c) => c.gclid).map((c) => [c.gclid, c]));
+
+    const pageIds = [
+      ...new Set(
+        clickRows.map((c) => c.presellPageId).filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const pages =
+      pageIds.length === 0
+        ? []
+        : await systemPrisma.presellPage.findMany({
+            where: { id: { in: pageIds } },
+            select: { id: true, userId: true, status: true },
+          });
+    const pageById = new Map(pages.map((p) => [p.id, p]));
+
+    const accessCheck = await validateOwnerCanTrack(userId);
+    if (!accessCheck.ok) {
+      return res.status(accessCheck.status).json({ error: accessCheck.message });
+    }
+
+    const transactionIds = parsed.map((p) => `csv_gclid:${p.gclid}`);
+    const existingRows = await systemPrisma.$queryRaw<Array<{ tid: string }>>(Prisma.sql`
+      SELECT metadata->>'transaction_id' AS tid
+      FROM tracking_events
+      WHERE user_id = ${userId}
+        AND event_type = 'conversion'
+        AND metadata->>'transaction_id' IN (${Prisma.join(transactionIds)})
+    `);
+    const existingTids = new Set(existingRows.map((r) => r.tid).filter(Boolean));
+
+    const csvIp = extractClientIp(req);
+    const csvSeen = visitorClickPlace(req, csvIp);
+    const csvUa = req.headers["user-agent"] || "";
+    const device = detectDevice(csvUa);
+
+    const eventsData: Prisma.TrackingEventCreateManyInput[] = [];
+    const logsData: Prisma.PostbackLogCreateManyInput[] = [];
+    const increments = new Map<string, number>();
+
+    for (const row of parsed) {
+      const click = clickByGclid.get(row.gclid);
       if (!click?.presellPageId) {
         skipped++;
         continue;
       }
-
-      const page = await systemPrisma.presellPage.findUnique({ where: { id: click.presellPageId } });
-      if (!page || page.status !== "published") {
+      const page = pageById.get(click.presellPageId);
+      if (!page || page.status !== "published" || page.userId !== userId) {
         skipped++;
         continue;
       }
-
-      const accessCheck = await validateOwnerCanTrack(page.userId);
-      if (!accessCheck.ok) {
+      const transaction_id = `csv_gclid:${row.gclid}`;
+      if (existingTids.has(transaction_id)) {
         skipped++;
         continue;
       }
+      existingTids.add(transaction_id);
 
-      const transaction_id = `csv_gclid:${gclid}`;
-      const existing = await systemPrisma.trackingEvent.findFirst({
-        where: {
-          userId,
-          presellPageId: click.presellPageId,
-          eventType: "conversion",
-          metadata: { path: ["transaction_id"], equals: transaction_id },
-        },
+      eventsData.push({
+        userId,
+        presellPageId: click.presellPageId,
+        eventType: "conversion",
+        source: "google_ads",
+        medium: "offline_csv",
+        campaign: click.campaign,
+        referrer: click.referrer,
+        country: csvSeen.country ?? undefined,
+        ipAddress: csvIp,
+        userAgent: csvUa,
+        device,
+        metadata: {
+          gclid: row.gclid,
+          value: row.numVal,
+          currency: "USD",
+          transaction_id,
+          postback_origin: "offline_csv",
+          ...csvSeen.countryMeta,
+        } as Prisma.InputJsonValue,
       });
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      const rawVal = row[valueCol]?.replace(/^"|"$/g, "").trim() ?? "";
-      const value = Number.parseFloat(rawVal.replace(",", "."));
-      const numVal = Number.isFinite(value) ? value : 0;
-
-      const csvIp = extractClientIp(req);
-      const csvSeen = visitorClickPlace(req, csvIp);
-      const csvUa = req.headers["user-agent"] || "";
-      await systemPrisma.$transaction([
-        systemPrisma.trackingEvent.create({
-          data: {
-            userId,
-            presellPageId: click.presellPageId,
-            eventType: "conversion",
-            source: "google_ads",
-            medium: "offline_csv",
-            campaign: click.campaign,
-            referrer: click.referrer,
-            country: csvSeen.country ?? undefined,
-            ipAddress: csvIp,
-            userAgent: csvUa,
-            device: detectDevice(csvUa),
-            metadata: {
-              gclid,
-              value: numVal,
-              currency: "USD",
-              transaction_id,
-              postback_origin: "offline_csv",
-              ...csvSeen.countryMeta,
-            } as Prisma.InputJsonValue,
-          },
-        }),
-        systemPrisma.presellPage.update({
-          where: { id: click.presellPageId },
-          data: { conversions: { increment: 1 } },
-        }),
-      ]);
-
-      await logPostback({
+      logsData.push({
         userId,
         presellPageId: click.presellPageId,
         platform: "google_ads_csv",
         status: "success",
         message: "Conversão importada do CSV",
-        payload: { gclid, value: numVal },
+        payload: { gclid: row.gclid, value: row.numVal } as Prisma.InputJsonValue,
       });
-
-      imported++;
+      increments.set(click.presellPageId, (increments.get(click.presellPageId) || 0) + 1);
     }
 
-    return res.json({ ok: true, imported, skipped });
+    if (eventsData.length === 0) {
+      return res.json({
+        ok: true,
+        imported: 0,
+        skipped,
+        truncated,
+        max_rows: CSV_MAX_ROWS,
+      });
+    }
+
+    await systemPrisma.$transaction(async (tx) => {
+      await tx.trackingEvent.createMany({ data: eventsData });
+      for (const [pageId, n] of increments) {
+        await tx.presellPage.update({
+          where: { id: pageId },
+          data: { conversions: { increment: n } },
+        });
+      }
+      await tx.postbackLog.createMany({ data: logsData });
+    });
+
+    return res.json({
+      ok: true,
+      imported: eventsData.length,
+      skipped,
+      truncated,
+      max_rows: CSV_MAX_ROWS,
+    });
   },
 
   /** GET com ?token= — confirma que o token é válido (abrir no browser ou curl -G). A importação continua a ser POST. */

@@ -64,7 +64,10 @@ Definidas no `.env.example` e/ou por utilizador no painel (tokens encriptados co
 | `MFA_ISSUER` | TOTP |
 | `VERCEL_TOKEN`, `VERCEL_PROJECT_ID` | Domínios custom SSL |
 | `DPILOTO_PUBLIC_ORIGINS` | **Legado** CORS apenas |
-| `TRACK_RATE_LIMIT_MAX`, `TRACK_RATE_LIMIT_WINDOW_MS` | Rate limit tracking (default 240/min/IP, **em memória**) |
+| `TRACK_RATE_LIMIT_MAX`, `TRACK_RATE_LIMIT_WINDOW_MS` | Rate limit tracking (default 240/min/IP). Sem `REDIS_URL`: **em memória** por processo. Com `REDIS_URL`: partilhado entre réplicas |
+| `REDIS_URL` | Opcional. Redis para rate limit de `/track` multi-instância |
+| `TRACK_CSV_MAX_ROWS` | Limite de linhas por import CSV offline (default 5000) |
+| `PRISMA_CONNECTION_LIMIT`, `PRISMA_POOL_TIMEOUT` | Pool Prisma se a `DATABASE_URL` não declarar `connection_limit` (defaults 25 / 20) |
 | `SENTRY_DSN` | Se configurado |
 
 ## 8. Checklist produção (sem valores)

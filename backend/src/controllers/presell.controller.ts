@@ -30,7 +30,7 @@ import { enforceTrackingRules } from "../lib/trackGuard";
 import { extractClientIp } from "../lib/clientIp";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
-import { assertPublishAllowed, runPresellComplianceAudit } from "../compliance/service";
+import { assertPublishAllowed } from "../compliance/service";
 import {
   enrichPresellPageRecords,
   enrichPresellSettingsWithOperatorIdentity,
@@ -41,6 +41,12 @@ import {
   normalizePresellGenerationNiche,
   resolvePresellGenerationNicheFromContent,
 } from "../lib/presellGenerationNiche";
+import {
+  beginPresellCreate,
+  recordCreateStage,
+  timedCreateStage,
+} from "../lib/createStageMetrics";
+import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -130,12 +136,12 @@ async function ensurePresellOperatorIdentityOnPage(page: PresellPage): Promise<P
 }
 
 async function resolveDefaultVerifiedCustomDomainIdForUser(userId: string): Promise<string | null> {
-  const rows = await prisma.customDomain.findMany({
+  const row = await prisma.customDomain.findFirst({
     where: { userId, status: "verified" },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     select: { id: true },
   });
-  return rows[0]?.id ?? null;
+  return row?.id ?? null;
 }
 
 const importFromUrlSchema = z.object({
@@ -390,116 +396,166 @@ export const presellController = {
   },
 
   async create(req: Request, res: Response) {
-    if (await denyIfCannotWritePresells(req, res)) return;
-    const parsed = createSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
-
-    let customDomainIdField: { customDomainId?: string | null } = {};
-    if (parsed.data.custom_domain_id !== undefined) {
-      try {
-        customDomainIdField.customDomainId = await resolveCustomDomainIdForUser(
-          billingUserId(req),
-          parsed.data.custom_domain_id,
-        );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Domínio inválido.";
-        return res.status(400).json({ error: msg });
-      }
-    } else {
-      const auto = await resolveDefaultVerifiedCustomDomainIdForUser(billingUserId(req));
-      if (auto) customDomainIdField = { customDomainId: auto };
-    }
-
-    // Check plan limits
-    const count = await prisma.presellPage.count({ where: { userId: billingUserId(req) } });
-    const sub = await prisma.subscription.findUnique({
-      where: { userId: billingUserId(req) },
-      include: { plan: true },
-    });
-
-    if (sub?.plan.maxPresellPages != null && count >= sub.plan.maxPresellPages) {
-      return res.status(403).json({ error: `Limite de ${sub.plan.maxPresellPages} páginas atingido. Faça upgrade do seu plano.` });
-    }
-
-    let page: PresellPage;
+    const endCreate = beginPresellCreate();
+    const tAll = Date.now();
     try {
+      const tAuthz = Date.now();
+      if (await denyIfCannotWritePresells(req, res)) return;
+      recordCreateStage("01_authz_write", Date.now() - tAuthz);
+
+      const tValidate = Date.now();
+      const parsed = createSchema.safeParse(req.body);
+      recordCreateStage("02_validate", Date.now() - tValidate);
+      if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+
       const userId = billingUserId(req);
-      let contentPayload: Record<string, unknown> =
-        parsed.data.content && typeof parsed.data.content === "object" && !Array.isArray(parsed.data.content)
-          ? (parsed.data.content as Record<string, unknown>)
-          : {};
-      contentPayload = sanitizeMirrorInContentRecord(contentPayload);
-      const reconciled = await reconcileMirrorInPresellContent({
-        content: contentPayload,
-        userId,
-        pageHint: parsed.data.slug,
-      });
-      contentPayload = reconciled.content;
-      const niche = normalizePresellGenerationNiche(
-        contentPayload.generationNiche ?? contentPayload.generation_niche,
-      );
-      contentPayload.generationNiche = niche;
-      const safeType = coercePresellTypeForNiche(parsed.data.type || "cookies", niche);
 
-      const operatorUser = await loadUserOperatorIdentity(userId);
-      const identityEnriched = enrichPresellSettingsWithOperatorIdentity({
-        settings: settingsRecord(parsed.data.settings),
-        content: contentPayload,
-        user: operatorUser ?? {},
-      });
-      const settingsPayload = identityEnriched.settings;
+      // Domínio + quota + identidade do operador em paralelo (caminho crítico).
+      let customDomainIdField: { customDomainId?: string | null } = {};
+      let domainError: string | null = null;
+      const domainPromise =
+        parsed.data.custom_domain_id !== undefined
+          ? resolveCustomDomainIdForUser(userId, parsed.data.custom_domain_id)
+              .then((id) => {
+                customDomainIdField = { customDomainId: id };
+              })
+              .catch((e) => {
+                domainError = e instanceof Error ? e.message : "Domínio inválido.";
+              })
+          : resolveDefaultVerifiedCustomDomainIdForUser(userId).then((auto) => {
+              if (auto) customDomainIdField = { customDomainId: auto };
+            });
 
-      const requestedStatus = parsed.data.status || "draft";
-      page = await prisma.presellPage.create({
-        data: {
-          userId,
-          title: parsed.data.title,
-          slug: parsed.data.slug,
-          type: safeType,
-          category: parsed.data.category,
-          language: parsed.data.language || "pt",
-          content: contentPayload as Prisma.InputJsonValue,
-          videoUrl: parsed.data.video_url,
-          settings: settingsPayload as Prisma.InputJsonValue,
-          tracking: (parsed.data.tracking || {}) as Prisma.InputJsonValue,
-          status: "draft",
-          complianceGate: "unchecked",
-          ...customDomainIdField,
-        },
+      const [count, sub, operatorUser] = await timedCreateStage("03_parallel_domain_quota_identity", async () => {
+        const [c, s, op] = await Promise.all([
+          prisma.presellPage.count({ where: { userId } }),
+          prisma.subscription.findUnique({
+            where: { userId },
+            include: { plan: true },
+          }),
+          loadUserOperatorIdentity(userId),
+          domainPromise,
+        ]).then(([c, s, op]) => [c, s, op] as const);
+        return [c, s, op] as const;
       });
 
-      if (requestedStatus === "published") {
-        page = await ensurePresellOperatorIdentityOnPage(page);
-        const gate = await assertPublishAllowed({ page, runIfStale: true });
-        if (!gate.ok) {
-          // Página criada em draft — não publicar. 201 para o cliente poder abrir o editor.
-          return res.status(201).json({
-            ...mapPresell(page),
-            compliance_blocked: true,
-            compliance: gate.body,
-            message:
-              "A página foi criada em rascunho. Foram detetados problemas que impedem a publicação. A aprovação final depende da plataforma publicitária.",
-          });
-        }
-        page = await systemPrisma.presellPage.update({
-          where: { id: page.id },
-          data: { status: "published" },
+      if (domainError) {
+        return res.status(400).json({ error: domainError });
+      }
+
+      if (sub?.plan.maxPresellPages != null && count >= sub.plan.maxPresellPages) {
+        return res.status(403).json({ error: `Limite de ${sub.plan.maxPresellPages} páginas atingido. Faça upgrade do seu plano.` });
+      }
+
+      let page: PresellPage;
+      try {
+        let contentPayload: Record<string, unknown> =
+          parsed.data.content && typeof parsed.data.content === "object" && !Array.isArray(parsed.data.content)
+            ? (parsed.data.content as Record<string, unknown>)
+            : {};
+
+        const tSanitize = Date.now();
+        contentPayload = sanitizeMirrorInContentRecord(contentPayload);
+        recordCreateStage("04_sanitize_mirror", Date.now() - tSanitize);
+
+        const reconciled = await timedCreateStage("05_reconcile_mirror", () =>
+          reconcileMirrorInPresellContent({
+            content: contentPayload,
+            userId,
+            pageHint: parsed.data.slug,
+          }),
+        );
+        contentPayload = reconciled.content;
+        const niche = normalizePresellGenerationNiche(
+          contentPayload.generationNiche ?? contentPayload.generation_niche,
+        );
+        contentPayload.generationNiche = niche;
+        const safeType = coercePresellTypeForNiche(parsed.data.type || "cookies", niche);
+
+        const tIdent = Date.now();
+        const identityEnriched = enrichPresellSettingsWithOperatorIdentity({
+          settings: settingsRecord(parsed.data.settings),
+          content: contentPayload,
+          user: operatorUser ?? {},
         });
-      } else {
-        // Auditoria preventiva assíncrona-light (inline) para Draft — não bloqueia create.
-        void runPresellComplianceAudit({
-          presell: page,
-          skipDestinationProbe: true,
-        }).catch(() => undefined);
-      }
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        return res.status(409).json({ error: "Já existe uma página com esse slug." });
-      }
-      throw error;
-    }
+        recordCreateStage("06_enrich_identity", Date.now() - tIdent);
+        const settingsPayload = identityEnriched.settings;
 
-    res.status(201).json(mapPresell(page));
+        const requestedStatus = parsed.data.status || "draft";
+        page = await timedCreateStage("07_db_insert", () =>
+          prisma.presellPage.create({
+            data: {
+              userId,
+              title: parsed.data.title,
+              slug: parsed.data.slug,
+              type: safeType,
+              category: parsed.data.category,
+              language: parsed.data.language || "pt",
+              content: contentPayload as Prisma.InputJsonValue,
+              videoUrl: parsed.data.video_url,
+              settings: settingsPayload as Prisma.InputJsonValue,
+              tracking: (parsed.data.tracking || {}) as Prisma.InputJsonValue,
+              status: "draft",
+              complianceGate: "unchecked",
+              ...customDomainIdField,
+            },
+          }),
+        );
+
+        if (requestedStatus === "published") {
+          page = await timedCreateStage("08_publish_identity", () => ensurePresellOperatorIdentityOnPage(page));
+          const gate = await timedCreateStage("09_publish_gate", () =>
+            assertPublishAllowed({ page, runIfStale: true }),
+          );
+          if (!gate.ok) {
+            const tSer = Date.now();
+            const body = {
+              ...mapPresell(page),
+              compliance_blocked: true,
+              compliance: gate.body,
+              message:
+                "A página foi criada em rascunho. Foram detetados problemas que impedem a publicação. A aprovação final depende da plataforma publicitária.",
+            };
+            recordCreateStage("10_serialize_response", Date.now() - tSer);
+            recordCreateStage("00_total", Date.now() - tAll);
+            return res.status(201).json(body);
+          }
+          page = await timedCreateStage("09b_publish_update", () =>
+            systemPrisma.presellPage.update({
+              where: { id: page.id },
+              data: { status: "published" },
+            }),
+          );
+        } else {
+          // Auditoria preventiva — fila persistente (Fase 5); nunca drop silencioso.
+          const auditJob = await timedCreateStage("08_enqueue_draft_audit", () =>
+            enqueuePresellDraftAudit(page),
+          );
+          (page as PresellPage & { __auditJob?: typeof auditJob }).__auditJob = auditJob;
+        }
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          return res.status(409).json({ error: "Já existe uma página com esse slug." });
+        }
+        throw error;
+      }
+
+      const tSer = Date.now();
+      const auditJob = (page as PresellPage & { __auditJob?: Awaited<ReturnType<typeof enqueuePresellDraftAudit>> })
+        .__auditJob;
+      const body = {
+        ...mapPresell(page),
+        audit_scheduled: auditJob ? auditJob.scheduled : false,
+        audit_job_id: auditJob && auditJob.ok ? auditJob.jobId : null,
+        audit_enqueue_error:
+          auditJob && !auditJob.ok ? auditJob.error : undefined,
+      };
+      recordCreateStage("10_serialize_response", Date.now() - tSer);
+      recordCreateStage("00_total", Date.now() - tAll);
+      res.status(201).json(body);
+    } finally {
+      endCreate();
+    }
   },
 
   async update(req: Request, res: Response) {

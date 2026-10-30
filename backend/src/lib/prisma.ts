@@ -17,6 +17,31 @@ function prismaLogOptions(): ("query" | "info" | "warn" | "error")[] {
 }
 
 /**
+ * Aumenta o pool Prisma quando a URL não declara connection_limit.
+ * Sob carga (analytics + creates concorrentes) o default (~CPUs*2+1) esgota e gera 5xx.
+ * Override: PRISMA_CONNECTION_LIMIT=N ou ?connection_limit= na DATABASE_URL.
+ */
+export function databaseUrlWithPool(raw: string | undefined): string | undefined {
+  if (!raw || !raw.trim()) return raw;
+  try {
+    const u = new URL(raw);
+    if (!u.searchParams.has("connection_limit")) {
+      const n = Math.max(
+        5,
+        Math.min(50, Number(process.env.PRISMA_CONNECTION_LIMIT || "25") || 25),
+      );
+      u.searchParams.set("connection_limit", String(n));
+    }
+    if (!u.searchParams.has("pool_timeout")) {
+      u.searchParams.set("pool_timeout", process.env.PRISMA_POOL_TIMEOUT || "20");
+    }
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
+/**
  * Instância base única — usada por systemPrisma e prismaAdmin (sem filtro automático).
  * ⚠️ Só usar diretamente através dos exports nomeados; não exportar esta constante.
  *
@@ -25,6 +50,9 @@ function prismaLogOptions(): ("query" | "info" | "warn" | "error")[] {
  */
 const basePrisma = new PrismaClient({
   log: prismaLogOptions(),
+  datasources: {
+    db: { url: databaseUrlWithPool(process.env.DATABASE_URL) },
+  },
 });
 
 /**

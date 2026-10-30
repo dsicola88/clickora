@@ -15,7 +15,7 @@ import {
   verifyMfaPendingToken,
   verifyTotp,
 } from "../lib/mfa";
-import bcrypt from "bcryptjs";
+import { verifyPassword } from "../lib/passwordCrypto";
 
 async function issueSession(userId: string, req: Request, res: Response) {
   const user = await systemPrisma.user.findUnique({
@@ -123,7 +123,7 @@ export const mfaController = {
     const userId = req.user!.userId;
     const user = await systemPrisma.user.findUnique({ where: { id: userId } });
     if (!user?.mfaEnabled) return res.status(400).json({ error: "MFA não está activo." });
-    if (!(await bcrypt.compare(parsed.data.password, user.password))) {
+    if (!(await verifyPassword(parsed.data.password, user.password))) {
       return res.status(401).json({ error: "Senha incorrecta." });
     }
     const secret = decryptMfaSecret(user.mfaSecretEnc);

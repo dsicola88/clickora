@@ -28,7 +28,7 @@
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts",
     "test:e2e-presell-flow": "tsx scripts/e2e-presell-flow-audit.ts",
     "test:dual-pillar-gate": "tsx scripts/e2e-dual-pillar-release-gate.ts",
-    "test:unit": "node --import tsx --test src/lib/opsObservability.test.ts src/lib/routingRules/evaluate.test.ts src/lib/appendClickIdToUrl.test.ts src/lib/trackOfferRedirectGuard.test.ts src/lib/trackGuard.test.ts src/lib/corsPolicy.test.ts src/lib/presellMirrorSnapshot.test.ts src/lib/affiliatePostbackParsers.test.ts src/lib/affiliatePlatforms/parseAffiliatePostback.test.ts src/lib/affiliatePlatforms/clickbankIns.test.ts src/lib/subscription.hotmart.test.ts src/lib/campaignPerf.test.ts src/lib/presellBuilderMediaUpload.test.ts src/lib/networkClickId.test.ts src/lib/adUrlMacros.test.ts src/lib/clientIp.test.ts src/lib/cdn77Visitor.test.ts src/lib/ipNetworkClass.test.ts src/lib/clickVisitorEvidence.e2e.test.ts src/lib/parseUserAgent.test.ts src/lib/funnelStepEvent.test.ts src/lib/presellEnterpriseCloak.test.ts src/lib/presellMirrorRehost.test.ts src/lib/presellImportImages.test.ts src/lib/presellImportMode.test.ts src/lib/presellSafeFetch.test.ts src/lib/rotatorParentAttribution.test.ts src/lib/rotatorServicePick.test.ts src/lib/keywordGenerator.test.ts src/lib/keywordResearchScope.test.ts src/lib/ads/adBundle.test.ts src/lib/ads/adCommercialAudit.test.ts src/lib/ads/campaignBrief.test.ts src/lib/academyLesson.test.ts src/lib/postgresBackup.test.ts src/compliance/evaluate.test.ts src/compliance/destinationProbe.test.ts src/compliance/wizardPublish.e2e.test.ts",
+    "test:unit": "node --import tsx --test src/lib/opsObservability.test.ts src/lib/passwordCrypto.test.ts src/lib/trackRateLimit.test.ts src/lib/routingRules/evaluate.test.ts src/lib/appendClickIdToUrl.test.ts src/lib/trackOfferRedirectGuard.test.ts src/lib/trackGuard.test.ts src/lib/corsPolicy.test.ts src/lib/presellMirrorSnapshot.test.ts src/lib/affiliatePostbackParsers.test.ts src/lib/affiliatePlatforms/parseAffiliatePostback.test.ts src/lib/affiliatePlatforms/clickbankIns.test.ts src/lib/subscription.hotmart.test.ts src/lib/campaignPerf.test.ts src/lib/presellBuilderMediaUpload.test.ts src/lib/networkClickId.test.ts src/lib/adUrlMacros.test.ts src/lib/clientIp.test.ts src/lib/cdn77Visitor.test.ts src/lib/ipNetworkClass.test.ts src/lib/clickVisitorEvidence.e2e.test.ts src/lib/parseUserAgent.test.ts src/lib/funnelStepEvent.test.ts src/lib/presellEnterpriseCloak.test.ts src/lib/presellMirrorRehost.test.ts src/lib/presellImportImages.test.ts src/lib/presellImportMode.test.ts src/lib/presellSafeFetch.test.ts src/lib/rotatorParentAttribution.test.ts src/lib/rotatorServicePick.test.ts src/lib/keywordGenerator.test.ts src/lib/keywordResearchScope.test.ts src/lib/ads/adBundle.test.ts src/lib/ads/adCommercialAudit.test.ts src/lib/ads/campaignBrief.test.ts src/lib/academyLesson.test.ts src/lib/postgresBackup.test.ts src/compliance/evaluate.test.ts src/compliance/destinationProbe.test.ts src/compliance/wizardPublish.e2e.test.ts",
     "test:paid": "node --import tsx --test src/paid/api-mappers.secrets.test.ts src/paid/tokenSecrets.test.ts src/paid/tiktok-campaign-plan.objectives.test.ts src/paid/guardrails-eval.test.ts src/paid/google-campaign-bidding.test.ts src/paid/google-rsa-deterministic.test.ts src/paid/meta-tiktok-bidding.test.ts src/paid/tiktok-ads.creative.test.ts src/paid/meta-ads.creative.test.ts src/paid/optimizer/rules.engine.test.ts src/paid/optimizer/idempotency.unit.test.ts src/paid/optimizer/optimizer.service.test.ts",
     "paid:optimizer:once": "tsx scripts/run-paid-optimizer-once.ts"
   },
@@ -36,6 +36,7 @@
     "@aws-sdk/client-s3": "^3.1137.0",
     "@prisma/client": "^6.0.0",
     "@sentry/node": "^9.47.2",
+    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
@@ -46,6 +47,7 @@
     "google-ads-api": "^23.0.0",
     "google-auth-library": "^9.15.1",
     "helmet": "^8.1.0",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
     "node-cron": "^3.0.3",
@@ -60,6 +62,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

@@ -72,7 +72,10 @@ export default defineConfig(() => ({
             return "react-vendor";
           }
           if (norm.includes("/node_modules/@tanstack/")) return "query-vendor";
-          if (norm.includes("/node_modules/lucide-react/")) return "icons-vendor";
+          // Não forçar todo o lucide num único icons-vendor (~760 kB): ícones do
+          // page-builder usam dynamicIconImports (chunks por ícone). Named imports
+          // ficam nos chunks das rotas.
+          if (norm.includes("/node_modules/recharts/")) return "charts-vendor";
         },
       },
     },

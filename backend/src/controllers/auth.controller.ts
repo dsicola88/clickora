@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import { systemPrisma } from "../lib/prisma";
 import { signToken } from "../lib/jwt";
@@ -10,6 +9,7 @@ import { AVATAR_LOCAL_MARKER, persistUserAvatar, removeUserAvatarFiles } from ".
 import type { PlanType, WorkspaceRole } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import { hashPassword, passwordBcryptRounds, verifyPassword } from "../lib/passwordCrypto";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1).email(),
@@ -148,15 +148,19 @@ export const authController = {
       },
     });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user || !(await verifyPassword(password, user.password))) {
       return res.status(401).json({ error: "E-mail ou senha incorretos" });
     }
 
     const sess = await resolveWorkspaceSessionForLogin(user.id);
-    const billing = await systemPrisma.user.findUnique({
-      where: { id: sess.tenantUserId },
-      include: { subscription: { include: { plan: true } }, roles: true },
-    });
+    // Evita 2.ª round-trip quando o tenant de faturação é o próprio utilizador (caso comum).
+    const billing =
+      sess.tenantUserId === user.id
+        ? user
+        : await systemPrisma.user.findUnique({
+            where: { id: sess.tenantUserId },
+            include: { subscription: { include: { plan: true } }, roles: true },
+          });
     if (!billing) {
       return res.status(401).json({ error: "Conta não encontrada" });
     }
@@ -363,7 +367,7 @@ export const authController = {
     const existing = await systemPrisma.user.findUnique({ where: { email } });
     if (existing) return res.status(409).json({ error: "E-mail já cadastrado" });
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await hashPassword(password, passwordBcryptRounds());
 
     const defaultPlan = await resolveDefaultPlanForSignup();
 
@@ -509,13 +513,13 @@ export const authController = {
 
     const user = await systemPrisma.user.findUnique({ where: { id: req.user!.userId } });
     if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
-    if (!(await bcrypt.compare(parsed.data.current_password, user.password))) {
+    if (!(await verifyPassword(parsed.data.current_password, user.password))) {
       return res.status(401).json({ error: "Senha atual incorreta" });
     }
 
     await systemPrisma.user.update({
       where: { id: user.id },
-      data: { password: await bcrypt.hash(parsed.data.new_password, 12) },
+      data: { password: await hashPassword(parsed.data.new_password, passwordBcryptRounds()) },
     });
 
     res.json({ message: "Senha alterada com sucesso" });
@@ -687,7 +691,7 @@ export const authController = {
           "Contas de administrador da plataforma não podem ser eliminadas por este fluxo. Contacte outro super administrador.",
       });
     }
-    if (!(await bcrypt.compare(parsed.data.password, user.password))) {
+    if (!(await verifyPassword(parsed.data.password, user.password))) {
       return res.status(401).json({ error: "Senha incorreta." });
     }
 

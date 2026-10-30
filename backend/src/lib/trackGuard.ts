@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { normalizeIpForMatch } from "./normalizeIp";
 import { assessClickQuality, detectBot, isGoogleAdsCrawlerUserAgent } from "./detectBot";
-import { consumeTrackRateLimit } from "./trackRateLimit";
+import { consumeTrackRateLimitAsync } from "./trackRateLimit";
 import { isPrivateOrLocalIp } from "./clientIp";
 import { effectiveAutoBlacklistThreshold } from "./trackingGuardPolicy";
 
@@ -77,7 +77,7 @@ export async function enforceTrackingRules(args: {
   const ip = args.ip || "";
   const ipKeyForLog = normalizeIpForMatch(ip);
 
-  if (!consumeTrackRateLimit(ip)) {
+  if (!(await consumeTrackRateLimitAsync(ip))) {
     void logGuardBlock({
       ownerUserId,
       presellPageId,

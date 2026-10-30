@@ -23,8 +23,8 @@
 | # | Etapa | Branch / ambiente | Estado |
 |---|--------|-------------------|--------|
 | 1 | Auditoria e diagnóstico, sem alterações | `audit/dclickora-diagnostico` | **Concluída** |
-| 2 | Correção dos problemas P0 e P1 | `fix/p0-p1-seguranca-isolamento` | **Em curso** |
-| 3 | Performance e otimização | branch de perf | Pendente (P2 A7–A11) |
+| 2 | Correção dos problemas P0 e P1 | `fix/p0-p1-seguranca-isolamento` | **Concluída** |
+| 3 | Performance e otimização | `perf/etapa3-otimizacao` | **Concluída** (A7–A11 + login/analytics/pool) |
 | 4 | Testes de carga | **staging apenas** — nunca BD/API de produção | Pendente |
 | 5 | Segurança e isolamento | branch de security | Pendente (E2E IDOR, Redis rate-limit, etc.) |
 | 6 | Documentação completa | docs nesta e branches seguintes | Rascunhos criados |
@@ -104,11 +104,11 @@ Env: **[VARIAVEIS_AMBIENTE_DCLICKORA.md](./VARIAVEIS_AMBIENTE_DCLICKORA.md)**.
 | A4 | **P1** | Billing/Auth | `/api/paid` com gate de plano mas sem `requireActiveSubscription` alinhado ao resto | `paid.routes.ts` |
 | A5 | **P1** | Multitenancy | `affiliateCampaign` fora de `USER_ID_MODELS`; delete/update por `id` no cliente tenant | `tenantPrisma.ts`, `campaigns.controller.ts` |
 | A6 | **P1** | Ops | Dev local sem secrets fortes; `DATABASE_URL` pode ser produção | inspeção env (sem dump) |
-| A7 | **P2** | Performance | Chunk `icons-vendor` ~779 kB (gzip ~136 kB); aviso Vite >500 kB | build 2026-10-30 |
-| A8 | **P2** | Performance | Chunks pesados: Recharts ~372 kB, Dpilot ~320 kB, Landing ~277 kB, PageEditor ~248 kB | build |
-| A9 | **P2** | Performance | Rate limit track só em memória (fraco com N instâncias) | `trackRateLimit.ts` |
-| A10 | **P2** | DB | Índices candidatos em falta (`Subscription.planId`, IP+event, GIN gclid) | schema + controllers |
-| A11 | **P2** | DB | `conversionsCsv` N+1 por linha | `track.controller.ts` |
+| A7 | **P2** | Performance | Chunk `icons-vendor` ~779 kB (gzip ~136 kB); aviso Vite >500 kB | **Corrigido** Etapa 3 — `dynamicIconImports` + sem manualChunk lucide |
+| A8 | **P2** | Performance | Chunks pesados: Recharts / Dpilot monolítico | **Corrigido** Etapa 3 — `charts-vendor` + lazy nested Dpilot |
+| A9 | **P2** | Performance | Rate limit track só em memória (fraco com N instâncias) | **Corrigido** Etapa 3 — Redis se `REDIS_URL`, senão memória |
+| A10 | **P2** | DB | Índices candidatos em falta (`Subscription.planId`, IP+event, gclid) | **Corrigido** Etapa 3 — migration `20261030150000_track_perf_indexes` |
+| A11 | **P2** | DB | `conversionsCsv` N+1 por linha | **Corrigido** Etapa 3 — batch SQL + createMany |
 | A12 | **P2** | Arquitectura | Duas OAuth Google (integrations vs paid) | `modules/googleAds` e `paid/` |
 | A13 | **P3** | Legado | `DPILOTO_PUBLIC_ORIGINS`, rotas `*-legacy` | server + App.tsx |
 | A14 | **P1** | Compliance | Probe SSRF sem pin de IP (já documentado) | `docs/compliance/PRODUCTION_AUDIT_2026-10-15.md` |

@@ -354,6 +354,7 @@ model Subscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan @relation(fields: [planId], references: [id])
 
+  @@index([planId])
   @@map("subscriptions")
 }
 
@@ -551,6 +552,8 @@ model TrackingEvent {
   @@index([eventType])
   @@index([createdAt])
   @@index([userId, eventType, createdAt])
+  @@index([userId, createdAt])
+  @@index([userId, eventType, ipAddress, createdAt])
   @@map("tracking_events")
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,24 +7,67 @@ import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { paidAdsService } from "@/services/paidAdsService";
 import { DpilotPaidLayout } from "./DpilotPaidLayout";
 import { DpilotPaidProvider, UUID_RE } from "./DpilotPaidContext";
-import { DpilotGoogleWizardPage } from "./DpilotGoogleWizardPage";
-import { DpilotGoogleCampaignStudioPage } from "./DpilotGoogleCampaignStudioPage";
-import { DpilotMetaWizardPage } from "./DpilotMetaWizardPage";
-import { DpilotTiktokWizardPage } from "./DpilotTiktokWizardPage";
-import {
-  DpilotAprovacoesPage,
-  DpilotAuditoriaPage,
-  DpilotCampanhasPage,
-  DpilotEquipaPage,
-  DpilotGooglePage,
-  DpilotLandingsPage,
-  DpilotLigacoesPage,
-  DpilotMetaCampanhasPage,
-  DpilotMetaPage,
-  DpilotTiktokCampanhasPage,
-  DpilotTiktokPage,
-  DpilotVisaoPage,
-} from "./DpilotPaidPages";
+
+/** Shell leve; páginas/wizards pesados só carregam na rota correspondente. */
+const DpilotGoogleWizardPage = lazy(() =>
+  import("./DpilotGoogleWizardPage").then((m) => ({ default: m.DpilotGoogleWizardPage })),
+);
+const DpilotGoogleCampaignStudioPage = lazy(() =>
+  import("./DpilotGoogleCampaignStudioPage").then((m) => ({
+    default: m.DpilotGoogleCampaignStudioPage,
+  })),
+);
+const DpilotMetaWizardPage = lazy(() =>
+  import("./DpilotMetaWizardPage").then((m) => ({ default: m.DpilotMetaWizardPage })),
+);
+const DpilotTiktokWizardPage = lazy(() =>
+  import("./DpilotTiktokWizardPage").then((m) => ({ default: m.DpilotTiktokWizardPage })),
+);
+
+const DpilotVisaoPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotVisaoPage })),
+);
+const DpilotLigacoesPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotLigacoesPage })),
+);
+const DpilotGooglePage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotGooglePage })),
+);
+const DpilotMetaPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotMetaPage })),
+);
+const DpilotMetaCampanhasPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotMetaCampanhasPage })),
+);
+const DpilotTiktokPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotTiktokPage })),
+);
+const DpilotTiktokCampanhasPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotTiktokCampanhasPage })),
+);
+const DpilotCampanhasPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotCampanhasPage })),
+);
+const DpilotAprovacoesPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotAprovacoesPage })),
+);
+const DpilotAuditoriaPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotAuditoriaPage })),
+);
+const DpilotLandingsPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotLandingsPage })),
+);
+const DpilotEquipaPage = lazy(() =>
+  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotEquipaPage })),
+);
+
+function PageFallback() {
+  return <p className="px-4 py-10 text-sm text-muted-foreground">A carregar…</p>;
+}
+
+function LazyPage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
+}
 
 function DpilotIndexRedirect() {
   const [searchParams] = useSearchParams();
@@ -138,22 +181,25 @@ export function DpilotPaidApp() {
         <Route index element={<DpilotIndexRedirect />} />
         <Route path="p/:projectId" element={<DpilotProjectShell />}>
           <Route index element={<Navigate to="visao" replace />} />
-          <Route path="visao" element={<DpilotVisaoPage />} />
-          <Route path="ligacoes" element={<DpilotLigacoesPage />} />
-          <Route path="google" element={<DpilotGooglePage />} />
-          <Route path="meta/nova" element={<DpilotMetaWizardPage />} />
-          <Route path="meta/campanhas" element={<DpilotMetaCampanhasPage />} />
-          <Route path="meta" element={<DpilotMetaPage />} />
-          <Route path="tiktok/nova" element={<DpilotTiktokWizardPage />} />
-          <Route path="tiktok" element={<DpilotTiktokPage />} />
-          <Route path="tiktok/campanhas" element={<DpilotTiktokCampanhasPage />} />
-          <Route path="campanhas/nova" element={<DpilotGoogleWizardPage />} />
-          <Route path="campanhas/:campaignId/google" element={<DpilotGoogleCampaignStudioPage />} />
-          <Route path="campanhas" element={<DpilotCampanhasPage />} />
-          <Route path="aprovacoes" element={<DpilotAprovacoesPage />} />
-          <Route path="auditoria" element={<DpilotAuditoriaPage />} />
-          <Route path="landings" element={<DpilotLandingsPage />} />
-          <Route path="equipa" element={<DpilotEquipaPage />} />
+          <Route path="visao" element={<LazyPage><DpilotVisaoPage /></LazyPage>} />
+          <Route path="ligacoes" element={<LazyPage><DpilotLigacoesPage /></LazyPage>} />
+          <Route path="google" element={<LazyPage><DpilotGooglePage /></LazyPage>} />
+          <Route path="meta/nova" element={<LazyPage><DpilotMetaWizardPage /></LazyPage>} />
+          <Route path="meta/campanhas" element={<LazyPage><DpilotMetaCampanhasPage /></LazyPage>} />
+          <Route path="meta" element={<LazyPage><DpilotMetaPage /></LazyPage>} />
+          <Route path="tiktok/nova" element={<LazyPage><DpilotTiktokWizardPage /></LazyPage>} />
+          <Route path="tiktok" element={<LazyPage><DpilotTiktokPage /></LazyPage>} />
+          <Route path="tiktok/campanhas" element={<LazyPage><DpilotTiktokCampanhasPage /></LazyPage>} />
+          <Route path="campanhas/nova" element={<LazyPage><DpilotGoogleWizardPage /></LazyPage>} />
+          <Route
+            path="campanhas/:campaignId/google"
+            element={<LazyPage><DpilotGoogleCampaignStudioPage /></LazyPage>}
+          />
+          <Route path="campanhas" element={<LazyPage><DpilotCampanhasPage /></LazyPage>} />
+          <Route path="aprovacoes" element={<LazyPage><DpilotAprovacoesPage /></LazyPage>} />
+          <Route path="auditoria" element={<LazyPage><DpilotAuditoriaPage /></LazyPage>} />
+          <Route path="landings" element={<LazyPage><DpilotLandingsPage /></LazyPage>} />
+          <Route path="equipa" element={<LazyPage><DpilotEquipaPage /></LazyPage>} />
         </Route>
         <Route path="*" element={<DpilotRouteFallback />} />
       </Routes>
