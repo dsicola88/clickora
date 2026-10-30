@@ -38,16 +38,27 @@ Checklist de deploy: **[docs/DEPLOYMENT.md — §6](docs/DEPLOYMENT.md)**.
 - `backend/prisma/`: schema e seed do PostgreSQL Clickora
 - `frontend/public/`: ficheiros estáticos
 
-## Deploy (produção)
+## Documentação
 
-**Auditoria empresarial (2026-10-30):** [docs/AUDITORIA_EMPRESARIAL_DCLICKORA.md](docs/AUDITORIA_EMPRESARIAL_DCLICKORA.md) · [Arquitetura](docs/ARQUITETURA_DCLICKORA.md) · [Guia do desenvolvedor](docs/GUIA_DESENVOLVEDOR_DCLICKORA.md) · [Variáveis de ambiente](docs/VARIAVEIS_AMBIENTE_DCLICKORA.md) · [Fluxos funcionais](docs/FLUXOS_FUNCIONAIS_DCLICKORA.md).
+**Entrada única:** **[docs/INDICE_DOCUMENTACAO_DCLICKORA.md](docs/INDICE_DOCUMENTACAO_DCLICKORA.md)**
 
-Configuração Vercel + Railway, variáveis `VITE_PUBLIC_API_URL`, CORS e checklist: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.  
-Passo a passo frontend ↔ backend e login/CORS: **[docs/ENV-SETUP.md](docs/ENV-SETUP.md)**.  
-Imagens (presells, favicon, landing) na Cloudflare — guia simples: **[docs/IMAGENS-E-ARMAZENAMENTO.md](docs/IMAGENS-E-ARMAZENAMENTO.md)**.  
-O que os números significam (sem mentir): **[docs/METRICAS-HONESTAS.md](docs/METRICAS-HONESTAS.md)**.  
-Para afiliados Google Ads + redes: **[docs/AFILIADO-PROFISSIONAL.md](docs/AFILIADO-PROFISSIONAL.md)**.  
-Conformidade preventiva de presells (Google Ads / Microsoft Advertising — verificações internas, sem garantia de aprovação): **[docs/compliance/README.md](docs/compliance/README.md)**.
+| Tema | Doc |
+|------|-----|
+| Instalar / alterar código | [Guia do desenvolvedor](docs/GUIA_DESENVOLVEDOR_DCLICKORA.md) |
+| Mapa do sistema | [Arquitetura](docs/ARQUITETURA_DCLICKORA.md) |
+| Env vars | [Variáveis de ambiente](docs/VARIAVEIS_AMBIENTE_DCLICKORA.md) · [ENV-SETUP](docs/ENV-SETUP.md) |
+| Deploy Vercel + Railway | [DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Auditoria P0–P3 | [AUDITORIA_EMPRESARIAL](docs/AUDITORIA_EMPRESARIAL_DCLICKORA.md) |
+| Aceitação final (Etapa 7) | [RELATORIO_ACEITACAO_FINAL](docs/RELATORIO_ACEITACAO_FINAL_DCLICKORA.md) |
+| Performance | [OTIMIZACAO_PERFORMANCE](docs/OTIMIZACAO_PERFORMANCE_DCLICKORA.md) |
+| Carga (staging only) | [TESTES_CARGA](docs/TESTES_CARGA_DCLICKORA.md) |
+| Segurança / IDOR | [SEGURANCA_E_ISOLAMENTO](docs/SEGURANCA_E_ISOLAMENTO.md) |
+| Fluxos de produto | [FLUXOS_FUNCIONAIS](docs/FLUXOS_FUNCIONAIS_DCLICKORA.md) |
+| Paid ads | [PAID-ADS-ARCHITECTURE](docs/PAID-ADS-ARCHITECTURE.md) |
+| Imagens / R2 | [IMAGENS-E-ARMAZENAMENTO](docs/IMAGENS-E-ARMAZENAMENTO.md) |
+| Métricas honestas | [METRICAS-HONESTAS](docs/METRICAS-HONESTAS.md) |
+| Afiliado | [AFILIADO-PROFISSIONAL](docs/AFILIADO-PROFISSIONAL.md) |
+| Compliance presells | [compliance/README](docs/compliance/README.md) |
 
 ## Requisitos
 

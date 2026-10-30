@@ -8,36 +8,11 @@
  * Mede apenas GET /api/health (sem login, sem mutações, sem ads externos).
  */
 import { performance } from "node:perf_hooks";
+import { assertSafeHttpTarget } from "./lib/loadTestSafety";
 
 const base = (process.env.LOAD_TEST_BASE_URL || "").replace(/\/$/, "");
 const concurrency = Math.min(50, Math.max(1, Number(process.env.LOAD_TEST_CONCURRENCY || 10)));
-const total = Math.min(500, Math.max(1, Number(process.env.LOAD_TEST_REQUESTS || 100)));
-
-function assertSafeTarget(url: string) {
-  if (!url) {
-    throw new Error("Defina LOAD_TEST_BASE_URL (ex.: http://127.0.0.1:3001)");
-  }
-  let u: URL;
-  try {
-    u = new URL(url);
-  } catch {
-    throw new Error("LOAD_TEST_BASE_URL inválido");
-  }
-  const host = u.hostname.toLowerCase();
-  const blocked =
-    host.includes("railway") ||
-    host.includes("rlwy.net") ||
-    host.includes("dclickora.com") ||
-    host.includes("vercel.app") ||
-    host === "0.0.0.0";
-  const local = host === "127.0.0.1" || host === "localhost";
-  if (blocked) {
-    throw new Error(`Alvo bloqueado por segurança: ${host}. Use apenas localhost/staging dedicado.`);
-  }
-  if (!local && process.env.ALLOW_LOAD_TEST !== "1") {
-    throw new Error("Host não local: defina ALLOW_LOAD_TEST=1 apenas em staging dedicado com dados fictícios.");
-  }
-}
+const total = Math.min(2000, Math.max(1, Number(process.env.LOAD_TEST_REQUESTS || 100)));
 
 function percentile(sorted: number[], p: number): number {
   if (!sorted.length) return 0;
@@ -46,11 +21,10 @@ function percentile(sorted: number[], p: number): number {
 }
 
 async function main() {
-  assertSafeTarget(base);
+  assertSafeHttpTarget(base, "health_only");
   const url = `${base}/api/health`;
   const latencies: number[] = [];
   let errors = 0;
-  let done = 0;
   const t0 = performance.now();
 
   async function one() {
@@ -62,7 +36,6 @@ async function main() {
       errors += 1;
     } finally {
       latencies.push(performance.now() - s);
-      done += 1;
     }
   }
 

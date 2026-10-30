@@ -455,10 +455,13 @@ export const paidController = {
     if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
       return res.status(403).json({ error: "Sem permissão para alterar o modo." });
     }
-    await prisma.paidAdsProject.update({
-      where: { id: parsed.data.projectId },
+    const updated = await prisma.paidAdsProject.updateMany({
+      where: { id: parsed.data.projectId, userId: a.tenantUserId },
       data: { paidMode: parsed.data.paidMode },
     });
+    if (updated.count === 0) {
+      return res.status(404).json({ error: "Projecto não encontrado." });
+    }
     return res.json({ ok: true });
   },
 

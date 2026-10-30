@@ -14,6 +14,8 @@
  * Nada de scraping agressivo; um único GET com timeout, body limit e
  * domínios privados bloqueados.
  */
+import { PresellImportBlockedError } from "../lib/presellImportSsrf";
+import { safeImportFetch } from "../lib/presellSafeFetch";
 import type { GoogleProductSignals } from "./google-campaign-ai-shared";
 
 const FETCH_TIMEOUT_MS = 10_000;
@@ -266,50 +268,35 @@ function detectAttributes(text: string): string[] {
   return found;
 }
 
+/**
+ * GET com pin de IP (mesmo padrão que import/presellSafeFetch) —
+ * evita DNS rebinding / redirect para privado após o check de hostname.
+ */
 async function fetchHtml(url: string): Promise<{ html: string; finalUrl: string }> {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      signal: ac.signal,
+    const result = await safeImportFetch({
+      url,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      maxBytes: MAX_BYTES,
       headers: {
         "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en;q=0.9,pt;q=0.8,es;q=0.7,de;q=0.6,fr;q=0.5",
       },
     });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} (${res.statusText})`);
+    if (result.status < 200 || result.status >= 300) {
+      throw new Error(`HTTP ${result.status}`);
     }
-    const ct = res.headers.get("content-type") ?? "";
-    if (!/text\/html|xhtml/i.test(ct)) {
-      throw new Error(`Conteúdo não é HTML (${ct || "desconhecido"})`);
+    const ct = result.contentType || "";
+    if (ct && !/text\/html|xhtml|octet-stream/i.test(ct)) {
+      throw new Error(`Conteúdo não é HTML (${ct})`);
     }
-    /** Lê com limite de bytes para evitar páginas gigantes. */
-    const reader = res.body?.getReader();
-    if (!reader) {
-      const text = await res.text();
-      return { html: text.slice(0, MAX_BYTES), finalUrl: res.url };
+    return { html: result.body.toString("utf8"), finalUrl: result.url };
+  } catch (e) {
+    if (e instanceof PresellImportBlockedError) {
+      throw new Error(e.message || "Host bloqueado (SSRF).");
     }
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    let total = 0;
-    let html = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > MAX_BYTES) {
-        html += decoder.decode(value.subarray(0, value.byteLength - (total - MAX_BYTES)));
-        break;
-      }
-      html += decoder.decode(value, { stream: true });
-    }
-    html += decoder.decode();
-    return { html, finalUrl: res.url };
-  } finally {
-    clearTimeout(t);
+    throw e;
   }
 }
 

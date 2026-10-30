@@ -1,6 +1,9 @@
 # Fluxos funcionais — DClickora
 
-Estado por fluxo na auditoria de **2026-10-30**. Legenda:
+Estado por fluxo na auditoria de **2026-10-30**, actualizado na **Etapa 6**.  
+Índice: [INDICE_DOCUMENTACAO_DCLICKORA.md](./INDICE_DOCUMENTACAO_DCLICKORA.md).
+
+Legenda:
 
 | Estado | Significado |
 |--------|-------------|
@@ -46,7 +49,7 @@ Estado por fluxo na auditoria de **2026-10-30**. Legenda:
 
 - **Código:** `/api/track/*`, analytics
 - **Estado:** Parcial — `trackGuard`, `clickVisitorEvidence.e2e.test.ts`, `trackOfferRedirectGuard` **aprovados**
-- **Load / concorrência:** Bloqueado (API local offline)
+- **Load / concorrência:** Smoke health-only medido (Etapa 4); mutações em BD produção **bloqueadas** por safety — ver [TESTES_CARGA_DCLICKORA.md](./TESTES_CARGA_DCLICKORA.md). Re-correr mutações em Postgres `:5434` local.
 
 ## 12. Postbacks
 
@@ -80,13 +83,17 @@ Estado por fluxo na auditoria de **2026-10-30**. Legenda:
 
 ## Isolamento entre utilizadores
 
+Relatório completo: [SEGURANCA_E_ISOLAMENTO.md](./SEGURANCA_E_ISOLAMENTO.md). Suite: `backend/scripts/security-isolation-suite.ts` (anti-produção).
+
 | Área | Mecanismo | Teste |
 |------|-----------|--------|
 | Presells / public root | `userId` + owner do domínio | `test:presell-multitenant` — **PASS** (BD local `:5434`) |
 | Tracking events | tenant Prisma + filtros | Unitários OK; analytics root HTTP **200** |
-| Campanhas afiliado | filtros `userId` | IDOR GET/DELETE — **PASS** (404) |
-| Paid projects | bootstrap + `userId` | Gate plano **403**; list superadmin **200** |
-| Tokens OAuth na API | redacção DTO | **PASS** (`api-mappers.secrets.test.ts`) |
+| Campanhas afiliado | filtros `userId` + `updateMany` ownership | IDOR GET/DELETE — **PASS** (404) quando suite corre em DB local |
+| Paid projects | bootstrap + `userId` / `updateMany` | Gate plano **403**; list superadmin **200**; mutações cross-tenant rejeitadas no código |
+| Tokens OAuth na API | redacção DTO + `tokenSecrets` | **PASS** (`api-mappers.secrets.test.ts`, `tokenSecrets.test.ts`) |
+| SSRF destinos | `destinationProbe` / `safeImportFetch` | Pin IP + bloqueio privado (Etapa 5) |
+| Boot secrets | JWT + `ENCRYPTION_KEY` em production | Falha de arranque se em falta |
 
 ---
 

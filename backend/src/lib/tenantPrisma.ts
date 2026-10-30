@@ -7,7 +7,8 @@ import { logCrossTenantBlocked, logTenantViolation } from "./tenantLogging";
  * Modelos com coluna `user_id` (tenant = dono da linha).
  * Ao adicionar modelo novo com `userId` em schema.prisma, incluir aqui ou o cliente tenant não filtra.
  */
-const USER_ID_MODELS = [
+/** Exposto para testes — manter sincronizado com modelos `userId` no schema. */
+export const USER_ID_MODELS = [
   "presellPage",
   "trackingEvent",
   "postbackLog",
@@ -20,6 +21,18 @@ const USER_ID_MODELS = [
   "keywordResearch",
   /** Campanhas de afiliado (UI Tracking) — antes só filtradas manualmente no controller. */
   "affiliateCampaign",
+  "trafficRotator",
+  "apiKey",
+  "webPushSubscription",
+  "affiliateAutomizerLog",
+  "adPlatformCostDaily",
+  "presellComplianceAudit",
+  "presellComplianceDecision",
+  "presellComplianceJob",
+  /** PK = userId — findUnique tratado como subscription. */
+  "tenantBranding",
+  /** Paid: defense-in-depth se alguém usar o cliente tenant por engano. */
+  "paidAdsProject",
 ] as const;
 
 const MUTATING_PLAN_OPS = new Set(["create", "createMany", "update", "updateMany", "delete", "deleteMany", "upsert"]);
@@ -194,7 +207,10 @@ function applyUserIdTenant(
   tenantId: string,
   modelKey?: (typeof USER_ID_MODELS)[number],
 ): Record<string, unknown> {
-  if (modelKey === "subscription" && operation === "findUnique") {
+  if (
+    (modelKey === "subscription" || modelKey === "tenantBranding") &&
+    operation === "findUnique"
+  ) {
     return mergeSubscriptionFindUnique(args, tenantId);
   }
   switch (operation) {

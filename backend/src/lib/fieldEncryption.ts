@@ -23,20 +23,30 @@ function getKey(): Buffer | null {
   return null;
 }
 
-let warnedPlaintextProduction = false;
+/**
+ * Em produção, falha o boot se ENCRYPTION_KEY estiver ausente/inválida
+ * (mesmo padrão que JWT_SECRET em `jwt.ts`).
+ */
+export function assertProductionEncryptionKey(): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if (!getKey()) {
+    throw new Error(
+      "ENCRYPTION_KEY em falta ou inválida em produção (32 bytes: hex 64 chars, base64, ou UTF-8).",
+    );
+  }
+}
 
 /**
  * Encripta segredos de utilizador antes de persistir na BD (AES-256-GCM).
- * Sem `ENCRYPTION_KEY`, mantém texto claro (compatível com ambientes locais).
+ * Sem `ENCRYPTION_KEY` fora de produção, mantém texto claro (dev local).
  */
 export function encryptSecretField(plain: string | null | undefined): string | null {
   if (plain == null || plain === "") return null;
   const key = getKey();
   if (!key) {
-    if (process.env.NODE_ENV === "production" && !warnedPlaintextProduction) {
-      warnedPlaintextProduction = true;
-      console.warn(
-        "[fieldEncryption] ENCRYPTION_KEY não definida — tokens guardados em texto claro. Defina ENCRYPTION_KEY em produção.",
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "ENCRYPTION_KEY obrigatória em produção — recusado guardar segredo em texto claro.",
       );
     }
     return plain;

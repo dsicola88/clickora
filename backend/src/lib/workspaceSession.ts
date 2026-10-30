@@ -22,11 +22,39 @@ export async function resolveWorkspaceSessionForLogin(userId: string): Promise<W
   if (!m) {
     const u = await systemPrisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { workspaceId: true },
+      select: { workspaceId: true, fullName: true, email: true },
+    });
+    /**
+     * `users.workspace_id` é um UUID local (não FK). Sem linha em `workspaces`,
+     * audit logs e rotas de workspace quebram com P2003 — garantir workspace pessoal no login.
+     */
+    await systemPrisma.workspace.upsert({
+      where: { ownerUserId: userId },
+      create: {
+        id: u.workspaceId,
+        ownerUserId: userId,
+        name: (u.fullName || u.email || "Personal").slice(0, 200),
+      },
+      update: {},
+    });
+    const ws = await systemPrisma.workspace.findUniqueOrThrow({
+      where: { ownerUserId: userId },
+      select: { id: true },
+    });
+    if (ws.id !== u.workspaceId) {
+      await systemPrisma.user.update({
+        where: { id: userId },
+        data: { workspaceId: ws.id },
+      });
+    }
+    await systemPrisma.workspaceMember.upsert({
+      where: { workspaceId_userId: { workspaceId: ws.id, userId } },
+      create: { workspaceId: ws.id, userId, role: "owner" },
+      update: { role: "owner" },
     });
     return {
       tenantUserId: userId,
-      workspaceId: u.workspaceId,
+      workspaceId: ws.id,
       workspaceRole: "owner",
       workspacePermissions: [],
     };
