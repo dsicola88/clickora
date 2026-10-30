@@ -139,6 +139,13 @@ export function computePresellTrackingHealth(input: {
     detail:
       "Budget baixo → 1 clique real → Relatórios (Situação Real) → confirmar postback/conversão. Só depois escalar.",
   });
+  items.push({
+    id: "e2e-funnel",
+    label: "E2E: funil + ROI",
+    status: "info",
+    detail:
+      "Em Resultados → Funil: impressão → clique → checkout → venda; conferir Pago vs Orgânico e lucro só com custo do período.",
+  });
 
   const weights: Record<TrackingHealthStatus, number> = { ok: 1, info: 0.75, warn: 0.4 };
   const readyScore = Math.round(

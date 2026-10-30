@@ -41,6 +41,19 @@ export interface CustomDomainDto {
   pending_dns?: CustomDomainPendingDns;
   /** Com `status === "verified"` e domínio registado na Vercel: CNAME/A de referência para o site (o tráfego já deve estar apontado). */
   hosting_dns_hint?: { host: string; target: string; note: string };
+  /**
+   * Go-live / SSL (separado de `status`).
+   * Lista pode devolver estado sintético; `GET …/go-live` faz probe live.
+   */
+  ssl_state?:
+    | "pending_dns"
+    | "dns_verified"
+    | "ssl_provisioning"
+    | "https_ready"
+    | "misconfigured"
+    | "unknown";
+  https_ready?: boolean;
+  ssl_label?: string;
 }
 
 /** GET /custom-domain/quota */
@@ -56,6 +69,8 @@ export interface User {
   email: string;
   plan: UserPlan | null;
   workspace_id: string;
+  /** Nome do workspace activo (sessão). */
+  workspace_name?: string | null;
   /** Conta cujos dados (presells, tracking) estão activos — igual a `id` excepto em equipas. */
   tenant_user_id?: string;
   /** Papel no workspace actual (owner | admin | member | viewer). */
@@ -134,6 +149,17 @@ export interface Presell {
   updated_at: string;
   /** Só API pública: `true` = mostrar crédito dclickora no rodapé (plano com branding). */
   footer_branding?: boolean;
+  /**
+   * Só API pública: marca white-label da conta (Pro). Cores/logo/favicon na lander.
+   * `null`/ausente = sem personalização.
+   */
+  tenant_branding?: {
+    brand_name?: string | null;
+    logo_url?: string | null;
+    favicon_url?: string | null;
+    primary_color?: string | null;
+    accent_color?: string | null;
+  } | null;
   /**
    * Só API pública: `true` quando o país desta presell ou uma regra da conta
    * serviu a página segura — sem espelho, scripts, tracking nem hoplink.

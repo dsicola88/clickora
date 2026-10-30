@@ -20,9 +20,29 @@ PUBLIC_APP_URL=https://www.dclickora.com
 Fluxo: `GET /api/auth/oidc/login` → IdP → callback → redirect app `/auth#oidc_token=…`
 Só entra se o e-mail já existir na BD (não cria contas).
 
-## API keys B2B
+## API keys B2B (Public API v1)
+
+Gestão (só sessão JWT na app — nunca com a própria API key):
 - `GET/POST /api/enterprise/api-keys`, `DELETE /api/enterprise/api-keys/:id`
-- Header: `Authorization: Bearer ck_live_…` (middleware `authenticateJwtOrApiKey` — aplicar nas rotas desejadas)
+
+Uso:
+- Header: `Authorization: Bearer ck_live_…`
+- Scopes: `read` (GET/HEAD) · `write` (POST/PATCH/PUT/DELETE; inclui leitura)
+- Resposta `403` com `code: api_key_scope_denied` se o scope faltar
+
+Rotas com API key + scopes:
+- `GET /api/analytics/*` (dashboard, funnel, conversions, …)
+- `GET|POST|PATCH|DELETE /api/campaigns`
+- `GET|POST|PATCH|DELETE /api/traffic-rotators`
+- `GET|POST|PATCH|DELETE /api/presells`
+- `GET|PUT /api/enterprise/branding/tenant`
+- `GET /api/enterprise/onboarding/status`
+
+Exemplo:
+```bash
+curl -sS -H "Authorization: Bearer ck_live_…" \
+  "https://api.example.com/api/analytics/funnel?from=2026-10-01&to=2026-10-30"
+```
 
 ## White-label (Pro: has_branding=false)
 - `GET/PUT /api/enterprise/branding/tenant` — brand_name, logo_url, favicon_url, cores, hide_powered_by

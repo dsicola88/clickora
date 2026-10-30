@@ -39,11 +39,44 @@ describe("E2E media buyer ready (fechável em código)", () => {
     expect(formatGoogleAdsIpExclusionList(exclusion)).toBe("18.144.100.168");
   });
 
-  it("checklist media buyer tem 5 passos com postback e smoke", () => {
-    expect(MEDIA_BUYER_E2E_CHECKLIST.length).toBeGreaterThanOrEqual(5);
+  it("checklist media buyer tem funil + rotadores + postback + smoke + ivt", () => {
+    expect(MEDIA_BUYER_E2E_CHECKLIST.length).toBeGreaterThanOrEqual(7);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "postback")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "smoke")).toBe(true);
+    expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "funnel")).toBe(true);
+    expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "funnel")?.href).toBe("/resultados/funil");
+    expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "rotators")).toBe(true);
     expect(MEDIA_BUYER_E2E_CHECKLIST.some((s) => s.id === "ivt")).toBe(true);
+    expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "postback")?.href).toBe("/integracoes/postback");
+    expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "smoke")?.href).toBe(
+      "/resultados/relatorios/cliques",
+    );
+    expect(MEDIA_BUYER_E2E_CHECKLIST.find((s) => s.id === "ivt")?.href).toBe(
+      "/resultados/relatorios/cliques",
+    );
+  });
+
+  it("cloud+bot Visivra: Situação Datacenter gera exclusão Google (contrato UI)", () => {
+    // Regressão: se Relatórios omitir include_bots, exclude_from_kpi esconde estes IPs.
+    const cloud = resolveClickVisitorQuality({
+      is_bot: false,
+      unqualified: true,
+      ip_network: "AWS",
+    });
+    const bot = resolveClickVisitorQuality({
+      is_bot: true,
+      bot_label: "AdsBot-Google",
+      unqualified: false,
+    });
+    expect(cloud.kind).toBe("datacenter");
+    expect(bot.kind).toBe("bot");
+    expect(bot.label).toMatch(/Crawler Google/);
+    expect(
+      collectDatacenterIpsForGoogleAdsExclusion([
+        { ip: "18.144.100.168", statusKind: cloud.kind },
+        { ip: "203.0.113.9", statusKind: bot.kind },
+      ]),
+    ).toEqual(["18.144.100.168"]);
   });
 
   it("saúde da presell inclui passos E2E sem inventar pixels", () => {
@@ -56,6 +89,7 @@ describe("E2E media buyer ready (fechável em código)", () => {
     expect(readyScore).toBeGreaterThan(50);
     expect(items.some((i) => i.id === "e2e-postback")).toBe(true);
     expect(items.some((i) => i.id === "e2e-smoke")).toBe(true);
+    expect(items.some((i) => i.id === "e2e-funnel")).toBe(true);
     expect(items.find((i) => i.id === "networks")?.status).toBe("info");
   });
 });

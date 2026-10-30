@@ -18,7 +18,10 @@ import {
 import { geoLookupFromIp } from "../lib/countryFromIp";
 import { locationForStoredClick } from "../lib/cdn77Visitor";
 import { sqlVisitorCountry } from "../lib/edgeCountrySql";
-import { resolveClickVisitorEvidence } from "../lib/clickVisitorEvidence";
+import {
+  resolveClickVisitorEvidence,
+  situationLabelFromEvidence,
+} from "../lib/clickVisitorEvidence";
 import { resolveTrafficType } from "../lib/networkClickId";
 import { isUnreplacedAdMacro, normalizeUtmDimension } from "../lib/adUrlMacros";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
@@ -30,6 +33,8 @@ import { billingUserId } from "../lib/requestContext";
 import { countPlanClicksThisMonth } from "../lib/planClickQuota";
 import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
 import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
+import { loadConversionFunnel } from "../lib/conversionFunnel";
+import { allocatePeriodSpendByClicks } from "../lib/allocateSpendByClicks";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -294,7 +299,7 @@ function mapConversionForApi(
 function sqlExcludeBotAndKpiNoise(includeBots: boolean): Prisma.Sql {
   if (includeBots) return Prisma.empty;
   // Alinhado a planClickQuota / campaignPerf: bots e exclude_from_kpi fora do KPI.
-  // Cloud (Situação) continua visível com include_bots / filtro Cloud — não reintroduzir datacenter.
+  // Relatórios Situação / IPs Google Ads: o FE passa include_bots=1 para ver Cloud + Bot.
   return Prisma.sql`
     AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
     AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
@@ -589,12 +594,22 @@ export const analyticsController = {
         "traffic_type",
         "gclid",
         "msclkid",
+        "situacao",
         "is_bot",
         "bot_label",
+        "unqualified",
+        "ip_network",
+        "unqualified_reason",
         "metadata_json",
       ];
       const dataRows = rows.map((r) => {
         const metaJson = JSON.stringify(r.metadata ?? {});
+        const situacao = situationLabelFromEvidence({
+          is_bot: Boolean(r.is_bot),
+          bot_label: r.bot_label ?? null,
+          unqualified: Boolean((r as { unqualified?: boolean }).unqualified),
+          ip_network: (r as { ip_network?: string | null }).ip_network ?? null,
+        });
         return [
           r.id,
           r.presell_id,
@@ -621,8 +636,12 @@ export const analyticsController = {
           r.traffic_type,
           r.gclid,
           r.msclkid,
+          situacao,
           r.is_bot,
           r.bot_label,
+          (r as { unqualified?: boolean }).unqualified ?? false,
+          (r as { ip_network?: string | null }).ip_network ?? "",
+          (r as { unqualified_reason?: string | null }).unqualified_reason ?? "",
           metaJson,
         ];
       });
@@ -1521,7 +1540,23 @@ export const analyticsController = {
       };
     });
 
-    const rotator_arm_performance = rotatorArmPerfRows.map((row) => {
+    let rotator_arm_performance: Array<{
+      arm_id: string;
+      arm_label: string;
+      rotator_name: string;
+      max_clicks: number | null;
+      clicks_delivered: number;
+      cap_remaining: number | null;
+      cap_pct: number | null;
+      clicks: number;
+      sales: number;
+      revenue: number;
+      cost: number | null;
+      profit: number | null;
+      roas: number | null;
+      epc: number | null;
+      cvr: number | null;
+    }> = rotatorArmPerfRows.map((row) => {
       const clicksD = Number(row.clicks);
       const salesD = Number(row.sales);
       const revD = Number(row.revenue ?? 0);
@@ -1544,6 +1579,9 @@ export const analyticsController = {
         clicks: clicksD,
         sales: salesD,
         revenue: Math.round(revD * 100) / 100,
+        cost: null as number | null,
+        profit: null as number | null,
+        roas: null as number | null,
         epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
         cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
       };
@@ -1556,6 +1594,9 @@ export const analyticsController = {
       clicks: number;
       sales: number;
       revenue: number;
+      cost: number | null;
+      profit: number | null;
+      roas: number | null;
       epc: number | null;
       cvr: number | null;
     }> = [];
@@ -1628,6 +1669,9 @@ export const analyticsController = {
           clicks: clicksD,
           sales: salesD,
           revenue: Math.round(revD * 100) / 100,
+          cost: null as number | null,
+          profit: null as number | null,
+          roas: null as number | null,
           epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
           cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
         };
@@ -2051,6 +2095,20 @@ export const analyticsController = {
       alerts: mediaBuyerAlerts,
     };
 
+    /** ROI por rotador/braço: fatia do custo do período ∝ cliques raiz (sem inventar). */
+    const periodSpendForRotators =
+      spend_source === "persisted" || spend_source === "google_ads" ? spend : null;
+    rotator_performance = allocatePeriodSpendByClicks(
+      rotator_performance,
+      periodSpendForRotators,
+      entry_clicks,
+    );
+    rotator_arm_performance = allocatePeriodSpendByClicks(
+      rotator_arm_performance,
+      periodSpendForRotators,
+      entry_clicks,
+    );
+
     res.json({
       total_clicks: clicks,
       /** Cliques raiz (sem parent_rotator_click_id) — evita doble-count lander após rotador. */
@@ -2399,6 +2457,57 @@ export const analyticsController = {
         : null,
       redirect_to: typeof meta.redirect_to === "string" ? meta.redirect_to : null,
     });
+  },
+
+  /**
+   * Funil + ROI do período: impressão → clique → checkout → venda aprovada.
+   * Mesmos filtros KPI que getDashboard; split pago/orgânico alinhado a networkClickId.
+   */
+  async getFunnel(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const fromQ = req.query.from?.toString();
+    const toQ = req.query.to?.toString();
+    const keywordQ = req.query.keyword?.toString() ?? null;
+
+    const endOfDay = (d: Date) => {
+      const x = new Date(d);
+      x.setHours(23, 59, 59, 999);
+      return x;
+    };
+
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    if (fromQ && toQ) {
+      rangeStart = new Date(fromQ);
+      rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = endOfDay(new Date(toQ));
+      if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime()) || rangeStart > rangeEnd) {
+        return res.status(400).json({
+          error: "Intervalo de datas inválido (use from e to em formato YYYY-MM-DD)",
+        });
+      }
+    } else {
+      rangeEnd = endOfDay(new Date());
+      rangeStart = new Date(rangeEnd);
+      rangeStart.setDate(rangeStart.getDate() - 29);
+      rangeStart.setHours(0, 0, 0, 0);
+    }
+
+    try {
+      const funnel = await loadConversionFunnel({
+        userId,
+        rangeStart,
+        rangeEnd,
+        keyword: keywordQ,
+      });
+      return res.json(funnel);
+    } catch (e) {
+      console.error("[analytics.getFunnel]", e);
+      return res.status(503).json({
+        error: "O funil de conversões não está disponível de momento. Tente novamente dentro de alguns instantes.",
+        code: "funnel_unavailable",
+      });
+    }
   },
 
   /** Tentativas bloqueadas: blacklist ou regras de tracking (rate limit, whitelist, UA, bots). */

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { systemPrisma } from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import { generateApiKeyPlain, hashApiKey } from "../lib/apiKeys";
+import { normalizeApiKeyScopes } from "../lib/apiKeyScopes";
 
 export const apiKeysController = {
   async list(req: Request, res: Response) {
@@ -24,7 +25,7 @@ export const apiKeysController = {
         id: r.id,
         name: r.name,
         key_prefix: r.keyPrefix,
-        scopes: r.scopes,
+        scopes: normalizeApiKeyScopes(r.scopes),
         last_used_at: r.lastUsedAt,
         created_at: r.createdAt,
       })),
@@ -42,6 +43,10 @@ export const apiKeysController = {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
     }
     const userId = billingUserId(req);
+    const scopes = normalizeApiKeyScopes(parsed.data.scopes ?? ["read", "write"]);
+    if (scopes.length === 0) {
+      return res.status(400).json({ error: "Indique pelo menos um scope: read e/ou write" });
+    }
     const { plain, prefix } = generateApiKeyPlain();
     const keyHash = await hashApiKey(plain);
     const row = await systemPrisma.apiKey.create({
@@ -50,7 +55,7 @@ export const apiKeysController = {
         name: parsed.data.name,
         keyPrefix: prefix,
         keyHash,
-        scopes: parsed.data.scopes ?? ["read", "write"],
+        scopes,
       },
     });
     res.status(201).json({
@@ -59,9 +64,29 @@ export const apiKeysController = {
       key_prefix: row.keyPrefix,
       /** Só nesta resposta — não volta a ser mostrado. */
       api_key: plain,
-      scopes: row.scopes,
+      scopes: normalizeApiKeyScopes(row.scopes),
       created_at: row.createdAt,
       warning: "Guarde a API key agora. Não será possível voltar a vê-la.",
+      usage: {
+        header: "Authorization: Bearer <api_key>",
+        read_examples: [
+          "GET /api/analytics/dashboard",
+          "GET /api/analytics/funnel",
+          "GET /api/campaigns",
+          "GET /api/traffic-rotators",
+          "GET /api/presells",
+        ],
+        write_examples: [
+          "POST /api/campaigns",
+          "POST /api/traffic-rotators",
+          "PATCH /api/traffic-rotators/:id",
+          "POST /api/presells",
+        ],
+        session_only: [
+          "GET|POST|DELETE /api/enterprise/api-keys",
+          "GET|POST /api/enterprise/mfa/*",
+        ],
+      },
     });
   },
 

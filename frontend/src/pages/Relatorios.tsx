@@ -297,6 +297,7 @@ export default function Relatorios() {
           event_type: kind === "impression" ? "impression,lead" : "click",
           from: applied.from,
           to: applied.to,
+          include_bots: true,
         });
         if (error || !data) {
           toast.error(error || "Não foi possível exportar.");
@@ -370,13 +371,14 @@ export default function Relatorios() {
   };
 
   const impressionsQuery = useQuery({
-    queryKey: ["relatorios", "events", "impression-lead", applied.from, applied.to],
+    queryKey: ["relatorios", "events", "impression-lead", applied.from, applied.to, "with-bots"],
     queryFn: async () => {
       const { data, error } = await analyticsService.getEvents({
         event_type: "impression,lead",
         from: applied.from,
         to: applied.to,
         limit: 500,
+        include_bots: true,
       });
       if (error) throw new Error(error);
       return Array.isArray(data) ? data : [];
@@ -385,13 +387,14 @@ export default function Relatorios() {
   });
 
   const clicksQuery = useQuery({
-    queryKey: ["relatorios", "events", "click", applied.from, applied.to],
+    queryKey: ["relatorios", "events", "click", applied.from, applied.to, "with-bots"],
     queryFn: async () => {
       const { data, error } = await analyticsService.getEvents({
         event_type: "click",
         from: applied.from,
         to: applied.to,
         limit: 500,
+        include_bots: true,
       });
       if (error) throw new Error(error);
       return Array.isArray(data) ? data : [];
@@ -400,13 +403,14 @@ export default function Relatorios() {
   });
 
   const compareClicksQuery = useQuery({
-    queryKey: ["relatorios", "events", "click", "compare", compareRange?.from, compareRange?.to],
+    queryKey: ["relatorios", "events", "click", "compare", compareRange?.from, compareRange?.to, "with-bots"],
     queryFn: async () => {
       const { data, error } = await analyticsService.getEvents({
         event_type: "click",
         from: compareRange!.from,
         to: compareRange!.to,
         limit: 500,
+        include_bots: true,
       });
       if (error) throw new Error(error);
       return Array.isArray(data) ? data : [];
@@ -422,6 +426,7 @@ export default function Relatorios() {
       "compare",
       compareRange?.from,
       compareRange?.to,
+      "with-bots",
     ],
     queryFn: async () => {
       const { data, error } = await analyticsService.getEvents({
@@ -429,6 +434,7 @@ export default function Relatorios() {
         from: compareRange!.from,
         to: compareRange!.to,
         limit: 500,
+        include_bots: true,
       });
       if (error) throw new Error(error);
       return Array.isArray(data) ? data : [];

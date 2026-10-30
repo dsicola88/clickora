@@ -26,6 +26,8 @@ interface AuthContextType {
     acceptPolicies: boolean,
   ) => Promise<{ error: string | null }>;
   refreshUser: () => Promise<void>;
+  /** Após switch de workspace (novo JWT + user). */
+  applySession: (token: string, nextUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -139,6 +141,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const applySession = useCallback(
+    (token: string, nextUser: User) => {
+      authService.persistTokenAndUser(token, nextUser);
+      queryClient.clear();
+      setUser(nextUser);
+    },
+    [queryClient],
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -154,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signUp,
         refreshUser,
+        applySession,
       }}
     >
       {children}

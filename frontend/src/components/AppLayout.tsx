@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { AppCommandPalette } from "@/components/AppCommandPalette";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { SaleChimeListener } from "@/components/SaleChimeListener";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -40,8 +41,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <AppCommandPalette className="w-full max-w-none" />
               </div>
             </div>
-            {/* Equilíbrio visual à direita do trigger */}
-            <div className="ml-auto hidden w-9 shrink-0 sm:block" aria-hidden />
+            <div className="z-10 ml-auto flex shrink-0 items-center justify-end">
+              <WorkspaceSwitcher />
+            </div>
           </header>
           <main className={mainChrome}>{children}</main>
         </SidebarInset>

@@ -5,6 +5,7 @@ export type WorkspaceMineRow = {
   name: string;
   owner_user_id: string;
   role: "owner" | "admin" | "member" | "viewer";
+  is_active?: boolean;
   created_at: string;
 };
 
@@ -30,6 +31,13 @@ export type WorkspaceAuditRow = {
 export const workspaceService = {
   listMine() {
     return apiClient.get<WorkspaceMineRow[]>("/workspaces");
+  },
+
+  switchWorkspace(workspaceId: string) {
+    return apiClient.post<{ token: string; user: import("@/types/api").User }>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/switch`,
+      {},
+    );
   },
 
   listMembers(workspaceId: string) {

@@ -55,12 +55,29 @@ const ROLE_LABELS: Record<string, string> = {
 
 function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
   const qc = useQueryClient();
+  const { applySession } = useAuth();
   const [open, setOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "viewer">("member");
 
   const canManage = row.role === "owner" || row.role === "admin";
+  const isActive = Boolean(row.is_active);
+
+  const switchMut = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await workspaceService.switchWorkspace(row.workspace_id);
+      if (error) throw new Error(error);
+      if (!data?.token || !data.user) throw new Error("Resposta de switch inválida.");
+      return data;
+    },
+    onSuccess: (data) => {
+      applySession(data.token, data.user);
+      qc.clear();
+      toast.success(`Workspace activo: ${data.user.workspace_name || row.name}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const { data: members = [], isPending: loadingMembers } = useQuery({
     queryKey: ["workspace-members", row.workspace_id],
@@ -131,21 +148,42 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border border-border/60 bg-muted/10">
-      <CollapsibleTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full h-auto py-3 px-4 flex flex-wrap items-center justify-between gap-2 text-left font-normal hover:bg-muted/30"
-        >
-          <div>
-            <p className="font-medium text-foreground">{row.name}</p>
-            <p className="text-xs text-muted-foreground">
-              O seu papel: <span className="text-foreground/90">{ROLE_LABELS[row.role] ?? row.role}</span>
-            </p>
-          </div>
-          {open ? <ChevronUp className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />}
-        </Button>
-      </CollapsibleTrigger>
+      <div className="flex flex-wrap items-center gap-2 px-2 py-1">
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-w-0 flex-1 h-auto py-3 px-2 flex items-center justify-between gap-2 text-left font-normal hover:bg-muted/30"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground flex flex-wrap items-center gap-2">
+                <span className="truncate">{row.name}</span>
+                {isActive ? (
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    Activo
+                  </span>
+                ) : null}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                O seu papel: <span className="text-foreground/90">{ROLE_LABELS[row.role] ?? row.role}</span>
+              </p>
+            </div>
+            {open ? <ChevronUp className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />}
+          </Button>
+        </CollapsibleTrigger>
+        {!isActive ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 text-xs mr-2"
+            disabled={switchMut.isPending}
+            onClick={() => switchMut.mutate()}
+          >
+            {switchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Entrar"}
+          </Button>
+        ) : null}
+      </div>
       <CollapsibleContent className="px-4 pb-4 space-y-4">
         {loadingMembers ? (
           <div className="flex justify-center py-6 text-muted-foreground">

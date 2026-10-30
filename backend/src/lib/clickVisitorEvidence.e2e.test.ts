@@ -4,22 +4,14 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveClickVisitorEvidence } from "./clickVisitorEvidence";
+import {
+  resolveClickVisitorEvidence,
+  situationLabelFromEvidence,
+} from "./clickVisitorEvidence";
 import { isExplicitDatacenterForAutoBlacklist, classifyDatacenterIp } from "./ipNetworkClass";
 import { isProtectedGoogleCrawlerUserAgent } from "./detectBot";
 
-/** Espelho da regra do frontend `resolveClickVisitorQuality` (contrato da API). */
-function situationLabel(ev: ReturnType<typeof resolveClickVisitorEvidence>): string {
-  if (ev.unqualified) {
-    return ev.ip_network ? `Datacenter (${ev.ip_network})` : "Datacenter";
-  }
-  if (ev.is_bot) {
-    const bot = ev.bot_label || "";
-    if (/google/i.test(bot)) return bot ? `Crawler Google (${bot})` : "Crawler Google";
-    return bot ? `Bot (${bot})` : "Bot";
-  }
-  return "Real";
-}
+const situationLabel = situationLabelFromEvidence;
 
 const SAFARI_IOS =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";

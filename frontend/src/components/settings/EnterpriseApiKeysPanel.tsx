@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { enterpriseService, type ApiKeyRow } from "@/services/enterpriseService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProPanel } from "@/components/enterprise/ProShell";
+import { getResolvedPublicApiBaseUrl } from "@/config/publicApiUrl";
 import { toast } from "sonner";
 import { Copy, Key, Loader2, Plus, Trash2 } from "lucide-react";
 
@@ -17,10 +19,21 @@ function formatDate(iso: string | null) {
   }
 }
 
+function scopesLabel(scopes: unknown) {
+  const list = Array.isArray(scopes) ? scopes : [];
+  const s = list.filter((x): x is string => x === "read" || x === "write");
+  if (s.length === 0) return "—";
+  return s.join(" · ");
+}
+
 export function EnterpriseApiKeysPanel() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
+  const [scopeRead, setScopeRead] = useState(true);
+  const [scopeWrite, setScopeWrite] = useState(false);
   const [createdPlain, setCreatedPlain] = useState<string | null>(null);
+
+  const apiBase = useMemo(() => getResolvedPublicApiBaseUrl().replace(/\/+$/, ""), []);
 
   const { data: keys = [], isLoading } = useQuery({
     queryKey: ["enterprise-api-keys"],
@@ -35,7 +48,11 @@ export function EnterpriseApiKeysPanel() {
     mutationFn: async () => {
       const trimmed = name.trim();
       if (!trimmed) throw new Error("Indique um nome para a chave.");
-      const { data, error } = await enterpriseService.createApiKey(trimmed);
+      const scopes: Array<"read" | "write"> = [];
+      if (scopeRead) scopes.push("read");
+      if (scopeWrite) scopes.push("write");
+      if (scopes.length === 0) throw new Error("Escolha pelo menos um scope (read e/ou write).");
+      const { data, error } = await enterpriseService.createApiKey(trimmed, scopes);
       if (error) throw new Error(error);
       return data!;
     },
@@ -65,16 +82,20 @@ export function EnterpriseApiKeysPanel() {
   const copyKey = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Chave copiada.");
+      toast.success("Copiado.");
     } catch {
       toast.error("Não foi possível copiar.");
     }
   };
 
+  const curlExample = createdPlain
+    ? `curl -sS -H "Authorization: Bearer ${createdPlain}" \\\n  "${apiBase}/analytics/funnel"`
+    : `curl -sS -H "Authorization: Bearer ck_live_…" \\\n  "${apiBase}/analytics/dashboard"`;
+
   return (
     <ProPanel
       title="API keys (B2B)"
-      description="Chaves para integrações server-to-server. A chave completa só é mostrada no momento da criação."
+      description="Integrações server-to-server. Scopes: read = GET (dashboard, funil, campanhas, rotadores, presells); write = criar/editar. Gestão de chaves e MFA só na sessão da app."
     >
       <div className="space-y-4 px-4 pb-4">
         {createdPlain ? (
@@ -85,35 +106,76 @@ export function EnterpriseApiKeysPanel() {
             </code>
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="secondary" className="gap-1" onClick={() => void copyKey(createdPlain)}>
-                <Copy className="h-3.5 w-3.5" /> Copiar
+                <Copy className="h-3.5 w-3.5" /> Copiar chave
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setCreatedPlain(null)}>
                 Fechar aviso
               </Button>
             </div>
+            <div className="space-y-1 pt-1">
+              <p className="text-[11px] text-muted-foreground">Exemplo (funil):</p>
+              <pre className="overflow-x-auto rounded border border-border/60 bg-background/80 p-2 text-[10px] font-mono leading-relaxed whitespace-pre-wrap">
+                {curlExample}
+              </pre>
+              <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => void copyKey(curlExample)}>
+                <Copy className="h-3.5 w-3.5" /> Copiar curl
+              </Button>
+            </div>
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="space-y-1.5 flex-1">
-            <Label htmlFor="api-key-name">Nome</Label>
-            <Input
-              id="api-key-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: CRM produção"
-              maxLength={80}
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="space-y-1.5 flex-1">
+              <Label htmlFor="api-key-name">Nome</Label>
+              <Input
+                id="api-key-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex.: CRM produção"
+                maxLength={80}
+              />
+            </div>
+            <Button
+              type="button"
+              className="gap-1.5 shrink-0"
+              disabled={createMut.isPending || !name.trim() || (!scopeRead && !scopeWrite)}
+              onClick={() => createMut.mutate()}
+            >
+              {createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Criar chave
+            </Button>
           </div>
-          <Button
-            type="button"
-            className="gap-1.5 shrink-0"
-            disabled={createMut.isPending || !name.trim()}
-            onClick={() => createMut.mutate()}
-          >
-            {createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Criar chave
-          </Button>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <Checkbox checked={scopeRead} onCheckedChange={(v) => setScopeRead(v === true)} />
+              <span>
+                <span className="font-medium">read</span>
+                <span className="text-muted-foreground text-xs ml-1">GET analytics / campanhas / rotadores</span>
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <Checkbox checked={scopeWrite} onCheckedChange={(v) => setScopeWrite(v === true)} />
+              <span>
+                <span className="font-medium">write</span>
+                <span className="text-muted-foreground text-xs ml-1">POST/PATCH/DELETE (inclui read)</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 space-y-1.5">
+          <p className="text-[11px] font-medium text-foreground">Endpoints com API key</p>
+          <ul className="text-[11px] text-muted-foreground space-y-0.5 font-mono">
+            <li>GET {apiBase}/analytics/dashboard</li>
+            <li>GET {apiBase}/analytics/funnel</li>
+            <li>GET {apiBase}/campaigns</li>
+            <li>GET {apiBase}/traffic-rotators</li>
+            <li>GET {apiBase}/presells</li>
+          </ul>
+          <p className="text-[10px] text-muted-foreground pt-1">
+            Header: <code className="font-mono">Authorization: Bearer ck_live_…</code>
+          </p>
         </div>
 
         {isLoading ? (
@@ -132,7 +194,7 @@ export function EnterpriseApiKeysPanel() {
                     {k.name}
                   </p>
                   <p className="text-[11px] text-muted-foreground font-mono">
-                    {k.key_prefix}… · {k.scopes.join(", ")} · criada {formatDate(k.created_at)}
+                    {k.key_prefix}… · {scopesLabel(k.scopes)} · criada {formatDate(k.created_at)}
                     {k.last_used_at ? ` · último uso ${formatDate(k.last_used_at)}` : ""}
                   </p>
                 </div>

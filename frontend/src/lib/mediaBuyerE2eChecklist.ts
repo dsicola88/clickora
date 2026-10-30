@@ -30,12 +30,24 @@ export const MEDIA_BUYER_E2E_CHECKLIST: MediaBuyerE2eStep[] = [
   {
     id: "smoke",
     label: "4. Smoke test pago pequeno",
-    detail: "1 anúncio com budget baixo → clique → relatório Situação Real → 1 conversão/postback.",
+    detail: "1 anúncio com budget baixo → clique → Situação Real em Relatórios → 1 conversão/postback.",
     href: "/resultados/relatorios/cliques",
   },
   {
+    id: "funnel",
+    label: "5. Funil + ROI",
+    detail: "Em Funil: impressão → clique → checkout → venda; split Pago / Ads sem ID / Orgânico; lucro só com custo do período.",
+    href: "/resultados/funil",
+  },
+  {
+    id: "rotators",
+    label: "6. A/B rotadores + ROI",
+    detail: "Em Resultados → Rotadores / Destinos: comparar braços com custo e retorno do período antes de promover o vencedor.",
+    href: "/resultados",
+  },
+  {
     id: "ivt",
-    label: "5. Cloud / IVT no Google Ads",
+    label: "7. Cloud / IVT no Google Ads",
     detail: "Em Relatórios → Cliques, copiar IPs Datacenter para exclusões de IP; pedir crédito IVT se aplicável.",
     href: "/resultados/relatorios/cliques",
   },

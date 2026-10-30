@@ -13,12 +13,19 @@ import { buildPendingDnsPayload } from "../lib/customDomainDnsPayload";
 import { refreshCustomDomainCache } from "../lib/customDomainCache";
 import {
   isVercelConfigured,
+  probeHostnameHttps,
   vercelAddProjectDomain,
   vercelCnameHint,
+  vercelGetProjectDomain,
   vercelRemoveProjectDomain,
   vercelVerifyProjectDomain,
   type VercelVerificationChallenge,
 } from "../lib/vercelProjectDomains";
+import {
+  resolveCustomDomainSslState,
+  sslStateLabelPt,
+  type CustomDomainSslLive,
+} from "../lib/customDomainSslState";
 import { resolveCustomDomainQuotaForUser } from "../lib/customDomainLimits";
 import {
   hostingCapablePurposeFilter,
@@ -26,21 +33,29 @@ import {
   trackingCapablePurposeFilter,
 } from "../lib/customDomainPurpose";
 
-function mapRow(d: {
-  id: string;
-  hostname: string;
-  verificationToken: string;
-  status: string;
-  verifiedAt: Date | null;
-  isDefault: boolean;
-  purpose?: string;
-  isDefaultTracking?: boolean;
-  rootPresellId: string | null;
-  vercelDomainRegistered: boolean;
-  vercelVerificationJson: Prisma.JsonValue | null;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
+function mapRow(
+  d: {
+    id: string;
+    hostname: string;
+    verificationToken: string;
+    status: string;
+    verifiedAt: Date | null;
+    isDefault: boolean;
+    purpose?: string;
+    isDefaultTracking?: boolean;
+    rootPresellId: string | null;
+    vercelDomainRegistered: boolean;
+    vercelVerificationJson: Prisma.JsonValue | null;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  live?: CustomDomainSslLive | null,
+) {
+  const ssl = resolveCustomDomainSslState({
+    status: d.status,
+    vercelDomainRegistered: d.vercelDomainRegistered,
+    live: live ?? null,
+  });
   const base: Record<string, unknown> = {
     id: d.id,
     hostname: d.hostname,
@@ -53,6 +68,9 @@ function mapRow(d: {
     root_presell_id: d.rootPresellId ?? null,
     vercel_domain_registered: d.vercelDomainRegistered,
     vercel_verification: (d.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? null,
+    ssl_state: ssl.ssl_state,
+    https_ready: ssl.https_ready,
+    ssl_label: sslStateLabelPt(ssl.ssl_state),
     created_at: d.createdAt.toISOString(),
     updated_at: d.updatedAt.toISOString(),
   };
@@ -69,6 +87,28 @@ function mapRow(d: {
     base.hosting_dns_hint = vercelCnameHint(d.hostname);
   }
   return base;
+}
+
+async function liveSslForDomain(row: {
+  status: string;
+  hostname: string;
+  vercelDomainRegistered: boolean;
+}): Promise<CustomDomainSslLive | null> {
+  if (row.status !== "verified" || !row.vercelDomainRegistered || !isVercelConfigured()) {
+    return null;
+  }
+  const [v, httpsReachable] = await Promise.all([
+    vercelGetProjectDomain(row.hostname),
+    probeHostnameHttps(row.hostname),
+  ]);
+  if (!v.ok) {
+    return { httpsReachable, vercelVerified: null, vercelMisconfigured: null };
+  }
+  return {
+    vercelVerified: v.verified,
+    vercelMisconfigured: v.misconfigured,
+    httpsReachable,
+  };
 }
 
 /** Garante no máximo um `is_default` lander (nunca purpose=tracking). */
@@ -128,7 +168,22 @@ export const customDomainController = {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
-    return res.json(rows.map(mapRow));
+    // Lista sem probe live (rápido); ssl_state sintético. Use GET …/go-live para HTTPS pronto.
+    return res.json(rows.map((r) => mapRow(r)));
+  },
+
+  /**
+   * Go-live / SSL: consulta Vercel + probe HTTPS.
+   * A UI deve fazer poll enquanto `ssl_state === ssl_provisioning`.
+   */
+  async goLive(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const id = req.params.id?.trim();
+    if (!id) return res.status(400).json({ error: "id em falta" });
+    const row = await prisma.customDomain.findFirst({ where: { id, userId } });
+    if (!row) return res.status(404).json({ error: "Domínio não encontrado" });
+    const live = await liveSslForDomain(row);
+    return res.json(mapRow(row, live));
   },
 
   async quota(req: Request, res: Response) {
@@ -246,7 +301,8 @@ export const customDomainController = {
     if (!row) return res.status(404).json({ error: "Domínio não encontrado." });
     if (row.status === "verified") {
       await refreshCustomDomainCache();
-      return res.json({ verified: true, ...mapRow(row) });
+      const live = await liveSslForDomain(row);
+      return res.json({ verified: true, ...mapRow(row, live) });
     }
 
     if (row.vercelDomainRegistered) {
@@ -268,7 +324,8 @@ export const customDomainController = {
           (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
 
         await refreshCustomDomainCache();
-        return res.json({ verified: true, ...mapRow(out) });
+        const live = await liveSslForDomain(out);
+        return res.json({ verified: true, ...mapRow(out, live) });
       }
 
       if (!vr.ok) {

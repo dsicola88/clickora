@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 const baseLayout =
   "group relative inline-flex w-full max-w-[min(100%,22rem)] sm:max-w-xl md:max-w-2xl min-h-[3.25rem] sm:min-h-14 items-center justify-center gap-2.5 sm:gap-3 rounded-2xl px-5 sm:px-10 md:px-12 py-3.5 sm:py-4 text-center text-[0.95rem] sm:text-lg md:text-xl font-extrabold leading-snug tracking-tight shadow-2xl transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 active:scale-[0.985] touch-manipulation text-balance";
 
+/** `gradient-primary` por defeito; com `--tenant-primary` no ancestral usa a cor white-label. */
 const surfaceLight =
-  "gradient-primary text-primary-foreground shadow-[0_10px_40px_-10px_hsl(172_66%_38%_/_0.55),0_0_0_1px_hsl(0_0%_100%_/_0.12)_inset] ring-2 ring-primary/20 hover:brightness-[1.08] hover:shadow-[0_14px_44px_-8px_hsl(28_92%_48%_/_0.45)] hover:-translate-y-0.5 focus-visible:ring-primary/50 focus-visible:ring-offset-background";
+  "bg-[var(--tenant-primary,hsl(var(--primary)))] text-[var(--tenant-primary-fg,hsl(var(--primary-foreground)))] shadow-[0_10px_40px_-10px_color-mix(in_srgb,var(--tenant-primary,hsl(172_66%_38%))_55%,transparent),0_0_0_1px_hsl(0_0%_100%_/_0.12)_inset] ring-2 ring-[color-mix(in_srgb,var(--tenant-accent,var(--tenant-primary,hsl(var(--primary))))_35%,transparent)] hover:brightness-[1.08] hover:-translate-y-0.5 focus-visible:ring-[var(--tenant-accent,hsl(var(--primary)/0.5))] focus-visible:ring-offset-background";
 
 const surfaceDark =
   "bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-white shadow-[0_12px_44px_-10px_rgba(251,146,60,0.55),0_0_0_1px_rgba(255,255,255,0.2)_inset] ring-2 ring-white/30 hover:brightness-[1.06] hover:shadow-[0_16px_48px_-8px_rgba(249,115,22,0.55)] hover:-translate-y-0.5 focus-visible:ring-amber-300/80 focus-visible:ring-offset-slate-950";

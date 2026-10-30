@@ -17,6 +17,7 @@ import {
   resolvePendingDnsForDisplay,
 } from "@/lib/customDomainDnsDisplay";
 import { CustomDomainDnsTable } from "@/components/settings/CustomDomainDnsTable";
+import { CustomDomainSslBadge } from "@/components/settings/CustomDomainSslBadge";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 
 export function CustomDomainSettings() {
@@ -201,9 +202,10 @@ export function CustomDomainSettings() {
             Adicione vários domínios (um por campanha ou marca). Os <strong className="text-foreground font-medium">valores
             para copiar no DNS</strong> (TXT e, com Vercel, CNAME/A) aparecem{" "}
             <strong className="text-foreground font-medium">dentro do cartão</strong> de cada domínio enquanto o estado for{" "}
-            <strong className="text-foreground font-medium">Pendente</strong>. Depois de «Verificado», o cartão mostra só
-            referência de apontamento (se aplicável) e a presell na raiz. Com integração Vercel no servidor, o hostname é
-            registado no projeto do site. Sem Vercel, a verificação é com{" "}
+            <strong className="text-foreground font-medium">Pendente</strong>. Depois de «DNS verificado», o cartão
+            mostra o estado SSL (a provisionar → HTTPS pronto), a referência de apontamento (se aplicável) e a
+            presell na raiz. Com integração Vercel no servidor, o hostname é registado no projeto do site. Sem
+            Vercel, a verificação é com{" "}
             <strong className="text-foreground font-medium">um registo TXT</strong> (nome e valor no cartão pendente). O
             domínio padrão aplica-se às presells que não escolhem outro.
           </p>
@@ -308,8 +310,11 @@ export function CustomDomainSettings() {
                           : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                       }`}
                     >
-                      {normalizeDomainStatus(d.status) === "verified" ? "Verificado" : "Pendente"}
+                      {normalizeDomainStatus(d.status) === "verified" ? "DNS verificado" : "Pendente"}
                     </span>
+                    {normalizeDomainStatus(d.status) === "verified" ? (
+                      <CustomDomainSslBadge domain={d} tenantKey={tenantKey} />
+                    ) : null}
                     {normalizeDomainStatus(d.status) === "verified" && d.is_default && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> Padrão lander

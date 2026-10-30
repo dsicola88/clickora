@@ -137,6 +137,8 @@ export const analyticsService = {
     from?: string;
     to?: string;
     limit?: number;
+    /** Relatórios Situação: incluir bots + cloud (exclude_from_kpi). KPIs continuam a excluir. */
+    include_bots?: boolean;
   }) {
     const query = new URLSearchParams();
     if (params?.event_type) query.set("event_type", params.event_type);
@@ -146,6 +148,7 @@ export const analyticsService = {
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.include_bots) query.set("include_bots", "1");
     const qs = query.toString();
     return apiClient.get<TrackingEvent[]>(`/analytics/events${qs ? `?${qs}` : ""}`);
   },
@@ -161,6 +164,8 @@ export const analyticsService = {
     to?: string;
     limit?: number;
     mergeAllPages?: boolean;
+    /** Relatórios: incluir bots + cloud no CSV (coluna situacao). */
+    include_bots?: boolean;
   }): Promise<{
     data: Blob | null;
     filename: string | null;
@@ -176,6 +181,7 @@ export const analyticsService = {
       if (params?.presell_id) query.set("presell_id", params.presell_id);
       if (params?.from) query.set("from", params.from);
       if (params?.to) query.set("to", params.to);
+      if (params?.include_bots) query.set("include_bots", "1");
       query.set("limit", String(pageLimit));
       const qs = query.toString();
       const r = await apiClient.getBlob(`/analytics/events?${qs}`);
@@ -193,6 +199,7 @@ export const analyticsService = {
       if (params?.presell_id) query.set("presell_id", params.presell_id);
       if (params?.from) query.set("from", params.from);
       if (params?.to) query.set("to", params.to);
+      if (params?.include_bots) query.set("include_bots", "1");
       query.set("limit", String(pageLimit));
       if (cursor) query.set("cursor", cursor);
 
@@ -320,6 +327,87 @@ export const analyticsService = {
         gclid: string | null;
       }>
     >(`/analytics/conversions${qs ? `?${qs}` : ""}`);
+  },
+
+  async getFunnel(params?: { from?: string; to?: string; keyword?: string }) {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    if (params?.keyword && params.keyword !== "all") query.set("keyword", params.keyword);
+    const qs = query.toString();
+    return apiClient.get<{
+      period: { from: string; to: string; timezone: string };
+      filter: { keyword: string | null };
+      stages: Array<{
+        id: "impressions" | "clicks" | "checkouts" | "sales";
+        label: string;
+        count: number;
+        rate_from_previous: number | null;
+        rate_from_top: number | null;
+      }>;
+      series: Array<{
+        date: string;
+        impressions: number;
+        clicks: number;
+        checkouts: number;
+        sales: number;
+        paid_sales: number;
+        paid_untracked_sales: number;
+        organic_sales: number;
+      }>;
+      traffic: {
+        paid_sales: number;
+        paid_untracked_sales: number;
+        organic_sales: number;
+        paid_revenue: number;
+        paid_untracked_revenue: number;
+        organic_revenue: number;
+        paid_pct: number | null;
+        paid_untracked_pct: number | null;
+        organic_pct: number | null;
+      };
+      roi: {
+        spend: number | null;
+        spend_source: "persisted" | "keyword" | "none";
+        spend_currency: string | null;
+        revenue: number;
+        profit: number | null;
+        roi_pct: number | null;
+        roas: number | null;
+        cpa: number | null;
+        epc: number | null;
+        conversion_rate: number;
+      };
+      alerts?: Array<{
+        code: string;
+        severity: "critical" | "warning" | "info";
+        title: string;
+        detail: string;
+      }>;
+      keywords: Array<{
+        keyword: string;
+        clicks: number;
+        checkouts: number;
+        sales: number;
+        revenue: number;
+        cost: number | null;
+        profit: number | null;
+        roas: number | null;
+        roi_pct: number | null;
+        epc: number | null;
+        cvr: number | null;
+      }>;
+      definitions: {
+        impressions: string;
+        clicks: string;
+        checkouts: string;
+        sales: string;
+        paid: string;
+        paid_untracked: string;
+        organic: string;
+        kpi_noise: string;
+      };
+    }>(`/analytics/funnel${qs ? `?${qs}` : ""}`);
   },
 
   async getDashboard(params?: {
@@ -473,6 +561,9 @@ export const analyticsService = {
         clicks: number;
         sales: number;
         revenue: number;
+        cost?: number | null;
+        profit?: number | null;
+        roas?: number | null;
         epc: number | null;
         cvr: number | null;
       }>;
@@ -483,6 +574,9 @@ export const analyticsService = {
         clicks: number;
         sales: number;
         revenue: number;
+        cost?: number | null;
+        profit?: number | null;
+        roas?: number | null;
         epc: number | null;
         cvr: number | null;
       }>;

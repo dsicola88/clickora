@@ -163,6 +163,9 @@ const EXPORT_STYLES = `
 .pe-footnote{font-size:.8rem;color:#64748b;margin:.75rem auto 0;max-width:28rem;line-height:1.6;}
 .pe-footer-branding{font-size:.7rem;color:#94a3b8;margin:.75rem auto 0;max-width:28rem;line-height:1.5;padding-top:.75rem;border-top:1px solid rgba(0,0,0,.08);}
 .pe-footer-branding a{color:#475569;font-weight:500;}
+.pe-tenant-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.75rem;font-size:.7rem;color:#64748b;}
+.pe-tenant-logo{height:1.25rem;width:auto;max-width:7rem;object-fit:contain;opacity:.9;}
+.pe-root[data-tenant-wl="1"] .pe-cta--light{background:var(--tenant-primary,linear-gradient(135deg,hsl(172,66%,38%),hsl(28,92%,48%)));color:var(--tenant-primary-fg,#fff);border-color:color-mix(in srgb,var(--tenant-accent,var(--tenant-primary,#14b8a6)) 35%,transparent);}
 .pe-gate-box{width:100%;max-width:32rem;margin:0 auto 1.5rem;padding:1.25rem;border-radius:.75rem;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.8);text-align:left;box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .pe-gate-box > p:first-child{font-size:.875rem;font-weight:600;margin:0 0 1rem;}
 .pe-gate-box label{display:block;font-size:.875rem;margin-bottom:.35rem;}
@@ -748,12 +751,43 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   const L = getPresellUiStrings(page.language);
   const brandingLine =
     page.footer_branding === true
-      ? `<p class="pe-footer-branding">${escapeHtml(L.footerBrandingPrefix)}<a href="https://www.dclickora.com" target="_blank" rel="noopener noreferrer">dclickora</a>${escapeHtml(L.footerBrandingSuffix)}</p>`
+      ? `<p class="pe-footer-branding" data-testid="platform-footer-branding">${escapeHtml(L.footerBrandingPrefix)}<a href="https://www.dclickora.com" target="_blank" rel="noopener noreferrer">dclickora</a>${escapeHtml(L.footerBrandingSuffix)}</p>`
       : "";
-  const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}</div></section>`;
+  const tenant = page.tenant_branding;
+  const tenantPrimary =
+    typeof tenant?.primary_color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(tenant.primary_color.trim())
+      ? tenant.primary_color.trim()
+      : "";
+  const tenantAccent =
+    typeof tenant?.accent_color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(tenant.accent_color.trim())
+      ? tenant.accent_color.trim()
+      : "";
+  const tenantLogo =
+    typeof tenant?.logo_url === "string" && /^https?:\/\//i.test(tenant.logo_url.trim())
+      ? tenant.logo_url.trim()
+      : "";
+  const tenantName =
+    typeof tenant?.brand_name === "string" && tenant.brand_name.trim()
+      ? tenant.brand_name.trim()
+      : "";
+  const tenantChrome =
+    tenantLogo || tenantName
+      ? `<div class="pe-tenant-brand" data-testid="tenant-brand-chrome">${
+          tenantLogo
+            ? `<img src="${escapeHtml(tenantLogo)}" alt="${escapeHtml(tenantName || "Brand")}" data-testid="tenant-brand-logo" class="pe-tenant-logo" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
+            : ""
+        }${tenantName ? `<span data-testid="tenant-brand-name">${escapeHtml(tenantName)}</span>` : ""}</div>`
+      : "";
+  const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}${tenantChrome}</div></section>`;
   const trustFooter = isGhost
     ? ""
     : buildTrustFooterExportHtml(page.language, settings, content);
+  const tenantRootStyle = [
+    tenantPrimary ? `--tenant-primary:${tenantPrimary};--tenant-primary-fg:#FFFFFF` : "",
+    tenantAccent ? `--tenant-accent:${tenantAccent}` : "",
+  ]
+    .filter(Boolean)
+    .join(";");
 
   let core = "";
   if (gateKind === "cookies") {
@@ -797,7 +831,9 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const inner =
     `<!-- Presell Clickora — mesmo layout que a página pública. Link: ${escapeHtml(opts.publicPageUrl)} -->
-<div class="pe-root pe-presell-export pe-minh" data-pe-presell-root="true">` +
+<div class="pe-root pe-presell-export pe-minh" data-pe-presell-root="true"${
+      tenantRootStyle ? ` style="${escapeAttr(tenantRootStyle)}" data-tenant-wl="1"` : ""
+    }>` +
     core +
     gateScript +
     ghostScript +
@@ -873,7 +909,11 @@ ${faviconAbs ? `<link rel="icon" href="${escapeAttr(faviconAbs)}" />\n<link rel=
 <meta property="og:title" content="${escapeHtml(docTitle)}" />
 <meta property="og:description" content="${escapeHtml(metaDesc)}" />
 <meta property="og:url" content="${escapeAttr(exportCanonical)}" />
-<meta property="og:locale" content="pt_BR" />
+${
+  typeof page.tenant_branding?.brand_name === "string" && page.tenant_branding.brand_name.trim()
+    ? `<meta property="og:site_name" content="${escapeHtml(page.tenant_branding.brand_name.trim())}" />\n`
+    : ""
+}<meta property="og:locale" content="pt_BR" />
 ${ogImageAbs ? `<meta property="og:image" content="${escapeAttr(ogImageAbs)}" />\n` : ""}<meta name="twitter:card" content="${escapeAttr(twitterCardExport)}" />
 <meta name="twitter:title" content="${escapeHtml(docTitle)}" />
 <meta name="twitter:description" content="${escapeHtml(metaDesc)}" />

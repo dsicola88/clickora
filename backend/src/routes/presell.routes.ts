@@ -2,7 +2,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import multer from "multer";
 import { presellController } from "../controllers/presell.controller";
 import { presellComplianceController } from "../controllers/presellCompliance.controller";
-import { authenticate } from "../middleware/authenticate";
+import { authenticateJwtOrApiKey } from "../middleware/authenticateJwtOrApiKey";
+import { enforceApiKeyHttpScope } from "../middleware/requireApiKeyScope";
 import { tenantIsolation } from "../middleware/tenantIsolation";
 import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 import { presellBuilderMediaUpload } from "../lib/presellBuilderMediaUpload";
@@ -10,7 +11,12 @@ import { complianceAuditLimiter } from "../middleware/rateLimiters";
 
 export const presellRouter = Router();
 
-presellRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
+presellRouter.use(
+  authenticateJwtOrApiKey,
+  enforceApiKeyHttpScope,
+  tenantIsolation,
+  requireActiveSubscription,
+);
 
 function handleBuilderMediaUpload(req: Request, res: Response, next: NextFunction) {
   presellBuilderMediaUpload.single("image")(req, res, (err: unknown) => {

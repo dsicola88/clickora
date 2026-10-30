@@ -293,10 +293,10 @@ export default function ResultsOverviewPage() {
       clicks: r.clicks,
       sales: r.sales,
       revenue: r.revenue,
-      cost: null,
-      profit: null,
-      roas: null,
-      roi: null,
+      cost: r.cost ?? null,
+      profit: r.profit ?? null,
+      roas: r.roas ?? null,
+      roi: roiOf(r.profit ?? null, r.cost ?? null),
       epc: r.epc,
       cvr: r.cvr,
     }));
@@ -310,10 +310,10 @@ export default function ResultsOverviewPage() {
       clicks: r.clicks,
       sales: r.sales,
       revenue: r.revenue,
-      cost: null,
-      profit: null,
-      roas: null,
-      roi: null,
+      cost: r.cost ?? null,
+      profit: r.profit ?? null,
+      roas: r.roas ?? null,
+      roi: roiOf(r.profit ?? null, r.cost ?? null),
       epc: r.epc,
       cvr: r.cvr,
       max_clicks: r.max_clicks,
@@ -404,8 +404,10 @@ export default function ResultsOverviewPage() {
     countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
     devices: "Dispositivo do clique. O custo não é dividido por dispositivo.",
     sources: "Origem do clique, por exemplo Google Ads.",
-    rotators: "Cliques raiz por rotador (sem dobrar o hop da lander). Vendas atribuídas via click ID ou filhos.",
-    arms: "Destinos do rotador no período. Limite = quantos cliques já usaram o máximo definido.",
+    rotators:
+      "Cliques raiz por rotador (sem dobrar o hop da lander). Custo = fatia do gasto do período proporcional aos cliques do rotador.",
+    arms:
+      "Destinos do rotador no período. Custo proporcional aos cliques do braço; limite = uso do máximo definido.",
   };
 
   const exportCsv = () => {
@@ -497,11 +499,18 @@ export default function ResultsOverviewPage() {
           </>
         }
         actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/resultados/relatorios/acessos">
-              Eventos <ArrowRight className="ml-1 h-3.5 w-3.5" />
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/resultados/funil">
+                Funil <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/resultados/relatorios/acessos">
+                Eventos <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
         }
       />
 

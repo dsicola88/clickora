@@ -71,3 +71,29 @@ test("info quando não há gasto", () => {
   });
   assert.ok(alerts.some((a) => a.code === "no_spend"));
 });
+
+test("alerta checkouts sem vendas", () => {
+  const alerts = buildMediaBuyerAlerts({
+    clicks: 40,
+    conversions: 0,
+    revenue: 0,
+    spend: null,
+    spendSource: "none",
+    checkouts: 12,
+  });
+  assert.ok(alerts.some((a) => a.code === "checkout_no_sales"));
+});
+
+test("alerta muitas vendas Ads sem ID de clique", () => {
+  const alerts = buildMediaBuyerAlerts({
+    clicks: 20,
+    conversions: 10,
+    revenue: 200,
+    spend: 50,
+    spendSource: "persisted",
+    paidSales: 2,
+    paidUntrackedSales: 6,
+    organicSales: 2,
+  });
+  assert.ok(alerts.some((a) => a.code === "high_paid_untracked"));
+});

@@ -93,12 +93,14 @@ export function normalizeVercelVerificationChallenges(raw: unknown): VercelVerif
 function parseProjectDomainBody(data: unknown): {
   verified: boolean;
   verification: VercelVerificationChallenge[];
+  misconfigured: boolean;
 } | null {
   const d = unwrapProjectDomainPayload(data);
   if (!d) return null;
   const verified = typeof d.verified === "boolean" ? d.verified : Boolean(d.verified);
   const verification = normalizeVercelVerificationChallenges(d.verification);
-  return { verified, verification };
+  const misconfigured = d.misconfigured === true;
+  return { verified, verification, misconfigured };
 }
 
 /**
@@ -106,7 +108,12 @@ function parseProjectDomainBody(data: unknown): {
  * Usado quando o POST de «adicionar» falha mas o hostname já foi registado (retry / falha parcial).
  */
 async function vercelFetchProjectDomain(hostname: string): Promise<
-  | { ok: true; verified: boolean; verification: VercelVerificationChallenge[] }
+  | {
+      ok: true;
+      verified: boolean;
+      verification: VercelVerificationChallenge[];
+      misconfigured: boolean;
+    }
   | { ok: false; status: number; error?: string }
 > {
   const url = `${projectBaseV9()}/domains/${encodeURIComponent(hostname)}${teamQuery()}`;
@@ -137,7 +144,49 @@ async function vercelFetchProjectDomain(hostname: string): Promise<
   if (!parsed) {
     return { ok: false, status: res.status, error: "Resposta inválida da Vercel ao ler o domínio." };
   }
-  return { ok: true, verified: parsed.verified, verification: parsed.verification };
+  return {
+    ok: true,
+    verified: parsed.verified,
+    verification: parsed.verification,
+    misconfigured: parsed.misconfigured,
+  };
+}
+
+/** Estado live do domínio no projeto (para go-live / SSL). */
+export async function vercelGetProjectDomain(hostname: string): Promise<
+  | {
+      ok: true;
+      verified: boolean;
+      verification: VercelVerificationChallenge[];
+      misconfigured: boolean;
+    }
+  | { ok: false; status: number; error?: string }
+> {
+  if (!isVercelConfigured()) {
+    return { ok: false, status: 0, error: "Integração Vercel não configurada." };
+  }
+  return vercelFetchProjectDomain(hostname);
+}
+
+/** Probe HTTPS leve (edge alcançável). Não exige 200 — 3xx/4xx também contam. */
+export async function probeHostnameHttps(hostname: string): Promise<boolean> {
+  const host = hostname.trim().toLowerCase();
+  if (!host) return false;
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 8_000);
+  try {
+    const res = await fetch(`https://${host}/`, {
+      method: "GET",
+      redirect: "manual",
+      signal: ac.signal,
+      headers: { "User-Agent": "dclickora-ssl-probe/1" },
+    });
+    return res.status >= 200 && res.status < 500;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 function vercelCreateErrorMessage(

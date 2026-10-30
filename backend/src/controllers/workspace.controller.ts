@@ -12,6 +12,9 @@ import {
   workspaceCanWriteRotators,
 } from "../lib/rbac";
 import { resolveWorkspaceIdForRequest, loadActorWorkspaceMember } from "../lib/workspaceRequest";
+import { resolveWorkspaceSessionForSwitch } from "../lib/workspaceSession";
+import { signToken } from "../lib/jwt";
+import { serializeUser } from "./auth.controller";
 
 const addMemberSchema = z.object({
   email: z.string().trim().email(),
@@ -53,6 +56,7 @@ export const workspaceController = {
 
   async listMine(req: Request, res: Response) {
     const actor = actorUserId(req);
+    const activeId = req.user?.workspaceId ?? null;
     const rows = await systemPrisma.workspaceMember.findMany({
       where: { userId: actor },
       include: {
@@ -66,9 +70,70 @@ export const workspaceController = {
         name: r.workspace.name,
         owner_user_id: r.workspace.ownerUserId,
         role: r.role,
+        is_active: activeId != null && r.workspace.id === activeId,
         created_at: r.workspace.createdAt.toISOString(),
       })),
     );
+  },
+
+  /**
+   * Troca o workspace activo e reemite JWT (tenant = dono do workspace).
+   * Só membros; sem criar workspaces extra (ownerUserId continua único).
+   */
+  async switchWorkspace(req: Request, res: Response) {
+    const wid = req.params.workspaceId?.trim();
+    if (!wid) return res.status(400).json({ error: "workspaceId em falta" });
+    const actor = actorUserId(req);
+    const sess = await resolveWorkspaceSessionForSwitch(actor, wid);
+    if (!sess) {
+      return res.status(403).json({ error: "Sem acesso a este workspace.", code: "workspace_forbidden" });
+    }
+
+    const user = await systemPrisma.user.findUnique({
+      where: { id: actor },
+      include: { roles: true, subscription: { include: { plan: true } } },
+    });
+    if (!user) return res.status(401).json({ error: "Utilizador não encontrado" });
+
+    const billing = await systemPrisma.user.findUnique({
+      where: { id: sess.tenantUserId },
+      include: { subscription: { include: { plan: true } }, roles: true },
+    });
+    const ws = await systemPrisma.workspace.findUnique({
+      where: { id: sess.workspaceId },
+      select: { name: true },
+    });
+
+    const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      tenantUserId: sess.tenantUserId,
+      workspaceId: sess.workspaceId,
+      workspaceRole: sess.workspaceRole,
+      workspacePermissions: sess.workspacePermissions,
+      purpose: "session",
+    });
+
+    await appendWorkspaceAuditLog({
+      workspaceId: sess.workspaceId,
+      actorUserId: actor,
+      action: "workspace.switched",
+      resourceType: "workspace",
+      resourceId: sess.workspaceId,
+    });
+
+    res.json({
+      token,
+      user: serializeUser(user, req, {
+        tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceName: ws?.name ?? null,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+        planSource: isPlatformAdmin ? user : billing ?? user,
+      }),
+    });
   },
 
   async audit(req: Request, res: Response) {

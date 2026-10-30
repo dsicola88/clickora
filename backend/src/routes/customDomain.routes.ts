@@ -10,6 +10,7 @@ customDomainRouter.use(authenticate, tenantIsolation);
 customDomainRouter.get("/", customDomainController.list);
 customDomainRouter.get("/quota", customDomainController.quota);
 customDomainRouter.post("/", customDomainController.create);
+customDomainRouter.get("/:id/go-live", customDomainController.goLive);
 customDomainRouter.post("/:id/verify", customDomainController.verify);
 customDomainRouter.patch("/:id/default", customDomainController.setDefault);
 customDomainRouter.patch("/:id/purpose", customDomainController.setPurpose);

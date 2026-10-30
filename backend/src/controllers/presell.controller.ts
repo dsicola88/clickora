@@ -27,6 +27,7 @@ import {
   buildCloakSafePublicPayload,
   shouldServeCloakSafePage,
 } from "../lib/presellEnterpriseCloak";
+import { resolvePublicFooterBranding } from "../lib/publicFooterBranding";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { preferredTrackApiBaseForUser } from "../lib/publicApiBase";
 import { extractClientIp } from "../lib/clientIp";
@@ -942,8 +943,10 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
     }),
     preferredTrackApiBaseForUser(page.userId),
   ]);
-  const hidePlatform = branding?.hidePoweredBy === true && plan?.hasBranding === false;
-  const footerBranding = hidePlatform ? false : (plan?.hasBranding ?? true);
+  const footerBranding = resolvePublicFooterBranding({
+    planHasBranding: plan?.hasBranding,
+    hidePoweredBy: branding?.hidePoweredBy,
+  });
   const base = mapPresell(page);
   return {
     ...base,

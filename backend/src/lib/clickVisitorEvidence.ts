@@ -103,3 +103,24 @@ export function resolveClickVisitorEvidence(input: {
     evidence: "none",
   };
 }
+
+/**
+ * Etiqueta Situação alinhada ao frontend `resolveClickVisitorQuality`.
+ * Usada no CSV e em contratos E2E — não inventa estado.
+ */
+export function situationLabelFromEvidence(
+  ev: Pick<ClickVisitorEvidence, "is_bot" | "bot_label" | "unqualified" | "ip_network">,
+): string {
+  if (ev.unqualified) {
+    const net = (ev.ip_network || "").trim();
+    return net ? `Datacenter (${net})` : "Datacenter";
+  }
+  if (ev.is_bot) {
+    const bot = (ev.bot_label || "").trim();
+    const isGoogle =
+      /google/i.test(bot) || /adsbot|inspectiontool|googlebot|mediapartners/i.test(bot);
+    if (isGoogle) return bot ? `Crawler Google (${bot})` : "Crawler Google";
+    return bot ? `Bot (${bot})` : "Bot";
+  }
+  return "Real";
+}

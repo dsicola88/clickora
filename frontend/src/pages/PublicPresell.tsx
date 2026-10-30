@@ -83,11 +83,18 @@ import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
+import { PresellPlatformCredit } from "@/components/presell/PresellPlatformCredit";
+import { PresellTenantBrandChrome } from "@/components/presell/PresellTenantBrandChrome";
 import { presellComplianceLanguage } from "@/lib/presellPublicComplianceCopy";
 import { PresellTypeFrame } from "@/components/presell/PresellTypeFrame";
 import { PresellHealthArticle } from "@/components/presell/PresellHealthArticle";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
+import {
+  readPublicTenantBranding,
+  shouldShowPlatformFooterBranding,
+  tenantBrandingCssVars,
+} from "@/lib/tenantBrandingPublic";
 
 function queryParam(search: URLSearchParams, key: string) {
   return search.get(key) || undefined;
@@ -1011,6 +1018,9 @@ export default function PublicPresell() {
     settings: settings as Record<string, unknown>,
     contentPolicyUrls,
   };
+  const tenantBranding = readPublicTenantBranding(page);
+  const tenantCssVars = tenantBrandingCssVars(tenantBranding);
+  const showPlatformCredit = shouldShowPlatformFooterBranding(page);
 
   const primarySeoLabel = getPresellSeoPrimaryTitle(page);
 
@@ -1140,7 +1150,11 @@ export default function PublicPresell() {
     );
     return (
       <PresellPublicLocaleProvider language={uiLang}>
-      <div className="min-h-screen bg-background pb-12">
+      <div
+        className="min-h-screen bg-background pb-12"
+        data-tenant-wl={tenantBranding ? "1" : undefined}
+        style={tenantCssVars}
+      >
         <PresellMarketingOverlays
           pageId={page.id}
           settings={settings}
@@ -1166,6 +1180,8 @@ export default function PublicPresell() {
           />
         </Suspense>
         <PresellTrustFooter language={complianceLang} {...footerSettingsProps} />
+        {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
+        {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </div>
       </PresellPublicLocaleProvider>
     );
@@ -1253,6 +1269,8 @@ export default function PublicPresell() {
                 : undefined
           }
         />
+        {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
+        {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </>
     );
     return (
@@ -1261,6 +1279,8 @@ export default function PublicPresell() {
           className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-0 ${
             generationNiche === "black" ? "bg-slate-50" : "bg-white pb-12"
           }`}
+          data-tenant-wl={tenantBranding ? "1" : undefined}
+          style={tenantCssVars}
         >
           <PresellMarketingOverlays
             pageId={page.id}
@@ -1971,6 +1991,8 @@ export default function PublicPresell() {
         }
         tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
       />
+      {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
+      {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
     </>
   );
 
@@ -1980,6 +2002,8 @@ export default function PublicPresell() {
         "min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-12",
         showImportedMirror || storefrontMirrorLightBody ? "bg-white" : "bg-background",
       )}
+      data-tenant-wl={tenantBranding ? "1" : undefined}
+      style={tenantCssVars}
     >
       <PresellMarketingOverlays
         pageId={page.id}

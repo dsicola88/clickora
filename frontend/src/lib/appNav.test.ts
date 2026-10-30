@@ -31,11 +31,20 @@ describe("appNav", () => {
     expect(isAppNavActive("/resultados", "/resultados", true)).toBe(true);
     expect(isAppNavActive("/resultados", "/resultados/relatorios", true)).toBe(false);
 
+    expect(isAppNavActive("/resultados/funil", "/resultados/funil", true)).toBe(true);
+    expect(isAppNavActive("/resultados", "/resultados/funil", true)).toBe(false);
+
     expect(isAppNavActive("/resultados/relatorios", "/resultados/relatorios/acessos")).toBe(true);
     expect(isAppNavActive("/resultados/relatorios", "/resultados/relatorios/conversoes")).toBe(false);
     expect(isAppNavActive("/resultados/relatorios/conversoes", "/resultados/relatorios/conversoes", true)).toBe(
       true,
     );
+  });
+
+  it("pesquisa encontra Funil", () => {
+    const funil = APP_NAV_ITEMS.find((i) => i.url === "/resultados/funil");
+    expect(funil && appNavMatchesQuery(funil, "funnel")).toBe(true);
+    expect(funil && appNavMatchesQuery(funil, "checkout")).toBe(true);
   });
 
   it("sidebar omite itens avançados; inclui staff só quando pedido", () => {

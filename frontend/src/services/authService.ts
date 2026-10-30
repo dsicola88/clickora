@@ -13,7 +13,14 @@ function persistSession(data: AuthResponse) {
   localStorage.setItem("clickora_user", JSON.stringify(data.user));
 }
 
+function persistTokenAndUser(token: string, user: User) {
+  apiClient.setToken(token);
+  localStorage.setItem("clickora_user", JSON.stringify(user));
+}
+
 export const authService = {
+  persistTokenAndUser,
+
   async loginWithGoogle(idToken: string) {
     const result = await apiClient.post<AuthResponse>("/auth/google", { id_token: idToken });
     if (result.data?.token) {

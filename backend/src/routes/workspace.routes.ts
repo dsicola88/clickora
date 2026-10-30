@@ -9,6 +9,7 @@ export const workspaceRouter = Router();
 workspaceRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
 
 workspaceRouter.get("/", workspaceController.listMine);
+workspaceRouter.post("/:workspaceId/switch", workspaceController.switchWorkspace);
 workspaceRouter.get("/:workspaceId/members", workspaceController.listMembers);
 workspaceRouter.patch("/:workspaceId/members/:userId", workspaceController.patchMemberPermissions);
 workspaceRouter.get("/:workspaceId/audit", workspaceController.audit);

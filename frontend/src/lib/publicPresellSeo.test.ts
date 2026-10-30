@@ -59,4 +59,14 @@ describe("favicon público da presell", () => {
     );
     expect(href).toBe("https://visivra.net/apple-touch-icon.png");
   });
+
+  it("usa favicon white-label do tenant quando não há ícone da página", () => {
+    const p = page({ productImages: [] });
+    p.tenant_branding = {
+      brand_name: "Acme",
+      favicon_url: "https://cdn.example/tenant-icon.png",
+      logo_url: "https://cdn.example/logo.png",
+    };
+    expect(resolvePublicPresellFaviconUrl(p)).toBe("https://cdn.example/tenant-icon.png");
+  });
 });

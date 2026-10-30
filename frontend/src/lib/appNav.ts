@@ -104,6 +104,14 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["métricas", "metricas", "overview", "performance", "cliques"],
   },
   {
+    title: "Funil",
+    url: "/resultados/funil",
+    icon: LineChart,
+    group: "performance",
+    end: true,
+    keywords: ["funil", "funnel", "checkout", "roi", "pago", "organico", "orgânico", "etapas"],
+  },
+  {
     title: "Conversões",
     url: "/resultados/relatorios/conversoes",
     icon: ClipboardList,
@@ -116,7 +124,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     url: "/resultados/relatorios",
     icon: BarChart3,
     group: "performance",
-    keywords: ["reports", "analytics", "gráficos", "graficos", "acessos", "funil"],
+    keywords: ["reports", "analytics", "gráficos", "graficos", "acessos"],
   },
   {
     title: "Integrações",

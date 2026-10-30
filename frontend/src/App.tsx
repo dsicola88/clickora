@@ -51,6 +51,7 @@ const LegalPrivacyPage = lazy(() => import("./pages/LegalPrivacyPage"));
 const LegalTermsPage = lazy(() => import("./pages/LegalTermsPage"));
 const LegalMedicalDisclaimerPage = lazy(() => import("./pages/LegalMedicalDisclaimerPage"));
 const ResultsOverviewPage = lazy(() => import("./pages/ResultsOverviewPage"));
+const Vendas = lazy(() => import("./pages/Vendas"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
 const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
 const CreatePresellWizardPage = lazy(() => import("./pages/CreatePresellWizardPage"));
@@ -111,6 +112,7 @@ const appRoutes = [
 
   // Resultados
   { path: "/resultados", element: <ResultsOverviewPage /> },
+  { path: "/resultados/funil", element: <Vendas /> },
   { path: "/resultados/conversoes", element: <Navigate to="/resultados/relatorios/conversoes" replace /> },
   { path: "/resultados/relatorios", element: <Navigate to="/resultados/relatorios/acessos" replace /> },
   { path: "/resultados/relatorios/:tab", element: <Relatorios /> },
@@ -138,7 +140,7 @@ const appRoutes = [
   { path: "/tracking/plataformas", element: <Navigate to="/integracoes/postback" replace /> },
   { path: "/tracking/integrations", element: <Navigate to="/integracoes" replace /> },
   { path: "/tracking/settings", element: <Navigate to="/configuracoes" replace /> },
-  { path: "/tracking/vendas", element: <Navigate to="/resultados/conversoes" replace /> },
+  { path: "/tracking/vendas", element: <Navigate to="/resultados/funil" replace /> },
   { path: "/tracking/analytics", element: <Navigate to="/resultados" replace /> },
   { path: "/tracking/analytics/*", element: <Navigate to="/resultados" replace /> },
   { path: "/tracking/links", element: <Navigate to="/campanhas" replace /> },
@@ -155,7 +157,7 @@ const appRoutes = [
   { path: "/tracking/settings-legacy", element: <Settings /> },
   { path: "/tracking/dashboard-legacy", element: <Navigate to="/integracoes/pixels" replace /> },
   { path: "/dpilot", element: <Navigate to="/tracking/dpilot" replace /> },
-  { path: "/tracking/vendas-legacy", element: <Navigate to="/resultados/conversoes" replace /> },
+  { path: "/tracking/vendas-legacy", element: <Navigate to="/resultados/funil" replace /> },
   { path: "/tracking/analytics-legacy/*", element: <Analytics /> },
   { path: "/tracking/links-legacy", element: <Navigate to="/tracking/url-builder" replace /> },
 ] as const;

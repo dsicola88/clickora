@@ -158,6 +158,7 @@ const TRACKING_STEPS: GuideStep[] = [
     ),
     links: [
       { to: "/resultados", label: "Resultados" },
+      { to: "/resultados/funil", label: "Funil" },
       { to: "/resultados/conversoes", label: "Conversões" },
       { to: "/tracking/relatorios/sem-gclid", label: "Vendas sem GCLID" },
     ],
@@ -219,6 +220,7 @@ const HOME_STEPS: GuideStep[] = [
     ),
     links: [
       { to: "/ajuda", label: "Aprender" },
+      { to: "/resultados/funil", label: "Funil" },
       { to: "/resultados/conversoes", label: "Conversões" },
     ],
   },

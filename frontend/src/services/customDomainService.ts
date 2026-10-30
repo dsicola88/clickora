@@ -17,6 +17,11 @@ export const customDomainService = {
   verify(id: string) {
     return apiClient.post<{ verified: boolean } & CustomDomainDto>(`/custom-domain/${encodeURIComponent(id)}/verify`, {});
   },
+
+  /** Probe Vercel + HTTPS (poll enquanto SSL a provisionar). */
+  goLive(id: string) {
+    return apiClient.get<CustomDomainDto>(`/custom-domain/${encodeURIComponent(id)}/go-live`);
+  },
   setDefault(id: string) {
     return apiClient.patch<CustomDomainDto[]>(`/custom-domain/${encodeURIComponent(id)}/default`, {});
   },

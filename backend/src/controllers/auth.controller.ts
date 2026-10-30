@@ -2,7 +2,10 @@ import { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { systemPrisma } from "../lib/prisma";
 import { signToken } from "../lib/jwt";
-import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
+import {
+  resolveWorkspaceSessionForLogin,
+  resolveWorkspaceSessionFromRequest,
+} from "../lib/workspaceSession";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { z } from "zod";
 import { AVATAR_LOCAL_MARKER, persistUserAvatar, removeUserAvatarFiles } from "../lib/avatarUpload";
@@ -74,6 +77,9 @@ export function serializeUser(
   req: Request,
   opts?: {
     tenantUserId: string;
+    /** Workspace activo da sessão (JWT); senão o UUID pessoal em `users.workspace_id`. */
+    workspaceId?: string;
+    workspaceName?: string | null;
     workspaceRole: WorkspaceRole;
     workspacePermissions?: string[];
     /** Limites de plano da conta de faturação (ex.: dono do workspace). */
@@ -88,7 +94,8 @@ export function serializeUser(
     id: user.id,
     name: user.fullName || "",
     email: user.email,
-    workspace_id: user.workspaceId,
+    workspace_id: opts?.workspaceId ?? user.workspaceId,
+    workspace_name: opts?.workspaceName ?? null,
     tenant_user_id: opts?.tenantUserId ?? user.id,
     workspace_role: opts?.workspaceRole ?? "owner",
     workspace_permissions: workspacePermissions,
@@ -120,7 +127,7 @@ export function serializeUser(
 }
 
 async function serializeUserWithSession(user: SerialUser, req: Request) {
-  const sess = await resolveWorkspaceSessionForLogin(user.id);
+  const sess = await resolveWorkspaceSessionFromRequest(user.id, req.user?.workspaceId);
   const billing = await systemPrisma.user.findUnique({
     where: { id: sess.tenantUserId },
     include: { subscription: { include: { plan: true } }, roles: true },
@@ -128,6 +135,8 @@ async function serializeUserWithSession(user: SerialUser, req: Request) {
   const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
   return serializeUser(user, req, {
     tenantUserId: sess.tenantUserId,
+    workspaceId: sess.workspaceId,
+    workspaceName: sess.workspaceName ?? null,
     workspaceRole: sess.workspaceRole,
     workspacePermissions: sess.workspacePermissions,
     planSource: isPlatformAdmin ? user : billing ?? user,
@@ -212,10 +221,19 @@ export const authController = {
       purpose: "session",
     });
 
+    const wsName = (
+      await systemPrisma.workspace.findUnique({
+        where: { id: sess.workspaceId },
+        select: { name: true },
+      })
+    )?.name;
+
     res.json({
       token,
       user: serializeUser(user, req, {
         tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceName: wsName ?? null,
         workspaceRole: sess.workspaceRole,
         workspacePermissions: sess.workspacePermissions,
         planSource: isPlatformAdmin ? user : billing,
@@ -345,12 +363,22 @@ export const authController = {
       workspaceId: sess.workspaceId,
       workspaceRole: sess.workspaceRole,
       workspacePermissions: sess.workspacePermissions,
+      purpose: "session",
     });
+
+    const googleWsName = (
+      await systemPrisma.workspace.findUnique({
+        where: { id: sess.workspaceId },
+        select: { name: true },
+      })
+    )?.name;
 
     res.json({
       token,
       user: serializeUser(user, req, {
         tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceName: googleWsName ?? null,
         workspaceRole: sess.workspaceRole,
         workspacePermissions: sess.workspacePermissions,
         planSource: isPlatformAdmin ? user : billing,
@@ -413,12 +441,22 @@ export const authController = {
       workspaceId: sess.workspaceId,
       workspaceRole: sess.workspaceRole,
       workspacePermissions: sess.workspacePermissions,
+      purpose: "session",
     });
+
+    const regWsName = (
+      await systemPrisma.workspace.findUnique({
+        where: { id: sess.workspaceId },
+        select: { name: true },
+      })
+    )?.name;
 
     res.status(201).json({
       token,
       user: serializeUser(user, req, {
         tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceName: regWsName ?? null,
         workspaceRole: sess.workspaceRole,
         workspacePermissions: sess.workspacePermissions,
       }),
@@ -463,20 +501,8 @@ export const authController = {
         where: { id: userId },
         include: { roles: true, subscription: { include: { plan: true } } },
       });
-      const sess = await resolveWorkspaceSessionForLogin(user.id);
-      const billing = await systemPrisma.user.findUnique({
-        where: { id: sess.tenantUserId },
-        include: { subscription: { include: { plan: true } }, roles: true },
-      });
-      const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
-      return res.json(
-        serializeUser(user, req, {
-          tenantUserId: sess.tenantUserId,
-          workspaceRole: sess.workspaceRole,
-          workspacePermissions: sess.workspacePermissions,
-          planSource: isPlatformAdmin ? user : billing ?? user,
-        }),
-      );
+      // Respeitar JWT workspace activo (não resetar para o 1.º membership).
+      return res.json(await serializeUserWithSession(user, req));
     }
 
     const user = await systemPrisma.user.update({
@@ -485,20 +511,7 @@ export const authController = {
       include: { roles: true, subscription: { include: { plan: true } } },
     });
 
-    const sess = await resolveWorkspaceSessionForLogin(user.id);
-    const billing = await systemPrisma.user.findUnique({
-      where: { id: sess.tenantUserId },
-      include: { subscription: { include: { plan: true } }, roles: true },
-    });
-    const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
-    return res.json(
-      serializeUser(user, req, {
-        tenantUserId: sess.tenantUserId,
-        workspaceRole: sess.workspaceRole,
-        workspacePermissions: sess.workspacePermissions,
-        planSource: isPlatformAdmin ? user : billing ?? user,
-      }),
-    );
+    return res.json(await serializeUserWithSession(user, req));
   },
 
   async changePassword(req: Request, res: Response) {

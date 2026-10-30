@@ -140,9 +140,26 @@ export function buildMediaBuyerAlerts(args: {
   spend: number | null;
   spendSource: "persisted" | "google_ads" | "manual" | "none";
   googleError?: string | null;
+  /** Checkouts (funnel_step) no mesmo período — opcional. */
+  checkouts?: number;
+  /** Split de vendas (funil) — opcional; não inventa atribuição. */
+  paidSales?: number;
+  paidUntrackedSales?: number;
+  organicSales?: number;
 }): MediaBuyerAlert[] {
   const alerts: MediaBuyerAlert[] = [];
-  const { clicks, conversions, revenue, spend, spendSource, googleError } = args;
+  const {
+    clicks,
+    conversions,
+    revenue,
+    spend,
+    spendSource,
+    googleError,
+    checkouts,
+    paidSales,
+    paidUntrackedSales,
+    organicSales,
+  } = args;
 
   if (googleError) {
     alerts.push({
@@ -191,6 +208,40 @@ export function buildMediaBuyerAlerts(args: {
       severity: "warning",
       title: "Muitos cliques, zero vendas",
       detail: `${clicks} cliques sem conversão. Verifique oferta, postback e página.`,
+    });
+  }
+
+  if (checkouts != null && checkouts >= 10 && conversions === 0) {
+    alerts.push({
+      code: "checkout_no_sales",
+      severity: "critical",
+      title: "Checkouts sem vendas",
+      detail: `${checkouts} checkouts no período sem venda aprovada. Confirme o postback da rede e o click id no URL.`,
+    });
+  }
+
+  if (checkouts != null && checkouts >= 20 && conversions > 0) {
+    const checkoutCvr = (conversions / checkouts) * 100;
+    if (checkoutCvr < 5) {
+      alerts.push({
+        code: "low_checkout_cvr",
+        severity: "warning",
+        title: "Poucas vendas por checkout",
+        detail: `${checkoutCvr.toFixed(1)}% dos checkouts fecham venda (${conversions}/${checkouts}). Revise oferta e postback.`,
+      });
+    }
+  }
+
+  const paid = paidSales ?? 0;
+  const untracked = paidUntrackedSales ?? 0;
+  const organic = organicSales ?? 0;
+  const saleSplitTotal = paid + untracked + organic;
+  if (saleSplitTotal >= 5 && untracked / saleSplitTotal >= 0.4) {
+    alerts.push({
+      code: "high_paid_untracked",
+      severity: "warning",
+      title: "Muitas vendas Ads sem ID",
+      detail: `${untracked} de ${saleSplitTotal} vendas têm sinais de ads sem GCLID/GBRAID/WBRAID real. Corrija macros no URL do anúncio (Construtor de URL).`,
     });
   }
 

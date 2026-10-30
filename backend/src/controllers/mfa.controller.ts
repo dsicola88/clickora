@@ -61,10 +61,19 @@ async function issueSession(userId: string, req: Request, res: Response) {
     purpose: "session",
   });
 
+  const wsName = (
+    await systemPrisma.workspace.findUnique({
+      where: { id: sess.workspaceId },
+      select: { name: true },
+    })
+  )?.name;
+
   res.json({
     token,
     user: serializeUser(user, req, {
       tenantUserId: sess.tenantUserId,
+      workspaceId: sess.workspaceId,
+      workspaceName: wsName ?? null,
       workspaceRole: sess.workspaceRole,
       workspacePermissions: sess.workspacePermissions,
       planSource: isPlatformAdmin ? user : billing,

@@ -167,7 +167,7 @@ function mimeForIconHref(href: string): string {
   return "";
 }
 
-/** Favicon público: SEO do editor → import → ícone no espelho → foto do produto. */
+/** Favicon público: SEO do editor → import → ícone no espelho → white-label tenant → foto do produto. */
 export function resolvePublicPresellFaviconUrl(page: Presell): string | undefined {
   const c = (page.content || {}) as Record<string, unknown>;
   const doc = parsePresellBuilderPageDocument(page.content);
@@ -188,6 +188,10 @@ export function resolvePublicPresellFaviconUrl(page: Presell): string | undefine
         : "";
   const fromMirror = extractIconHrefFromHtml(mirror, source);
   if (fromMirror) return fromMirror;
+  const tenantIcon = String(page.tenant_branding?.favicon_url ?? page.tenant_branding?.logo_url ?? "").trim();
+  if (tenantIcon && !looksLikeAppBrandTitle(tenantIcon) && !/\/favicon\.svg(\?|$)/i.test(tenantIcon)) {
+    return tenantIcon;
+  }
   return resolvePublicPresellOgImageUrl(page);
 }
 
@@ -408,6 +412,8 @@ export function applyPublicPresellHeadMetadata(page: Presell): () => void {
   setMetaProperty("og:description", description);
   if (canonical) setMetaProperty("og:url", canonical);
   if (ogImageAbs) setMetaProperty("og:image", ogImageAbs);
+  const siteName = String(page.tenant_branding?.brand_name ?? "").trim();
+  if (siteName) setMetaProperty("og:site_name", siteName);
   setMetaProperty("og:locale", "pt_BR");
 
   const twitterCard = ogImageAbs ? "summary_large_image" : "summary";
