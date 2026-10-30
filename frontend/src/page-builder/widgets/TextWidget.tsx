@@ -29,6 +29,7 @@ export function TextWidget({ widget, device }: { widget: WidgetNode; device: Dev
     >
       {commit ? (
         <div
+          data-pb-content="1"
           style={contentStyle}
           contentEditable
           suppressContentEditableWarning
@@ -39,7 +40,7 @@ export function TextWidget({ widget, device }: { widget: WidgetNode; device: Dev
           }}
         />
       ) : (
-        <div style={contentStyle} dangerouslySetInnerHTML={{ __html: html }} />
+        <div data-pb-content="1" style={contentStyle} dangerouslySetInnerHTML={{ __html: html }} />
       )}
     </div>
   );

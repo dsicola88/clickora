@@ -66,7 +66,9 @@ describe("editor manual — página Visivra ponta a ponta do zero", () => {
     expect(html).toContain("Visivra : Natural Support");
     expect(html).toContain("Why Choose Visivra");
     expect(html).toContain("GET A DISCOUNT NOW!");
-    expect(html).toMatch(/section > div \{ flex-direction: column/);
+    expect(html).toMatch(/data-pb-columns\]\[data-pb-stackable="1"\]/);
+    expect(html).toMatch(/@media \(max-width: 1024px\)/);
+    expect(html).toContain('data-pb-content="1"');
 
     const outDir = resolve(__dirname, "../../public/qa");
     mkdirSync(outDir, { recursive: true });

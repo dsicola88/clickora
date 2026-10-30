@@ -12,6 +12,11 @@ import type {
   TypographyValue,
 } from "./types";
 import { resolveResponsive } from "./store";
+import {
+  scaleLengthForDevice,
+  scaleSpacingForDevice,
+  scaleTypographyForDevice,
+} from "./responsiveDefaults";
 
 function spacingToCss(s: SpacingValue | undefined): string | undefined {
   if (!s) return undefined;
@@ -130,7 +135,7 @@ export function stylesToCssWidgetShell(
   return out;
 }
 
-/** Direção do contentor. No telemóvel, várias colunas empilham até haver um valor explícito para esse dispositivo. */
+/** Direção do contentor. Em tablet/telemóvel, várias colunas empilham salvo override explícito. */
 export function sectionDirectionFor(
   flex: FlexLayout["direction"] | undefined,
   device: DeviceType,
@@ -139,9 +144,9 @@ export function sectionDirectionFor(
   if (device === "mobile" && flex?.mobile) return flex.mobile;
   if (device === "tablet" && flex?.tablet) return flex.tablet;
   if (device === "desktop" && flex?.desktop) return flex.desktop;
-  if (flex?.desktop && device !== "mobile") return flex.desktop;
-  if (device === "mobile" && columnCount > 1) return "column";
-  return flex?.desktop ?? "row";
+  if ((device === "mobile" || device === "tablet") && columnCount > 1) return "column";
+  if (flex?.desktop) return flex.desktop;
+  return "row";
 }
 
 export function isSectionStacked(direction: FlexDirection) {
@@ -166,12 +171,13 @@ export function sectionColumnsGrid(
   },
 ): CSSProperties {
   const direction =
-    flex?.direction ?? (device === "mobile" && widths.length > 1 ? "column" : "row");
+    flex?.direction ??
+    ((device === "mobile" || device === "tablet") && widths.length > 1 ? "column" : "row");
   const stacked = isSectionStacked(direction);
   return {
     display: "flex",
     flexDirection: direction,
-    flexWrap: stacked ? "nowrap" : (flex?.wrap ?? "nowrap"),
+    flexWrap: stacked ? "nowrap" : (flex?.wrap ?? "wrap"),
     justifyContent: flex?.justify ?? "flex-start",
     alignItems: flex?.align ?? "stretch",
     gap: `${gapPx}px`,
@@ -184,11 +190,11 @@ export function stylesToCss(
   styles: BaseStyles & ResponsiveStyles,
   device: DeviceType,
 ): CSSProperties {
-  const padding = resolveResponsive(styles.padding, device);
-  const margin = resolveResponsive(styles.margin, device);
-  const typography = resolveResponsive(styles.typography, device);
+  const padding = scaleSpacingForDevice(styles.padding, device);
+  const margin = scaleSpacingForDevice(styles.margin, device, { minSide: 0 });
+  const typography = scaleTypographyForDevice(styles.typography, device);
   const width = resolveResponsive(styles.width, device);
-  const height = resolveResponsive(styles.height, device);
+  const height = scaleLengthForDevice(styles.height, device) ?? resolveResponsive(styles.height, device);
   const visible = resolveResponsive(styles.visibility, device);
   const position = resolveResponsive(styles.position, device);
   const top = resolveResponsive(styles.top, device);

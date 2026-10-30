@@ -148,6 +148,7 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
         {commit ? (
           <button
             type="button"
+            data-pb-content="1"
             className={`lovBtn_${sid}`}
             style={{ ...btnStyle, ...rowStyle }}
             onClick={(e) => e.preventDefault()}
@@ -176,6 +177,7 @@ export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: D
             href={placeholderHref ? "#" : rawHref}
             target={openBlank ? "_blank" : undefined}
             rel={openBlank ? "noopener noreferrer" : undefined}
+            data-pb-content="1"
             data-clickora-offer={placeholderHref ? "1" : undefined}
             data-clickora-offer-primary={offerPrimary ? "1" : undefined}
             className={`lovBtn_${sid}`}

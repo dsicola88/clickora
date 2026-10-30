@@ -20,7 +20,9 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
   const c = widget.content as Partial<StickyVideoContent>;
   const url = (c.url ?? "").trim();
   const position = c.position ?? "bottom-right";
-  const width = c.width ?? 320;
+  const widthPx = c.width ?? 320;
+  const width =
+    device === "mobile" ? `min(92vw, ${Math.min(widthPx, 280)}px)` : `min(92vw, ${widthPx}px)`;
   const aspect = c.aspectRatio ?? "16/9";
   const borderRadius = c.borderRadius ?? 8;
   const showCloseButton = c.showCloseButton ?? true;

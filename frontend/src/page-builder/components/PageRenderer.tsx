@@ -70,10 +70,13 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
 
   return (
     <section
+      data-pb-id={section.id}
       data-stack={section.columns.length > 1 ? "1" : "0"}
       data-header={isStickyOrFixed ? "1" : undefined}
       style={{
         ...sectionStyle,
+        maxWidth: "100%",
+        boxSizing: "border-box",
         ...(needsChrome && !isStickyOrFixed
           ? {
               position:
@@ -97,12 +100,18 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
       {hasBgVideo ? <SectionBackgroundVideo rawUrl={bgVideo} pointerEventsNone /> : null}
       <SectionBackgroundLayers section={section} />
       <div
+        data-pb-columns=""
+        data-pb-stackable={section.columns.length > 1 ? "1" : "0"}
         style={{
           position: "relative",
           zIndex: 2,
           maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
+          width: "100%",
           marginLeft: "auto",
           marginRight: "auto",
+          boxSizing: "border-box",
+          paddingLeft: device === "mobile" ? 0 : undefined,
+          paddingRight: device === "mobile" ? 0 : undefined,
           ...sectionColumnsGrid(widths, device, gap, {
             direction,
             justify: resolveResponsive(section.flex?.justify, device),
@@ -139,6 +148,8 @@ function ColumnRender({
   const colStyle = stylesToCss(column.styles, device);
   return (
     <div
+      data-pb-id={column.id}
+      data-pb-col=""
       style={{
         ...columnFlexItem(widthPercent, stacked),
         display: "flex",
@@ -146,6 +157,8 @@ function ColumnRender({
         alignItems: "stretch",
         justifyContent: resolveResponsive(column.styles.justifyContent, device) ?? "flex-start",
         minHeight: stacked ? undefined : "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         ...colStyle,
       }}
     >

@@ -260,12 +260,17 @@ export function WidgetMotionShell({
     <div
       ref={mergeRefs(setNode, outerRef)}
       id={id}
+      data-pb-id={widget.id}
+      data-pb-widget={widget.type}
       className={cn(className, widgetMotionClassNames(widget))}
       style={{
         ...style,
         ...widgetStickyStyle(widget, editorMode),
         ...widgetMaskStyle(widget),
         ...(hasIx ? { cursor: "pointer" } : null),
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
       }}
       onClick={hasIx ? onClick : undefined}
       onMouseEnter={hasIx ? onMouseEnter : undefined}

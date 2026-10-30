@@ -528,6 +528,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   return (
     <div style={outer}>
       <div
+        data-pb-gallery-grid="1"
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${columns}, 1fr)`,

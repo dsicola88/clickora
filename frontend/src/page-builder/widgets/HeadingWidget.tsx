@@ -53,6 +53,7 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
     return (
       <div style={frame} title={link.length > 0 ? `Link: ${link}` : undefined}>
         <Tag
+          data-pb-content="1"
           style={{
             ...tagStyle,
             ...(link.length > 0
@@ -98,7 +99,9 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
 
   return (
     <div style={frame}>
-      <Tag style={tagStyle}>{inner}</Tag>
+      <Tag data-pb-content="1" style={tagStyle}>
+        {inner}
+      </Tag>
     </div>
   );
 }

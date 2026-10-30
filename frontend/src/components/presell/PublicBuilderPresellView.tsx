@@ -3,6 +3,8 @@ import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import type { PageDocument } from "@/page-builder/types";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
 import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
+import { useViewportBuilderDevice } from "@/page-builder/useViewportBuilderDevice";
+import { BUILDER_PUBLIC_RESPONSIVE_CSS } from "@/page-builder/builderPublicCss";
 
 function normalizeComparableUrl(raw: string): string | null {
   try {
@@ -39,6 +41,7 @@ export function PublicBuilderPresellView({
   interactionLocked = false,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const device = useViewportBuilderDevice();
 
   useEffect(() => {
     const t = doc.tracking;
@@ -111,6 +114,7 @@ export function PublicBuilderPresellView({
     <div
       ref={rootRef}
       data-clickora-builder-public="1"
+      data-pb-device={device}
       data-interaction-locked={interactionLocked ? "1" : undefined}
       className={
         interactionLocked
@@ -118,7 +122,8 @@ export function PublicBuilderPresellView({
           : "[&_[data-presell-portal-photo]_img]:object-contain [&_[data-clickora-offer-primary='1']]:hover:brightness-105 [&_[data-clickora-offer-primary='1']]:active:scale-[0.99]"
       }
     >
-      <PageRenderer doc={doc} device="desktop" />
+      <style dangerouslySetInnerHTML={{ __html: BUILDER_PUBLIC_RESPONSIVE_CSS }} />
+      <PageRenderer doc={doc} device={device} />
     </div>
   );
 }

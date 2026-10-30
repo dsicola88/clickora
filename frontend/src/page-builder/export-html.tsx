@@ -5,6 +5,7 @@ import { PageRenderer } from "./components/PageRenderer";
 import { buildTrackingBodyScripts, buildTrackingHeadScripts } from "./tracking";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 import { htmlLangForLocale, normalizePresellLocale } from "@/lib/presellUiStrings";
+import { buildDocumentResponsiveCss } from "./builderPublicCss";
 
 /**
  * Build a fully self-contained HTML document for download or external hosting.
@@ -75,6 +76,8 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
   /** Reimportação: JSON embutido (evita `</script>` no payload). */
   const embeddedDocJson = JSON.stringify(doc).replace(/</g, "\\u003c");
 
+  const responsiveCss = buildDocumentResponsiveCss(doc);
+
   return `<!DOCTYPE html>
 <html lang="${htmlLang}">
 <head>
@@ -82,17 +85,14 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; color: #1a1a1a; }
-    img { max-width: 100%; height: auto; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; color: #1a1a1a; overflow-x: clip; }
+    img, video, iframe { max-width: 100%; height: auto; }
     section[data-header="1"] { position: sticky; top: 0; z-index: 100; width: 100%; background: inherit; }
-    @media (max-width: 768px) {
-      section > div { flex-direction: column !important; }
-      section > div > div { flex-basis: 100% !important; width: 100% !important; max-width: 100% !important; }
-    }
+    ${responsiveCss}
   </style>
   ${trackingHead}
 </head>
-<body>
+<body data-clickora-builder-public="1">
 ${body}
 <script type="application/json" id="${EXPORTED_HTML_SCRIPT_ID}">
 ${embeddedDocJson}

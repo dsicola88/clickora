@@ -16,6 +16,13 @@ export const id = (prefix = "") => `${prefix}${nanoid(8)}`;
 
 const r = <T,>(v: T): ResponsiveValue<T> => ({ desktop: v });
 
+/** Desktop + mobile (e tablet opcional) — já responsivo ao criar. */
+const rm = <T,>(desktop: T, mobile: T, tablet?: T): ResponsiveValue<T> => ({
+  desktop,
+  ...(tablet !== undefined ? { tablet } : {}),
+  mobile,
+});
+
 const spacing = (
   top = 0,
   right = 0,
@@ -40,9 +47,9 @@ const typography = (overrides: Partial<TypographyValue> = {}): TypographyValue =
 export function createColumn(widthPercent = 100): ColumnNode {
   return {
     id: id("col_"),
-    widthPercent: r(widthPercent),
+    widthPercent: { desktop: widthPercent, tablet: 100, mobile: 100 },
     styles: {
-      padding: r(spacing(10, 10, 10, 10)),
+      padding: rm(spacing(10, 10, 10, 10), spacing(8, 8, 8, 8)),
     },
     widgets: [],
   };
@@ -50,15 +57,24 @@ export function createColumn(widthPercent = 100): ColumnNode {
 
 export function createSection(columnCount = 1): SectionNode {
   const width = Math.floor(100 / columnCount);
+  const multi = columnCount > 1;
   return {
     id: id("sec_"),
     layout: "boxed",
     contentWidth: 1140,
-    columnGap: r(20),
+    columnGap: rm(20, 16, 18),
     styles: {
-      padding: r(spacing(60, 20, 60, 20)),
+      padding: rm(spacing(60, 20, 60, 20), spacing(36, 16, 36, 16), spacing(48, 18, 48, 18)),
     },
-    columns: Array.from({ length: columnCount }, () => createColumn(width)),
+    columns: Array.from({ length: columnCount }, () => {
+      const col = createColumn(width);
+      col.widthPercent = {
+        desktop: width,
+        tablet: multi ? 100 : width,
+        mobile: 100,
+      };
+      return col;
+    }),
   };
 }
 
@@ -66,9 +82,13 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   heading: () => ({
     content: { text: "Adicione seu título aqui", tag: "h2" },
     styles: {
-      typography: r(typography({ fontSize: 36, fontWeight: 700, lineHeight: 1.2 })),
+      typography: rm(
+        typography({ fontSize: 36, fontWeight: 700, lineHeight: 1.2 }),
+        typography({ fontSize: 26, fontWeight: 700, lineHeight: 1.25 }),
+        typography({ fontSize: 32, fontWeight: 700, lineHeight: 1.2 }),
+      ),
       color: "#1a1a1a",
-      margin: r(spacing(0, 0, 16, 0)),
+      margin: rm(spacing(0, 0, 16, 0), spacing(0, 0, 12, 0)),
     },
   }),
   text: () => ({
@@ -76,9 +96,12 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       html: "<p>Edite este parágrafo. Use o painel de propriedades para alterar conteúdo, cores e tipografia. Construa páginas incríveis arrastando widgets.</p>",
     },
     styles: {
-      typography: r(typography({ fontSize: 16, lineHeight: 1.7 })),
+      typography: rm(
+        typography({ fontSize: 16, lineHeight: 1.7 }),
+        typography({ fontSize: 15, lineHeight: 1.65 }),
+      ),
       color: "#4a4a4a",
-      margin: r(spacing(0, 0, 16, 0)),
+      margin: rm(spacing(0, 0, 16, 0), spacing(0, 0, 12, 0)),
     },
   }),
   image: () => ({
@@ -95,10 +118,13 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   button: () => ({
     content: { text: "Clique aqui", href: "#", target: "_self" },
     styles: {
-      typography: r(typography({ fontSize: 16, fontWeight: 600, textAlign: "center" })),
+      typography: rm(
+        typography({ fontSize: 16, fontWeight: 600, textAlign: "center" }),
+        typography({ fontSize: 15, fontWeight: 600, textAlign: "center" }),
+      ),
       color: "#ffffff",
       background: "#e63946",
-      padding: r(spacing(14, 28, 14, 28)),
+      padding: rm(spacing(14, 28, 14, 28), spacing(12, 20, 12, 20)),
       border: { width: 0, style: "solid", color: "#000000", radius: 6 },
       align: r("center" as const),
     },
@@ -114,7 +140,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   spacer: () => ({
     content: {},
-    styles: { height: r("50px") },
+    styles: { height: rm("50px", "28px", "40px") },
   }),
   icon: () => ({
     content: { name: "star", size: 48 },
@@ -298,9 +324,13 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       highlightColor: "#e63946",
     },
     styles: {
-      typography: r(typography({ fontSize: 40, fontWeight: 800, lineHeight: 1.2, textAlign: "center" })),
+      typography: rm(
+        typography({ fontSize: 40, fontWeight: 800, lineHeight: 1.2, textAlign: "center" }),
+        typography({ fontSize: 28, fontWeight: 800, lineHeight: 1.25, textAlign: "center" }),
+        typography({ fontSize: 34, fontWeight: 800, lineHeight: 1.2, textAlign: "center" }),
+      ),
       color: "#0f172a",
-      margin: r(spacing(0, 0, 16, 0)),
+      margin: rm(spacing(0, 0, 16, 0), spacing(0, 0, 12, 0)),
     },
   }),
   livePlans: () => ({
@@ -792,13 +822,15 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       direction: "row",
       justify: "flex-start",
       align: "center",
-      wrap: "nowrap",
+      /** wrap evita overflow no telemóvel (logo + menu + CTA). */
+      wrap: "wrap",
       gap: 16,
       widgets: [],
     },
     styles: {
       padding: r(spacing(0, 0, 0, 0)),
       margin: r(spacing(0, 0, 0, 0)),
+      width: r("100%"),
     },
   }),
 };

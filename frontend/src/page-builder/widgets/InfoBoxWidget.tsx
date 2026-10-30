@@ -34,6 +34,7 @@ export function InfoBoxWidget({ widget, device }: { widget: WidgetNode; device: 
 
   return (
     <div
+      data-pb-content="1"
       style={{
         ...visual,
         display: "flex",
