@@ -25,6 +25,8 @@ import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { coerceTrackingSnippetToHtml } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { exportPageToHtml } from "@/page-builder/export-html";
+import { bakePublicOfferHrefs } from "@/lib/presellVisualEdit";
+import { isCookieRedirectToOfferEnabled } from "@/components/presell/PresellTypeControls";
 import {
   getPresellUiStrings,
   htmlLangForLocale,
@@ -557,8 +559,34 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
         ? `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Presell</title></head><body>${note}<p>Documento do editor em falta.</p></body></html>`
         : `${note}<!-- Documento do editor em falta -->`;
     }
+    const builderContent = (page.content || {}) as Record<string, unknown>;
+    const builderSettings = (page.settings || {}) as Record<string, unknown>;
+    const affiliateLink =
+      (typeof builderContent.affiliateLink === "string" && builderContent.affiliateLink) ||
+      (typeof builderContent.affiliate_link === "string" && builderContent.affiliate_link) ||
+      "";
+    const trackHref = buildPresellTrackClickUrl(opts.apiBase, page.id, affiliateLink || "#");
+    const footerPolicies = resolvePresellFooterPolicies(
+      builderSettings,
+      policyUrlsFromPresellContent(builderContent),
+    );
+    const cookiePolicyUrl = footerPolicies.operator.cookies;
+    const hasCookieBanner = doc.sections.some((section) =>
+      section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
+    );
+    const cookieRedirect = hasCookieBanner && isCookieRedirectToOfferEnabled(builderSettings);
+    const bakedDoc = bakePublicOfferHrefs(
+      doc,
+      trackHref,
+      affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
+      cookiePolicyUrl,
+      {
+        unlockCookieOnly: hasCookieBanner && !cookieRedirect,
+        cookieRedirectToOffer: cookieRedirect,
+      },
+    );
     const merged = injectPresellSettingsIntoFullHtml(
-      exportPageToHtml(doc, page.language),
+      exportPageToHtml(bakedDoc, page.language),
       page,
       opts.apiBase,
     );

@@ -75,7 +75,13 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
         );
         const bakedCookie = widgetsOf(baked).find((w) => w.type === "cookieBanner");
         expect(bakedCookie?.content.offerHref || "").toBe("");
-        expect(widgetsOf(baked).some((w) => w.type === "button")).toBe(true);
+        // Com espelho white, CTAs ficam no HTML do mirror (sem widget button extra).
+        const mirrorHtml = widgetsOf(baked).find((w) => w.type === "html");
+        if (mirrorHtml) {
+          expect(String(mirrorHtml.content.code)).toContain("https://app.example/track/r/x");
+        } else {
+          expect(widgetsOf(baked).some((w) => w.type === "button")).toBe(true);
+        }
       }
 
       // Espelho presente quando há mirror (>80 chars)

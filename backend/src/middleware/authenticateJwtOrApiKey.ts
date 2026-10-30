@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { systemPrisma } from "../lib/prisma";
 import { verifyToken, type JwtPayload } from "../lib/jwt";
 import { apiKeyMatches, looksLikeApiKey } from "../lib/apiKeys";
+import { resolveLiveWorkspaceClaims } from "../lib/workspaceSessionGuard";
 
 declare global {
   namespace Express {
@@ -64,13 +65,13 @@ export async function authenticateJwtOrApiKey(req: Request, res: Response, next:
 
   try {
     const raw = verifyToken(token);
-    const tenantUserId = raw.tenantUserId ?? raw.userId;
+    const live = await resolveLiveWorkspaceClaims(raw);
     req.user = {
       ...raw,
-      tenantUserId,
-      workspaceId: raw.workspaceId,
-      workspaceRole: raw.workspaceRole ?? "owner",
-      workspacePermissions: raw.workspacePermissions ?? [],
+      tenantUserId: live.tenantUserId,
+      workspaceId: live.workspaceId,
+      workspaceRole: live.workspaceRole ?? "owner",
+      workspacePermissions: live.workspacePermissions ?? [],
     };
     req.authVia = "jwt";
     next();

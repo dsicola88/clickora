@@ -8,8 +8,12 @@ describe("createDefaultSalesLandingDocument", () => {
     const widgets = doc.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets));
     const withMotion = widgets.filter((w) => widgetHasMotion(w.effects, w.content));
     expect(withMotion.length).toBeGreaterThanOrEqual(4);
-    const heroHeading = widgets.find((w) => w.type === "heading");
-    expect(heroHeading?.effects?.entranceTrigger).toBe("scroll");
-    expect(widgetNeedsMotionRuntime(heroHeading?.effects, heroHeading?.content)).toBe(true);
+    /** Marca / 1.º fold: trigger `load` (CSS only); secções abaixo: `scroll` (runtime). */
+    const brandHeading = widgets.find((w) => w.type === "heading");
+    expect(brandHeading?.effects?.entranceTrigger).toBe("load");
+    expect(widgetHasMotion(brandHeading?.effects, brandHeading?.content)).toBe(true);
+    const scrollMotion = widgets.filter((w) => w.effects?.entranceTrigger === "scroll");
+    expect(scrollMotion.length).toBeGreaterThanOrEqual(2);
+    expect(widgetNeedsMotionRuntime(scrollMotion[0]?.effects, scrollMotion[0]?.content)).toBe(true);
   });
 });

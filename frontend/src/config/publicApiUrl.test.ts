@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  getLanderApiBaseForAccountDomains,
   getTrackApiBaseForAccountDomains,
   getTrackApiBaseForPublicPresell,
   normalizeToApiBaseUrl,
   resolveTrackApiBaseForExport,
+  resolveTrackApiBaseForPanelEmbed,
 } from "./publicApiUrl";
 
 describe("getTrackApiBaseForPublicPresell", () => {
@@ -35,6 +37,15 @@ describe("getTrackApiBaseForAccountDomains", () => {
       ]),
     ).toBeNull();
   });
+
+  it("prefers purpose=tracking over both when no default", () => {
+    expect(
+      getTrackApiBaseForAccountDomains([
+        { hostname: "clk.marca.com", status: "verified", purpose: "both", is_default: true },
+        { hostname: "go.marca.com", status: "verified", purpose: "tracking" },
+      ]),
+    ).toBe("https://go.marca.com/api");
+  });
 });
 
 describe("resolveTrackApiBaseForExport", () => {
@@ -42,6 +53,48 @@ describe("resolveTrackApiBaseForExport", () => {
     expect(
       resolveTrackApiBaseForExport([], "https://lander.example/p/abc"),
     ).toBe("https://lander.example/api");
+  });
+
+  it("prefers account tracking over lander host", () => {
+    expect(
+      resolveTrackApiBaseForExport(
+        [{ hostname: "go.marca.com", status: "verified", purpose: "tracking", is_default_tracking: true }],
+        "https://lander.example/p/abc",
+      ),
+    ).toBe("https://go.marca.com/api");
+  });
+});
+
+describe("resolveTrackApiBaseForPanelEmbed", () => {
+  it("uses lander hosting when no tracking domain", () => {
+    expect(
+      resolveTrackApiBaseForPanelEmbed([
+        { hostname: "www.marca.com", status: "verified", purpose: "hosting", is_default: true },
+      ]),
+    ).toBe("https://www.marca.com/api");
+  });
+
+  it("uses account tracking when present", () => {
+    expect(
+      resolveTrackApiBaseForPanelEmbed(
+        [
+          { hostname: "www.marca.com", status: "verified", purpose: "hosting", is_default: true },
+          { hostname: "go.marca.com", status: "verified", purpose: "tracking", is_default_tracking: true },
+        ],
+        "https://www.marca.com/p/x",
+      ),
+    ).toBe("https://go.marca.com/api");
+  });
+});
+
+describe("getLanderApiBaseForAccountDomains", () => {
+  it("ignores tracking-only domains", () => {
+    expect(
+      getLanderApiBaseForAccountDomains([
+        { hostname: "go.marca.com", status: "verified", purpose: "tracking" },
+        { hostname: "www.marca.com", status: "verified", purpose: "hosting", is_default: true },
+      ]),
+    ).toBe("https://www.marca.com/api");
   });
 });
 

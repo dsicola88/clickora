@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import prisma, { systemPrisma } from "../lib/prisma";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { createPostbackToken, verifyPostbackToken } from "../lib/postbackToken";
+import { resolveAdsPostbackAuth } from "../lib/adsPostbackAuth";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
 import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePostback";
@@ -1093,20 +1094,9 @@ export const trackController = {
   },
 
   async postbackGoogleAds(req: Request, res: Response) {
-    const expectedToken = process.env.GOOGLE_POSTBACK_TOKEN;
-    let tokenUserId: string | undefined;
-    if (expectedToken) {
-      const incoming = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
-      if (!incoming || incoming !== expectedToken) {
-        return res.status(401).json({ error: "Token de postback inválido" });
-      }
-    } else {
-      const token = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
-      if (!token) return res.status(401).json({ error: "Token de postback obrigatório" });
-      const decoded = verifyPostbackToken(token);
-      if (!decoded) return res.status(401).json({ error: "Token de postback inválido" });
-      tokenUserId = decoded.userId;
-    }
+    const auth = resolveAdsPostbackAuth(req, process.env.GOOGLE_POSTBACK_TOKEN);
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+    const tokenUserId = auth.userId;
 
     const parsed = z.object({
       presell_id: z.string().optional(),
@@ -1119,6 +1109,7 @@ export const trackController = {
       source: z.string().optional(),
       medium: z.string().optional(),
       campaign: z.string().optional(),
+      user_id: z.string().optional(),
     }).refine((data) => !!data.presell_id || !!data.presell_slug, {
       message: "presell_id ou presell_slug é obrigatório",
       path: ["presell_id"],
@@ -1130,10 +1121,13 @@ export const trackController = {
 
     const data = parsed.data;
     const page = await systemPrisma.presellPage.findFirst({
-      where: data.presell_id ? { id: data.presell_id } : { slug: data.presell_slug },
+      where: {
+        userId: tokenUserId,
+        ...(data.presell_id ? { id: data.presell_id } : { slug: data.presell_slug }),
+      },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (tokenUserId && page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
+    if (page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
 
     if (data.transaction_id) {
       const existing = await systemPrisma.trackingEvent.findFirst({
@@ -1214,20 +1208,12 @@ export const trackController = {
   },
 
   async postbackMicrosoftAds(req: Request, res: Response) {
-    const expectedToken = process.env.MICROSOFT_POSTBACK_TOKEN || process.env.GOOGLE_POSTBACK_TOKEN;
-    let tokenUserId: string | undefined;
-    if (expectedToken) {
-      const incoming = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
-      if (!incoming || incoming !== expectedToken) {
-        return res.status(401).json({ error: "Token de postback inválido" });
-      }
-    } else {
-      const token = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
-      if (!token) return res.status(401).json({ error: "Token de postback obrigatório" });
-      const decoded = verifyPostbackToken(token);
-      if (!decoded) return res.status(401).json({ error: "Token de postback inválido" });
-      tokenUserId = decoded.userId;
-    }
+    const auth = resolveAdsPostbackAuth(
+      req,
+      process.env.MICROSOFT_POSTBACK_TOKEN || process.env.GOOGLE_POSTBACK_TOKEN,
+    );
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+    const tokenUserId = auth.userId;
 
     const parsed = z.object({
       presell_id: z.string().optional(),
@@ -1240,6 +1226,7 @@ export const trackController = {
       source: z.string().optional(),
       medium: z.string().optional(),
       campaign: z.string().optional(),
+      user_id: z.string().optional(),
     }).refine((data) => !!data.presell_id || !!data.presell_slug, {
       message: "presell_id ou presell_slug é obrigatório",
       path: ["presell_id"],
@@ -1251,10 +1238,13 @@ export const trackController = {
 
     const data = parsed.data;
     const page = await systemPrisma.presellPage.findFirst({
-      where: data.presell_id ? { id: data.presell_id } : { slug: data.presell_slug },
+      where: {
+        userId: tokenUserId,
+        ...(data.presell_id ? { id: data.presell_id } : { slug: data.presell_slug }),
+      },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    if (tokenUserId && page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
+    if (page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
 
     if (data.transaction_id) {
       const existing = await systemPrisma.trackingEvent.findFirst({

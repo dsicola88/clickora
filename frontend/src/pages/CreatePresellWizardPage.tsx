@@ -40,7 +40,7 @@ import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
-import { getTrackApiBaseForAccountDomains, getTrackApiBaseUrl, resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
+import { resolveTrackApiBaseForExport, resolveTrackApiBaseForPanelEmbed } from "@/lib/apiOrigin";
 import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
 import { readBrandKitPro } from "@/lib/brandKitPro";
 import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
@@ -330,7 +330,7 @@ export default function CreatePresellWizardPage() {
       const uid = user?.id;
       if (uid) {
         const embed = buildClickoraEmbedScriptHtml({
-          apiBase: getTrackApiBaseForAccountDomains(customDomains) ?? getTrackApiBaseUrl(),
+          apiBase: resolveTrackApiBaseForPanelEmbed(customDomains),
           userId: uid,
         });
         settings.headerCode = mergeClickoraTrackingIntoHeader(String(settings.headerCode ?? ""), embed);

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken, JwtPayload } from "../lib/jwt";
+import { resolveLiveWorkspaceClaims } from "../lib/workspaceSessionGuard";
 
 // Extend Express Request
 declare global {
@@ -10,7 +11,7 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Token não fornecido" });
@@ -22,13 +23,13 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
     if (raw.purpose === "mfa") {
       return res.status(401).json({ error: "Complete a verificação MFA" });
     }
-    const tenantUserId = raw.tenantUserId ?? raw.userId;
+    const live = await resolveLiveWorkspaceClaims(raw);
     req.user = {
       ...raw,
-      tenantUserId,
-      workspaceId: raw.workspaceId,
-      workspaceRole: raw.workspaceRole ?? "owner",
-      workspacePermissions: raw.workspacePermissions ?? [],
+      tenantUserId: live.tenantUserId,
+      workspaceId: live.workspaceId,
+      workspaceRole: live.workspaceRole ?? "owner",
+      workspacePermissions: live.workspacePermissions ?? [],
     };
     next();
   } catch {

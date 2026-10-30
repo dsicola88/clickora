@@ -110,20 +110,23 @@ export function getTrackApiBaseForPublicPresell(publicPresellUrl: string): strin
   return getTrackApiBaseUrl();
 }
 
+type AccountDomainForTrack = {
+  hostname: string;
+  status: string;
+  purpose?: string | null;
+  is_default?: boolean | null;
+  is_default_tracking?: boolean | null;
+  created_at?: string | null;
+};
+
 /**
  * Preferência de domínio de tracking da conta (purpose tracking/both).
- * Usar ao bakear CTAs/embeds quando o afiliado tem `go.marca.com` separado do lander.
+ * Alinhado a `preferredTrackApiBaseForUser` no backend.
+ * Não usa `VITE_PUBLIC_TRACK_API_URL` — esse override só entra no fallback de painel/lander.
  */
 export function getTrackApiBaseForAccountDomains(
-  domains: Array<{
-    hostname: string;
-    status: string;
-    purpose?: string | null;
-    is_default_tracking?: boolean | null;
-  }>,
+  domains: Array<AccountDomainForTrack>,
 ): string | null {
-  const trackOnly = import.meta.env.VITE_PUBLIC_TRACK_API_URL?.trim();
-  if (trackOnly) return normalizeToApiBaseUrl(trackOnly);
   const eligible = domains.filter(
     (d) =>
       String(d.status).toLowerCase() === "verified" &&
@@ -133,20 +136,57 @@ export function getTrackApiBaseForAccountDomains(
   const preferred =
     eligible.find((d) => d.is_default_tracking) ??
     eligible.find((d) => d.purpose === "tracking") ??
+    [...eligible]
+      .filter((d) => d.purpose === "both" || d.purpose == null)
+      .sort((a, b) => {
+        if (Boolean(a.is_default) !== Boolean(b.is_default)) return a.is_default ? -1 : 1;
+        const ta = a.created_at ? Date.parse(a.created_at) : 0;
+        const tb = b.created_at ? Date.parse(b.created_at) : 0;
+        return ta - tb;
+      })[0] ??
     eligible[0];
+  if (!preferred?.hostname) return null;
+  return normalizeToApiBaseUrl(`https://${preferred.hostname}/api`);
+}
+
+/** Hosting/both verificado → `/api` no lander (quando não há domínio só de tracking). */
+export function getLanderApiBaseForAccountDomains(
+  domains: Array<AccountDomainForTrack>,
+): string | null {
+  const hosting = domains.filter(
+    (d) => String(d.status).toLowerCase() === "verified" && d.purpose !== "tracking",
+  );
+  if (!hosting.length) return null;
+  const preferred =
+    hosting.find((d) => d.is_default) ??
+    [...hosting].sort((a, b) => {
+      const ta = a.created_at ? Date.parse(a.created_at) : 0;
+      const tb = b.created_at ? Date.parse(b.created_at) : 0;
+      return ta - tb;
+    })[0];
   if (!preferred?.hostname) return null;
   return normalizeToApiBaseUrl(`https://${preferred.hostname}/api`);
 }
 
 /** Export/embed: domínio de tracking da conta se existir; senão host da lander. */
 export function resolveTrackApiBaseForExport(
-  domains: Array<{
-    hostname: string;
-    status: string;
-    purpose?: string | null;
-    is_default_tracking?: boolean | null;
-  }>,
+  domains: Array<AccountDomainForTrack>,
   publicPresellUrl: string,
 ): string {
   return getTrackApiBaseForAccountDomains(domains) ?? getTrackApiBaseForPublicPresell(publicPresellUrl);
+}
+
+/**
+ * Embed no painel: tracking da conta → URL pública da lander → hosting default → painel/env.
+ */
+export function resolveTrackApiBaseForPanelEmbed(
+  domains: Array<AccountDomainForTrack>,
+  publicPresellUrl?: string | null,
+): string {
+  return (
+    getTrackApiBaseForAccountDomains(domains) ??
+    (publicPresellUrl?.trim() ? getTrackApiBaseForPublicPresell(publicPresellUrl) : null) ??
+    getLanderApiBaseForAccountDomains(domains) ??
+    getTrackApiBaseUrl()
+  );
 }

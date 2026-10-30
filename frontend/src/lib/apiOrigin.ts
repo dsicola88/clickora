@@ -3,12 +3,14 @@
  * Lógica central: `src/config/publicApiUrl.ts`.
  */
 import {
+  getLanderApiBaseForAccountDomains,
   getResolvedPublicApiBaseUrl,
   getTrackApiBaseForAccountDomains,
   getTrackApiBaseForPublicPresell,
   getTrackApiBaseUrl,
   normalizeToApiBaseUrl,
   resolveTrackApiBaseForExport,
+  resolveTrackApiBaseForPanelEmbed,
 } from "@/config/publicApiUrl";
 
 export {
@@ -16,7 +18,9 @@ export {
   getTrackApiBaseUrl,
   getTrackApiBaseForPublicPresell,
   getTrackApiBaseForAccountDomains,
+  getLanderApiBaseForAccountDomains,
   resolveTrackApiBaseForExport,
+  resolveTrackApiBaseForPanelEmbed,
 };
 
 /** @deprecated Preferir `getResolvedPublicApiBaseUrl()` — mantido para chamadas que ainda passam `raw` manual. */

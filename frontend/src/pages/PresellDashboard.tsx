@@ -51,9 +51,8 @@ import {
 import { presellAutoCreatorSchema, presellCreatorStep1Schema } from "@/lib/validations";
 import {
   getApiBaseUrl,
-  getTrackApiBaseForAccountDomains,
-  getTrackApiBaseUrl,
   resolveTrackApiBaseForExport,
+  resolveTrackApiBaseForPanelEmbed,
 } from "@/lib/apiOrigin";
 import {
   PresellPublishReadiness,
@@ -200,24 +199,32 @@ export default function PresellDashboard() {
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    const apiBase =
-      getTrackApiBaseForAccountDomains(customDomains) ?? getTrackApiBaseUrl();
-    return buildClickoraEmbedScriptHtml({ apiBase, userId: uid });
-  }, [user?.id, customDomains]);
+    const publicUrl =
+      editingId != null
+        ? getPublicPresellFullUrl(customDomains, editingPage?.custom_domain_id ?? null, {
+            id: editingId,
+          })
+        : null;
+    const apiBase = resolveTrackApiBaseForPanelEmbed(customDomains, publicUrl);
+    return buildClickoraEmbedScriptHtml({
+      apiBase,
+      userId: uid,
+      ...(editingId ? { presellId: editingId } : {}),
+    });
+  }, [user?.id, customDomains, editingId, editingPage?.custom_domain_id]);
 
   /**
    * Nova presell: junta o script Clickora ao head ao abrir o formulário.
-   * Edição: só sugere script se o head guardado estiver vazio (evita sobrescrever o que já existe).
+   * Edição: actualiza o embed Clickora quando o domínio de tracking muda (preserva outro código no head).
    */
   useEffect(() => {
     if (!showCreator || !trackingEmbedScript) return;
     setConfigSettings((prev) => {
-      if (editingId && prev.headerCode.trim()) return prev;
       const next = mergeClickoraTrackingIntoHeader(prev.headerCode, trackingEmbedScript);
       if (next === prev.headerCode) return prev;
       return { ...prev, headerCode: next };
     });
-  }, [showCreator, editingId, trackingEmbedScript]);
+  }, [showCreator, trackingEmbedScript]);
 
   const { data: pages = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["presells", tenantKey],

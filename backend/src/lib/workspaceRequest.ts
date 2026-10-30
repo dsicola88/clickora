@@ -6,12 +6,13 @@ import type { JwtPayload } from "./jwt";
 
 export async function resolveWorkspaceIdForRequest(req: Request): Promise<string | null> {
   const j = req.user as JwtPayload;
+  const actor = actorUserId(req);
   if (j.workspaceId) {
-    const claimed = await systemPrisma.workspace.findUnique({
-      where: { id: j.workspaceId },
-      select: { id: true },
+    const member = await systemPrisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId: j.workspaceId, userId: actor } },
+      select: { workspaceId: true },
     });
-    if (claimed) return claimed.id;
+    if (member) return member.workspaceId;
   }
   const w = await systemPrisma.workspace.findFirst({
     where: { ownerUserId: billingUserId(req) },

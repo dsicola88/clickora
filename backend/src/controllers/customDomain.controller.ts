@@ -263,6 +263,7 @@ export const customDomainController = {
         });
 
         await ensureDefaultDomainForUser(userId);
+        await ensureDefaultTrackingForUser(userId);
         out =
           (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
 
@@ -317,6 +318,7 @@ export const customDomainController = {
     });
 
     await ensureDefaultDomainForUser(userId);
+    await ensureDefaultTrackingForUser(userId);
     out =
       (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
 
@@ -396,8 +398,16 @@ export const customDomainController = {
       data.isDefaultTracking = false;
     }
 
-    await systemPrisma.customDomain.update({ where: { id: domain.id }, data });
+    await systemPrisma.customDomain.update({
+      where: { id: domain.id },
+      data: purposeRaw === "tracking" ? { ...data, rootPresellId: null } : data,
+    });
     if (purposeRaw === "tracking") {
+      /** Domínio só-tracking deixa de ser lander: limpa ligações de páginas. */
+      await systemPrisma.presellPage.updateMany({
+        where: { userId, customDomainId: domain.id },
+        data: { customDomainId: null },
+      });
       await ensureDefaultDomainForUser(userId);
     }
     if (purposeRaw === "hosting" || purposeRaw === "tracking" || purposeRaw === "both") {

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { PresellBuilderEmbedProvider } from "@/contexts/PresellBuilderEmbedContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTrackApiBaseForAccountDomains, getTrackApiBaseUrl } from "@/lib/apiOrigin";
+import { resolveTrackApiBaseForPanelEmbed } from "@/lib/apiOrigin";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
@@ -135,12 +135,17 @@ export default function PresellManualBuilderPage() {
   const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
   const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
 
+  const publicPresellTestUrl = useMemo(() => {
+    if (!routeId) return null;
+    return getPublicPresellFullUrl(customDomains, customDomainId || null, { id: routeId });
+  }, [routeId, customDomains, customDomainId]);
+
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
     if (!uid) return "";
-    const apiBase = getTrackApiBaseForAccountDomains(customDomains) ?? getTrackApiBaseUrl();
+    const apiBase = resolveTrackApiBaseForPanelEmbed(customDomains, publicPresellTestUrl);
     return buildClickoraEmbedScriptHtml({ apiBase, userId: uid });
-  }, [user?.id, customDomains]);
+  }, [user?.id, customDomains, publicPresellTestUrl]);
 
   const trackingHealthScore = useMemo(
     () =>
@@ -160,11 +165,6 @@ export default function PresellManualBuilderPage() {
       return { ...prev, headerCode: next };
     });
   }, [trackingEmbedScript]);
-
-  const publicPresellTestUrl = useMemo(() => {
-    if (!routeId) return null;
-    return getPublicPresellFullUrl(customDomains, customDomainId || null, { id: routeId });
-  }, [routeId, customDomains, customDomainId]);
 
   useEffect(() => {
     const uid = user?.id || "anon";
