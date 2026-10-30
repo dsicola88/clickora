@@ -160,7 +160,7 @@ export default function SetupAssistantPage() {
         id: "presell",
         title: "2. Presell publicada",
         description:
-          "Cria a página (visual do produto + hoplink da rede) e publica. O anúncio deve abrir só o link /p/… — nunca a página do produto em cru.",
+          "Cria a página (visual do produto + link da oferta) e publica. O anúncio deve abrir só o teu link /p/… — nunca a página do produto em cru.",
         status: hasPublished ? "done" : "pending",
         actions: [{ to: "/presell/dashboard", label: "Minhas Presells" }],
         hint: hasPublished
@@ -171,7 +171,7 @@ export default function SetupAssistantPage() {
         id: "urls",
         title: "3. Link do anúncio",
         description:
-          "Em Gerar link, copia o URL da presell (com UTMs se quiseres). Cola esse link no Google/Meta/TikTok.",
+          "Em Gerar link, copia o URL da página e cola no Google, Meta ou TikTok.",
         status: hasPublished ? "done" : "warn",
         actions: [{ to: "/tracking/url-builder", label: "Gerar link" }],
         hint: !hasPublished ? "Publica uma presell primeiro." : undefined,
@@ -193,11 +193,11 @@ export default function SetupAssistantPage() {
       },
       {
         id: "postback",
-        title: "5. Postback (vendas)",
+        title: "5. Aviso de venda",
         description:
-          "Em Postback copia o URL e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
+          "Em Integrações copia o URL de aviso e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
         status: approvedSales > 0 ? "done" : hasPublished ? "warn" : "pending",
-        actions: [{ to: "/integracoes/postback", label: "Configurar postback" }],
+        actions: [{ to: "/integracoes/postback", label: "Configurar aviso de venda" }],
         hint: webhook?.hook_url
           ? approvedSales > 0
             ? "Há vendas aprovadas no período."

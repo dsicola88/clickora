@@ -443,14 +443,13 @@ export default function UrlBuilder() {
   }, [baseUrl, baseUrlValid, platform]);
 
   const flowSteps = [
-    "Construtor de URL: defines o link da página com UTMs e IDs de clique (ex.: gclid, fbclid) conforme a plataforma escolhida.",
-    "O visitante clica no anúncio; a rede substitui as macros pelos valores reais.",
-    "A página carrega com esses parâmetros — o rastreamento regista o clique e guarda os IDs.",
-    "Ao abrir a oferta, a Clickora acrescenta o ID do clique ao link do produto (ver também Integrações → Plataformas).",
-    "Em venda aprovada, o aviso da rede (postback) usa o contrato escolhido em Integrações.",
-    "A Clickora valida o clique, regista a venda e actualiza a página.",
-    "Com Google Ads activo, o gclid (ou gbraid/wbraid) do clique pode ser enviado às conversões do Google.",
-    "Com Microsoft/Bing, o msclkid fica no clique; as conversões usam o aviso em Integrações (Microsoft Ads) quando a rede o enviar.",
+    "Construtor: montas o link da página para a rede de anúncios escolhida.",
+    "O visitante clica no anúncio; a rede preenche os dados reais do clique.",
+    "A página abre e a Clickora regista a visita e o clique.",
+    "No botão da oferta, a Clickora liga esse clique ao teu link da rede de afiliados.",
+    "Quando há venda, o aviso da rede (Integrações) fecha a conversão na Clickora.",
+    "Com Google Ads ligado, a venda pode ser enviada de volta ao Google.",
+    "Com Microsoft/Bing, o mesmo: o aviso em Integrações fecha a venda quando a rede notificar.",
   ];
 
   return (
@@ -481,11 +480,9 @@ export default function UrlBuilder() {
         <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] px-4 py-3 sm:px-5 space-y-2">
           <p className="text-sm font-semibold text-foreground">Seguinte passo: link para anúncios</p>
           <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            O <strong className="text-foreground/90">URL base</strong> abaixo é o link público da presell (
-            <span className="font-mono text-[11px]">/p/…</span>). Escolha a plataforma (Google, Meta, etc.), mantenha os IDs
-            de clique (ex. <span className="font-mono text-[11px]">gclid</span>) e copie o URL gerado para a campanha. O tráfego
-            entra na presell com tracking; no botão da oferta usamos o teu link de afiliado e o redirect liga a conversão ao
-            clique (postback em Integrações).
+            O <strong className="text-foreground/90">URL base</strong> é o link público da tua página. Escolhe a
+            plataforma (Google, Meta, etc.), copia o URL gerado e cola no anúncio. O botão da página continua a usar
+            o teu link da oferta; as vendas fecham com o aviso de venda em Integrações.
           </p>
           {presellOfferHint ? (
             <p className="text-[11px] text-muted-foreground leading-snug break-all border-t border-emerald-500/20 pt-2 mt-2">
@@ -592,7 +589,7 @@ export default function UrlBuilder() {
                   </PopoverContent>
                 </Popover>
                 <p className="text-[11px] text-muted-foreground">
-                  Afiliados (subid, hop…) ou rede de anúncios (UTMs, ValueTrack). Escreve para filtrar.
+                  Rede de afiliados ou de anúncios. Escreve para filtrar.
                 </p>
               </div>
 
@@ -607,11 +604,8 @@ export default function UrlBuilder() {
                 {platform === "Google Ads" && (
                   <div className="space-y-1.5 max-w-4xl text-[11px] text-muted-foreground">
                     <p>
-                      Usa o URL da página presell (rota <span className="font-mono">/p/…</span>). Os parâmetros incluem{" "}
-                      <strong className="font-mono text-foreground underline decoration-primary decoration-2 underline-offset-2">
-                        gclid=&#123;gclid&#125;
-                      </strong>{" "}
-                      e ValueTrack em <span className="font-mono">utm_*</span> / <span className="font-mono">sub1–sub3</span>.
+                      Usa o link da página (<span className="font-mono">/p/…</span>). Os parâmetros abaixo são
+                      preenchidos pelo Google quando alguém clica no anúncio.
                     </p>
                     <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-amber-950 dark:text-amber-100">
                       Em Google Ads → Configurações da conta → <strong>Codificação automática = Sim</strong>. Prefere
@@ -785,10 +779,10 @@ export default function UrlBuilder() {
 
             <TabsContent value="guide" className="mt-5 space-y-4 outline-none">
               <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
-                <p className="text-sm font-semibold text-foreground">Fluxo: tracking → oferta → postback</p>
+                <p className="text-sm font-semibold text-foreground">Fluxo: anúncio → página → oferta → venda</p>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Montas o link público da presell com UTMs e macros; no clique a rede preenche os IDs; o redirect acrescenta{" "}
-                  <span className="font-mono text-[11px]">clickora_click_id</span> na oferta; o postback em Integrações fecha a conversão.
+                  Montas o link da página para o anúncio; no clique a rede preenche os dados; a Clickora liga o
+                  visitante à oferta; o aviso de venda em Integrações regista a conversão.
                 </p>
                 <Collapsible defaultOpen={false} className="space-y-2">
                   <CollapsibleTrigger asChild>

@@ -145,7 +145,7 @@ export function PresellTrackingHealthPanel({
       {testUrl ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-1 border-t border-dashed border-border/50">
           <span className={cn("text-[11px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-            Pré-visualização com UTMs de teste (não substitui testes nas redes).
+            Pré-visualização de teste (não substitui um clique real no anúncio).
           </span>
           <Button
             type="button"
