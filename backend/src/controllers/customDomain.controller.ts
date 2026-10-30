@@ -405,7 +405,7 @@ export const customDomainController = {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
-    return res.json(list.map(mapRow));
+    return res.json(list.map((r) => mapRow(r)));
   },
 
   async remove(req: Request, res: Response) {
@@ -432,7 +432,7 @@ export const customDomainController = {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
-    return res.json({ ok: true, domains: list.map(mapRow) });
+    return res.json({ ok: true, domains: list.map((r) => mapRow(r)) });
   },
 
   async setPurpose(req: Request, res: Response) {
@@ -475,7 +475,7 @@ export const customDomainController = {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
-    return res.json(list.map(mapRow));
+    return res.json(list.map((r) => mapRow(r)));
   },
 
   async setDefaultTracking(req: Request, res: Response) {
@@ -505,7 +505,7 @@ export const customDomainController = {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
-    return res.json(list.map(mapRow));
+    return res.json(list.map((r) => mapRow(r)));
   },
 
   async setRootPresell(req: Request, res: Response) {
@@ -536,7 +536,7 @@ export const customDomainController = {
         where: { userId },
         orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
       });
-      return res.json(list.map(mapRow));
+      return res.json(list.map((r) => mapRow(r)));
     }
 
     const page = await prisma.presellPage.findFirst({
@@ -558,6 +558,6 @@ export const customDomainController = {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
     });
-    return res.json(list.map(mapRow));
+    return res.json(list.map((r) => mapRow(r)));
   },
 };
