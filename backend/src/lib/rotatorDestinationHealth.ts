@@ -1,9 +1,14 @@
 /**
  * Probe rápida SSRF-consciente para contingência de rotadores.
- * Não substitui a probe de compliance (mais pesada); só decide failover → backup/outro braço.
+ * Cache TTL evita latência Voluum-grade (não sonda em todos os cliques).
  */
 
-const DEFAULT_TIMEOUT_MS = 1_500;
+const DEFAULT_TIMEOUT_MS = 1_200;
+const DEFAULT_CACHE_TTL_MS = 60_000;
+
+type CacheEntry = { healthy: boolean; status: number | null; reason?: string; expiresAt: number };
+
+const healthCache = new Map<string, CacheEntry>();
 
 /** Destinos onde HTTP probe não faz sentido (apps de chat / deep links). */
 const SKIP_PROBE_HOST_SUFFIXES = [
@@ -22,6 +27,17 @@ const SKIP_PROBE_HOST_SUFFIXES = [
 export function rotatorDestinationProbeEnabled(): boolean {
   const raw = (process.env.ROTATOR_DESTINATION_PROBE || "1").trim().toLowerCase();
   return raw !== "0" && raw !== "false" && raw !== "off";
+}
+
+function cacheTtlMs(): number {
+  const n = Number(process.env.ROTATOR_DESTINATION_PROBE_TTL_MS || DEFAULT_CACHE_TTL_MS);
+  return Number.isFinite(n) && n >= 0 ? Math.min(600_000, n) : DEFAULT_CACHE_TTL_MS;
+}
+
+/** Se true, 404/410/451 também disparam failover (mais agressivo). Default: só 5xx/rede/timeout. */
+export function rotatorFailOnNotFound(): boolean {
+  const raw = (process.env.ROTATOR_PROBE_FAIL_ON_404 || "0").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "on";
 }
 
 export function isRotatorDestinationProbeable(rawUrl: string): boolean {
@@ -45,23 +61,40 @@ export function isRotatorDestinationProbeable(rawUrl: string): boolean {
   return !SKIP_PROBE_HOST_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`));
 }
 
+export function clearRotatorDestinationHealthCache(): void {
+  healthCache.clear();
+}
+
 /**
  * HEAD rápido; se o servidor não permitir HEAD, tenta GET com Range.
- * Considera saudável: 2xx/3xx. 4xx/5xx/timeout/rede → unhealthy.
+ * Saudável por defeito: 2xx/3xx/4xx (excepto 404/410/451 se ROTATOR_PROBE_FAIL_ON_404=1).
+ * Unhealthy: 5xx, timeout, rede.
  */
 export async function probeRotatorDestinationQuick(
   rawUrl: string,
-  opts?: { timeoutMs?: number; fetchImpl?: typeof fetch },
-): Promise<{ healthy: boolean; status: number | null; reason?: string }> {
+  opts?: { timeoutMs?: number; fetchImpl?: typeof fetch; bypassCache?: boolean },
+): Promise<{ healthy: boolean; status: number | null; reason?: string; fromCache?: boolean }> {
   if (!isRotatorDestinationProbeable(rawUrl)) {
     return { healthy: true, status: null, reason: "skipped_host" };
   }
+
+  const key = rawUrl.trim();
+  const now = Date.now();
+  if (!opts?.bypassCache) {
+    const hit = healthCache.get(key);
+    if (hit && hit.expiresAt > now) {
+      return { healthy: hit.healthy, status: hit.status, reason: hit.reason, fromCache: true };
+    }
+  }
+
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const doFetch = opts?.fetchImpl ?? fetch;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  let result: { healthy: boolean; status: number | null; reason?: string };
   try {
-    let res = await doFetch(rawUrl, {
+    let res = await doFetch(key, {
       method: "HEAD",
       redirect: "follow",
       signal: ctrl.signal,
@@ -71,7 +104,7 @@ export async function probeRotatorDestinationQuick(
       },
     });
     if (res.status === 405 || res.status === 501) {
-      res = await doFetch(rawUrl, {
+      res = await doFetch(key, {
         method: "GET",
         redirect: "follow",
         signal: ctrl.signal,
@@ -83,18 +116,27 @@ export async function probeRotatorDestinationQuick(
       });
     }
     const status = res.status;
-    if (status >= 200 && status < 400) return { healthy: true, status };
-    if (status >= 500) return { healthy: false, status, reason: "upstream_5xx" };
-    // 4xx: página pode existir mas bloquear bots — não forçar backup agressivo excepto 404/410/451
-    if (status === 404 || status === 410 || status === 451) {
-      return { healthy: false, status, reason: `http_${status}` };
+    if (status >= 200 && status < 400) {
+      result = { healthy: true, status };
+    } else if (status >= 500) {
+      result = { healthy: false, status, reason: "upstream_5xx" };
+    } else if (rotatorFailOnNotFound() && (status === 404 || status === 410 || status === 451)) {
+      result = { healthy: false, status, reason: `http_${status}` };
+    } else {
+      // 4xx (incl. 404): página pode existir / bloquear bots — não matar A/B por defeito
+      result = { healthy: true, status, reason: "client_4xx_assumed_reachable" };
     }
-    return { healthy: true, status, reason: "client_4xx_assumed_reachable" };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "network";
     const aborted = e instanceof Error && (e.name === "AbortError" || /aborted|timeout/i.test(msg));
-    return { healthy: false, status: null, reason: aborted ? "timeout" : "network" };
+    result = { healthy: false, status: null, reason: aborted ? "timeout" : "network" };
   } finally {
     clearTimeout(timer);
   }
+
+  const ttl = cacheTtlMs();
+  if (ttl > 0) {
+    healthCache.set(key, { ...result, expiresAt: now + ttl });
+  }
+  return result;
 }

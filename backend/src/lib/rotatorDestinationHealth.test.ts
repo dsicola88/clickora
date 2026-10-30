@@ -13,21 +13,31 @@ describe("rotatorDestinationHealth", () => {
     assert.equal(isRotatorDestinationProbeable("https://offer.example/buy"), true);
   });
 
-  it("marca 5xx / timeout como unhealthy e 200 como healthy", async () => {
-    const ok = await probeRotatorDestinationQuick("https://ok.example/", {
-      fetchImpl: (async () =>
-        new Response(null, { status: 200 })) as unknown as typeof fetch,
+  it("marca 5xx / timeout como unhealthy; 200 e 404 (default) como healthy", async () => {
+    const { clearRotatorDestinationHealthCache } = await import("./rotatorDestinationHealth");
+    clearRotatorDestinationHealthCache();
+
+    const ok = await probeRotatorDestinationQuick("https://ok.example/path", {
+      bypassCache: true,
+      fetchImpl: (async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
     });
     assert.equal(ok.healthy, true);
 
+    const soft404 = await probeRotatorDestinationQuick("https://ok.example/missing", {
+      bypassCache: true,
+      fetchImpl: (async () => new Response(null, { status: 404 })) as unknown as typeof fetch,
+    });
+    assert.equal(soft404.healthy, true);
+
     const bad = await probeRotatorDestinationQuick("https://down.example/", {
-      fetchImpl: (async () =>
-        new Response(null, { status: 503 })) as unknown as typeof fetch,
+      bypassCache: true,
+      fetchImpl: (async () => new Response(null, { status: 503 })) as unknown as typeof fetch,
     });
     assert.equal(bad.healthy, false);
     assert.equal(bad.reason, "upstream_5xx");
 
     const timed = await probeRotatorDestinationQuick("https://slow.example/", {
+      bypassCache: true,
       timeoutMs: 20,
       fetchImpl: (async (_url, init) => {
         await new Promise((_, rej) => {
