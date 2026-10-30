@@ -2,6 +2,8 @@
 
 **Branch:** `security/etapa5-isolamento`  
 **Data:** 2026-10-30  
+**Índice:** [INDICE_DOCUMENTACAO_DCLICKORA.md](./INDICE_DOCUMENTACAO_DCLICKORA.md).  
+
 
 ## 1. Correcções de código
 

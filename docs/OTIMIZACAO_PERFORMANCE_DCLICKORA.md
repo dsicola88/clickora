@@ -1,6 +1,7 @@
 # Otimização de performance — DClickora (Fases 3–4)
 
 **Data:** 2026-10-30  
+**Índice:** [INDICE_DOCUMENTACAO_DCLICKORA.md](./INDICE_DOCUMENTACAO_DCLICKORA.md).  
 **Ambiente:** API local `127.0.0.1:3001` + Postgres Docker `localhost:5434`  
 **Regra:** VUs ≠ utilizadores humanos reais. Comparações só com métricas medidas nesta máquina (4 CPUs, ~8.6 GB RAM).  
 **Segurança:** bcrypt cost **12** mantido; rate limit auth **80/15 min/IP** mantido; isolamento multi-tenant não alterado.  

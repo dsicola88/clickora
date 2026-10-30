@@ -216,57 +216,70 @@ Comando: `cd frontend && npm run build` (sessão 2026-10-30).
 
 | Doc | Papel |
 |-----|--------|
-| README, DEPLOYMENT, ENV-SETUP, PAID-ADS, ENTERPRISE, POSTGRES-BACKUP | Existentes |
-| Esta AUDITORIA + ARQUITETURA + FLUXOS + GUIA + VARIAVEIS | Entrega Etapa 1 / rascunho Etapa 6 |
+| [INDICE_DOCUMENTACAO_DCLICKORA.md](./INDICE_DOCUMENTACAO_DCLICKORA.md) | **Entrada única** (Etapa 6) |
+| README, DEPLOYMENT, ENV-SETUP, PAID-ADS, ENTERPRISE, POSTGRES-BACKUP | Operação |
+| Esta AUDITORIA + ARQUITETURA + FLUXOS + GUIA + VARIAVEIS | Diagnóstico + manutenção |
+| OTIMIZACAO_PERFORMANCE / TESTES_CARGA / SEGURANCA_E_ISOLAMENTO | Entregas Etapas 3–5 |
 
 ---
 
-## 12. Dívida técnica (pós P0/P1)
+## 12. Dívida técnica (pós Etapas 2–5)
 
-1. Unificar ou documentar as duas stacks Google Ads  
-2. Completar cobertura tenant / `systemPrisma`  
-3. Rate limit partilhado (Redis/CDN) se houver réplicas  
-4. Reduzir `icons-vendor`  
-5. Batch `conversionsCsv` + índices DB  
-6. Playwright + multitenant em staging  
-7. `ENCRYPTION_KEY` + `JWT_SECRET` em todos os ambientes  
-8. Separar `.env` local de produção (A6)
+| Item | Estado |
+|------|--------|
+| P0/P1 A1–A5 (tokens, JWT boot, paid gate, mappers) | **Feito** (branch `fix/…`) |
+| `ENCRYPTION_KEY` obrigatória em production | **Feito** (Etapa 5) |
+| Rate limit Redis opcional | **Feito** (Etapa 3) |
+| Reduzir `icons-vendor` / lazy Dpiloto | **Feito** (Etapa 3) |
+| Batch `conversionsCsv` + índices | **Feito** (Etapa 3) |
+| Scripts carga + anti-Railway | **Feito**; métricas mutantes pendentes em DB local (Etapa 4) |
+| Suite IDOR + SSRF pin | **Feito** no código; re-correr suite em `:5434` (Etapa 5) |
+| Unificar stacks Google Ads | Aberto (documentado como dual) |
+| Playwright + multitenant em staging dedicado | Aberto |
+| Separar `.env` local de produção na máquina do developer | Processo (A6) |
 
 ---
 
 ## 13. Checklist produção / staging
 
-- [ ] `JWT_SECRET` forte em produção (bloqueia A3)  
-- [ ] `ENCRYPTION_KEY` + re-OAuth paid após A2  
+- [ ] `JWT_SECRET` forte em produção (boot bloqueia)  
+- [ ] `ENCRYPTION_KEY` + re-OAuth paid se tokens antigos em claro  
 - [ ] Dev **nunca** aponta mutações para BD produção  
-- [ ] Staging com Postgres próprio para Etapa 4  
+- [ ] Staging / local `:5434` para carga e IDOR mutantes  
 - [ ] R2, Hotmart, OAuth — ver `VARIAVEIS_AMBIENTE_DCLICKORA.md`  
-- [ ] Monitorização + backups (`POSTGRES-BACKUP.md`)
+- [ ] Monitorização + backups (`POSTGRES-BACKUP.md`)  
+- [ ] `REDIS_URL` se >1 réplica API  
 
 ---
 
-## 14. Recomendações prioritárias
+## 14. Estado do programa (2026-10-30)
 
-1. **Agora:** publicar esta branch; abrir Etapa 2 (P0 A1–A3, P1 A4–A6/A14).  
-2. **Antes de escala:** staging + load scripts com bloqueio de produção.  
-3. **Etapa 3:** icons/charts, índices, batch CSV.  
-4. **Etapas 5–7:** E2E isolamento, docs finais, relatório com percentis.  
-5. **Não declarar** capacidade 1k–10k users sem relatório de carga datado em staging.
+| Etapa | Estado | Branch / doc |
+|-------|--------|--------------|
+| 1 Auditoria | Feito | `audit/dclickora-diagnostico` |
+| 2 P0/P1 | Feito | `fix/p0-p1-seguranca-isolamento` |
+| 3 Performance | Feito | `perf/etapa3-otimizacao` + `OTIMIZACAO_PERFORMANCE_*` |
+| 4 Carga | Feito (parcial métricas) | `load/etapa4-carga-staging` + `TESTES_CARGA_*` |
+| 5 Isolamento | Feito (suite E2E re-run local pendente) | `security/etapa5-isolamento` + `SEGURANCA_E_ISOLAMENTO.md` |
+| 6 Documentação | **Em entrega** | `docs/etapa6-documentacao-completa` + `INDICE_*` |
+| 7 Testes finais / relatório | Pendente | — |
+
+**Não declarar** capacidade 1k–10k users sem relatório de carga datado em staging com percentis.
 
 ---
 
-## Tabela de aceitação (diagnóstico)
+## Tabela de aceitação (actualizada pós Etapas 2–6)
 
 | Área | Estado | Evidência |
 |------|--------|-----------|
-| Performance | **Parcial** — build medido; runtime/CWV não | build frontend |
-| Escalabilidade | **Não aprovado** | sem carga staging |
-| Segurança | **Riscos P0/P1 abertos** | §4 A1–A6, A14 |
-| Presells / Tracking / Paid / Billing | **Parcial** | unitários; E2E produto pendente |
-| Base de dados | **Parcial** | schema revisto; carga/migração staging pendente |
-| Documentação | **Melhorada nesta branch** | 5 docs |
-| Produção | **Não declarado pronto** | checklist §13 |
+| Performance | **Melhorada** — build + batch + índices + Redis opcional; CWV runtime não medido | `OTIMIZACAO_PERFORMANCE_*` |
+| Escalabilidade | **Parcial** — smoke health; mutações staging local pendentes | `TESTES_CARGA_*` |
+| Segurança | **P0/P1 endereçados** — suite IDOR local a revalidar | `SEGURANCA_E_ISOLAMENTO.md` |
+| Presells / Tracking / Paid / Billing | **Parcial** | unitários; E2E produto parcial |
+| Base de dados | **Parcial** | schema + índices; carga mutante local pendente |
+| Documentação | **Completa para manutenção** (Etapa 6) | `INDICE_DOCUMENTACAO_*` |
+| Produção | **Não declarado pronto** sem checklist §13 + Etapa 7 | — |
 
 ---
 
-*Fim do relatório de Etapa 1. Afirmações futuras de “suporta X utilizadores” devem citar relatório de carga com data, ambiente staging e percentis medidos.*
+*Relatório vivo: Etapa 1 diagnosticou; Etapas 2–5 corrigiram código; Etapa 6 consolida docs. Afirmações de capacidade de utilizadores exigem Etapa 7 + carga staging datada.*

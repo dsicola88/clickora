@@ -2,6 +2,7 @@
 
 **Branch:** `load/etapa4-carga-staging`  
 **Data:** 2026-10-30  
+**Índice:** [INDICE_DOCUMENTACAO_DCLICKORA.md](./INDICE_DOCUMENTACAO_DCLICKORA.md).  
 **Regra absoluta:** nunca contra BD/API de produção (Railway / dclickora.com).
 
 ---
