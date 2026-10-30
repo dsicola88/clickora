@@ -3,6 +3,12 @@ import { sendTransactionalEmail } from "./mailer";
 import { sendTelegram } from "./telegram";
 import { decryptSecretField } from "./fieldEncryption";
 
+function conversionsReportUrl(): string {
+  const raw = process.env.FRONTEND_URL || process.env.APP_PUBLIC_URL || "https://www.dclickora.com";
+  const base = raw.split(",")[0]?.trim().replace(/\/$/, "") || "https://www.dclickora.com";
+  return `${base}/resultados/relatorios/conversoes`;
+}
+
 /**
  * Notificação proactiva: falha ao enviar uma conversão aprovada para Google Ads, Meta CAPI ou TikTok Events API.
  * (E-mail com SMTP; Telegram se «alertas de problemas» estiverem activos no perfil.)
@@ -33,6 +39,7 @@ export function notifyUserConversionSyncFailure(
             : "TikTok Events API";
       const shortErr = detail.error.slice(0, 2000);
       const to = (user.saleNotifyEmail?.trim() || user.email).trim();
+      const reportUrl = conversionsReportUrl();
 
       const mail = await sendTransactionalEmail({
         to,
@@ -41,7 +48,7 @@ export function notifyUserConversionSyncFailure(
           `Não foi possível concluir o envio server-side (post-venda) para ${label}.\n\n` +
           `ID da conversão: ${detail.conversionId}\n\n` +
           `Detalhe do erro (resumo):\n${shortErr}\n\n` +
-          `Em Tracking → Relatórios → Conversões consulte a coluna de sincronização e valide credenciais, permissões e identificadores de clique (GCLID, fbclid, ttclid) conforme a plataforma.`,
+          `Abra Relatórios → Conversões (${reportUrl}), consulte a coluna de sincronização e valide credenciais, permissões e identificadores de clique (gclid, fbclid, ttclid).`,
       });
       if (!mail.sent && process.env.NODE_ENV === "production") {
         console.warn("[syncFailureAlerts] e-mail não enviado:", (mail as { reason: string }).reason);
