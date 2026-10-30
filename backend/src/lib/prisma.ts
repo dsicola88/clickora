@@ -48,11 +48,14 @@ export function databaseUrlWithPool(raw: string | undefined): string | undefined
  * - **Local (`npm run dev`, NODE_ENV vazio ou ≠ production):** sem logs do motor por defeito.
  * - **`QUIET_PRISMA=1`:** força silêncio total do motor (também em produção). Erros de rotas Express não são afectados.
  */
+const pooledDatabaseUrl = databaseUrlWithPool(process.env.DATABASE_URL);
 const basePrisma = new PrismaClient({
   log: prismaLogOptions(),
-  datasources: {
-    db: { url: databaseUrlWithPool(process.env.DATABASE_URL) },
-  },
+  // Só sobrescrever quando há URL: em CI unitário DATABASE_URL pode estar ausente
+  // e `{ url: undefined }` rebenta o construtor do PrismaClient.
+  ...(pooledDatabaseUrl
+    ? { datasources: { db: { url: pooledDatabaseUrl } } }
+    : {}),
 });
 
 /**
