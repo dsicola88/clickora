@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 export type SyncHealthPayload = {
   period_days: number;
   google_ads_failed: number;
+  google_ads_skipped_no_gclid?: number;
   meta_capi_failed: number;
   tiktok_events_failed?: number;
 };
@@ -21,11 +22,16 @@ export function SyncHealthBanner({
 }) {
   if (!syncHealth) return null;
   const tt = syncHealth.tiktok_events_failed ?? 0;
-  const total = syncHealth.google_ads_failed + syncHealth.meta_capi_failed + tt;
+  const noGclid = syncHealth.google_ads_skipped_no_gclid ?? 0;
+  const total =
+    syncHealth.google_ads_failed + syncHealth.meta_capi_failed + tt + noGclid;
   if (total <= 0) return null;
   const parts: string[] = [];
   if (syncHealth.google_ads_failed > 0) {
     parts.push(`${syncHealth.google_ads_failed} conversão(ões) com falha no Google Ads`);
+  }
+  if (noGclid > 0) {
+    parts.push(`${noGclid} venda(s) sem gclid (não enviadas ao Google Ads)`);
   }
   if (syncHealth.meta_capi_failed > 0) {
     parts.push(`${syncHealth.meta_capi_failed} conversão(ões) com falha na Meta CAPI`);

@@ -21,9 +21,11 @@ function main() {
   const customCtrl = readFileSync(join(root, "controllers/customDomain.controller.ts"), "utf8");
 
   record(
-    "getDashboard emite sync_health com 3 contadores",
+    "getDashboard emite sync_health (failed + skipped_no_gclid)",
     analytics.includes("sync_health") &&
       analytics.includes("google_ads_failed") &&
+      analytics.includes("google_ads_skipped_no_gclid") &&
+      analytics.includes("skipped_no_gclid") &&
       analytics.includes("meta_capi_failed") &&
       analytics.includes("tiktok_events_failed"),
     "ok",

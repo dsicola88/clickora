@@ -1863,15 +1863,23 @@ export const analyticsController = {
     let sync_health: {
       period_days: number;
       google_ads_failed: number;
+      google_ads_skipped_no_gclid: number;
       meta_capi_failed: number;
       tiktok_events_failed: number;
-    } = { period_days: 7, google_ads_failed: 0, meta_capi_failed: 0, tiktok_events_failed: 0 };
+    } = {
+      period_days: 7,
+      google_ads_failed: 0,
+      google_ads_skipped_no_gclid: 0,
+      meta_capi_failed: 0,
+      tiktok_events_failed: 0,
+    };
     try {
       const [sh] = await systemPrisma.$queryRaw<
-        Array<{ g: bigint | null; m: bigint | null; t: bigint | null }>
+        Array<{ g: bigint | null; gclid: bigint | null; m: bigint | null; t: bigint | null }>
       >(Prisma.sql`
         SELECT
           COUNT(*) FILTER (WHERE google_ads_sync = 'failed')::bigint AS g,
+          COUNT(*) FILTER (WHERE google_ads_sync = 'skipped_no_gclid')::bigint AS gclid,
           COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m,
           COUNT(*) FILTER (WHERE tiktok_events_sync = 'failed')::bigint AS t
         FROM conversions
@@ -1882,6 +1890,7 @@ export const analyticsController = {
       sync_health = {
         period_days: 7,
         google_ads_failed: Number(sh?.g ?? 0),
+        google_ads_skipped_no_gclid: Number(sh?.gclid ?? 0),
         meta_capi_failed: Number(sh?.m ?? 0),
         tiktok_events_failed: Number(sh?.t ?? 0),
       };

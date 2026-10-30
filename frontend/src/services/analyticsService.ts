@@ -499,6 +499,8 @@ export const analyticsService = {
       sync_health?: {
         period_days: number;
         google_ads_failed: number;
+        /** Vendas aprovadas sem gclid — não sobem ao Google Ads offline. */
+        google_ads_skipped_no_gclid?: number;
         meta_capi_failed: number;
         tiktok_events_failed: number;
       };
