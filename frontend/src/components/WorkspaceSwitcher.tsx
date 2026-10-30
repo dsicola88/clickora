@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, Loader2 } from "lucide-react";
-import { workspaceService } from "@/services/workspaceService";
+import { workspaceService, type WorkspaceMineRow } from "@/services/workspaceService";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -18,6 +19,8 @@ import { cn } from "@/lib/utils";
 export function WorkspaceSwitcher({ className }: { className?: string }) {
   const { user, applySession } = useAuth();
   const qc = useQueryClient();
+  /** Mantém a lista visível após qc.clear() (senão o switcher pisca/desaparece). */
+  const [knownWorkspaces, setKnownWorkspaces] = useState<WorkspaceMineRow[]>([]);
 
   const { data: workspaces = [], isLoading } = useQuery({
     queryKey: ["workspaces", "mine"],
@@ -30,6 +33,10 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
     staleTime: 60_000,
   });
 
+  useEffect(() => {
+    if (workspaces.length > 0) setKnownWorkspaces(workspaces);
+  }, [workspaces]);
+
   const switchMut = useMutation({
     mutationFn: async (workspaceId: string) => {
       const { data, error } = await workspaceService.switchWorkspace(workspaceId);
@@ -39,19 +46,27 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
     },
     onSuccess: (data) => {
       applySession(data.token, data.user);
+      const wid = data.user.workspace_id;
+      setKnownWorkspaces((prev) =>
+        prev.map((w) => ({ ...w, is_active: w.workspace_id === wid })),
+      );
       qc.clear();
+      void qc.invalidateQueries({ queryKey: ["workspaces", "mine"] });
       toast.success(`Workspace: ${data.user.workspace_name || data.user.workspace_id}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!user || isLoading) return null;
-  if (workspaces.length < 2) return null;
+  const list = workspaces.length > 0 ? workspaces : knownWorkspaces;
+
+  if (!user) return null;
+  if (isLoading && list.length === 0) return null;
+  if (list.length < 2) return null;
 
   const active =
-    workspaces.find((w) => w.is_active) ||
-    workspaces.find((w) => w.workspace_id === user.workspace_id) ||
-    workspaces[0];
+    list.find((w) => w.is_active) ||
+    list.find((w) => w.workspace_id === user.workspace_id) ||
+    list[0];
 
   return (
     <DropdownMenu>
@@ -77,7 +92,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
           Workspaces onde é membro
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {workspaces.map((w) => {
+        {list.map((w) => {
           const selected = w.workspace_id === (active?.workspace_id ?? user.workspace_id);
           return (
             <DropdownMenuItem
