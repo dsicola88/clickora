@@ -867,9 +867,10 @@ export default function AdminPanel() {
                             Página de vendas
                           </CardTitle>
                           <CardDescription className="max-w-2xl leading-relaxed">
-                            Editor visual — o mesmo do builder manual de presell. Arraste blocos,
-                            edite no painel e publique. Use o widget <strong>Planos (vivos)</strong> para a grelha
-                            com preços reais da base de dados.
+                            Caminho: <strong>Abrir editor visual</strong> → barra de cima{" "}
+                            <strong>Temas</strong> (modelo «Tema dclickora — vendas») →{" "}
+                            <strong>Publicar</strong> → ver em /planos. Widget{" "}
+                            <strong>Planos (vivos)</strong> mostra preços reais da base.
                           </CardDescription>
                           {builderOn ? (
                             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
@@ -877,7 +878,7 @@ export default function AdminPanel() {
                             </p>
                           ) : (
                             <p className="text-xs text-muted-foreground">
-                              Ainda no editor clássico. Abra o visual e clique em Publicar para activar.
+                              Ainda no editor clássico. Abra o visual → Temas → Publicar para activar.
                             </p>
                           )}
                         </div>

@@ -89,6 +89,12 @@ export function EditorTopbar() {
     setNameDraft(doc.name);
   }, [doc.name]);
 
+  useEffect(() => {
+    const openTemplates = () => setTemplatesOpen(true);
+    window.addEventListener("clickora:pb-open-templates", openTemplates);
+    return () => window.removeEventListener("clickora:pb-open-templates", openTemplates);
+  }, []);
+
   const presellEmbed = usePresellBuilderEmbedOptional();
   const chromeTheme = useEditorChromeThemeContextOptional();
 

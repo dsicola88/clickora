@@ -50,6 +50,13 @@ import {
   TickerContentEditor,
 } from "./extra-widgets-editors";
 import type { NavItem, NavStickyMode } from "../widgets/NavMenuWidget";
+import {
+  TYPOGRAPHY_FONT_PRESETS,
+  TYPOGRAPHY_SIZE_PRESETS,
+  TYPOGRAPHY_WEIGHT_LABELS,
+  ensureFontFamilyLoaded,
+  matchFontPresetId,
+} from "../typography-presets";
 
 type Tab = "content" | "style" | "advanced";
 
@@ -1335,22 +1342,39 @@ function WidgetStyleTab({
 
       <Section title="Alinhamento do bloco">
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
-          Posição na coluna (independente do alinhamento tipográfico).
+          Posição do widget na coluna (esquerda / centro / direita). O alinhamento tipográfico
+          (incl. justificado) está em Tipografia.
         </p>
-        <SelectField
-          label={`Alinhamento (${device})`}
-          value={(resolveResponsive(widget.styles.align, device) as string) ?? "left"}
-          options={[
-            { value: "left", label: "Esquerda" },
-            { value: "center", label: "Centro" },
-            { value: "right", label: "Direita" },
-          ]}
-          onChange={(v) =>
-            setStyles({
-              align: setResponsive(widget.styles.align, device, v as "left" | "center" | "right"),
-            })
-          }
-        />
+        <div className="grid grid-cols-3 gap-1">
+          {(
+            [
+              { value: "left", label: "Esq." },
+              { value: "center", label: "Centro" },
+              { value: "right", label: "Dir." },
+            ] as const
+          ).map((opt) => {
+            const current = (resolveResponsive(widget.styles.align, device) as string) ?? "left";
+            const active = current === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  setStyles({
+                    align: setResponsive(widget.styles.align, device, opt.value),
+                  })
+                }
+                className={`rounded-md border px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+                  active
+                    ? "border-editor-accent bg-editor-accent/15 text-editor-accent"
+                    : "border-editor-border bg-editor-panel-2 text-editor-fg-muted hover:text-editor-fg"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </Section>
     </>
   );
@@ -1420,6 +1444,32 @@ function ColumnPanel({
               }
             />
           </Section>
+          <Section title="Alinhamento vertical do conteúdo">
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
+              Como os widgets se distribuem na altura da coluna (tipo Elementor Vertical Align).
+            </p>
+            <SelectField
+              label={`Vertical (${device})`}
+              value={(resolveResponsive(column.styles.justifyContent, device) as string) ?? "flex-start"}
+              options={[
+                { value: "flex-start", label: "Topo" },
+                { value: "center", label: "Centro" },
+                { value: "flex-end", label: "Fundo" },
+                { value: "space-between", label: "Espaço entre" },
+                { value: "space-around", label: "Espaço em torno" },
+                { value: "space-evenly", label: "Espaço igual" },
+              ]}
+              onChange={(v) =>
+                setStyles({
+                  justifyContent: setResponsive(
+                    column.styles.justifyContent,
+                    device,
+                    v as NonNullable<typeof column.styles.justifyContent>["desktop"],
+                  ),
+                })
+              }
+            />
+          </Section>
           {column.widgets.length > 0 ? (
             <Section title="Elementos nesta coluna">
               <ul className="space-y-1">
@@ -1470,6 +1520,7 @@ function ColumnPanel({
           cssClasses={undefined}
           onClasses={() => {}}
           hideClasses
+          showLayout
         />
       )}
     </PanelShell>
@@ -1908,22 +1959,86 @@ function TypographySection({
     textDecoration: "none" as const,
     wordSpacing: 0,
   };
-  const update = (patch: Partial<TypographyValue>) =>
+  const update = (patch: Partial<TypographyValue>) => {
+    if (patch.fontFamily) ensureFontFamilyLoaded(patch.fontFamily);
     setStyles({
       typography: setResponsive(styles.typography, device, { ...t, ...patch }),
     });
+  };
 
   const lineUnit = t.lineHeightUnit ?? "";
   const fsUnit = t.fontSizeUnit ?? "px";
+  const presetId = matchFontPresetId(t.fontFamily);
 
   return (
     <Section title={`Tipografia (${device})`}>
-      <TextField
-        label="Família (font-family)"
-        value={t.fontFamily ?? ""}
-        onChange={(v) => update({ fontFamily: v.trim() ? v : undefined })}
-        placeholder="Ex.: Roboto, system-ui, sans-serif"
+      <SelectField
+        label="Família tipográfica"
+        value={presetId === "custom" ? "custom" : presetId}
+        options={[
+          ...TYPOGRAPHY_FONT_PRESETS.map((p) => ({
+            value: p.id,
+            label: `${p.label}${p.category !== "system" ? ` · ${p.category}` : ""}`,
+          })),
+          { value: "custom", label: "Personalizada (CSS)" },
+        ]}
+        onChange={(v) => {
+          if (v === "custom") {
+            update({
+              fontFamily:
+                t.fontFamily && matchFontPresetId(t.fontFamily) === "custom"
+                  ? t.fontFamily
+                  : "inherit",
+            });
+            return;
+          }
+          const preset = TYPOGRAPHY_FONT_PRESETS.find((p) => p.id === v);
+          if (!preset) return;
+          ensureFontFamilyLoaded(preset.value);
+          update({ fontFamily: preset.value });
+        }}
       />
+      {presetId === "custom" ? (
+        <TextField
+          label="font-family (CSS)"
+          value={t.fontFamily === "inherit" ? "" : (t.fontFamily ?? "")}
+          onChange={(v) => update({ fontFamily: v.trim() ? v : "inherit" })}
+          placeholder="Ex.: 'My Font', Georgia, serif"
+        />
+      ) : (
+        <p
+          className="rounded-md border border-editor-border bg-editor-panel-2 px-2.5 py-2 text-xs text-editor-fg"
+          style={{ fontFamily: t.fontFamily }}
+        >
+          Aa Bb Cc — {TYPOGRAPHY_FONT_PRESETS.find((p) => p.id === presetId)?.label ?? "Fonte"}
+        </p>
+      )}
+
+      <div>
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-editor-fg-muted">
+          Tamanho rápido
+        </p>
+        <div className="mb-2 flex flex-wrap gap-1">
+          {TYPOGRAPHY_SIZE_PRESETS.map((s) => {
+            const active = fsUnit === "px" && t.fontSize === s.px;
+            return (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => update({ fontSize: s.px, fontSizeUnit: "px" })}
+                className={`rounded border px-1.5 py-1 text-[10px] font-semibold transition-colors ${
+                  active
+                    ? "border-editor-accent bg-editor-accent/15 text-editor-accent"
+                    : "border-editor-border bg-editor-panel-2 text-editor-fg-muted hover:text-editor-fg"
+                }`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <NumberField label="Tamanho" value={t.fontSize} min={0} max={500} onChange={(v) => update({ fontSize: v })} />
         <SelectField
@@ -1943,7 +2058,7 @@ function TypographySection({
         value={String(t.fontWeight)}
         options={[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => ({
           value: String(w),
-          label: w === 400 ? "400 (normal)" : w === 700 ? "700 (negrito)" : String(w),
+          label: TYPOGRAPHY_WEIGHT_LABELS[w] ?? String(w),
         }))}
         onChange={(v) => update({ fontWeight: Number(v) })}
       />
@@ -2042,17 +2157,47 @@ function TypographySection({
           onChange={(v) => update({ wordSpacingUnit: v as TypographyValue["wordSpacingUnit"] })}
         />
       </div>
-      <SelectField
-        label="Alinhamento do texto"
-        value={t.textAlign}
-        options={[
-          { value: "left", label: "Esquerda" },
-          { value: "center", label: "Centro" },
-          { value: "right", label: "Direita" },
-          { value: "justify", label: "Justificado" },
-        ]}
-        onChange={(v) => update({ textAlign: v as TypographyValue["textAlign"] })}
-      />
+
+      <div>
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-editor-fg-muted">
+          Alinhamento do texto
+        </p>
+        <div className="grid grid-cols-4 gap-1">
+          {(
+            [
+              { value: "left", label: "Esq." },
+              { value: "center", label: "Centro" },
+              { value: "right", label: "Dir." },
+              { value: "justify", label: "Just." },
+            ] as const
+          ).map((opt) => {
+            const active = t.textAlign === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  const textAlign = opt.value;
+                  const patch: Partial<BaseStyles & ResponsiveStyles> = {
+                    typography: setResponsive(styles.typography, device, { ...t, textAlign }),
+                  };
+                  if (textAlign === "left" || textAlign === "center" || textAlign === "right") {
+                    patch.align = setResponsive(styles.align, device, textAlign);
+                  }
+                  setStyles(patch);
+                }}
+                className={`rounded-md border px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+                  active
+                    ? "border-editor-accent bg-editor-accent/15 text-editor-accent"
+                    : "border-editor-border bg-editor-panel-2 text-editor-fg-muted hover:text-editor-fg"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </Section>
   );
 }
@@ -2233,16 +2378,51 @@ function AdvancedTab({
             Sticky/fixa: a página sobe por baixo da barra (não por cima). Use fundo sólido e z-index alto
             (ex. 200). Na barra de menu completa, prefira sticky/fixa nesta secção.
           </p>
-          <TextField
-            label={`Top (${device}) — sticky/fixo`}
-            value={(resolveResponsive(styles.top, device) as string) ?? ""}
-            onChange={(v) => {
-              const t = v.trim();
-              if (!t) onStyles({ top: undefined });
-              else onStyles({ top: setResponsive(styles.top, device, t) });
-            }}
-            placeholder="0"
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <TextField
+              label={`Top (${device})`}
+              value={(resolveResponsive(styles.top, device) as string) ?? ""}
+              onChange={(v) => {
+                const t = v.trim();
+                if (!t) onStyles({ top: undefined });
+                else onStyles({ top: setResponsive(styles.top, device, t) });
+              }}
+              placeholder="0 / 12px / 10%"
+            />
+            <TextField
+              label={`Right (${device})`}
+              value={(resolveResponsive(styles.right, device) as string) ?? ""}
+              onChange={(v) => {
+                const t = v.trim();
+                if (!t) onStyles({ right: undefined });
+                else onStyles({ right: setResponsive(styles.right, device, t) });
+              }}
+              placeholder="auto / 0 / 24px"
+            />
+            <TextField
+              label={`Bottom (${device})`}
+              value={(resolveResponsive(styles.bottom, device) as string) ?? ""}
+              onChange={(v) => {
+                const t = v.trim();
+                if (!t) onStyles({ bottom: undefined });
+                else onStyles({ bottom: setResponsive(styles.bottom, device, t) });
+              }}
+              placeholder="auto / 0 / 24px"
+            />
+            <TextField
+              label={`Left (${device})`}
+              value={(resolveResponsive(styles.left, device) as string) ?? ""}
+              onChange={(v) => {
+                const t = v.trim();
+                if (!t) onStyles({ left: undefined });
+                else onStyles({ left: setResponsive(styles.left, device, t) });
+              }}
+              placeholder="auto / 0 / 24px"
+            />
+          </div>
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+            Offsets top/right/bottom/left activos com posição relativa, absoluta, fixa ou sticky.
+          </p>
           <TextField
             label={`Z-index (${device})`}
             value={zStr}

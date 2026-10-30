@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ensurePageDocumentFonts } from "../typography-presets";
 import type { SelectionTarget } from "../types";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useBuilder, resolveResponsive } from "../store";
@@ -57,6 +58,9 @@ export function Canvas() {
     if (!layoutOpen) return;
     layoutRef.current?.scrollIntoView({ block: "nearest" });
   }, [layoutOpen]);
+  useEffect(() => {
+    ensurePageDocumentFonts(doc);
+  }, [doc]);
   const [menu, setMenu] = useState<{ x: number; y: number; target: Exclude<SelectionTarget, null> } | null>(
     null,
   );
@@ -292,7 +296,14 @@ function SectionView({
       style={{
         ...sectionStyle,
         ...(needsChrome && !isStickyOrFixed
-          ? { position: "relative", overflow: "hidden" as const }
+          ? {
+              // Não sobrescrever absolute/relative escolhido pelo utilizador.
+              position:
+                sectionStyle.position && sectionStyle.position !== "static"
+                  ? sectionStyle.position
+                  : "relative",
+              overflow: "hidden" as const,
+            }
           : {}),
         ...(isStickyOrFixed
           ? {
@@ -500,6 +511,8 @@ function ColumnView({
         display: "flex",
         flexDirection: "column",
         alignItems: "stretch",
+        justifyContent: resolveResponsive(column.styles.justifyContent, device) ?? "flex-start",
+        minHeight: stacked ? undefined : "100%",
         ...colStyle,
       }}
       onClick={(e) => {

@@ -33,7 +33,7 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
   const frame = {
     display: "flex" as const,
     justifyContent: alignToFlexJustify(align),
-    width: css.width ?? "100%",
+    width: "100%",
     maxWidth: "100%",
     minWidth: shrink === 0 ? "auto" : 0,
     flexShrink: shrink ?? 1,
@@ -41,13 +41,20 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
     whiteSpace: shrink === 0 ? ("nowrap" as const) : undefined,
   };
 
+  const tagStyle = {
+    margin: 0,
+    width: css.width && css.width !== "100%" ? css.width : "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
+    ...css,
+  };
+
   if (commit) {
     return (
       <div style={frame} title={link.length > 0 ? `Link: ${link}` : undefined}>
         <Tag
           style={{
-            margin: 0,
-            ...css,
+            ...tagStyle,
             ...(link.length > 0
               ? {
                   textDecoration: "underline",
@@ -91,7 +98,7 @@ export function HeadingWidget({ widget, device }: { widget: WidgetNode; device: 
 
   return (
     <div style={frame}>
-      <Tag style={{ margin: 0, ...css }}>{inner}</Tag>
+      <Tag style={tagStyle}>{inner}</Tag>
     </div>
   );
 }

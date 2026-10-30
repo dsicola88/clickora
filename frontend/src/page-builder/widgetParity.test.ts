@@ -121,6 +121,30 @@ describe("landing widget coverage", () => {
     expect(resolveLucideIcon("check")).toBeTruthy();
   });
 
+  it("absolute offsets and block align land on the widget shell", async () => {
+    const { createWidget } = await import("./factory");
+    const { stylesToCssWidgetShell, stylesToCssWidgetContent } = await import("./style-utils");
+    const w = createWidget("text");
+    w.styles.position = { desktop: "absolute" };
+    w.styles.top = { desktop: "12px" };
+    w.styles.right = { desktop: "8px" };
+    w.styles.bottom = { desktop: "4px" };
+    w.styles.left = { desktop: "16px" };
+    w.styles.align = { desktop: "center" };
+    w.styles.width = { desktop: "280px" };
+    const shell = stylesToCssWidgetShell(w.styles, "desktop");
+    const content = stylesToCssWidgetContent(w.styles, "desktop");
+    expect(shell.position).toBe("absolute");
+    expect(shell.top).toBe("12px");
+    expect(shell.right).toBe("8px");
+    expect(shell.bottom).toBe("4px");
+    expect(shell.left).toBe("16px");
+    expect(shell.marginLeft).toBe("auto");
+    expect(shell.marginRight).toBe("auto");
+    expect(content.position).toBeUndefined();
+    expect(content.left).toBeUndefined();
+  });
+
   it("navMenu sticky shell keeps position+top together (content scrolls under bar)", () => {
     const w = createWidget("navMenu");
     w.styles = {

@@ -55,6 +55,9 @@ function typographyToCss(t: TypographyValue | undefined): CSSProperties {
 const WIDGET_SHELL_KEYS = new Set([
   "position",
   "top",
+  "right",
+  "bottom",
+  "left",
   "zIndex",
   "order",
   "alignSelf",
@@ -92,6 +95,38 @@ export function stylesToCssWidgetShell(
   if ((out.position === "sticky" || out.position === "fixed") && out.zIndex === undefined) {
     out.zIndex = 200;
   }
+
+  // Alinhamento do bloco (Elementor-like) no invólucro — vale para todos os widgets.
+  const blockAlign = resolveResponsive(styles.align, device);
+  const width = resolveResponsive(styles.width, device);
+  const hasCustomWidth = Boolean(width && width !== "100%");
+  if (blockAlign === "center") {
+    if (hasCustomWidth) {
+      out.width = width;
+      out.maxWidth = "100%";
+      out.marginLeft = "auto";
+      out.marginRight = "auto";
+    } else if (!out.alignSelf || out.alignSelf === "auto") {
+      out.alignSelf = "center";
+      out.width = "100%";
+      out.maxWidth = "100%";
+    }
+  } else if (blockAlign === "right") {
+    if (hasCustomWidth) {
+      out.width = width;
+      out.maxWidth = "100%";
+      out.marginLeft = "auto";
+    } else if (!out.alignSelf || out.alignSelf === "auto") {
+      out.alignSelf = "flex-end";
+      out.width = "fit-content";
+      out.maxWidth = "100%";
+    }
+  } else if (blockAlign === "left" && hasCustomWidth) {
+    out.width = width;
+    out.maxWidth = "100%";
+    out.marginRight = "auto";
+  }
+
   return out;
 }
 
@@ -157,11 +192,15 @@ export function stylesToCss(
   const visible = resolveResponsive(styles.visibility, device);
   const position = resolveResponsive(styles.position, device);
   const top = resolveResponsive(styles.top, device);
+  const right = resolveResponsive(styles.right, device);
+  const bottom = resolveResponsive(styles.bottom, device);
+  const left = resolveResponsive(styles.left, device);
   const zIndex = resolveResponsive(styles.zIndex, device);
   const alignSelf = resolveResponsive(styles.alignSelf, device);
   const order = resolveResponsive(styles.order, device);
   const flexGrow = resolveResponsive(styles.flexGrow, device);
   const flexShrink = resolveResponsive(styles.flexShrink, device);
+  const justifyContent = resolveResponsive(styles.justifyContent, device);
 
   const css: CSSProperties = {
     padding: spacingToCss(padding),
@@ -178,11 +217,15 @@ export function stylesToCss(
   if (position) css.position = position;
   if (top) css.top = top;
   else if (position === "sticky" || position === "fixed") css.top = "0";
+  if (right) css.right = right;
+  if (bottom) css.bottom = bottom;
+  if (left) css.left = left;
   if (zIndex !== undefined && zIndex !== null && !Number.isNaN(zIndex)) css.zIndex = zIndex;
   if (alignSelf) css.alignSelf = alignSelf;
   if (order !== undefined && order !== null && !Number.isNaN(order)) css.order = order;
   if (flexGrow !== undefined && flexGrow !== null && !Number.isNaN(flexGrow)) css.flexGrow = flexGrow;
   if (flexShrink !== undefined && flexShrink !== null && !Number.isNaN(flexShrink)) css.flexShrink = flexShrink;
+  if (justifyContent) css.justifyContent = justifyContent;
 
   if (visible === false) {
     css.display = "none";

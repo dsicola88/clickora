@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Globe, LayoutTemplate, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -203,8 +203,28 @@ export default function AdminSalesPageBuilderPage() {
               Voltar
             </Button>
             <p className="min-w-0 flex-1 truncate text-xs text-editor-fg-muted sm:text-sm">
-              Editor visual da página de vendas — arraste elementos à esquerda, edite à direita, publique.
+              Temas (modelos) e Publicar estão nesta barra — e também na barra do editor abaixo.
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 border-editor-border bg-editor-panel-2 font-semibold text-editor-fg hover:bg-editor-border"
+              onClick={() => window.dispatchEvent(new Event("clickora:pb-open-templates"))}
+            >
+              <LayoutTemplate className="mr-1 h-3.5 w-3.5 text-sky-400" />
+              Temas
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 font-semibold"
+              disabled={saveMutation.isPending}
+              onClick={onRequestSave}
+            >
+              <Globe className="mr-1 h-3.5 w-3.5" />
+              {saveMutation.isPending ? "A publicar…" : "Publicar"}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -214,7 +234,7 @@ export default function AdminSalesPageBuilderPage() {
             >
               <a href="/planos" target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                Ver no ar
+                Ver /planos
               </a>
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types";
 import { resolveResponsive } from "../store";
 import {
@@ -17,6 +17,7 @@ import { SectionBackgroundLayers, sectionNeedsRelativeChrome } from "../section-
 import { PageGlobalDesignVars } from "../page-global-design";
 import { PagePopupOverlays } from "../page-popups";
 import { WidgetConditionGate } from "./WidgetConditionGate";
+import { ensurePageDocumentFonts } from "../typography-presets";
 
 /**
  * Read-only renderer for a PageDocument.
@@ -30,6 +31,10 @@ export function PageRenderer({
   doc: PageDocument;
   device?: DeviceType;
 }) {
+  useEffect(() => {
+    ensurePageDocumentFonts(doc);
+  }, [doc]);
+
   return (
     <LcpMediaScope>
       <PageGlobalDesignVars settings={doc.settings}>
@@ -70,7 +75,13 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
       style={{
         ...sectionStyle,
         ...(needsChrome && !isStickyOrFixed
-          ? { position: "relative", overflow: "hidden" as const }
+          ? {
+              position:
+                sectionStyle.position && sectionStyle.position !== "static"
+                  ? sectionStyle.position
+                  : "relative",
+              overflow: "hidden" as const,
+            }
           : {}),
         ...(isStickyOrFixed
           ? {
@@ -133,6 +144,8 @@ function ColumnRender({
         display: "flex",
         flexDirection: "column",
         alignItems: "stretch",
+        justifyContent: resolveResponsive(column.styles.justifyContent, device) ?? "flex-start",
+        minHeight: stacked ? undefined : "100%",
         ...colStyle,
       }}
     >

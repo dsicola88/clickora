@@ -128,11 +128,22 @@ export interface ResponsiveStyles {
   position?: ResponsiveValue<"static" | "relative" | "absolute" | "fixed" | "sticky">;
   /** Offset CSS `top` (ex.: "0" / "0px") — necessário para sticky/fixed. */
   top?: ResponsiveValue<string>;
+  /** Offset CSS `right` / `bottom` / `left` — posicionamento absoluto/relativo. */
+  right?: ResponsiveValue<string>;
+  bottom?: ResponsiveValue<string>;
+  left?: ResponsiveValue<string>;
   zIndex?: ResponsiveValue<number>;
   alignSelf?: ResponsiveValue<"auto" | "flex-start" | "center" | "flex-end" | "stretch">;
   order?: ResponsiveValue<number>;
   flexGrow?: ResponsiveValue<number>;
   flexShrink?: ResponsiveValue<number>;
+  /**
+   * Alinhamento vertical do conteúdo numa coluna (flex column → justify-content).
+   * Equivalente ao Vertical Align do Elementor.
+   */
+  justifyContent?: ResponsiveValue<
+    "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly"
+  >;
 }
 
 /** Non-responsive style rules. */
