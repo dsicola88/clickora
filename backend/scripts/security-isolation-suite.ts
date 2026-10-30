@@ -5,8 +5,12 @@
  * ALLOW_MUTATING_LOAD_TEST=1 \
  * LOAD_TEST_EMAIL=… LOAD_TEST_EMAIL_B=… LOAD_TEST_PASSWORD=… \
  * npx tsx scripts/security-isolation-suite.ts
+ *
+ * Nota: rotators exigem `context_presell_id` **published**. Em BD local a suite
+ * marca o fixture como published via Prisma (compliance gate bloquearia HTTP).
  */
-import { assertSafeHttpTarget } from "./lib/loadTestSafety";
+import { PrismaClient } from "@prisma/client";
+import { assertLocalDatabaseForMutations, assertSafeHttpTarget } from "./lib/loadTestSafety";
 
 const base = (process.env.LOAD_TEST_BASE_URL || "").replace(/\/$/, "");
 const api = `${base}/api`;
@@ -57,6 +61,18 @@ async function main() {
   }
 
   const steps: Step[] = [];
+  // Evitar 403 por quota após suites de carga no mesmo Postgres efémero.
+  assertLocalDatabaseForMutations();
+  {
+    const prisma = new PrismaClient();
+    try {
+      await prisma.trafficRotator.deleteMany({});
+      await prisma.presellPage.deleteMany({});
+      await prisma.affiliateCampaign.deleteMany({});
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
   const tokenA = await login(emailA);
   const tokenB = await login(emailB);
 
@@ -98,6 +114,17 @@ async function main() {
 
   let rotId: string | undefined;
   if (idA) {
+    assertLocalDatabaseForMutations();
+    const prisma = new PrismaClient();
+    try {
+      await prisma.presellPage.update({
+        where: { id: idA },
+        data: { status: "published" },
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
+
     const slug = `iso-rot-${Date.now().toString(36)}`;
     const rotA = await req(tokenA, "/traffic-rotators", {
       method: "POST",
@@ -184,9 +211,10 @@ async function main() {
     detail: `status=${paidB.status}`,
   });
 
-  if (idA) await req(tokenA, `/presells/${idA}`, { method: "DELETE" });
-  if (campId) await req(tokenA, `/campaigns/${campId}`, { method: "DELETE" });
+  // Rotator referencia a presell — apagar rotador antes da página.
   if (rotId) await req(tokenA, `/traffic-rotators/${rotId}`, { method: "DELETE" });
+  if (campId) await req(tokenA, `/campaigns/${campId}`, { method: "DELETE" });
+  if (idA) await req(tokenA, `/presells/${idA}`, { method: "DELETE" });
 
   const failed = steps.filter((s) => !s.ok);
   console.log(JSON.stringify({ ok: failed.length === 0, target: api, steps, failed }, null, 2));

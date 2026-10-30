@@ -131,7 +131,18 @@ Host do cliente de teste: máquina local do developer (não contentor Railway).
 | Scripts de carga existem e medem p50/p95/p99/RPS/erros | **Sim** |
 | Bloqueio de produção testado | **Sim** |
 | Health load local com 0 erros | **Sim** (até 1000 req / c50) |
-| Fluxos autenticados medidos em staging | **Não** — bloqueado por segurança + Postgres local indisponível via Prisma nesta sessão |
-| Declaração “suporta X users” | **Proibida** até repetir §5 com relatório datado |
+| Fluxos autenticados medidos em BD local | **Sim (addendum)** — Postgres Homebrew `:5435` + API `:3011`, 20 VUs |
+| Declaração “suporta X users” | **Proibida** sem staging cloud + percentis datados a maior escala |
 
-*Fim do relatório Etapa 4.*
+## 7. Addendum mutante local (2026-10-30)
+
+Docker `:5434` continuou hung; usou-se cluster efémero `127.0.0.1:5435`.
+
+| Suite | VUs | Erros | Notas |
+|-------|-----|-------|-------|
+| `load:realistic` | 20 | **0** | login p95 ~4159 ms; track/presell/public OK |
+| `load:authed-burst` | 50 | 27% | quota `max_pages=25` em `presell_create` — esperado |
+
+Detalhe e veredicto: [RELATORIO_ACEITACAO_FINAL_DCLICKORA.md](./RELATORIO_ACEITACAO_FINAL_DCLICKORA.md).
+
+*Fim do relatório Etapa 4 (+ addendum).*

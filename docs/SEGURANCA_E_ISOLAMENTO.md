@@ -24,7 +24,9 @@ LOAD_TEST_EMAIL=… LOAD_TEST_EMAIL_B=… LOAD_TEST_PASSWORD=… \
 npm run test:security-isolation --prefix backend
 ```
 
-**Nesta sessão:** E2E HTTP **não corrido** contra Railway (`.env` bloqueado de propósito). Postgres local instável.
+**Addendum 2026-10-30:** E2E HTTP corrido contra API local `127.0.0.1:3011` + Postgres Homebrew efémero `:5435` (`ALLOW_MUTATING_LOAD_TEST=1`). Resultado: **`ok: true`** (presell/campaign/rotator cross-tenant 404; analytics sem overlap; paid gate 403). Railway **não** foi alvo.
+
+Também corrigido: bootstrap de workspace pessoal no login + audit log best-effort (evita 500 em create de rotator quando `users.workspace_id` não tinha linha em `workspaces`).
 
 ## 3. Testes unitários
 
