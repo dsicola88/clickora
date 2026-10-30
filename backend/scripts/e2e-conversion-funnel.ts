@@ -11,6 +11,8 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { loadConversionFunnel } from "../src/lib/conversionFunnel";
@@ -24,6 +26,22 @@ function record(name: string, ok: boolean, detail: string) {
 }
 
 async function main() {
+  const analyticsCtrl = readFileSync(
+    join(process.cwd(), "src/controllers/analytics.controller.ts"),
+    "utf8",
+  );
+  const vendas = readFileSync(
+    join(process.cwd(), "../frontend/src/pages/Vendas.tsx"),
+    "utf8",
+  );
+  record(
+    "getFunnel anexa sync_health; Funil monta SyncHealthBanner",
+    analyticsCtrl.includes("...funnel, sync_health") &&
+      analyticsCtrl.includes("loadSyncHealth") &&
+      vendas.includes("SyncHealthBanner") &&
+      vendas.includes("sync_health"),
+    "ok",
+  );
   const stamp = Date.now().toString(36);
   const email = `e2e-funnel-${stamp}@clickora.test`;
   const passwordHash = await bcrypt.hash("e2e-funnel-pass", 4);
@@ -302,12 +320,21 @@ async function main() {
         const body = (await res.json()) as {
           stages?: Array<{ id: string; count: number }>;
           traffic?: { paid_sales: number };
+          sync_health?: { period_days?: number; google_ads_failed?: number };
         };
         const httpClicks = body.stages?.find((s) => s.id === "clicks")?.count;
         record(
           "HTTP GET /analytics/funnel alinhado ao loader",
           res.ok && httpClicks === byId.clicks && body.traffic?.paid_sales === 1,
           `status=${res.status} clicks=${httpClicks} paid=${body.traffic?.paid_sales}`,
+        );
+        record(
+          "HTTP funnel inclui sync_health",
+          res.ok &&
+            body.sync_health != null &&
+            typeof body.sync_health.period_days === "number" &&
+            typeof body.sync_health.google_ads_failed === "number",
+          `sync_health=${JSON.stringify(body.sync_health ?? null)}`,
         );
 
         const dash = await fetch(

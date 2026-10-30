@@ -74,6 +74,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
     onSuccess: (data) => {
       applySession(data.token, data.user);
       qc.clear();
+      void qc.invalidateQueries({ queryKey: ["workspaces", "mine"] });
       toast.success(`Workspace activo: ${data.user.workspace_name || row.name}`);
     },
     onError: (e: Error) => toast.error(e.message),
