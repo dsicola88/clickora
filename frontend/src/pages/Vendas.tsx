@@ -31,6 +31,7 @@ import {
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { analyticsService } from "@/services/analyticsService";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
 import {
@@ -161,6 +162,7 @@ export default function Vendas() {
 
   return (
     <div className={PRO_PAGE_SHELL}>
+      <SyncHealthBanner className="mb-4" syncHealth={data.sync_health} />
       <ProPageHeader
         title="Funil de conversões"
         subtitle="Impressão → clique → checkout → venda aprovada. Contagens com os mesmos filtros KPI que Resultados (sem bots nem ruído de relatório)."

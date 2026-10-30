@@ -20,18 +20,18 @@ function main() {
   const onboarding = readFileSync(join(root, "controllers/onboarding.controller.ts"), "utf8");
   const customCtrl = readFileSync(join(root, "controllers/customDomain.controller.ts"), "utf8");
 
+  const syncLib = readFileSync(join(root, "lib/syncHealth.ts"), "utf8");
   record(
-    "getDashboard emite sync_health (failed + skipped click-ids)",
-    analytics.includes("sync_health") &&
-      analytics.includes("google_ads_failed") &&
-      analytics.includes("google_ads_skipped_no_gclid") &&
-      analytics.includes("skipped_no_gclid") &&
-      analytics.includes("meta_capi_failed") &&
-      analytics.includes("meta_capi_skipped_no_fbclid") &&
-      analytics.includes("skipped_no_fbclid") &&
-      analytics.includes("tiktok_events_failed") &&
-      analytics.includes("tiktok_events_skipped_no_ttclid") &&
-      analytics.includes("skipped_no_ttclid"),
+    "syncHealth lib conta failed + skipped click-ids",
+    syncLib.includes("google_ads_failed") &&
+      syncLib.includes("google_ads_skipped_no_gclid") &&
+      syncLib.includes("skipped_no_gclid") &&
+      syncLib.includes("meta_capi_failed") &&
+      syncLib.includes("meta_capi_skipped_no_fbclid") &&
+      syncLib.includes("skipped_no_fbclid") &&
+      syncLib.includes("tiktok_events_failed") &&
+      syncLib.includes("tiktok_events_skipped_no_ttclid") &&
+      syncLib.includes("skipped_no_ttclid"),
     "ok",
   );
 
@@ -48,8 +48,20 @@ function main() {
     "ok",
   );
   record(
-    "account_health inclui domain_https",
-    health.includes('id: "domain_https"') && health.includes("summarizeUserDomainGoLive"),
+    "account_health inclui domain_https + ads_upload",
+    health.includes('id: "domain_https"') &&
+      health.includes("summarizeUserDomainGoLive") &&
+      health.includes('id: "ads_upload"') &&
+      health.includes("loadSyncHealth") &&
+      health.includes("formatSyncHealthDetail"),
+    "ok",
+  );
+
+  record(
+    "dashboard + funil usam loadSyncHealth",
+    analytics.includes("loadSyncHealth") &&
+      analytics.includes("sync_health") &&
+      analytics.includes("...funnel, sync_health"),
     "ok",
   );
   record(

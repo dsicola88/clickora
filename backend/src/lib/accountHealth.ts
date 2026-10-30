@@ -3,6 +3,11 @@ import { systemPrisma } from "./prisma";
 import { isGoogleAdsMetricsReadyForUser } from "../modules/googleAds/googleAds.service";
 import { planAllowsAffiliateWebhook } from "./planAffiliateWebhook";
 import { summarizeUserDomainGoLive } from "./customDomainGoLiveSummary";
+import {
+  formatSyncHealthDetail,
+  loadSyncHealth,
+  syncHealthIssueTotal,
+} from "./syncHealth";
 
 export type AccountHealthCheck = {
   id: string;
@@ -43,7 +48,11 @@ export async function buildAccountHealth(args: {
 }): Promise<AccountHealth> {
   const { userId, rangeStart, rangeEnd, pipelineUser, macroClicksInPeriod } = args;
 
-  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits, domainGoLive] =
+  const syncHealthStart = new Date();
+  syncHealthStart.setUTCDate(syncHealthStart.getUTCDate() - 7);
+  syncHealthStart.setUTCHours(0, 0, 0, 0);
+
+  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits, domainGoLive, adsSync] =
     await Promise.all([
     systemPrisma.$queryRaw<Array<{ total: bigint; unattr: bigint }>>(Prisma.sql`
       SELECT
@@ -83,6 +92,7 @@ export async function buildAccountHealth(args: {
       misconfigured: 0,
       ad_ready_hosting: 0,
     })),
+    loadSyncHealth({ userId, since: syncHealthStart, periodDays: 7 }),
   ]);
 
   const approved = Number(attrRow[0]?.total ?? 0);
@@ -192,6 +202,13 @@ export async function buildAccountHealth(args: {
                 ? "DNS verificado, mas o SSL ainda está a provisionar — não use esse hostname em anúncios até «HTTPS pronto»."
                 : "Domínio verificado sem HTTPS pronto. Abra Configurações → Domínios.",
       href: "/configuracoes",
+    },
+    {
+      id: "ads_upload",
+      ok: syncHealthIssueTotal(adsSync) === 0,
+      title: "Envios para plataformas de anúncios",
+      detail: formatSyncHealthDetail(adsSync),
+      href: "/resultados/relatorios/conversoes",
     },
   ];
 

@@ -407,6 +407,16 @@ export const analyticsService = {
         organic: string;
         kpi_noise: string;
       };
+      /** Mesmo contrato que getDashboard — falhas / skips de upload Ads (7d). */
+      sync_health?: {
+        period_days: number;
+        google_ads_failed: number;
+        google_ads_skipped_no_gclid?: number;
+        meta_capi_failed: number;
+        meta_capi_skipped_no_fbclid?: number;
+        tiktok_events_failed: number;
+        tiktok_events_skipped_no_ttclid?: number;
+      };
     }>(`/analytics/funnel${qs ? `?${qs}` : ""}`);
   },
 

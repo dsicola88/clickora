@@ -5,16 +5,19 @@ import { isCustomDomainHttpsPendingForPresell } from "@/lib/publicPresellOrigin"
 import type { CustomDomainDto } from "@/types/api";
 
 describe("sync_health FE wiring", () => {
-  it("Resultados e Integrações montam SyncHealthBanner", () => {
+  it("Resultados, Integrações, Tracking e Funil montam SyncHealthBanner", () => {
     const results = readFileSync(join(process.cwd(), "src/pages/ResultsOverviewPage.tsx"), "utf8");
     const integrations = readFileSync(join(process.cwd(), "src/pages/IntegrationsHubPage.tsx"), "utf8");
     const tracking = readFileSync(join(process.cwd(), "src/pages/TrackingDashboard.tsx"), "utf8");
+    const funil = readFileSync(join(process.cwd(), "src/pages/Vendas.tsx"), "utf8");
     expect(results).toContain("SyncHealthBanner");
     expect(results).toContain("sync_health");
     expect(integrations).toContain("SyncHealthBanner");
     expect(integrations).toContain("domain_https");
     expect(tracking).toContain("SyncHealthBanner");
     expect(tracking).toContain("syncHealth=");
+    expect(funil).toContain("SyncHealthBanner");
+    expect(funil).toContain("sync_health");
   });
 
   it("PresellDashboard liga customDomainHttpsPending", () => {
@@ -23,17 +26,20 @@ describe("sync_health FE wiring", () => {
     expect(dash).toContain("customDomainHttpsPending");
   });
 
-  it("BE analytics devolve sync_health; accountHealth tem domain_https", () => {
+  it("BE analytics devolve sync_health; accountHealth tem domain_https + ads_upload", () => {
     const analytics = readFileSync(
       join(process.cwd(), "../backend/src/controllers/analytics.controller.ts"),
       "utf8",
     );
+    const syncLib = readFileSync(join(process.cwd(), "../backend/src/lib/syncHealth.ts"), "utf8");
     const health = readFileSync(join(process.cwd(), "../backend/src/lib/accountHealth.ts"), "utf8");
     expect(analytics).toContain("sync_health");
-    expect(analytics).toContain("google_ads_failed");
-    expect(analytics).toContain("meta_capi_skipped_no_fbclid");
-    expect(analytics).toContain("tiktok_events_skipped_no_ttclid");
+    expect(analytics).toContain("loadSyncHealth");
+    expect(analytics).toContain("...funnel, sync_health");
+    expect(syncLib).toContain("meta_capi_skipped_no_fbclid");
+    expect(syncLib).toContain("tiktok_events_skipped_no_ttclid");
     expect(health).toContain('id: "domain_https"');
+    expect(health).toContain('id: "ads_upload"');
     expect(health).toContain("/resultados/relatorios/conversoes");
   });
 
