@@ -60,6 +60,18 @@ function main() {
       relatorios.includes('value="sem-gclid"'),
     "ok",
   );
+
+  const integrationsHub = readFileSync(
+    join(process.cwd(), "../frontend/src/pages/IntegrationsHubPage.tsx"),
+    "utf8",
+  );
+  record(
+    "Integrações go-live cobre ads_upload + cost_sync",
+    integrationsHub.includes('id: "ads_upload"') &&
+      integrationsHub.includes('id: "cost_sync"') &&
+      integrationsHub.includes('id: "domain_https"'),
+    "ok",
+  );
   record(
     "account_health inclui domain_https + ads_upload + cost freshness",
     health.includes('id: "domain_https"') &&

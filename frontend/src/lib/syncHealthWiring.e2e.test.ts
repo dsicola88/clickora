@@ -15,6 +15,8 @@ describe("sync_health FE wiring", () => {
     expect(results).toContain("sync_health");
     expect(integrations).toContain("SyncHealthBanner");
     expect(integrations).toContain("domain_https");
+    expect(integrations).toContain("ads_upload");
+    expect(integrations).toContain("cost_sync");
     expect(tracking).toContain("SyncHealthBanner");
     expect(tracking).toContain("syncHealth=");
     expect(funil).toContain("SyncHealthBanner");

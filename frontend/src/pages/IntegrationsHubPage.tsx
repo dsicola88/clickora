@@ -74,6 +74,18 @@ export default function IntegrationsHubPage() {
       d: "Ligar Google → custos + conversões automáticos.",
     },
     {
+      t: "Custos do período (≤48h)",
+      id: "cost_sync",
+      href: "/integracoes/automizer",
+      d: "Sync recente — ROAS do período só é de confiança com custo actualizado.",
+    },
+    {
+      t: "Envios Ads (gclid/fbclid/ttclid)",
+      id: "ads_upload",
+      href: "/resultados/relatorios/conversoes",
+      d: "Falhas de API ou vendas sem click-id nos últimos 7 dias.",
+    },
+    {
       t: "Domínio HTTPS pronto",
       id: "domain_https",
       href: "/configuracoes",
