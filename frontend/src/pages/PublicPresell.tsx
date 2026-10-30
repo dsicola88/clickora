@@ -707,7 +707,13 @@ export default function PublicPresell() {
   }, [page]);
 
   const search = useMemo(() => new URLSearchParams(window.location.search), []);
-  const apiBase = useMemo(() => getTrackApiBaseUrl(), []);
+  const apiBase = useMemo(() => {
+    const fromAccount = page?.track_api_base?.trim();
+    if (fromAccount && /^https:\/\//i.test(fromAccount)) {
+      return fromAccount.replace(/\/+$/, "");
+    }
+    return getTrackApiBaseUrl();
+  }, [page?.track_api_base]);
 
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
   const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: false });

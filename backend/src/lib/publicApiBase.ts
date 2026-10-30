@@ -23,30 +23,43 @@ export function publicApiBaseFromRequest(req: Request): string {
 }
 
 /**
+ * Hostname preferido para /api/track da conta (sem fallback de request).
+ * Ordem: is_default_tracking → purpose=tracking → qualquer both/tracking verificado.
+ */
+export async function preferredTrackApiBaseForUser(userId: string): Promise<string | null> {
+  try {
+    const preferred =
+      (await systemPrisma.customDomain.findFirst({
+        where: {
+          userId,
+          status: "verified",
+          isDefaultTracking: true,
+          OR: [{ purpose: "tracking" }, { purpose: "both" }],
+        },
+        select: { hostname: true },
+      })) ??
+      (await systemPrisma.customDomain.findFirst({
+        where: { userId, status: "verified", purpose: "tracking" },
+        orderBy: { createdAt: "asc" },
+        select: { hostname: true },
+      })) ??
+      (await systemPrisma.customDomain.findFirst({
+        where: { userId, status: "verified", purpose: "both" },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        select: { hostname: true },
+      }));
+    if (!preferred?.hostname) return null;
+    return `https://${preferred.hostname}/api`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Preferência de domínio de tracking da conta (purpose tracking/both + is_default_tracking).
  * Fallback: `publicApiBaseFromRequest`.
  */
 export async function trackApiBaseForUser(req: Request, userId: string): Promise<string> {
-  const fallback = publicApiBaseFromRequest(req);
-  try {
-    const domains = await systemPrisma.customDomain.findMany({
-      where: {
-        userId,
-        status: "verified",
-        OR: [{ purpose: "tracking" }, { purpose: "both" }],
-      },
-      select: { hostname: true, purpose: true, isDefaultTracking: true },
-      orderBy: [{ isDefaultTracking: "desc" }, { updatedAt: "desc" }],
-      take: 20,
-    });
-    if (!domains.length) return fallback;
-    const preferred =
-      domains.find((d) => d.isDefaultTracking) ??
-      domains.find((d) => d.purpose === "tracking") ??
-      domains[0];
-    if (!preferred?.hostname) return fallback;
-    return `https://${preferred.hostname}/api`;
-  } catch {
-    return fallback;
-  }
+  const preferred = await preferredTrackApiBaseForUser(userId);
+  return preferred ?? publicApiBaseFromRequest(req);
 }

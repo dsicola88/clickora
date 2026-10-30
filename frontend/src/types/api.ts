@@ -139,6 +139,11 @@ export interface Presell {
    * serviu a página segura — sem espelho, scripts, tracking nem hoplink.
    */
   cloak_safe?: boolean;
+  /**
+   * Só API pública: base `/api` no domínio de tracking da conta (ex. https://go.marca.com/api).
+   * Quando presente, pixel/CTAs preferem este host em vez do same-origin da lander.
+   */
+  track_api_base?: string | null;
 };
 
 export interface AnalyticsSummary {

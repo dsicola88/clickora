@@ -90,6 +90,37 @@ async function ensureDefaultDomainForUser(userId: string): Promise<void> {
   await systemPrisma.customDomain.update({ where: { id: first.id }, data: { isDefault: true } });
 }
 
+/** Garante um `is_default_tracking` quando ainda há domínios tracking/both. */
+async function ensureDefaultTrackingForUser(userId: string): Promise<void> {
+  await systemPrisma.customDomain.updateMany({
+    where: { userId, purpose: "hosting", isDefaultTracking: true },
+    data: { isDefaultTracking: false },
+  });
+  const hasDefault = await systemPrisma.customDomain.findFirst({
+    where: { userId, isDefaultTracking: true, ...trackingCapablePurposeFilter },
+  });
+  if (hasDefault) return;
+  const first =
+    (await systemPrisma.customDomain.findFirst({
+      where: { userId, status: "verified", purpose: "tracking" },
+      orderBy: { createdAt: "asc" },
+    })) ??
+    (await systemPrisma.customDomain.findFirst({
+      where: { userId, status: "verified", purpose: "both" },
+      orderBy: { createdAt: "asc" },
+    })) ??
+    (await systemPrisma.customDomain.findFirst({
+      where: { userId, ...trackingCapablePurposeFilter },
+      orderBy: { createdAt: "asc" },
+    }));
+  if (!first) return;
+  await systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefaultTracking: false } });
+  await systemPrisma.customDomain.update({
+    where: { id: first.id },
+    data: { isDefaultTracking: true },
+  });
+}
+
 export const customDomainController = {
   async list(req: Request, res: Response) {
     const userId = billingUserId(req);
@@ -114,10 +145,10 @@ export const customDomainController = {
     const userId = billingUserId(req);
     const hostnameRaw = typeof req.body?.hostname === "string" ? req.body.hostname : "";
     const purposeRaw = typeof req.body?.purpose === "string" ? req.body.purpose.trim() : "both";
-    const purpose =
-      purposeRaw === "hosting" || purposeRaw === "tracking" || purposeRaw === "both"
-        ? purposeRaw
-        : "both";
+    if (purposeRaw !== "hosting" && purposeRaw !== "tracking" && purposeRaw !== "both") {
+      return res.status(400).json({ error: "purpose inválido (hosting | tracking | both)." });
+    }
+    const purpose = purposeRaw;
     let hostname: string;
     try {
       hostname = normalizeHostname(hostnameRaw);
@@ -335,6 +366,7 @@ export const customDomainController = {
 
     await systemPrisma.customDomain.delete({ where: { id: existing.id } });
     await ensureDefaultDomainForUser(userId);
+    await ensureDefaultTrackingForUser(userId);
     await refreshCustomDomainCache();
 
     const list = await prisma.customDomain.findMany({
@@ -368,20 +400,8 @@ export const customDomainController = {
     if (purposeRaw === "tracking") {
       await ensureDefaultDomainForUser(userId);
     }
-    if (purposeRaw === "tracking" || purposeRaw === "both") {
-      const hasTrackDefault = await prisma.customDomain.findFirst({
-        where: {
-          userId,
-          isDefaultTracking: true,
-          ...trackingCapablePurposeFilter,
-        },
-      });
-      if (!hasTrackDefault) {
-        await systemPrisma.customDomain.update({
-          where: { id: domain.id },
-          data: { isDefaultTracking: true },
-        });
-      }
+    if (purposeRaw === "hosting" || purposeRaw === "tracking" || purposeRaw === "both") {
+      await ensureDefaultTrackingForUser(userId);
     }
     await refreshCustomDomainCache();
     const list = await prisma.customDomain.findMany({

@@ -499,7 +499,11 @@ function injectPresellComplianceShell(html: string, page: Presell): string {
   return html.replace("</body>", `${trust}\n</body>`);
 }
 
-function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string {
+function injectPresellSettingsIntoFullHtml(
+  html: string,
+  page: Presell,
+  apiBase: string,
+): string {
   const settings = (page.settings || {}) as Record<string, unknown>;
   let out = html;
   const customCss = String(settings.customCss ?? "").trim();
@@ -514,9 +518,8 @@ function injectPresellSettingsIntoFullHtml(html: string, page: Presell): string 
     stripClickoraEmbedScripts(String(settings.headerCode ?? "")),
   );
   const trackBase =
-    typeof window !== "undefined"
-      ? getTrackApiBaseUrl()
-      : "https://www.dclickora.com/api";
+    apiBase?.trim() ||
+    (typeof window !== "undefined" ? getTrackApiBaseUrl() : "https://www.dclickora.com/api");
   const clickoraHead = buildClickoraEmbedScriptHtml({
     apiBase: trackBase,
     presellId: page.id,
@@ -554,7 +557,11 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
         ? `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Presell</title></head><body>${note}<p>Documento do editor em falta.</p></body></html>`
         : `${note}<!-- Documento do editor em falta -->`;
     }
-    const merged = injectPresellSettingsIntoFullHtml(exportPageToHtml(doc, page.language), page);
+    const merged = injectPresellSettingsIntoFullHtml(
+      exportPageToHtml(doc, page.language),
+      page,
+      opts.apiBase,
+    );
     return `${note}${merged}`;
   }
 

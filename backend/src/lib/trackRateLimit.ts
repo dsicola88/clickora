@@ -73,10 +73,12 @@ function consumeMemory(ip: string): boolean {
   return true;
 }
 
-/** INCR + PEXPIRE atómicos (evita chave sem TTL sob corrida entre réplicas). */
+/** INCR + PEXPIRE atómicos; repara chaves órfãs sem TTL (deploy pré-Lua). */
 const REDIS_INCR_EXPIRE_LUA = `
 local n = redis.call('INCR', KEYS[1])
 if n == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+elseif redis.call('PTTL', KEYS[1]) < 0 then
   redis.call('PEXPIRE', KEYS[1], ARGV[1])
 end
 return n

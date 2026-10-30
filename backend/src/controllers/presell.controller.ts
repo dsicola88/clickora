@@ -28,6 +28,7 @@ import {
   shouldServeCloakSafePage,
 } from "../lib/presellEnterpriseCloak";
 import { enforceTrackingRules } from "../lib/trackGuard";
+import { preferredTrackApiBaseForUser } from "../lib/publicApiBase";
 import { extractClientIp } from "../lib/clientIp";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
@@ -935,9 +936,12 @@ function slimPublicContent(raw: unknown): unknown {
 
 async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
   const plan = page.user?.subscription?.plan;
-  const branding = await systemPrisma.tenantBranding.findUnique({
-    where: { userId: page.userId },
-  });
+  const [branding, trackApiBase] = await Promise.all([
+    systemPrisma.tenantBranding.findUnique({
+      where: { userId: page.userId },
+    }),
+    preferredTrackApiBaseForUser(page.userId),
+  ]);
   const hidePlatform = branding?.hidePoweredBy === true && plan?.hasBranding === false;
   const footerBranding = hidePlatform ? false : (plan?.hasBranding ?? true);
   const base = mapPresell(page);
@@ -951,6 +955,8 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
     compliance_gate: undefined,
     last_compliance_audit_at: undefined,
     footer_branding: footerBranding,
+    /** Domínio de tracking da conta (go.) quando configurado — pixel/CTAs preferem este host. */
+    track_api_base: trackApiBase,
     tenant_branding: branding
       ? {
           brand_name: branding.brandName,
