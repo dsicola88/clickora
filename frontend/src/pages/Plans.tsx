@@ -41,6 +41,8 @@ import { DEFAULT_LANDING_HERO_IMAGE, coercePlansHeroVisual } from "@/lib/plansLa
 import { asSalesPageDocument } from "@/lib/salesLandingBuilderDoc";
 import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
+import { BUILDER_PUBLIC_RESPONSIVE_CSS } from "@/page-builder/builderPublicCss";
+import { useViewportBuilderDevice } from "@/page-builder/useViewportBuilderDevice";
 import { SalesLandingPromoOverlays } from "@/components/plans/SalesLandingPromoOverlays";
 import { DEFAULT_SALES_LANDING_PROMOS } from "@/lib/salesLandingPromos";
 
@@ -48,6 +50,7 @@ export default function Plans() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user, userPlan, isSuperAdmin } = useAuth();
+  const builderDevice = useViewportBuilderDevice();
 
   const { data: landing } = useQuery({
     queryKey: ["plans-landing-public"],
@@ -137,7 +140,13 @@ export default function Plans() {
     const promos = landingExtrasEarly.promos ?? DEFAULT_SALES_LANDING_PROMOS;
 
     return (
-      <div className="min-h-svh w-full" style={{ backgroundColor: pageBg }}>
+      <div
+        className="min-h-svh w-full overflow-x-clip"
+        style={{ backgroundColor: pageBg }}
+        data-clickora-builder-public="1"
+        data-pb-device={builderDevice}
+      >
+        <style dangerouslySetInnerHTML={{ __html: BUILDER_PUBLIC_RESPONSIVE_CSS }} />
         <SalesLandingPromoOverlays promos={promos} accentFallback={salesThemed.accent} />
         <div
           className="sticky top-0 z-40 border-b backdrop-blur-md"
@@ -147,17 +156,24 @@ export default function Plans() {
           }}
         >
           <nav
-            className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6"
+            className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 md:px-6"
             aria-label="Ações da página"
           >
-            <Link to="/" className="flex items-center gap-2 text-base font-semibold tracking-tight text-white">
+            <Link
+              to="/"
+              className="flex min-w-0 max-w-[55%] items-center gap-2 text-sm font-semibold tracking-tight text-white sm:max-w-none sm:text-base"
+            >
               {brandLogo ? (
-                <img src={brandLogo} alt={brandLabel} className="h-9 w-auto object-contain" />
+                <img
+                  src={brandLogo}
+                  alt={brandLabel}
+                  className="h-8 w-auto max-w-full object-contain sm:h-9"
+                />
               ) : (
-                brandLabel
+                <span className="truncate">{brandLabel}</span>
               )}
             </Link>
-            <div className="flex items-center gap-3 sm:gap-5">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-5">
               {userPlan ? (
                 <span className="hidden text-sm text-white/60 sm:inline">{userPlan.plan_name}</span>
               ) : null}
@@ -169,7 +185,7 @@ export default function Plans() {
               </Link>
               <Button
                 size="sm"
-                className="h-10 border-0 px-4 text-white hover:opacity-[0.92]"
+                className="h-9 border-0 px-3 text-white hover:opacity-[0.92] sm:h-10 sm:px-4"
                 style={{
                   backgroundColor: salesThemed.accent,
                   boxShadow: resolvedAccentButtonBoxShadow(salesThemed),
@@ -182,7 +198,7 @@ export default function Plans() {
             </div>
           </nav>
         </div>
-        <PageRenderer doc={builderDoc} />
+        <PageRenderer doc={builderDoc} device={builderDevice} />
       </div>
     );
   }

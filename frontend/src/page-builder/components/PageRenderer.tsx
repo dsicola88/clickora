@@ -18,19 +18,24 @@ import { PageGlobalDesignVars } from "../page-global-design";
 import { PagePopupOverlays } from "../page-popups";
 import { WidgetConditionGate } from "./WidgetConditionGate";
 import { ensurePageDocumentFonts } from "../typography-presets";
+import { useViewportBuilderDevice } from "../useViewportBuilderDevice";
 
 /**
  * Read-only renderer for a PageDocument.
  * Used by the live editor preview AND by the public /p/$slug route.
  * Widgets da 1.ª dobra são síncronos; o resto é lazy (LCP).
+ * Sem `device`, segue a largura real do viewport (mobile/tablet/desktop).
  */
 export function PageRenderer({
   doc,
-  device = "desktop",
+  device: deviceProp,
 }: {
   doc: PageDocument;
   device?: DeviceType;
 }) {
+  const viewportDevice = useViewportBuilderDevice();
+  const device = deviceProp ?? viewportDevice;
+
   useEffect(() => {
     ensurePageDocumentFonts(doc);
   }, [doc]);
@@ -39,6 +44,7 @@ export function PageRenderer({
     <LcpMediaScope>
       <PageGlobalDesignVars settings={doc.settings}>
         <div
+          data-pb-device={device}
           style={{
             background: doc.settings.background ?? "#ffffff",
             minHeight: "100%",

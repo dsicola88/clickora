@@ -86,9 +86,11 @@ describe("escala implícita para páginas só-desktop", () => {
 });
 
 describe("export / CSS público", () => {
-  it("CSS base empilha data-pb-columns", () => {
+  it("CSS base empilha data-pb-columns e evita overflow de texto", () => {
     expect(BUILDER_PUBLIC_RESPONSIVE_CSS).toContain("data-pb-columns");
     expect(BUILDER_PUBLIC_RESPONSIVE_CSS).toContain("data-pb-stackable");
+    expect(BUILDER_PUBLIC_RESPONSIVE_CSS).toContain("overflow-wrap: anywhere");
+    expect(BUILDER_PUBLIC_RESPONSIVE_CSS).toContain("width: 100% !important");
   });
 
   it("export inclui CSS responsivo e data-pb-id", () => {

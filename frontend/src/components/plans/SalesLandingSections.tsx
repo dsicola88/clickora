@@ -106,7 +106,11 @@ export function SalesLandingFeatures({ extras, className }: Props) {
       <div
         className={cn(
           "grid grid-cols-1 gap-8 md:gap-6 lg:gap-8",
-          cards.length === 4 ? "sm:grid-cols-2" : cards.length > 4 ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-3",
+          cards.length === 4
+            ? "sm:grid-cols-2"
+            : cards.length > 4
+              ? "sm:grid-cols-2 xl:grid-cols-3"
+              : "md:grid-cols-3",
         )}
       >
         {cards.map((card, i) => {
@@ -238,17 +242,21 @@ export function SalesLandingStats({ extras, className }: Props) {
         )}
         <div
           className={cn(
-            "grid grid-cols-1 gap-8 sm:grid-cols-2",
-            items.length === 3 ? "md:grid-cols-3" : items.length > 4 ? "md:grid-cols-3" : "md:grid-cols-4",
+            "grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8",
+            items.length === 3
+              ? "lg:grid-cols-3"
+              : items.length >= 4
+                ? "xl:grid-cols-4"
+                : "lg:grid-cols-3",
           )}
         >
           {items.map((it, i) => (
-            <div key={i} className="text-center">
+            <div key={i} className="min-w-0 text-center px-1">
               <p
                 className={cn(
                   st?.stat_value
                     ? landingTextStyleStatValueClasses(st.stat_value)
-                    : "text-3xl font-extrabold tabular-nums md:text-4xl",
+                    : "text-2xl font-extrabold tabular-nums sm:text-3xl md:text-4xl",
                   !salesDark && !st?.stat_value?.color && "text-foreground",
                 )}
                 style={{
@@ -260,10 +268,10 @@ export function SalesLandingStats({ extras, className }: Props) {
               </p>
               <p
                 className={cn(
-                  "mt-2 text-sm leading-relaxed hyphens-auto [text-align-last:center]",
+                  "mt-2 text-sm leading-relaxed hyphens-auto [text-align-last:center] break-words",
                   !salesDark && !st?.stat_label?.color && "text-muted-foreground",
                   st?.stat_label && landingTextStyleBodyClasses(st.stat_label),
-                  "text-justify",
+                  "text-center",
                 )}
                 style={{
                   ...(!st?.stat_label?.color && mutedColor ? { color: mutedColor } : {}),
