@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-31  
 **Ambiente de evidência:** Postgres `127.0.0.1:55436/clickora_audit` (`.env.audit-fase-b`) — **nunca produção**.  
-**Commit de fecho:** ver `git log` em `main` após merge desta entrega.
+**Commit de fecho:** `41d35c9` em `main`.
 
 ---
 
