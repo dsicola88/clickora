@@ -726,10 +726,10 @@ Ads query → GET /api/track/rot/:id
 | H5 | Rotadores UI documenta 4 modos (weighted/random/sequential/fill_order) | VALIDADO COM EVIDÊNCIA |
 | H6 | Empty state dashboard «Nenhuma presell criada» + CTA | VALIDADO COM EVIDÊNCIA (código) |
 | H7 | Redirects legados `/tracking/*` → hubs novos | VALIDADO COM EVIDÊNCIA (App.tsx) |
-| H8 | Gates demográficos / VSL browser profundo | NÃO TESTADO (Playwright dedicado) |
+| H8 | Gates demográficos / VSL browser profundo | VALIDADO COM EVIDÊNCIA (Playwright `e2e/presell-gates-vsl.spec.ts` 5/5) |
 | H9 | App autenticado mobile layout completo | NÃO TESTADO (requer login browser + viewport matrix) |
 
-**Resumo:** 7 VALIDADO + 2 NÃO TESTADO. **D7 corrigido pós-J:** stub removido; rotas legadas redireccionam para `/presells/nova`.
+**Resumo:** 8 VALIDADO + 1 NÃO TESTADO. **D7 corrigido pós-J:** stub removido; rotas legadas redireccionam para `/presells/nova`. H8: cookies, idade, sexo, fantasma (CTA track), VSL player.
 
 ### Achados
 
@@ -789,8 +789,8 @@ Ads query → GET /api/track/rot/:id
 | P1 (produto) | D9 Dual store ads postback vs `Conversion` | Google/MS → `TrackingEvent` + offline sync; **não** linha `Conversion` (evita CAPI falso). Unificar UI de relatórios é decisão de produto. |
 | P3 | Sticky session rotador | Ausente por desenho |
 | — | Envio real Meta CAPI / TikTok | Só settings API (F11) |
-| — | Playwright gates/VSL browser | H8/H9 NÃO TESTADO |
-| — | DNS/SSL custom domain E2E | Só API smoke (E12) |
+| — | H9 mobile layout autenticado | Viewport matrix com sessão real |
+| — | DNS/SSL custom domain E2E real | API deepen OK (`audit-fase-custom-domain.ts`: quota/list/create/go-live/verify TXT pending); SSL público continua dependente de DNS real |
 
 ### Checklist de regressão (reexecutar em stack local)
 
