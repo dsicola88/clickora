@@ -740,3 +740,91 @@ Ads query → GET /api/track/rot/:id
 ### Próxima fase
 
 **FASE I — Testes end-to-end e performance**.
+
+---
+
+## FASE I — E2E e performance
+
+**Data:** 2026-10-31  
+**Ambiente:** `127.0.0.1:3011` + audit PG  
+**Script:** `backend/scripts/audit-fase-i-perf.ts`  
+**Railway:** não usado
+
+### Matriz
+
+| ID | Teste | Resultado |
+|----|-------|-----------|
+| I1 | `/r/` burst n=40 p95&lt;800ms | VALIDADO COM EVIDÊNCIA |
+| I2 | `/rot` burst n=40 p95&lt;800ms | VALIDADO COM EVIDÊNCIA |
+| I3 | `health.ops.track_redirect` após burst | VALIDADO COM EVIDÊNCIA |
+| I4 | Mini E2E pixel→click→postback attributed | VALIDADO COM EVIDÊNCIA |
+| I5 | 10× `/r/` em paralelo | VALIDADO COM EVIDÊNCIA |
+
+**Resumo:** 5/5 VALIDADO COM EVIDÊNCIA. Carga local leve apenas (não stress-test de produção).
+
+### Próxima fase
+
+**FASE J — Correções, regressão e documentação**.
+
+---
+
+## FASE J — Correções, regressão e documentação
+
+**Data:** 2026-10-31
+
+### Correções aplicadas nesta auditoria (já em `main`)
+
+| Prioridade | Item | Fase | Estado |
+|------------|------|------|--------|
+| P1 | `parent_click_id` herda ads IDs sem exigir `rotator_id` | C | Corrigido + testes |
+| P1 | Open-redirect: porta efectiva + userinfo rejeitado | E (pré) | Corrigido + testes |
+| P1 | Probe `body_too_large` ≠ SSRF | B (pré) | Corrigido + testes |
+
+### Dívida / follow-ups (não corrigidos nesta sessão)
+
+| Prioridade | Item | Notas |
+|------------|------|-------|
+| P2 | D7 `PresellCreator` stub | Remover rota ou ligar à API; CTA principal já é `/presells/nova` |
+| P1 (produto) | D9 Dual store ads postback vs `Conversion` | Documentado; unificar relatórios ou pipeline CAPI |
+| P2 | D8 `/r/` sem `forwardAdQueryToUrl` | Intencional com FE merge; reavaliar se landers sem FE |
+| P3 | Sticky session rotador | Ausente por desenho |
+| — | Envio real Meta CAPI / TikTok | Só settings API (F11) |
+| — | Playwright gates/VSL browser | H8/H9 NÃO TESTADO |
+| — | DNS/SSL custom domain E2E | Só API smoke (E12) |
+
+### Checklist de regressão (reexecutar em stack local)
+
+```bash
+set -a && source backend/.env.audit-fase-b && set +a
+export LOAD_TEST_BASE_URL=http://127.0.0.1:3011 ALLOW_MUTATING_LOAD_TEST=1
+export LOAD_TEST_EMAIL=… LOAD_TEST_PASSWORD=…
+npx tsx backend/scripts/audit-fase-b-presell-types.ts
+npx tsx backend/scripts/audit-fase-c-tracking.ts
+npx tsx backend/scripts/audit-fase-d-rotators.ts
+npx tsx backend/scripts/audit-fase-e-urls.ts
+npx tsx backend/scripts/audit-fase-f-postbacks.ts
+npx tsx backend/scripts/audit-fase-g-apis-db.ts
+npx tsx backend/scripts/audit-fase-i-perf.ts
+# unit guards
+cd backend && node --import tsx --test \
+  src/lib/trackOfferRedirectGuard.test.ts \
+  src/lib/rotatorParentAttribution.test.ts \
+  src/compliance/destinationProbe.test.ts
+```
+
+### Resumo executivo A–J
+
+| Fase | Resultado |
+|------|-----------|
+| A Inventário | Completo |
+| B Presells 19 tipos | 19/19 HTTP path |
+| C Tracking | 12/12 (+ fix parent_click) |
+| D Rotadores | 12/12 |
+| E URLs | 13/13 |
+| F Postbacks | 13/13 |
+| G APIs/BD | 13/13 |
+| H UX/UI | 7 validado + 2 não testado |
+| I Perf/E2E | 5/5 |
+| J Docs/regressão | Este documento |
+
+**Produção Railway:** intocada. Stack efémero `127.0.0.1:55436` / API `:3011` apenas.
