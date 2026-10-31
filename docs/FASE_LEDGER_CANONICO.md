@@ -87,22 +87,33 @@ Inclui cenários 1–12 a nível de identidade / máquina de estados / P2002.
 
 ### E2E auditoria (`npx tsx scripts/e2e-ledger-canonical.ts` + `.env.audit-fase-b`)
 
+Reexecução 2026-10-31 — **15/15 PASS**, checklist de aceitação **8/8 [x]**  
+Artefacto: `.audit-fase-b-pg/ledger-acceptance.txt`
+
 ```
 PASS  1_postback_once
 PASS  2_postback_repeat
 PASS  3_concurrent_race          created=1 dup=1 rows=1
-PASS  4_same_business_key_csv    offline_csv:csv_gclid:… rows=1
-PASS  5_refunded
+PASS  4_same_business_key_csv
+PASS  5_refunded                 before=63.5 +40→103.5 refund→63.5
 PASS  6_cancelled_pending
 PASS  7_pending_to_approved      Δrevenue=15 Δcount=1
-PASS  8_csv_export_vs_ledger     export=78.5 expected=78.5
-PASS  9_filters_campaign_presell_period
-PASS  10_tenant_isolation        A≠B leak=0
-PASS  11_write_failure_no_ghost  P2002
-PASS  12_safe_reprocess
-PASS  reconcile_csv_aligned
-pass=13 fail=0
+PASS  8a_dashboard_vs_sales_csv_count     4 = 4
+PASS  8b_dashboard_vs_sales_csv_revenue   78.5 = 78.5
+PASS  8c_offline_gclid_csv_vs_ledger_subset
+PASS  9–12 + reconcile
 ```
+
+#### Checklist de aceitação (DB isolada)
+
+- [x] Dashboard e CSV — mesmo nº conversões (`4=4`)
+- [x] Dashboard e CSV — mesma receita (`78.5=78.5`)
+- [x] Postback repetido não duplica (`rows=1`)
+- [x] Dois postbacks simultâneos → 1 venda
+- [x] Reembolso reduz receita válida (`103.5→63.5`)
+- [x] Cancelamento → `refunded`
+- [x] Isolamento tenant (`foreign_rows_in_A=0`)
+- [x] Todos os testes passam em `127.0.0.1:55436/clickora_audit`
 
 Comando:
 

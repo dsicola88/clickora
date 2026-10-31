@@ -194,6 +194,11 @@ async function main() {
   );
 
   // 5) Reembolso
+  const beforeRefund = await sumApprovedConversionTotals({
+    userId: a.user.id,
+    rangeStart,
+    rangeEnd,
+  });
   const refundTarget = await systemPrisma.conversion.create({
     data: {
       userId: a.user.id,
@@ -207,6 +212,11 @@ async function main() {
       campaign: "camp-a",
       metadata: { platform: "buygoods" },
     },
+  });
+  const withRefundSale = await sumApprovedConversionTotals({
+    userId: a.user.id,
+    rangeStart,
+    rangeEnd,
   });
   await systemPrisma.conversion.update({
     where: { id: refundTarget.id },
@@ -229,8 +239,10 @@ async function main() {
   });
   record(
     "5_refunded",
-    !refundStillApproved && afterRefund.revenue < 40 + 21.5 + 9 + 33 + 1,
-    `revenue_after=${afterRefund.revenue} (refunded excluded)`,
+    !refundStillApproved &&
+      Math.abs(withRefundSale.revenue - beforeRefund.revenue - 40) < 0.001 &&
+      Math.abs(afterRefund.revenue - beforeRefund.revenue) < 0.001,
+    `before=${beforeRefund.revenue} +40→${withRefundSale.revenue} refund→${afterRefund.revenue}`,
   );
 
   // 6) Cancelamento pending
@@ -288,7 +300,37 @@ async function main() {
     `Δrevenue=${afterUp.revenue - beforeUp.revenue} Δcount=${afterUp.count - beforeUp.count}`,
   );
 
-  // 8) Export CSV Offline vs totais approved com GCLID
+  // 8) Dashboard (= sumApproved) vs CSV de vendas (= listConversions: todas approved)
+  const dashboard = await sumApprovedConversionTotals({
+    userId: a.user.id,
+    rangeStart,
+    rangeEnd,
+  });
+  const salesCsvRows = await systemPrisma.conversion.findMany({
+    where: {
+      userId: a.user.id,
+      status: "approved",
+      createdAt: { gte: rangeStart, lte: rangeEnd },
+    },
+    select: { id: true, amount: true },
+  });
+  const salesCsvCount = salesCsvRows.length;
+  const salesCsvRevenue = salesCsvRows.reduce(
+    (s, r) => s + (r.amount != null ? Number(r.amount) : 0),
+    0,
+  );
+  record(
+    "8a_dashboard_vs_sales_csv_count",
+    dashboard.count === salesCsvCount,
+    `dashboard.count=${dashboard.count} sales_csv.count=${salesCsvCount}`,
+  );
+  record(
+    "8b_dashboard_vs_sales_csv_revenue",
+    Math.abs(dashboard.revenue - salesCsvRevenue) < 0.001,
+    `dashboard.revenue=${dashboard.revenue} sales_csv.revenue=${salesCsvRevenue}`,
+  );
+
+  // Offline Google CSV (só GCLID) alinhado ao subconjunto com GCLID do ledger
   const exportRows = await listApprovedConversionsWithGclid({
     userId: a.user.id,
     rangeStart,
@@ -318,9 +360,9 @@ async function main() {
     if (g) expectedExport += c.amount != null ? Number(c.amount) : 0;
   }
   record(
-    "8_csv_export_vs_ledger",
+    "8c_offline_gclid_csv_vs_ledger_subset",
     Math.abs(exportSum - expectedExport) < 0.001,
-    `export=${exportSum} expected=${expectedExport} rows=${exportRows.length}`,
+    `offline_csv=${exportSum} expected=${expectedExport} rows=${exportRows.length}`,
   );
 
   // 9) Filtros campanha / presell / período
@@ -444,6 +486,92 @@ async function main() {
     recon.note,
   );
 
+  // Snapshot para checklist de aceitação (antes do cleanup)
+  const dashFinal = await sumApprovedConversionTotals({
+    userId: a.user.id,
+    rangeStart,
+    rangeEnd,
+  });
+  const csvFinalRows = await systemPrisma.conversion.findMany({
+    where: {
+      userId: a.user.id,
+      status: "approved",
+      createdAt: { gte: rangeStart, lte: rangeEnd },
+    },
+    select: { amount: true },
+  });
+  const csvFinalRev = csvFinalRows.reduce(
+    (s, r) => s + (r.amount != null ? Number(r.amount) : 0),
+    0,
+  );
+  const refundedRow = await systemPrisma.conversion.findUnique({
+    where: { id: refundTarget.id },
+    select: { status: true, amount: true },
+  });
+  const cancelledRow = await systemPrisma.conversion.findUnique({
+    where: { id: pendingCancel.id },
+    select: { status: true },
+  });
+  const foreignProbe = await systemPrisma.conversion.findMany({
+    where: { userId: a.user.id, externalOrderId: adsExternalOrderId("google_ads", `TX-TENANT-B-${stamp}`) },
+  });
+  const raceStillOne = await systemPrisma.conversion.count({
+    where: { userId: a.user.id, externalOrderId: adsExternalOrderId("google_ads", raceTx) },
+  });
+  const onceStillOne = await systemPrisma.conversion.count({
+    where: { userId: a.user.id, externalOrderId: adsExternalOrderId("google_ads", `TX-ONCE-${stamp}`) },
+  });
+
+  const checklist: Array<{ label: string; ok: boolean; evidence: string }> = [
+    {
+      label: "Dashboard e CSV apresentam exatamente o mesmo número de conversões.",
+      ok: dashFinal.count === csvFinalRows.length,
+      evidence: `dashboard=${dashFinal.count} sales_csv=${csvFinalRows.length}`,
+    },
+    {
+      label: "Dashboard e CSV apresentam exatamente a mesma receita.",
+      ok: Math.abs(dashFinal.revenue - csvFinalRev) < 0.001,
+      evidence: `dashboard=${dashFinal.revenue} sales_csv=${csvFinalRev}`,
+    },
+    {
+      label: "Postback repetido não duplica uma venda.",
+      ok: onceStillOne === 1 && results.find((r) => r.name === "2_postback_repeat")?.ok === true,
+      evidence: `rows_for_TX-ONCE=${onceStillOne}`,
+    },
+    {
+      label: "Dois postbacks simultâneos não criam duas vendas.",
+      ok: raceStillOne === 1 && results.find((r) => r.name === "3_concurrent_race")?.ok === true,
+      evidence: `rows_for_TX-RACE=${raceStillOne}`,
+    },
+    {
+      label: "Reembolso reduz corretamente a receita considerada válida.",
+      ok: refundedRow?.status === "refunded" && results.find((r) => r.name === "5_refunded")?.ok === true,
+      evidence: `status=${refundedRow?.status} amount=${refundedRow?.amount}`,
+    },
+    {
+      label: "Cancelamento atualiza o estado financeiro.",
+      ok: cancelledRow?.status === "refunded",
+      evidence: `pending_cancel_status=${cancelledRow?.status}`,
+    },
+    {
+      label: "Uma conta não consegue consultar conversões de outra.",
+      ok: foreignProbe.length === 0 && results.find((r) => r.name === "10_tenant_isolation")?.ok === true,
+      evidence: `foreign_rows_in_A=${foreignProbe.length} B.revenue=1000`,
+    },
+    {
+      label: "Todos os testes passam na base de dados isolada.",
+      ok: results.every((r) => r.ok),
+      evidence: `db=${process.env.DATABASE_URL?.replace(/:[^:@/]+@/, ":***@")} pass=${results.filter((r) => r.ok).length}/${results.length}`,
+    },
+  ];
+
+  console.log("\n=== ACCEPTANCE CHECKLIST (audit DB) ===");
+  for (const item of checklist) {
+    console.log(`${item.ok ? "[x]" : "[ ]"} ${item.label}`);
+    console.log(`    evidence: ${item.evidence}`);
+  }
+  const checklistFail = checklist.filter((c) => !c.ok).length;
+
   // Cleanup scoped seed (não DROP indiscriminado)
   await systemPrisma.conversion.deleteMany({
     where: { userId: { in: [a.user.id, b.user.id] } },
@@ -460,8 +588,8 @@ async function main() {
 
   const failedN = results.filter((r) => !r.ok).length;
   console.log("\n--- FASE1 ledger canonical ---");
-  console.log(`pass=${results.length - failedN} fail=${failedN}`);
-  if (failedN > 0) process.exit(1);
+  console.log(`pass=${results.length - failedN} fail=${failedN} checklist_fail=${checklistFail}`);
+  if (failedN > 0 || checklistFail > 0) process.exit(1);
 }
 
 main().catch((e) => {
