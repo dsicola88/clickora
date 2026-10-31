@@ -14,12 +14,14 @@ import {
   type BrandKitPro,
 } from "@/lib/brandKitPro";
 import { Loader2 } from "lucide-react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
  * Brand kit Pro — sync white-label enterprise quando o plano permite;
  * rascunho local alinhado com wizard / Agency.
  */
 export function BrandKitProCard() {
+  const { t } = useAppLocale();
   const { userPlan } = useAuth();
   const qc = useQueryClient();
   const canWhiteLabel = userPlan?.has_branding === false;
@@ -66,7 +68,7 @@ export function BrandKitProCard() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["enterprise-tenant-branding"] });
-      toast.success("Brand kit sincronizado com a conta.");
+      toast.success(t("pages.brandKit.toastSynced"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -74,30 +76,28 @@ export function BrandKitProCard() {
   const saveLocal = () => {
     try {
       writeBrandKitPro(kit);
-      toast.success("Brand kit guardado neste browser.");
+      toast.success(t("pages.brandKit.toastSavedLocal"));
     } catch {
-      toast.error("Não foi possível guardar.");
+      toast.error(t("pages.brandKit.toastError"));
     }
   };
 
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">Brand kit Pro</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t("pages.brandKit.title")}</h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          {canWhiteLabel
-            ? "Sincronizado com white-label da conta (Configurações → Marca)."
-            : "Rascunho local até upgrade Pro. Usado no wizard e em Agency."}
+          {canWhiteLabel ? t("pages.brandKit.synced") : t("pages.brandKit.localDraft")}
         </p>
       </div>
       {canWhiteLabel && isLoading ? (
         <p className="text-xs text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar marca…
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("pages.brandKit.loading")}
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="bk-name">Marca</Label>
+            <Label htmlFor="bk-name">{t("pages.brandKit.brand")}</Label>
             <Input
               id="bk-name"
               value={kit.brandName}
@@ -106,7 +106,7 @@ export function BrandKitProCard() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bk-color">Cor primária</Label>
+            <Label htmlFor="bk-color">{t("pages.brandKit.primaryColor")}</Label>
             <div className="flex gap-2">
               <Input
                 id="bk-color"
@@ -123,17 +123,17 @@ export function BrandKitProCard() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bk-email">Email suporte</Label>
+            <Label htmlFor="bk-email">{t("pages.brandKit.supportEmail")}</Label>
             <Input
               id="bk-email"
               type="email"
               value={kit.supportEmail}
               onChange={(e) => setKit((k) => ({ ...k, supportEmail: e.target.value }))}
-              placeholder="suporte@…"
+              placeholder="support@…"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bk-logo">URL do logo</Label>
+            <Label htmlFor="bk-logo">{t("pages.brandKit.logoUrl")}</Label>
             <Input
               id="bk-logo"
               value={kit.logoUrl}
@@ -146,15 +146,15 @@ export function BrandKitProCard() {
       <div className="flex flex-wrap gap-2">
         {canWhiteLabel ? (
           <Button type="button" size="sm" onClick={() => saveRemote.mutate()} disabled={saveRemote.isPending}>
-            {saveRemote.isPending ? "A guardar…" : "Guardar na conta"}
+            {saveRemote.isPending ? t("pages.brandKit.saving") : t("pages.brandKit.saveAccount")}
           </Button>
         ) : (
           <Button type="button" size="sm" onClick={saveLocal}>
-            Guardar brand kit
+            {t("pages.brandKit.saveLocal")}
           </Button>
         )}
         <Button type="button" size="sm" variant="outline" asChild>
-          <Link to="/configuracoes">Configurações</Link>
+          <Link to="/configuracoes">{t("pages.brandKit.settings")}</Link>
         </Button>
       </div>
     </div>

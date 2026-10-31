@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { syncHealthReportHref, syncHealthReportLabel } from "@/lib/syncHealthReportHref";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 export type SyncHealthPayload = {
   period_days: number;
@@ -13,6 +14,13 @@ export type SyncHealthPayload = {
   tiktok_events_skipped_no_ttclid?: number;
 };
 
+function fill(template: string, vars: Record<string, string | number>) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
+    template,
+  );
+}
+
 /**
  * Falhas de upload Google/Meta/TikTok — partilhado entre Tracking, Resultados e Integrações.
  */
@@ -23,6 +31,7 @@ export function SyncHealthBanner({
   syncHealth?: SyncHealthPayload | null;
   className?: string;
 }) {
+  const { t } = useAppLocale();
   if (!syncHealth) return null;
   const tt = syncHealth.tiktok_events_failed ?? 0;
   const noGclid = syncHealth.google_ads_skipped_no_gclid ?? 0;
@@ -38,34 +47,39 @@ export function SyncHealthBanner({
   if (total <= 0) return null;
   const parts: string[] = [];
   if (syncHealth.google_ads_failed > 0) {
-    parts.push(`${syncHealth.google_ads_failed} venda(s) com erro ao enviar ao Google Ads`);
+    parts.push(fill(t("pages.syncHealth.googleFail"), { n: syncHealth.google_ads_failed }));
   }
   if (noGclid > 0) {
-    parts.push(`${noGclid} venda(s) sem ID do Google (não enviadas)`);
+    parts.push(fill(t("pages.syncHealth.googleNoId"), { n: noGclid }));
   }
   if (syncHealth.meta_capi_failed > 0) {
-    parts.push(`${syncHealth.meta_capi_failed} venda(s) com erro ao enviar à Meta`);
+    parts.push(fill(t("pages.syncHealth.metaFail"), { n: syncHealth.meta_capi_failed }));
   }
   if (noFbclid > 0) {
-    parts.push(`${noFbclid} venda(s) sem ID da Meta (não enviadas)`);
+    parts.push(fill(t("pages.syncHealth.metaNoId"), { n: noFbclid }));
   }
   if (tt > 0) {
-    parts.push(`${tt} venda(s) com erro ao enviar ao TikTok`);
+    parts.push(fill(t("pages.syncHealth.tiktokFail"), { n: tt }));
   }
   if (noTtclid > 0) {
-    parts.push(`${noTtclid} venda(s) sem ID do TikTok (não enviadas)`);
+    parts.push(fill(t("pages.syncHealth.tiktokNoId"), { n: noTtclid }));
   }
   const reportHref = syncHealthReportHref(syncHealth);
   return (
     <Alert className={`border-amber-500/35 bg-amber-500/[0.07] text-foreground ${className ?? ""}`}>
       <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-      <AlertTitle className="text-amber-950 dark:text-amber-100">Atenção: envio de vendas às redes de anúncios</AlertTitle>
+      <AlertTitle className="text-amber-950 dark:text-amber-100">
+        {t("pages.syncHealth.title")}
+      </AlertTitle>
       <AlertDescription className="text-sm text-muted-foreground">
-        Últimos {syncHealth.period_days} dias: {parts.join(" · ")}. Ver{" "}
+        {fill(t("pages.syncHealth.intro"), {
+          days: syncHealth.period_days,
+          parts: parts.join(" · "),
+        })}
         <Link className="font-medium text-primary underline underline-offset-2" to={reportHref}>
           {syncHealthReportLabel(reportHref)}
         </Link>
-        {" — "}confere as ligações em Integrações.
+        {t("pages.syncHealth.outro")}
       </AlertDescription>
     </Alert>
   );

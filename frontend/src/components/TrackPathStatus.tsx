@@ -5,6 +5,7 @@ import { customDomainService } from "@/services/customDomainService";
 import { useAuth } from "@/contexts/AuthContext";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { cn } from "@/lib/utils";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type HealthBody = {
   status?: string;
@@ -20,11 +21,19 @@ type HealthBody = {
   };
 };
 
+function fill(template: string, vars: Record<string, string | number>) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
+    template,
+  );
+}
+
 /**
  * Estado do click path (enterprise): health no host de tracking da conta (go.) se existir,
  * senão API da app. Evita «verde» no painel enquanto go. está partido.
  */
 export function TrackPathStatus({ className }: { className?: string }) {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const tenantKey = tenantQueryKey(user);
   const appApi = getResolvedPublicApiBaseUrl();
@@ -70,6 +79,19 @@ export function TrackPathStatus({ className }: { className?: string }) {
   const slo = data?.track?.slo_p95_ms ?? 400;
   const sloOk = p95 == null || p95 <= slo;
 
+  const statusLine = isLoading
+    ? t("pages.trackPath.checking")
+    : ok
+      ? fill(t("pages.trackPath.working"), { ms: data?.ms ?? "—" }) +
+        (sameOrigin
+          ? t("pages.trackPath.onYourDomain")
+          : usingAccountTrackHost
+            ? t("pages.trackPath.goTrackingDomain")
+            : "")
+      : usingAccountTrackHost
+        ? t("pages.trackPath.accountHostFailed")
+        : t("pages.trackPath.linkFailed");
+
   return (
     <div
       className={cn(
@@ -87,46 +109,35 @@ export function TrackPathStatus({ className }: { className?: string }) {
           <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />
         )}
         <div className="min-w-0 space-y-1">
-          <p className="font-medium text-foreground">Ligação de rastreamento</p>
+          <p className="font-medium text-foreground">{t("pages.trackPath.title")}</p>
           <p className="text-xs text-muted-foreground">
-            Os cliques dos anúncios passam por aqui antes de abrir o link da oferta.
-            {usingAccountTrackHost ? " A verificar o domínio de tracking da conta." : ""}
+            {t("pages.trackPath.blurb")}
+            {usingAccountTrackHost ? t("pages.trackPath.checkingAccountHost") : ""}
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            {isLoading
-              ? "A verificar…"
-              : ok
-                ? `A funcionar · resposta ${data?.ms} ms${sameOrigin ? " · no seu domínio" : usingAccountTrackHost ? " · domínio go./tracking" : ""}`
-                : usingAccountTrackHost
-                  ? "O domínio de tracking da conta não respondeu — confirme DNS/HTTPS em Configurações → Domínios."
-                  : "A ligação falhou — tente outra vez ou contacte o suporte."}
-          </p>
+          <p className="text-[11px] text-muted-foreground">{statusLine}</p>
           {ok && data?.track ? (
             <p className="text-[11px] text-muted-foreground tabular-nums">
-              Tempo do redirect: típico {data.track.p50_ms ?? "—"} ms · quase todos{" "}
-              {p95 ?? "—"} ms
-              {!data.track.samples
-                ? " · ainda sem cliques medidos neste período"
-                : ""}
+              {fill(t("pages.trackPath.redirectTiming"), {
+                p50: data.track.p50_ms ?? "—",
+                p95: p95 ?? "—",
+              })}
+              {!data.track.samples ? t("pages.trackPath.noSamplesYet") : ""}
               {p95 != null && !sloOk
-                ? " · mais lento do que o desejado"
+                ? t("pages.trackPath.slowerThanTarget")
                 : p95 != null
-                  ? " · dentro do alvo"
+                  ? t("pages.trackPath.withinTarget")
                   : ""}
             </p>
           ) : ok ? (
-            <p className="text-[11px] text-muted-foreground">
-              Serviço OK. Os tempos de redirect aparecem após o primeiro clique real.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("pages.trackPath.serviceOk")}</p>
           ) : null}
           {ok && (data?.errors5m ?? 0) > 0 ? (
             <p className="text-[11px] text-amber-800 dark:text-amber-300">
-              Houve {data?.errors5m} falha(s) recentes no rastreamento — se os anúncios estiverem activos,
-              contacte o suporte.
+              {fill(t("pages.trackPath.recentErrors"), { n: data?.errors5m ?? 0 })}
             </p>
           ) : null}
           <p className="text-[10px] text-muted-foreground">
-            Alvo: redirect rápido (abaixo de cerca de {slo} ms). Medição no servidor actual.
+            {fill(t("pages.trackPath.sloHint"), { slo })}
           </p>
         </div>
       </div>
