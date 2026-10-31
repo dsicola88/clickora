@@ -733,7 +733,13 @@ export function mergeLandingExtras(
 ): LandingExtras {
   if (!isPlainObject(patch)) return base;
   const parsed = landingExtrasPatchSchema.safeParse(patch);
-  if (!parsed.success) return base;
+  if (!parsed.success) {
+    /** Falha silenciosa apagava publicações do editor visual — preferir base só se o patch for lixo total. */
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[mergeLandingExtras] patch rejeitado:", parsed.error.flatten());
+    }
+    return base;
+  }
   const p = parsed.data;
   const nextFeatures =
     p.features === undefined

@@ -64,6 +64,9 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
     }
     setPendingTemplate(null);
     onClose();
+    window.dispatchEvent(
+      new CustomEvent("clickora:pb-template-applied", { detail: { id: t.id, name: t.name } }),
+    );
   };
 
   return (

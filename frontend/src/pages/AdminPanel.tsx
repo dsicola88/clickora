@@ -867,18 +867,21 @@ export default function AdminPanel() {
                             Página de vendas
                           </CardTitle>
                           <CardDescription className="max-w-2xl leading-relaxed">
-                            Caminho: <strong>Abrir editor visual</strong> → barra de cima{" "}
-                            <strong>Temas</strong> (modelo «Tema dclickora — vendas») →{" "}
-                            <strong>Publicar</strong> → ver em /planos. Widget{" "}
-                            <strong>Planos (vivos)</strong> mostra preços reais da base.
+                            <strong>Visual:</strong> Abrir editor → <strong>Temas</strong> →{" "}
+                            <strong>Publicar</strong> (activa /planos no modo visual).{" "}
+                            <strong>Clássico:</strong> secções abaixo — ao Guardar, escolha se /planos
+                            usa visual ou clássico (interruptor no editor clássico). Os preços dos
+                            cartões alimentam o widget «Planos (vivos)».
                           </CardDescription>
                           {builderOn ? (
                             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                              Modo visual activo — a landing pública usa o documento publicado.
+                              Modo visual activo em /planos. O clássico pode guardar SEO/nav sem apagar
+                              o documento — desactive o interruptor lá para voltar o site ao clássico.
                             </p>
                           ) : (
                             <p className="text-xs text-muted-foreground">
-                              Ainda no editor clássico. Abra o visual → Temas → Publicar para activar.
+                              Modo clássico em /planos. Publique no visual para activar temas, ou edite
+                              e Guarde nas secções clássicas abaixo.
                             </p>
                           )}
                         </div>

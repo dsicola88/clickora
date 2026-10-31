@@ -261,8 +261,21 @@ export const plansLandingController = {
       d.plan_display_labels = labels;
     }
     if (d.landing_extras) {
-      const extras = rewriteCommercialTree(d.landing_extras);
-      if (collectCommercialStrings(extras).some((line) => freeTextEmbedsNumericQuota(line))) {
+      const incoming = d.landing_extras as Record<string, unknown>;
+      /**
+       * `page_document` é o canvas do editor visual — não reescrever frases comerciais
+       * nem validar quotas numéricas (tem textos de template/preços livres).
+       */
+      const pageDocument = Object.prototype.hasOwnProperty.call(incoming, "page_document")
+        ? incoming.page_document
+        : undefined;
+      const { page_document: _omit, ...restExtras } = incoming;
+      const extras = rewriteCommercialTree(restExtras) as Record<string, unknown>;
+      if (pageDocument !== undefined) {
+        extras.page_document = pageDocument;
+      }
+      const { page_document: _skipQuota, ...extrasForQuota } = extras;
+      if (collectCommercialStrings(extrasForQuota).some((line) => freeTextEmbedsNumericQuota(line))) {
         return res.status(400).json({ error: NUMERIC_QUOTA_IN_FREE_TEXT });
       }
       d.landing_extras = extras;

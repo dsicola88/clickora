@@ -10,7 +10,6 @@ import { adminService } from "@/services/adminService";
 import {
   asSalesPageDocument,
   createDefaultSalesLandingDocument,
-  salesDocumentHasMarketTheme,
 } from "@/lib/salesLandingBuilderDoc";
 import { coerceLandingExtras } from "@/lib/plansLandingExtras";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
@@ -59,6 +58,19 @@ export default function AdminSalesPageBuilderPage() {
     setPageBuilderStorageKey(STORAGE_KEY);
   }, []);
 
+  useEffect(() => {
+    const onApplied = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ name?: string }>).detail;
+      toast.message(
+        detail?.name
+          ? `Tema «${detail.name}» no canvas. Clique Publicar para ir ao ar em /planos.`
+          : "Tema aplicado no canvas. Clique Publicar para ir ao ar em /planos.",
+      );
+    };
+    window.addEventListener("clickora:pb-template-applied", onApplied);
+    return () => window.removeEventListener("clickora:pb-template-applied", onApplied);
+  }, []);
+
   const landingQuery = useQuery({
     queryKey: ADMIN_KEY,
     queryFn: async () => {
@@ -84,30 +96,22 @@ export default function AdminSalesPageBuilderPage() {
         heroTitle: row?.hero_title,
         heroSubtitle: row?.hero_subtitle ?? undefined,
       };
-      let forceTheme = false;
-      try {
-        forceTheme = typeof window !== "undefined" && !window.localStorage.getItem(THEME_APPLY_FLAG);
-      } catch {
-        forceTheme = true;
-      }
-      const preferExisting =
-        !forceTheme &&
-        (salesDocumentHasMarketTheme(published) || salesDocumentHasMarketTheme(local));
-      const doc = forceTheme
-        ? createDefaultSalesLandingDocument(themeOpts)
-        : preferExisting
-          ? (salesDocumentHasMarketTheme(published) ? published : local)!
-          : published ?? local ?? createDefaultSalesLandingDocument(themeOpts);
+      /**
+       * Prioridade: documento publicado na cloud → rascunho local → default.
+       * Não forçar tema de mercado por cima de um publish/rascunho do utilizador.
+       */
+      const doc =
+        published ??
+        local ??
+        createDefaultSalesLandingDocument(themeOpts);
 
       if (cancelled) return;
       setPageBuilderStorageKey(STORAGE_KEY);
       useBuilder.getState().hydrateDocument(doc);
-      if (forceTheme) {
-        try {
-          window.localStorage.setItem(THEME_APPLY_FLAG, "1");
-        } catch {
-          /* ignore */
-        }
+      try {
+        window.localStorage.setItem(THEME_APPLY_FLAG, "1");
+      } catch {
+        /* ignore */
       }
       lastCloudDocJsonRef.current = published ? JSON.stringify(published) : "";
       setEditorReady(true);
@@ -132,13 +136,34 @@ export default function AdminSalesPageBuilderPage() {
         },
       });
       if (error) throw new Error(error);
-      return data;
+      /** Confirma que a cloud ficou com o documento (merge não pode ter descartado o patch). */
+      const saved = asSalesPageDocument(
+        coerceLandingExtras((data as { landing_extras?: unknown } | null)?.landing_extras).page_document,
+      );
+      if (!saved?.sections?.length) {
+        throw new Error(
+          "A cloud não gravou o documento visual. Guarde de novo ou contacte suporte.",
+        );
+      }
+      return { data, saved };
     },
-    onSuccess: () => {
-      lastCloudDocJsonRef.current = JSON.stringify(useBuilder.getState().doc);
+    onSuccess: ({ saved, data }) => {
+      const json = JSON.stringify(saved);
+      lastCloudDocJsonRef.current = json;
+      try {
+        localStorage.setItem(STORAGE_KEY, json);
+      } catch {
+        /* ignore */
+      }
+      useBuilder.getState().hydrateDocument(saved);
+      /** Actualiza a cache do admin clássico já com builder_enabled + page_document. */
+      if (data && typeof data === "object") {
+        const { ok: _ok, ...row } = data as Record<string, unknown> & { ok?: boolean };
+        queryClient.setQueryData(ADMIN_KEY, row);
+      }
       void queryClient.invalidateQueries({ queryKey: ADMIN_KEY });
       void queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
-      toast.success("Página de vendas publicada.");
+      toast.success("Publicado em /planos (modo visual activo).");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Não foi possível publicar.");

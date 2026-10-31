@@ -98,3 +98,19 @@ export function translate(locale: AppLocale, key: MessageKey): string {
 export function messagesFor(locale: AppLocale): AppMessages {
   return catalogs[locale] ?? en;
 }
+
+/** Replace `{name}` placeholders in a translated template. */
+export function fill(template: string, vars: Record<string, string | number>): string {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
+    template,
+  );
+}
+
+/** BCP 47 tag for `toLocaleString` / currency formatting. */
+export function numberLocaleFor(locale: AppLocale): string {
+  if (locale === "pt-BR") return "pt-BR";
+  if (locale === "pt") return "pt-PT";
+  if (locale === "es") return "es-ES";
+  return "en-US";
+}

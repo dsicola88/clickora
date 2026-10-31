@@ -537,6 +537,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
   const [promos, setPromos] = useState<SalesLandingPromos>(() =>
     structuredClone(DEFAULT_SALES_LANDING_PROMOS),
   );
+  /** Modo público: visual (page_document) vs clássico (secções deste formulário). */
+  const [builderEnabled, setBuilderEnabled] = useState(false);
+  const [savedPageDocument, setSavedPageDocument] = useState<unknown | null>(null);
   const [testimonialTitle, setTestimonialTitle] = useState("");
   const [testimonialSubtitle, setTestimonialSubtitle] = useState("");
   const [testimonialItems, setTestimonialItems] = useState<
@@ -680,6 +683,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         ? structuredClone(ex.promos)
         : structuredClone(DEFAULT_SALES_LANDING_PROMOS),
     );
+    setBuilderEnabled(ex.builder_enabled === true);
+    setSavedPageDocument(ex.page_document ?? null);
     setRecommendedPlanType(ex.recommended_plan_type?.trim() || "none");
     setRecommendedNote(ex.recommended_note ?? "");
     setFreeLimitsNote(ex.free_limits_note ?? "");
@@ -1097,6 +1102,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           accent: p.accent?.trim() || null,
         })),
       },
+      /**
+       * Preserva o documento do editor visual ao guardar o clássico.
+       * Nunca enviar `page_document: null` — o merge apagaria o layout publicado.
+       */
+      builder_enabled: builderEnabled,
+      ...(savedPageDocument != null ? { page_document: savedPageDocument } : {}),
     };
   };
 
@@ -1136,6 +1147,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       guaranteeLead,
       guaranteeBody,
       guaranteeFooter,
+      builderEnabled,
+      savedPageDocument,
       sectionOrder,
       sectionsEnabled,
       siteChrome,
@@ -1260,6 +1273,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       toast.error("O título do hero é obrigatório.");
       return;
     }
+    if (builderEnabled && !savedPageDocument) {
+      toast.error(
+        "Modo visual activo sem documento. Abra o editor visual → Temas → Publicar, ou desactive o modo visual abaixo.",
+      );
+      return;
+    }
     setSaving(true);
     try {
       const { data: patched, error } = await adminService.patchPlansLanding({
@@ -1303,8 +1322,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       if (patched) {
         const { ok: _ok, ...row } = patched as PlansLandingPublic & { ok?: boolean };
         queryClient.setQueryData(ADMIN_KEY, row as PlansLandingPublic);
+        const ex = coerceLandingExtras(row.landing_extras);
+        setBuilderEnabled(ex.builder_enabled === true);
+        setSavedPageDocument(ex.page_document ?? null);
       }
-      toast.success("Landing de planos atualizada.");
+      toast.success(
+        builderEnabled
+          ? "Guardado. /planos continua no modo visual (editor clássico não altera o layout público)."
+          : "Guardado. /planos usa agora o editor clássico.",
+      );
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
     } finally {
@@ -1724,6 +1750,46 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             );
           })}
         </div>
+      </div>
+
+      <div
+        className={cn(
+          "mx-3 mt-3 rounded-lg border px-3 py-3 text-xs leading-relaxed sm:mx-4",
+          builderEnabled
+            ? "border-emerald-500/40 bg-emerald-500/10 text-foreground"
+            : "border-amber-500/40 bg-amber-500/10 text-foreground",
+        )}
+      >
+        <p className="font-medium">
+          {builderEnabled
+            ? "Modo visual activo em /planos — o layout público vem do editor visual (Temas → Publicar)."
+            : "Modo clássico activo em /planos — as secções deste formulário é que aparecem no site."}
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          {builderEnabled
+            ? "Pode editar SEO/nav/tema aqui e Guardar (mantém o documento visual). Para o site voltar a este formulário, desactive o interruptor e Guarde."
+            : "Para usar um Tema do editor visual: abra o visual → Temas → Publicar. Depois pode voltar aqui e activar/desactivar o modo abaixo."}
+        </p>
+        <label className="mt-3 flex cursor-pointer items-center gap-2 font-medium">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-border"
+            checked={builderEnabled}
+            disabled={!builderEnabled && !savedPageDocument}
+            onChange={(e) => {
+              const on = e.target.checked;
+              if (on && !savedPageDocument) {
+                toast.error("Ainda não há documento visual. Publique primeiro no editor visual.");
+                return;
+              }
+              setBuilderEnabled(on);
+            }}
+          />
+          Usar editor visual em /planos
+          {!savedPageDocument ? (
+            <span className="font-normal text-muted-foreground">(sem documento publicado)</span>
+          ) : null}
+        </label>
       </div>
 
       <div
