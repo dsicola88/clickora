@@ -286,9 +286,9 @@ Fonte: `RELATORIO_ACEITACAO_FINAL_*` + transcripts F7/F8 (não versionados).
 
 | Fluxo | Fonte | Estado para **esta** auditoria |
 |-------|-------|--------------------------------|
-| Unitários backend / paid / tsc / frontend build | Relatório Etapa 7 | NÃO TESTADO (ainda) |
-| IDOR suite local | Etapa 5/7 | NÃO TESTADO (ainda) |
-| Load 20 VUs local | Etapa 7 | NÃO TESTADO (ainda) |
+| Unitários redirect/rotator/probe (42) | pós-J regressão | VALIDADO COM EVIDÊNCIA |
+| IDOR / isolamento tenant (G6) | FASE G | VALIDADO COM EVIDÊNCIA |
+| Load leve redirects (FASE I) | FASE I | VALIDADO COM EVIDÊNCIA (não 20 VU k6) |
 | Lander/pixel/redirect/postback Google em produção | Transcript F7/F8 | NÃO TESTADO nesta sessão — **revalidar** |
 | Restore backup isolado | Transcript F8 | NÃO TESTADO nesta sessão |
 | Hotmart pagamento real E2E | F8 | BLOQUEADO POR CREDENCIAIS OU ACÇÃO HUMANA |
@@ -436,22 +436,22 @@ Todos os 19 têm ramo de comportamento no código público. Gates demográficos 
 
 Por tipo: **CRIAR → EDITAR → GUARDAR → GET → PUBLICAR → GET público → PIXEL visita → REDIRECT clique → `clickora_click_id` na Location → bloqueio open-redirect.**
 
-**Fora de âmbito nesta fase (NÃO TESTADO em browser):** gestos fantasma, modais cookies, formulários idade/sexo/captcha, play de vídeo VSL, espelho HTML importado, Playwright visual.
+**Browser (pós-J):** cookies/idade/sexo/fantasma/VSL cobertos em `e2e/presell-gates-vsl.spec.ts`. Espelho HTML importado e captcha/modelos compostos: cobertura parcial via conformity audit existente.
 
 ### Tabela consolidada
 
 | Tipo | Implementação | Estado FASE B (HTTP) | Pronto profissional?* |
 |------|---------------|----------------------|------------------------|
-| cookies | Gate cookies + tracking | VALIDADO COM EVIDÊNCIA | Condicional (UI gate NÃO TESTADO) |
-| fantasma | Redirect 1.º gesto | VALIDADO COM EVIDÊNCIA | Condicional (gesto NÃO TESTADO) |
+| cookies | Gate cookies + tracking | VALIDADO COM EVIDÊNCIA | UI gate VALIDADO (H8) |
+| fantasma | Redirect 1.º gesto | VALIDADO COM EVIDÊNCIA | CTA track VALIDADO (H8) |
 | tsl | Editorial / mirror chrome | VALIDADO COM EVIDÊNCIA | Sim (path API/tracking) |
 | dtc | DTC / mirror chrome | VALIDADO COM EVIDÊNCIA | Sim (path API/tracking) |
 | review | Review / mirror chrome | VALIDADO COM EVIDÊNCIA | Sim (path API/tracking) |
-| desconto | Overlay urgência | VALIDADO COM EVIDÊNCIA | Condicional (overlay UI NÃO TESTADO) |
-| vsl | Vídeo | VALIDADO COM EVIDÊNCIA | Condicional (player NÃO TESTADO) |
-| vsl_tsl | Vídeo + carta | VALIDADO COM EVIDÊNCIA | Condicional (player NÃO TESTADO) |
-| sexo | Gate | VALIDADO COM EVIDÊNCIA | Condicional (form NÃO TESTADO) |
-| idade | Gate | VALIDADO COM EVIDÊNCIA | Condicional (form NÃO TESTADO) |
+| desconto | Overlay urgência | VALIDADO COM EVIDÊNCIA | Overlay: conformity audit parcial |
+| vsl | Vídeo | VALIDADO COM EVIDÊNCIA | Player VALIDADO (H8) |
+| vsl_tsl | Vídeo + carta | VALIDADO COM EVIDÊNCIA | Player (mesmo path VSL) |
+| sexo | Gate | VALIDADO COM EVIDÊNCIA | Form VALIDADO (H8) |
+| idade | Gate | VALIDADO COM EVIDÊNCIA | Form VALIDADO (H8) |
 | idade_sexo | Gate composto | VALIDADO COM EVIDÊNCIA | Condicional |
 | idade_pais | Gate composto | VALIDADO COM EVIDÊNCIA | Condicional |
 | sexo_pais | Gate composto | VALIDADO COM EVIDÊNCIA | Condicional |
@@ -727,9 +727,9 @@ Ads query → GET /api/track/rot/:id
 | H6 | Empty state dashboard «Nenhuma presell criada» + CTA | VALIDADO COM EVIDÊNCIA (código) |
 | H7 | Redirects legados `/tracking/*` → hubs novos | VALIDADO COM EVIDÊNCIA (App.tsx) |
 | H8 | Gates demográficos / VSL browser profundo | VALIDADO COM EVIDÊNCIA (Playwright `e2e/presell-gates-vsl.spec.ts` 5/5) |
-| H9 | App autenticado mobile layout completo | NÃO TESTADO (requer login browser + viewport matrix) |
+| H9 | App autenticado mobile layout completo | VALIDADO COM EVIDÊNCIA (Playwright `e2e/app-mobile-auth.spec.ts` 390×844) |
 
-**Resumo:** 8 VALIDADO + 1 NÃO TESTADO. **D7 corrigido pós-J:** stub removido; rotas legadas redireccionam para `/presells/nova`. H8: cookies, idade, sexo, fantasma (CTA track), VSL player.
+**Resumo:** 9/9 VALIDADO. **D7 corrigido pós-J:** stub removido; rotas legadas redireccionam para `/presells/nova`. H8+H9 browser cobertos.
 
 ### Achados
 
@@ -789,8 +789,7 @@ Ads query → GET /api/track/rot/:id
 | P1 (produto) | D9 Dual store ads postback vs `Conversion` | Google/MS → `TrackingEvent` + offline sync; **não** linha `Conversion` (evita CAPI falso). Unificar UI de relatórios é decisão de produto. |
 | P3 | Sticky session rotador | Ausente por desenho |
 | — | Envio real Meta CAPI / TikTok | Só settings API (F11) |
-| — | H9 mobile layout autenticado | Viewport matrix com sessão real |
-| — | DNS/SSL custom domain E2E real | API deepen OK (`audit-fase-custom-domain.ts`: quota/list/create/go-live/verify TXT pending); SSL público continua dependente de DNS real |
+| — | DNS/SSL custom domain E2E real | API deepen OK (`audit-fase-custom-domain.ts`); SSL público continua dependente de DNS real |
 
 ### Checklist de regressão (reexecutar em stack local)
 
@@ -823,8 +822,11 @@ cd backend && node --import tsx --test \
 | E URLs | 13/13 |
 | F Postbacks | 13/13 |
 | G APIs/BD | 13/13 |
-| H UX/UI | 7 validado + 2 não testado |
+| H UX/UI | 9/9 (H8 gates/VSL + H9 mobile auth) |
 | I Perf/E2E | 5/5 |
 | J Docs/regressão | Este documento |
+| pós-J | D7/D8 fixes; custom-domain deepen; H8/H9 Playwright; probe=0 no audit env |
 
 **Produção Railway:** intocada. Stack efémero `127.0.0.1:55436` / API `:3011` apenas.
+
+**Regressão final (2026-10-31):** unitários 42/42; D 12/12; E 13/13; custom-domain 7/7; H8 5/5; H9 1/1.

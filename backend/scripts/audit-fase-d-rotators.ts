@@ -2,6 +2,8 @@
  * FASE D — Auditoria dos rotadores (BD + API locais isolados).
  *
  * Segurança: loadTestSafety — só localhost; nunca Railway.
+ * Recomendado no env de audit: ROTATOR_DESTINATION_PROBE=0
+ * (senão failover de saúde pode mascarar testes de backup/device com example.com).
  *
  *   set -a && source .env.audit-fase-b && set +a
  *   LOAD_TEST_BASE_URL=http://127.0.0.1:3011 ALLOW_MUTATING_LOAD_TEST=1 \

@@ -352,7 +352,7 @@ async function main() {
       const cr = await api("/api/custom-domain", {
         method: "POST",
         token,
-        body: JSON.stringify({ domain: `fe-audit-${STAMP}.example.test`, purpose: "tracking" }),
+        body: JSON.stringify({ hostname: `fe-audit-${STAMP}.clickora-test.net`, purpose: "tracking" }),
       });
       createStatus = cr.status;
       createBody = JSON.stringify(cr.json || cr.text).slice(0, 160);
