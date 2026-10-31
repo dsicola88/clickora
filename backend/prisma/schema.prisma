@@ -203,7 +203,8 @@ model User {
   trackingEvents TrackingEvent[]
   postbackLogs   PostbackLog[]
   subscription   Subscription?
-  conversions    Conversion[]
+  conversions          Conversion[]
+  conversionSyncJobs   ConversionSyncJob[]
   affiliateCampaigns AffiliateCampaign[]
   webPushSubscriptions WebPushSubscription[]
   customDomains        CustomDomain[]
@@ -714,7 +715,38 @@ model Conversion {
   @@index([attribution])
   @@index([clickId])
   @@index([userId, status])
+  conversionSyncJobs ConversionSyncJob[]
   @@map("conversions")
+}
+
+/**
+ * Fila de sync server-side (Meta CAPI / TikTok Events / Google Offline) com retries.
+ * At-least-once; idempotência nos serviços de sync (`sent` não reenvia).
+ */
+model ConversionSyncJob {
+  id           String    @id @default(uuid())
+  conversionId String    @map("conversion_id")
+  userId       String    @map("user_id")
+  /** google_ads | meta_capi | tiktok_events */
+  channel      String    @db.VarChar(32)
+  /** pending | processing | sent | failed | dead | skipped */
+  status       String    @default("pending") @db.VarChar(24)
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(5) @map("max_attempts")
+  runAfter     DateTime  @default(now()) @map("run_after")
+  leaseOwner   String?   @map("lease_owner")
+  leaseUntil   DateTime? @map("lease_until")
+  lastError    String?   @map("last_error") @db.VarChar(500)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  conversion Conversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAfter])
+  @@index([conversionId])
+  @@index([userId, status])
+  @@map("conversion_sync_jobs")
 }
 
 /**

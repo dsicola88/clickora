@@ -1,6 +1,7 @@
 import { en, type AppMessages } from "./messages/en";
 import { pt } from "./messages/pt";
 import { ptBR } from "./messages/pt-BR";
+import { es } from "./messages/es";
 import type { AppLocale } from "./types";
 import { APP_LOCALE_STORAGE_KEY, htmlLangForAppLocale } from "./types";
 
@@ -17,11 +18,13 @@ const catalogs: Record<AppLocale, AppMessages> = {
   en,
   pt,
   "pt-BR": ptBR,
+  es,
 };
 
 export function normalizeAppLocale(raw: string | null | undefined): AppLocale {
   const r = (raw || "").trim();
   if (r === "en" || r.toLowerCase().startsWith("en")) return "en";
+  if (r === "es" || r.toLowerCase().startsWith("es")) return "es";
   if (r === "pt-BR" || r === "pt_BR" || r.toLowerCase() === "pt-br") return "pt-BR";
   if (r === "pt" || r.toLowerCase().startsWith("pt-pt") || r.toLowerCase() === "pt-pt") return "pt";
   // Default for Lusophone product: European PT (painel histórico); BR opt-in.
@@ -41,6 +44,7 @@ export function detectBrowserAppLocale(): AppLocale {
   try {
     const nav = typeof navigator !== "undefined" ? navigator.language || "" : "";
     if (nav.toLowerCase().startsWith("en")) return "en";
+    if (nav.toLowerCase().startsWith("es")) return "es";
     if (nav.toLowerCase() === "pt-br" || nav.toLowerCase().startsWith("pt-br")) return "pt-BR";
     if (nav.toLowerCase().startsWith("pt")) return "pt";
   } catch {

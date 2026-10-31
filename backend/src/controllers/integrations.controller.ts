@@ -26,21 +26,19 @@ import {
   isGoogleAdsClickUploadReadyForUser,
   restateConversionToGoogleAds,
   retractConversionFromGoogleAds,
-  syncConversionToGoogleAds,
 } from "../modules/googleAds/googleAds.service";
 import { syncAdCostsForUser } from "../modules/affiliateOps/costSync.service";
 import {
   isMetaCapiReadyForUser,
   retractConversionFromMetaCapi,
   reportPartialRefundToMetaCapi,
-  syncConversionToMetaCapi,
 } from "../modules/metaCapi/metaCapi.service";
 import {
   isTikTokEventsReadyForUser,
   retractConversionFromTikTokEvents,
   reportPartialRefundToTikTokEvents,
-  syncConversionToTikTokEvents,
 } from "../modules/tiktokEvents/tiktokEvents.service";
+import { enqueueConversionSync } from "../lib/conversionSyncQueue";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { effectiveAutoBlacklistThreshold } from "../lib/trackingGuardPolicy";
 import { sendTelegram } from "../lib/telegram";
@@ -621,15 +619,10 @@ export const integrationsController = {
         if (data.presellId) presellPageId = data.presellId;
         if (status === "pending") return "pending";
         if (data.attribution === "attributed") {
-          void syncConversionToGoogleAds(createdConv.id).catch((err) =>
-            console.error("[syncConversionToGoogleAds]", err),
-          );
-          void syncConversionToMetaCapi(createdConv.id).catch((err) =>
-            console.error("[syncConversionToMetaCapi]", err),
-          );
-          void syncConversionToTikTokEvents(createdConv.id).catch((err) =>
-            console.error("[syncConversionToTikTokEvents]", err),
-          );
+          void enqueueConversionSync({
+            conversionId: createdConv.id,
+            userId: user!.id,
+          }).catch((err) => console.error("[enqueueConversionSync]", err));
           return "created";
         }
         return "created_unattributed";
@@ -682,15 +675,10 @@ export const integrationsController = {
         attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
         presellPageId = existing.presellId;
         if (existing.attribution === "attributed") {
-          void syncConversionToGoogleAds(existing.id).catch((err) =>
-            console.error("[syncConversionToGoogleAds]", err),
-          );
-          void syncConversionToMetaCapi(existing.id).catch((err) =>
-            console.error("[syncConversionToMetaCapi]", err),
-          );
-          void syncConversionToTikTokEvents(existing.id).catch((err) =>
-            console.error("[syncConversionToTikTokEvents]", err),
-          );
+          void enqueueConversionSync({
+            conversionId: existing.id,
+            userId: user!.id,
+          }).catch((err) => console.error("[enqueueConversionSync]", err));
         }
         return "approved_from_pending";
       }

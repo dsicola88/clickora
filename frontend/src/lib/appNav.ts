@@ -29,6 +29,7 @@ import type { AppMessages } from "@/i18n/messages/en";
 import { en } from "@/i18n/messages/en";
 import { pt } from "@/i18n/messages/pt";
 import { ptBR } from "@/i18n/messages/pt-BR";
+import { es } from "@/i18n/messages/es";
 import type { MessageKey } from "@/i18n";
 
 export type AppNavTitleKey = keyof AppMessages["nav"];
@@ -302,9 +303,14 @@ export function isAppNavActive(url: string, path: string, end?: boolean): boolea
   return false;
 }
 
-/** Valor único para cmdk — inclui títulos en/pt/pt-BR para pesquisa em qualquer idioma. */
+/** Valor único para cmdk — inclui títulos en/pt/pt-BR/es para pesquisa em qualquer idioma. */
 export function appNavSearchValue(item: AppNavItem): string {
-  const titles = [en.nav[item.titleKey], pt.nav[item.titleKey], ptBR.nav[item.titleKey]];
+  const titles = [
+    en.nav[item.titleKey],
+    pt.nav[item.titleKey],
+    ptBR.nav[item.titleKey],
+    es.nav[item.titleKey],
+  ];
   return [item.url, ...titles, ...(item.keywords ?? [])].join(" ");
 }
 

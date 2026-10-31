@@ -186,6 +186,10 @@ export const ptBR: AppMessages = {
       advancedDesc:
         "Só se precisar. O tracking diário não depende dessas telas. Também pesquisáveis com ⌘K.",
       languageSection: "Idioma do app",
+      domainStep1: "Adicione o domínio em Configurações → Domínio",
+      domainStep2: "Aponte o DNS (CNAME/A) como indicado no painel",
+      domainStep3: "Aguarde SSL / HTTPS pronto (Vercel + probe Clickora)",
+      domainStep4: "Associe a presell raiz · use a URL HTTPS nos anúncios",
     },
     account: {
       title: "Conta e perfil",

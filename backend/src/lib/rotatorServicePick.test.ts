@@ -260,4 +260,69 @@ describe("pickRotatorDestination", () => {
     assert.equal(result.armId, "a");
     assert.deepEqual(updates, ["a"]);
   });
+
+  it("random escolhe braço pelo randomUnit", async () => {
+    const { db, updates } = fakeDb({
+      mode: "random",
+      arms: [
+        arm("a", 100, "https://offer-a.example/buy", { orderIndex: 0 }),
+        arm("b", 100, "https://offer-b.example/buy", { orderIndex: 1 }),
+      ],
+    });
+    const result = await pickRotatorDestination(
+      "rot-1",
+      { country: null, device: "desktop" },
+      { db: db as never, randomUnit: 0.6, probeEnabled: false },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.armId, "b");
+    assert.deepEqual(updates, ["b"]);
+  });
+
+  it("sticky: braço do cookie esgotado (max_clicks) → sorteia outro", async () => {
+    const { db, updates } = fakeDb({
+      stickySession: true,
+      weights: [50, 50],
+      arms: [
+        arm("a", 50, "https://offer-a.example/buy", { maxClicks: 1, clicksDelivered: 1, orderIndex: 0 }),
+        arm("b", 50, "https://offer-b.example/buy", { orderIndex: 1 }),
+      ],
+    });
+    const result = await pickRotatorDestination(
+      "rot-1",
+      { country: null, device: "desktop" },
+      { db: db as never, randomUnit: 0.1, probeEnabled: false, stickyArmId: "a" },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.armId, "b");
+    assert.deepEqual(updates, ["b"]);
+  });
+
+  it("sticky desligado: ignora cookie", async () => {
+    const { db, updates } = fakeDb({ stickySession: false, weights: [90, 10] });
+    const result = await pickRotatorDestination(
+      "rot-1",
+      { country: "PT", device: "desktop" },
+      { db: db as never, randomUnit: 0.1, probeEnabled: false, stickyArmId: "b" },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.armId, "a");
+    assert.deepEqual(updates, ["a"]);
+  });
+
+  it("sem cookie sticky: comportamento normal", async () => {
+    const { db, updates } = fakeDb({ stickySession: true, weights: [90, 10] });
+    const result = await pickRotatorDestination(
+      "rot-1",
+      { country: null, device: "desktop" },
+      { db: db as never, randomUnit: 0.1, probeEnabled: false },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.armId, "a");
+    assert.deepEqual(updates, ["a"]);
+  });
 });

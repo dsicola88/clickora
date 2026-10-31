@@ -56,6 +56,7 @@ UI: toggle em **Rotadores** (desactivado nos modos não aplicáveis).
 | English | `en` | `frontend/src/i18n/messages/en.ts` |
 | Português (Portugal) | `pt` | `…/pt.ts` |
 | Português (Brasil) | `pt-BR` | `…/pt-BR.ts` |
+| Español | `es` | `…/es.ts` |
 
 - Provider: `AppLocaleProvider` (persistência `clickora:app-locale`).
 - Switcher: header + **Configurações**.
@@ -79,13 +80,13 @@ Strings das **presells públicas** em `frontend/src/lib/presellUiStrings*.ts` (p
 
 ---
 
-## 6. Gaps residuais (honestos — não bloqueiam o ledger/sticky)
+## 6. Gaps residuais (só externos / infra)
 
-1. **Envio real Meta CAPI / TikTok** em produção exige tokens + pixels válidos (não mock).
-2. **DNS / SSL** de domínio custom depende do provedor (Vercel) e verificação humana.
-3. **Sticky “enterprise”** (device graph / IP+UA fingerprint / regras por geo) não está neste cookie; o cookie 1.º partido cobre o caso Voluum-like standard.
-4. **Multi-região activa-activa** (failover de edge global) é infra, não app code.
-5. **Microcopy profunda** em formulários longos (builder widget-a-widget, Dpiloto wizard) ainda pode misturar PT residual; chrome + hubs + nav estão 100% nos 3 locales. Expandir catalogando as mesmas chaves tipadas.
+1. **Envio real Meta CAPI / TikTok / Google Offline** — fila `conversion_sync_jobs` com retries está activa; falta token/pixel/OAuth de produção.
+2. **DNS / SSL** de domínio custom — checklist no painel; propagação DNS é acção humana.
+3. **Sticky device-graph** além do cookie 1.º partido — opcional enterprise (cookie cobre o caso standard).
+4. **Multi-região activa-activa** — infra, não app.
+5. **Microcopy residual** em builder/Dpiloto densos — expandir o mesmo catálogo tipado (`en`/`pt`/`pt-BR`/`es`).
 
 ---
 

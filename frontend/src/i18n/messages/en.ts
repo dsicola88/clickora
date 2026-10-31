@@ -183,6 +183,10 @@ export const en = {
       advanced: "Advanced settings",
       advancedDesc: "Only if you need them. Day-to-day tracking does not depend on these screens. Also searchable with ⌘K.",
       languageSection: "App language",
+      domainStep1: "Add the domain under Settings → Domain",
+      domainStep2: "Point DNS (CNAME/A) as shown in the panel",
+      domainStep3: "Wait until SSL / HTTPS is ready (Vercel + Clickora probe)",
+      domainStep4: "Assign the root presell · use the HTTPS URL in ads",
     },
     account: {
       title: "Account & profile",

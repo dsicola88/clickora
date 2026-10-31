@@ -39,24 +39,32 @@ export default function SettingsHubPage() {
       </ProPanel>
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <Link
-          to="/tracking/settings-legacy"
-          className="group flex h-full items-start gap-4 rounded-lg border border-border/70 bg-card p-5 transition-colors hover:border-primary/40"
-        >
-          <div className="rounded-md bg-primary/10 p-2.5">
-            <Globe className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="font-semibold text-sm">{t("pages.settings.domain")}</h2>
-            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-              {t("pages.settings.domainDesc")}
-            </p>
-            <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
-              {t("pages.settings.configureDomain")}{" "}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </div>
-        </Link>
+        <div className="space-y-3">
+          <Link
+            to="/tracking/settings-legacy"
+            className="group flex h-full items-start gap-4 rounded-lg border border-border/70 bg-card p-5 transition-colors hover:border-primary/40"
+          >
+            <div className="rounded-md bg-primary/10 p-2.5">
+              <Globe className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold text-sm">{t("pages.settings.domain")}</h2>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                {t("pages.settings.domainDesc")}
+              </p>
+              <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                {t("pages.settings.configureDomain")}{" "}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </div>
+          </Link>
+          <ol className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-[11px] text-muted-foreground space-y-1.5 list-decimal list-inside">
+            <li>{t("pages.settings.domainStep1")}</li>
+            <li>{t("pages.settings.domainStep2")}</li>
+            <li>{t("pages.settings.domainStep3")}</li>
+            <li>{t("pages.settings.domainStep4")}</li>
+          </ol>
+        </div>
 
         <div className="min-w-0">
           <EnterpriseApiKeysPanel />

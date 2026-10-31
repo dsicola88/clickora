@@ -36,6 +36,7 @@ import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
 import { loadConversionFunnel } from "../lib/conversionFunnel";
 import { allocatePeriodSpendByClicks } from "../lib/allocateSpendByClicks";
 import { loadSyncHealth } from "../lib/syncHealth";
+import { listApprovedConversionsWithGclid } from "../lib/conversionLedger";
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -2271,96 +2272,45 @@ export const analyticsController = {
     }
 
     type Row = { gclid: string; at: Date; value: number; currency: string };
-    const out: Row[] = [];
+    /** Ledger único: só `Conversion` (não TrackingEvent). Query `include_affiliate` ignorada (compat). */
+    void includeAffiliate;
 
     if (selectedConversionIds) {
-      const sales = await prisma.conversion.findMany({
+      const existing = await prisma.conversion.findMany({
         where: {
           userId,
           status: "approved",
           id: { in: selectedConversionIds },
           createdAt: { gte: rangeStart, lte: rangeEnd },
         },
-        select: {
-          id: true,
-          createdAt: true,
-          amount: true,
-          currency: true,
-          click: { select: { metadata: true } },
-        },
+        select: { id: true },
       });
-      if (sales.length !== selectedConversionIds.length) {
+      if (existing.length !== selectedConversionIds.length) {
         return res.status(400).json({
           error:
             "Uma ou mais conversões não existem, não estão aprovadas ou não pertencem ao intervalo de datas indicado.",
         });
       }
-      for (const c of sales) {
-        const meta = (c.click?.metadata || {}) as Record<string, unknown>;
-        const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
-        if (!gclid) continue;
-        const value = c.amount != null ? Number(c.amount) : 0;
-        const cur = (c.currency || "USD").toUpperCase().slice(0, 3);
-        out.push({ gclid, at: c.createdAt, value, currency: cur });
-      }
-      if (out.length === 0) {
-        return res.status(400).json({
-          error:
-            "Nenhuma conversão seleccionada tem GCLID no clique associado. Só linhas com identificador Google podem ser importadas por ficheiro.",
-        });
-      }
-    } else {
-      const trackingConversions = await prisma.trackingEvent.findMany({
-        where: {
-          userId,
-          eventType: "conversion",
-          createdAt: { gte: rangeStart, lte: rangeEnd },
-        },
-        select: { createdAt: true, metadata: true },
-      });
-
-      for (const e of trackingConversions) {
-        const meta = (e.metadata || {}) as Record<string, unknown>;
-        const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
-        if (!gclid) continue;
-        const rawVal = meta.value;
-        const value =
-          typeof rawVal === "number"
-            ? rawVal
-            : Number.parseFloat(String(rawVal ?? "0").replace(",", ".")) || 0;
-        const cur =
-          typeof meta.currency === "string" && meta.currency.trim()
-            ? meta.currency.trim().toUpperCase().slice(0, 3)
-            : "USD";
-        out.push({ gclid, at: e.createdAt, value, currency: cur });
-      }
-
-      if (includeAffiliate) {
-        const sales = await prisma.conversion.findMany({
-          where: {
-            userId,
-            status: "approved",
-            createdAt: { gte: rangeStart, lte: rangeEnd },
-          },
-          select: {
-            createdAt: true,
-            amount: true,
-            currency: true,
-            click: { select: { metadata: true } },
-          },
-        });
-        for (const c of sales) {
-          const meta = (c.click?.metadata || {}) as Record<string, unknown>;
-          const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
-          if (!gclid) continue;
-          const value = c.amount != null ? Number(c.amount) : 0;
-          const cur = (c.currency || "USD").toUpperCase().slice(0, 3);
-          out.push({ gclid, at: c.createdAt, value, currency: cur });
-        }
-      }
     }
 
-    out.sort((a, b) => a.at.getTime() - b.at.getTime());
+    const ledgerRows = await listApprovedConversionsWithGclid({
+      userId,
+      rangeStart,
+      rangeEnd,
+      conversionIds: selectedConversionIds,
+    });
+    if (ledgerRows.length === 0) {
+      return res.status(400).json({
+        error:
+          "Nenhuma Conversion aprovada com GCLID no intervalo. A importação Offline usa só a tabela conversions (ledger canónico).",
+      });
+    }
+    const out: Row[] = ledgerRows.map((r) => ({
+      gclid: r.gclid,
+      at: r.at,
+      value: r.value,
+      currency: r.currency,
+    }));
 
     const headers = [
       "Google Click ID",
