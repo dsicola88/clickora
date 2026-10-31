@@ -2099,11 +2099,17 @@ export const analyticsController = {
       ctr: Math.round(ctr * 100) / 100,
       conversion_rate: Math.round(conversion_rate * 100) / 100,
       revenue: Math.round(revenue * 100) / 100,
+      /** Fonte canónica de receita: sempre tabela `conversions` (status approved). */
+      revenue_source: "conversion" as const,
       /** Vendas aprovadas (postbacks / tabela conversions) — fonte de verdade. */
       approved_sales_count: linkedConvCount,
-      /** Eventos conversion/sale no script (não somados às vendas — só telemetria). */
+      /**
+       * Telemetria TrackingEvent(conversion|sale) — NÃO é receita canónica.
+       * Não usar para P&L, ROAS, CSV financeiro nem comissões.
+       */
       tracking_conversion_events: trackingConversions,
       tracking_conversion_revenue: Math.round(revenueTracking * 100) / 100,
+      tracking_conversion_is_telemetry_only: true as const,
       /** Plataformas de afiliado distintas (metadata.platform) com pelo menos uma venda no período. */
       affiliate_platforms_count: affiliatePlatformsCount,
       chart_data,

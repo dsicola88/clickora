@@ -10,6 +10,11 @@ import { systemPrisma } from "./prisma";
 
 export type AdsPostbackOrigin = "google_ads" | "microsoft_ads";
 
+/** Identidade estável de dedupe para postbacks ads → Conversion. */
+export function adsExternalOrderId(origin: AdsPostbackOrigin, transactionId: string): string {
+  return `${origin}:${transactionId}`.slice(0, 190);
+}
+
 export async function findClickIdByAdClickParam(args: {
   userId: string;
   presellPageId: string;
@@ -47,7 +52,7 @@ export async function upsertConversionFromAdsPostback(args: {
   adClickId: string;
   conversionName?: string | null;
 }): Promise<{ conversionId: string; created: boolean; duplicate: boolean }> {
-  const externalOrderId = `${args.origin}:${args.transactionId}`.slice(0, 190);
+  const externalOrderId = adsExternalOrderId(args.origin, args.transactionId);
   const existing = await systemPrisma.conversion.findFirst({
     where: { userId: args.userId, externalOrderId },
     select: { id: true },

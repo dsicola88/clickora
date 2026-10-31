@@ -442,11 +442,15 @@ export const analyticsService = {
       ctr: number;
       conversion_rate?: number;
       revenue: number;
+      /** Sempre `conversion` — receita canónica da tabela conversions. */
+      revenue_source?: "conversion";
       /** Vendas aprovadas (postbacks / tabela conversions). */
       approved_sales_count?: number;
       /** Eventos conversion/sale no pixel/script (não somados às vendas). */
       tracking_conversion_events?: number;
+      /** Telemetria TE — NÃO usar para P&L / ROAS / CSV financeiro. */
       tracking_conversion_revenue?: number;
+      tracking_conversion_is_telemetry_only?: true;
       /** Plataformas distintas em metadata com pelo menos uma venda. */
       affiliate_platforms_count?: number;
       chart_data: Array<{

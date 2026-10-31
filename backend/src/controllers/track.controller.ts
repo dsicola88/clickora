@@ -30,6 +30,11 @@ import {
   findClickIdByAdClickParam,
   upsertConversionFromAdsPostback,
 } from "../lib/unifiedAdsConversion";
+import {
+  offlineCsvExternalOrderId,
+  offlineCsvTelemetryTransactionId,
+  upsertConversionFromOfflineCsv,
+} from "../lib/conversionLedger";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
 import { billingUserId } from "../lib/requestContext";
 import { countPlanClicksThisMonth } from "../lib/planClickQuota";
@@ -1454,7 +1459,8 @@ export const trackController = {
   /**
    * Importa conversões a partir de CSV (ex.: Google Ads offline).
    * Corpo: texto CSV. Coluna de GCLID detectada pelo cabeçalho ou primeira coluna.
-   * Batch: lookups agregados + createMany (sem N+1 por linha).
+   * Fonte canónica: cria `Conversion` (externalOrderId = offline_csv:csv_gclid:…).
+   * TrackingEvent(conversion) fica só como telemetria alinhada — não alimenta receita.
    */
   async conversionsCsv(req: Request, res: Response) {
     const token = req.query.token?.toString();
@@ -1511,6 +1517,7 @@ export const trackController = {
     const gclids = parsed.map((p) => p.gclid);
 
     type ClickRow = {
+      clickId: string;
       presellPageId: string | null;
       campaign: string | null;
       referrer: string | null;
@@ -1518,6 +1525,7 @@ export const trackController = {
     };
     const clickRows = await systemPrisma.$queryRaw<ClickRow[]>(Prisma.sql`
       SELECT DISTINCT ON (metadata->>'gclid')
+        id AS "clickId",
         presell_page_id AS "presellPageId",
         campaign,
         referrer,
@@ -1549,28 +1557,34 @@ export const trackController = {
       return res.status(accessCheck.status).json({ error: accessCheck.message });
     }
 
-    const transactionIds = parsed.map((p) => `csv_gclid:${p.gclid}`);
-    const existingRows = await systemPrisma.$queryRaw<Array<{ tid: string }>>(Prisma.sql`
-      SELECT metadata->>'transaction_id' AS tid
-      FROM tracking_events
-      WHERE user_id = ${userId}
-        AND event_type = 'conversion'
-        AND metadata->>'transaction_id' IN (${Prisma.join(transactionIds)})
-    `);
-    const existingTids = new Set(existingRows.map((r) => r.tid).filter(Boolean));
+    const externalIds = parsed.map((p) => offlineCsvExternalOrderId(p.gclid));
+    const existingConversions = await systemPrisma.conversion.findMany({
+      where: { userId, externalOrderId: { in: externalIds } },
+      select: { externalOrderId: true },
+    });
+    const existingExternal = new Set(
+      existingConversions.map((r) => r.externalOrderId).filter((x): x is string => Boolean(x)),
+    );
 
     const csvIp = extractClientIp(req);
     const csvSeen = visitorClickPlace(req, csvIp);
     const csvUa = req.headers["user-agent"] || "";
     const device = detectDevice(csvUa);
 
-    const eventsData: Prisma.TrackingEventCreateManyInput[] = [];
-    const logsData: Prisma.PostbackLogCreateManyInput[] = [];
-    const increments = new Map<string, number>();
+    type PendingImport = {
+      gclid: string;
+      numVal: number;
+      clickId: string;
+      presellPageId: string;
+      campaign: string | null;
+      referrer: string | null;
+      transaction_id: string;
+    };
+    const pending: PendingImport[] = [];
 
     for (const row of parsed) {
       const click = clickByGclid.get(row.gclid);
-      if (!click?.presellPageId) {
+      if (!click?.presellPageId || !click.clickId) {
         skipped++;
         continue;
       }
@@ -1579,72 +1593,115 @@ export const trackController = {
         skipped++;
         continue;
       }
-      const transaction_id = `csv_gclid:${row.gclid}`;
-      if (existingTids.has(transaction_id)) {
+      const externalOrderId = offlineCsvExternalOrderId(row.gclid);
+      if (existingExternal.has(externalOrderId)) {
         skipped++;
         continue;
       }
-      existingTids.add(transaction_id);
-
-      eventsData.push({
-        userId,
+      existingExternal.add(externalOrderId);
+      pending.push({
+        gclid: row.gclid,
+        numVal: row.numVal,
+        clickId: click.clickId,
         presellPageId: click.presellPageId,
-        eventType: "conversion",
-        source: "google_ads",
-        medium: "offline_csv",
         campaign: click.campaign,
         referrer: click.referrer,
-        country: csvSeen.country ?? undefined,
-        ipAddress: csvIp,
-        userAgent: csvUa,
-        device,
-        metadata: {
-          gclid: row.gclid,
-          value: row.numVal,
-          currency: "USD",
-          transaction_id,
-          postback_origin: "offline_csv",
-          ...csvSeen.countryMeta,
-        } as Prisma.InputJsonValue,
+        transaction_id: offlineCsvTelemetryTransactionId(row.gclid),
       });
-      logsData.push({
-        userId,
-        presellPageId: click.presellPageId,
-        platform: "google_ads_csv",
-        status: "success",
-        message: "Conversão importada do CSV",
-        payload: { gclid: row.gclid, value: row.numVal } as Prisma.InputJsonValue,
-      });
-      increments.set(click.presellPageId, (increments.get(click.presellPageId) || 0) + 1);
     }
 
-    if (eventsData.length === 0) {
+    if (pending.length === 0) {
       return res.json({
         ok: true,
         imported: 0,
         skipped,
         truncated,
         max_rows: CSV_MAX_ROWS,
+        ledger: "conversion",
       });
     }
 
+    let imported = 0;
     await systemPrisma.$transaction(async (tx) => {
-      await tx.trackingEvent.createMany({ data: eventsData });
+      const eventsData: Prisma.TrackingEventCreateManyInput[] = [];
+      const logsData: Prisma.PostbackLogCreateManyInput[] = [];
+      const increments = new Map<string, number>();
+
+      for (const row of pending) {
+        const upserted = await upsertConversionFromOfflineCsv({
+          userId,
+          presellId: row.presellPageId,
+          clickId: row.clickId,
+          amount: row.numVal,
+          currency: "USD",
+          campaign: row.campaign,
+          gclid: row.gclid,
+          tx,
+        });
+        if (upserted.duplicate) {
+          skipped++;
+          continue;
+        }
+        imported++;
+        eventsData.push({
+          userId,
+          presellPageId: row.presellPageId,
+          eventType: "conversion",
+          source: "google_ads",
+          medium: "offline_csv",
+          campaign: row.campaign,
+          referrer: row.referrer,
+          country: csvSeen.country ?? undefined,
+          ipAddress: csvIp,
+          userAgent: csvUa,
+          device,
+          metadata: {
+            gclid: row.gclid,
+            value: row.numVal,
+            currency: "USD",
+            transaction_id: row.transaction_id,
+            conversion_id: upserted.conversionId,
+            postback_origin: "offline_csv",
+            ledger: "telemetry_only",
+            ...csvSeen.countryMeta,
+          } as Prisma.InputJsonValue,
+        });
+        logsData.push({
+          userId,
+          presellPageId: row.presellPageId,
+          platform: "google_ads_csv",
+          status: "success",
+          message: "Conversão importada do CSV (ledger Conversion)",
+          payload: {
+            gclid: row.gclid,
+            value: row.numVal,
+            conversion_id: upserted.conversionId,
+          } as Prisma.InputJsonValue,
+        });
+        increments.set(row.presellPageId, (increments.get(row.presellPageId) || 0) + 1);
+      }
+
+      if (eventsData.length > 0) {
+        await tx.trackingEvent.createMany({ data: eventsData });
+      }
       for (const [pageId, n] of increments) {
         await tx.presellPage.update({
           where: { id: pageId },
           data: { conversions: { increment: n } },
         });
       }
-      await tx.postbackLog.createMany({ data: logsData });
+      if (logsData.length > 0) {
+        await tx.postbackLog.createMany({ data: logsData });
+      }
     });
 
     return res.json({
       ok: true,
-      imported: eventsData.length,
+      imported,
       skipped,
       truncated,
       max_rows: CSV_MAX_ROWS,
+      ledger: "conversion",
     });
   },
 

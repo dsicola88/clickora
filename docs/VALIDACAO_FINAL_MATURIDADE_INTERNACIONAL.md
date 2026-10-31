@@ -107,7 +107,7 @@ DClickora à frente no combo **presell + tracker** no mesmo login.
 | M1 | Funil E2E | **VALIDADO COM EVIDÊNCIA** |
 | M2 | Rotador + sticky HTTP | **VALIDADO COM EVIDÊNCIA** |
 | M3 | Conversion = receita | **VALIDADO COM EVIDÊNCIA** |
-| M4 | CSV/ledger sem TE | **VALIDADO COM EVIDÊNCIA** |
+| M4 | CSV/ledger sem TE | **VALIDADO COM EVIDÊNCIA** — export + import Offline → Conversion (`FASE_LEDGER_CANONICO.md`) |
 | M5 | Dedup | **VALIDADO COM EVIDÊNCIA** |
 | M6 | Refund | **VALIDADO COM EVIDÊNCIA** |
 | M9–M12 | Modos + sticky + A/B | **VALIDADO COM EVIDÊNCIA** |
@@ -121,7 +121,7 @@ DClickora à frente no combo **presell + tracker** no mesmo login.
 
 ## 8. Cinco melhorias — estado
 
-1. Ledger absoluto — **FECHADO**  
+1. Ledger absoluto — **FECHADO** (FASE 1: ver `FASE_LEDGER_CANONICO.md`; TE CSV legados sem backfill)  
 2. Sticky + A/B — **FECHADO**  
 3. Fila CAPI/TikTok/Google — **FECHADO** (código); envio real → credenciais  
 4. i18n EN + ES — **FECHADO** (catálogo + switcher)  
