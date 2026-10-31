@@ -672,3 +672,36 @@ Ads query → GET /api/track/rot/:id
 ### Próxima fase
 
 **FASE G — APIs e base de dados**.
+
+---
+
+## FASE G — APIs e base de dados
+
+**Data:** 2026-10-31  
+**Ambiente:** `127.0.0.1:3011` + `127.0.0.1:55436/clickora_audit`  
+**Script:** `backend/scripts/audit-fase-g-apis-db.ts`  
+**Railway:** não usado
+
+### Matriz
+
+| ID | Teste | Resultado |
+|----|-------|-----------|
+| G1 | Health | VALIDADO COM EVIDÊNCIA |
+| G2 | Login + `/auth/me` | VALIDADO COM EVIDÊNCIA |
+| G3 | Sem token → 401/403 | VALIDADO COM EVIDÊNCIA |
+| G4 | JWT inválido rejeitado | VALIDADO COM EVIDÊNCIA |
+| G5 | POST `/presells` | VALIDADO COM EVIDÊNCIA |
+| G6 | Isolamento tenant (user B) | VALIDADO COM EVIDÊNCIA |
+| G7 | List coerente com BD | VALIDADO COM EVIDÊNCIA |
+| G8 | TrackingEvent FK | VALIDADO COM EVIDÊNCIA |
+| G9 | Plans/me + subscription | VALIDADO COM EVIDÊNCIA |
+| G10 | GET `/workspaces` | VALIDADO COM EVIDÊNCIA |
+| G11 | Analytics dashboard JSON | VALIDADO COM EVIDÊNCIA |
+| G12 | Sem Conversion órfã | VALIDADO COM EVIDÊNCIA |
+| G13 | Rotador exige presell published | VALIDADO COM EVIDÊNCIA |
+
+**Resumo:** 13/13 VALIDADO COM EVIDÊNCIA.
+
+### Próxima fase
+
+**FASE H — UX/UI**.
