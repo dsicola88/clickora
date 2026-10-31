@@ -639,3 +639,36 @@ Ads query → GET /api/track/rot/:id
 ### Próxima fase
 
 **FASE F — Postbacks e integrações**.
+
+---
+
+## FASE F — Postbacks e integrações
+
+**Data:** 2026-10-31  
+**Ambiente:** `127.0.0.1:3011` + `127.0.0.1:55436/clickora_audit`  
+**Script:** `backend/scripts/audit-fase-f-postbacks.ts`  
+**Railway:** não usado
+
+### Matriz
+
+| ID | Teste | Resultado |
+|----|-------|-----------|
+| F0 | Token `affiliate-webhook-info` | VALIDADO COM EVIDÊNCIA |
+| F1 | Digistore24 `sid1` quando `cid` ocupado → attributed | VALIDADO COM EVIDÊNCIA |
+| F2 | MaxWeb preferir `subid2` UUID | VALIDADO COM EVIDÊNCIA |
+| F3 | Hotmart afiliado JSON → attributed | VALIDADO COM EVIDÊNCIA |
+| F4 | ClickBank SALE plain → attributed | VALIDADO COM EVIDÊNCIA |
+| F5 | ClickBank cifrado sem secret → ignore | VALIDADO COM EVIDÊNCIA |
+| F6 | BuyGoods refund processado | VALIDADO COM EVIDÊNCIA |
+| F7 | Microsoft Ads postback → TE conversion (dual store) | VALIDADO COM EVIDÊNCIA |
+| F8 | Token inválido → 401/403 | VALIDADO COM EVIDÊNCIA |
+| F9 | Outbound Digistore `sid1` se `cid` ocupado | VALIDADO COM EVIDÊNCIA |
+| F10 | Outbound Hotmart `src`/`sck` | VALIDADO COM EVIDÊNCIA |
+| F11 | GET meta-capi + tiktok-events settings | VALIDADO COM EVIDÊNCIA |
+| F12 | `PostbackLog` gravado | VALIDADO COM EVIDÊNCIA |
+
+**Resumo:** 13/13 VALIDADO COM EVIDÊNCIA. Dual store D9 reconfirmado (F7). Envio real Meta CAPI / TikTok Events **não** exercitado (só settings API).
+
+### Próxima fase
+
+**FASE G — APIs e base de dados**.
