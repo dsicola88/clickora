@@ -6,6 +6,8 @@ import {
   createDefaultSalesLandingDocument,
   DCLICKORA_SALES_THEME_ID,
 } from "@/lib/salesLandingBuilderDoc";
+import { landingDclickoraNavySaasTemplate } from "./templates.dclickoraNavy";
+import { PRO_STUDIO_TEMPLATES } from "./templates.proStudio";
 
 export interface TemplateDefinition {
   id: string;
@@ -2107,6 +2109,8 @@ const landingDclickoraSalesTemplate: TemplateDefinition = {
 };
 
 export const TEMPLATES: TemplateDefinition[] = [
+  landingDclickoraNavySaasTemplate,
+  ...PRO_STUDIO_TEMPLATES,
   landingDclickoraSalesTemplate,
   landingPageTemplate,
   landingNavHeroTemplate,

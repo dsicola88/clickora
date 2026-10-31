@@ -81,7 +81,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
             <div>
               <h2 className="text-base font-semibold">Temas e modelos</h2>
               <p className="text-[11px] text-editor-fg-muted">
-                Tema dclickora — vendas aplica a landing oficial com planos vivos.
+                Modelos profissionais (Navy, Agência, Fintech, Presell PAS…). Preferir «Substituir página».
               </p>
             </div>
           </div>
