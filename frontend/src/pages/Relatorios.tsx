@@ -33,8 +33,8 @@ import { rangeToday } from "@/lib/dateRangePresets";
 import { AFFILIATE_PLATFORMS, EXTRA_OFFER_PLATFORMS } from "@/lib/marketingPlatforms";
 import { ReportDimensionStrip } from "@/components/ReportDimensionStrip";
 import { downloadTextCsv, reportRowsToCsv } from "@/lib/reportRowsCsv";
-import {
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import {
   collectDatacenterIpsForGoogleAdsExclusion,
   formatGoogleAdsIpExclusionList,
 } from "@/lib/googleAdsIpExclusion";

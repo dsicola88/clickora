@@ -30,8 +30,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
-import {
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import {
   Dialog,
   DialogContent,
   DialogDescription,

@@ -34,8 +34,8 @@ import { ErrorState } from "@/components/ErrorState";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { analyticsService } from "@/services/analyticsService";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
-import {
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import {
   PRO_PAGE_SHELL,
   ProPageHeader,
   ProToolbar,
