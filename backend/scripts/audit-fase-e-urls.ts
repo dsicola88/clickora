@@ -252,11 +252,11 @@ async function main() {
     );
   }
 
-  // E8 — /r/ NÃO faz forwardAdQueryToUrl (D8) — gclid na query do track não vai para Location
+  // E8 — /r/ faz forwardAdQueryToUrl (D8 corrigido) — ads IDs na Location + metadata
   {
     const h = await hitR(
       presellId,
-      `to=${encodeURIComponent(OFFER)}&gclid=GclidFaseEShouldNotForward&fbclid=FbclidFaseEShouldNotForward&utm_source=google`,
+      `to=${encodeURIComponent(OFFER)}&gclid=GclidFaseEShouldForward&fbclid=FbclidFaseEShouldForward&utm_source=google`,
     );
     let locUrl: URL | null = null;
     try {
@@ -269,17 +269,16 @@ async function main() {
     const clickId = locUrl?.searchParams.get("clickora_click_id") || "";
     const ev = clickId ? await prisma.trackingEvent.findUnique({ where: { id: clickId } }) : null;
     const meta = (ev?.metadata || {}) as Record<string, unknown>;
-    // Expected: ads IDs in metadata, NOT on Location (unless offer already had them)
     const ok =
       h.status === 302 &&
-      !gclidOnOffer &&
-      !fbclidOnOffer &&
-      meta.gclid === "GclidFaseEShouldNotForward" &&
-      meta.fbclid === "FbclidFaseEShouldNotForward";
+      gclidOnOffer === "GclidFaseEShouldForward" &&
+      fbclidOnOffer === "FbclidFaseEShouldForward" &&
+      meta.gclid === "GclidFaseEShouldForward" &&
+      meta.fbclid === "FbclidFaseEShouldForward";
     add(
       "E8",
       ok ? "VALIDADO COM EVIDÊNCIA" : "FALHOU",
-      "/r/ grava ads IDs em metadata mas NÃO faz forwardAdQueryToUrl",
+      "/r/ encaminha ads IDs para o hoplink (forwardAdQueryToUrl)",
       [
         `status=${h.status}`,
         `loc_gclid=${gclidOnOffer || "absent"}`,
@@ -287,7 +286,7 @@ async function main() {
         `meta_gclid=${meta.gclid || "missing"}`,
         `meta_fbclid=${meta.fbclid || "missing"}`,
       ],
-      ok ? [] : ["comportamento D8 divergente"],
+      ok ? [] : ["forward ads IDs em /r/ falhou"],
     );
   }
 

@@ -591,7 +591,24 @@ export const trackController = {
       userId: page.userId,
       presellId: page.id,
     });
-    const redirectTo = appendClickIdToAffiliateUrl(to, click.id, offerNetwork);
+    /**
+     * Encaminhar ads IDs / UTM para o hoplink (igual ao hop `/rot`).
+     * Não sobrescreve chaves já presentes no `to` (ex. FE já fez merge).
+     */
+    const landed = forwardAdQueryToUrl(to, {
+      gclid: adIds.gclid,
+      gbraid: adIds.gbraid,
+      wbraid: adIds.wbraid,
+      msclkid: adIds.msclkid,
+      fbclid: adIds.fbclid,
+      ttclid: adIds.ttclid,
+      utm_source: utm_source ?? source,
+      utm_medium: medium,
+      utm_campaign: campaign,
+      utm_term,
+      utm_content,
+    });
+    const redirectTo = appendClickIdToAffiliateUrl(landed, click.id, offerNetwork);
     recordTrackRedirectLatency(performance.now() - t0);
     return res.redirect(302, redirectTo);
   },

@@ -622,14 +622,14 @@ Ads query → GET /api/track/rot/:id
 | E5 | Path diferente do hoplink bloqueado | VALIDADO COM EVIDÊNCIA |
 | E6 | Query extra (subs) no `to` permitida | VALIDADO COM EVIDÊNCIA |
 | E7 | Tamper da query base (`aff`) bloqueado | VALIDADO COM EVIDÊNCIA |
-| E8 | `/r/` **não** faz `forwardAdQueryToUrl` (ads IDs só em metadata) | VALIDADO COM EVIDÊNCIA |
+| E8 | `/r/` encaminha ads IDs (`forwardAdQueryToUrl`) + metadata | VALIDADO COM EVIDÊNCIA (atualizado pós-fix D8) |
 | E9 | Esquemas `javascript:` / `data:` bloqueados | VALIDADO COM EVIDÊNCIA |
 | E10 | Sem `to` → usa hoplink configurado | VALIDADO COM EVIDÊNCIA |
 | E11 | `appendClickIdToAffiliateUrl` (clickora_click_id + subid) | VALIDADO COM EVIDÊNCIA |
 | E12 | Custom domain API list+create smoke | VALIDADO COM EVIDÊNCIA |
 | E13 | Matriz unitária `isRedirectToAllowedOffer` | VALIDADO COM EVIDÊNCIA |
 
-**Resumo:** 13/13 VALIDADO COM EVIDÊNCIA. D8 revalidado (E8): ads IDs no hop `/r/` ficam em metadata; não são encaminhados para o Location (ao contrário de `/track/rot`).
+**Resumo:** 13/13 VALIDADO COM EVIDÊNCIA. E8 actualizado: após fix D8, `/r/` encaminha ads IDs para o Location (como `/track/rot`), sem sobrescrever parâmetros já presentes no `to`.
 
 ### Limitações
 
@@ -729,11 +729,11 @@ Ads query → GET /api/track/rot/:id
 | H8 | Gates demográficos / VSL browser profundo | NÃO TESTADO (Playwright dedicado) |
 | H9 | App autenticado mobile layout completo | NÃO TESTADO (requer login browser + viewport matrix) |
 
-**Resumo:** 7 VALIDADO + 2 NÃO TESTADO. Sem P0 UX novos; **D7 (PresellCreator stub) permanece P2** — rota ainda montada mas fora do CTA principal (`/presells/nova`).
+**Resumo:** 7 VALIDADO + 2 NÃO TESTADO. **D7 corrigido pós-J:** stub removido; rotas legadas redireccionam para `/presells/nova`.
 
 ### Achados
 
-1. **D7 confirmado:** `PresellCreator.handleSave` só `toast.success` — zero `fetch`/`api`. CTAs oficiais apontam para `CreatePresellWizardPage`.
+1. **D7 (corrigido):** `PresellCreator` stub removido; `/presell/templates*` → `/presells/nova`.
 2. Landing com API errada (`frontend/.env` → `:3001`) mostra «Erro ao carregar planos» — em audit usámos override Vite para `:3011`.
 3. UI Rotadores alinhada aos 4 modos reais (corrige lacuna D10 a nível de produto UI).
 
@@ -779,14 +779,14 @@ Ads query → GET /api/track/rot/:id
 | P1 | `parent_click_id` herda ads IDs sem exigir `rotator_id` | C | Corrigido + testes |
 | P1 | Open-redirect: porta efectiva + userinfo rejeitado | E (pré) | Corrigido + testes |
 | P1 | Probe `body_too_large` ≠ SSRF | B (pré) | Corrigido + testes |
+| P2 | D7 `PresellCreator` stub | pós-J | Removido; `/presell/templates*` → `/presells/nova` |
+| P2 | D8 `/r/` sem `forwardAdQueryToUrl` | pós-J | `/r/` encaminha ads IDs/UTM (não sobrescreve `to`); E8 revalidado 13/13 |
 
-### Dívida / follow-ups (não corrigidos nesta sessão)
+### Dívida / follow-ups restantes
 
 | Prioridade | Item | Notas |
 |------------|------|-------|
-| P2 | D7 `PresellCreator` stub | Remover rota ou ligar à API; CTA principal já é `/presells/nova` |
-| P1 (produto) | D9 Dual store ads postback vs `Conversion` | Documentado; unificar relatórios ou pipeline CAPI |
-| P2 | D8 `/r/` sem `forwardAdQueryToUrl` | Intencional com FE merge; reavaliar se landers sem FE |
+| P1 (produto) | D9 Dual store ads postback vs `Conversion` | Google/MS → `TrackingEvent` + offline sync; **não** linha `Conversion` (evita CAPI falso). Unificar UI de relatórios é decisão de produto. |
 | P3 | Sticky session rotador | Ausente por desenho |
 | — | Envio real Meta CAPI / TikTok | Só settings API (F11) |
 | — | Playwright gates/VSL browser | H8/H9 NÃO TESTADO |
