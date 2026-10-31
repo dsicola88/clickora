@@ -67,6 +67,7 @@ export type DestinationProbeResult = {
   crawlerBlocked: boolean;
   errorCode?:
     | "ssrf_blocked"
+    | "body_too_large"
     | "timeout"
     | "network"
     | "redirect_limit"

@@ -82,4 +82,29 @@ describe("trackOfferRedirectGuard", () => {
       false,
     );
   });
+
+  it("rejeita porto diferente no mesmo host", () => {
+    assert.equal(
+      isRedirectToAllowedOffer("https://offer.example:444/buy", "https://offer.example/buy"),
+      false,
+    );
+  });
+
+  it("aceita https implícito :443 equivalente", () => {
+    assert.equal(
+      isRedirectToAllowedOffer("https://offer.example:443/buy", "https://offer.example/buy"),
+      true,
+    );
+  });
+
+  it("rejeita userinfo no URL pedido", () => {
+    assert.equal(
+      isRedirectToAllowedOffer("https://evil@offer.example/buy", "https://offer.example/buy"),
+      false,
+    );
+  });
+
+  it("rejeita quando oferta configurada está vazia", () => {
+    assert.equal(isRedirectToAllowedOffer("https://offer.example/buy", ""), false);
+  });
 });

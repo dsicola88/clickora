@@ -21,4 +21,14 @@ describe("destinationProbe SSRF", () => {
     assert.equal(r.attempted, true);
     assert.equal(r.errorCode, "ssrf_blocked");
   });
+
+  it("corpo HTML grande não é classificado como ssrf_blocked puro sem prova de rede", async () => {
+    // Wikipedia costuma exceder PROBE_MAX_BODY; não pode parecer destino interno.
+    const r = await probeDestinationUrl("https://en.wikipedia.org/wiki/Tea");
+    assert.equal(r.attempted, true);
+    assert.notEqual(r.errorCode, "ssrf_blocked");
+    if (r.errorCode === "body_too_large" || r.ok) {
+      assert.equal(r.https, true);
+    }
+  });
 });

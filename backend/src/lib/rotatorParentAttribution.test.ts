@@ -65,6 +65,15 @@ describe("rotatorParentAttribution", () => {
     });
     assert.equal(r, null);
   });
+
+  it("ainda copia ads IDs de um clique pai sem rotator_id (hop lander)", () => {
+    const filled = fillMissingAdClickIds(
+      { gclid: undefined, fbclid: undefined },
+      { gclid: "ParentGclidOnly", fbclid: "ParentFbclidOnly", source: "google" },
+    );
+    assert.equal(filled.gclid, "ParentGclidOnly");
+    assert.equal(filled.fbclid, "ParentFbclidOnly");
+  });
 });
 
 describe("pesos do rotador", () => {

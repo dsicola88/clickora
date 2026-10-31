@@ -35,9 +35,18 @@ function normalizePathname(path: string): string {
   return p;
 }
 
+/** Porta efectiva (443/80 implícitas) — evita `https://host:444/…` como open-redirect parcial. */
+function effectivePort(u: URL): string {
+  if (u.port) return u.port;
+  if (u.protocol === "https:") return "443";
+  if (u.protocol === "http:") return "80";
+  return "";
+}
+
 /**
  * O parâmetro `to` do redirect só pode apontar para o hoplink configurado na presell
- * (mesmo host + path; query da oferta pode incluir parâmetros extra, ex. subs/UTM).
+ * (mesmo host + path + porta; query da oferta pode incluir parâmetros extra, ex. subs/UTM).
+ * Rejeita userinfo (`user@host`) e protocolos não http(s).
  */
 export function isRedirectToAllowedOffer(requestedTo: string, allowedOffer: string): boolean {
   const allowed = allowedOffer.trim();
@@ -54,7 +63,10 @@ export function isRedirectToAllowedOffer(requestedTo: string, allowedOffer: stri
 
   if (req.protocol !== "http:" && req.protocol !== "https:") return false;
   if (req.protocol !== al.protocol) return false;
+  // user:pass@host ou user@host — não fazer parte do hoplink legítimo típico
+  if (req.username || req.password || al.username || al.password) return false;
   if (normalizeHostname(req.hostname) !== normalizeHostname(al.hostname)) return false;
+  if (effectivePort(req) !== effectivePort(al)) return false;
   if (normalizePathname(req.pathname) !== normalizePathname(al.pathname)) return false;
 
   for (const [key, val] of al.searchParams.entries()) {

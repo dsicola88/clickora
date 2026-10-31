@@ -174,10 +174,36 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
     }
   } catch (e) {
     if (e instanceof PresellImportBlockedError) {
+      const msg = e.message || "";
+      /** Corpo HTML grande ≠ SSRF — a oferta pública já respondeu; não bloquear publish como destino interno. */
+      const bodyTooLarge = /tamanho máximo/i.test(msg);
+      if (bodyTooLarge && statusCode != null && statusCode >= 200 && statusCode < 400) {
+        const finalHost = hostOf(current);
+        const domainChanged = Boolean(
+          initialHost && finalHost && registrableLike(initialHost) !== registrableLike(finalHost),
+        );
+        return {
+          attempted: true,
+          ok: true,
+          https: current.startsWith("https:"),
+          statusCode,
+          finalUrl: current,
+          redirectCount,
+          redirectCycle,
+          openRedirectSuspect,
+          domainChanged,
+          initialHost,
+          finalHost,
+          crawlerBlocked,
+          errorCode: "body_too_large",
+          errorMessage: msg,
+          hops,
+        };
+      }
       return {
         attempted: true,
         ok: false,
-        https: null,
+        https: bodyTooLarge ? current.startsWith("https:") : null,
         statusCode,
         finalUrl: current,
         redirectCount,
@@ -187,8 +213,8 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
         initialHost,
         finalHost: hostOf(current),
         crawlerBlocked,
-        errorCode: "ssrf_blocked",
-        errorMessage: e.message,
+        errorCode: bodyTooLarge ? "body_too_large" : "ssrf_blocked",
+        errorMessage: msg,
         hops,
       };
     }

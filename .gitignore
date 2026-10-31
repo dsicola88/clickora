@@ -52,3 +52,6 @@ frontend/.env
 !.env.example
 !**/.env.example
 frontend/public/qa/
+
+# Postgres efémero auditoria master (nunca Railway)
+.audit-fase-b-pg/

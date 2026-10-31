@@ -491,7 +491,16 @@ export const trackController = {
         where: { id: parentClickIdRaw, eventType: "click" },
         select: { id: true, userId: true, metadata: true },
       });
-      if (parentEv) {
+      /**
+       * Herdar gclid/fbclid/… de qualquer clique pai do mesmo tenant (lander com
+       * `?clickora_click_id=` → `parent_click_id`). O bloco rotator_* só se o pai
+       * foi hop de rotador (`rotator_id` no metadata).
+       */
+      if (parentEv && parentEv.userId === page.userId) {
+        parentMetadata = parentEv.metadata;
+        rotatorParentMeta = {
+          parent_click_id: parentEv.id,
+        };
         const linked = rotatorMetaFromParentClick({
           parentId: parentEv.id,
           parentUserId: parentEv.userId,
@@ -499,8 +508,8 @@ export const trackController = {
           parentMetadata: parentEv.metadata,
         });
         if (linked) {
-          parentMetadata = parentEv.metadata;
           rotatorParentMeta = {
+            ...rotatorParentMeta,
             parent_rotator_click_id: linked.parent_rotator_click_id,
             rotator_id: linked.rotator_id,
             ...(linked.rotator_arm_id ? { rotator_arm_id: linked.rotator_arm_id } : {}),
@@ -517,7 +526,7 @@ export const trackController = {
         fbclid: cleanAdClickId(fbclid),
         ttclid: cleanAdClickId(ttclid),
       },
-      rotatorParentMeta.parent_rotator_click_id ? parentMetadata : null,
+      parentMetadata,
     );
 
     const click = await systemPrisma.$transaction(async (tx) => {
