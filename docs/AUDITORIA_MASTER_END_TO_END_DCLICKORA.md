@@ -275,8 +275,8 @@ Unicidade conversões: `@@unique([userId, externalOrderId])`. Atribuição: `cli
 | D4 | Briefing fala “presell híbrida” genérica; código tem `vsl_tsl` + overlays | Clarificação (não bug) |
 | D5 | Sticky routing esperado em alguns produtos de tracking; **não existe** no rotador | Expectativa vs produto |
 | D6 | Transcript F8 vs tree: no tree actual existem `tokenSecrets.ts` + redacção `api-mappers` (alinhado ao programa Etapas 2–5) | Código actual OK vs transcript intermédio |
-| D7 | `PresellCreator` templates stub sem API | P2 UX / dívida |
-| D8 | `/r/` não faz `forwardAdQueryToUrl`; ads IDs dependem de merge FE + metadata/parent | P1 a revalidar em FASE E |
+| D7 | `PresellCreator` templates stub sem API | **Corrigido** — redirect `/presells/nova` |
+| D8 | `/r/` não faz `forwardAdQueryToUrl` | **Corrigido** — forward no hop `/r/` (E8) |
 | D9 | Dual store conversões track-postback vs `Conversion` | P1 relatórios / atribuição ads |
 | D10 | Docs arquitectura não listam os 4 modos de rotador | P3 docs |
 
@@ -399,8 +399,8 @@ Todos os 19 têm ramo de comportamento no código público. Gates demográficos 
 
 | ID | Causa | Impacto |
 |----|-------|---------|
-| **D7** | `PresellCreator` sem persistência | Falso positivo de sucesso na UI; páginas não criadas |
-| **D8** | `/r/` não faz `forwardAdQueryToUrl`; ads IDs vão em metadata + merge FE de sub1/sub2 | Atribuição Google/Meta no *hoplink* depende do FE; hop rotador sim faz forward |
+| **D7** | `PresellCreator` sem persistência | **Corrigido** — stub removido; `/presell/templates*` → `/presells/nova` |
+| **D8** | `/r/` não faz `forwardAdQueryToUrl` | **Corrigido** — `/r/` encaminha ads IDs/UTM sem sobrescrever o `to` |
 | **D9** | Postbacks `/track/postback/google-ads\|microsoft-ads` → `TrackingEvent(conversion)` sem linha `Conversion` | Relatório de vendas / CAPI Meta-TikTok **não** vê essas conversões |
 | **D10** | Docs de arquitectura não listam modos do rotador | Onboarding de media buyers incompleto (P3) |
 
