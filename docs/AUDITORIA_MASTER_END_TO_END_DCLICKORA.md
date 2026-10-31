@@ -554,3 +554,50 @@ GOOGLE /track/postback → TrackingEvent(conversion) [dual store]
 ### Próxima fase
 
 **FASE D — Rotadores** (pesos, preservação de params, A/B, fallback).
+
+---
+
+## FASE D — Rotadores
+
+**Data:** 2026-10-31  
+**Ambiente:** `127.0.0.1:3011` + `127.0.0.1:55436/clickora_audit`  
+**Script:** `backend/scripts/audit-fase-d-rotators.ts`  
+**Railway:** não usado (`backend/.env` intocado)
+
+### Matriz
+
+| ID | Teste | Resultado |
+|----|-------|-----------|
+| D1 | `weighted` 70/30 distribuição (n=50) | VALIDADO COM EVIDÊNCIA |
+| D2 | `sequential` round-robin A→B→C×2 | VALIDADO COM EVIDÊNCIA |
+| D3 | `fill_order` esgota `max_clicks` do 1.º braço | VALIDADO COM EVIDÊNCIA |
+| D4 | `random` ambos braços (n=40) | VALIDADO COM EVIDÊNCIA |
+| D5 | Preservação gclid/fbclid/ttclid/utm + metadata | VALIDADO COM EVIDÊNCIA |
+| D6 | `backup_url` após esgotar braço | VALIDADO COM EVIDÊNCIA |
+| D7 | `access_code` 403 sem código / 302 com código | VALIDADO COM EVIDÊNCIA |
+| D8 | `rules_policy` redirect força destino | VALIDADO COM EVIDÊNCIA |
+| D9 | `device_rule=mobile` → backup no desktop | VALIDADO COM EVIDÊNCIA |
+| D10 | `ab-stats` + `promote-winner` endpoint | VALIDADO COM EVIDÊNCIA |
+| D11 | Sticky session **não** implementado (só 4 modos) | VALIDADO COM EVIDÊNCIA |
+| D12 | `TrackingEvent` metadata `rotator_id`/`arm_id`/`label` | VALIDADO COM EVIDÊNCIA |
+
+**Resumo:** 12/12 VALIDADO COM EVIDÊNCIA. Sem bugs P0/P1 novos nesta fase.
+
+### Cadeia comprovada
+
+```
+Ads query → GET /api/track/rot/:id
+  → pickRotatorDestination (mode + rules + device/geo + backup)
+  → TrackingEvent(click) com rotator_* + ads IDs
+  → 302 forwardAdQueryToUrl(destino) + clickora_click_id
+```
+
+### Limitações / NÃO TESTADO nesta fase
+
+- Health probe failover HTTP real (braço morto → outro braço) — depende de probe activo + URL probeable  
+- Geo `countries_allow`/`deny` com IP/geo real (device coberto; país depende do resolver de IP local)  
+- Sticky session por cookie — **ausente por desenho** (D11)
+
+### Próxima fase
+
+**FASE E — URLs e redirecionamentos** (open redirect, allowlist hoplink, macros, domínio custom).
