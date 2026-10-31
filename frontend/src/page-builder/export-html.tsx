@@ -6,20 +6,23 @@ import { buildTrackingBodyScripts, buildTrackingHeadScripts } from "./tracking";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 import { htmlLangForLocale, normalizePresellLocale } from "@/lib/presellUiStrings";
 import { buildDocumentResponsiveCss } from "./builderPublicCss";
+import { normalizePageDocumentResponsive } from "./normalizeResponsive";
 
 /**
  * Build a fully self-contained HTML document for download or external hosting.
  * Server-renders the React tree and embeds it in a minimal shell with full SEO meta tags.
+ * CSS media queries empilham colunas no telemóvel sem o autor ajustar à mão.
  */
 export function exportPageToHtml(doc: PageDocument, language?: string): string {
+  const safeDoc = normalizePageDocumentResponsive(doc);
   const body = renderToStaticMarkup(
     <PresellPublicLocaleProvider language={language}>
-      <PageRenderer doc={doc} device="desktop" />
+      <PageRenderer doc={safeDoc} device="desktop" injectPublicCss={false} />
     </PresellPublicLocaleProvider>,
   );
   const htmlLang = language ? htmlLangForLocale(normalizePresellLocale(language)) : "pt-BR";
-  const seo = doc.seo ?? {};
-  const title = seo.title || doc.name || "Página";
+  const seo = safeDoc.seo ?? {};
+  const title = seo.title || safeDoc.name || "Página";
   const description = seo.description ?? "";
   const ogImage = seo.ogImage ?? "";
   const favicon = seo.favicon ?? "";
@@ -70,13 +73,13 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
     metaTags.push(`<script type="application/ld+json">${jsonLd}</script>`);
   }
 
-  const trackingHead = doc.tracking ? buildTrackingHeadScripts(doc.tracking) : "";
-  const trackingBody = doc.tracking ? buildTrackingBodyScripts(doc.tracking) : "";
+  const trackingHead = safeDoc.tracking ? buildTrackingHeadScripts(safeDoc.tracking) : "";
+  const trackingBody = safeDoc.tracking ? buildTrackingBodyScripts(safeDoc.tracking) : "";
 
   /** Reimportação: JSON embutido (evita `</script>` no payload). */
-  const embeddedDocJson = JSON.stringify(doc).replace(/</g, "\\u003c");
+  const embeddedDocJson = JSON.stringify(safeDoc).replace(/</g, "\\u003c");
 
-  const responsiveCss = buildDocumentResponsiveCss(doc);
+  const responsiveCss = buildDocumentResponsiveCss(safeDoc);
 
   return `<!DOCTYPE html>
 <html lang="${htmlLang}">

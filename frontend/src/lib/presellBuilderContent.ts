@@ -1,10 +1,11 @@
 import type { PageDocument } from "@/page-builder/types";
+import { normalizePageDocumentResponsive } from "@/page-builder/normalizeResponsive";
 
 function asPageDocument(raw: unknown): PageDocument | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.sections) || o.sections.length === 0) return null;
-  return raw as PageDocument;
+  return normalizePageDocumentResponsive(raw as PageDocument);
 }
 
 /** Extrai o documento do editor guardado em `content.pageDocument`. */

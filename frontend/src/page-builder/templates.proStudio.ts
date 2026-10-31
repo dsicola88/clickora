@@ -4,6 +4,7 @@
  */
 import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createEmptyPage, createSection, createWidget, id } from "./factory";
+import { normalizePageDocumentResponsive } from "./normalizeResponsive";
 
 export type ProTemplateDef = {
   id: string;
@@ -322,7 +323,7 @@ function makeDoc(name: string, theme: Theme, themeId: string, sections: SectionN
   doc.sections = sections;
   doc.id = id("page_");
   doc.updatedAt = Date.now();
-  return doc;
+  return normalizePageDocumentResponsive(doc);
 }
 
 function def(

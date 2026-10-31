@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import type { ColumnNode, DeviceType, PageDocument, SectionNode } from "../types";
 import { resolveResponsive } from "../store";
 import {
@@ -19,42 +19,56 @@ import { PagePopupOverlays } from "../page-popups";
 import { WidgetConditionGate } from "./WidgetConditionGate";
 import { ensurePageDocumentFonts } from "../typography-presets";
 import { useViewportBuilderDevice } from "../useViewportBuilderDevice";
+import { BUILDER_PUBLIC_RESPONSIVE_CSS } from "../builderPublicCss";
+import { normalizePageDocumentResponsive } from "../normalizeResponsive";
 
 /**
  * Read-only renderer for a PageDocument.
  * Used by the live editor preview AND by the public /p/$slug route.
  * Widgets da 1.ª dobra são síncronos; o resto é lazy (LCP).
  * Sem `device`, segue a largura real do viewport (mobile/tablet/desktop).
+ * Injeta CSS de empilhamento + normaliza colunas — páginas novas/antigas
+ * ficam responsivas sem ajuste manual.
  */
 export function PageRenderer({
   doc,
   device: deviceProp,
+  injectPublicCss = true,
 }: {
   doc: PageDocument;
   device?: DeviceType;
+  /** Desligar só em contextos que já injectam o mesmo CSS (evita duplicar). */
+  injectPublicCss?: boolean;
 }) {
   const viewportDevice = useViewportBuilderDevice();
   const device = deviceProp ?? viewportDevice;
+  const safeDoc = useMemo(() => normalizePageDocumentResponsive(doc), [doc]);
 
   useEffect(() => {
-    ensurePageDocumentFonts(doc);
-  }, [doc]);
+    ensurePageDocumentFonts(safeDoc);
+  }, [safeDoc]);
 
   return (
     <LcpMediaScope>
-      <PageGlobalDesignVars settings={doc.settings}>
+      <PageGlobalDesignVars settings={safeDoc.settings}>
         <div
+          data-clickora-builder-public="1"
           data-pb-device={device}
           style={{
-            background: doc.settings.background ?? "#ffffff",
+            background: safeDoc.settings.background ?? "#ffffff",
             minHeight: "100%",
+            maxWidth: "100%",
+            overflowX: "clip",
           }}
         >
-          {doc.sections.map((section) => (
+          {injectPublicCss ? (
+            <style dangerouslySetInnerHTML={{ __html: BUILDER_PUBLIC_RESPONSIVE_CSS }} />
+          ) : null}
+          {safeDoc.sections.map((section) => (
             <SectionRender key={section.id} section={section} device={device} />
           ))}
         </div>
-        <PagePopupOverlays doc={doc} enabled />
+        <PagePopupOverlays doc={safeDoc} enabled />
       </PageGlobalDesignVars>
     </LcpMediaScope>
   );

@@ -5,6 +5,7 @@
  */
 import type { PageDocument, SectionNode, WidgetNode } from "./types";
 import { createColumn, createEmptyPage, createSection, createWidget, id } from "./factory";
+import { normalizePageDocumentResponsive } from "./normalizeResponsive";
 
 export const DCLICKORA_NAVY_SAAS_THEME_ID = "dclickora-navy-saas";
 
@@ -839,7 +840,7 @@ export function createDclickoraNavySaasDocument(): PageDocument {
   doc.sections = buildDclickoraNavySaasSections();
   doc.id = id("page_");
   doc.updatedAt = Date.now();
-  return doc;
+  return normalizePageDocumentResponsive(doc);
 }
 
 export const landingDclickoraNavySaasTemplate = {

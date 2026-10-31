@@ -14,6 +14,10 @@ import { syncLibraryDocument } from "./library-storage";
 import { createColumn, createEmptyPage, createSection, createWidget, id } from "./factory";
 import { locateWidget, parentContainerId, reIdWidget, widgetContains } from "./widget-tree";
 import { identityFromDocument, type PageIdentity } from "./pageIdentity";
+import {
+  applyResponsiveColumnWidths,
+  normalizePageDocumentResponsive,
+} from "./normalizeResponsive";
 
 const DEFAULT_STORAGE_KEY = "clickora:page-builder:doc:v1";
 let activeStorageKey = DEFAULT_STORAGE_KEY;
@@ -144,7 +148,9 @@ function loadInitial(): PageDocument {
   if (typeof window === "undefined") return createEmptyPage();
   try {
     const raw = window.localStorage.getItem(storageKey());
-    if (raw) return JSON.parse(raw) as PageDocument;
+    if (raw) {
+      return normalizePageDocumentResponsive(JSON.parse(raw) as PageDocument);
+    }
   } catch {
     /* ignore */
   }
@@ -159,7 +165,7 @@ function loadInitial(): PageDocument {
   const button = createWidget("button");
   section.columns[0].widgets = [heading, text, button];
   doc.sections = [section];
-  return doc;
+  return normalizePageDocumentResponsive(doc);
 }
 
 function persist(doc: PageDocument) {
@@ -367,13 +373,10 @@ export const useBuilder = create<BuilderState>((set, get) => {
       const safe = widths.filter((n) => n > 0);
       const cols = safe.length > 0 ? safe : [100];
       const section = createSection(cols.length);
-      section.columns.forEach((c, i) => {
-        c.widthPercent = {
-          desktop: cols[i] ?? Math.floor(100 / cols.length),
-          tablet: cols.length > 1 ? 100 : cols[i],
-          mobile: 100,
-        };
-      });
+      applyResponsiveColumnWidths(
+        section.columns,
+        cols.map((w, i) => cols[i] ?? Math.floor(100 / cols.length)),
+      );
       mutate((doc) => {
         if (atIndex == null) doc.sections.push(section);
         else doc.sections.splice(atIndex, 0, section);
@@ -395,10 +398,10 @@ export const useBuilder = create<BuilderState>((set, get) => {
             s.columns[s.columns.length - 1].widgets.push(...removed.widgets);
           }
         }
-        s.columns.forEach((c, i) => {
-          const pct = cols[i] ?? Math.floor(100 / cols.length);
-          c.widthPercent = { desktop: pct, tablet: cols.length > 1 ? 100 : pct, mobile: 100 };
-        });
+        applyResponsiveColumnWidths(
+          s.columns,
+          cols.map((w, i) => cols[i] ?? Math.floor(100 / cols.length)),
+        );
       }),
     insertPaletteWidget: (type) => {
       const place = (sectionId: string, columnId: string) => {
@@ -489,8 +492,11 @@ export const useBuilder = create<BuilderState>((set, get) => {
         if (!s) return;
         const newCount = s.columns.length + 1;
         const eq = Math.floor(100 / newCount);
-        s.columns.forEach((c) => (c.widthPercent = { desktop: eq }));
         s.columns.push(createColumn(eq));
+        applyResponsiveColumnWidths(
+          s.columns,
+          s.columns.map(() => eq),
+        );
       }),
     removeColumn: (sectionId, columnId) =>
       mutate((doc) => {
@@ -499,7 +505,10 @@ export const useBuilder = create<BuilderState>((set, get) => {
         s.columns = s.columns.filter((c) => c.id !== columnId);
         if (s.columns.length > 0) {
           const eq = Math.floor(100 / s.columns.length);
-          s.columns.forEach((c) => (c.widthPercent = { desktop: eq }));
+          applyResponsiveColumnWidths(
+            s.columns,
+            s.columns.map(() => eq),
+          );
         }
       }),
     updateColumn: (sectionId, columnId, patch) =>
@@ -565,11 +574,19 @@ export const useBuilder = create<BuilderState>((set, get) => {
 
     replaceSections: (sections) =>
       mutate((doc) => {
-        doc.sections = sections;
+        const normalized = normalizePageDocumentResponsive({
+          ...doc,
+          sections,
+        });
+        doc.sections = normalized.sections;
       }),
     appendSections: (sections) =>
       mutate((doc) => {
-        doc.sections.push(...sections);
+        const normalized = normalizePageDocumentResponsive({
+          ...doc,
+          sections,
+        });
+        doc.sections.push(...normalized.sections);
       }),
 
     updateName: (name) =>
@@ -697,7 +714,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
       });
     },
     hydrateDocument: (doc, options) => {
-      const next = clone(doc);
+      const next = normalizePageDocumentResponsive(clone(doc));
       next.updatedAt = Date.now();
       persist(next);
       const linked =

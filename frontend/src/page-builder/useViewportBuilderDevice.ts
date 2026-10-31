@@ -8,10 +8,12 @@ import {
 
 /**
  * Device do builder alinhado à largura real do viewport (página pública / preview).
- * No SSR / 1.º paint usa `desktop` e actualiza após mount (evita mismatch).
+ * No browser usa já a largura actual no 1.º paint; em SSR fica `desktop` até ao mount.
  */
 export function useViewportBuilderDevice(): DeviceType {
-  const [device, setDevice] = useState<DeviceType>("desktop");
+  const [device, setDevice] = useState<DeviceType>(() =>
+    typeof window !== "undefined" ? viewportToBuilderDevice(window.innerWidth) : "desktop",
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;

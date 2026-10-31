@@ -1,5 +1,6 @@
 import type { PageDocument, SectionNode, WidgetNode } from "@/page-builder/types";
 import { createEmptyPage, createSection, createWidget, id } from "@/page-builder/factory";
+import { normalizePageDocumentResponsive } from "@/page-builder/normalizeResponsive";
 
 /** Preset aplicado no canvas e listado em Temas → Modelos. */
 export const DCLICKORA_SALES_THEME_ID = "dclickora-market";
@@ -630,14 +631,14 @@ export function createDefaultSalesLandingDocument(opts?: {
   ];
   doc.id = id("page_");
   doc.updatedAt = Date.now();
-  return doc;
+  return normalizePageDocumentResponsive(doc);
 }
 
 export function asSalesPageDocument(raw: unknown): PageDocument | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.sections) || o.sections.length === 0) return null;
-  return raw as PageDocument;
+  return normalizePageDocumentResponsive(raw as PageDocument);
 }
 
 export function salesDocumentHasMarketTheme(doc: PageDocument | null | undefined): boolean {
