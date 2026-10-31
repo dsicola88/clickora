@@ -601,3 +601,41 @@ Ads query → GET /api/track/rot/:id
 ### Próxima fase
 
 **FASE E — URLs e redirecionamentos** (open redirect, allowlist hoplink, macros, domínio custom).
+
+---
+
+## FASE E — URLs e redirecionamentos
+
+**Data:** 2026-10-31  
+**Ambiente:** `127.0.0.1:3011` + `127.0.0.1:55436/clickora_audit`  
+**Script:** `backend/scripts/audit-fase-e-urls.ts`  
+**Railway:** não usado
+
+### Matriz
+
+| ID | Teste | Resultado |
+|----|-------|-----------|
+| E1 | Redirect legítimo para hoplink | VALIDADO COM EVIDÊNCIA |
+| E2 | Open redirect host externo bloqueado | VALIDADO COM EVIDÊNCIA |
+| E3 | Userinfo (`evil@host`) bloqueado | VALIDADO COM EVIDÊNCIA |
+| E4 | Porta `:444` ≠ 443 bloqueada | VALIDADO COM EVIDÊNCIA |
+| E5 | Path diferente do hoplink bloqueado | VALIDADO COM EVIDÊNCIA |
+| E6 | Query extra (subs) no `to` permitida | VALIDADO COM EVIDÊNCIA |
+| E7 | Tamper da query base (`aff`) bloqueado | VALIDADO COM EVIDÊNCIA |
+| E8 | `/r/` **não** faz `forwardAdQueryToUrl` (ads IDs só em metadata) | VALIDADO COM EVIDÊNCIA |
+| E9 | Esquemas `javascript:` / `data:` bloqueados | VALIDADO COM EVIDÊNCIA |
+| E10 | Sem `to` → usa hoplink configurado | VALIDADO COM EVIDÊNCIA |
+| E11 | `appendClickIdToAffiliateUrl` (clickora_click_id + subid) | VALIDADO COM EVIDÊNCIA |
+| E12 | Custom domain API list+create smoke | VALIDADO COM EVIDÊNCIA |
+| E13 | Matriz unitária `isRedirectToAllowedOffer` | VALIDADO COM EVIDÊNCIA |
+
+**Resumo:** 13/13 VALIDADO COM EVIDÊNCIA. D8 revalidado (E8): ads IDs no hop `/r/` ficam em metadata; não são encaminhados para o Location (ao contrário de `/track/rot`).
+
+### Limitações
+
+- DNS/SSL go-live de domínio custom **não** exercitado end-to-end (só API smoke)  
+- Macros literais `{gclid}` no filtro de ads IDs já cobertas em FASE C
+
+### Próxima fase
+
+**FASE F — Postbacks e integrações**.
