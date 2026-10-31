@@ -517,7 +517,7 @@ Por tipo: **CRIAR → EDITAR → GUARDAR → GET → PUBLICAR → GET público �
 | C7 | ORDERID duplicado → 1 linha | VALIDADO COM EVIDÊNCIA |
 | C8 | Token postback inválido → 401 | VALIDADO COM EVIDÊNCIA |
 | C9 | Venda sem click ID → unattributed | VALIDADO COM EVIDÊNCIA |
-| C10 | Dual store: Google Ads postback → `TrackingEvent(conversion)` sem nova `Conversion` | VALIDADO COM EVIDÊNCIA |
+| C10 | Ledger unificado: Google Ads postback → `TrackingEvent(conversion)` **+** `Conversion` (`google_ads:{tx}`) | Actualizado 2026-10-31 — ver `WORLD_CLASS_READINESS_DCLICKORA.md` |
 | C11 | Analytics dashboard 200 | VALIDADO COM EVIDÊNCIA |
 | C12 | `parent_click_id` herda gclid do clique pai | VALIDADO COM EVIDÊNCIA (após fix) |
 
@@ -660,7 +660,7 @@ Ads query → GET /api/track/rot/:id
 | F4 | ClickBank SALE plain → attributed | VALIDADO COM EVIDÊNCIA |
 | F5 | ClickBank cifrado sem secret → ignore | VALIDADO COM EVIDÊNCIA |
 | F6 | BuyGoods refund processado | VALIDADO COM EVIDÊNCIA |
-| F7 | Microsoft Ads postback → TE conversion (dual store) | VALIDADO COM EVIDÊNCIA |
+| F7 | Microsoft Ads postback → TE + Conversion (ledger unificado) | Actualizado 2026-10-31 — ver `WORLD_CLASS_READINESS_DCLICKORA.md` |
 | F8 | Token inválido → 401/403 | VALIDADO COM EVIDÊNCIA |
 | F9 | Outbound Digistore `sid1` se `cid` ocupado | VALIDADO COM EVIDÊNCIA |
 | F10 | Outbound Hotmart `src`/`sck` | VALIDADO COM EVIDÊNCIA |

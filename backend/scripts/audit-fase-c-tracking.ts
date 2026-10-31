@@ -390,7 +390,7 @@ async function main() {
     }
   }
 
-  // C10 — dual store: google-ads postback creates TrackingEvent conversion, not Conversion row
+  // C10 — ledger unificado: google-ads postback cria TrackingEvent + Conversion
   const beforeConvRows = await prisma.conversion.count({ where: { userId: user.id } });
   const beforeTeConv = await prisma.trackingEvent.count({
     where: { userId: user.id, eventType: "conversion" },
@@ -424,17 +424,18 @@ async function main() {
   const afterTeConv = await prisma.trackingEvent.count({
     where: { userId: user.id, eventType: "conversion" },
   });
-  if (gaStatus === 200 && afterTeConv > beforeTeConv && afterConvRows === beforeConvRows) {
-    add("C10_dual_store_google_postback", "VALIDADO COM EVIDÊNCIA", "Dual store: TE conversion sem nova Conversion", [
+  if (gaStatus === 200 && afterTeConv > beforeTeConv && afterConvRows > beforeConvRows) {
+    add("C10_unified_google_postback", "VALIDADO COM EVIDÊNCIA", "Ledger unificado: TE + Conversion (Google Ads)", [
       `te ${beforeTeConv}→${afterTeConv}`,
-      `conversion_table unchanged=${afterConvRows}`,
+      `conversion_table ${beforeConvRows}→${afterConvRows}`,
+      gaBody.slice(0, 80),
     ]);
-  } else if (gaStatus === 200 && afterConvRows > beforeConvRows) {
-    add("C10_dual_store_google_postback", "FALHOU", "dual store", [], ["Google postback criou linha Conversion inesperada"]);
   } else if (gaStatus === 401 || gaStatus === 403) {
-    add("C10_dual_store_google_postback", "VALIDADO COM EVIDÊNCIA", "Auth rejeita postback sem token válido", [`http=${gaStatus}`]);
+    add("C10_unified_google_postback", "VALIDADO COM EVIDÊNCIA", "Auth rejeita postback sem token válido", [`http=${gaStatus}`]);
   } else {
-    add("C10_dual_store_google_postback", "FALHOU", "Google postback", [], [`http=${gaStatus} ${gaBody}`]);
+    add("C10_unified_google_postback", "FALHOU", "Google postback ledger unificado", [], [
+      `http=${gaStatus} te ${beforeTeConv}→${afterTeConv} conv ${beforeConvRows}→${afterConvRows} ${gaBody}`,
+    ]);
   }
 
   // C11 — analytics reflects click + conversion

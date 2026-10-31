@@ -25,7 +25,11 @@ import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnter
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
-import { pickRotatorDestination } from "../lib/trafficRotator.service";
+import { pickRotatorDestination, stickyRotatorCookieName } from "../lib/trafficRotator.service";
+import {
+  findClickIdByAdClickParam,
+  upsertConversionFromAdsPostback,
+} from "../lib/unifiedAdsConversion";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
 import { billingUserId } from "../lib/requestContext";
 import { countPlanClicksThisMonth } from "../lib/planClickQuota";
@@ -723,7 +727,9 @@ export const trackController = {
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
     const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
-    const pick = await pickRotatorDestination(rotatorId, { country, device });
+    const stickyCookie = stickyRotatorCookieName(rotatorId);
+    const stickyArmId = rot.stickySession ? requestCookieValue(req, stickyCookie) : undefined;
+    const pick = await pickRotatorDestination(rotatorId, { country, device }, { stickyArmId });
     if (!pick.ok) {
       if (pick.reason === "policy_block") {
         return sendSafeVisitorPage(res, rot.contextPresell.settings);
@@ -814,6 +820,17 @@ export const trackController = {
       utm_content,
     });
     const redirectTo = appendClickIdToAffiliateUrl(landed, click.id, offerNetwork);
+    if (
+      rot.stickySession &&
+      armIdForMeta &&
+      (rot.mode === "weighted" || rot.mode === "random")
+    ) {
+      const maxAge = 60 * 60 * 24 * 30;
+      res.append(
+        "Set-Cookie",
+        `${stickyCookie}=${encodeURIComponent(armIdForMeta)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`,
+      );
+    }
     recordTrackRedirectLatency(performance.now() - t0);
     return res.redirect(302, redirectTo);
   },
@@ -1180,6 +1197,25 @@ export const trackController = {
     const postbackIp = extractClientIp(req);
     const postbackSeen = visitorClickPlace(req, postbackIp);
     const postbackUa = req.headers["user-agent"] || "";
+    const orderIdForGoogle = (data.transaction_id && data.transaction_id.trim()) || randomUUID();
+    const clickId = await findClickIdByAdClickParam({
+      userId: page.userId,
+      presellPageId: page.id,
+      param: "gclid",
+      value: data.gclid,
+    });
+    const ledger = await upsertConversionFromAdsPostback({
+      userId: page.userId,
+      presellId: page.id,
+      clickId,
+      amount: data.value,
+      currency: data.currency,
+      campaign: data.campaign,
+      origin: "google_ads",
+      transactionId: orderIdForGoogle,
+      adClickId: data.gclid,
+      conversionName: data.conversion_name,
+    });
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
@@ -1200,6 +1236,8 @@ export const trackController = {
             currency: data.currency.toUpperCase(),
             transaction_id: data.transaction_id,
             postback_origin: "google_ads",
+            conversion_id: ledger.conversionId,
+            ledger: "unified_ads_postback",
             ...postbackSeen.countryMeta,
           } as Prisma.InputJsonValue,
         },
@@ -1210,7 +1248,6 @@ export const trackController = {
       }),
     ]);
 
-    const orderIdForGoogle = (data.transaction_id && data.transaction_id.trim()) || randomUUID();
     void syncDirectGclidConversionToGoogleAds({
       userId: page.userId,
       presellPageId: page.id,
@@ -1230,7 +1267,12 @@ export const trackController = {
       payload: req.body,
     });
 
-    return res.json({ tracked: true, google_ads_upload_attempted: true });
+    return res.json({
+      tracked: true,
+      google_ads_upload_attempted: true,
+      conversion_id: ledger.conversionId,
+      conversion_created: ledger.created,
+    });
   },
 
   async postbackMicrosoftAds(req: Request, res: Response) {
@@ -1297,6 +1339,25 @@ export const trackController = {
     const msIp = extractClientIp(req);
     const msSeen = visitorClickPlace(req, msIp);
     const msUa = req.headers["user-agent"] || "";
+    const orderIdForMs = (data.transaction_id && data.transaction_id.trim()) || randomUUID();
+    const clickId = await findClickIdByAdClickParam({
+      userId: page.userId,
+      presellPageId: page.id,
+      param: "msclkid",
+      value: data.msclkid,
+    });
+    const ledger = await upsertConversionFromAdsPostback({
+      userId: page.userId,
+      presellId: page.id,
+      clickId,
+      amount: data.value,
+      currency: data.currency,
+      campaign: data.campaign,
+      origin: "microsoft_ads",
+      transactionId: orderIdForMs,
+      adClickId: data.msclkid,
+      conversionName: data.conversion_name,
+    });
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
@@ -1317,6 +1378,8 @@ export const trackController = {
             currency: data.currency.toUpperCase(),
             transaction_id: data.transaction_id,
             postback_origin: "microsoft_ads",
+            conversion_id: ledger.conversionId,
+            ledger: "unified_ads_postback",
             ...msSeen.countryMeta,
           } as Prisma.InputJsonValue,
         },
@@ -1336,7 +1399,11 @@ export const trackController = {
       payload: req.body,
     });
 
-    return res.json({ tracked: true });
+    return res.json({
+      tracked: true,
+      conversion_id: ledger.conversionId,
+      conversion_created: ledger.created,
+    });
   },
 
   async lookupGclid(req: Request, res: Response) {

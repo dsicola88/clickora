@@ -320,7 +320,7 @@ async function main() {
     );
   }
 
-  // F7 Microsoft Ads postback → TrackingEvent(conversion) dual store
+  // F7 Microsoft Ads postback → ledger unificado (TE + Conversion)
   if (pbToken) {
     const beforeC = await prisma.conversion.count({ where: { userId: user.id } });
     const beforeTe = await prisma.trackingEvent.count({ where: { userId: user.id, eventType: "conversion" } });
@@ -339,13 +339,13 @@ async function main() {
     const afterC = await prisma.conversion.count({ where: { userId: user.id } });
     const afterTe = await prisma.trackingEvent.count({ where: { userId: user.id, eventType: "conversion" } });
     const text = (await ms.text()).slice(0, 120);
-    const ok = ms.status === 200 && afterTe > beforeTe && afterC === beforeC;
+    const ok = ms.status === 200 && afterTe > beforeTe && afterC > beforeC;
     add(
       "F7",
       ok ? "VALIDADO COM EVIDÊNCIA" : "FALHOU",
-      "Microsoft Ads postback → TE conversion (dual store)",
+      "Microsoft Ads postback → TE + Conversion (ledger unificado)",
       [`http=${ms.status}`, `te ${beforeTe}→${afterTe}`, `conversion_table ${beforeC}→${afterC}`, text],
-      ok ? [] : ["microsoft dual store falhou"],
+      ok ? [] : ["microsoft ledger unificado falhou"],
     );
   }
 

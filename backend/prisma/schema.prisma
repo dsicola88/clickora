@@ -623,6 +623,11 @@ model TrafficRotator {
   contextPresellId String             @map("context_presell_id")
   /** Cursor para modo `sequential` (round-robin entre destinos elegíveis). */
   sequenceCursor   Int                @default(0) @map("sequence_cursor")
+  /**
+   * Sticky session: em modos `weighted`/`random`, o mesmo visitante (cookie) permanece
+   * no mesmo braço enquanto elegível. Não altera `sequential`/`fill_order`.
+   */
+  stickySession    Boolean            @default(false) @map("sticky_session")
   /** Se definido, o visitante tem de passar `?access_code=` igual. */
   accessCode       String?            @map("access_code") @db.VarChar(256)
   /**

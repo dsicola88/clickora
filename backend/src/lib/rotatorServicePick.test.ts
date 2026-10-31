@@ -23,6 +23,7 @@ function fakeDb(opts: {
   backupUrl?: string | null;
   arms?: ReturnType<typeof arm>[];
   sequenceCursor?: number;
+  stickySession?: boolean;
 }) {
   const updates: string[] = [];
   const seqUpdates: number[] = [];
@@ -39,6 +40,7 @@ function fakeDb(opts: {
     mode: opts.mode ?? "weighted",
     sequenceCursor: opts.sequenceCursor ?? 0,
     backupUrl: opts.backupUrl ?? null,
+    stickySession: opts.stickySession ?? false,
     rulesPolicy: null,
     arms,
   };
@@ -223,5 +225,39 @@ describe("pickRotatorDestination", () => {
     assert.equal(result.usedBackup, false);
     assert.ok(probes >= 2);
     assert.deepEqual(updates, ["b"]);
+  });
+
+  it("sticky session: reutiliza braço do cookie em weighted", async () => {
+    const { db, updates } = fakeDb({ stickySession: true, weights: [90, 10] });
+    const result = await pickRotatorDestination(
+      "rot-1",
+      { country: "PT", device: "desktop" },
+      { db: db as never, randomUnit: 0.1, probeEnabled: false, stickyArmId: "b" },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.armId, "b");
+    assert.deepEqual(updates, ["b"]);
+  });
+
+  it("sticky session: sequential ignora cookie (mantém round-robin)", async () => {
+    const { db, updates } = fakeDb({
+      mode: "sequential",
+      stickySession: true,
+      sequenceCursor: 0,
+      arms: [
+        arm("a", 100, "https://offer-a.example/buy", { orderIndex: 0 }),
+        arm("b", 100, "https://offer-b.example/buy", { orderIndex: 1 }),
+      ],
+    });
+    const result = await pickRotatorDestination(
+      "rot-1",
+      { country: null, device: "desktop" },
+      { db: db as never, randomUnit: 0.5, probeEnabled: false, stickyArmId: "b" },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.armId, "a");
+    assert.deepEqual(updates, ["a"]);
   });
 });

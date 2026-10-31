@@ -31,6 +31,8 @@ const createSchema = z.object({
   context_presell_id: z.string().uuid(),
   access_code: z.string().max(256).optional().nullable(),
   is_active: z.boolean().optional(),
+  /** Sticky session (weighted/random): cookie 1.º partido mantém o mesmo braço. */
+  sticky_session: z.boolean().optional(),
   arms: z.array(armSchema).min(1).max(25),
   rules_policy: z.union([rotatorRulesPolicySchema, z.null()]).optional(),
 });
@@ -43,6 +45,7 @@ const updateSchema = z.object({
   context_presell_id: z.string().uuid().optional(),
   access_code: z.union([z.string().max(256), z.literal("")]).optional(),
   is_active: z.boolean().optional(),
+  sticky_session: z.boolean().optional(),
   arms: z.array(armSchema).min(1).max(25).optional(),
   rules_policy: z.union([rotatorRulesPolicySchema, z.null()]).optional(),
 });
@@ -80,6 +83,7 @@ function mapRotatorRow(r: {
   sequenceCursor: number;
   accessCode: string | null;
   isActive: boolean;
+  stickySession?: boolean;
   rulesPolicy?: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
@@ -106,6 +110,7 @@ function mapRotatorRow(r: {
     sequence_cursor: r.sequenceCursor,
     access_code_set: Boolean(r.accessCode && r.accessCode.length > 0),
     is_active: r.isActive,
+    sticky_session: Boolean(r.stickySession),
     rules_policy: r.rulesPolicy ?? null,
     created_at: r.createdAt.toISOString(),
     updated_at: r.updatedAt.toISOString(),
@@ -203,6 +208,7 @@ export const trafficRotatorsController = {
         contextPresellId: b.context_presell_id,
         accessCode: b.access_code?.trim() || null,
         isActive: b.is_active ?? true,
+        stickySession: b.sticky_session ?? false,
         ...(rulesPolicy !== undefined ? { rulesPolicy } : {}),
         arms: {
           create: b.arms.map((a) => {
@@ -291,6 +297,7 @@ export const trafficRotatorsController = {
           ...(b.context_presell_id != null ? { contextPresellId: b.context_presell_id } : {}),
           ...(accessCode !== undefined ? { accessCode } : {}),
           ...(b.is_active != null ? { isActive: b.is_active } : {}),
+          ...(b.sticky_session != null ? { stickySession: b.sticky_session } : {}),
           ...(b.rules_policy !== undefined
             ? {
                 rulesPolicy:

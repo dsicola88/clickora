@@ -78,9 +78,17 @@ type RotRow = {
   mode: TrafficRotatorMode;
   sequenceCursor: number;
   backupUrl: string | null;
+  /** Sticky só em weighted/random; sequential/fill_order ignoram. */
+  stickySession: boolean;
   rulesPolicy: Prisma.JsonValue | null;
   arms: ArmRow[];
 };
+
+/** Cookie 1.º partido: visitante permanece no mesmo braço (sticky session). */
+export function stickyRotatorCookieName(rotatorId: string): string {
+  const compact = rotatorId.replace(/-/g, "").slice(0, 16);
+  return `clk_rs_${compact}`;
+}
 
 function policyNeedsClickCount(policy: Prisma.JsonValue | null | undefined): boolean {
   if (policy == null || typeof policy !== "object") return false;
@@ -149,12 +157,15 @@ export async function pickRotatorDestination(
     randomUnit?: number;
     probe?: typeof probeRotatorDestinationQuick;
     probeEnabled?: boolean;
+    /** Arm id do cookie sticky (só aplicado se `stickySession` e modo weighted/random). */
+    stickyArmId?: string | null;
   },
 ): Promise<RotatorDestinationResult> {
   const db = deps?.db ?? systemPrisma;
   const randomUnit = deps?.randomUnit ?? Math.random();
   const probe = deps?.probe ?? probeRotatorDestinationQuick;
   const probeEnabled = deps?.probeEnabled ?? rotatorDestinationProbeEnabled();
+  const stickyArmId = typeof deps?.stickyArmId === "string" ? deps.stickyArmId.trim() : "";
 
   const loaded = await db.$transaction(async (tx) => {
     const rot = await tx.trafficRotator.findFirst({
@@ -248,7 +259,28 @@ export async function pickRotatorDestination(
   let advanceSequential = false;
   let chosen: ArmRow | null = null;
 
-  for (let attempt = 0; attempt < maxTries; attempt++) {
+  const stickyModes = rot.mode === "weighted" || rot.mode === "random";
+  if (rot.stickySession && stickyModes && stickyArmId) {
+    const stickyArm = baseEligible.find((a) => a.id === stickyArmId);
+    if (stickyArm) {
+      const hasBackup = Boolean(rot.backupUrl?.trim());
+      const shouldProbe =
+        probeEnabled && hasBackup && isRotatorDestinationProbeable(stickyArm.destinationUrl);
+      if (!shouldProbe) {
+        chosen = stickyArm;
+      } else {
+        const health = await probe(stickyArm.destinationUrl.trim());
+        if (health.healthy) {
+          chosen = stickyArm;
+        } else {
+          failedIds.add(stickyArm.id);
+          lastFailReason = health.reason || "unhealthy";
+        }
+      }
+    }
+  }
+
+  for (let attempt = 0; !chosen && attempt < maxTries; attempt++) {
     const eligible = baseEligible.filter((a) => !failedIds.has(a.id));
     if (eligible.length === 0) break;
     const pick = chooseEligibleArm(rot, eligible, randomUnit);

@@ -26,6 +26,8 @@ export type TrafficRotatorDto = {
   sequence_cursor: number;
   access_code_set: boolean;
   is_active: boolean;
+  /** Sticky session em weighted/random (cookie 1.º partido). */
+  sticky_session: boolean;
   /** Política de regras (geo, horário, caps…); opcional. */
   rules_policy: unknown | null;
   created_at: string;
@@ -53,6 +55,7 @@ export type CreateTrafficRotatorBody = {
   context_presell_id: string;
   access_code?: string | null;
   is_active?: boolean;
+  sticky_session?: boolean;
   arms: TrafficRotatorArmInput[];
   rules_policy?: unknown | null;
 };

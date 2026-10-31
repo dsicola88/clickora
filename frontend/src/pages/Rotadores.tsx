@@ -80,10 +80,10 @@ function parseIsoList(raw: string): string[] | null {
 }
 
 const MODE_LABELS: Record<TrafficRotatorMode, string> = {
-  random: "Aleatório — reparte igualmente pelos destinos elegíveis",
-  weighted: "Ponderado — probabilidade por peso (A/B; peso 0 = braço desactivado)",
-  sequential: "Sequencial — round-robin entre destinos elegíveis",
-  fill_order: "Preenchimento — enche o 1.º até ao limite, depois o seguinte",
+  random: "Aleatório / Random — equal split across eligible arms",
+  weighted: "Ponderado / Weighted — A/B by weight (weight 0 = off)",
+  sequential: "Sequencial / Sequential — round-robin (WhatsApp queues)",
+  fill_order: "Preenchimento / Fill order — fill first arm to cap, then next",
 };
 
 function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate: boolean }) {
@@ -362,6 +362,7 @@ export default function Rotadores() {
   /** Só em edição: remover código guardado sem substituir. */
   const [stripAccessCode, setStripAccessCode] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [stickySession, setStickySession] = useState(false);
   const [arms, setArms] = useState<ArmForm[]>([emptyArm(0), emptyArm(1)]);
   const [rulesDrafts, setRulesDrafts] = useState<RotatorRuleDraft[]>([]);
   const [rulesPolicyOpen, setRulesPolicyOpen] = useState(false);
@@ -401,6 +402,7 @@ export default function Rotadores() {
     setAccessCode("");
     setStripAccessCode(false);
     setIsActive(true);
+    setStickySession(false);
     setArms([emptyArm(0), emptyArm(1)]);
     setRulesDrafts([]);
     setRulesPolicyText("");
@@ -424,6 +426,7 @@ export default function Rotadores() {
     setAccessCode("");
     setStripAccessCode(false);
     setIsActive(r.is_active);
+    setStickySession(Boolean(r.sticky_session));
     setArms(dtoToArms(r).length ? dtoToArms(r) : [emptyArm(0)]);
     setRulesDrafts(policyToDrafts(r.rules_policy));
     setRulesPolicyText(r.rules_policy != null ? JSON.stringify(r.rules_policy, null, 2) : "");
@@ -528,6 +531,7 @@ export default function Rotadores() {
       context_presell_id: contextPresellId,
       access_code: accessCode.trim() || null,
       is_active: isActive,
+      sticky_session: stickySession,
       arms: armPayload,
     };
     if (rulesRes.value !== undefined) base.rules_policy = rulesRes.value;
@@ -540,6 +544,7 @@ export default function Rotadores() {
         backup_url: base.backup_url,
         context_presell_id: base.context_presell_id,
         is_active: base.is_active,
+        sticky_session: base.sticky_session,
         arms: base.arms,
       };
       if (rulesRes.value !== undefined) patch.rules_policy = rulesRes.value;
@@ -882,6 +887,30 @@ export default function Rotadores() {
               <Label htmlFor="rot-active" className="cursor-pointer">
                 Rotador activo
               </Label>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={stickySession}
+                  onCheckedChange={setStickySession}
+                  id="rot-sticky"
+                  disabled={mode !== "weighted" && mode !== "random"}
+                />
+                <Label
+                  htmlFor="rot-sticky"
+                  className={cn(
+                    "cursor-pointer",
+                    mode !== "weighted" && mode !== "random" && "text-muted-foreground",
+                  )}
+                >
+                  Sticky session / Sessão fixa
+                </Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-snug pl-0.5">
+                Em modos ponderado/aleatório, o mesmo visitante (cookie 1.º partido, 30 dias) permanece no
+                mesmo braço enquanto elegível. Ignorado em sequencial e preenchimento.
+              </p>
             </div>
 
             <Collapsible
