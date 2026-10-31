@@ -705,3 +705,38 @@ Ads query → GET /api/track/rot/:id
 ### Próxima fase
 
 **FASE H — UX/UI**.
+
+---
+
+## FASE H — UX/UI
+
+**Data:** 2026-10-31  
+**Ambiente:** FE `127.0.0.1:8080` com `VITE_PUBLIC_API_URL=http://127.0.0.1:3011/api` + API audit  
+**Método:** inspecção de código + browser (landing, auth)  
+**Railway:** não usado
+
+### Matriz
+
+| ID | Teste | Resultado |
+|----|-------|-----------|
+| H1 | Landing carrega planos + CTAs (browser) | VALIDADO COM EVIDÊNCIA |
+| H2 | `/auth` formulário e-mail/senha + links legais | VALIDADO COM EVIDÊNCIA |
+| H3 | Fluxo principal criar presell → `/presells/nova` (wizard real) | VALIDADO COM EVIDÊNCIA (código + links UI) |
+| H4 | `PresellCreator` stub em `/presell/templates/*` sem API | VALIDADO COM EVIDÊNCIA (D7 confirmado) |
+| H5 | Rotadores UI documenta 4 modos (weighted/random/sequential/fill_order) | VALIDADO COM EVIDÊNCIA |
+| H6 | Empty state dashboard «Nenhuma presell criada» + CTA | VALIDADO COM EVIDÊNCIA (código) |
+| H7 | Redirects legados `/tracking/*` → hubs novos | VALIDADO COM EVIDÊNCIA (App.tsx) |
+| H8 | Gates demográficos / VSL browser profundo | NÃO TESTADO (Playwright dedicado) |
+| H9 | App autenticado mobile layout completo | NÃO TESTADO (requer login browser + viewport matrix) |
+
+**Resumo:** 7 VALIDADO + 2 NÃO TESTADO. Sem P0 UX novos; **D7 (PresellCreator stub) permanece P2** — rota ainda montada mas fora do CTA principal (`/presells/nova`).
+
+### Achados
+
+1. **D7 confirmado:** `PresellCreator.handleSave` só `toast.success` — zero `fetch`/`api`. CTAs oficiais apontam para `CreatePresellWizardPage`.
+2. Landing com API errada (`frontend/.env` → `:3001`) mostra «Erro ao carregar planos» — em audit usámos override Vite para `:3011`.
+3. UI Rotadores alinhada aos 4 modos reais (corrige lacuna D10 a nível de produto UI).
+
+### Próxima fase
+
+**FASE I — Testes end-to-end e performance**.
