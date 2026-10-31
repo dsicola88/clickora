@@ -17,7 +17,6 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Home = lazy(() => import("./pages/Home"));
 const PresellDashboard = lazy(() => import("./pages/PresellDashboard"));
 const PresellManualPagesPage = lazy(() => import("./pages/PresellManualPagesPage"));
-const PresellCreator = lazy(() => import("./pages/PresellCreator"));
 const Plataformas = lazy(() => import("./pages/Plataformas"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Analytics = lazy(() => import("./pages/Analytics"));
@@ -130,8 +129,9 @@ const appRoutes = [
   // Redirects — Presell legado
   { path: "/presell/dashboard", element: <Navigate to="/presells" replace /> },
   { path: "/presell/paginas-criadas", element: <PresellManualPagesPage /> },
-  { path: "/presell/templates", element: <Navigate to="/presell/templates/editor" replace /> },
-  { path: "/presell/templates/:tab", element: <PresellCreator /> },
+  /** Legado stub (D7): nunca persistia — redireciona para o wizard real. */
+  { path: "/presell/templates", element: <Navigate to="/presells/nova" replace /> },
+  { path: "/presell/templates/:tab", element: <Navigate to="/presells/nova" replace /> },
 
   // Redirects — Tracking legado (páginas ainda existem para avançado / deep links)
   { path: "/tracking/dashboard", element: <Navigate to="/resultados" replace /> },
