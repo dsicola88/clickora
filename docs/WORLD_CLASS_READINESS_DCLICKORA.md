@@ -47,11 +47,24 @@ UI: toggle em **Rotadores** (desactivado nos modos não aplicáveis).
 
 ---
 
-## 4. Idiomas (landers / VSL)
+## 4. Idiomas
 
-Strings de UI das **presells públicas** vivem em `frontend/src/lib/presellUiStrings*.ts` (pt-BR, en, es, de, fr, it, pl, tr, nl, sv, no, da, hi, ar + RTL).
+### Painel da app (i18n 100% tipado)
 
-O **painel de app** (dashboard) permanece em português europeu/brasileiro de produto; labels críticos de rotadores incluem EN lado a lado onde o operador internacional lê o modo (weighted / sticky).
+| Locale | Código | Onde |
+|--------|--------|------|
+| English | `en` | `frontend/src/i18n/messages/en.ts` |
+| Português (Portugal) | `pt` | `…/pt.ts` |
+| Português (Brasil) | `pt-BR` | `…/pt-BR.ts` |
+
+- Provider: `AppLocaleProvider` (persistência `clickora:app-locale`).
+- Switcher: header + **Configurações**.
+- Garantia: TypeScript — `pt` / `pt-BR` têm de satisfazer o mesmo tipo que `en` (chaves em falta = erro de compile). Teste `i18n.test.ts` compara folhas.
+- Coberto ponta a ponta: nav, chrome, hubs (Presells, Resultados, Integrações, Rotadores, Settings, …).
+
+### Landers / VSL (separado)
+
+Strings das **presells públicas** em `frontend/src/lib/presellUiStrings*.ts` (pt-BR, en, es, de, fr, it, pl, tr, nl, sv, no, da, hi, ar + RTL). Independente do idioma do painel.
 
 ---
 
@@ -72,7 +85,7 @@ O **painel de app** (dashboard) permanece em português europeu/brasileiro de pr
 2. **DNS / SSL** de domínio custom depende do provedor (Vercel) e verificação humana.
 3. **Sticky “enterprise”** (device graph / IP+UA fingerprint / regras por geo) não está neste cookie; o cookie 1.º partido cobre o caso Voluum-like standard.
 4. **Multi-região activa-activa** (failover de edge global) é infra, não app code.
-5. **Pack completo de i18n do dashboard** (todas as páginas admin em EN/ES/…) ainda não é um produto separado — landers sim.
+5. **Microcopy profunda** em formulários longos (builder widget-a-widget, Dpiloto wizard) ainda pode misturar PT residual; chrome + hubs + nav estão 100% nos 3 locales. Expandir catalogando as mesmas chaves tipadas.
 
 ---
 

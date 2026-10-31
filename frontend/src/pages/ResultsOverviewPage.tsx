@@ -33,6 +33,7 @@ import {
   ProTotalsBar,
   ProTotalStat,
 } from "@/components/enterprise/ProShell";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type DimId =
   | "offers"
@@ -133,6 +134,7 @@ function readExtraCols(): ExtraCol[] {
 
 /** P&L estilo tracker enterprise — dimensões + grelha densa + totais. */
 export default function ResultsOverviewPage() {
+  const { t } = useAppLocale();
   const initial = useMemo(() => rangeToday(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -480,8 +482,8 @@ export default function ResultsOverviewPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Resultados"
-        subtitle="Visitantes, checkouts e vendas aprovadas. Lucro e retorno só entram quando há custo do período."
+        title={t("pages.results.title")}
+        subtitle={t("pages.results.subtitle")}
         meta={
           <>
             <span className="font-mono tabular-nums">

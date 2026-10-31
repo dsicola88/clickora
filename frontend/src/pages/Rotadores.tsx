@@ -60,6 +60,7 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWriteRotators } from "@/lib/workspaceCapabilities";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 function slugify(s: string): string {
   return s
@@ -78,13 +79,6 @@ function parseIsoList(raw: string): string[] | null {
     .filter((x) => /^[A-Z]{2}$/.test(x));
   return parts.length ? [...new Set(parts)] : null;
 }
-
-const MODE_LABELS: Record<TrafficRotatorMode, string> = {
-  random: "Aleatório / Random — equal split across eligible arms",
-  weighted: "Ponderado / Weighted — A/B by weight (weight 0 = off)",
-  sequential: "Sequencial / Sequential — round-robin (WhatsApp queues)",
-  fill_order: "Preenchimento / Fill order — fill first arm to cap, then next",
-};
 
 function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate: boolean }) {
   const [open, setOpen] = useState(false);
@@ -344,9 +338,11 @@ function resolveRulesPolicyForSubmit(
 
 export default function Rotadores() {
   const { user } = useAuth();
+  const { t, m } = useAppLocale();
   const tenantKey = tenantQueryKey(user);
   const canWriteRotators = userCanWriteRotators(user);
   const qc = useQueryClient();
+  const modeLabels = m.modes;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TrafficRotatorDto | null>(null);
@@ -568,8 +564,8 @@ export default function Rotadores() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Rotadores de tráfego"
-        description="A/B, WhatsApp em rodízio, ofertas afiliado, contingência com URL de recurso — nível enterprise / Voluum-style."
+        title={t("pages.rotators.title")}
+        description={t("pages.rotators.subtitle")}
         actions={
           canWriteRotators ? (
             <Button
@@ -578,7 +574,7 @@ export default function Rotadores() {
               onClick={openCreate}
             >
               <Plus className="h-4 w-4" />
-              Novo rotador
+              {t("common.create")}
             </Button>
           ) : null
         }
@@ -638,7 +634,7 @@ export default function Rotadores() {
                 <div>
                   <h3 className="font-semibold text-foreground">{r.name}</h3>
                   <p className="text-xs text-muted-foreground font-mono mt-0.5">{r.slug}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{MODE_LABELS[r.mode]}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{modeLabels[r.mode]}</p>
                 </div>
                 <span
                   className={cn(
@@ -646,7 +642,7 @@ export default function Rotadores() {
                     r.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
                   )}
                 >
-                  {r.is_active ? "Activo" : "Inactivo"}
+                  {r.is_active ? t("common.active") : t("common.inactive")}
                 </span>
               </div>
 
@@ -742,15 +738,15 @@ export default function Rotadores() {
             </div>
 
             <div className="space-y-2">
-              <Label>Modo de distribuição</Label>
+              <Label>{t("pages.rotators.mode")}</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as TrafficRotatorMode)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(MODE_LABELS) as TrafficRotatorMode[]).map((k) => (
+                  {(Object.keys(modeLabels) as TrafficRotatorMode[]).map((k) => (
                     <SelectItem key={k} value={k}>
-                      {MODE_LABELS[k]}
+                      {modeLabels[k]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -885,7 +881,7 @@ export default function Rotadores() {
             <div className="flex items-center gap-2">
               <Switch checked={isActive} onCheckedChange={setIsActive} id="rot-active" />
               <Label htmlFor="rot-active" className="cursor-pointer">
-                Rotador activo
+                {t("pages.rotators.active")}
               </Label>
             </div>
 
@@ -904,12 +900,11 @@ export default function Rotadores() {
                     mode !== "weighted" && mode !== "random" && "text-muted-foreground",
                   )}
                 >
-                  Sticky session / Sessão fixa
+                  {t("pages.rotators.sticky")}
                 </Label>
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug pl-0.5">
-                Em modos ponderado/aleatório, o mesmo visitante (cookie 1.º partido, 30 dias) permanece no
-                mesmo braço enquanto elegível. Ignorado em sequencial e preenchimento.
+                {t("pages.rotators.stickyHint")}
               </p>
             </div>
 

@@ -44,8 +44,10 @@ import {
 import { currentPhonePushSupport, hasLocalWebPushSubscription, subscribeToWebPush } from "@/lib/webPushClient";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 export default function Plataformas() {
+  const { t } = useAppLocale();
   const { user, refreshUser, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const intLocked = !userCanWriteIntegrations(user);
   /** Reservado a planos com flag no admin; super_admin ignora para suporte. */
@@ -247,8 +249,8 @@ export default function Plataformas() {
     return (
       <div className={PRO_PAGE_SHELL}>
         <ProPageHeader
-          title="Vendas da rede"
-          subtitle="Endereço para a rede avisar as vendas aprovadas."
+          title={t("pages.networkSales.title")}
+          subtitle={t("pages.networkSales.subtitleShort")}
         />
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
           <p className="flex items-center gap-2 font-medium">
@@ -281,8 +283,8 @@ export default function Plataformas() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Vendas da rede"
-        subtitle="A rede avisa cada venda aprovada. O checkout só aparece quando a rede o envia."
+        title={t("pages.networkSales.title")}
+        subtitle={t("pages.networkSales.subtitle")}
       />
 
       {intLocked ? (

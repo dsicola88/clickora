@@ -38,6 +38,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { cn } from "@/lib/utils";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -138,6 +139,7 @@ function toastErrorFromCatch(err: unknown, fallback: string) {
 export default function PresellDashboard() {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
+  const { t } = useAppLocale();
   const queryClient = useQueryClient();
   /** Isola cache React Query por conta (evita mostrar dados da sessão anterior). */
   const tenantKey = tenantQueryKey(user);
@@ -1686,13 +1688,13 @@ export default function PresellDashboard() {
   return (
     <div className={cn(PRO_PAGE_SHELL, "space-y-5")}>
       <ProPageHeader
-        title="Presells"
-        subtitle="Páginas publicadas e rascunhos."
+        title={t("pages.presells.title")}
+        subtitle={t("pages.presells.subtitle")}
         actions={
           canWritePresells ? (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button onClick={() => navigate("/presells/nova")} className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90">
-                <Plus className="h-4 w-4" /> Nova presell
+                <Plus className="h-4 w-4" /> {t("pages.presells.create")}
               </Button>
               <Button
                 variant="outline"

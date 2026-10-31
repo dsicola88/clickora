@@ -34,6 +34,7 @@ import { AFFILIATE_PLATFORMS, EXTRA_OFFER_PLATFORMS } from "@/lib/marketingPlatf
 import { ReportDimensionStrip } from "@/components/ReportDimensionStrip";
 import { downloadTextCsv, reportRowsToCsv } from "@/lib/reportRowsCsv";
 import {
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
   collectDatacenterIpsForGoogleAdsExclusion,
   formatGoogleAdsIpExclusionList,
 } from "@/lib/googleAdsIpExclusion";
@@ -219,6 +220,7 @@ function triggerCsvDownload(blob: Blob, fallbackName: string, serverFilename: st
 }
 
 export default function Relatorios() {
+  const { t } = useAppLocale();
   const { tab: tabParam } = useParams<{ tab: string }>();
   const navigate = useNavigate();
   const tab: RelatorioTab = isRelatorioTab(tabParam) ? tabParam : "acessos";
@@ -1085,8 +1087,8 @@ export default function Relatorios() {
   return (
     <div className={APP_PAGE_SHELL_PRO}>
       <ProPageHeader
-        title="Relatórios"
-        subtitle="Visitas, cliques e vendas. Filtra por situação e tipo · exportar CSV."
+        title={t("pages.reports.title")}
+        subtitle={t("pages.reports.subtitle")}
       />
       <SyncHealthBanner className="mb-4" syncHealth={dashQuery.data?.sync_health} />
 

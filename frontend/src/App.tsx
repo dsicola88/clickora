@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingFavicon } from "@/components/BrandingFavicon";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AppLocaleProvider } from "@/i18n/AppLocaleProvider";
 
 const AppLayout = lazy(() =>
   import("@/components/AppLayout").then((m) => ({ default: m.AppLayout })),
@@ -205,7 +206,7 @@ function AuthenticatedAppShell() {
                   <Suspense
                     fallback={
                       <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-                        Carregando editor…
+                        Loading editor… / A carregar editor…
                       </div>
                     }
                   >
@@ -221,7 +222,7 @@ function AuthenticatedAppShell() {
                   <Suspense
                     fallback={
                       <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-                        Carregando editor…
+                        Loading editor… / A carregar editor…
                       </div>
                     }
                   >
@@ -269,7 +270,9 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppRouterGate />
+        <AppLocaleProvider>
+          <AppRouterGate />
+        </AppLocaleProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </ErrorBoundary>

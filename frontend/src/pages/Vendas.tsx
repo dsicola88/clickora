@@ -35,6 +35,7 @@ import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { analyticsService } from "@/services/analyticsService";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
 import {
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
   PRO_PAGE_SHELL,
   ProPageHeader,
   ProToolbar,
@@ -85,6 +86,7 @@ const STAGE_TONE: Record<string, string> = {
 
 /** Funil alinhado a GET /analytics/funnel — mesmas regras KPI que Resultados. */
 export default function Vendas() {
+  const { t } = useAppLocale();
   const initial = useMemo(() => rangeLast30Days(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -164,8 +166,8 @@ export default function Vendas() {
     <div className={PRO_PAGE_SHELL}>
       <SyncHealthBanner className="mb-4" syncHealth={data.sync_health} />
       <ProPageHeader
-        title="Funil de conversões"
-        subtitle="Visitas → cliques → checkout → vendas. Os mesmos números limpos que em Resultados (sem robots nem IPs de servidor)."
+        title={t("pages.funnel.title")}
+        subtitle={t("pages.funnel.subtitle")}
         meta={
           <>
             <span className="font-mono tabular-nums">

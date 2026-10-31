@@ -25,15 +25,23 @@ import {
   LayoutTemplate,
   Rocket,
 } from "lucide-react";
+import type { AppMessages } from "@/i18n/messages/en";
+import { en } from "@/i18n/messages/en";
+import { pt } from "@/i18n/messages/pt";
+import { ptBR } from "@/i18n/messages/pt-BR";
+import type { MessageKey } from "@/i18n";
+
+export type AppNavTitleKey = keyof AppMessages["nav"];
+export type AppNavGroupKey = keyof AppMessages["navGroups"];
 
 export type AppNavItem = {
-  title: string;
+  titleKey: AppNavTitleKey;
   url: string;
   icon: LucideIcon;
   /** Grupo no menu / command palette */
-  group: "principal" | "trabalho" | "performance" | "configuracao" | "conta" | "avancado";
+  group: AppNavGroupKey;
   end?: boolean;
-  /** Sinónimos para a pesquisa (postback, ads, …) */
+  /** Sinónimos para a pesquisa (postback, ads, …) — multilíngue de propósito */
   keywords?: string[];
   /** Só staff */
   staffOnly?: boolean;
@@ -46,65 +54,65 @@ export type AppNavItem = {
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {
-    title: "Início",
+    titleKey: "home",
     url: "/inicio",
     icon: Home,
     group: "principal",
     end: true,
-    keywords: ["home", "dashboard", "visão geral", "visao geral", "overview"],
+    keywords: ["home", "dashboard", "visão geral", "visao geral", "overview", "início", "inicio"],
   },
   {
-    title: "Aulas",
+    titleKey: "lessons",
     url: "/aulas",
     icon: GraduationCap,
     group: "principal",
-    keywords: ["guia", "tutorial", "aprender", "help", "lições", "licoes"],
+    keywords: ["guia", "tutorial", "aprender", "help", "lições", "licoes", "aulas", "lessons"],
   },
   {
-    title: "Pronto Agency",
+    titleKey: "agency",
     url: "/agency",
     icon: Rocket,
     group: "principal",
     keywords: ["agency", "profissional", "voluum", "renome", "onboarding"],
   },
   {
-    title: "Presells",
+    titleKey: "presells",
     url: "/presells",
     icon: FileText,
     group: "trabalho",
     keywords: ["página", "pagina", "lander", "landing", "oferta", "espelho", "presell"],
   },
   {
-    title: "Campanhas",
+    titleKey: "campaigns",
     url: "/campanhas",
     icon: Megaphone,
     group: "trabalho",
     keywords: ["campaign", "campanha", "tráfego", "trafego"],
   },
   {
-    title: "Pesquisa e anúncios",
+    titleKey: "keywords",
     url: "/palavras-chave",
     icon: Search,
     group: "trabalho",
     keywords: ["keywords", "palavras", "keyword", "rsa", "anúncio", "anuncio", "copy"],
   },
   {
-    title: "Construtor de URL",
+    titleKey: "urlBuilder",
     url: "/tracking/url-builder",
     icon: Link2,
     group: "trabalho",
     keywords: ["utm", "gclid", "link", "tracking", "rastreamento", "url builder"],
   },
   {
-    title: "Resultados",
+    titleKey: "results",
     url: "/resultados",
     icon: LayoutDashboard,
     group: "performance",
     end: true,
-    keywords: ["métricas", "metricas", "overview", "performance", "cliques"],
+    keywords: ["métricas", "metricas", "overview", "performance", "cliques", "results"],
   },
   {
-    title: "Funil",
+    titleKey: "funnel",
     url: "/resultados/funil",
     icon: LineChart,
     group: "performance",
@@ -112,7 +120,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["funil", "funnel", "checkout", "roi", "pago", "organico", "orgânico", "etapas"],
   },
   {
-    title: "Conversões",
+    titleKey: "conversions",
     url: "/resultados/relatorios/conversoes",
     icon: ClipboardList,
     group: "performance",
@@ -120,21 +128,21 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["vendas", "conversao", "conversions", "atribuídas", "atribuidas", "aprovadas"],
   },
   {
-    title: "Relatórios",
+    titleKey: "reports",
     url: "/resultados/relatorios",
     icon: BarChart3,
     group: "performance",
-    keywords: ["reports", "analytics", "gráficos", "graficos", "acessos"],
+    keywords: ["reports", "analytics", "gráficos", "graficos", "acessos", "relatórios", "relatorios"],
   },
   {
-    title: "Integrações",
+    titleKey: "integrations",
     url: "/integracoes",
     icon: Plug,
     group: "configuracao",
-    keywords: ["hub", "plataformas", "conexões", "conexoes"],
+    keywords: ["hub", "plataformas", "conexões", "conexoes", "integrações", "integracoes"],
   },
   {
-    title: "Vendas da rede",
+    titleKey: "networkSales",
     url: "/integracoes/postback",
     icon: Webhook,
     group: "configuracao",
@@ -152,28 +160,28 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     ],
   },
   {
-    title: "Google Ads",
+    titleKey: "googleAds",
     url: "/integracoes/google-ads",
     icon: LineChart,
     group: "configuracao",
     keywords: ["ads", "gclid", "conversões offline", "conversoes offline", "roas", "google"],
   },
   {
-    title: "Custos automáticos",
+    titleKey: "automizer",
     url: "/integracoes/automizer",
     icon: Zap,
     group: "configuracao",
     keywords: ["automizer", "custo", "spend", "gastos", "auto"],
   },
   {
-    title: "Configurações",
+    titleKey: "settings",
     url: "/configuracoes",
     icon: Settings2,
     group: "configuracao",
     keywords: ["settings", "preferências", "preferencias", "domínio", "dominio", "branding"],
   },
   {
-    title: "Perfil",
+    titleKey: "profile",
     url: "/conta",
     icon: User,
     group: "conta",
@@ -181,47 +189,46 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["account", "utilizador", "usuario", "email", "perfil"],
   },
   {
-    title: "Plano",
+    titleKey: "plan",
     url: "/planos",
     icon: CreditCard,
     group: "conta",
     keywords: ["billing", "assinatura", "upgrade", "plans", "subscrição", "subscricao"],
   },
   {
-    title: "Admin",
+    titleKey: "admin",
     url: "/admin/overview",
     icon: ShieldAlert,
     group: "conta",
     staffOnly: true,
     keywords: ["staff", "painel admin"],
   },
-  // Só ⌘K — descoberta das páginas ligadas em Configurações
   {
-    title: "Ajuda",
+    titleKey: "help",
     url: "/ajuda",
     icon: HelpCircle,
     group: "avancado",
     sidebar: false,
-    keywords: ["ajuda", "faq", "suporte", "documentação", "documentacao"],
+    keywords: ["ajuda", "faq", "suporte", "documentação", "documentacao", "help"],
   },
   {
-    title: "Rotadores A/B",
+    titleKey: "rotators",
     url: "/tracking/rotadores",
     icon: Shuffle,
     group: "avancado",
     sidebar: false,
-    keywords: ["rotador", "ab", "a/b", "split", "teste"],
+    keywords: ["rotador", "ab", "a/b", "split", "teste", "rotators"],
   },
   {
-    title: "Diagnóstico",
+    titleKey: "diagnostics",
     url: "/tracking/tools",
     icon: Stethoscope,
     group: "avancado",
     sidebar: false,
-    keywords: ["tools", "ferramentas", "health", "saúde", "saude"],
+    keywords: ["tools", "ferramentas", "health", "saúde", "saude", "diagnóstico"],
   },
   {
-    title: "IP e protecções",
+    titleKey: "ipProtections",
     url: "/tracking/blacklist",
     icon: Ban,
     group: "avancado",
@@ -229,15 +236,15 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["blacklist", "bot", "cloak", "firewall", "protecao", "proteção", "ip"],
   },
   {
-    title: "Registos",
+    titleKey: "logs",
     url: "/tracking/logs",
     icon: ScrollText,
     group: "avancado",
     sidebar: false,
-    keywords: ["logs", "eventos", "auditoria", "histórico", "historico"],
+    keywords: ["logs", "eventos", "auditoria", "histórico", "historico", "registos", "registros"],
   },
   {
-    title: "Páginas manuais",
+    titleKey: "manualPages",
     url: "/presell/paginas-criadas",
     icon: LayoutTemplate,
     group: "avancado",
@@ -245,7 +252,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     keywords: ["builder", "editor", "manual", "templates"],
   },
   {
-    title: "dPilot",
+    titleKey: "dpilot",
     url: "/tracking/dpilot",
     icon: Rocket,
     group: "avancado",
@@ -254,14 +261,23 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
+/** @deprecated Preferir `t(\`navGroups.${group}\`)` — mantido para testes estáticos PT. */
 export const APP_NAV_GROUP_LABEL: Record<AppNavItem["group"], string> = {
-  principal: "Principal",
-  trabalho: "Trabalho",
-  performance: "Performance",
-  configuracao: "Configuração",
-  conta: "Conta",
-  avancado: "Avançado",
+  principal: pt.navGroups.principal,
+  trabalho: pt.navGroups.trabalho,
+  performance: pt.navGroups.performance,
+  configuracao: pt.navGroups.configuracao,
+  conta: pt.navGroups.conta,
+  avancado: pt.navGroups.avancado,
 };
+
+export function navTitleKeyPath(titleKey: AppNavTitleKey): MessageKey {
+  return `nav.${titleKey}` as MessageKey;
+}
+
+export function navGroupKeyPath(group: AppNavGroupKey): MessageKey {
+  return `navGroups.${group}` as MessageKey;
+}
 
 /** Normaliza texto para pesquisa (sem acentos, minúsculas). */
 export function normalizeNavSearchText(raw: string): string {
@@ -286,9 +302,10 @@ export function isAppNavActive(url: string, path: string, end?: boolean): boolea
   return false;
 }
 
-/** Valor único para cmdk (url primeiro evita colisões entre itens). */
+/** Valor único para cmdk — inclui títulos en/pt/pt-BR para pesquisa em qualquer idioma. */
 export function appNavSearchValue(item: AppNavItem): string {
-  return [item.url, item.title, ...(item.keywords ?? [])].join(" ");
+  const titles = [en.nav[item.titleKey], pt.nav[item.titleKey], ptBR.nav[item.titleKey]];
+  return [item.url, ...titles, ...(item.keywords ?? [])].join(" ");
 }
 
 export function appNavMatchesQuery(item: AppNavItem, query: string): boolean {

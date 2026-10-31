@@ -15,6 +15,7 @@ import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
  * Início: KPIs da conta com filtro de datas · atalho para P&L.
@@ -22,6 +23,7 @@ import { TrackPathStatus } from "@/components/TrackPathStatus";
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useAppLocale();
   const initial = useMemo(() => rangeToday(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -108,17 +110,17 @@ export default function Home() {
     <div className="mx-auto w-full max-w-4xl space-y-6 px-1 py-2 sm:px-2">
       <div className="flex flex-col gap-4 border-b border-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <PageHeader
-          title="Visão geral"
+          title={t("pages.home.title")}
           description={
             <span className="font-mono tabular-nums text-muted-foreground">
               {from} → {to}
-              {isFetching ? " · a actualizar…" : ""} · UTC
+              {isFetching ? ` · ${t("common.loading")}` : ""} · UTC
             </span>
           }
         />
         <Button className="gap-2 shrink-0" onClick={() => navigate("/presells/nova")}>
           <Plus className="h-4 w-4" />
-          Nova presell
+          {t("pages.presells.create")}
         </Button>
       </div>
 

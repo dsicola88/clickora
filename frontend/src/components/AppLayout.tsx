@@ -6,6 +6,8 @@ import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { SaleChimeListener } from "@/components/SaleChimeListener";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { Separator } from "@/components/ui/separator";
+import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { cn } from "@/lib/utils";
 
 const mainChrome =
@@ -15,6 +17,7 @@ const mainChrome =
  * Shell app: sidebar encolhível (ícones) estilo tracker — desktop e mobile.
  */
 export function AppLayout({ children }: { children: ReactNode }) {
+  const { t } = useAppLocale();
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-svh w-full">
@@ -30,18 +33,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="z-10 flex shrink-0 items-center gap-2">
               <SidebarTrigger
                 className="h-9 w-9 shrink-0 touch-manipulation md:h-8 md:w-8"
-                title="Encolher / expandir menu"
-                aria-label="Encolher ou expandir menu"
+                title={t("chrome.toggleMenu")}
+                aria-label={t("chrome.toggleMenu")}
               />
               <Separator orientation="vertical" className="hidden h-4 sm:block" />
             </div>
             {/* Pesquisa centrada no header (padrão Linear / Notion). */}
-            <div className="pointer-events-none absolute inset-x-0 flex justify-center px-14 sm:px-16">
+            <div className="pointer-events-none absolute inset-x-0 flex justify-center px-14 sm:px-28 md:px-36">
               <div className="pointer-events-auto w-full max-w-md md:max-w-lg">
                 <AppCommandPalette className="w-full max-w-none" />
               </div>
             </div>
-            <div className="z-10 ml-auto flex shrink-0 items-center justify-end">
+            <div className="z-10 ml-auto flex shrink-0 items-center justify-end gap-2">
+              <LocaleSwitcher compact className="hidden sm:flex" />
               <WorkspaceSwitcher />
             </div>
           </header>

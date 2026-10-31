@@ -6,31 +6,37 @@ import { EnterpriseApiKeysPanel } from "@/components/settings/EnterpriseApiKeysP
 import { EnterpriseTenantBrandingPanel } from "@/components/settings/EnterpriseTenantBrandingPanel";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { BrandKitProCard } from "@/components/BrandKitProCard";
-
-const ADVANCED_LINKS = [
-  { to: "/tracking/rotadores", label: "Rotadores" },
-  { to: "/tracking/tools", label: "Diagnóstico" },
-  { to: "/tracking/blacklist", label: "IP e protecções" },
-  { to: "/tracking/logs", label: "Registos" },
-  { to: "/tracking/url-builder", label: "URL manual" },
-  { to: "/agency", label: "Agency / dual-pillar" },
-  { to: "/aulas", label: "Aulas" },
-  { to: "/ajuda", label: "Ajuda" },
-] as const;
+import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
- * Configurações: domínio, API keys, white-label e atalhos avançados.
+ * Configurações: domínio, API keys, white-label, idioma e atalhos avançados.
  */
 export default function SettingsHubPage() {
   const [params] = useSearchParams();
   const highlightAdv = params.get("avancado") === "1";
+  const { t } = useAppLocale();
+
+  const advancedLinks = [
+    { to: "/tracking/rotadores", label: t("nav.rotators") },
+    { to: "/tracking/tools", label: t("nav.diagnostics") },
+    { to: "/tracking/blacklist", label: t("nav.ipProtections") },
+    { to: "/tracking/logs", label: t("nav.logs") },
+    { to: "/tracking/url-builder", label: t("nav.urlBuilder") },
+    { to: "/agency", label: t("nav.agency") },
+    { to: "/aulas", label: t("nav.lessons") },
+    { to: "/ajuda", label: t("nav.help") },
+  ] as const;
 
   return (
     <div className={PRO_PAGE_SHELL}>
-      <ProPageHeader
-        title="Configurações"
-        subtitle="Domínio da conta, API keys, marca white-label e ferramentas avançadas."
-      />
+      <ProPageHeader title={t("pages.settings.title")} subtitle={t("pages.settings.subtitle")} />
+
+      <ProPanel title={t("pages.settings.languageSection")} description={t("language.hint")}>
+        <div className="px-4 pb-4 max-w-md">
+          <LocaleSwitcher />
+        </div>
+      </ProPanel>
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Link
@@ -41,12 +47,13 @@ export default function SettingsHubPage() {
             <Globe className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="font-semibold text-sm">Domínio</h2>
+            <h2 className="font-semibold text-sm">{t("pages.settings.domain")}</h2>
             <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-              Ligue o seu domínio às páginas publicadas. SSL tratado pela Clickora após o DNS.
+              {t("pages.settings.domainDesc")}
             </p>
             <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
-              Configurar domínio <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              {t("pages.settings.configureDomain")}{" "}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </span>
           </div>
         </Link>
@@ -60,17 +67,16 @@ export default function SettingsHubPage() {
 
       <div className="min-w-0 space-y-4">
         <EnterpriseTenantBrandingPanel />
-        {/* Brand kit local (email suporte / rascunho Free) — sync com white-label acima quando Pro. */}
         <BrandKitProCard />
       </div>
 
       <ProPanel
-        title="Configurações avançadas"
-        description="Só se precisar. O tracking diário não depende destas telas. Também pesquisáveis com ⌘K."
+        title={t("pages.settings.advanced")}
+        description={t("pages.settings.advancedDesc")}
         className={highlightAdv ? "border-primary/50" : undefined}
       >
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 px-4 pb-4">
-          {ADVANCED_LINKS.map((x) => (
+          {advancedLinks.map((x) => (
             <Button key={x.to} variant="outline" className="justify-start h-9 text-xs" asChild>
               <Link to={x.to}>{x.label}</Link>
             </Button>

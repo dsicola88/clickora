@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import {
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
   Dialog,
   DialogContent,
   DialogDescription,
@@ -336,6 +337,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
 }
 
 export default function Account() {
+  const { t } = useAppLocale();
   const { user, refreshUser, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -480,7 +482,7 @@ export default function Account() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Conta e perfil"
+        title={t("pages.account.title")}
         description={
           <>
             Altere o seu nome, foto de perfil e senha.{" "}

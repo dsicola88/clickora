@@ -12,11 +12,13 @@ import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { LoadingState } from "@/components/LoadingState";
 import { useState, useEffect } from "react";
 import { PRO_PAGE_SHELL, ProPageHeader, ProPanel, ProTable, ProTh, ProTd, ProEmpty } from "@/components/enterprise/ProShell";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
  * Automizer de keywords + sync de custos — controlo simples para media buyers Google Ads.
  */
 export default function AffiliateAutomizerPage() {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const locked = !userCanWriteIntegrations(user);
   const qc = useQueryClient();
@@ -111,8 +113,8 @@ export default function AffiliateAutomizerPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Custos automáticos"
-        subtitle="Pausa palavras-chave sem vendas e actualiza o custo em Resultados. Comece em simulação."
+        title={t("pages.automizer.title")}
+        subtitle={t("pages.automizer.subtitle")}
       />
 
       {data && (data.cost_sync_stale || !data.cost_sync_ok) ? (

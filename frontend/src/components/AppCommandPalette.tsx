@@ -12,12 +12,14 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  APP_NAV_GROUP_LABEL,
   appNavSearchValue,
   commandNavItems,
+  navGroupKeyPath,
+  navTitleKeyPath,
   normalizeNavSearchText,
   type AppNavItem,
 } from "@/lib/appNav";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: AppNavItem["group"][] = [
@@ -48,6 +50,7 @@ export function AppCommandPalette({ className }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { isAdmin, isSuperAdmin } = useAuth();
+  const { t } = useAppLocale();
   const staff = isAdmin || isSuperAdmin;
   const mac = useIsMacShortcut();
 
@@ -96,7 +99,7 @@ export function AppCommandPalette({ className }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Pesquisar páginas e opções"
+        aria-label={t("common.searchPlaceholder")}
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
@@ -105,7 +108,7 @@ export function AppCommandPalette({ className }: Props) {
         )}
       >
         <Search className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-        <span className="min-w-0 flex-1 truncate">Pesquisar páginas…</span>
+        <span className="min-w-0 flex-1 truncate">{t("common.searchPlaceholder")}</span>
         <kbd className="pointer-events-none hidden shrink-0 select-none items-center gap-0.5 rounded border border-border/80 bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
           <span className="text-[11px] leading-none">{mac ? "⌘" : "Ctrl"}</span>K
         </kbd>
@@ -113,7 +116,7 @@ export function AppCommandPalette({ className }: Props) {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="overflow-hidden p-0 shadow-lg top-[18%] translate-y-0 gap-0 sm:max-w-lg [&>button]:hidden">
-          <DialogTitle className="sr-only">Pesquisar páginas e opções</DialogTitle>
+          <DialogTitle className="sr-only">{t("common.searchPlaceholder")}</DialogTitle>
           {/* key força reset do filtro ao reabrir */}
           <Command
             key={open ? "open" : "closed"}
@@ -121,11 +124,11 @@ export function AppCommandPalette({ className }: Props) {
             filter={filter}
             className="rounded-lg [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
           >
-            <CommandInput placeholder="Ir para… (presells, postback, google ads, rotadores…)" />
+            <CommandInput placeholder={t("common.searchPlaceholder")} />
             <CommandList className="max-h-[min(420px,70vh)]">
-              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+              <CommandEmpty>{t("pages.notFound.subtitle")}</CommandEmpty>
               {grouped.map(({ group, items: rows }) => (
-                <CommandGroup key={group} heading={APP_NAV_GROUP_LABEL[group]}>
+                <CommandGroup key={group} heading={t(navGroupKeyPath(group))}>
                   {rows.map((item) => (
                     <CommandItem
                       key={item.url}
@@ -135,7 +138,9 @@ export function AppCommandPalette({ className }: Props) {
                       className="cursor-pointer gap-2.5"
                     >
                       <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {t(navTitleKeyPath(item.titleKey))}
+                      </span>
                       <span className="ml-auto hidden max-w-[40%] truncate text-[11px] text-muted-foreground/70 sm:inline">
                         {item.url}
                       </span>

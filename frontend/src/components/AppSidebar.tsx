@@ -25,11 +25,13 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
-  APP_NAV_GROUP_LABEL,
   isAppNavActive,
+  navGroupKeyPath,
+  navTitleKeyPath,
   sidebarNavItems,
   type AppNavItem,
 } from "@/lib/appNav";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 const itemClass =
   "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:min-h-0";
@@ -45,27 +47,31 @@ const SIDEBAR_GROUPS: AppNavItem["group"][] = [
 ];
 
 function NavRows({ items, path, collapsed }: { items: AppNavItem[]; path: string; collapsed: boolean }) {
+  const { t } = useAppLocale();
   return (
     <>
-      {items.map((item) => (
-        <SidebarMenuItem key={item.url}>
-          <SidebarMenuButton asChild isActive={isAppNavActive(item.url, path, item.end)} tooltip={item.title}>
-            <NavLink to={item.url} end={item.end} className={itemClass} activeClassName={itemActive}>
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              {!collapsed && (
-                <span className="flex flex-1 items-center justify-between gap-2 truncate">
-                  <span className="truncate">{item.title}</span>
-                  {item.staffOnly ? (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Staff
-                    </Badge>
-                  ) : null}
-                </span>
-              )}
-            </NavLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
+      {items.map((item) => {
+        const title = t(navTitleKeyPath(item.titleKey));
+        return (
+          <SidebarMenuItem key={item.url}>
+            <SidebarMenuButton asChild isActive={isAppNavActive(item.url, path, item.end)} tooltip={title}>
+              <NavLink to={item.url} end={item.end} className={itemClass} activeClassName={itemActive}>
+                <item.icon className="h-4 w-4 flex-shrink-0" />
+                {!collapsed && (
+                  <span className="flex flex-1 items-center justify-between gap-2 truncate">
+                    <span className="truncate">{title}</span>
+                    {item.staffOnly ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {t("common.staff")}
+                      </Badge>
+                    ) : null}
+                  </span>
+                )}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
     </>
   );
 }
@@ -84,6 +90,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const path = location.pathname;
   const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { toggleSidebar, isMobile, setOpenMobile } = useSidebar();
+  const { t } = useAppLocale();
   const staff = isAdmin || isSuperAdmin;
 
   const pathRef = useRef(path);
@@ -122,8 +129,12 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
             type="button"
             onClick={() => (isMobile ? setOpenMobile(false) : toggleSidebar())}
             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:h-8 md:w-8"
-            title={isMobile ? "Fechar menu" : collapsed ? "Expandir menu" : "Encolher menu"}
-            aria-label={isMobile ? "Fechar menu" : collapsed ? "Expandir menu" : "Encolher menu"}
+            title={
+              isMobile ? t("chrome.closeMenu") : collapsed ? t("chrome.expandMenu") : t("chrome.collapseMenu")
+            }
+            aria-label={
+              isMobile ? t("chrome.closeMenu") : collapsed ? t("chrome.expandMenu") : t("chrome.collapseMenu")
+            }
           >
             {isMobile || !collapsed ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
@@ -135,7 +146,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
           <SidebarGroup key={group}>
             {!collapsed && group !== "principal" && (
               <SidebarGroupLabel className="px-3 text-xs uppercase tracking-wider text-sidebar-muted">
-                {APP_NAV_GROUP_LABEL[group]}
+                {t(navGroupKeyPath(group))}
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
@@ -152,20 +163,20 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
           {user ? (
             <SidebarMenuItem>
               <SidebarMenuButton
-                tooltip="Sair"
+                tooltip={t("chrome.signOut")}
                 className={cn(itemClass, "w-full")}
                 onClick={() => void signOut()}
               >
                 <LogOut className="h-4 w-4 flex-shrink-0" />
-                {!collapsed && <span>Sair</span>}
+                {!collapsed && <span>{t("chrome.signOut")}</span>}
               </SidebarMenuButton>
             </SidebarMenuItem>
           ) : (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Entrar">
+              <SidebarMenuButton asChild tooltip={t("chrome.signIn")}>
                 <NavLink to="/auth" className={itemClass} activeClassName={itemActive}>
                   <LogIn className="h-4 w-4 flex-shrink-0" />
-                  {!collapsed && <span>Entrar</span>}
+                  {!collapsed && <span>{t("chrome.signIn")}</span>}
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>

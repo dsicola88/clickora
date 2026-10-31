@@ -53,6 +53,7 @@ import {
   type PublishReadinessItem,
 } from "@/components/PresellPublishReadiness";
 import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -83,6 +84,7 @@ function slugFromTitle(title: string) {
  * Opcional: A/B com 2 landers + rotador 50/50.
  */
 export default function CreatePresellWizardPage() {
+  const { t } = useAppLocale();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -593,7 +595,7 @@ export default function CreatePresellWizardPage() {
   return (
     <div className={cn(APP_PAGE_SHELL, "max-w-2xl")}>
       <PageHeader
-        title="Criar presell"
+        title={t("pages.createPresell.title")}
         description="Escolha tipo (cookies, desconto, VSL…), idioma e publique. O tracking fica automático."
         actions={
           <Button variant="outline" onClick={() => navigate("/presells")}>

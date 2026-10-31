@@ -22,12 +22,14 @@ import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
  * Hub Integrações — go-live operativo para media buyers.
  */
 export default function IntegrationsHubPage() {
   const { user, isSuperAdmin } = useAuth();
+  const { t } = useAppLocale();
   const dpilot = userCanAccessDpilotAds(user, isSuperAdmin);
   const [saleChimeOn, setSaleChimeOn] = useState(() => saleChimeEnabled());
   const range = useMemo(() => rangeLast14Days(), []);
@@ -96,13 +98,13 @@ export default function IntegrationsHubPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Integrações"
-        subtitle="Pipeline afiliado: postback obrigatório · Google/Meta/TikTok opcional depois de bater atribuição."
+        title={t("pages.integrations.title")}
+        subtitle={t("pages.integrations.subtitle")}
         meta={
           health ? (
             <>
               <ProStatusDot ok={health.score >= 85} label={`Saúde ${health.score}%`} />
-              <ProInlineLink to="/resultados">Ver nos resultados</ProInlineLink>
+              <ProInlineLink to="/resultados">{t("pages.results.title")}</ProInlineLink>
             </>
           ) : null
         }
@@ -115,7 +117,7 @@ export default function IntegrationsHubPage() {
       <TrackPathStatus />
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <ProPanel title="Go-live" description="Estado real da conta (últimos 14 dias).">
+        <ProPanel title={t("pages.integrations.goLive")} description={t("pages.integrations.goLiveDesc")}>
           <ol className="divide-y divide-border/50">
             {steps.map((s, i) => {
               const check = health?.checks.find((c) => c.id === s.id);

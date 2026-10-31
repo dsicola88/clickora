@@ -22,6 +22,7 @@ import { UrlBuilderTokenModalBody } from "@/components/tracking/UrlBuilderTokenM
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
   Command,
   CommandEmpty,
   CommandGroup,
@@ -308,6 +309,7 @@ const GENERIC_AFFILIATE_PARAM_DEFAULTS: ParamRow[] = [
 ];
 
 export default function UrlBuilder() {
+  const { t } = useAppLocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const prefillFromQueryRef = useRef(false);
   const [showPresellWelcome, setShowPresellWelcome] = useState(false);
@@ -455,8 +457,8 @@ export default function UrlBuilder() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Construtor de URL"
-        subtitle="Monta o link da página para colar no anúncio. O botão da página continua a usar o teu link da oferta."
+        title={t("pages.urlBuilder.title")}
+        subtitle={t("pages.urlBuilder.subtitle")}
         actions={
           <Button
             type="button"

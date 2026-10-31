@@ -9,6 +9,7 @@ import { BrandKitProCard } from "@/components/BrandKitProCard";
 import { plansService } from "@/services/plansService";
 import { enterpriseService } from "@/services/enterpriseService";
 import { analyticsService } from "@/services/analyticsService";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 function isoDaysAgo(n: number) {
   const d = new Date();
@@ -20,6 +21,7 @@ function isoDaysAgo(n: number) {
  * Go-to-market Agency (Fase 2): pricing real dos planos + checklist + dual-pillar.
  */
 export default function AgencyReadyPage() {
+  const { t } = useAppLocale();
   const {
     data: plans = [],
     isLoading: plansLoading,
@@ -123,8 +125,8 @@ export default function AgencyReadyPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Pronto para Agency"
-        subtitle="Tracking e páginas de pre-sell num só sítio — um login, sem juntar tracker e builder à parte."
+        title={t("pages.agency.title")}
+        subtitle={t("pages.agency.subtitle")}
       />
 
       <SyncHealthBanner className="mb-4" syncHealth={dash?.sync_health} />
