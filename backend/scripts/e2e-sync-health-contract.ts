@@ -39,12 +39,19 @@ function main() {
     join(process.cwd(), "../frontend/src/components/SyncHealthBanner.tsx"),
     "utf8",
   );
+  const ptMessages = readFileSync(
+    join(process.cwd(), "../frontend/src/i18n/messages/pt.ts"),
+    "utf8",
+  );
   record(
     "SyncHealthBanner cobre fbclid/ttclid",
     banner.includes("meta_capi_skipped_no_fbclid") &&
       banner.includes("tiktok_events_skipped_no_ttclid") &&
-      banner.includes("sem fbclid") &&
-      banner.includes("sem ttclid"),
+      banner.includes("pages.syncHealth.metaNoId") &&
+      banner.includes("pages.syncHealth.tiktokNoId") &&
+      ptMessages.includes("metaNoId") &&
+      ptMessages.includes("tiktokNoId") &&
+      /sem ID da Meta|sem ID do TikTok/i.test(ptMessages),
     "ok",
   );
 
