@@ -35,6 +35,7 @@ import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { analyticsService } from "@/services/analyticsService";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import {
   PRO_PAGE_SHELL,
   ProPageHeader,
@@ -156,10 +157,10 @@ export default function Vendas() {
     roi.spend > 0;
   const spendLabel =
     roi.spend_source === "keyword"
-      ? "Custo da keyword"
+      ? t("pages.funnel.spendKeyword")
       : roi.spend_source === "persisted"
-        ? "Custo do período"
-        : "Sem custo do período";
+        ? t("pages.funnel.spendPeriod")
+        : t("pages.funnel.spendNone");
   const alerts = data.alerts ?? [];
 
   return (
@@ -173,8 +174,8 @@ export default function Vendas() {
             <span className="font-mono tabular-nums">
               {data.period.from} → {data.period.to}
             </span>
-            <span>Hora universal</span>
-            {isFetching ? <span>A actualizar…</span> : null}
+            <span>{t("common.universalTime")}</span>
+            {isFetching ? <span>{t("common.updating")}</span> : null}
             <ProStatusDot ok={spendOk} label={spendLabel} />
             {data.filter.keyword ? (
               <span className="font-mono text-[11px]">keyword: {data.filter.keyword}</span>
@@ -186,57 +187,57 @@ export default function Vendas() {
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
-                  <Info className="h-3.5 w-3.5" /> Definições
+                  <Info className="h-3.5 w-3.5" /> {t("pages.funnel.definitions")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Como o funil é calculado</DialogTitle>
+                  <DialogTitle>{t("pages.funnel.definitionsTitle")}</DialogTitle>
                   <DialogDescription>
-                    Critérios fixos — sem estimativas nem atribuição inventada.
+                    {t("pages.funnel.definitionsDesc")}
                   </DialogDescription>
                 </DialogHeader>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>
-                    <strong className="text-foreground">Impressões:</strong> {definitions.impressions}
+                    <strong className="text-foreground">{t("pages.funnel.labelImpressions")}:</strong> {definitions.impressions}
                   </li>
                   <li>
-                    <strong className="text-foreground">Cliques:</strong> {definitions.clicks}
+                    <strong className="text-foreground">{t("pages.funnel.labelClicks")}:</strong> {definitions.clicks}
                   </li>
                   <li>
-                    <strong className="text-foreground">Checkouts:</strong> {definitions.checkouts}
+                    <strong className="text-foreground">{t("pages.funnel.labelCheckouts")}:</strong> {definitions.checkouts}
                   </li>
                   <li>
-                    <strong className="text-foreground">Vendas:</strong> {definitions.sales}
+                    <strong className="text-foreground">{t("pages.funnel.labelSales")}:</strong> {definitions.sales}
                   </li>
                   <li>
-                    <strong className="text-foreground">Pago:</strong> {definitions.paid}
+                    <strong className="text-foreground">{t("pages.funnel.labelPaid")}:</strong> {definitions.paid}
                   </li>
                   <li>
-                    <strong className="text-foreground">Sem ID do clique:</strong> {definitions.paid_untracked}
+                    <strong className="text-foreground">{t("pages.funnel.noClickId")}:</strong> {definitions.paid_untracked}
                   </li>
                   <li>
-                    <strong className="text-foreground">Orgânico:</strong> {definitions.organic}
+                    <strong className="text-foreground">{t("pages.funnel.labelOrganic")}:</strong> {definitions.organic}
                   </li>
                   <li>
-                    <strong className="text-foreground">Exclusões:</strong> {definitions.kpi_noise}
+                    <strong className="text-foreground">{t("pages.funnel.labelExclusions")}:</strong> {definitions.kpi_noise}
                   </li>
                 </ul>
               </DialogContent>
             </Dialog>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void refetch()} disabled={isFetching}>
               <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-              Actualizar
+              {t("common.refresh")}
             </Button>
-            <ProInlineLink to="/resultados">Resultados</ProInlineLink>
-            <ProInlineLink to="/resultados/relatorios/conversoes">Conversões</ProInlineLink>
+            <ProInlineLink to="/resultados">{t("pages.funnel.resultsLink")}</ProInlineLink>
+            <ProInlineLink to="/resultados/relatorios/conversoes">{t("pages.funnel.conversionsLink")}</ProInlineLink>
           </>
         }
       />
 
       <ProToolbar>
         <div className="flex flex-col gap-1.5 min-w-[220px]">
-          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Período</Label>
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("common.period")}</Label>
           <DateRangeFilter
             from={from}
             to={to}
@@ -248,13 +249,13 @@ export default function Vendas() {
           />
         </div>
         <div className="flex flex-col gap-1.5 min-w-[200px]">
-          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Palavra-chave</Label>
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("pages.funnel.keywordFilter")}</Label>
           <Select value={keyword} onValueChange={setKeyword}>
             <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todas" />
+              <SelectValue placeholder={t("common.all")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="all">{t("common.all")}</SelectItem>
               {keywordOptions.map((k) => (
                 <SelectItem key={k} value={k}>
                   {k}
@@ -274,8 +275,8 @@ export default function Vendas() {
       ) : !spendOk ? (
         <ProAlert
           severity="info"
-          title="Retorno incompleto"
-          detail="Lucro e retorno ficam em branco até existir custo sincronizado do período (ou da keyword filtrada). A receita das vendas aprovadas continua a ser mostrada."
+          title={t("pages.funnel.incompleteReturn")}
+          detail={t("pages.funnel.incompleteReturnDetail")}
         />
       ) : null}
 
@@ -294,20 +295,20 @@ export default function Vendas() {
             }
           />
         ))}
-        <ProKpiCell label="Receita" value={money(roi.revenue, currency)} />
+        <ProKpiCell label={t("common.revenue")} value={money(roi.revenue, currency)} />
         <ProKpiCell
-          label="Custo"
+          label={t("common.cost")}
           value={money(roi.spend, currency)}
-          hint={spendOk ? spendLabel : "Sem sync"}
+          hint={spendOk ? spendLabel : t("pages.funnel.noSync")}
           tone={spendOk ? undefined : "muted"}
         />
         <ProKpiCell
-          label="Lucro"
+          label={t("common.profit")}
           value={money(roi.profit, currency)}
           tone={roi.profit == null ? "muted" : roi.profit >= 0 ? "positive" : "negative"}
         />
         <ProKpiCell
-          label="Retorno"
+          label={t("pages.results.kpiRoi")}
           value={roi.roi_pct != null ? pct(roi.roi_pct) : "—"}
           hint={roi.roas != null ? `ROAS ${xNum(roi.roas)}` : undefined}
           tone={roi.roi_pct == null ? "muted" : roi.roi_pct >= 0 ? "positive" : "negative"}
@@ -315,9 +316,9 @@ export default function Vendas() {
       </ProKpiGrid>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ProPanel title="Etapas do funil" description="Largura proporcional ao topo do período">
+        <ProPanel title={t("pages.funnel.stagesTitle")} description={t("pages.funnel.stagesDesc")}>
           {!hasVolume ? (
-            <ProEmpty title="Sem volume no período seleccionado." />
+            <ProEmpty title={t("pages.funnel.emptyVolume")} />
           ) : (
             <div className="space-y-3 px-4 py-4">
               {stages.map((s) => {
@@ -348,13 +349,13 @@ export default function Vendas() {
         </ProPanel>
 
         <ProPanel
-          title="Vendas: pago vs orgânico"
-          description="Classificação pelo clique atribuído — sem estimativas"
+          title={t("pages.funnel.paidVsOrganic")}
+          description={t("pages.funnel.paidVsOrganicDesc")}
         >
           <div className="px-4 pt-4">
             <div className="mb-4 grid grid-cols-3 gap-2">
               <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pago</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.funnel.labelPaid")}</p>
                 <p className="text-lg font-semibold tabular-nums">{int(traffic.paid_sales)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {pct(traffic.paid_pct)} · {money(traffic.paid_revenue, currency)}
@@ -368,7 +369,7 @@ export default function Vendas() {
                 </p>
               </div>
               <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Orgânico</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.funnel.labelOrganic")}</p>
                 <p className="text-lg font-semibold tabular-nums">{int(traffic.organic_sales)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {pct(traffic.organic_pct)} · {money(traffic.organic_revenue, currency)}
@@ -555,9 +556,9 @@ export default function Vendas() {
           </div>
         )}
         <ProTotalsBar>
-          <ProTotalStat label="Cliques" value={int(stages.find((s) => s.id === "clicks")?.count)} />
-          <ProTotalStat label="Vendas" value={int(stages.find((s) => s.id === "sales")?.count)} />
-          <ProTotalStat label="Receita" value={money(roi.revenue, currency)} />
+          <ProTotalStat label={t("common.clicks")} value={int(stages.find((s) => s.id === "clicks")?.count)} />
+          <ProTotalStat label={t("common.sales")} value={int(stages.find((s) => s.id === "sales")?.count)} />
+          <ProTotalStat label={t("common.revenue")} value={money(roi.revenue, currency)} />
           <ProTotalStat label="CPA" value={money(roi.cpa, currency)} />
           <ProTotalStat label="EPC" value={money(roi.epc, currency)} />
           <ProTotalStat label="CVR" value={pct(roi.conversion_rate)} />

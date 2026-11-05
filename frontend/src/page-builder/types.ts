@@ -61,7 +61,16 @@ export interface PageSeo {
   keywords?: string;
   ogType?: string;
   twitterCard?: "summary" | "summary_large_image";
+  /**
+   * Legado: se true, força noindex.
+   * Por defeito as landers hospedadas já são noindex (campanhas de ads).
+   */
   noindex?: boolean;
+  /**
+   * Opt-in raro: permitir indexação nos buscadores.
+   * Desligado por defeito para não expor domínios/páginas de assinantes.
+   */
+  allowSearchIndexing?: boolean;
   canonicalUrl?: string;
 }
 

@@ -1,8 +1,35 @@
 {
+  "headers": [
+    {
+      "source": "/p/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "https://clickora-production.up.railway.app/api/$1"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "www.dclickora.com" }],
+      "destination": "/robots-marketing.txt"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "dclickora.com" }],
+      "destination": "/robots-marketing.txt"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "(?<h>.*)\\.vercel\\.app" }],
+      "destination": "/robots-marketing.txt"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/robots-tenant.txt"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

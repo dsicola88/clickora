@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   lazy,
   Suspense,
@@ -89,6 +90,7 @@ function sanitizeSlug(raw: string): string {
 }
 
 export default function PresellManualBuilderPage() {
+  const { t } = useAppLocale();
   const { id: routeId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

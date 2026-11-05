@@ -879,10 +879,17 @@ ${footerCode ? `${footerCode}\n` : ""}`;
       return ogImageRaw.trim();
     }
   })();
-  const robotsExport =
-    page.status === "published"
-      ? "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-      : "noindex, nofollow";
+  const robotsExport = (() => {
+    if (page.status !== "published") return "noindex, nofollow";
+    if (page.type === "builder") {
+      const doc = parsePresellBuilderPageDocument(page.content);
+      const seo = doc?.seo;
+      if (seo?.allowSearchIndexing === true && seo?.noindex !== true) {
+        return "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+      }
+    }
+    return "noindex, nofollow";
+  })();
   const twitterCardExport = ogImageAbs ? "summary_large_image" : "summary";
   const primarySeo = getPresellSeoPrimaryTitle(page);
   const jsonLdExport = JSON.stringify({

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
@@ -102,6 +103,7 @@ async function copyText(text: string, ok: string) {
 }
 
 export default function KeywordsPage() {
+  const { t } = useAppLocale();
   const qc = useQueryClient();
   const restoredOnce = useRef(false);
   const [product, setProduct] = useState("");
@@ -464,8 +466,8 @@ export default function KeywordsPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Pesquisa e anúncios"
-        subtitle="Copy no estilo MAG: títulos, descrições, destaques e sitelinks prontos a copiar para o Google Ads."
+        title={t("pages.keywords.title")}
+        subtitle={t("pages.keywords.subtitleMag")}
       />
       <div className="flex flex-wrap items-center justify-between gap-3 -mt-2">
         {research ? (

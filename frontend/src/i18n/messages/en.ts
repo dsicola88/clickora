@@ -44,6 +44,20 @@ export const en = {
     status: "Status",
     period: "Period",
     universalTime: "Universal time",
+    published: "Published",
+    draft: "Draft",
+    paused: "Paused",
+    all: "All",
+    clicks: "Clicks",
+    sales: "Sales",
+    revenue: "Revenue",
+    cost: "Cost",
+    profit: "Profit",
+    impressions: "Impressions",
+    checkouts: "Checkouts",
+    keyword: "Keyword",
+    source: "Source",
+    createPresell: "Create presell",
   },
   chrome: {
     collapseMenu: "Collapse menu",
@@ -97,6 +111,9 @@ export const en = {
     forgot: "Forgot password?",
     noAccount: "No account yet?",
     hasAccount: "Already have an account?",
+    register: "Create account",
+    loading: "Signing in…",
+    error: "Could not sign in.",
   },
   pages: {
     home: {
@@ -126,7 +143,9 @@ export const en = {
     },
     lessons: {
       title: "Lessons",
-      subtitle: "Guides to launch tracking and presells.",
+      subtitle: "Video lessons included with an active subscription.",
+      loadError: "Could not load lessons.",
+      locked: "Video lessons are part of an active subscription.",
     },
     agency: {
       title: "Agency Ready",
@@ -284,6 +303,9 @@ export const en = {
       newTitle: "New presell in 3 steps",
       editSubtitle: "Name, slug, type and links; editable HTML mirror with «Re-import from URL».",
       newSubtitle: "Import content from the offer URL; in 3 steps: URLs, type and /p/… slug",
+      statusPublished: "Published",
+      statusDraft: "Draft",
+      statusPaused: "Paused",
     },
     createPresell: {
       title: "Create presell",
@@ -316,6 +338,7 @@ export const en = {
       deleted: "Campaign removed",
       deleteConfirm: "Delete «{name}»?",
       deleteTitle: "Delete",
+      createPresellAction: "Create presell",
     },
     keywords: {
       title: "Research & ads",
@@ -455,6 +478,20 @@ export const en = {
       labelPaid: "Paid",
       labelOrganic: "Organic",
       labelExclusions: "Exclusions",
+      incompleteReturn: "Incomplete return",
+      incompleteReturnDetail:
+        "Profit and return stay blank until period cost is synced (or for the filtered keyword). Approved-sale revenue still shows.",
+      stagesTitle: "Funnel stages",
+      stagesDesc: "Width proportional to the period top",
+      paidVsOrganic: "Sales: paid vs organic",
+      paidVsOrganicDesc: "Classified by attributed click — no estimates",
+      fromPreviousTop: "{prev} from previous stage · {top} from top",
+      fromTop: "{top} from top",
+      dailyTitle: "Daily sales",
+      keywordsTitle: "Keywords",
+      resultsLink: "Results",
+      conversionsLink: "Conversions",
+      keywordFilter: "Keyword",
     },
     reports: {
       title: "Reports",
@@ -464,6 +501,14 @@ export const en = {
       noTiktokId: "No TikTok ID",
       noGoogleId: "No Google ID",
       noClickId: "No click ID",
+      loading: "Loading reports…",
+      loadError: "Could not load reports.",
+      exportCsv: "Export CSV",
+      tabVisits: "Visits",
+      tabClicks: "Clicks",
+      tabSales: "Sales",
+      filterSituation: "Situation",
+      filterType: "Type",
     },
     conversions: {
       title: "Conversions",
@@ -616,6 +661,9 @@ export const en = {
       title: "IP tracking protections",
       subtitle: "Rate limit, allowlist, blacklist and optional rules (UA/bots); IPv4 only.",
       loading: "Loading IP protections…",
+      toastAdded: "IP added to blacklist.",
+      toastSettings: "Settings updated.",
+      toastWhitelist: "IP added to allowlist.",
     },
     logs: {
       title: "Logs",
@@ -630,6 +678,49 @@ export const en = {
     help: {
       title: "Help",
       subtitle: "In-app guide and FAQs.",
+    },
+
+    analytics: {
+      title: "Analytics",
+      subtitle: "Presells on dclickora and Google Ads reports (same period per screen).",
+    },
+    setup: {
+      title: "Setup assistant",
+      subtitle: "Guided path to go live with tracking.",
+    },
+    trackingTools: {
+      title: "Tracking tools",
+      subtitle: "Click lookup and diagnostic utilities.",
+    },
+    trackingDashboard: {
+      title: "Tracking",
+      subtitle: "Tracking overview for your account.",
+    },
+    campaignDetail: {
+      title: "Campaign",
+      subtitle: "Detail, spend and performance.",
+      loading: "Loading campaign…",
+      loadError: "Could not load campaign.",
+    },
+    dpilot: {
+      title: "dPilot",
+      subtitle: "Create and manage paid campaigns.",
+    },
+    admin: {
+      title: "Admin",
+      subtitle: "Staff tools and account metrics.",
+    },
+    manualBuilder: {
+      title: "Manual editor",
+      subtitle: "Build or edit a presell HTML document.",
+    },
+    manualPages: {
+      title: "Manual pages",
+      subtitle: "Presells built with the manual editor.",
+    },
+    affiliateGuide: {
+      title: "Affiliate guide",
+      subtitle: "How to connect networks and postbacks.",
     },
     notFound: {
       title: "Page not found",

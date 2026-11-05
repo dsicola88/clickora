@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ import {
  * (A UI vivia no TrackingDashboard legado, que ficou sem rota após o redesign.)
  */
 export default function AdPixelsConnectPage() {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const locked = !userCanWriteIntegrations(user);
   const qc = useQueryClient();
@@ -122,8 +124,8 @@ export default function AdPixelsConnectPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Pixels e CAPI"
-        subtitle="Envio servidor→rede das vendas aprovadas (Meta Conversions API e TikTok Events API). O pixel no browser da presell continua separado."
+        title={t("pages.pixels.title")}
+        subtitle={t("pages.pixels.subtitle")}
         meta={
           <>
             <ProStatusDot ok={Boolean(metaCapi?.can_send)} label="Meta CAPI" />

@@ -16,6 +16,21 @@ import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import type { AppLocale } from "@/i18n/types";
+
+function fill(template: string, vars: Record<string, string | number>) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
+    template,
+  );
+}
+
+function numberLocale(locale: AppLocale): string {
+  if (locale === "pt-BR") return "pt-BR";
+  if (locale === "pt") return "pt-PT";
+  if (locale === "es") return "es-ES";
+  return "en-US";
+}
 
 /**
  * Início: KPIs da conta com filtro de datas · atalho para P&L.
@@ -23,7 +38,8 @@ import { useAppLocale } from "@/i18n/AppLocaleProvider";
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const nl = numberLocale(locale);
   const initial = useMemo(() => rangeToday(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -58,10 +74,10 @@ export default function Home() {
     enabled: pages.length > 0,
   });
 
-  if (loadingPages) return <LoadingState message="A carregar…" />;
+  if (loadingPages) return <LoadingState message={t("common.loading")} />;
   if (pagesError) {
     return (
-      <ErrorState message="Não foi possível carregar as suas páginas." onRetry={() => void refetchPages()} />
+      <ErrorState message={t("pages.home.loadPagesError")} onRetry={() => void refetchPages()} />
     );
   }
 
@@ -71,14 +87,19 @@ export default function Home() {
   const revenue = dash?.revenue ?? 0;
   const rate = dash?.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);
   const currency = "USD";
+  const firstName = user?.name ? String(user.name).split(" ")[0] : "";
 
   if (isNew) {
     return (
       <div className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-10">
         <PageHeader
           centered
-          title={`Bem-vindo${user?.name ? `, ${String(user.name).split(" ")[0]}` : ""}`}
-          description="Crie a sua primeira presell em poucos passos. O tracking fica activo automaticamente."
+          title={
+            firstName
+              ? fill(t("pages.home.welcomeNamed"), { name: firstName })
+              : t("pages.home.welcome")
+          }
+          description={t("pages.home.welcomeDesc")}
         />
         <Button
           size="lg"
@@ -86,20 +107,20 @@ export default function Home() {
           onClick={() => navigate("/presells/nova")}
         >
           <Plus className="h-5 w-5" />
-          Criar presell
+          {t("pages.home.createPresell")}
         </Button>
         <div className="mt-8 w-full">
           <OnboardingChecklistCard />
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Prefere ver como se faz?{" "}
+          {t("pages.home.preferLessons")}{" "}
           <Link to="/aulas" className="text-primary underline-offset-2 hover:underline">
-            Abrir aulas
+            {t("pages.home.openLessons")}
           </Link>
           {" · "}
-          Já tem conta noutra área?{" "}
+          {t("pages.home.alreadyElsewhere")}{" "}
           <Link to="/presells" className="text-primary underline-offset-2 hover:underline">
-            Ver Presells
+            {t("pages.home.viewPresells")}
           </Link>
         </p>
       </div>
@@ -146,35 +167,43 @@ export default function Home() {
       <TrackPathStatus />
 
       {loadingDash ? (
-        <LoadingState message="A carregar resultados…" />
+        <LoadingState message={t("pages.home.loadingResults")} />
       ) : dashError ? (
-        <ErrorState message="Não foi possível carregar os KPIs." onRetry={() => void refetchDash()} />
+        <ErrorState message={t("pages.home.loadKpisError")} onRetry={() => void refetchDash()} />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Cliques", value: clicks.toLocaleString("pt-PT"), hint: "Humanos (sem bots)" },
-            { label: "Vendas", value: conversions.toLocaleString("pt-PT"), hint: "Postback aprovado" },
             {
-              label: "Receita",
-              value: revenue.toLocaleString("pt-PT", {
+              label: t("pages.home.kpiClicks"),
+              value: clicks.toLocaleString(nl),
+              hint: t("pages.home.kpiClicksHint"),
+            },
+            {
+              label: t("pages.home.kpiSales"),
+              value: conversions.toLocaleString(nl),
+              hint: t("pages.home.kpiSalesHint"),
+            },
+            {
+              label: t("pages.home.kpiRevenue"),
+              value: revenue.toLocaleString(nl, {
                 style: "currency",
                 currency,
                 maximumFractionDigits: 0,
               }),
-              hint: "Só vendas aprovadas",
+              hint: t("pages.home.kpiRevenueHint"),
             },
             {
-              label: "Taxa",
-              value: `${rate.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`,
-              hint: "Vendas ÷ cliques",
+              label: t("pages.home.kpiRate"),
+              value: `${rate.toLocaleString(nl, { maximumFractionDigits: 2 })}%`,
+              hint: t("pages.home.kpiRateHint"),
             },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-border/60 bg-card px-4 py-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {s.label}
+              </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{s.value}</p>
-              {"hint" in s && s.hint ? (
-                <p className="mt-1 text-[10px] text-muted-foreground leading-snug">{s.hint}</p>
-              ) : null}
+              <p className="mt-1 text-[10px] text-muted-foreground leading-snug">{s.hint}</p>
             </div>
           ))}
         </div>
@@ -183,12 +212,12 @@ export default function Home() {
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" className="gap-2" asChild>
           <Link to="/resultados">
-            Ver resultados
+            {t("pages.home.viewResults")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/agency">Pronto para Agency</Link>
+          <Link to="/agency">{t("pages.home.agencyReady")}</Link>
         </Button>
       </div>
 

@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingFavicon } from "@/components/BrandingFavicon";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLocaleProvider } from "@/i18n/AppLocaleProvider";
+import { LegacyDomLocalizer } from "@/i18n/LegacyDomLocalizer";
 
 const AppLayout = lazy(() =>
   import("@/components/AppLayout").then((m) => ({ default: m.AppLayout })),
@@ -234,6 +235,7 @@ function AuthenticatedAppShell() {
             <Route path="/plans" element={<Plans />} />
             <Route path="/planos" element={<Plans />} />
             <Route path="/presell-para-afiliados" element={<IntentConversionPage />} />
+            <Route path="/super-presell" element={<IntentConversionPage />} />
             <Route path="/rastreamento-afiliados" element={<IntentConversionPage />} />
             <Route path="/guia-vendas-afiliados" element={<AffiliateGuidePage />} />
             <Route path="/" element={<LandingRoot />} />
@@ -271,6 +273,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppLocaleProvider>
+          <LegacyDomLocalizer />
           <AppRouterGate />
         </AppLocaleProvider>
       </BrowserRouter>

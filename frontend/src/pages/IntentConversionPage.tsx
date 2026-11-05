@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 import { ArrowRight, BarChart3, Gauge, LayoutTemplate, LineChart, Link2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
-type IntentKey = "presell" | "tracking";
+type IntentKey = "presell" | "super-presell" | "tracking";
 
 type IntentConfig = {
   key: IntentKey;
@@ -19,11 +19,11 @@ type IntentConfig = {
 const INTENTS: Record<IntentKey, IntentConfig> = {
   presell: {
     key: "presell",
-    h1: "Presell pages feitas para quem já traz tráfego e precisa converter",
-    lead: "Presell entre anúncio e oferta; estrutura, VSL e CTAs ligados ao rastreamento.",
+    h1: "Presell pages e super presell para quem já traz tráfego e precisa converter",
+    lead: "Presell entre anúncio e oferta; estrutura, VSL e CTAs com tracking e rastreamento.",
     body: [
       "Tu controlas narrativa e prova; a página default do produto não chega quando compras tráfego.",
-      "Presell + tracking na mesma app — medir e otimizar no mesmo sítio.",
+      "Presell + tracking na mesma app — medir cliques, leads e conversões no mesmo sítio.",
     ],
     bullets: [
       {
@@ -33,60 +33,94 @@ const INTENTS: Record<IntentKey, IntentConfig> = {
       },
       {
         icon: Sparkles,
-        title: "Export e presença de marca",
-        text: "HTML, domínio próprio e URL pública pronta para anúncios.",
+        title: "Export e domínio de campanha",
+        text: "HTML, domínio próprio e URL pública pronta para anúncios — sem indexar landers nos buscadores.",
       },
       {
         icon: Link2,
         title: "Ligação ao link de afiliado",
-        text: "Cliques e parâmetros para saber presell + criativo que vendem.",
+        text: "Cliques e parâmetros para saber qual presell + criativo vendem.",
       },
     ],
     forWho: [
-      "Afiliados em Meta, Google ou vídeo.",
+      "Afiliados em Meta, Google Ads ou vídeo.",
       "Quem já testou só a landing do produtor.",
       "Media buyers a iterar A/B com métricas no mesmo painel.",
     ],
     otherIntentHref: "/rastreamento-afiliados",
-    otherIntentLabel: "Quero foco em rastreamento e relatórios",
+    otherIntentLabel: "Quero foco em tracking e rastreamento",
+  },
+  "super-presell": {
+    key: "super-presell",
+    h1: "Super Presell: a página de pré-venda que alinha anúncio, prova e venda",
+    lead: "Super presell com tracking embutido — do clique no anúncio ao CTA rastreado.",
+    body: [
+      "Super presell não é só uma landing bonita: é pré-venda com narrativa alinhada ao criativo e medição em cada passo.",
+      "No dclickora crias a página, publicas no teu domínio e fazes rastreamento de conversões sem expor campanhas no Google.",
+    ],
+    bullets: [
+      {
+        icon: Sparkles,
+        title: "Super presell pronta para tráfego pago",
+        text: "Hero, prova social, VSL e CTA pensados para afiliados que compram cliques.",
+      },
+      {
+        icon: LayoutTemplate,
+        title: "Templates e editor visual",
+        text: "Monta páginas presell rápidas sem código e itera a mensagem por campanha.",
+      },
+      {
+        icon: Link2,
+        title: "Tracking na mesma conta",
+        text: "UTMs, links rastreados e relatórios — sabes qual super presell converte.",
+      },
+    ],
+    forWho: [
+      "Afiliados que pesquisam «super presell» e precisam de execução rápida.",
+      "Media buyers que querem pré-venda + click tracker no mesmo fluxo.",
+      "Quem escala ofertas e precisa de várias páginas por ângulo de anúncio.",
+    ],
+    otherIntentHref: "/presell-para-afiliados",
+    otherIntentLabel: "Ver visão geral de presell para afiliados",
   },
   tracking: {
     key: "tracking",
-    h1: "Rastreamento de conversões e cliques para campanhas de afiliados",
-    lead: "Centraliza links, UTMs e performance presell → oferta.",
+    h1: "Tracking e rastreamento de conversões para campanhas de afiliados",
+    lead: "Centraliza links, UTMs e performance: presell → oferta com dados reais.",
     body: [
-      "Contexto afiliação: tráfego → presell → clique com métricas para orçamento.",
-      "Mesma conta para página e números — menos atrito para otimizar CPA.",
+      "Funil de afiliação completo: tráfego → presell ou super presell → clique com métricas para orçamento.",
+      "Mesma conta para página e números — menos atrito para otimizar CPA e ROI.",
     ],
     bullets: [
       {
         icon: LineChart,
         title: "Painel de performance",
-        text: "Impressões, cliques e conversões por campanha e origem.",
+        text: "Cliques, conversões e rastreamento por campanha, origem e link.",
       },
       {
         icon: Gauge,
         title: "Links e UTMs organizados",
-        text: "URLs consistentes sem folha à parte.",
+        text: "URLs consistentes e click tracking sem folha à parte.",
       },
       {
         icon: BarChart3,
         title: "Pronto para o teu fluxo",
-        text: "Teste → mede → ajusta em ciclos curtos.",
+        text: "Teste → mede → ajusta em ciclos curtos com postback e relatórios.",
       },
     ],
     forWho: [
       "Afiliados com tráfego pago e ROI por campanha.",
-      "Quem já tem presell e falta fechar conversões.",
-      "Equipas que partilham links e precisam de um painel.",
+      "Quem já tem presell e falta fechar o rastreamento de conversões.",
+      "Equipas que partilham links e precisam de um painel único.",
     ],
-    otherIntentHref: "/presell-para-afiliados",
-    otherIntentLabel: "Quero destacar presell pages primeiro",
+    otherIntentHref: "/super-presell",
+    otherIntentLabel: "Quero destacar super presell primeiro",
   },
 };
 
 const PATH_TO_INTENT: Record<string, IntentKey> = {
   "/presell-para-afiliados": "presell",
+  "/super-presell": "super-presell",
   "/rastreamento-afiliados": "tracking",
 };
 

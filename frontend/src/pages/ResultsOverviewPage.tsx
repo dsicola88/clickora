@@ -34,6 +34,7 @@ import {
   ProTotalStat,
 } from "@/components/enterprise/ProShell";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 
 type DimId =
   | "offers"
@@ -82,11 +83,11 @@ function xNum(n: number | null | undefined) {
   return `${n.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x`;
 }
 
-function spendSourceLabel(src: string | undefined) {
-  if (src === "persisted") return "Custo do período";
-  if (src === "google_ads") return "Google Ads";
-  if (src === "manual") return "Escrito à mão";
-  return "Sem custo";
+function spendSourceLabel(src: string | undefined, t: (k: import("@/i18n").MessageKey) => string) {
+  if (src === "persisted") return t("pages.results.spendPersisted");
+  if (src === "google_ads") return t("pages.results.spendGoogle");
+  if (src === "manual") return t("pages.results.spendManual");
+  return t("pages.results.spendNone");
 }
 
 function deltaLabel(pctVal: number | null | undefined) {
@@ -100,24 +101,16 @@ function roiOf(profit: number | null, cost: number | null): number | null {
   return Math.round((profit / cost) * 10000) / 100;
 }
 
-function deviceLabel(d: string) {
+function deviceLabel(d: string, t: (k: import("@/i18n").MessageKey) => string) {
   const x = d.toLowerCase();
-  if (x === "mobile" || x === "mobile phone") return "Telemóvel";
-  if (x === "desktop") return "Computador";
-  if (x === "tablet") return "Tablet";
-  if (x === "(desconhecido)" || x === "unknown") return "Desconhecido";
+  if (x === "mobile" || x === "mobile phone") return t("pages.results.deviceMobile");
+  if (x === "desktop") return t("pages.results.deviceDesktop");
+  if (x === "tablet") return t("pages.results.deviceTablet");
+  if (x === "(desconhecido)" || x === "unknown") return t("pages.results.deviceUnknown");
   return d;
 }
 
 type ExtraCol = "cost" | "profit" | "roi" | "roas" | "cvr" | "epc";
-const EXTRA_COL_LABELS: Record<ExtraCol, string> = {
-  cost: "Custo",
-  profit: "Lucro",
-  roi: "Retorno",
-  roas: "Retorno do gasto",
-  cvr: "Taxa de venda",
-  epc: "Por visita",
-};
 const ALL_EXTRA_COLS: ExtraCol[] = ["cost", "profit", "roi", "roas", "cvr", "epc"];
 const COLS_STORAGE = "dclickora.results.extraCols";
 
@@ -135,6 +128,14 @@ function readExtraCols(): ExtraCol[] {
 /** P&L estilo tracker enterprise — dimensões + grelha densa + totais. */
 export default function ResultsOverviewPage() {
   const { t } = useAppLocale();
+  const EXTRA_COL_LABELS: Record<ExtraCol, string> = {
+    cost: t("pages.results.colCost"),
+    profit: t("pages.results.colProfit"),
+    roi: t("pages.results.colRoi"),
+    roas: t("pages.results.colRoas"),
+    cvr: t("pages.results.colCvr"),
+    epc: t("pages.results.colEpc"),
+  };
   const initial = useMemo(() => rangeToday(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -266,7 +267,7 @@ export default function ResultsOverviewPage() {
     });
     const devices: ReportRow[] = (data.device_performance ?? []).map((r) => ({
       id: r.device,
-      label: deviceLabel(r.device),
+      label: deviceLabel(r.device, t),
       clicks: r.clicks,
       sales: r.sales,
       revenue: r.revenue,
@@ -360,10 +361,10 @@ export default function ResultsOverviewPage() {
       rotators,
       arms,
     };
-  }, [data, campaigns]);
+  }, [data, campaigns, t]);
 
-  if (isLoading) return <LoadingState message="A carregar resultados…" />;
-  if (isError || !data) return <ErrorState message="Não foi possível carregar resultados." onRetry={() => refetch()} />;
+  if (isLoading) return <LoadingState message={t("pages.results.loading")} />;
+  if (isError || !data) return <ErrorState message={t("pages.results.loadError")} onRetry={() => refetch()} />;
 
   const mb = data.media_buyer;
   const health = data.account_health;
@@ -381,15 +382,15 @@ export default function ResultsOverviewPage() {
   const accountRoi = roiOf(mb?.profit ?? null, mb?.spend ?? null);
 
   const dimTabs: Array<{ id: DimId; label: string; count: number }> = [
-    { id: "offers", label: "Ofertas", count: rowsByDim.offers.length },
-    { id: "countries", label: "Países", count: rowsByDim.countries.length },
-    { id: "campaigns", label: "Campanhas", count: rowsByDim.campaigns.length },
-    { id: "keywords", label: "Palavras-chave", count: rowsByDim.keywords.length },
-    { id: "adgroups", label: "Grupos de anúncios", count: rowsByDim.adgroups.length },
-    { id: "devices", label: "Dispositivos", count: rowsByDim.devices.length },
-    { id: "sources", label: "Fontes", count: rowsByDim.sources.length },
-    { id: "rotators", label: "Rotadores", count: rowsByDim.rotators.length },
-    { id: "arms", label: "Destinos / limites", count: rowsByDim.arms.length },
+    { id: "offers", label: t("pages.results.dimOffers"), count: rowsByDim.offers.length },
+    { id: "countries", label: t("pages.results.dimCountries"), count: rowsByDim.countries.length },
+    { id: "campaigns", label: t("pages.results.dimCampaigns"), count: rowsByDim.campaigns.length },
+    { id: "keywords", label: t("pages.results.dimKeywords"), count: rowsByDim.keywords.length },
+    { id: "adgroups", label: t("pages.results.dimAdgroups"), count: rowsByDim.adgroups.length },
+    { id: "devices", label: t("pages.results.dimDevices"), count: rowsByDim.devices.length },
+    { id: "sources", label: t("pages.results.dimSources"), count: rowsByDim.sources.length },
+    { id: "rotators", label: t("pages.results.dimRotators"), count: rowsByDim.rotators.length },
+    { id: "arms", label: t("pages.results.dimArms"), count: rowsByDim.arms.length },
   ];
 
   const activeRows = rowsByDim[dim].filter((r) => {
@@ -399,23 +400,20 @@ export default function ResultsOverviewPage() {
 
   const showCheckouts = dim === "offers" || dim === "countries";
   const dimHint: Record<DimId, string> = {
-    offers: "Uma linha por página. Visitantes são cliques qualificados. Checkouts só entram quando a rede os envia.",
-    campaigns:
-      "Agrupado pela campanha do anúncio. Custo/ROAS do período aparecem quando o sync Google Ads / Automizer está activo.",
-    keywords: "Palavra-chave do anúncio. O custo aparece quando o Google Ads do período está ligado.",
-    adgroups: "Grupo de anúncios. O custo aparece quando o Google Ads do período está ligado.",
-    countries: "País de quem abriu a página. Sem país identificado, a linha fica «(sem país)».",
-    devices: "Dispositivo do clique. O custo não é dividido por dispositivo.",
-    sources: "Origem do clique, por exemplo Google Ads.",
-    rotators:
-      "Cliques raiz por rotador (sem dobrar o hop da lander). Custo = fatia do gasto do período proporcional aos cliques do rotador.",
-    arms:
-      "Destinos do rotador no período. Custo proporcional aos cliques do braço; limite = uso do máximo definido.",
+    offers: t("pages.results.hintOffers"),
+    campaigns: t("pages.results.hintCampaigns"),
+    keywords: t("pages.results.hintKeywords"),
+    adgroups: t("pages.results.hintAdgroups"),
+    countries: t("pages.results.hintCountries"),
+    devices: t("pages.results.hintDevices"),
+    sources: t("pages.results.hintSources"),
+    rotators: t("pages.results.hintRotators"),
+    arms: t("pages.results.hintArms"),
   };
 
   const exportCsv = () => {
     if (!activeRows.length) {
-      toast.message("Sem linhas para exportar.");
+      toast.message(t("pages.results.exportEmpty"));
       return;
     }
     const headers = [
@@ -464,7 +462,7 @@ export default function ResultsOverviewPage() {
     a.download = `pnl_${dim}_${from}_${to}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Ficheiro descarregado");
+    toast.success(t("pages.results.exportDone"));
   };
 
   const totClicks = activeRows.reduce((s, r) => s + r.clicks, 0);
@@ -489,15 +487,15 @@ export default function ResultsOverviewPage() {
             <span className="font-mono tabular-nums">
               {from} → {to}
             </span>
-            <span>Hora universal</span>
-            {isFetching ? <span>A actualizar…</span> : null}
-            {health ? <ProStatusDot ok={health.score >= 85} label={`Saúde ${health.score}%`} /> : null}
+            <span>{t("common.universalTime")}</span>
+            {isFetching ? <span>{t("common.updating")}</span> : null}
+            {health ? <ProStatusDot ok={health.score >= 85} label={fill(t("pages.results.healthScore"), { n: health.score })} /> : null}
             {attr && attr.approved_sales > 0 ? (
-              <ProStatusDot ok={attr.unattributed_sales === 0} label={`Vendas com clique ${attr.attribution_rate ?? 0}%`} />
+              <ProStatusDot ok={attr.unattributed_sales === 0} label={fill(t("pages.results.attributedSales"), { n: attr.attribution_rate ?? 0 })} />
             ) : null}
             <ProStatusDot
               ok={mb?.spend_source === "persisted" || mb?.spend_source === "google_ads"}
-              label={spendSourceLabel(mb?.spend_source)}
+              label={spendSourceLabel(mb?.spend_source, t)}
             />
           </>
         }
@@ -505,12 +503,12 @@ export default function ResultsOverviewPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" asChild>
               <Link to="/resultados/funil">
-                Funil <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                {t("pages.results.funnelLink")} <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/resultados/relatorios/acessos">
-                Eventos <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                {t("pages.results.eventsLink")} <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Link>
             </Button>
           </div>
@@ -544,7 +542,7 @@ export default function ResultsOverviewPage() {
           className="h-8 text-xs"
           onClick={() => setCompare(previousPeriodOfSameLength(from, to))}
         >
-          Vs período anterior
+          {t("pages.results.vsPrevious")}
         </Button>
         <Button
           variant="ghost"
@@ -554,30 +552,35 @@ export default function ResultsOverviewPage() {
           disabled={isFetching || fetchingCampaigns}
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isFetching || fetchingCampaigns ? "animate-spin" : ""}`} />
-          Actualizar
+          {t("common.refresh")}
         </Button>
         <Button
           variant={liveRefresh ? "secondary" : "ghost"}
           size="sm"
           className="h-8 text-xs"
           onClick={() => setLiveRefresh((v) => !v)}
-          title="Actualiza o painel a cada 30 s"
+          title={t("pages.results.liveTitle")}
         >
-          {liveRefresh ? "Live 30s · on" : "Live 30s"}
+          {liveRefresh ? t("pages.results.liveOn") : t("pages.results.liveOff")}
         </Button>
         {cmp ? (
           <span className="text-[11px] text-muted-foreground">
-            Comparado com {cmp.period.from} → {cmp.period.to}: {cmp.clicks} visitantes · {cmp.conversions} vendas ·{" "}
-            {money(cmp.revenue, currency)}
+            {fill(t("pages.results.comparedWith"), {
+              from: cmp.period.from,
+              to: cmp.period.to,
+              clicks: cmp.clicks,
+              sales: cmp.conversions,
+              revenue: money(cmp.revenue, currency),
+            })}
           </span>
         ) : null}
       </ProToolbar>
 
       {health && health.score < 100 && health.checks.some((c) => !c.ok) ? (
         <ProPanel
-          title="Operações"
-          description="O que falta para o retorno ficar completo."
-          actions={<ProInlineLink to="/integracoes">Integrações</ProInlineLink>}
+          title={t("pages.results.opsTitle")}
+          description={t("pages.results.opsDesc")}
+          actions={<ProInlineLink to="/integracoes">{t("nav.integrations")}</ProInlineLink>}
         >
           <div className="grid gap-0 sm:grid-cols-2 lg:grid-cols-4">
             {health.checks
@@ -588,7 +591,7 @@ export default function ResultsOverviewPage() {
                   <p className="mt-1 text-[11px] text-muted-foreground leading-snug">{c.detail}</p>
                   {c.href ? (
                     <Link to={c.href} className="mt-1.5 inline-block text-[11px] font-medium text-primary hover:underline">
-                      Resolver
+                      {t("common.resolve")}
                     </Link>
                   ) : null}
                 </div>
@@ -607,70 +610,77 @@ export default function ResultsOverviewPage() {
 
       <ProKpiGrid>
         <ProKpiCell
-          label="Visitantes (entrada)"
+          label={t("pages.results.kpiVisitors")}
           value={clicks.toLocaleString("pt-PT")}
           hint={
             hopClicks > clicks
-              ? `Raiz ${clicks.toLocaleString("pt-PT")} · hops ${hopClicks.toLocaleString("pt-PT")}`
-              : "Cliques raiz (sem dobrar lander após rotador)"
+              ? fill(t("pages.results.kpiVisitorsHintHops"), {
+                  root: clicks.toLocaleString("pt-PT"),
+                  hops: hopClicks.toLocaleString("pt-PT"),
+                })
+              : t("pages.results.kpiVisitorsHint")
           }
           delta={deltaLabel(cmp?.delta.clicks_pct)}
         />
         <ProKpiCell
-          label="Checkouts"
+          label={t("pages.results.kpiCheckouts")}
           value={(data.checkout_visitors ?? 0).toLocaleString("pt-PT")}
           hint={
             (data.checkout_visitors ?? 0) > 0
-              ? "Visitas ao checkout enviadas pela rede"
-              : "Entra quando a rede avisa o checkout. O que já está só no painel dela não é importado."
+              ? t("pages.results.kpiCheckoutsHintOk")
+              : t("pages.results.kpiCheckoutsHintEmpty")
           }
         />
         <ProKpiCell
-          label="Conversões"
+          label={t("pages.results.kpiConversions")}
           value={conversions.toLocaleString("pt-PT")}
-          hint="Venda aprovada"
+          hint={t("pages.results.kpiConversionsHint")}
           delta={deltaLabel(cmp?.delta.conversions_pct)}
         />
         <ProKpiCell
-          label="Receita"
+          label={t("pages.results.kpiRevenue")}
           value={money(revenue, currency)}
           delta={deltaLabel(cmp?.delta.revenue_pct)}
         />
         <ProKpiCell
-          label="Custo"
+          label={t("pages.results.kpiCost")}
           value={money(mb?.spend ?? null, currency)}
           hint={
             mb?.spend_by_platform
               ? Object.entries(mb.spend_by_platform)
                   .filter(([, v]) => v > 0)
                   .map(([k, v]) => `${k.replace(/_/g, " ")} ${money(v, currency)}`)
-                  .join(" · ") || spendSourceLabel(mb?.spend_source)
-              : spendSourceLabel(mb?.spend_source)
+                  .join(" · ") || spendSourceLabel(mb?.spend_source, t)
+              : spendSourceLabel(mb?.spend_source, t)
           }
         />
         <ProKpiCell
-          label="Lucro"
+          label={t("pages.results.kpiProfit")}
           value={money(mb?.profit ?? null, currency)}
           tone={mb?.profit != null ? (mb.profit >= 0 ? "positive" : "negative") : "muted"}
         />
         <ProKpiCell
-          label="Retorno"
+          label={t("pages.results.kpiRoi")}
           value={accountRoi != null ? pct(accountRoi) : "—"}
           tone={accountRoi != null ? (accountRoi >= 0 ? "positive" : "negative") : "muted"}
         />
         <ProKpiCell
-          label="Retorno do gasto"
+          label={t("pages.results.kpiRoas")}
           value={mb?.roas != null ? xNum(mb.roas) : "—"}
-          hint={`${money(mb?.epc ?? null, currency)} por visita · ${pct(rate)} de vendas${ctr != null ? ` · ${pct(ctr)} de cliques` : ""}`}
+          hint={fill(t("pages.results.kpiRoasHint"), {
+            epc: money(mb?.epc ?? null, currency),
+            cvr: pct(rate),
+            ctr: ctr != null ? fill(t("pages.results.kpiRoasCtr"), { ctr: pct(ctr) }) : "",
+          })}
         />
       </ProKpiGrid>
 
       <ProPanel
-        title="Visitantes e vendas"
-        description="A área azul são os visitantes, com o contorno em cada dia. A barra verde é a comissão da venda aprovada. A dica mostra visitas, conversões e comissão."
+        title={t("pages.results.chartTitle")}
+        description={t("pages.results.chartDesc")}
       >
         {(data.chart_data ?? []).length === 0 ? (
-          <p className="px-4 py-8 text-sm text-muted-foreground">Sem visitantes neste período.</p>
+          <p className="px-4 py-8 text-sm text-muted-foreground">{t("pages.results.chartEmpty")}</p>
         ) : (
           <div className="h-72 w-full px-2 pb-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -717,18 +727,18 @@ export default function ResultsOverviewPage() {
                       <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-md">
                         <p className="mb-1 font-medium text-foreground">{String(label ?? "")}</p>
                         <p className="text-[#0284c7]">
-                          Visitantes: {(row.clicks ?? 0).toLocaleString("pt-PT")}
+                          {fill(t("pages.results.chartVisitors"), { n: (row.clicks ?? 0).toLocaleString("pt-PT") })}
                         </p>
                         {(data.checkout_visitors ?? 0) > 0 ? (
                           <p className="text-[#0f766e]">
-                            Checkouts: {(row.checkouts ?? 0).toLocaleString("pt-PT")}
+                            {fill(t("pages.results.chartCheckouts"), { n: (row.checkouts ?? 0).toLocaleString("pt-PT") })}
                           </p>
                         ) : null}
                         <p className="text-foreground">
-                          Conversões: {(row.conversions ?? 0).toLocaleString("pt-PT")}
+                          {fill(t("pages.results.chartConversions"), { n: (row.conversions ?? 0).toLocaleString("pt-PT") })}
                         </p>
                         <p className="font-medium text-[#15803d]">
-                          Comissão: {money(row.sale_revenue ?? 0, currency)}
+                          {fill(t("pages.results.chartCommission"), { n: money(row.sale_revenue ?? 0, currency) })}
                         </p>
                       </div>
                     );
@@ -787,12 +797,12 @@ export default function ResultsOverviewPage() {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Filtrar linhas…"
+              placeholder={t("pages.results.filterRows")}
               className="h-8 pl-8 text-xs"
             />
           </div>
           <p className="flex-1 text-[10px] text-muted-foreground leading-snug min-w-[200px]">{dimHint[dim]}</p>
-          <div className="flex flex-wrap gap-1" title="Colunas opcionais (persistidas neste browser)">
+          <div className="flex flex-wrap gap-1" title={t("pages.results.extraColsTitle")}>
             {ALL_EXTRA_COLS.map((c) => (
               <button
                 key={c}
@@ -809,31 +819,31 @@ export default function ResultsOverviewPage() {
             ))}
           </div>
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportCsv} disabled={!activeRows.length}>
-            <Download className="h-3.5 w-3.5" /> Exportar
+            <Download className="h-3.5 w-3.5" /> {t("common.export")}
           </Button>
         </div>
 
         {dim === "campaigns" && campaignsError ? (
           <ProEmpty
-            title="Não foi possível carregar campanhas"
-            detail="O dashboard carregou, mas a lista de campanhas falhou. Tente de novo."
+            title={t("pages.results.campaignsLoadTitle")}
+            detail={t("pages.results.campaignsLoadDetail")}
             action={
               <Button size="sm" variant="outline" onClick={() => void refetchCampaigns()}>
-                Tentar outra vez
+                {t("common.retry")}
               </Button>
             }
           />
         ) : activeRows.length === 0 ? (
           <ProEmpty
-            title={clicks > 0 ? "Sem linhas nesta dimensão" : "Sem tráfego no período"}
+            title={clicks > 0 ? t("pages.results.emptyDimTitle") : t("pages.results.emptyTrafficTitle")}
             detail={
               clicks > 0
-                ? "Falta o nome da campanha no link do anúncio, ou o filtro não encontrou linhas. Confirme o endereço do anúncio."
-                : "Publique a presell, cole o link rastreado e espere cliques reais."
+                ? t("pages.results.emptyDimDetail")
+                : t("pages.results.emptyTrafficDetail")
             }
             action={
               <Button size="sm" variant="outline" asChild>
-                <Link to="/tracking/url-builder">Construtor de URL</Link>
+                <Link to="/tracking/url-builder">{t("pages.results.urlBuilder")}</Link>
               </Button>
             }
           />
@@ -845,31 +855,33 @@ export default function ResultsOverviewPage() {
                   <tr>
                     <ProReportTh align="left" className="left-0 z-20 min-w-[8.5rem] bg-muted">
                       {dim === "offers"
-                        ? "Oferta"
+                        ? t("pages.results.thOffer")
                         : dim === "campaigns"
-                        ? "Campanha"
+                        ? t("pages.results.thCampaign")
                         : dim === "keywords"
-                          ? "Palavra-chave"
+                          ? t("pages.results.thKeyword")
                           : dim === "adgroups"
-                            ? "Grupo de anúncios"
+                            ? t("pages.results.thAdgroup")
                             : dim === "countries"
-                              ? "País"
+                              ? t("pages.results.thCountry")
                               : dim === "devices"
-                                ? "Dispositivo"
+                                ? t("pages.results.thDevice")
                                 : dim === "arms"
-                                  ? "Destino / limite"
-                                  : "Fonte"}
+                                  ? t("pages.results.thArm")
+                                  : dim === "rotators"
+                                    ? t("pages.results.dimRotators")
+                                    : t("pages.results.thSource")}
                     </ProReportTh>
-                    <ProReportTh>Visitantes</ProReportTh>
-                    {showCheckouts ? <ProReportTh>Checkouts</ProReportTh> : null}
-                    <ProReportTh>Vendas</ProReportTh>
-                    <ProReportTh>Receita</ProReportTh>
-                    {colOn("cost") ? <ProReportTh>Custo</ProReportTh> : null}
-                    {colOn("profit") ? <ProReportTh>Lucro</ProReportTh> : null}
-                    {colOn("roi") ? <ProReportTh>Retorno</ProReportTh> : null}
-                    {colOn("roas") ? <ProReportTh>Retorno do gasto</ProReportTh> : null}
-                    {colOn("cvr") ? <ProReportTh>Taxa de venda</ProReportTh> : null}
-                    {colOn("epc") ? <ProReportTh>Por visita</ProReportTh> : null}
+                    <ProReportTh>{t("pages.results.thVisitors")}</ProReportTh>
+                    {showCheckouts ? <ProReportTh>{t("pages.results.thCheckouts")}</ProReportTh> : null}
+                    <ProReportTh>{t("pages.results.thSales")}</ProReportTh>
+                    <ProReportTh>{t("pages.results.thRevenue")}</ProReportTh>
+                    {colOn("cost") ? <ProReportTh>{t("pages.results.colCost")}</ProReportTh> : null}
+                    {colOn("profit") ? <ProReportTh>{t("pages.results.colProfit")}</ProReportTh> : null}
+                    {colOn("roi") ? <ProReportTh>{t("pages.results.colRoi")}</ProReportTh> : null}
+                    {colOn("roas") ? <ProReportTh>{t("pages.results.colRoas")}</ProReportTh> : null}
+                    {colOn("cvr") ? <ProReportTh>{t("pages.results.colCvr")}</ProReportTh> : null}
+                    {colOn("epc") ? <ProReportTh>{t("pages.results.colEpc")}</ProReportTh> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -935,30 +947,30 @@ export default function ResultsOverviewPage() {
             </div>
 
             <ProTotalsBar>
-              <ProTotalStat label="Visitantes" value={totClicks.toLocaleString("pt-PT")} />
+              <ProTotalStat label={t("pages.results.thVisitors")} value={totClicks.toLocaleString("pt-PT")} />
               {showCheckouts ? (
                 <ProTotalStat
-                  label="Checkouts"
+                  label={t("pages.results.thCheckouts")}
                   value={activeRows.reduce((s, r) => s + (r.checkouts ?? 0), 0).toLocaleString("pt-PT")}
                 />
               ) : null}
-              <ProTotalStat label="Vendas" value={totSales.toLocaleString("pt-PT")} />
-              <ProTotalStat label="Receita" value={money(totRev, currency)} tone="positive" />
-              <ProTotalStat label="Custo" value={totCost != null ? money(totCost, currency) : "—"} />
+              <ProTotalStat label={t("pages.results.thSales")} value={totSales.toLocaleString("pt-PT")} />
+              <ProTotalStat label={t("pages.results.thRevenue")} value={money(totRev, currency)} tone="positive" />
+              <ProTotalStat label={t("pages.results.colCost")} value={totCost != null ? money(totCost, currency) : "—"} />
               <ProTotalStat
-                label="Lucro"
+                label={t("pages.results.colProfit")}
                 value={totProfit != null ? money(totProfit, currency) : "—"}
                 tone={totProfit != null ? (totProfit >= 0 ? "positive" : "negative") : undefined}
               />
               <ProTotalStat
-                label="Retorno"
+                label={t("pages.results.colRoi")}
                 value={pct(totRoi)}
                 tone={totRoi != null ? (totRoi >= 0 ? "positive" : "negative") : undefined}
               />
-              <ProTotalStat label="Retorno do gasto" value={xNum(totRoas)} />
-              <ProTotalStat label="Taxa de venda" value={pct(totCvr)} />
-              <ProTotalStat label="Por visita" value={money(totEpc, currency)} />
-              <span className="ml-auto text-[10px] text-zinc-500">{activeRows.length} linhas</span>
+              <ProTotalStat label={t("pages.results.colRoas")} value={xNum(totRoas)} />
+              <ProTotalStat label={t("pages.results.colCvr")} value={pct(totCvr)} />
+              <ProTotalStat label={t("pages.results.colEpc")} value={money(totEpc, currency)} />
+              <span className="ml-auto text-[10px] text-zinc-500">{fill(t("pages.results.rowsCount"), { n: activeRows.length })}</span>
             </ProTotalsBar>
           </>
         )}
@@ -966,8 +978,8 @@ export default function ResultsOverviewPage() {
 
       {mb?.manual_spend_lifetime != null && mb.spend_source === "manual" ? (
         <p className="text-[11px] text-muted-foreground px-0.5">
-          Gasto escrito à mão {money(mb.manual_spend_lifetime, currency)} — não entra no retorno da conta.{" "}
-          <ProInlineLink to="/integracoes/automizer">Actualizar custos</ProInlineLink>
+          {fill(t("pages.results.manualSpendNote"), { amount: money(mb.manual_spend_lifetime, currency) })}
+          <ProInlineLink to="/integracoes/automizer">{t("pages.results.updateCosts")}</ProInlineLink>
         </p>
       ) : null}
     </div>

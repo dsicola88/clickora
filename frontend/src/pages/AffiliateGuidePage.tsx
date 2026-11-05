@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { type CSSProperties, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, BookOpen } from "lucide-react";
@@ -7,8 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const TOC: { id: string; label: string }[] = [
   { id: "criar-presell-rapido", label: "Criar presell rápido" },
+  { id: "super-presell", label: "O que é super presell" },
   { id: "ferramenta-para-afiliados", label: "Ferramenta para afiliados" },
-  { id: "rastrear-cliques-afiliados", label: "Rastrear cliques (afiliados)" },
+  { id: "rastrear-cliques-afiliados", label: "Tracking e rastreamento" },
   { id: "alternativa-click-tracker", label: "Alternativa ao click tracker" },
   { id: "como-criar-presell-que-converte", label: "Como criar presell que converte" },
   { id: "rastrear-cliques-marketing-digital", label: "Rastrear cliques no marketing digital" },
@@ -16,6 +18,7 @@ const TOC: { id: string; label: string }[] = [
 ];
 
 export default function AffiliateGuidePage() {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const { pathname } = useLocation();
 
@@ -75,10 +78,10 @@ export default function AffiliateGuidePage() {
           Recurso · Afiliação
         </p>
         <h1 className="text-3xl font-extrabold tracking-tight text-balance sm:text-4xl leading-[1.15]">
-          Guia prático: presell, tracking e conversões para quem vende com tráfego
+          Guia prático: super presell, tracking e rastreamento de conversões
         </h1>
         <p className="mt-4 text-lg text-muted-foreground leading-relaxed text-pretty">
-          Da presell rápida ao rastreio no digital — foco em afiliados e CPA com dados.
+          Da super presell rápida ao tracking e rastreamento no digital — foco em afiliados e CPA com dados.
         </p>
 
         <nav
@@ -116,28 +119,49 @@ export default function AffiliateGuidePage() {
             </p>
           </section>
 
+          <section id="super-presell" className="scroll-mt-28">
+            <h2 className="text-xl font-bold text-foreground tracking-tight mb-4">
+              O que é super presell (e porque media buyers usam)
+            </h2>
+            <p>
+              Super presell é a página de pré-venda entre o anúncio e a oferta: narrativa reforçada, prova social e CTA
+              com rastreamento. Serve para aquecer o visitante antes do checkout e medir qual ângulo converte.
+            </p>
+            <p className="mt-3">
+              No dclickora a super presell nasce com tracking — cliques, UTMs e conversões no mesmo painel, sem expor o
+              domínio da campanha nos resultados de pesquisa do Google, Bing ou Edge.
+            </p>
+            <p className="mt-3">
+              <Link to="/super-presell" className="text-primary font-medium underline-offset-4 hover:underline">
+                Ver página dedicada a super presell →
+              </Link>
+            </p>
+          </section>
+
           <section id="ferramenta-para-afiliados" className="scroll-mt-28">
             <h2 className="text-xl font-bold text-foreground tracking-tight mb-4">
               Ferramenta para afiliados: o que validar antes de assinar
             </h2>
             <p>
-              Presell + conversões + leitura de campanha no mesmo fluxo — evita relatório solto num Excel.
+              Presell + tracking + rastreamento de conversões + leitura de campanha no mesmo fluxo — evita relatório
+              solto num Excel.
             </p>
           </section>
 
           <section id="rastrear-cliques-afiliados" className="scroll-mt-28">
             <h2 className="text-xl font-bold text-foreground tracking-tight mb-4">
-              Rastrear cliques de afiliados com método
+              Tracking e rastreamento de cliques de afiliados
             </h2>
             <p>
-              Um conjunto UTMs por campanha/criativo; ligue cliques ao que a presell conta — métricas soltas enganam.
+              Um conjunto UTMs por campanha/criativo; ligue cliques ao que a presell ou super presell conta — métricas
+              soltas enganam. Tracking consistente é o que separa escala de gasto cego.
             </p>
             <p className="mt-3">
               <Link
                 to="/rastreamento-afiliados"
                 className="text-primary font-medium underline-offset-4 hover:underline"
               >
-                Ver página sobre rastreamento e conversões →
+                Ver página sobre tracking e rastreamento de conversões →
               </Link>
             </p>
           </section>
@@ -222,8 +246,12 @@ export default function AffiliateGuidePage() {
             Presell para afiliados
           </Link>
           {" · "}
+          <Link to="/super-presell" className="underline-offset-4 hover:underline">
+            Super Presell
+          </Link>
+          {" · "}
           <Link to="/rastreamento-afiliados" className="underline-offset-4 hover:underline">
-            Rastreamento
+            Tracking e rastreamento
           </Link>
           {" · "}
           <Link to="/" className="underline-offset-4 hover:underline">

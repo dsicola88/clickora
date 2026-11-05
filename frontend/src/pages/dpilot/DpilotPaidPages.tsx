@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ import { DpilotTransparencyPrinciplesCard } from "./DpilotTransparencyPrinciples
 import { DpilotAutopilotSimpleBanner } from "./DpilotAutopilotSimpleBanner";
 
 export function Gate({ children }: { children: React.ReactNode }) {
+  const { t } = useAppLocale();
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
   if (loading) {
     return (
@@ -60,7 +62,7 @@ export function Gate({ children }: { children: React.ReactNode }) {
     return (
       <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-5 space-y-4">
         <p className="text-sm text-destructive leading-relaxed">
-          {err || "Não foi possível carregar os dados deste projecto."}
+          {err || t("common.error")}
         </p>
         <Button type="button" variant="outline" size="sm" onClick={() => reload()} disabled={loadingExtras}>
           {loadingExtras ? (
@@ -69,7 +71,7 @@ export function Gate({ children }: { children: React.ReactNode }) {
               A actualizar…
             </>
           ) : (
-            "Tentar novamente"
+            t("common.retry")
           )}
         </Button>
       </div>
@@ -79,6 +81,7 @@ export function Gate({ children }: { children: React.ReactNode }) {
 }
 
 export function DpilotVisaoPage() {
+  const { t } = useAppLocale();
   const p = useDpilotPaid();
   const paidModeRaw = p.overview?.project.paid_mode ?? "";
   const paidModeLabel =
@@ -91,8 +94,8 @@ export function DpilotVisaoPage() {
   return (
     <Gate>
       <PageHeader
-        title="Visão geral"
-        description="Limites claros para o modo do projecto (Copilot ou Autopilot) e onde agir nesta navegação. A criação de campanha continua um fluxo guiado nas redes à esquerda; depois da publicação, utilize «Gestão» na lista de campanhas Google para edição manual que pode aparecer aqui como pedido quando o modo não aplica ao vivo automaticamente."
+        title={t("pages.dpilot.title")}
+        description={t("pages.dpilot.subtitle")}
       />
       <div className="mt-4">
         <DpilotAutopilotSimpleBanner />

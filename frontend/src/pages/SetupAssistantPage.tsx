@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +58,7 @@ const SETUP_ASSISTANT_QUERY_PREFIXES = [
 ] as const;
 
 export default function SetupAssistantPage() {
+  const { t } = useAppLocale();
   const queryClient = useQueryClient();
   const refreshingChecks =
     useIsFetching({
@@ -128,7 +130,8 @@ export default function SetupAssistantPage() {
   );
   const hasPublished = published.length > 0;
   const clicks = dashboard?.total_clicks ?? 0;
-  const approvedSales = dashboard?.approved_sales_count ?? dashboard?.total_conversions ?? 0;
+  const conversions = dashboard?.total_conversions ?? 0;
+  const approvedSales = dashboard?.approved_sales_count ?? conversions;
   const pipeline = dashboard?.tracking_pipeline;
   const gaEnv = pipeline?.google_ads_api_env_configured ?? googleAds?.api_env_configured ?? false;
   const gaMetricsReady = pipeline?.google_ads_metrics_available ?? false;
@@ -275,8 +278,8 @@ export default function SetupAssistantPage() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Começar aqui"
-        description="Domínio → Presell → Link → Teste → Postback → Relatórios. Números = período do Resumo (~14 dias)."
+        title={t("pages.setup.title")}
+        description={t("pages.setup.subtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button

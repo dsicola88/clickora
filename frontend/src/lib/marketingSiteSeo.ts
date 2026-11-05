@@ -1,50 +1,65 @@
 import { getPublicPresellOrigin } from "@/lib/publicPresellOrigin";
+import {
+  MARKETING_SEO_KEYWORDS,
+  ROBOTS_INDEX_RICH,
+} from "@/lib/seoHostPolicy";
 
 /**
- * Cópia alinhada a pesquisas orgânicas (presell, tracking, conversões, afiliados).
+ * Cópia alinhada a pesquisas orgânicas de alta intenção:
+ * super presell, presell, tracking, rastreamento, click tracker, afiliados.
  * Manter sincronizado com `frontend/index.html` para bots que não executam JS.
  */
 export const MARKETING_DEFAULT_TITLE =
-  "dclickora — Presell pages, rastreamento de conversões e ferramenta para afiliados";
+  "dclickora — Super Presell, Tracking e Rastreamento de Conversões para Afiliados";
 
 export const MARKETING_DEFAULT_DESCRIPTION =
-  "Crie presell pages profissionais, rastreie cliques, leads e vendas com links rastreados. Plataforma de tracking, conversões e gestão de URLs para marketing de afiliados digitais.";
+  "Crie super presell e páginas presell que convertem, com tracking e rastreamento de cliques, leads e vendas. Ferramenta de afiliados com links rastreados, UTMs e relatórios em tempo real.";
 
-const PLANS_TITLE = "Planos e preços — dclickora | Presell, tracking e conversões para afiliados";
+const PLANS_TITLE =
+  "Planos e preços — dclickora | Super Presell, Tracking e Rastreamento para Afiliados";
 
 const PLANS_DESCRIPTION =
-  "Compare planos dclickora: presell pages, rastreador de cliques e conversões, links rastreados e relatórios para afiliados e marketing de performance.";
+  "Compare planos dclickora: super presell, páginas presell, rastreador de cliques, tracking de conversões, links rastreados e relatórios para afiliados e media buyers.";
 
 /** Landing com intenção comercial — presell / afiliados. */
 const INTENT_PRESELL_TITLE =
-  "Presell pages para afiliados — criar páginas que convertem | dclickora";
+  "Presell pages e super presell para afiliados — páginas que convertem | dclickora";
 
 const INTENT_PRESELL_DESCRIPTION =
-  "Ferramenta de presell com editor, VSL, prova social e CTA rastreado. Ideal para afiliados que precisam de página de pré-venda profissional e mensagem alinhada ao tráfego pago.";
+  "Ferramenta de presell e super presell com editor, VSL, prova social e CTA rastreado. Ideal para afiliados com tráfego pago que precisam de pré-venda profissional + tracking.";
+
+/** Landing dedicada ao termo «super presell». */
+const INTENT_SUPER_PRESELL_TITLE =
+  "Super Presell para afiliados — criar páginas de pré-venda que vendem | dclickora";
+
+const INTENT_SUPER_PRESELL_DESCRIPTION =
+  "Monte super presell alinhada ao anúncio: narrativa, prova e CTA com rastreamento de cliques e conversões. Alternativa a click trackers genéricos, feita para afiliados.";
 
 /** Landing com intenção comercial — tracking / ROI. */
 const INTENT_TRACKING_TITLE =
-  "Rastreamento de conversões, cliques e links para afiliados | dclickora";
+  "Tracking e rastreamento de conversões, cliques e links para afiliados | dclickora";
 
 const INTENT_TRACKING_DESCRIPTION =
-  "Rastreador de cliques e UTMs, relatórios e integrações num painel. Para afiliados e media buyers que querem medir ROI de presells, campanhas e links em tempo real.";
+  "Rastreamento de conversões e cliques com UTMs, postback e relatórios num painel. Tracking para afiliados e media buyers medirem ROI de presell, campanhas e links em tempo real.";
 
 /** Página-recurso (guia) — cobre várias queries long-tail num só URL. */
 const GUIDE_TITLE =
-  "Guia: criar presell rápido, rastrear cliques e ferramenta para afiliados | dclickora";
+  "Guia: super presell, tracking, rastreamento de cliques e ferramenta para afiliados | dclickora";
 
 const GUIDE_DESCRIPTION =
-  "Como criar presell que converte, rastrear cliques no marketing digital, evitar erros comuns e substituir click trackers genéricos. Guia prático para afiliados que usam tráfego pago.";
+  "Como criar super presell e presell que converte, fazer tracking e rastreamento de cliques no marketing digital, evitar erros comuns e substituir click trackers genéricos.";
 
-const AUTH_TITLE = "Entrar ou criar conta — dclickora | Presell e tracking para afiliados";
+const AUTH_TITLE =
+  "Entrar ou criar conta — dclickora | Super Presell, Tracking e Rastreamento";
 
 const AUTH_DESCRIPTION =
-  "Aceda à plataforma dclickora: crie presell pages, rastreie conversões e gerencie links de afiliado e campanhas num só lugar.";
+  "Aceda à plataforma dclickora: crie super presell e páginas presell, faça tracking e rastreamento de conversões e gerencie links de afiliado num só lugar.";
 
 export type MarketingHeadSnapshot = {
   title: string;
   metaDescription: string | null;
   metaRobots: string | null;
+  metaKeywords: string | null;
   ogTitle: string | null;
   ogDescription: string | null;
   ogImage: string | null;
@@ -66,6 +81,7 @@ export function captureMarketingHeadSnapshot(): MarketingHeadSnapshot {
     title: document.title,
     metaDescription: attr('meta[name="description"]'),
     metaRobots: attr('meta[name="robots"]'),
+    metaKeywords: attr('meta[name="keywords"]'),
     ogTitle: attr('meta[property="og:title"]'),
     ogDescription: attr('meta[property="og:description"]'),
     ogImage: attr('meta[property="og:image"]'),
@@ -122,6 +138,7 @@ export function restoreMarketingHeadSnapshot(s: MarketingHeadSnapshot) {
   document.title = s.title;
   restoreMeta("name", "description", s.metaDescription);
   restoreMeta("name", "robots", s.metaRobots);
+  restoreMeta("name", "keywords", s.metaKeywords);
   restoreMeta("property", "og:title", s.ogTitle);
   restoreMeta("property", "og:description", s.ogDescription);
   restoreMeta("property", "og:image", s.ogImage);
@@ -146,6 +163,9 @@ function landingPathInfo(pathname: string): { title: string; description: string
   if (p === "/presell-para-afiliados") {
     return { title: INTENT_PRESELL_TITLE, description: INTENT_PRESELL_DESCRIPTION };
   }
+  if (p === "/super-presell") {
+    return { title: INTENT_SUPER_PRESELL_TITLE, description: INTENT_SUPER_PRESELL_DESCRIPTION };
+  }
   if (p === "/rastreamento-afiliados") {
     return { title: INTENT_TRACKING_TITLE, description: INTENT_TRACKING_DESCRIPTION };
   }
@@ -168,7 +188,7 @@ export type MarketingLandingSeoOverrides = {
 };
 
 /**
- * SEO para `/`, `/plans`, `/planos` (componente `Plans`).
+ * SEO para `/`, `/plans`, `/planos` e landings de intenção.
  * Overrides opcionais vêm do SuperAdmin (`landing_extras.site_chrome`).
  */
 export function applyMarketingLandingHead(
@@ -182,12 +202,13 @@ export function applyMarketingLandingHead(
   const description = overrides?.description?.trim() || base.description;
   const canonical = canonicalWithoutSearchHash();
   const ogImageAbs = `${origin}/placeholder.svg`;
-  const robots = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+  const robots = ROBOTS_INDEX_RICH;
   const pathNorm = pathname.replace(/\/+$/, "") || "/";
   const isGuideArticle = pathNorm === "/guia-vendas-afiliados";
 
   document.title = title;
   setMetaName("description", description);
+  setMetaName("keywords", MARKETING_SEO_KEYWORDS);
   setMetaName("robots", robots);
   setMetaProperty("og:type", isGuideArticle ? "article" : "website");
   setMetaProperty("og:title", title);
@@ -243,6 +264,7 @@ export function applyMarketingAuthHead(): () => void {
 
   document.title = AUTH_TITLE;
   setMetaName("description", AUTH_DESCRIPTION);
+  setMetaName("keywords", MARKETING_SEO_KEYWORDS);
   setMetaName("robots", robots);
   setMetaProperty("og:type", "website");
   setMetaProperty("og:title", AUTH_TITLE);
@@ -291,17 +313,20 @@ function buildGuideArticleJsonLd(
         "@type": "Organization",
         "@id": orgId,
         name: "dclickora",
+        alternateName: ["Clickora", "dClickora"],
         url: origin,
         logo: {
           "@type": "ImageObject",
           url: `${origin}/favicon.svg`,
         },
+        description: MARKETING_DEFAULT_DESCRIPTION,
       },
       {
         "@type": "Article",
         "@id": `${pageUrl}#article`,
         headline,
         description,
+        keywords: MARKETING_SEO_KEYWORDS,
         url: pageUrl,
         inLanguage: "pt-BR",
         author: { "@id": orgId },
@@ -331,17 +356,20 @@ function buildMarketingJsonLd(
         "@type": "Organization",
         "@id": orgId,
         name: "dclickora",
+        alternateName: ["Clickora", "dClickora"],
         url: origin,
         logo: {
           "@type": "ImageObject",
           url: `${origin}/favicon.svg`,
         },
+        description: MARKETING_DEFAULT_DESCRIPTION,
       },
       {
         "@type": "WebSite",
         "@id": siteId,
         url: origin,
         name: "dclickora",
+        alternateName: "Super Presell + Tracking para afiliados",
         description: MARKETING_DEFAULT_DESCRIPTION,
         inLanguage: "pt-BR",
         publisher: { "@id": orgId },
@@ -350,16 +378,62 @@ function buildMarketingJsonLd(
         "@type": "SoftwareApplication",
         "@id": appId,
         name: "dclickora",
+        alternateName: [
+          "Super Presell dclickora",
+          "Tracking afiliados dclickora",
+          "Rastreamento de conversões dclickora",
+        ],
         applicationCategory: "BusinessApplication",
+        applicationSubCategory: "Affiliate Marketing Software",
         operatingSystem: "Web",
         description,
         url: pageUrl,
+        featureList: [
+          "Super presell e páginas presell",
+          "Tracking e rastreamento de conversões",
+          "Rastreador de cliques e UTMs",
+          "Links rastreados e postback",
+          "Domínio personalizado para campanhas",
+          "Relatórios para afiliados e media buyers",
+        ],
+        keywords: MARKETING_SEO_KEYWORDS,
         offers: {
           "@type": "Offer",
           availability: "https://schema.org/InStock",
           url: `${origin}/planos`,
+          priceCurrency: "BRL",
         },
         publisher: { "@id": orgId },
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${origin}/#faq`,
+        mainEntity: [
+          {
+            "@type": "Question",
+            name: "O que é uma super presell?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Super presell é uma página de pré-venda otimizada entre o anúncio e a oferta, com narrativa, prova social e CTA rastreado para aumentar conversões de afiliados.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Como funciona o tracking e rastreamento de conversões no dclickora?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "O dclickora rastreia cliques, UTMs e conversões da presell até a oferta, com links rastreados e relatórios para afiliados e media buyers otimizarem campanhas.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Posso usar domínio próprio sem aparecer no Google?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Sim. Domínios de assinantes e landers de campanha ficam com noindex por defeito. Só o site www.dclickora.com é otimizado para buscas orgânicas.",
+            },
+          },
+        ],
       },
     ],
   };

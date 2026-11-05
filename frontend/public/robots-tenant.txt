@@ -1,0 +1,5 @@
+# Domínio de assinante / tracking — não indexar (páginas de campanha e redirects).
+# O site público da plataforma é https://www.dclickora.com
+
+User-agent: *
+Disallow: /

@@ -39,6 +39,7 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { cn } from "@/lib/utils";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -934,11 +935,11 @@ export default function PresellDashboard() {
       return (
         <div className={APP_PAGE_SHELL}>
           <PageHeader
-            title="Sem permissão"
-            description="Precisa de permissão «presells:write» neste workspace."
+            title={t("pages.presells.noPermission")}
+            description={t("pages.presells.noPermissionDesc")}
             actions={
               <Button variant="outline" onClick={exitCreator}>
-                Voltar à lista
+                {t("pages.presells.backToPresells")}
               </Button>
             }
           />
@@ -952,12 +953,12 @@ export default function PresellDashboard() {
     return (
       <div className={APP_PAGE_SHELL}>
         <PageHeader
-          title={isEditing ? "Editar presell" : "Nova presell em 3 passos"}
+          title={isEditing ? t("pages.presells.editTitle") : t("pages.presells.newTitle")}
           description={
             isAdmin
               ? isEditing
-                ? "Nome, slug, tipo e links; espelho HTML editável com «Re-importar da URL»."
-                : "Importa conteúdo do URL da oferta; em 3 passos: URLs, tipo e slug /p/…"
+                ? t("pages.presells.editSubtitle")
+                : t("pages.presells.newSubtitle")
               : undefined
           }
           actions={
@@ -1598,17 +1599,17 @@ export default function PresellDashboard() {
     );
   }
 
-  if (isLoading) return <LoadingState message="A carregar as suas presells…" />;
-  if (isError) return <ErrorState message="Erro ao carregar presells." onRetry={() => refetch()} />;
+  if (isLoading) return <LoadingState message={t("pages.presells.loading")} />;
+  if (isError) return <ErrorState message={t("pages.presells.loadError")} onRetry={() => refetch()} />;
 
   if (pages.length === 0 && !isMetricsView) {
     return (
       <EmptyState
-        title="Nenhuma presell criada"
-        description="Crie a página em poucos passos. O tracking fica activo automaticamente."
-        actionLabel={canWritePresells ? "Criar presell" : undefined}
+        title={t("pages.presells.empty")}
+        description={t("pages.presells.emptyDesc")}
+        actionLabel={canWritePresells ? t("pages.presells.create") : undefined}
         onAction={canWritePresells ? () => navigate("/presells/nova") : undefined}
-        secondaryActionLabel={canWritePresells ? "Formulário rápido" : undefined}
+        secondaryActionLabel={canWritePresells ? t("pages.presells.quickForm") : undefined}
         secondaryOnAction={
           canWritePresells
             ? () => {
@@ -1626,13 +1627,13 @@ export default function PresellDashboard() {
     return (
       <div className={cn(APP_PAGE_SHELL, "space-y-6")}>
         <PageHeader
-          title="Métricas do script"
-          description="Impressões, cliques e conversões das presells com o script Clickora no head."
+          title={t("pages.presells.scriptMetrics")}
+          description={t("pages.presells.scriptMetricsDesc")}
           actions={
             <Button variant="outline" asChild className="gap-1">
               <Link to="/presells">
                 <ChevronLeft className="h-4 w-4" />
-                Voltar às presells
+                {t("pages.presells.backToPresells")}
               </Link>
             </Button>
           }
@@ -1648,13 +1649,13 @@ export default function PresellDashboard() {
               value="rastreamento"
               className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:max-w-[20rem] sm:text-center sm:text-sm sm:py-2"
             >
-              Rastreamento (script)
+              {t("pages.presells.tabTracking")}
             </TabsTrigger>
             <TabsTrigger
               value="pais"
               className="whitespace-normal px-3 py-2.5 text-left text-xs leading-snug sm:text-center sm:text-sm sm:py-2"
             >
-              Cliques por país
+              {t("pages.presells.tabCountry")}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="rastreamento" className="mt-4 outline-none">
@@ -1704,10 +1705,10 @@ export default function PresellDashboard() {
                 }}
                 className="gap-2"
               >
-                Formulário rápido
+                {t("pages.presells.quickForm")}
               </Button>
               <Button variant="outline" onClick={() => navigate("/presell/builder")} className="gap-2">
-                Editor manual
+                {t("pages.presells.manualEditor")}
               </Button>
             </div>
           ) : null
@@ -1716,20 +1717,19 @@ export default function PresellDashboard() {
 
       {isAdmin ? (
         <div className="rounded-xl border border-border/50 bg-muted/25 px-4 py-4 sm:px-5 text-sm text-muted-foreground space-y-2">
-          <p className="font-medium text-card-foreground">Por que presell?</p>
-          <p>
-            O anúncio leva à tua página intermédia — depois ao link da oferta — padrão comum para cumprir políticas de redes como o Google Ads.
-          </p>
+          <p className="font-medium text-card-foreground">{t("pages.presells.whyTitle")}</p>
+          <p>{t("pages.presells.whyBody")}</p>
           <p className="text-xs border-t border-border/50 pt-3 mt-3">
-            <span className="font-medium text-card-foreground">Importante:</span> aprovação depende das regras da rede; a dclickora não garante resultado.
+            <span className="font-medium text-card-foreground">{t("pages.presells.whyNote")}</span>
+            {t("pages.presells.whyNoteBody")}
           </p>
         </div>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border/50 bg-card p-3 sm:p-4">
-        <p className="text-sm text-muted-foreground shrink-0">{filteredPages.length} página(s) encontrada(s)</p>
+        <p className="text-sm text-muted-foreground shrink-0">{fill(t("pages.presells.pagesFound"), { n: filteredPages.length })}</p>
         <Input
-          placeholder="Buscar por nome da página"
+          placeholder={t("pages.presells.searchPlaceholder")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full min-w-0 sm:max-w-xs md:max-w-sm sm:ml-auto"
@@ -1737,10 +1737,11 @@ export default function PresellDashboard() {
       </div>
 
       <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/20 px-3 py-2 leading-relaxed">
-        <span className="font-medium text-card-foreground">URL para o Ads:</span> usa{" "}
-        <span className="font-medium text-card-foreground">Copiar URL Ads</span> — fica pronta a colar no anúncio. O
-        link da oferta fica no botão da página — não uses a página do produto no anúncio. Exportar HTML está em{" "}
-        <span className="font-medium text-card-foreground">Mais</span>.
+        <span className="font-medium text-card-foreground">{t("pages.presells.adsUrlHintLead")}</span>
+        {fill(t("pages.presells.adsUrlHint"), {
+          copy: t("pages.presells.copyAdsUrl"),
+          more: t("pages.presells.moreActions"),
+        })}
       </p>
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
@@ -1748,10 +1749,10 @@ export default function PresellDashboard() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nome da página</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Tipo da Presell</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Link público</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.presells.colName")}</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.presells.colType")}</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.presells.colPublicLink")}</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.presells.colStatus")}</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">
                   <Settings className="h-4 w-4 inline" />
                 </th>
@@ -1771,7 +1772,7 @@ export default function PresellDashboard() {
                         type="button"
                         onClick={() => startEditPresell(page)}
                         className="text-left hover:text-foreground hover:underline underline-offset-2 transition-colors"
-                        title="Alterar tipo e opções"
+                        title={t("pages.presells.changeType")}
                       >
                         {getPresellTypeLabel(page.type)}
                       </button>
@@ -1790,14 +1791,14 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => handleCopyAdsUrl(page)}
                           className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors inline-flex items-center gap-1"
-                          title="Copiar URL completa para colar no Google Ads"
+                          title={t("pages.presells.copyTrackedUrl")}
                         >
                           {copiedId === page.id ? (
                             <>
-                              <Check className="h-3 w-3" /> Copiada
+                              <Check className="h-3 w-3" /> {t("common.copied")}
                             </>
                           ) : (
-                            "Copiar URL Ads"
+                            t("pages.presells.copyAdsUrl")
                           )}
                         </button>
                       </div>
@@ -1810,13 +1811,13 @@ export default function PresellDashboard() {
                         onClick={() => toggleStatus(page)}
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
                       >
-                        {page.status === "published" ? "Publicada" : page.status === "draft" ? "Rascunho" : "Pausada"}
+                        {page.status === "published" ? t("pages.presells.statusPublished") : page.status === "draft" ? t("pages.presells.statusDraft") : t("pages.presells.statusPaused")}
                       </button>
                     ) : (
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${page.status === "published" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
                       >
-                        {page.status === "published" ? "Publicada" : page.status === "draft" ? "Rascunho" : "Pausada"}
+                        {page.status === "published" ? t("pages.presells.statusPublished") : page.status === "draft" ? t("pages.presells.statusDraft") : t("pages.presells.statusPaused")}
                       </span>
                     )}
                   </td>
@@ -1827,7 +1828,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => startEditPresell(page)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Alterar tipo e opções (link da oferta mantém-se)"
+                          title={t("pages.presells.changeType")}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -1837,7 +1838,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => navigate(`/presell/builder/${page.id}`)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Editar layout / conteúdo"
+                          title={t("pages.presells.editLayout")}
                         >
                           <LayoutGrid className="h-4 w-4" />
                         </button>
@@ -1860,7 +1861,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => navigate(dpilotAdsHandoffHref(adsFinalUrlForPage(page)))}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Anunciar no Google Ads com a URL rastreada"
+                          title={t("pages.presells.advertise")}
                         >
                           <Megaphone className="h-4 w-4" />
                         </button>
@@ -1870,7 +1871,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => duplicateMutation.mutate(page.id)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Duplicar"
+                          title={t("pages.presells.duplicate")}
                         >
                           <Copy className="h-4 w-4" />
                         </button>
@@ -1880,7 +1881,7 @@ export default function PresellDashboard() {
                           type="button"
                           onClick={() => handleDelete(page.id)}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                          title="Eliminar"
+                          title={t("common.delete")}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -1890,7 +1891,7 @@ export default function PresellDashboard() {
                           <button
                             type="button"
                             className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                            title="Mais ações"
+                            title={t("pages.presells.moreActions")}
                             aria-label="Mais ações"
                           >
                             <MoreHorizontal className="h-4 w-4" />

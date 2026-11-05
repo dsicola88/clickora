@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Search, RotateCcw, FileText, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import { apiClient } from "@/lib/apiClient";
 type LogEntry = { time: string; cat: string; msg: string };
 
 export default function Logs() {
+  const { t } = useAppLocale();
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("Todas");
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -74,18 +76,18 @@ export default function Logs() {
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         centered
-        title="Registos"
-        description="Eventos de tracking da sua conta (cliques, impressões, conversões)."
+        title={t("pages.logs.title")}
+        description={t("pages.logs.subtitle")}
       />
 
       <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
         <div className="p-4 border-b border-border flex flex-wrap items-end gap-4">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Data:</Label>
+            <Label className="text-xs text-muted-foreground">{t("pages.logs.date")}</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Categoria:</Label>
+            <Label className="text-xs text-muted-foreground">{t("pages.logs.category")}</Label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="w-48">
                 <SelectValue />

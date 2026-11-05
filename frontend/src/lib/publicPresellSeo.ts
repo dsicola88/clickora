@@ -206,9 +206,20 @@ export function toAbsolutePageUrl(pathOrUrl: string): string {
   }
 }
 
+/**
+ * Landers de campanha (ads / tracking) NÃO devem aparecer no Google/Bing/Edge.
+ * Indexação só com opt-in explícito no editor (`seo.allowSearchIndexing`).
+ */
 function robotsDirective(page: Presell): string {
   if (page.status !== "published") return "noindex, nofollow";
-  return "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+  if (page.type === "builder") {
+    const doc = parsePresellBuilderPageDocument(page.content);
+    const seo = doc?.seo;
+    if (seo?.allowSearchIndexing === true && seo?.noindex !== true) {
+      return "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+    }
+  }
+  return "noindex, nofollow";
 }
 
 export type PublicPresellHeadSnapshot = {

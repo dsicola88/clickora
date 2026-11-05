@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -100,6 +101,7 @@ function roleBadge(role: string) {
 }
 
 export default function AdminPanel() {
+  const { t } = useAppLocale();
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();

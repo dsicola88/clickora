@@ -1,0 +1,6 @@
+.venv-i18n/
+src/i18n/legacy/*.cjs
+src/i18n/legacy/missing-*.json
+src/i18n/legacy/still-missing.json
+src/i18n/legacy/pt-source.json
+src/i18n/legacy/pt-source.clean.json

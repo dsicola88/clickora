@@ -620,6 +620,7 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
     objective_nav_label: "Produto",
     objective_links: [
       { label: "Presell", href: "/presell-para-afiliados" },
+      { label: "Super Presell", href: "/super-presell" },
       { label: "Tracking", href: "/rastreamento-afiliados" },
       { label: "Preços", href: "/planos#planos" },
       { label: "Guia", href: "/guia-vendas-afiliados" },
@@ -628,9 +629,9 @@ export const DEFAULT_LANDING_EXTRAS: LandingExtras = {
     agency_banner_text: null,
     agency_banner_cta_label: null,
     agency_banner_href: "/agency",
-    seo_title: "dclickora — Presell, tracking e planos para afiliados",
+    seo_title: "dclickora — Super Presell, Tracking e Rastreamento para Afiliados",
     seo_description:
-      "Crie presells, prepare campanhas e rastreie vendas num só painel. Teste grátis sem cartão nesta página.",
+      "Crie super presell e páginas presell, faça tracking e rastreamento de conversões num só painel. Teste grátis sem cartão.",
   },
   promos: {
     sticky_bar: {

@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ function groupLessons(lessons: AcademyLesson[]) {
 }
 
 export default function LessonsPage() {
+  const { t } = useAppLocale();
   const [params, setParams] = useSearchParams();
   const selectedId = params.get("id");
 
@@ -49,7 +51,7 @@ export default function LessonsPage() {
     return (
       <div className={cn(APP_PAGE_SHELL, "max-w-xl py-10")}>
         <PageHeader
-          title="Aulas"
+          title={t("pages.lessons.title")}
           description={
             blocked
               ? "As aulas em vídeo fazem parte da assinatura activa."

@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
 import { applyMarketingAuthHead } from "@/lib/marketingSiteSeo";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -89,6 +90,7 @@ function MfaVerifyForm({
 }
 
 function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
+  const { t } = useAppLocale();
   const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
   const [mfa, setMfa] = useState<{ mfa_token: string; email: string } | null>(null);
@@ -159,7 +161,7 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <FieldError message={errors.password?.message} />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Processando..." : "Entrar"}
+        {loading ? t("common.loading") : t("auth.submit")}
       </Button>
     </form>
   );
@@ -306,6 +308,7 @@ function RecoveryFormComponent() {
 }
 
 export default function Auth() {
+  const { t } = useAppLocale();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const trialIntent =
@@ -330,7 +333,7 @@ export default function Auth() {
             <Zap className="h-4 w-4" /> dclickora
           </div>
           <h1 className="text-2xl font-bold text-foreground">
-            {mode === "login" && "Entrar na sua conta"}
+            {mode === "login" && t("auth.title")}
             {mode === "register" && (trialIntent ? "Começar o teste grátis" : "Criar sua conta")}
             {mode === "recovery" && "Recuperar senha"}
           </h1>

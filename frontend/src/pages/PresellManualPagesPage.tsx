@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ function sanitizeSlug(raw: string): string {
 }
 
 export default function PresellManualPagesPage() {
+  const { t } = useAppLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -227,7 +229,7 @@ export default function PresellManualPagesPage() {
   if (!tenantKey) {
     return (
       <div className={APP_PAGE_SHELL}>
-        <PageHeader title="Páginas criadas" description="Inicie sessão para ver as suas páginas." />
+        <PageHeader title={t("pages.manualPages.title")} description="Inicie sessão para ver as suas páginas." />
       </div>
     );
   }

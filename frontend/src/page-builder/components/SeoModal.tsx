@@ -152,15 +152,24 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
               />
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-1">
-              <label className="flex items-center gap-2 text-xs">
+            <div className="flex flex-col gap-2 pt-1">
+              <label className="flex items-start gap-2 text-xs leading-snug">
                 <input
                   type="checkbox"
-                  checked={seo.noindex ?? false}
-                  onChange={(e) => set("noindex", e.target.checked)}
-                  className="h-3.5 w-3.5 accent-editor-accent"
+                  checked={seo.allowSearchIndexing === true && seo.noindex !== true}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    set("allowSearchIndexing", on);
+                    set("noindex", on ? false : true);
+                  }}
+                  className="mt-0.5 h-3.5 w-3.5 accent-editor-accent"
                 />
-                Ocultar de buscadores (noindex)
+                <span>
+                  Permitir indexação nos buscadores (Google, Bing, Edge)
+                  <span className="mt-0.5 block text-[11px] text-editor-fg-muted">
+                    Desligado por defeito — landers de ads e domínios de assinantes não devem aparecer na pesquisa.
+                  </span>
+                </span>
               </label>
             </div>
           </div>

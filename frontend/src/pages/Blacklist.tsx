@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldBan, ShieldCheck, Search, Trash2, AlertTriangle, Bot, SlidersHorizontal } from "lucide-react";
@@ -17,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 
 export default function Blacklist() {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const intLocked = !userCanWriteIntegrations(user);
   const queryClient = useQueryClient();
@@ -77,7 +79,7 @@ export default function Blacklist() {
       return data;
     },
     onSuccess: () => {
-      toast.success("IP adicionado à blacklist.");
+      toast.success(t("pages.blacklist.toastAdded"));
       setNewIp("");
       void queryClient.invalidateQueries({ queryKey: ["integrations-blacklist"] });
     },
@@ -109,7 +111,7 @@ export default function Blacklist() {
       return data;
     },
     onSuccess: () => {
-      toast.success("Definições atualizadas.");
+      toast.success(t("pages.blacklist.toastSettings"));
       void queryClient.invalidateQueries({ queryKey: ["integrations-tracking-guards"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -125,7 +127,7 @@ export default function Blacklist() {
       return data;
     },
     onSuccess: () => {
-      toast.success("IP adicionado à whitelist.");
+      toast.success(t("pages.blacklist.toastWhitelist"));
       setNewWlIp("");
       setNewWlNote("");
       void queryClient.invalidateQueries({ queryKey: ["integrations-whitelist"] });
@@ -161,14 +163,14 @@ export default function Blacklist() {
     addWlMutation.mutate();
   };
 
-  if (isLoading || loadingGuards || loadingWl) return <LoadingState message="Carregando proteções de IP…" />;
+  if (isLoading || loadingGuards || loadingWl) return <LoadingState message={t("pages.blacklist.loading")} />;
 
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         centered
-        title="Proteções de tracking por IP"
-        description="Rate limit, permitidos, blacklist e regras opcionais (UA/bots); só IPv4."
+        title={t("pages.blacklist.title")}
+        description={t("pages.blacklist.subtitle")}
       />
 
       {intLocked ? (

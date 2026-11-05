@@ -14,16 +14,46 @@ import {
   translate,
   type MessageKey,
 } from "./index";
+import { translateLegacyPt } from "./legacyBridge";
 import type { AppLocale } from "./types";
 import { APP_LOCALE_STORAGE_KEY } from "./types";
 import type { AppMessages } from "./messages/en";
+import { toast } from "sonner";
 
 type AppLocaleContextValue = {
   locale: AppLocale;
   setLocale: (next: AppLocale) => void;
   t: (key: MessageKey) => string;
+  /** Translate a leftover Portuguese UI literal for the active locale. */
+  tx: (portugueseText: string) => string;
   m: AppMessages;
 };
+
+type ToastFn = typeof toast.success;
+let toastPatched = false;
+const toastOriginals: Partial<Record<"success" | "error" | "message" | "warning" | "info", ToastFn>> = {};
+
+function patchToast(tx: (s: string) => string) {
+  const wrap =
+    (orig: ToastFn): ToastFn =>
+    (message, data) => {
+      if (typeof message === "string") return orig(tx(message), data);
+      return orig(message, data);
+    };
+  if (!toastPatched) {
+    toastOriginals.success = toast.success.bind(toast);
+    toastOriginals.error = toast.error.bind(toast);
+    toastOriginals.message = toast.message.bind(toast);
+    toastOriginals.warning = toast.warning.bind(toast);
+    toastOriginals.info = toast.info.bind(toast);
+    toastPatched = true;
+  }
+  toast.success = wrap(toastOriginals.success!);
+  toast.error = wrap(toastOriginals.error!);
+  toast.message = wrap(toastOriginals.message!);
+  toast.warning = wrap(toastOriginals.warning!);
+  toast.info = wrap(toastOriginals.info!);
+}
 
 const AppLocaleContext = createContext<AppLocaleContextValue | null>(null);
 
@@ -44,15 +74,22 @@ export function AppLocaleProvider({ children }: { children: ReactNode }) {
     applyDocumentLocale(next);
   }, []);
 
+  const tx = useCallback((portugueseText: string) => translateLegacyPt(locale, portugueseText), [locale]);
+
+  useEffect(() => {
+    patchToast(tx);
+  }, [tx]);
+
   const value = useMemo<AppLocaleContextValue>(() => {
     const m = messagesFor(locale);
     return {
       locale,
       setLocale,
       t: (key) => translate(locale, key),
+      tx,
       m,
     };
-  }, [locale, setLocale]);
+  }, [locale, setLocale, tx]);
 
   return <AppLocaleContext.Provider value={value}>{children}</AppLocaleContext.Provider>;
 }

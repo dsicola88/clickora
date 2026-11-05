@@ -14,11 +14,12 @@ export {
   htmlLangForAppLocale,
 } from "./types";
 
+/** Locale catalogs share leaf keys with `en`; values differ by language (widen from `as const`). */
 const catalogs: Record<AppLocale, AppMessages> = {
   en,
-  pt,
-  "pt-BR": ptBR,
-  es,
+  pt: pt as unknown as AppMessages,
+  "pt-BR": ptBR as unknown as AppMessages,
+  es: es as unknown as AppMessages,
 };
 
 export function normalizeAppLocale(raw: string | null | undefined): AppLocale {

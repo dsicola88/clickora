@@ -1,19 +1,38 @@
 import { Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   clearCachedRootPresellId,
   writeCachedRootPresellId,
 } from "@/lib/customDomainRootPresellCache";
+import { ROBOTS_NOINDEX, isMainMarketingHostname } from "@/lib/seoHostPolicy";
 import { presellService } from "@/services/presellService";
 import Plans from "@/pages/Plans";
 
 /** Hosts onde a raiz `/` mostra a landing de planos (site principal ou dev/preview). */
 function isMainProductHostname(hostname: string): boolean {
-  const h = hostname.toLowerCase().split(":")[0];
-  if (h === "localhost" || h === "127.0.0.1") return true;
-  if (h.endsWith(".vercel.app")) return true;
-  return h === "dclickora.com" || h === "www.dclickora.com";
+  return isMainMarketingHostname(hostname);
+}
+
+/** Domínios de assinantes / tracking: nunca indexar (Google, Bing, Edge). */
+function useTenantNoindexHead() {
+  useEffect(() => {
+    const prev =
+      document.querySelector('meta[name="robots"]')?.getAttribute("content") ?? null;
+    let el = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    if (!el) {
+      el = document.createElement("meta");
+      el.setAttribute("name", "robots");
+      document.head.appendChild(el);
+    }
+    el.setAttribute("content", ROBOTS_NOINDEX);
+    document.title = document.title?.trim() ? document.title : "\u00A0";
+    return () => {
+      if (prev == null) el?.remove();
+      else el?.setAttribute("content", prev);
+    };
+  }, []);
 }
 
 /**
@@ -21,6 +40,7 @@ function isMainProductHostname(hostname: string): boolean {
  * Várias presells no mesmo domínio → a mais recentemente atualizada.
  */
 function CustomDomainRootRedirect() {
+  useTenantNoindexHead();
   const mainSite =
     import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
 

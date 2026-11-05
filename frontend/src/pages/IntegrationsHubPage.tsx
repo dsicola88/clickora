@@ -23,6 +23,59 @@ import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import type { MessageKey } from "@/i18n";
+
+function fill(template: string, vars: Record<string, string | number>) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
+    template,
+  );
+}
+
+const STEP_DEFS = [
+  {
+    id: "presell_published",
+    href: "/presells/nova",
+    titleKey: "pages.integrations.stepPresell" as MessageKey,
+    descKey: "pages.integrations.stepPresellDesc" as MessageKey,
+  },
+  {
+    id: "postback_configured",
+    href: "/integracoes/postback",
+    titleKey: "pages.integrations.stepPostback" as MessageKey,
+    descKey: "pages.integrations.stepPostbackDesc" as MessageKey,
+  },
+  {
+    id: "campaign_linked",
+    href: "/campanhas",
+    titleKey: "pages.integrations.stepCampaign" as MessageKey,
+    descKey: "pages.integrations.stepCampaignDesc" as MessageKey,
+  },
+  {
+    id: "google_ads",
+    href: "/integracoes/google-ads",
+    titleKey: "pages.integrations.stepGoogle" as MessageKey,
+    descKey: "pages.integrations.stepGoogleDesc" as MessageKey,
+  },
+  {
+    id: "cost_sync",
+    href: "/integracoes/automizer",
+    titleKey: "pages.integrations.stepCosts" as MessageKey,
+    descKey: "pages.integrations.stepCostsDesc" as MessageKey,
+  },
+  {
+    id: "ads_upload",
+    href: "/resultados/relatorios/conversoes",
+    titleKey: "pages.integrations.stepAdsUpload" as MessageKey,
+    descKey: "pages.integrations.stepAdsUploadDesc" as MessageKey,
+  },
+  {
+    id: "domain_https",
+    href: "/configuracoes",
+    titleKey: "pages.integrations.stepDomain" as MessageKey,
+    descKey: "pages.integrations.stepDomainDesc" as MessageKey,
+  },
+] as const;
 
 /**
  * Hub Integrações — go-live operativo para media buyers.
@@ -50,50 +103,6 @@ export default function IntegrationsHubPage() {
       : "";
 
   const health = dash?.account_health;
-  const steps = [
-    {
-      t: "Presell publicada",
-      id: "presell_published",
-      href: "/presells/nova",
-      d: "Página no ar com o link da oferta no botão.",
-    },
-    {
-      t: "Aviso de venda",
-      id: "postback_configured",
-      href: "/integracoes/postback",
-      d: "URL de aviso colado na BuyGoods / SmartAdv / Digistore.",
-    },
-    {
-      t: "Campanha + URL do anúncio",
-      id: "campaign_linked",
-      href: "/campanhas",
-      d: "URL gerada pela Clickora colada no Google Ads.",
-    },
-    {
-      t: "Google Ads ligado",
-      id: "google_ads",
-      href: "/integracoes/google-ads",
-      d: "Custos e vendas enviados automaticamente.",
-    },
-    {
-      t: "Custos actualizados",
-      id: "cost_sync",
-      href: "/integracoes/automizer",
-      d: "Última sincronização há menos de 48h — senão o lucro fica incompleto.",
-    },
-    {
-      t: "Envios às redes de anúncios",
-      id: "ads_upload",
-      href: "/resultados/relatorios/conversoes",
-      d: "Erros de envio ou vendas sem ID do clique nos últimos 7 dias.",
-    },
-    {
-      t: "Domínio com cadeado HTTPS",
-      id: "domain_https",
-      href: "/configuracoes",
-      d: "O link do anúncio deve abrir em HTTPS (DNS sozinho não chega).",
-    },
-  ] as const;
 
   return (
     <div className={PRO_PAGE_SHELL}>
@@ -103,7 +112,10 @@ export default function IntegrationsHubPage() {
         meta={
           health ? (
             <>
-              <ProStatusDot ok={health.score >= 85} label={`Saúde ${health.score}%`} />
+              <ProStatusDot
+                ok={health.score >= 85}
+                label={fill(t("pages.integrations.healthScore"), { n: health.score })}
+              />
               <ProInlineLink to="/resultados">{t("pages.results.title")}</ProInlineLink>
             </>
           ) : null
@@ -119,8 +131,9 @@ export default function IntegrationsHubPage() {
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <ProPanel title={t("pages.integrations.goLive")} description={t("pages.integrations.goLiveDesc")}>
           <ol className="divide-y divide-border/50">
-            {steps.map((s, i) => {
+            {STEP_DEFS.map((s, i) => {
               const check = health?.checks.find((c) => c.id === s.id);
+              const title = t(s.titleKey);
               return (
                 <li key={s.id} className="flex gap-3 px-4 py-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-semibold tabular-nums text-muted-foreground">
@@ -131,19 +144,19 @@ export default function IntegrationsHubPage() {
                       {check == null ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                           <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" aria-hidden />
-                          {s.t}
+                          {title}
                         </span>
                       ) : (
-                        <ProStatusDot ok={check.ok} label={s.t} />
+                        <ProStatusDot ok={check.ok} label={title} />
                       )}
                       {check?.ok === false ? (
                         <Link to={s.href} className="text-[11px] font-medium text-primary hover:underline">
-                          Resolver
+                          {t("common.resolve")}
                         </Link>
                       ) : null}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-                      {check?.detail || s.d}
+                      {check?.detail || t(s.descKey)}
                     </p>
                   </div>
                 </li>
@@ -156,10 +169,9 @@ export default function IntegrationsHubPage() {
           <div className="rounded-lg border border-border/70 bg-card p-4 space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-foreground">Som de venda</p>
+                <p className="text-sm font-semibold text-foreground">{t("pages.integrations.saleChime")}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                  Ligado neste aparelho. O som escolhe-se em Plataformas → Som da venda; o push e a app usam o mesmo. E-mail e
-                  cartão saem com o browser fechado.
+                  {t("pages.integrations.saleChimeDesc")}
                 </p>
               </div>
               <Switch
@@ -168,7 +180,7 @@ export default function IntegrationsHubPage() {
                   setSaleChimeEnabled(on);
                   setSaleChimeOn(on);
                 }}
-                aria-label="Som de venda"
+                aria-label={t("pages.integrations.saleChime")}
               />
             </div>
             <Button
@@ -178,11 +190,11 @@ export default function IntegrationsHubPage() {
               disabled={!saleChimeOn}
               onClick={() => {
                 void playSaleChime().then((ok) => {
-                  if (!ok) toast.error("O browser bloqueou o som. Clique outra vez em Ouvir agora.");
+                  if (!ok) toast.error(t("pages.integrations.saleChimeBlocked"));
                 });
               }}
             >
-              Ouvir agora
+              {t("pages.integrations.saleChimeListen")}
             </Button>
           </div>
           <div className="space-y-3">
@@ -194,9 +206,9 @@ export default function IntegrationsHubPage() {
                 <Plug className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Postback (obrigatório)</p>
+                <p className="text-sm font-semibold text-foreground">{t("pages.integrations.postbackCard")}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                  BuyGoods, SmartAdv, Digistore24 e outras redes.
+                  {t("pages.integrations.postbackCardDesc")}
                 </p>
               </div>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -204,9 +216,9 @@ export default function IntegrationsHubPage() {
             <PostbackMacroChecklist compact postbackUrl={postbackUrl || undefined} />
             {dashError ? (
               <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                Não foi possível carregar o health da conta.{" "}
+                {t("pages.integrations.healthLoadError")}{" "}
                 <button type="button" className="underline" onClick={() => void refetchDash()}>
-                  Tentar novamente
+                  {t("common.retry")}
                 </button>
               </p>
             ) : null}
@@ -221,13 +233,13 @@ export default function IntegrationsHubPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                Google Ads
+                {t("pages.integrations.googleCard")}
                 <Badge variant="secondary" className="text-[10px]">
-                  1 clique
+                  {t("pages.integrations.googleBadge")}
                 </Badge>
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                OAuth desta conta: sync de custos + upload GCLID (não cria campanhas).
+                {t("pages.integrations.googleCardDesc")}
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -242,13 +254,13 @@ export default function IntegrationsHubPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                Pixels Meta e TikTok
+                {t("pages.integrations.pixelsCard")}
                 <Badge variant="secondary" className="text-[10px]">
-                  Pixels
+                  {t("pages.integrations.pixelsBadge")}
                 </Badge>
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Envia a venda à Meta e ao TikTok depois do aviso da rede.
+                {t("pages.integrations.pixelsCardDesc")}
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -263,13 +275,13 @@ export default function IntegrationsHubPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                Automizer &amp; custos
+                {t("pages.integrations.automizerCard")}
                 <Badge variant="secondary" className="text-[10px]">
-                  Pro
+                  {t("pages.integrations.automizerBadge")}
                 </Badge>
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Actualiza custos e pausa palavras-chave sem vendas.
+                {t("pages.integrations.automizerCardDesc")}
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -283,9 +295,9 @@ export default function IntegrationsHubPage() {
               <ShieldCheck className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">Envio Google / Meta / TikTok</p>
+              <p className="text-sm font-semibold text-foreground">{t("pages.integrations.legacyCard")}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Envio avançado às redes — depois do aviso de venda estável.
+                {t("pages.integrations.legacyCardDesc")}
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
@@ -300,9 +312,9 @@ export default function IntegrationsHubPage() {
                 <Megaphone className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">dPilot Ads</p>
+                <p className="text-sm font-semibold text-foreground">{t("pages.integrations.dpilotCard")}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                  Criar/publicar campanhas Search — OAuth próprio em dPilot → Ligações (separado do sync de custos).
+                  {t("pages.integrations.dpilotCardDesc")}
                 </p>
               </div>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />

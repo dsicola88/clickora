@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { type CSSProperties, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -47,6 +48,7 @@ import { SalesLandingPromoOverlays } from "@/components/plans/SalesLandingPromoO
 import { DEFAULT_SALES_LANDING_PROMOS } from "@/lib/salesLandingPromos";
 
 export default function Plans() {
+  const { t } = useAppLocale();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user, userPlan, isSuperAdmin } = useAuth();

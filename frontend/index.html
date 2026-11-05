@@ -16,9 +16,34 @@
       (function () {
         try {
           var p = location.pathname || "";
+          var host = (location.hostname || "").toLowerCase();
           var isPresell = /^\/p\/[^/]+/.test(p);
+          var isMainHost =
+            host === "dclickora.com" ||
+            host === "www.dclickora.com" ||
+            host === "localhost" ||
+            host === "127.0.0.1" ||
+            /\.vercel\.app$/.test(host);
+          // Landers e domínios de assinantes: noindex imediato (antes do React / bots sem JS).
+          if (isPresell || !isMainHost) {
+            var robotsEl = document.querySelector('meta[name="robots"]');
+            if (robotsEl) robotsEl.setAttribute("content", "noindex, nofollow");
+            else {
+              robotsEl = document.createElement("meta");
+              robotsEl.setAttribute("name", "robots");
+              robotsEl.setAttribute("content", "noindex, nofollow");
+              document.head.appendChild(robotsEl);
+            }
+            var googlebot = document.querySelector('meta[name="googlebot"]');
+            if (!googlebot) {
+              googlebot = document.createElement("meta");
+              googlebot.setAttribute("name", "googlebot");
+              document.head.appendChild(googlebot);
+            }
+            googlebot.setAttribute("content", "noindex, nofollow");
+          }
           // Fontes só na app — em /p/ bloqueiam LCP; landers usam stack do sistema.
-          if (!isPresell) {
+          if (!isPresell && isMainHost) {
             var pre1 = document.createElement("link");
             pre1.rel = "preconnect";
             pre1.href = "https://fonts.googleapis.com";
@@ -34,7 +59,7 @@
               "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap";
             document.head.appendChild(fontCss);
           }
-          if (isPresell) {
+          if (isPresell || !isMainHost) {
             document.title = "\u00A0";
             document
               .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
@@ -43,9 +68,15 @@
               });
             var appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
             if (appTitle && appTitle.parentNode) appTitle.parentNode.removeChild(appTitle);
+            document
+              .querySelectorAll(
+                'meta[name="description"], meta[property="og:title"], meta[property="og:description"], meta[name="twitter:title"], meta[name="twitter:description"]',
+              )
+              .forEach(function (el) {
+                el.setAttribute("content", "");
+              });
             try {
-              var host = location.hostname;
-              if (host !== "localhost" && host !== "127.0.0.1") {
+              if (isPresell && host !== "localhost" && host !== "127.0.0.1") {
                 var seg = "";
                 try {
                   seg = decodeURIComponent((p.split("/")[2] || "").replace(/\/+$/, ""));
@@ -88,17 +119,20 @@
         } catch (e) {}
       })();
     </script>
-    <title>dclickora — Presell pages, rastreamento de conversões e ferramenta para afiliados</title>
-    <meta name="description" content="Crie presell pages profissionais, rastreie cliques, leads e vendas com links rastreados. Plataforma de tracking, conversões e gestão de URLs para marketing de afiliados digitais." />
+    <title>dclickora — Super Presell, Tracking e Rastreamento de Conversões para Afiliados</title>
+    <meta name="description" content="Crie super presell e páginas presell que convertem, com tracking e rastreamento de cliques, leads e vendas. Ferramenta de afiliados com links rastreados, UTMs e relatórios em tempo real." />
+    <meta name="keywords" content="super presell, presell, tracking, rastreamento, rastreamento de conversões, click tracker, ferramenta para afiliados, links rastreados, UTM, postback, media buyer" />
     <meta name="author" content="dclickora" />
-    <meta property="og:title" content="dclickora — Presell pages, rastreamento de conversões e ferramenta para afiliados" />
-    <meta property="og:description" content="Crie presell pages profissionais, rastreie cliques, leads e vendas com links rastreados. Plataforma de tracking, conversões e gestão de URLs para marketing de afiliados digitais." />
+    <meta property="og:title" content="dclickora — Super Presell, Tracking e Rastreamento de Conversões para Afiliados" />
+    <meta property="og:description" content="Crie super presell e páginas presell que convertem, com tracking e rastreamento de cliques, leads e vendas. Ferramenta de afiliados com links rastreados, UTMs e relatórios em tempo real." />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="dclickora" />
     <meta property="og:image" content="/placeholder.svg" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="dclickora — Presell pages, rastreamento de conversões e ferramenta para afiliados" />
-    <meta name="twitter:description" content="Crie presell pages profissionais, rastreie cliques, leads e vendas com links rastreados. Plataforma de tracking, conversões e gestão de URLs para marketing de afiliados digitais." />
+    <meta name="twitter:title" content="dclickora — Super Presell, Tracking e Rastreamento de Conversões para Afiliados" />
+    <meta name="twitter:description" content="Crie super presell e páginas presell que convertem, com tracking e rastreamento de cliques, leads e vendas. Ferramenta de afiliados com links rastreados, UTMs e relatórios em tempo real." />
     <meta name="twitter:image" content="/placeholder.svg" />
   </head>
 

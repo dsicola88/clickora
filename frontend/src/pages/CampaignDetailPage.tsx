@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, ChevronDown } from "lucide-react";
@@ -31,14 +32,15 @@ function money(n: number | null | undefined) {
   return n.toLocaleString("pt-PT", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
-function statusLabel(s: string) {
-  if (s === "active") return "Activa";
-  if (s === "draft") return "Rascunho";
-  if (s === "paused") return "Pausada";
+function statusLabel(s: string, t: (k: import("@/i18n").MessageKey) => string) {
+  if (s === "active") return t("pages.campaigns.statusActive");
+  if (s === "draft") return t("pages.campaigns.statusDraft");
+  if (s === "paused") return t("pages.campaigns.statusPaused");
   return s;
 }
 
 export default function CampaignDetailPage() {
+  const { t } = useAppLocale();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -98,12 +100,12 @@ export default function CampaignDetailPage() {
   if (isLoading) {
     return (
       <div className={PRO_PAGE_SHELL}>
-        <LoadingState message="A carregar campanha…" />
+        <LoadingState message={t("pages.campaignDetail.loading")} />
       </div>
     );
   }
   if (isError || !campaign) {
-    return <ErrorState message="Campanha não encontrada." onRetry={() => refetch()} />;
+    return <ErrorState message={t("pages.campaignDetail.loadError")} onRetry={() => refetch()} />;
   }
 
   const presellIsPublic = campaign.presell?.status === "published";
@@ -148,7 +150,7 @@ export default function CampaignDetailPage() {
         subtitle={`${campaign.traffic_source}${campaign.country ? ` · ${campaign.country}` : ""} · stats por utm_campaign slug`}
         meta={
           <>
-            <ProStatusDot ok={campaign.status === "active"} label={statusLabel(campaign.status)} />
+            <ProStatusDot ok={campaign.status === "active"} label={statusLabel(campaign.status, t)} />
             <span className="font-mono tabular-nums">
               {from} → {to}
             </span>
@@ -190,9 +192,9 @@ export default function CampaignDetailPage() {
       </ProToolbar>
 
       <ProKpiGrid>
-        <ProKpiCell label="Cliques" value={String(stats?.clicks ?? 0)} />
-        <ProKpiCell label="Conversões" value={String(stats?.conversions ?? 0)} />
-        <ProKpiCell label="Receita" value={money(stats?.revenue)} />
+        <ProKpiCell label={t("common.clicks")} value={String(stats?.clicks ?? 0)} />
+        <ProKpiCell label={t("common.sales")} value={String(stats?.conversions ?? 0)} />
+        <ProKpiCell label={t("common.revenue")} value={money(stats?.revenue)} />
         <ProKpiCell
           label="CVR"
           value={`${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`}

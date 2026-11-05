@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, NavLink, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -799,11 +800,12 @@ function PostbacksPage() {
 }
 
 export default function TrackingTools() {
+  const { t } = useAppLocale();
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Ferramentas de rastreio"
-        description="Diagnóstico (IP, GCLID, clique, postbacks); não substitui Relatórios nem Analytics."
+        title={t("pages.trackingTools.title")}
+        description={t("pages.trackingTools.subtitle")}
       />
       <ToolsSubNav />
       <Routes>

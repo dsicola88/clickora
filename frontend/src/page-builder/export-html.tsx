@@ -28,7 +28,7 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
   const favicon = seo.favicon ?? "";
   const keywords = seo.keywords ?? "";
   const canonical = seo.canonicalUrl ?? "";
-  const noindex = seo.noindex ?? false;
+  const allowIndex = seo.allowSearchIndexing === true && seo.noindex !== true;
   const twitterCard = ogImage ? "summary_large_image" : "summary";
 
   const metaTags: string[] = [
@@ -38,7 +38,7 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
   ];
   if (description) metaTags.push(`<meta name="description" content="${escapeHtml(description)}" />`);
   if (keywords) metaTags.push(`<meta name="keywords" content="${escapeHtml(keywords)}" />`);
-  if (noindex) metaTags.push(`<meta name="robots" content="noindex,nofollow" />`);
+  if (!allowIndex) metaTags.push(`<meta name="robots" content="noindex,nofollow" />`);
   else
     metaTags.push(
       `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BarChart3, Bot, Building2, Link2, RefreshCw, Settings2, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -894,11 +895,12 @@ function GoogleAdsInsightsPanel() {
 }
 
 export default function Analytics() {
+  const { t } = useAppLocale();
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Análises"
-        description="Presells no dclickora e relatórios Google Ads (mesmo período por ecrã)."
+        title={t("pages.analytics.title")}
+        description={t("pages.analytics.subtitle")}
       />
 
       <AnalyticsSectionNav />

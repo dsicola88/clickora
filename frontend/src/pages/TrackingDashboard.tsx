@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
@@ -1482,6 +1483,7 @@ const GOOGLE_ADS_OAUTH_ERROR_HINTS: Record<string, string> = {
 };
 
 export default function TrackingDashboard() {
+  const { t } = useAppLocale();
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();

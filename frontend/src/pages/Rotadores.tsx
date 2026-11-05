@@ -61,6 +61,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWriteRotators } from "@/lib/workspaceCapabilities";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 
 function slugify(s: string): string {
   return s
@@ -81,6 +82,7 @@ function parseIsoList(raw: string): string[] | null {
 }
 
 function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate: boolean }) {
+  const { t } = useAppLocale();
   const [open, setOpen] = useState(false);
   const [lookback, setLookback] = useState(30);
   const [metric, setMetric] = useState<"conversion_rate" | "revenue">("conversion_rate");
@@ -111,7 +113,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
       qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
       qc.invalidateQueries({ queryKey: ["traffic-rotator-ab-stats", rotatorId] });
       const label = payload?.winner_label?.trim() || payload?.winner_arm_id?.slice(0, 8) || "—";
-      toast.success(`Vencedor: ${label}. Tráfego concentrado neste braço (peso 100; restantes 0).`);
+      toast.success(fill(t("pages.rotators.abWinnerToast"), { label }));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -127,7 +129,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
         >
           <span className="inline-flex items-center gap-2">
             <Trophy className="h-3.5 w-3.5 opacity-70" />
-            Teste A/B — estatísticas e promover vencedor
+            {t("pages.rotators.abTitle")}
           </span>
           {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
@@ -135,7 +137,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
       <CollapsibleContent className="space-y-3 pt-2">
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Dias de histórico</Label>
+            <Label className="text-[11px] text-muted-foreground">{t("pages.rotators.abLookback")}</Label>
             <Input
               type="number"
               min={1}
@@ -146,14 +148,14 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Métrica do vencedor</Label>
+            <Label className="text-[11px] text-muted-foreground">{t("pages.rotators.abMetric")}</Label>
             <Select value={metric} onValueChange={(v) => setMetric(v as "conversion_rate" | "revenue")}>
               <SelectTrigger className="h-8 w-[200px] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="conversion_rate">Taxa de conversão (conversões / cliques)</SelectItem>
-                <SelectItem value="revenue">Receita (soma de conversões)</SelectItem>
+                <SelectItem value="conversion_rate">{t("pages.rotators.abMetricCvr")}</SelectItem>
+                <SelectItem value="revenue">{t("pages.rotators.abMetricRevenue")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -165,13 +167,13 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
             onClick={() => refetch()}
             disabled={isFetching}
           >
-            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Actualizar"}
+            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("common.refresh")}
           </Button>
         </div>
         {isLoading ? (
-          <p className="text-xs text-muted-foreground">A carregar…</p>
+          <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
         ) : isError ? (
-          <p className="text-xs text-destructive">Não foi possível carregar estatísticas.</p>
+          <p className="text-xs text-destructive">{t("pages.rotators.abLoadError")}</p>
         ) : data ? (
           <>
             <p className="text-[11px] text-muted-foreground">
@@ -182,12 +184,12 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-muted/30 text-muted-foreground">
-                    <th className="py-1.5 px-2 font-medium">Braço</th>
-                    <th className="py-1.5 px-2 font-medium">Peso</th>
-                    <th className="py-1.5 px-2 font-medium">Cliques</th>
-                    <th className="py-1.5 px-2 font-medium">Conv.</th>
-                    <th className="py-1.5 px-2 font-medium">Tx</th>
-                    <th className="py-1.5 px-2 font-medium">Receita</th>
+                    <th className="py-1.5 px-2 font-medium">{t("pages.rotators.abArm")}</th>
+                    <th className="py-1.5 px-2 font-medium">{t("pages.rotators.abWeight")}</th>
+                    <th className="py-1.5 px-2 font-medium">{t("pages.rotators.abClicks")}</th>
+                    <th className="py-1.5 px-2 font-medium">{t("pages.rotators.abConv")}</th>
+                    <th className="py-1.5 px-2 font-medium">{t("pages.rotators.abRate")}</th>
+                    <th className="py-1.5 px-2 font-medium">{t("pages.rotators.abRevenue")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -209,8 +211,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
               </table>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              <strong className="text-foreground/90">Promover vencedor</strong> ajusta o modo para ponderado, define o
-              braço vencedor com peso 100 e os outros com 0 (sem tráfego). Pode editar de novo no diálogo do rotador.
+              {t("pages.rotators.abPromoteHint")}
             </p>
             <Button
               type="button"
@@ -219,9 +220,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
               disabled={!canMutate || promoteMut.isPending}
               onClick={() => {
                 if (
-                  !confirm(
-                    "Concentrar 100% do tráfego no braço vencedor? Só entram braços com ≥ 50 cliques no período (evita crownear sem amostra).",
-                  )
+                  !confirm(t("pages.rotators.abPromoteConfirm"))
                 ) {
                   return;
                 }
@@ -229,7 +228,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
               }}
             >
               {promoteMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trophy className="h-3.5 w-3.5" />}
-              Aplicar vencedor
+              {t("pages.rotators.abPromote")}
             </Button>
           </>
         ) : null}
@@ -438,7 +437,7 @@ export default function Rotadores() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
-      toast.success("Rotador criado.");
+      toast.success(t("pages.rotators.toastCreated"));
       setDialogOpen(false);
       resetForm();
     },
@@ -453,7 +452,7 @@ export default function Rotadores() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
-      toast.success("Rotador actualizado.");
+      toast.success(t("pages.rotators.toastUpdated"));
       setDialogOpen(false);
       resetForm();
     },
@@ -467,7 +466,7 @@ export default function Rotadores() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
-      toast.success("Rotador removido.");
+      toast.success(t("pages.rotators.toastDeleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -480,7 +479,7 @@ export default function Rotadores() {
   const submit = () => {
     const armPayload = armsToPayload(arms);
     if (!name.trim() || !slug.trim() || !contextPresellId || !armPayload) {
-      toast.error("Preencha nome, slug, presell de contexto e pelo menos um URL de destino válido.");
+      toast.error(t("pages.rotators.toastFillRequired"));
       return;
     }
     const badPaths = [
@@ -555,7 +554,7 @@ export default function Rotadores() {
   const copyUrl = async (url: string, id: string) => {
     await navigator.clipboard.writeText(url);
     setCopiedId(id);
-    toast.success("URL copiado.");
+    toast.success(t("pages.rotators.toastCopied"));
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -582,35 +581,32 @@ export default function Rotadores() {
 
       {!canWriteRotators ? (
         <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">
-          O seu papel neste workspace é <strong>só leitura</strong>: pode copiar e abrir links públicos; criar, editar ou eliminar
-          rotadores requer permissão de membro ou superior.
+          {t("pages.rotators.readOnlyBanner")}
         </div>
       ) : null}
 
       <div className="rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 text-sm mb-4 space-y-2">
-        <p className="font-medium text-foreground text-sm">Casos de uso enterprise</p>
+        <p className="font-medium text-foreground text-sm">{t("pages.rotators.useCasesTitle")}</p>
         <ul className="text-xs text-muted-foreground leading-relaxed list-disc pl-4 space-y-1">
           <li>
-            <strong className="text-foreground/90">Teste A/B:</strong> modo <em>ponderado</em> 50/50 (ou 70/30) entre
-            páginas de vendas; estatísticas + «Promover vencedor».
+            <strong className="text-foreground/90">{t("pages.rotators.useCaseAbLead")}</strong>
+            {t("pages.rotators.useCaseAb")}
           </li>
           <li>
-            <strong className="text-foreground/90">WhatsApp / atendimento:</strong> modo <em>sequencial</em> com vários{" "}
-            <span className="font-mono">wa.me/…</span> — rodízio igual entre vendedores.
+            <strong className="text-foreground/90">{t("pages.rotators.useCaseWaLead")}</strong>
+            {t("pages.rotators.useCaseWa")}
           </li>
           <li>
-            <strong className="text-foreground/90">Ofertas afiliado:</strong> vários hoplinks; compare conversão/receita
-            na tabela A/B.
+            <strong className="text-foreground/90">{t("pages.rotators.useCaseOfferLead")}</strong>
+            {t("pages.rotators.useCaseOffer")}
           </li>
           <li>
-            <strong className="text-foreground/90">Contingência:</strong> defina <em>URL de recurso</em>. Se um destino
-            HTTP cair (5xx/timeout/404), o rotador falha automaticamente para outro braço ou para o recurso — sem
-            desperdiçar cliques de anúncio.
+            <strong className="text-foreground/90">{t("pages.rotators.useCaseBackupLead")}</strong>
+            {t("pages.rotators.useCaseBackup")}
           </li>
         </ul>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Anúncio → <strong className="text-foreground/90">link do rotador</strong> (gclid/utm/subs estilo Voluum) →
-          destino. Cliques e conversões ligam-se à presell de contexto.
+          {t("pages.rotators.flowHint")}
         </p>
       </div>
 
@@ -621,7 +617,7 @@ export default function Rotadores() {
       ) : rotators.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
           <Shuffle className="h-10 w-10 mx-auto mb-3 opacity-50" />
-          <p>Ainda não há rotadores. Crie um para testar A/B ou rotação por país/dispositivo.</p>
+          <p>{t("pages.rotators.empty")}</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -655,12 +651,12 @@ export default function Rotadores() {
                   onClick={() => copyUrl(r.public_click_url, r.id)}
                 >
                   {copiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  Copiar link
+                  {t("pages.rotators.copyLink")}
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" asChild>
                   <a href={r.public_click_url} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Abrir
+                    {t("common.open")}
                   </a>
                 </Button>
                 {canWriteRotators ? (
@@ -672,7 +668,7 @@ export default function Rotadores() {
                     onClick={() => openEdit(r)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                    Editar
+                    {t("common.edit")}
                   </Button>
                 ) : null}
                 {canWriteRotators ? (
@@ -682,7 +678,7 @@ export default function Rotadores() {
                     size="sm"
                     className="h-8 text-xs text-destructive gap-1"
                     onClick={() => {
-                      if (confirm("Eliminar este rotador? Os cliques já registados mantêm-se nos relatórios.")) {
+                      if (confirm(t("pages.rotators.deleteConfirm"))) {
                         deleteMut.mutate(r.id);
                       }
                     }}
@@ -715,24 +711,24 @@ export default function Rotadores() {
       <Dialog open={dialogOpen} onOpenChange={(o) => !busy && setDialogOpen(o)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar rotador" : "Novo rotador"}</DialogTitle>
+            <DialogTitle>{editing ? t("pages.rotators.dialogEdit") : t("pages.rotators.dialogNew")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Campanha FB — teste A/B" />
+                <Label>{t("pages.rotators.labelName")}</Label>
+                <Input value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder={t("pages.rotators.namePlaceholder")} />
               </div>
               <div className="space-y-2">
-                <Label>Slug (único na conta)</Label>
+                <Label>{t("pages.rotators.labelSlug")}</Label>
                 <Input
                   value={slug}
                   onChange={(e) => {
                     setSlugManual(true);
                     setSlug(e.target.value.toLowerCase());
                   }}
-                  placeholder="campanha-fb-ab"
+                  placeholder={t("pages.rotators.slugPlaceholder")}
                 />
               </div>
             </div>
@@ -1125,7 +1121,7 @@ export default function Rotadores() {
               Cancelar
             </Button>
             <Button type="button" className="gradient-primary border-0 text-primary-foreground" onClick={submit} disabled={busy}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? "Guardar" : "Criar"}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? t("common.save") : t("common.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
