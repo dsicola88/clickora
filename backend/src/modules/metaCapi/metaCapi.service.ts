@@ -324,5 +324,6 @@ export async function syncConversionToMetaCapi(
       conversionId: conv.id,
       error: result.error,
     });
+    throw new Error(`meta_capi_upload_failed: ${result.error.slice(0, 300)}`);
   }
 }

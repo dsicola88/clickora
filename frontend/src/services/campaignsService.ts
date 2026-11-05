@@ -88,10 +88,13 @@ export function campaignUtmSlug(name: string): string {
 }
 
 /**
- * URL para colar no anúncio: UTMs + macros da rede.
+ * URL para colar no anúncio: UTMs + ValueTrack reais da rede.
  * - `utm_campaign` = nome da campanha (slug)
  * - Google/Bing: `utm_term={keyword}` (a rede substitui no clique)
- * - Google: `utm_content={creative}`, `gclid={gclid}` — macros NÃO podem ir encodeadas (%7B…%7D)
+ * - Google: `utm_content={adgroupid}` — macros NÃO podem ir encodeadas (%7B…%7D)
+ * - NÃO injectar gclid/gbraid/wbraid/fbclid/ttclid/msclkid: a rede acrescenta o ID
+ *   com auto-tagging. `gclid={gclid}` é macro falsa → clique sem ID real → venda
+ *   nunca sobe ao Google Ads.
  */
 export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: string, trafficSource: string): string {
   try {
@@ -115,17 +118,8 @@ export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: str
       /** ValueTrack: ID do ad group — alinha com costSync entityKey. */
       overrides.utm_content = "{adgroupid}";
     }
-    if (isGoogle && !u.searchParams.has("gclid")) {
-      overrides.gclid = "{gclid}";
-    }
-    if (isBing && !u.searchParams.has("msclkid")) {
-      overrides.msclkid = "{msclkid}";
-    }
-    if ((src.includes("meta") || src.includes("facebook")) && !u.searchParams.has("fbclid")) {
-      overrides.fbclid = "{fbclid}";
-    }
-    if (src.includes("tiktok") && !u.searchParams.has("ttclid")) {
-      overrides.ttclid = "{ttclid}";
+    if (isBing && !u.searchParams.has("utm_content")) {
+      overrides.utm_content = "{AdGroupId}";
     }
 
     const encVal = (v: string) => (v.includes("{") ? v : encodeURIComponent(v));

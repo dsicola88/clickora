@@ -327,5 +327,6 @@ export async function syncConversionToTikTokEvents(
       conversionId: conv.id,
       error: result.error,
     });
+    throw new Error(`tiktok_events_upload_failed: ${result.error.slice(0, 300)}`);
   }
 }

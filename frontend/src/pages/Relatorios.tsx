@@ -649,7 +649,7 @@ export default function Relatorios() {
 
   const copyDatacenterIpsForGoogleAds = async () => {
     if (datacenterIpsForAds.length === 0) {
-      toast.message("Sem IPs de servidor neste período", {
+      toast.message(t("pages.reports.emptyServerIps"), {
         description: "Filtra Situação = Cloud ou alarga as datas.",
       });
       return;
@@ -905,12 +905,17 @@ export default function Relatorios() {
 
   const syncLabel = (sync: string | null) => {
     if (sync === "sent") return { ok: true, text: "Enviado" };
+    if (sync === "restated") return { ok: true, text: "Valor actualizado" };
+    if (sync === "retracted") return { ok: true, text: "Anulado no Ads" };
     if (!sync || sync === "skipped_pending") return { ok: false, text: "Pendente" };
-    if (sync === "skipped_no_fbclid") return { ok: false, text: "Sem ID Meta" };
-    if (sync === "skipped_no_ttclid") return { ok: false, text: "Sem ID TikTok" };
-    if (sync === "skipped_no_gclid") return { ok: false, text: "Sem ID Google" };
+    if (sync === "skipped_no_fbclid") return { ok: false, text: t("pages.reports.noMetaId") };
+    if (sync === "skipped_no_ttclid") return { ok: false, text: t("pages.reports.noTiktokId") };
+    if (sync === "skipped_no_gclid") return { ok: false, text: t("pages.reports.noGoogleId") };
     if (sync === "skipped_disabled") return { ok: false, text: "Desligado" };
     if (sync === "skipped_no_config") return { ok: false, text: "Conta por ligar" };
+    if (sync === "skipped_direct_upload") return { ok: true, text: "Envio directo" };
+    if (sync === "skipped_ads_direct") return { ok: true, text: "Via rede de ads" };
+    if (sync === "skipped_offline_csv_import") return { ok: true, text: "Import CSV" };
     if (sync === "failed") return { ok: false, text: "Erro API" };
     return { ok: false, text: sync };
   };
@@ -1349,7 +1354,7 @@ export default function Relatorios() {
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                   row.type === "Pago"
                                     ? "bg-primary/10 text-primary"
-                                    : row.type === "Sem ID do clique"
+                                    : row.type === t("pages.reports.noClickId")
                                       ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                                       : "bg-muted text-muted-foreground"
                                 }`}
@@ -1598,7 +1603,7 @@ export default function Relatorios() {
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                   row.type === "Pago"
                                     ? "bg-primary/10 text-primary"
-                                    : row.type === "Sem ID do clique"
+                                    : row.type === t("pages.reports.noClickId")
                                       ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                                       : "bg-muted text-muted-foreground"
                                 }`}

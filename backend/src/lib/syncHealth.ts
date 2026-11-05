@@ -85,17 +85,17 @@ export function formatSyncHealthDetail(sh: SyncHealth): string {
   const parts: string[] = [];
   if (sh.google_ads_failed > 0) parts.push(`${sh.google_ads_failed} falha(s) Google Ads`);
   if (sh.google_ads_skipped_no_gclid > 0) {
-    parts.push(`${sh.google_ads_skipped_no_gclid} sem gclid`);
+    parts.push(`${sh.google_ads_skipped_no_gclid} sem ID Google (não enviadas)`);
   }
   if (sh.meta_capi_failed > 0) parts.push(`${sh.meta_capi_failed} falha(s) Meta CAPI`);
   if (sh.meta_capi_skipped_no_fbclid > 0) {
-    parts.push(`${sh.meta_capi_skipped_no_fbclid} sem fbclid`);
+    parts.push(`${sh.meta_capi_skipped_no_fbclid} sem ID Meta (não enviadas)`);
   }
   if (sh.tiktok_events_failed > 0) parts.push(`${sh.tiktok_events_failed} falha(s) TikTok`);
   if (sh.tiktok_events_skipped_no_ttclid > 0) {
-    parts.push(`${sh.tiktok_events_skipped_no_ttclid} sem ttclid`);
+    parts.push(`${sh.tiktok_events_skipped_no_ttclid} sem ID TikTok (não enviadas)`);
   }
   return parts.length
-    ? `Últimos ${sh.period_days}d: ${parts.join(" · ")}.`
+    ? `Últimos ${sh.period_days}d: ${parts.join(" · ")}. Confirme auto-tagging e a URL do anúncio (sem gclid={gclid}).`
     : `Últimos ${sh.period_days}d: envios para anúncios OK.`;
 }

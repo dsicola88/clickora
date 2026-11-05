@@ -259,7 +259,7 @@ export async function syncDirectGclidConversionToGoogleAds(input: {
   currencyCode: string;
   orderId: string;
   conversionDateTime: Date;
-}): Promise<void> {
+}): Promise<{ attempted: boolean; ok: boolean; error?: string }> {
   const user = await systemPrisma.user.findUnique({
     where: { id: input.userId },
     select: {
@@ -271,7 +271,9 @@ export async function syncDirectGclidConversionToGoogleAds(input: {
       googleAdsRefreshToken: true,
     },
   });
-  if (!user || !isGoogleAdsClickUploadReadyForUser(user)) return;
+  if (!user || !isGoogleAdsClickUploadReadyForUser(user)) {
+    return { attempted: false, ok: false, error: "google_ads_not_ready" };
+  }
 
   const customerId = onlyDigits(user.googleAdsCustomerId)!;
   const actionId = user.googleAdsConversionActionId!.trim();
@@ -321,18 +323,19 @@ export async function syncDirectGclidConversionToGoogleAds(input: {
         payload: { ...payloadLog, response: result.raw } as Prisma.InputJsonValue,
       },
     });
-  } else {
-    await systemPrisma.postbackLog.create({
-      data: {
-        userId: user.id,
-        presellPageId: input.presellPageId,
-        platform: "google_ads_offline_upload_direct",
-        status: "error",
-        message: result.error.slice(0, 500),
-        payload: { ...payloadLog, error: result.error, raw: result.raw } as Prisma.InputJsonValue,
-      },
-    });
+    return { attempted: true, ok: true };
   }
+  await systemPrisma.postbackLog.create({
+    data: {
+      userId: user.id,
+      presellPageId: input.presellPageId,
+      platform: "google_ads_offline_upload_direct",
+      status: "error",
+      message: result.error.slice(0, 500),
+      payload: { ...payloadLog, error: result.error, raw: result.raw } as Prisma.InputJsonValue,
+    },
+  });
+  return { attempted: true, ok: false, error: result.error };
 }
 
 export type UploadClickConversionParams = {
@@ -519,6 +522,13 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
     },
   });
 
+  // Google exige conversion_date_time ≥ instante do clique; venda atrasada no postback
+  // usa createdAt da conversão, nunca antes do clique.
+  const conversionDateTime =
+    conv.click.createdAt.getTime() > conv.createdAt.getTime()
+      ? new Date(conv.click.createdAt.getTime() + 1000)
+      : conv.createdAt;
+
   const result = await uploadClickConversionToGoogleAds(creds, {
     customerId,
     conversionActionId: actionId,
@@ -526,7 +536,7 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
     gclid,
     gbraid,
     wbraid,
-    conversionDateTime: conv.createdAt,
+    conversionDateTime,
     conversionValue: amount,
     currencyCode: currency,
     orderId,
@@ -575,6 +585,8 @@ export async function syncConversionToGoogleAds(conversionId: string): Promise<v
       conversionId: conv.id,
       error: result.error,
     });
+    // Propaga para a fila persistente reintentar (antes o job marcava «sent» sem retry).
+    throw new Error(`google_ads_upload_failed: ${result.error.slice(0, 300)}`);
   }
 }
 

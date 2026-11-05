@@ -119,9 +119,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
     { key: "sub1", value: "{matchtype}" },
     { key: "sub2", value: "{device}" },
     { key: "sub3", value: "{network}" },
-    { key: "gclid", value: "{gclid}", highlight: true },
-    { key: "gbraid", value: "{gbraid}" },
-    { key: "wbraid", value: "{wbraid}" },
+    // Auto-tagging (gclid/gbraid/wbraid) — NÃO meter gclid={gclid} (macro falsa).
   ],
   "Facebook Ads": [
     { key: "utm_source", value: "facebook" },
@@ -143,7 +141,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
       valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)",
     },
     { key: "utm_content", value: "{adgroup_name}" },
-    { key: "ttclid", value: "{ttclid}", highlight: true },
+    // TikTok acrescenta o click id — não forçar ttclid={ttclid}.
   ],
   "Bing Ads": [
     { key: "utm_source", value: "bing" },
@@ -152,7 +150,7 @@ const defaultParams: Record<string, { key: string; value: string; highlight?: bo
     { key: "utm_campaign", value: "", valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)" },
     { key: "utm_content", value: "{AdGroupId}" },
     { key: "utm_term", value: "{keyword}" },
-    { key: "msclkid", value: "{msclkid}", highlight: true },
+    // Microsoft Ads acrescenta msclkid — não forçar msclkid={msclkid}.
   ],
   "Taboola": [
     { key: "utm_source", value: "taboola" },

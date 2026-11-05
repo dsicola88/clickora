@@ -618,14 +618,13 @@ export const integrationsController = {
         attribution = data.attribution;
         if (data.presellId) presellPageId = data.presellId;
         if (status === "pending") return "pending";
-        if (data.attribution === "attributed") {
-          void enqueueConversionSync({
-            conversionId: createdConv.id,
-            userId: user!.id,
-          }).catch((err) => console.error("[enqueueConversionSync]", err));
-          return "created";
-        }
-        return "created_unattributed";
+        // Também unattributed: o worker marca skipped_no_gclid/fbclid/ttclid
+        // para Relatórios e sync_health não ficarem «OK» em silêncio.
+        void enqueueConversionSync({
+          conversionId: createdConv.id,
+          userId: user!.id,
+        }).catch((err) => console.error("[enqueueConversionSync]", err));
+        return data.attribution === "attributed" ? "created" : "created_unattributed";
       } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
           return "duplicate";
@@ -674,12 +673,10 @@ export const integrationsController = {
         createdConversionId = existing.id;
         attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
         presellPageId = existing.presellId;
-        if (existing.attribution === "attributed") {
-          void enqueueConversionSync({
-            conversionId: existing.id,
-            userId: user!.id,
-          }).catch((err) => console.error("[enqueueConversionSync]", err));
-        }
+        void enqueueConversionSync({
+          conversionId: existing.id,
+          userId: user!.id,
+        }).catch((err) => console.error("[enqueueConversionSync]", err));
         return "approved_from_pending";
       }
 

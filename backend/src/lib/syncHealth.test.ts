@@ -21,8 +21,9 @@ describe("syncHealth helpers", () => {
     };
     assert.equal(syncHealthIssueTotal(sh), 6);
     const detail = formatSyncHealthDetail(sh);
-    assert.match(detail, /sem gclid/);
-    assert.match(detail, /sem fbclid/);
+    assert.match(detail, /sem ID Google/);
+    assert.match(detail, /sem ID Meta/);
     assert.match(detail, /falha\(s\) TikTok/);
+    assert.match(detail, /auto-tagging/);
   });
 });

@@ -1,3 +1,4 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ import {
  * Ligação Google Ads one-click: OAuth → conta + ação GCLID + upload + sync custos.
  */
 export default function GoogleAdsConnectPage() {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const locked = !userCanWriteIntegrations(user);
   const qc = useQueryClient();
@@ -133,8 +135,8 @@ export default function GoogleAdsConnectPage() {
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
-        title="Google Ads"
-        subtitle="Ligue a conta. As vendas aprovadas seguem para o Google e o custo pode aparecer em Resultados."
+        title={t("pages.googleAds.title")}
+        subtitle={t("pages.googleAds.subtitle")}
         meta={
           <>
             <ProStatusDot ok={Boolean(data?.api_env_configured)} label="Serviço" />
@@ -213,6 +215,13 @@ export default function GoogleAdsConnectPage() {
                         ? `Conta gestora ${data.google_ads_login_customer_id}.`
                         : "Conta gestora não indicada."
                     } O custo em Resultados só aparece se o Google aceitar a leitura desta conta.`}
+                  </p>
+                  <p className="text-muted-foreground mt-1.5">
+                    Para as vendas reflectirem no Google Ads: active a{" "}
+                    <span className="font-medium text-foreground">codificação automática</span> na
+                    conta, cole a URL gerada pela Clickora (campanha / URL Builder) como Final URL, e
+                    não acrescente <span className="font-mono text-foreground">gclid=…</span> à mão —
+                    o Google injeta o ID real no clique.
                   </p>
                 </div>
               </div>

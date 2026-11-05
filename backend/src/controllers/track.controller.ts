@@ -1253,28 +1253,48 @@ export const trackController = {
       }),
     ]);
 
-    void syncDirectGclidConversionToGoogleAds({
-      userId: page.userId,
-      presellPageId: page.id,
-      gclid: data.gclid,
-      conversionValue: data.value,
-      currencyCode: data.currency.toUpperCase(),
-      orderId: orderIdForGoogle,
-      conversionDateTime: new Date(),
-    }).catch((err) => console.error("[syncDirectGclidConversionToGoogleAds]", err));
+    let upload: { attempted: boolean; ok: boolean; error?: string } = {
+      attempted: false,
+      ok: false,
+      error: "not_started",
+    };
+    try {
+      upload = await syncDirectGclidConversionToGoogleAds({
+        userId: page.userId,
+        presellPageId: page.id,
+        gclid: data.gclid,
+        conversionValue: data.value,
+        currencyCode: data.currency.toUpperCase(),
+        orderId: orderIdForGoogle,
+        conversionDateTime: new Date(),
+      });
+    } catch (err) {
+      console.error("[syncDirectGclidConversionToGoogleAds]", err);
+      upload = {
+        attempted: true,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
 
     await logPostback({
       userId: page.userId,
       presellPageId: page.id,
       platform: "google_ads",
-      status: "success",
-      message: "Postback processado com sucesso",
+      status: upload.ok ? "success" : upload.attempted ? "error" : "success",
+      message: upload.ok
+        ? "Postback processado e enviado ao Google Ads"
+        : upload.attempted
+          ? `Postback registado; upload Google falhou: ${upload.error || "erro"}`
+          : "Postback processado (upload Google Ads ainda não pronto — ligue a conta em Integrações)",
       payload: req.body,
     });
 
     return res.json({
       tracked: true,
-      google_ads_upload_attempted: true,
+      google_ads_upload_attempted: upload.attempted,
+      google_ads_upload_ok: upload.ok,
+      google_ads_upload_error: upload.error ?? null,
       conversion_id: ledger.conversionId,
       conversion_created: ledger.created,
     });
