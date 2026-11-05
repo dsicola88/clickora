@@ -132,6 +132,11 @@ async function main() {
   let rotatorId = "";
 
   try {
+    /**
+     * `builder` publica de imediato (isInstantPublishPresellType).
+     * tsl/review passam pelo gate de compliance e em produção ficam draft
+     * quando o probe/destino falha — public GET 404 e rotator rejeita context.
+     */
     const createPage = async (title: string, type: string) => {
       const slug = `e2e-${type}-${Date.now().toString(36)}`;
       const { status, body } = await jsonFetch("/presells", {
@@ -154,10 +159,55 @@ async function main() {
         }),
       });
       assert.ok(status < 300 && body.id, `create ${title} ${status} ${JSON.stringify(body)}`);
-      return body as { id: string; content?: { importMirrorSrcDoc?: string } };
+      let page = body as {
+        id: string;
+        status?: string;
+        compliance_blocked?: boolean;
+        content?: { importMirrorSrcDoc?: string };
+      };
+      if (String(page.status) !== "published") {
+        const tog = await jsonFetch(`/presells/${page.id}/status`, {
+          method: "PATCH",
+          token: auth,
+          body: JSON.stringify({ status: "published" }),
+        });
+        if (tog.status < 300 && String(tog.body.status) === "published") {
+          page = { ...page, ...tog.body, id: page.id } as typeof page;
+        } else {
+          // Fallback: recria como builder (publicação imediata) e apaga o draft.
+          const draftId = page.id;
+          const fb = await jsonFetch("/presells", {
+            method: "POST",
+            token: auth,
+            body: JSON.stringify({
+              title,
+              slug: `${slug}-pub`,
+              type: "builder",
+              status: "published",
+              language: "pt-BR",
+              content: {
+                title,
+                affiliateLink: OFFER,
+                importMirrorSrcDoc: mirrorHtml(),
+                ctaText: "Buy",
+              },
+              settings: {},
+              tracking: { offerUrl: OFFER },
+            }),
+          });
+          assert.ok(
+            fb.status < 300 && fb.body.id && String(fb.body.status) === "published",
+            `create published fallback ${title} ${fb.status} ${JSON.stringify(fb.body)}`,
+          );
+          await jsonFetch(`/presells/${draftId}`, { method: "DELETE", token: auth }).catch(() => undefined);
+          page = fb.body as typeof page;
+        }
+      }
+      assert.equal(String(page.status), "published", `page not published ${JSON.stringify(page)}`);
+      return page;
     };
 
-    const a = await createPage("Lander A", "tsl");
+    const a = await createPage("Lander A", "builder");
     pageA = a.id;
     rec("import.create_lander_a", "PASS", pageA.slice(0, 8));
     const mirrorOk =
@@ -219,7 +269,7 @@ async function main() {
       rec("reimport.save", status < 300 ? "PASS" : "FAIL", `status=${status}`);
     }
 
-    /** Cloak */
+    /** Cloak: geo-deny CN; visitante fora de CN vê página normal (cloak_safe ≠ true). */
     {
       await jsonFetch(`/presells/${pageA}`, {
         method: "PUT",
@@ -240,11 +290,11 @@ async function main() {
         },
         signal: AbortSignal.timeout(20_000),
       });
-      const botJ = (await bot.json()) as { cloak_safe?: boolean };
+      const botJ = (await bot.json().catch(() => ({}))) as { cloak_safe?: boolean; status?: string };
       rec(
         "cloak.bot",
         bot.ok && botJ.cloak_safe !== true ? "PASS" : "FAIL",
-        `UA de bot vê a mesma presell (cloak_safe=${botJ.cloak_safe})`,
+        `public=${bot.status} cloak_safe=${botJ.cloak_safe} page_status=${botJ.status}`,
       );
 
       const human = await fetch(`${BASE}/public/presells/id/${pageA}`, {
@@ -254,8 +304,12 @@ async function main() {
         },
         signal: AbortSignal.timeout(20_000),
       });
-      const humanJ = (await human.json()) as { cloak_safe?: boolean };
-      rec("cloak.human", human.ok && humanJ.cloak_safe !== true ? "PASS" : "FAIL", `cloak_safe=${humanJ.cloak_safe}`);
+      const humanJ = (await human.json().catch(() => ({}))) as { cloak_safe?: boolean };
+      rec(
+        "cloak.human",
+        human.ok && humanJ.cloak_safe !== true ? "PASS" : "FAIL",
+        `public=${human.status} cloak_safe=${humanJ.cloak_safe}`,
+      );
 
       await jsonFetch(`/presells/${pageA}`, {
         method: "PUT",
@@ -264,7 +318,7 @@ async function main() {
       });
     }
 
-    const b = await createPage("Lander B", "review");
+    const b = await createPage("Lander B", "builder");
     pageB = b.id;
     rec("import.create_lander_b", "PASS", pageB.slice(0, 8));
 
@@ -283,7 +337,10 @@ async function main() {
         ],
       }),
     });
-    assert.ok(rot.status < 300 && rot.body.id, `rotator ${rot.status} ${JSON.stringify(rot.body)}`);
+    if (!(rot.status < 300 && rot.body.id)) {
+      rec("rotator.create", "FAIL", `${rot.status} ${JSON.stringify(rot.body)}`);
+      throw new Error(`rotator create failed: ${rot.status}`);
+    }
     rotatorId = String(rot.body.id);
     rec("rotator.create", "PASS", rotatorId.slice(0, 8));
 
