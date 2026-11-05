@@ -185,7 +185,9 @@ export async function buildAccountHealth(args: {
         ? `Última actualização ${last_cost_sync_at ? new Date(last_cost_sync_at).toLocaleString("pt-PT") : ""}`
         : costStale
           ? `Custos desactualizados (última sync há mais de 48h). Actualize em Integrações → Automizer.`
-          : "Ainda sem custo do período. Ligue o Google Ads ou actualize os custos.",
+          : googleOk
+            ? "Google Ads ligado, mas ainda sem sync de custos. Actualize em Integrações → Automizer."
+            : "Ainda sem custo do período. Ligue o Google Ads ou actualize os custos.",
       href: "/integracoes/automizer",
     },
     {

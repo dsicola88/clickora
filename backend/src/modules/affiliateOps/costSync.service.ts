@@ -233,6 +233,26 @@ async function syncGoogleForUser(
     console.warn("[costSync] keyword gaql", e instanceof Error ? e.message : e);
   }
 
+  /**
+   * Conta ligada e GAQL OK, mas zero gasto no período: ainda assim grava heartbeat
+   * (custo 0 no dia `to`) para `account_health.cost_sync` / Automizer não ficarem
+   * eternamente «Ainda sem custo» só porque a conta ainda não gastou.
+   */
+  if (rows === 0) {
+    await upsertCostRow({
+      userId: user.id,
+      platform: "google_ads",
+      date: to,
+      level: "account",
+      entityKey: "account",
+      label: "Google Ads (conta)",
+      costMicros: 0n,
+      clicks: 0,
+      impressions: 0,
+      currency: "USD",
+    });
+  }
+
   return { ok: true, rows };
 }
 
