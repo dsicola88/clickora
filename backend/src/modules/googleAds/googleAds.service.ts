@@ -355,8 +355,160 @@ export type UploadClickConversionResult =
   | { ok: true; raw: unknown }
   | { ok: false; error: string; raw?: unknown };
 
+async function exchangeGoogleAdsRefreshToken(creds: GoogleAdsApiCredentials): Promise<
+  { ok: true; accessToken: string } | { ok: false; error: string }
+> {
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        client_id: creds.clientId,
+        client_secret: creds.clientSecret,
+        refresh_token: creds.refreshToken,
+        grant_type: "refresh_token",
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const json = (await res.json()) as { access_token?: string; error?: string; error_description?: string };
+    if (!res.ok || !json.access_token) {
+      return {
+        ok: false,
+        error: json.error_description || json.error || `oauth_token_${res.status}`,
+      };
+    }
+    return { ok: true, accessToken: json.access_token };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
- * Envia uma conversão offline (clique) para o Google Ads (Conversion Upload API).
+ * Data Manager API (events:ingest) — caminho oficial para conversões offline desde Jun 2026.
+ * UploadClickConversions ficou limitado a tokens já allowlisted.
+ */
+async function uploadClickConversionViaDataManager(
+  creds: GoogleAdsApiCredentials,
+  params: UploadClickConversionParams & { customerId: string; actionId: string; login: string | null },
+): Promise<UploadClickConversionResult> {
+  const token = await exchangeGoogleAdsRefreshToken(creds);
+  if (!token.ok) return { ok: false, error: `oauth: ${token.error}` };
+
+  const destination: Record<string, unknown> = {
+    operatingAccount: { accountType: "GOOGLE_ADS", accountId: params.customerId },
+    productDestinationId: params.actionId,
+  };
+  if (params.login) {
+    destination.loginAccount = { accountType: "GOOGLE_ADS", accountId: params.login };
+  }
+
+  const adIdentifiers: Record<string, string> = {};
+  if (params.gclid?.trim()) adIdentifiers.gclid = params.gclid.trim();
+  if (params.gbraid?.trim()) adIdentifiers.gbraid = params.gbraid.trim();
+  if (params.wbraid?.trim()) adIdentifiers.wbraid = params.wbraid.trim();
+
+  const eventTimestamp = params.conversionDateTime.toISOString().replace(/\.\d{3}Z$/, "Z");
+  const body = {
+    destinations: [destination],
+    events: [
+      {
+        adIdentifiers,
+        eventTimestamp,
+        conversionValue: Number(params.conversionValue) || 0,
+        currency: params.currencyCode.toUpperCase().slice(0, 3),
+        transactionId: params.orderId.slice(0, 200),
+        eventSource: "WEB",
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch("https://datamanager.googleapis.com/v1/events:ingest", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token.accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45_000),
+    });
+    const rawText = await res.text();
+    let raw: unknown = rawText;
+    try {
+      raw = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      /* keep text */
+    }
+    if (!res.ok) {
+      const errObj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+      const err = errObj?.error;
+      const msg =
+        err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string"
+          ? String((err as { message: string }).message)
+          : typeof errObj?.message === "string"
+            ? errObj.message
+            : rawText.slice(0, 2000) || `datamanager_http_${res.status}`;
+      return { ok: false, error: msg.slice(0, 2000), raw };
+    }
+    return { ok: true, raw };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Legacy ConversionUploadService — só para tokens ainda allowlisted. */
+async function uploadClickConversionViaLegacyAdsApi(
+  creds: GoogleAdsApiCredentials,
+  params: UploadClickConversionParams & { customerId: string; actionId: string; login: string | null },
+): Promise<UploadClickConversionResult> {
+  const client = new GoogleAdsApi({
+    client_id: creds.clientId,
+    client_secret: creds.clientSecret,
+    developer_token: creds.developerToken,
+  });
+  const customer = client.Customer({
+    customer_id: params.customerId,
+    refresh_token: creds.refreshToken,
+    ...(params.login ? { login_customer_id: params.login } : {}),
+  });
+
+  const conversion_action = ResourceNames.conversionAction(params.customerId, params.actionId);
+  const conversion_date_time = formatGoogleAdsConversionDateTime(params.conversionDateTime);
+  const clickConv: Record<string, unknown> = {
+    conversion_action,
+    conversion_date_time,
+    conversion_value: params.conversionValue,
+    currency_code: params.currencyCode.toUpperCase().slice(0, 3),
+    order_id: params.orderId.slice(0, 200),
+  };
+  if (params.gclid?.trim()) clickConv.gclid = params.gclid.trim();
+  if (params.gbraid?.trim()) clickConv.gbraid = params.gbraid.trim();
+  if (params.wbraid?.trim()) clickConv.wbraid = params.wbraid.trim();
+
+  const request = new services.UploadClickConversionsRequest({
+    customer_id: params.customerId,
+    partial_failure: true,
+    conversions: [clickConv],
+  });
+
+  try {
+    const response = await customer.conversionUploads.uploadClickConversions(request);
+    const serial = safeSerializeGoogleAdsResponse(response);
+    const partial = response.partial_failure_error as { message?: string; details?: unknown[] } | null | undefined;
+    if (partial && (partial.message || (partial.details && partial.details.length))) {
+      const msg = partial.message || JSON.stringify(partial.details?.[0] ?? partial);
+      return { ok: false, error: msg.slice(0, 2000), raw: serial };
+    }
+    return { ok: true, raw: serial };
+  } catch (e) {
+    return { ok: false, error: googleAdsErrorText(e), raw: e };
+  }
+}
+
+/**
+ * Envia conversão offline (clique) → Google Ads.
+ * Preferência: Data Manager API; fallback: UploadClickConversions (tokens allowlisted).
  */
 export async function uploadClickConversionToGoogleAds(
   creds: GoogleAdsApiCredentials,
@@ -380,53 +532,41 @@ export async function uploadClickConversionToGoogleAds(
     return { ok: false, error: "Sem gclid/gbraid/wbraid" };
   }
 
-  const client = new GoogleAdsApi({
-    client_id: creds.clientId,
-    client_secret: creds.clientSecret,
-    developer_token: creds.developerToken,
-  });
+  const normalized = { ...params, customerId, actionId, login: login ?? null };
+  const viaDm = await uploadClickConversionViaDataManager(creds, normalized);
+  if (viaDm.ok) return viaDm;
 
-  const refresh = creds.refreshToken;
-  // Só MCC definido no perfil do utilizador. Não usar GOOGLE_ADS_LOGIN_CUSTOMER_ID aqui — em SaaS
-  // misturava gestor com contas diretas e quebrava o upload para quem não usa MCC.
-  const customer = client.Customer({
-    customer_id: customerId,
-    refresh_token: refresh,
-    ...(login ? { login_customer_id: login } : {}),
-  });
+  const dmErr = viaDm.error.toLowerCase();
+  const needsLegacy =
+    dmErr.includes("not allowlisted") ||
+    dmErr.includes("uploadclickconversions") ||
+    dmErr.includes("insufficient") ||
+    dmErr.includes("access_denied") ||
+    dmErr.includes("datamanager") ||
+    dmErr.includes("permission") ||
+    dmErr.includes("scope");
 
-  const conversion_action = ResourceNames.conversionAction(customerId, actionId);
-  const conversion_date_time = formatGoogleAdsConversionDateTime(params.conversionDateTime);
-
-  const clickConv: Record<string, unknown> = {
-    conversion_action,
-    conversion_date_time,
-    conversion_value: params.conversionValue,
-    currency_code: params.currencyCode.toUpperCase().slice(0, 3),
-    order_id: params.orderId.slice(0, 200),
-  };
-  if (params.gclid?.trim()) clickConv.gclid = params.gclid.trim();
-  if (params.gbraid?.trim()) clickConv.gbraid = params.gbraid.trim();
-  if (params.wbraid?.trim()) clickConv.wbraid = params.wbraid.trim();
-
-  const request = new services.UploadClickConversionsRequest({
-    customer_id: customerId,
-    partial_failure: true,
-    conversions: [clickConv],
-  });
-
-  try {
-    const response = await customer.conversionUploads.uploadClickConversions(request);
-    const serial = safeSerializeGoogleAdsResponse(response);
-    const partial = response.partial_failure_error as { message?: string; details?: unknown[] } | null | undefined;
-    if (partial && (partial.message || (partial.details && partial.details.length))) {
-      const msg = partial.message || JSON.stringify(partial.details?.[0] ?? partial);
-      return { ok: false, error: msg.slice(0, 2000), raw: serial };
+  // Tokens antigos (só adwords) ou DM indisponível → tenta legacy; se ambos falham, devolve o erro DM (mais actual).
+  if (needsLegacy) {
+    const viaLegacy = await uploadClickConversionViaLegacyAdsApi(creds, normalized);
+    if (viaLegacy.ok) return viaLegacy;
+    // Preferir mensagem DM se legacy também bloqueou por allowlist.
+    const legErr = viaLegacy.error.toLowerCase();
+    if (legErr.includes("data manager") || legErr.includes("allowlisted") || legErr.includes("existing users")) {
+      return {
+        ok: false,
+        error: `${viaDm.error} | Religue Google Ads na Clickora para conceder o scope datamanager.`,
+        raw: { data_manager: viaDm.raw, legacy: viaLegacy.raw },
+      };
     }
-    return { ok: true, raw: serial };
-  } catch (e) {
-    return { ok: false, error: googleAdsErrorText(e), raw: e };
+    return {
+      ok: false,
+      error: `data_manager: ${viaDm.error} | legacy: ${viaLegacy.error}`,
+      raw: { data_manager: viaDm.raw, legacy: viaLegacy.raw },
+    };
   }
+
+  return viaDm;
 }
 
 /**

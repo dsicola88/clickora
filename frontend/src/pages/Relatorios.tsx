@@ -1973,6 +1973,7 @@ export default function Relatorios() {
                               <td className="py-2.5 px-3">{row.platform}</td>
                               <td className="py-2.5 px-3">
                                 <span
+                                  title={row.google_ads_sync_error || undefined}
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                     s.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                                   }`}
@@ -1982,6 +1983,7 @@ export default function Relatorios() {
                               </td>
                               <td className="py-2.5 px-3">
                                 <span
+                                  title={row.meta_capi_sync_error || undefined}
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                     m.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                                   }`}
@@ -1991,6 +1993,7 @@ export default function Relatorios() {
                               </td>
                               <td className="py-2.5 px-3">
                                 <span
+                                  title={row.tiktok_events_sync_error || undefined}
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                     t.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                                   }`}

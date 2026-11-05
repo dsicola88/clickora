@@ -288,9 +288,20 @@ function mapConversionForApi(
     google_ads_sync: c.googleAdsSync,
     meta_capi_sync: c.metaCapiSync,
     tiktok_events_sync: c.tiktokEventsSync,
+    google_ads_sync_error: syncErrorFromDetail(c.googleAdsSyncDetail),
+    meta_capi_sync_error: syncErrorFromDetail(c.metaCapiSyncDetail),
+    tiktok_events_sync_error: syncErrorFromDetail(c.tiktokEventsSyncDetail),
     has_gclid: hasClickId,
     gclid: gclid || null,
   };
+}
+
+function syncErrorFromDetail(detail: unknown): string | null {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const err = (detail as Record<string, unknown>).error;
+  if (typeof err !== "string") return null;
+  const t = err.trim();
+  return t ? t.slice(0, 500) : null;
 }
 
 /**

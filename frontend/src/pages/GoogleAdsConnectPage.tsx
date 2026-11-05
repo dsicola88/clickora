@@ -223,6 +223,11 @@ export default function GoogleAdsConnectPage() {
                     não acrescente <span className="font-mono text-foreground">gclid=…</span> à mão —
                     o Google injeta o ID real no clique.
                   </p>
+                  <p className="text-muted-foreground mt-1.5">
+                    Se Relatórios mostrar «Erro API» no envio Google, clique em{" "}
+                    <span className="font-medium text-foreground">Trocar conta</span> / volte a ligar
+                    uma vez — o Google exige o novo acesso Data Manager para conversões offline.
+                  </p>
                 </div>
               </div>
             ) : null}

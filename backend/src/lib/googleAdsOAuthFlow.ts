@@ -77,7 +77,11 @@ export function buildGoogleAdsAuthorizeUrl(state: string): { authorizeUrl: strin
     client_id: cfg.clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/adwords",
+    // adwords = métricas/bootstrap; datamanager = envio de conversões offline (obrigatório desde Jun 2026).
+    scope: [
+      "https://www.googleapis.com/auth/adwords",
+      "https://www.googleapis.com/auth/datamanager",
+    ].join(" "),
     access_type: "offline",
     prompt: "consent select_account",
     state,

@@ -323,6 +323,9 @@ export const analyticsService = {
         google_ads_sync: string | null;
         meta_capi_sync: string | null;
         tiktok_events_sync: string | null;
+        google_ads_sync_error?: string | null;
+        meta_capi_sync_error?: string | null;
+        tiktok_events_sync_error?: string | null;
         has_gclid: boolean;
         gclid: string | null;
       }>
