@@ -18,6 +18,26 @@ const CRITICAL: { platform: string; mustInclude: string[]; why: string }[] = [
     mustInclude: ["{sid1}", "sid1="],
     why: "Se outro tracker usa cid, o UUID da dclickora fica em sid1.",
   },
+  {
+    platform: "SmartAdv",
+    mustInclude: ["{sub3}", "sub3="],
+    why: "O UUID do clique na SmartAdv vai em sub3.",
+  },
+  {
+    platform: "AdCombo",
+    mustInclude: ["{clickid}", "clickora_click_id="],
+    why: "AdCombo ecoa o clickid da oferta para atribuir a venda.",
+  },
+  {
+    platform: "Monetizze",
+    mustInclude: ["[[src]]", "clickora_click_id="],
+    why: "Monetizze ecoa [[src]] / referência do hoplink.",
+  },
+  {
+    platform: "Braip",
+    mustInclude: ["{xcod}", "clickora_click_id="],
+    why: "Braip ecoa xcod do hoplink.",
+  },
 ];
 
 type Props = {
@@ -29,7 +49,7 @@ type Props = {
 };
 
 /**
- * Valida macros críticas por rede (Fase 0–2). Com URL: checks reais. Sem URL: guia.
+ * Valida macros críticas por rede. Com URL: checks reais. Sem URL: guia.
  */
 export function PostbackMacroChecklist({ postbackUrl, platform, compact }: Props) {
   const url = (postbackUrl || "").trim();
@@ -42,8 +62,9 @@ export function PostbackMacroChecklist({ postbackUrl, platform, compact }: Props
       <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
         <p className="text-xs font-medium text-foreground">Macros de atribuição</p>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          MaxWeb e BuyGoods precisam de <span className="font-mono">{`{SUBID2}`}</span>; Digistore de{" "}
-          <span className="font-mono">{`{sid1}`}</span>. Copie o URL gerado em Postback — não invente o path.
+          Cada rede tem macros próprias (ex. MaxWeb/BuyGoods <span className="font-mono">{`{SUBID2}`}</span>, Digistore{" "}
+          <span className="font-mono">{`{sid1}`}</span>, SmartAdv <span className="font-mono">{`{sub3}`}</span>). Copie o URL
+          gerado em Postback — não invente o path.
         </p>
         {compact ? (
           <Link

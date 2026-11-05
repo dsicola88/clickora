@@ -16,6 +16,15 @@ const OUTBOUND: Record<string, readonly string[]> = {
   clickbank: ["tid"],
   warriorplus: ["tid"],
   jvzoo: ["tid"],
+  /** BR / CPA com macros documentadas no catálogo FE (documented_s2s). */
+  monetizze: ["src", "sck"],
+  braip: ["xcod"],
+  adcombo: ["clickid"],
+  everflow: ["sub1"],
+  eduzz: ["tracker"],
+  leadbit: ["subid"],
+  drcash: ["sub1"],
+  maxbounty: ["s1"],
 };
 
 /** Fallback quando o host não é reconhecido (CPA / MaxWeb em domínio próprio). */

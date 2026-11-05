@@ -30,6 +30,7 @@ import {
   buildAffiliateFunnelEventUrl,
   buildAffiliatePostbackExampleUrl,
   getAffiliateFunnelGuide,
+  getAffiliatePlatformDef,
   getAffiliatePostbackPreset,
 } from "@/lib/marketingPlatforms";
 import { ensureHttpsWebhookUrl } from "@/lib/webhookPublicUrl";
@@ -189,6 +190,7 @@ export default function Plataformas() {
 
   const postbackPresetHint = useMemo(() => getAffiliatePostbackPreset(selected).hint, [selected]);
   const funnelGuide = useMemo(() => getAffiliateFunnelGuide(selected), [selected]);
+  const selectedTier = useMemo(() => getAffiliatePlatformDef(selected)?.tier ?? null, [selected]);
   const funnelAssets = info?.funnel ?? info?.buygoods_funnel_pixels ?? null;
 
   const checkoutEventUrl = useMemo(() => {
@@ -334,11 +336,13 @@ export default function Plataformas() {
               />
             </div>
             <p className="text-[11px] text-muted-foreground mt-2 leading-snug">
-              Lista de referência. A mesma URL de webhook serve para qualquer rede que permita Postback / IPN por HTTP.
+              Catálogo profissional (parsers nativos + S2S documentado). A mesma URL de webhook serve; as macros mudam por rede.
             </p>
           </div>
           <div className="max-h-[420px] overflow-y-auto">
-            {filteredPlatforms.map((platform) => (
+            {filteredPlatforms.map((platform) => {
+              const tier = getAffiliatePlatformDef(platform)?.tier;
+              return (
               <button
                 key={platform}
                 type="button"
@@ -349,9 +353,21 @@ export default function Plataformas() {
                     : "text-foreground hover:bg-muted/50"
                 }`}
               >
-                {platform}
+                <span className="flex items-center justify-between gap-2">
+                  <span>{platform}</span>
+                  {tier ? (
+                    <span
+                      className={`shrink-0 text-[10px] font-medium uppercase tracking-wide ${
+                        selected === platform ? "opacity-90" : "text-muted-foreground"
+                      }`}
+                    >
+                      {tier === "native" ? "Nativo" : "S2S"}
+                    </span>
+                  ) : null}
+                </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -361,6 +377,11 @@ export default function Plataformas() {
               <h2 className="text-lg font-bold text-card-foreground">
                 <span className="text-muted-foreground font-normal text-sm uppercase tracking-wider">Rede</span>{" "}
                 {selected}
+                {selectedTier ? (
+                  <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border border-border/60 rounded px-1.5 py-0.5">
+                    {selectedTier === "native" ? "Parser nativo" : "S2S documentado"}
+                  </span>
+                ) : null}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Siga os passos do cartão <strong className="text-foreground/90">Como configurar</strong> acima. Na conta{" "}

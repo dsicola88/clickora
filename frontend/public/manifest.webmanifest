@@ -2,7 +2,7 @@
   "id": "/",
   "name": "dclickora",
   "short_name": "dclickora",
-  "start_url": "/integracoes/postback",
+  "start_url": "/inicio",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",

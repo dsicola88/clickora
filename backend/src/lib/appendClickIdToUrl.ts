@@ -21,6 +21,11 @@ const REPLACEABLE_NON_UUID_KEYS = new Set([
   "src",
   "sck",
   "tid",
+  "clickid",
+  "xcod",
+  "tracker",
+  "sub1",
+  "s1",
 ]);
 
 function platformFromUrl(destUrl: string, platform?: string | null): string | null {

@@ -72,6 +72,21 @@ describe("appendClickIdToAffiliateUrl", () => {
     assert.equal(u.searchParams.get("subid"), null);
   });
 
+  it("platform Monetizze/Braip/AdCombo escreve macros documentadas no hoplink", () => {
+    const mon = new URL(appendClickIdToAffiliateUrl("https://go.monetizze.com.br/x", uuid, "Monetizze"));
+    assert.equal(mon.searchParams.get("src"), uuid);
+    assert.equal(mon.searchParams.get("sck"), uuid);
+    assert.equal(mon.searchParams.get("subid"), null);
+
+    const braip = new URL(appendClickIdToAffiliateUrl("https://ev.braip.com/x", uuid, "Braip"));
+    assert.equal(braip.searchParams.get("xcod"), uuid);
+    assert.equal(braip.searchParams.get("subid"), null);
+
+    const adcombo = new URL(appendClickIdToAffiliateUrl("https://ads.adcombo.com/x", uuid, "AdCombo"));
+    assert.equal(adcombo.searchParams.get("clickid"), uuid);
+    assert.equal(adcombo.searchParams.get("subid"), null);
+  });
+
   it("Hotmart escreve src e sck", () => {
     const out = appendClickIdToAffiliateUrl("https://pay.hotmart.com/ABC", uuid);
     const u = new URL(out);

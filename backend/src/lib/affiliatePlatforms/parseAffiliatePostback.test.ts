@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma } from "@prisma/client";
 import {
+  NATIVE_AFFILIATE_PLATFORM_NAMES,
+  buildTestSaleQuery,
+  canonicalPlatformId,
   classifyRefundAdjustment,
   jvzooCverifyMatches,
   jvzooExpectedCverify,
@@ -603,4 +606,33 @@ test("postback já colado nas campanhas continua a contar a venda", () => {
   });
   assert.equal(encrypted.outcome.kind, "ignore");
   if (encrypted.outcome.kind === "ignore") assert.equal(encrypted.outcome.reason, "clickbank_encrypted");
+});
+
+test("nativas: buildTestSaleQuery aprova venda; S2S documentado usa contrato genérico", () => {
+  assert.equal(NATIVE_AFFILIATE_PLATFORM_NAMES.length, 8);
+  for (const name of NATIVE_AFFILIATE_PLATFORM_NAMES) {
+    assert.ok(canonicalPlatformId(name), name);
+    const q = buildTestSaleQuery(name, UUID, `ORD-${name}`);
+    const parsed = parseAffiliatePostback({ platform: name, flat: q });
+    assert.equal(parsed.outcome.kind, "approved", name);
+    assert.equal(parsed.clickId, UUID, name);
+  }
+
+  const s2s = parseAffiliatePostback({
+    platform: "Monetizze",
+    flat: {
+      clickora_click_id: UUID,
+      orderid: "M-1",
+      amount: "12.50",
+      status: "approved",
+      cy: "BRL",
+    },
+  });
+  assert.equal(s2s.adapterId.startsWith("generic:"), true);
+  assert.equal(s2s.outcome.kind, "approved");
+  assert.equal(s2s.clickId, UUID);
+
+  assert.equal(canonicalPlatformId("Monetizze"), "monetizze");
+  assert.equal(canonicalPlatformId("AdCombo"), "adcombo");
+  assert.equal(canonicalPlatformId("CJ Affiliate"), "cjaffiliate");
 });

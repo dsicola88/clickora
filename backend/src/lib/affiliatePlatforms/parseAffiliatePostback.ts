@@ -450,7 +450,37 @@ const NAME_TO_ID: Record<string, string> = {
   clickbank: "clickbank",
   warriorplus: "warriorplus",
   jvzoo: "jvzoo",
+  /** documented_s2s — id para outbound do hoplink; parser continua genérico (sem entrada em NAMED). */
+  monetizze: "monetizze",
+  braip: "braip",
+  adcombo: "adcombo",
+  everflow: "everflow",
+  eduzz: "eduzz",
+  leadbit: "leadbit",
+  drcash: "drcash",
+  maxbounty: "maxbounty",
+  kiwify: "kiwify",
+  awin: "awin",
+  cjaffiliate: "cjaffiliate",
+  impact: "impact",
+  rakuten: "rakuten",
+  shareasale: "shareasale",
+  tradedoubler: "tradedoubler",
+  webgains: "webgains",
+  keitaro: "keitaro",
 };
+
+/** Nomes canónicos das redes com parser nativo (espelho do catálogo FE `tier: native`). */
+export const NATIVE_AFFILIATE_PLATFORM_NAMES = [
+  "BuyGoods",
+  "ClickBank",
+  "Digistore24",
+  "Hotmart",
+  "JVZoo",
+  "MaxWeb",
+  "SmartAdv",
+  "WarriorPlus",
+] as const;
 
 export function canonicalPlatformId(name: string | null | undefined): string | null {
   const key = String(name || "")
