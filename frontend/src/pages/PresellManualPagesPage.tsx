@@ -105,9 +105,26 @@ export default function PresellManualPagesPage() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Presell["status"] }) =>
-      presellService.toggleStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["presells"] }),
+    mutationFn: async ({ id, status }: { id: string; status: Presell["status"] }) => {
+      const { data, error } = await presellService.toggleStatus(id, status);
+      if (error) throw new Error(error);
+      const blocked = data as { compliance_blocked?: boolean; message?: string; compliance?: { error?: string } } | null;
+      if (blocked?.compliance_blocked) {
+        throw new Error(
+          blocked.compliance?.error ||
+            blocked.message ||
+            "Publicação bloqueada pelas verificações internas.",
+        );
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["presells"] });
+      toast.success("Estado atualizado.");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Não foi possível alterar o estado.");
+    },
   });
 
   const handleEdit = (page: Presell) => {
@@ -245,7 +262,7 @@ export default function PresellManualPagesPage() {
   if (isError) {
     return (
       <div className={APP_PAGE_SHELL}>
-        <ErrorState title="Não foi possível carregar" onRetry={() => refetch()} />
+        <ErrorState message="Não foi possível carregar as páginas." onRetry={() => void refetch()} />
       </div>
     );
   }

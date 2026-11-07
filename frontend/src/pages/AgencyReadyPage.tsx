@@ -111,7 +111,7 @@ export default function AgencyReadyPage() {
   ];
 
   const arms = dash?.rotator_arm_performance ?? [];
-  const clicks = dash?.total_clicks ?? 0;
+  const clicks = dash?.entry_clicks ?? dash?.total_clicks ?? 0;
   const sales = dash?.approved_sales_count ?? dash?.total_conversions ?? 0;
   const onboardingPctLive = onboarding?.progress?.total
     ? Math.round((onboarding.progress.done / onboarding.progress.total) * 100)

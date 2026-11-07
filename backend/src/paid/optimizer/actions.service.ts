@@ -40,6 +40,15 @@ export async function executeOptimizerDecision(args: {
     if (candidate.decisionType === "flag_creative_swap") {
       return await flagCreativeSwap(campaign, candidate);
     }
+    if (candidate.decisionType === "block_scale") {
+      return {
+        ok: true,
+        detail: "Cap mensal da conta: escala bloqueada (auditoria; sem mutação na rede).",
+      };
+    }
+    if (candidate.decisionType === "reallocate_budget") {
+      return await reallocateBudget(projectId, campaign, candidate, trace);
+    }
     return { ok: false, detail: `Tipo desconhecido: ${candidate.decisionType}` };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -132,6 +141,154 @@ async function scaleBudget(
   }
 
   return { ok: false, detail: `Plataforma não suportada: ${campaign.platform}` };
+}
+
+/** Orçamento diário local em USD (Google/TikTok micros; Meta = 1.º ad set cents). */
+export async function readCampaignDailyBudgetUsd(campaign: PaidAdsCampaign): Promise<number | null> {
+  if (campaign.platform === "google_ads" || campaign.platform === "tiktok_ads") {
+    const m = campaign.dailyBudgetMicros;
+    if (m == null) return null;
+    const usd = Number(m) / 1_000_000;
+    return Number.isFinite(usd) && usd > 0 ? usd : null;
+  }
+  if (campaign.platform === "meta_ads") {
+    const ag = await prisma.paidAdsMetaAdset.findFirst({
+      where: { campaignId: campaign.id },
+      orderBy: { createdAt: "asc" },
+      select: { dailyBudgetCents: true },
+    });
+    if (ag?.dailyBudgetCents == null) return null;
+    const usd = Number(ag.dailyBudgetCents) / 100;
+    return Number.isFinite(usd) && usd > 0 ? usd : null;
+  }
+  return null;
+}
+
+async function applyDailyBudgetUsd(
+  projectId: string,
+  campaign: PaidAdsCampaign,
+  targetUsd: number,
+  trace: Record<string, unknown>,
+): Promise<{ ok: boolean; detail: string }> {
+  const maxMicros = await guardrailMaxDailyMicros(projectId);
+  const maxUsd = Number(maxMicros) / 1_000_000;
+  const cappedUsd = Math.min(Math.max(1, targetUsd), maxUsd > 0 ? maxUsd : targetUsd);
+  const t = { ...trace, projectId, campaignId: campaign.id, platform: campaign.platform, action: "set_daily_budget" };
+
+  if (campaign.platform === "google_ads") {
+    const micros = Math.round(cappedUsd * 1_000_000);
+    const r = await retryAdsMutation(
+      "google_update_budget",
+      () => googleAds.updateCampaignDailyBudgetMicros(projectId, campaign.id, micros),
+      t,
+    );
+    return r.ok
+      ? { ok: true, detail: `Google: orçamento diário → $${cappedUsd.toFixed(2)}.` }
+      : { ok: false, detail: r.error };
+  }
+
+  if (campaign.platform === "meta_ads") {
+    const ag = await prisma.paidAdsMetaAdset.findFirst({
+      where: { campaignId: campaign.id },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!ag?.id) return { ok: false, detail: "Meta: sem ad set local para orçamento." };
+    const cents = Math.max(100, Math.round(cappedUsd * 100));
+    const r = await retryAdsMutation(
+      "meta_adset_budget",
+      () => metaAds.updateAdsetDailyBudgetCents(projectId, ag.id, cents),
+      { ...t, metaAdsetId: ag.id },
+    );
+    return r.ok
+      ? { ok: true, detail: `Meta: ad set orçamento → ${cents} cents/dia.` }
+      : { ok: false, detail: r.error };
+  }
+
+  if (campaign.platform === "tiktok_ads") {
+    const micros = Math.round(cappedUsd * 1_000_000);
+    const r = await retryAdsMutation(
+      "tiktok_update_budget",
+      () => tiktokAds.updateCampaignDailyBudgetMicros(projectId, campaign.id, micros),
+      t,
+    );
+    return r.ok
+      ? { ok: true, detail: `TikTok: orçamento diário → $${cappedUsd.toFixed(2)}.` }
+      : { ok: false, detail: r.error };
+  }
+
+  return { ok: false, detail: `Plataforma não suportada: ${campaign.platform}` };
+}
+
+/**
+ * Move orçamento diário do dador → receptor (mesma quantia). Neutro em gasto total.
+ * `campaign` = receptor; `inputSnapshot.donorCampaignId` = dador.
+ */
+async function reallocateBudget(
+  projectId: string,
+  receiver: PaidAdsCampaign,
+  candidate: OptimizerDecisionCandidate,
+  trace: Record<string, unknown>,
+): Promise<{ ok: boolean; detail: string }> {
+  const donorId =
+    typeof candidate.inputSnapshot.donorCampaignId === "string"
+      ? candidate.inputSnapshot.donorCampaignId
+      : null;
+  const transferUsd = Number(candidate.inputSnapshot.transferUsd);
+  if (!donorId || !Number.isFinite(transferUsd) || transferUsd < 1) {
+    return { ok: false, detail: "Redistribuição: donorCampaignId / transferUsd em falta." };
+  }
+
+  const donor = await prisma.paidAdsCampaign.findFirst({
+    where: { id: donorId, projectId },
+  });
+  if (!donor) return { ok: false, detail: "Redistribuição: campanha dadora não encontrada." };
+  if (donor.platform !== receiver.platform) {
+    return { ok: false, detail: "Redistribuição: dador e receptor em redes diferentes." };
+  }
+
+  const donorUsd = await readCampaignDailyBudgetUsd(donor);
+  const receiverUsd = await readCampaignDailyBudgetUsd(receiver);
+  if (donorUsd == null || receiverUsd == null) {
+    return { ok: false, detail: "Redistribuição: orçamento diário local em falta." };
+  }
+
+  const take = Math.min(transferUsd, Math.max(0, donorUsd - 1));
+  if (take < 1) return { ok: false, detail: "Redistribuição: dador sem margem para cortar ≥ $1." };
+
+  const donorTarget = donorUsd - take;
+  const receiverTarget = receiverUsd + take;
+
+  /** Receptor primeiro: se falhar, o dador fica intacto (evita corte órfão). */
+  const add = await applyDailyBudgetUsd(projectId, receiver, receiverTarget, {
+    ...trace,
+    role: "receiver",
+    donorCampaignId: donor.id,
+  });
+  if (!add.ok) return { ok: false, detail: `Receptor: ${add.detail}` };
+
+  const cut = await applyDailyBudgetUsd(projectId, donor, donorTarget, {
+    ...trace,
+    role: "donor",
+    donorCampaignId: donor.id,
+  });
+  if (!cut.ok) {
+    const rollback = await applyDailyBudgetUsd(projectId, receiver, receiverUsd, {
+      ...trace,
+      role: "receiver_rollback",
+      donorCampaignId: donor.id,
+    });
+    return {
+      ok: false,
+      detail: rollback.ok
+        ? `Dador falhou após escala do receptor — receptor reposto a $${receiverUsd.toFixed(2)}/dia. (${cut.detail})`
+        : `Dador falhou e rollback do receptor também falhou: ${cut.detail} / ${rollback.detail}`,
+    };
+  }
+
+  return {
+    ok: true,
+    detail: `Redistribuídos $${take.toFixed(2)}/dia: dador ${donor.id.slice(0, 8)}… → $${donorTarget.toFixed(2)}; receptor → $${receiverTarget.toFixed(2)}.`,
+  };
 }
 
 async function flagCreativeSwap(

@@ -328,6 +328,8 @@ export const analyticsService = {
         tiktok_events_sync_error?: string | null;
         has_gclid: boolean;
         gclid: string | null;
+        attribution?: "attributed" | "unattributed" | string | null;
+        external_order_id?: string | null;
       }>
     >(`/analytics/conversions${qs ? `?${qs}` : ""}`);
   },
@@ -525,6 +527,19 @@ export const analyticsService = {
         /** Vendas aprovadas sem ttclid — não sobem ao TikTok Events. */
         tiktok_events_skipped_no_ttclid?: number;
       };
+      /** Fila conversion_sync_jobs (pending/dead) — go-live observável. */
+      sync_queue?: {
+        period_days: number;
+        pending: number;
+        processing: number;
+        dead: number;
+        sent: number;
+        by_channel: {
+          google_ads: { pending: number; dead: number };
+          meta_capi: { pending: number; dead: number };
+          tiktok_events: { pending: number; dead: number };
+        };
+      };
       google_ads_metrics?: {
         impressions: number;
         clicks: number;
@@ -652,6 +667,58 @@ export const analyticsService = {
           title: string;
           detail: string;
         }>;
+      };
+      /** Σ vendas por dimensão = total approved (confiança comercial). */
+      ledger_truth?: {
+        expected_sales: number;
+        expected_revenue: number;
+        unattributed_sales: number;
+        unattributed_revenue: number;
+        country: {
+          ok: boolean;
+          sales_sum: number;
+          revenue_sum: number;
+          expected_sales: number;
+          expected_revenue: number;
+          sales_delta: number;
+          revenue_delta: number;
+        };
+        keyword: {
+          ok: boolean;
+          sales_sum: number;
+          revenue_sum: number;
+          expected_sales: number;
+          expected_revenue: number;
+          sales_delta: number;
+          revenue_delta: number;
+        };
+        device: {
+          ok: boolean;
+          sales_sum: number;
+          revenue_sum: number;
+          expected_sales: number;
+          expected_revenue: number;
+          sales_delta: number;
+          revenue_delta: number;
+        };
+        source: {
+          ok: boolean;
+          sales_sum: number;
+          revenue_sum: number;
+          expected_sales: number;
+          expected_revenue: number;
+          sales_delta: number;
+          revenue_delta: number;
+        };
+        offer: {
+          ok: boolean;
+          sales_sum: number;
+          revenue_sum: number;
+          expected_sales: number;
+          expected_revenue: number;
+          sales_delta: number;
+          revenue_delta: number;
+        };
       };
     }>(`/analytics/dashboard${qs ? `?${qs}` : ""}`);
   },

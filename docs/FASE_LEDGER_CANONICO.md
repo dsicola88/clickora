@@ -43,12 +43,14 @@ TrackingEvent(conversion) ────┴── telemetria apenas (não soma fin
 
 | Ficheiro | Alteração |
 |----------|-----------|
-| `backend/src/lib/conversionLedger.ts` | `offlineCsvExternalOrderId`, `upsertConversionFromOfflineCsv`, `sumApprovedConversionTotals`, `applyLedgerTransition`, reconcile CSV |
+| `backend/src/lib/conversionLedger.ts` | upsert offline CSV, reconcile, **backfill TE→Conversion**, **reconcile contadores presell** |
 | `backend/src/lib/unifiedAdsConversion.ts` | `adsExternalOrderId` exportado |
 | `backend/src/controllers/track.controller.ts` | `conversionsCsv` grava **Conversion** canónica (+ TE telemetria) |
-| `backend/src/controllers/analytics.controller.ts` | `revenue_source`, `tracking_conversion_is_telemetry_only` |
+| `backend/src/controllers/analytics.controller.ts` | `revenue_source`, dimensões conversion-centric, `ledger_truth` |
 | `backend/src/lib/conversionLedger.canonical.test.ts` | Testes unitários regras 1–12 (semântica) |
-| `backend/scripts/e2e-ledger-canonical.ts` | Evidência DB auditoria (13 checks) |
+| `backend/scripts/e2e-ledger-canonical.ts` | Evidência DB auditoria (checks 1–16 + checklist) |
+| `backend/src/lib/ledgerDimensionTruth.ts` | Merge cliques×vendas + invariante Σ = total |
+| `backend/scripts/backfill-commercial-trust.ts` | Dry-run/apply backfill + contadores |
 | `docs/METRICAS-HONESTAS.md` | Fonte de verdade alinhada |
 | `frontend/src/services/analyticsService.ts` | Tipos dos novos campos |
 
@@ -61,7 +63,7 @@ TrackingEvent(conversion) ────┴── telemetria apenas (não soma fin
 1. **Import CSV só em TE** — vendas Offline não apareciam no ledger financeiro → **corrigido**.
 2. **`tracking_conversion_revenue`** no dashboard podia ser lido como P&L → marcado explicitamente como telemetria; `revenue` continua Conversion-only.
 3. Docs anteriores (“ledger absoluto fechado”) **overclaim** enquanto CSV import estava TE-only → esta fase fecha o buraco de produto.
-4. Dimensões keyword/país/dispositivo por `JOIN click` podem excluir vendas unattributed ou fora da janela do clique — **risco residual** (ver §7); totais de dashboard usam `Conversion.createdAt`.
+4. Dimensões keyword/país/dispositivo — **fechado**: vendas conversion-centric + `ledger_truth` (ver §9).
 
 ---
 
@@ -70,7 +72,7 @@ TrackingEvent(conversion) ────┴── telemetria apenas (não soma fin
 | Item | Estado |
 |------|--------|
 | Schema novo | NÃO necessário |
-| Dados históricos | Preservados; TE CSV antigos **sem** Conversion continuam telemetria (não migrados automaticamente — ver riscos) |
+| Dados históricos | Preservados; TE CSV órfãos → Conversion via `backfill:commercial-trust` (idempotente) |
 | Produção | Intocada nesta validação |
 
 ---
@@ -151,8 +153,9 @@ Dashboard HTTP `revenue` e `GET /analytics/conversions` (commission=amount) usam
 | Refund / cancel / pending→approved | **VALIDADO COM EVIDÊNCIA** | E2E §5–7 (+ unit transitions); fluxo HTTP afiliado já em `integrations.controller` |
 | Isolamento tenants | **VALIDADO COM EVIDÊNCIA** | E2E §10 |
 | TE não gera receita canónica | **VALIDADO COM EVIDÊNCIA** | `revenue` só Conversion; flag telemetria |
-| Relatórios dimensão keyword/país vs total | **IMPLEMENTADO MAS NÃO VALIDADO** | JOIN click pode divergir de total unattributed |
-| Backfill TE CSV históricos → Conversion | **NÃO IMPLEMENTADO** | Só novos imports |
+| Relatórios dimensão keyword/país vs total | **VALIDADO COM EVIDÊNCIA** | Vendas conversion-centric + `ledger_truth` no dashboard; E2E §16 |
+| Backfill TE CSV históricos → Conversion | **VALIDADO COM EVIDÊNCIA** | `backfillOfflineCsvTeToConversions` + script; E2E §13–14 |
+| Contador `presellPage.conversions` | **VALIDADO COM EVIDÊNCIA** | `reconcilePresellPageConversionCounters`; E2E §15 |
 | Paridade HTTP dashboard vs sumApproved em load prod-like | **IMPLEMENTADO MAS NÃO VALIDADO** | Mesma query definition; não re-corrido e2e-reports-truth nesta fase |
 | Credenciais CAPI/OAuth reais | **BLOQUEADO** | Fora do ledger; ops |
 | Multi-região / DNS | **FORA DE ÂMBITO** | Infra |
@@ -161,18 +164,29 @@ Dashboard HTTP `revenue` e `GET /analytics/conversions` (commission=amount) usam
 
 ## 8. Riscos que permanecem
 
-1. **Linhas TE `offline_csv` antigas** sem `Conversion` correspondente: telemetria órfã; não entram em `revenue`, mas `tracking_conversion_revenue` pode parecer “receita fantasma” se alguém ignorar a flag.
-2. **Contador denormalizado `presellPage.conversions`** pode divergir de `COUNT(approved)` (ads/CSV/refunds).
-3. **Breakdowns por keyword/país** via join ao clique ≠ total do dashboard para vendas unattributed.
-4. **Google Ads live metrics** (GAQL) ≠ ledger Clickora (sistemas diferentes).
+1. **Google Ads live metrics** (GAQL) ≠ ledger Clickora (sistemas diferentes) — esperado; não é P&L canónico.
+2. Backfill em produção exige corrida operacional: `npm run backfill:commercial-trust -- --apply` (dry-run por defeito).
+3. E2E HTTP completo do `POST /track/conversions/csv` com API reiniciada (a função canónica + backfill estão cobertos).
 
 ---
 
-## 9. Funcionalidades ainda não validadas nesta fase
+## 9. Confiança comercial (fecho)
 
-- Backfill one-shot de TE CSV legados → Conversion.
-- E2E HTTP completo do `POST /track/conversions/csv` com API reiniciada (a função canónica está coberta; o handler usa a mesma upsert).
-- Reexecução de `e2e-reports-truth.ts` / `e2e-staging-affiliate-audit.ts` no mesmo stack (recomendado no CI).
+| Entrega | Como |
+|---------|------|
+| Backfill órfãos TE→Conversion | `backend/src/lib/conversionLedger.ts` + `scripts/backfill-commercial-trust.ts` |
+| Dimensões = total | `ledgerDimensionTruth.ts` + queries conversion-centric em `analytics.controller` |
+| Invariante API | campo `ledger_truth` no `GET /analytics/dashboard` |
+| Contadores denormalizados | `reconcilePresellPageConversionCounters` |
+
+```bash
+cd backend
+# dry-run
+npm run backfill:commercial-trust
+# gravar
+npm run backfill:commercial-trust -- --apply
+# opcional: --user=<uuid> --since=2024-01-01
+```
 
 ---
 
@@ -180,7 +194,6 @@ Dashboard HTTP `revenue` e `GET /analytics/conversions` (commission=amount) usam
 
 > Não declarar ledger 100% único enquanto analytics, APIs e CSV não utilizarem a mesma fonte canónica e não passarem pelos testes de consistência e concorrência.
 
-**Estado FASE 1:** Analytics `revenue`, APIs de vendas, Offline export e Offline import usam **Conversion**; testes 1–12 com evidência em DB de auditoria.  
-**Não se declara “100% absoluto histórico”** enquanto existirem TE CSV legados sem Conversion e breakdowns dimensionais não revalidados — mas o **produto de receita corrente** está canónico.
+**Estado FASE 1 + confiança comercial:** Analytics `revenue`, APIs de vendas, Offline export/import, backfill histórico CSV, dimensões keyword/país/dispositivo/fonte/oferta e contador de presell usam **Conversion**; testes 1–16 com evidência em DB de auditoria.
 
-Classificação global da fase: **VALIDADO COM EVIDÊNCIA** (ledger corrente) · **IMPLEMENTADO MAS NÃO VALIDADO** (backfill + alguns breakdowns).
+Classificação global: **VALIDADO COM EVIDÊNCIA** (ledger corrente + histórico CSV + dimensões).

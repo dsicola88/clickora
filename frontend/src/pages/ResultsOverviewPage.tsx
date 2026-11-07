@@ -204,6 +204,7 @@ export default function ResultsOverviewPage() {
         countries: [],
         devices: [],
         sources: [],
+        rotators: [],
         arms: [],
       };
     }

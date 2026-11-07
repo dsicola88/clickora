@@ -1,7 +1,9 @@
 /**
- * Alertas assíncronos do Paid Optimizer — webhook JSON (Slack / Zapier / email via middleware).
+ * Alertas assíncronos do Paid Optimizer — webhook JSON + e-mail transaccional.
  * Nunca bloqueia o ciclo; falhas de rede ficam só em log estruturado.
  */
+import { systemPrisma } from "../../lib/prisma";
+import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../../lib/mailer";
 import {
   optimizerAlertFormat,
   optimizerAlertWebhookTimeoutMs,
@@ -12,7 +14,12 @@ import { optimizerLog } from "./logger";
 export const OPTIMIZER_ALERT_SOURCE = "clickora.paid.optimizer" as const;
 export const OPTIMIZER_ALERT_SCHEMA_VERSION = 1 as const;
 
-export type OptimizerAlertEventType = "campaign_paused" | "budget_scaled" | "optimizer_critical_error";
+export type OptimizerAlertEventType =
+  | "campaign_paused"
+  | "budget_scaled"
+  | "budget_reallocated"
+  | "creative_swap_flagged"
+  | "optimizer_critical_error";
 
 export type OptimizerWebhookPayload = {
   source: typeof OPTIMIZER_ALERT_SOURCE;
@@ -29,6 +36,16 @@ export type OptimizerWebhookPayload = {
   metrics?: Record<string, unknown>;
   execution_detail?: string;
 };
+
+function frontendBase(): string {
+  const raw = process.env.FRONTEND_URL || process.env.APP_PUBLIC_URL || "https://www.dclickora.com";
+  return raw.split(",")[0]?.trim().replace(/\/$/, "") || "https://www.dclickora.com";
+}
+
+function optimizerAlertEmailOverride(): string | null {
+  const e = process.env.PAID_OPTIMIZER_ALERT_EMAIL?.trim();
+  return e && e.includes("@") ? e : null;
+}
 
 /** Formato legado Slack Incoming Webhook — só campo `text` (mrkdwn). */
 function buildSlackIncomingBody(payload: OptimizerWebhookPayload): string {
@@ -81,19 +98,82 @@ async function postWebhook(url: string, payload: OptimizerWebhookPayload): Promi
   }
 }
 
-/** Enfileira envio HTTP sem bloquear; erros apenas em log `alert_webhook_delivery_failed`. */
+async function resolveAlertEmail(payload: OptimizerWebhookPayload): Promise<string | null> {
+  const override = optimizerAlertEmailOverride();
+  if (override) return override;
+  if (!payload.project_id) return null;
+  const project = await systemPrisma.paidAdsProject.findUnique({
+    where: { id: payload.project_id },
+    select: {
+      user: { select: { email: true, saleNotifyEmail: true } },
+    },
+  });
+  const to = (project?.user.saleNotifyEmail?.trim() || project?.user.email || "").trim();
+  return to.includes("@") ? to : null;
+}
+
+function enqueueOptimizerAlertEmail(payload: OptimizerWebhookPayload): void {
+  if (!isTransactionalEmailConfigured()) return;
+  void (async () => {
+    try {
+      const to = await resolveAlertEmail(payload);
+      if (!to) return;
+      const label =
+        payload.event_type === "campaign_paused"
+          ? "Campanha pausada"
+          : payload.event_type === "budget_scaled"
+            ? "Orçamento escalado"
+            : payload.event_type === "budget_reallocated"
+              ? "Orçamento redistribuído"
+              : payload.event_type === "creative_swap_flagged"
+                ? "Sugestão de criativo (CTR baixo)"
+                : "Erro crítico do motor";
+      const auditUrl = payload.project_id
+        ? `${frontendBase()}/tracking/dpilot/p/${payload.project_id}/motor`
+        : `${frontendBase()}/tracking/dpilot`;
+      const mail = await sendTransactionalEmail({
+        to,
+        subject: `[dclickora] Paid Optimizer — ${label}`,
+        text:
+          `O motor Paid Optimizer registou: ${label}.\n\n` +
+          `Acção: ${payload.action}\n` +
+          (payload.reason ? `Motivo: ${payload.reason}\n` : "") +
+          (payload.campaign_id ? `Campanha: ${payload.campaign_id}\n` : "") +
+          (payload.platform ? `Plataforma: ${payload.platform}\n` : "") +
+          (payload.tick_id ? `Tick: ${payload.tick_id}\n` : "") +
+          `\nQuando: ${payload.timestamp}\n` +
+          `\nAuditoria: ${auditUrl}\n`,
+      });
+      if (!mail.sent) {
+        optimizerLog("warn", "alert_email_delivery_skipped", {
+          event_type: payload.event_type,
+          reason: (mail as { reason?: string }).reason ?? "not_sent",
+        });
+      }
+    } catch (e) {
+      optimizerLog("warn", "alert_email_delivery_failed", {
+        event_type: payload.event_type,
+        campaign_id: payload.campaign_id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  })();
+}
+
+/** Enfileira envio HTTP + e-mail sem bloquear; erros apenas em log. */
 export function enqueueOptimizerAlert(payload: OptimizerWebhookPayload): void {
   const url = optimizerAlertWebhookUrl();
-  if (!url) return;
-
-  void postWebhook(url, payload).catch((e: unknown) => {
-    optimizerLog("warn", "alert_webhook_delivery_failed", {
-      event_type: payload.event_type,
-      campaign_id: payload.campaign_id,
-      tick_id: payload.tick_id,
-      error: e instanceof Error ? e.message : String(e),
+  if (url) {
+    void postWebhook(url, payload).catch((e: unknown) => {
+      optimizerLog("warn", "alert_webhook_delivery_failed", {
+        event_type: payload.event_type,
+        campaign_id: payload.campaign_id,
+        tick_id: payload.tick_id,
+        error: e instanceof Error ? e.message : String(e),
+      });
     });
-  });
+  }
+  enqueueOptimizerAlertEmail(payload);
 }
 
 export function enqueueCampaignPausedAlert(args: {
@@ -137,6 +217,52 @@ export function enqueueBudgetScaledAlert(args: {
     campaign_id: args.campaignId,
     platform: args.platform,
     action: "scale_budget",
+    reason: args.reason,
+    metrics: args.metrics,
+  });
+}
+
+export function enqueueBudgetReallocatedAlert(args: {
+  tickId: string;
+  projectId: string;
+  campaignId: string;
+  platform: string;
+  reason: string;
+  metrics: Record<string, unknown>;
+}): void {
+  enqueueOptimizerAlert({
+    source: OPTIMIZER_ALERT_SOURCE,
+    schema_version: OPTIMIZER_ALERT_SCHEMA_VERSION,
+    event_type: "budget_reallocated",
+    timestamp: new Date().toISOString(),
+    tick_id: args.tickId,
+    project_id: args.projectId,
+    campaign_id: args.campaignId,
+    platform: args.platform,
+    action: "reallocate_budget",
+    reason: args.reason,
+    metrics: args.metrics,
+  });
+}
+
+export function enqueueCreativeSwapFlaggedAlert(args: {
+  tickId: string;
+  projectId: string;
+  campaignId: string;
+  platform: string;
+  reason: string;
+  metrics: Record<string, unknown>;
+}): void {
+  enqueueOptimizerAlert({
+    source: OPTIMIZER_ALERT_SOURCE,
+    schema_version: OPTIMIZER_ALERT_SCHEMA_VERSION,
+    event_type: "creative_swap_flagged",
+    timestamp: new Date().toISOString(),
+    tick_id: args.tickId,
+    project_id: args.projectId,
+    campaign_id: args.campaignId,
+    platform: args.platform,
+    action: "flag_creative_swap",
     reason: args.reason,
     metrics: args.metrics,
   });

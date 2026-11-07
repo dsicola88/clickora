@@ -46,6 +46,18 @@ paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidControll
 paidRouter.patch("/projects/:projectId/campaigns/:campaignId/optimizer-limits", (req, res) =>
   void paidController.patchCampaignOptimizerLimits(req, res),
 );
+paidRouter.get("/projects/:projectId/campaigns/:campaignId/creative-swap", (req, res) =>
+  void paidController.previewCampaignCreativeSwap(req, res),
+);
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/creative-swap/apply", (req, res) =>
+  void paidController.applyCampaignCreativeSwap(req, res),
+);
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/creative-swap/dismiss", (req, res) =>
+  void paidController.dismissCampaignCreativeSwap(req, res),
+);
+paidRouter.post("/projects/:projectId/campaigns/:campaignId/creative-swap/message-recs", (req, res) =>
+  void paidController.recommendCampaignMessageOffer(req, res),
+);
   paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-performance", (req, res) =>
     void paidController.googleCampaignPerformance(req, res),
   );
@@ -72,6 +84,9 @@ paidRouter.delete("/projects/:projectId/campaigns/:campaignId", (req, res) =>
 );
 paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
   void paidController.listOptimizerDecisions(req, res),
+);
+paidRouter.get("/projects/:projectId/health-summary", (req, res) =>
+  void paidController.getProjectHealthSummary(req, res),
 );
 paidRouter.get("/projects/:projectId/change-requests", (req, res) =>
   void paidController.listChangeRequests(req, res),

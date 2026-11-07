@@ -513,7 +513,7 @@ export default function Rotadores() {
     } else {
       rulesRes = resolveRulesPolicyForSubmit(rulesDrafts, editing);
     }
-    if (!rulesRes.ok) {
+    if (rulesRes.ok === false) {
       toast.error(rulesRes.error);
       return;
     }
@@ -953,7 +953,19 @@ export default function Rotadores() {
                     }
                     if (rulesPolicyText.trim()) {
                       try {
-                        setRulesDrafts(policyToDrafts(JSON.parse(rulesPolicyText)));
+                        const parsed: unknown = JSON.parse(rulesPolicyText);
+                        if (
+                          !parsed ||
+                          typeof parsed !== "object" ||
+                          (parsed as { version?: unknown }).version !== 1 ||
+                          !Array.isArray((parsed as { rules?: unknown }).rules)
+                        ) {
+                          toast.error(
+                            'Política inválida — use { "version": 1, "rules": [...] }. Corrija o JSON ou continue no modo avançado.',
+                          );
+                          return;
+                        }
+                        setRulesDrafts(policyToDrafts(parsed));
                       } catch {
                         toast.error("Formato inválido — corrija antes de voltar ao editor visual.");
                         return;

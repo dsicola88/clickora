@@ -12,8 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/PageHeader";
+import { LoadingState } from "@/components/LoadingState";
+import { ErrorState } from "@/components/ErrorState";
+import { EmptyState } from "@/components/EmptyState";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
-import { apiClient } from "@/lib/apiClient";
+import { analyticsService } from "@/services/analyticsService";
 
 type LogEntry = { time: string; cat: string; msg: string };
 
@@ -29,20 +32,24 @@ export default function Logs() {
     setLoading(true);
     setError(null);
     try {
-      const qs = new URLSearchParams({ limit: "100", include_bots: "1" });
-      if (date) {
-        qs.set("from", date);
-        qs.set("to", date);
+      let event_type: string | undefined;
+      if (category === "Conversão") event_type = "conversion,sale,lead";
+      else if (category === "Core" || category === "Acesso") event_type = "click,pageview,impression";
+      const res = await analyticsService.getEvents({
+        limit: 100,
+        include_bots: true,
+        event_type,
+        ...(date ? { from: date, to: date } : {}),
+      });
+      if (res.error) {
+        setError(res.error);
+        setLogs([]);
+        return;
       }
-      if (category === "Conversão") qs.set("event_type", "conversion,sale,lead");
-      else if (category === "Core" || category === "Acesso") qs.set("event_type", "click,pageview,impression");
-      const res = await apiClient.get<{ events?: Record<string, unknown>[]; data?: Record<string, unknown>[] }>(
-        `/analytics/events?${qs.toString()}`,
-      );
-      const raw = res.data?.events || res.data?.data || (Array.isArray(res.data) ? res.data : []);
-      const rows = (raw as Record<string, unknown>[]).map((e) => {
-        const created = String(e.created_at || e.createdAt || "");
-        const et = String(e.event_type || e.eventType || "event");
+      const raw = Array.isArray(res.data) ? res.data : [];
+      const rows = raw.map((e) => {
+        const created = String(e.created_at || "");
+        const et = String(e.event_type || "event");
         const src = String(e.source || "");
         const camp = String(e.campaign || "");
         const id = String(e.id || "").slice(0, 8);
@@ -127,23 +134,28 @@ export default function Logs() {
         </div>
 
         <div className="p-4 bg-muted/20 max-h-[600px] overflow-y-auto">
-          {error && <p className="text-sm text-destructive mb-3">{error}</p>}
-          <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-            {filteredLogs.map((log, i) => (
-              <div key={i} className="hover:bg-muted/30 px-1 rounded">
-                <span className="text-primary">
-                  [dclickora | {log.cat} | {log.time}]
-                </span>{" "}
-                <span className="text-card-foreground">{log.msg}</span>
-              </div>
-            ))}
-            {!loading && filteredLogs.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                Nenhum evento encontrado.
-              </div>
-            )}
-          </pre>
+          {loading ? (
+            <LoadingState message="A carregar eventos…" />
+          ) : error ? (
+            <ErrorState message={error} onRetry={() => void load()} />
+          ) : filteredLogs.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="h-8 w-8 text-muted-foreground" />}
+              title="Nenhum evento encontrado"
+              description="Ajuste a data ou a categoria e consulte de novo."
+            />
+          ) : (
+            <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              {filteredLogs.map((log, i) => (
+                <div key={i} className="hover:bg-muted/30 px-1 rounded">
+                  <span className="text-primary">
+                    [dclickora | {log.cat} | {log.time}]
+                  </span>{" "}
+                  <span className="text-card-foreground">{log.msg}</span>
+                </div>
+              ))}
+            </pre>
+          )}
         </div>
       </div>
     </div>

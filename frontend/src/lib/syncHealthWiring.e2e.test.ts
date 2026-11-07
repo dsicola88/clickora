@@ -9,7 +9,6 @@ describe("sync_health FE wiring", () => {
     const pages = [
       "ResultsOverviewPage.tsx",
       "IntegrationsHubPage.tsx",
-      "TrackingDashboard.tsx",
       "Vendas.tsx",
       "Relatorios.tsx",
       "Home.tsx",

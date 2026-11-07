@@ -30,6 +30,14 @@ import { metaCampaignPlanInputSchema, runMetaCampaignPlan } from "./meta-campaig
 import { reconcileProjectCampaigns } from "./reconcile-campaigns";
 import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-campaign-plan";
 import { canAccessProject, canAdminProject, canWriteProject, getPaidActor } from "./permissions";
+import { collectCampaignMetricsBundle } from "./optimizer/metrics.service";
+import { optimizerLookbackHours } from "./optimizer/config";
+import {
+  applyCreativeSwap,
+  clearCreativeSwapFlag,
+  previewCreativeSwap,
+} from "./creativeSwap.service";
+import { recommendMessageOfferVariants } from "./messageOfferRecs.service";
 
 const projectIdParam = z.object({ projectId: z.string().uuid() });
 
@@ -211,6 +219,147 @@ export const paidController = {
     });
   },
 
+  /**
+   * Saúde do projecto Paid: spend × conversões (tracking) × decisões do motor.
+   * Não inventa funil — só agrega métricas já usadas pelo optimizer.
+   */
+  async getProjectHealthSummary(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId } = parsed.data;
+    if (!(await canAccessProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+
+    const lookbackHours = optimizerLookbackHours();
+    const since = new Date(Date.now() - lookbackHours * 3600_000);
+    const decisionsSince = new Date(Date.now() - 7 * 24 * 3600_000);
+    const to = new Date();
+
+    const [project, campaigns, decisionAgg] = await Promise.all([
+      prisma.paidAdsProject.findFirst({
+        where: { id: projectId },
+        select: { id: true, userId: true, name: true, paidMode: true },
+      }),
+      prisma.paidAdsCampaign.findMany({
+        where: { projectId, status: { in: ["live", "paused"] } },
+        select: {
+          id: true,
+          name: true,
+          platform: true,
+          status: true,
+          externalCampaignId: true,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 40,
+      }),
+      prisma.paidAdsOptimizerDecision.groupBy({
+        by: ["decisionType"],
+        where: { projectId, createdAt: { gte: decisionsSince } },
+        _count: { _all: true },
+      }),
+    ]);
+    if (!project) return res.status(404).json({ error: "Projecto não encontrado." });
+
+    let clicks = 0;
+    let approved_conversions = 0;
+    let revenue_usd = 0;
+    let spend_usd = 0;
+    let spend_known_campaigns = 0;
+    let spend_unknown_campaigns = 0;
+    const campaign_rows: Array<{
+      campaign_id: string;
+      name: string;
+      platform: string;
+      status: string;
+      clicks: number;
+      approved_conversions: number;
+      revenue_usd: number;
+      spend_usd: number | null;
+    }> = [];
+
+    for (const c of campaigns) {
+      try {
+        const bundle = await collectCampaignMetricsBundle({
+          projectId,
+          userId: project.userId,
+          campaignId: c.id,
+          platform: c.platform,
+          externalCampaignId: c.externalCampaignId,
+          since,
+          to,
+        });
+        const spend = bundle.spendUsdPlatform;
+        clicks += bundle.tracking.clicks;
+        approved_conversions += bundle.tracking.approvedConversions;
+        revenue_usd += bundle.tracking.revenueUsd;
+        if (spend != null && Number.isFinite(spend)) {
+          spend_usd += spend;
+          spend_known_campaigns += 1;
+        } else {
+          spend_unknown_campaigns += 1;
+        }
+        campaign_rows.push({
+          campaign_id: c.id,
+          name: c.name,
+          platform: c.platform,
+          status: c.status,
+          clicks: bundle.tracking.clicks,
+          approved_conversions: bundle.tracking.approvedConversions,
+          revenue_usd: Math.round(bundle.tracking.revenueUsd * 100) / 100,
+          spend_usd: spend != null ? Math.round(spend * 100) / 100 : null,
+        });
+      } catch {
+        spend_unknown_campaigns += 1;
+        campaign_rows.push({
+          campaign_id: c.id,
+          name: c.name,
+          platform: c.platform,
+          status: c.status,
+          clicks: 0,
+          approved_conversions: 0,
+          revenue_usd: 0,
+          spend_usd: null,
+        });
+      }
+    }
+
+    const decisions_7d: Record<string, number> = {};
+    let decisions_total_7d = 0;
+    for (const row of decisionAgg) {
+      decisions_7d[row.decisionType] = row._count._all;
+      decisions_total_7d += row._count._all;
+    }
+
+    const revenueR = Math.round(revenue_usd * 100) / 100;
+    const spendR = Math.round(spend_usd * 100) / 100;
+    const roas =
+      spendR > 0 ? Math.round((revenueR / spendR) * 100) / 100 : null;
+
+    return res.json({
+      project_id: project.id,
+      project_name: project.name,
+      paid_mode: project.paidMode,
+      lookback_hours: lookbackHours,
+      window: { from: since.toISOString(), to: to.toISOString() },
+      totals: {
+        campaigns: campaigns.length,
+        clicks,
+        approved_conversions,
+        revenue_usd: revenueR,
+        spend_usd: spendR,
+        spend_known_campaigns,
+        spend_unknown_campaigns,
+        roas,
+        decisions_total_7d,
+      },
+      decisions_7d,
+      campaigns: campaign_rows,
+    });
+  },
+
   async listChangeRequests(req: Request, res: Response) {
     const parsed = projectIdParam.safeParse(req.params);
     if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
@@ -279,6 +428,18 @@ export const paidController = {
         },
       });
       return res.json({ ok: true });
+    }
+
+    if (body.data.status === "approved") {
+      if (cr.status !== "pending") {
+        return res.status(400).json({ error: "Só é possível aprovar pedidos pendentes." });
+      }
+    } else if (body.data.status === "rejected") {
+      if (cr.status !== "pending" && cr.status !== "approved" && cr.status !== "failed") {
+        return res.status(400).json({
+          error: "Só é possível rejeitar ou arquivar pedidos pendentes, aprovados ou falhados.",
+        });
+      }
     }
 
     await prisma.paidAdsChangeRequest.update({
@@ -859,6 +1020,105 @@ export const paidController = {
     }
     await prisma.paidAdsCampaign.delete({ where: { id: row.id } });
     return res.json({ ok: true as const });
+  },
+
+  /** Pré-visualiza o próximo rascunho a publicar após flag CTR (loop Copilot). */
+  async previewCampaignCreativeSwap(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
+    }
+    const out = await previewCreativeSwap(parsed.data);
+    if ("error" in out) return res.status(out.status).json({ error: out.error });
+    return res.json(out);
+  },
+
+  /** Enfileira publicação do próximo rascunho + limpa flag creative_swap. */
+  async applyCampaignCreativeSwap(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão de escrita." });
+    }
+    const out = await applyCreativeSwap({
+      ...parsed.data,
+      requestedById: a.userId,
+    });
+    if ("error" in out) return res.status(out.status).json({ error: out.error });
+    return res.json(out);
+  },
+
+  /** Marca sugestão de criativo como tratada (limpa optimizer_flags). */
+  async dismissCampaignCreativeSwap(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão de escrita." });
+    }
+    const out = await clearCreativeSwapFlag(parsed.data);
+    if ("error" in out) return res.status(out.status).json({ error: out.error });
+    return res.json({ ok: true });
+  },
+
+  /**
+   * Recomenda variantes de mensagem/oferta a partir do copy existente (+ LLM opcional).
+   * `persist: true` grava rascunhos Meta/RSA para o loop creative-swap publicar.
+   */
+  async recommendCampaignMessageOffer(req: Request, res: Response) {
+    const parsed = z
+      .object({
+        projectId: z.string().uuid(),
+        campaignId: z.string().uuid(),
+        persist: z.boolean().optional(),
+      })
+      .safeParse({ ...req.params, ...req.body });
+    if (!parsed.success) return res.status(400).json({ error: "Dados inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const write = parsed.data.persist === true;
+    if (write) {
+      if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+        return res.status(403).json({ error: "Sem permissão de escrita." });
+      }
+    } else if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
+    }
+
+    let rankingNote: string | null = null;
+    const preview = await previewCreativeSwap({
+      projectId: parsed.data.projectId,
+      campaignId: parsed.data.campaignId,
+    });
+    if (!("error" in preview) && preview.ranking) {
+      rankingNote = preview.ranking.note;
+      if (preview.ranking.winner_id) {
+        const w = preview.ranking.ranked.find((r) => r.id === preview.ranking!.winner_id);
+        if (w) rankingNote = `${preview.ranking.note} Vencedor rede: «${w.label}».`;
+      }
+    }
+
+    const out = await recommendMessageOfferVariants({
+      projectId: parsed.data.projectId,
+      campaignId: parsed.data.campaignId,
+      persist: parsed.data.persist === true,
+      rankingNote,
+      createdById: a.userId,
+    });
+    if ("error" in out) return res.status(out.status).json({ error: out.error });
+    return res.json(out);
   },
 
   async patchCampaignOptimizerLimits(req: Request, res: Response) {

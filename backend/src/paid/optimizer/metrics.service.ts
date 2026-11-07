@@ -5,15 +5,18 @@
 import type { PaidAdsPlatform } from "@prisma/client";
 
 import { prisma } from "../paidPrisma";
+import { isOAuthPendingToken, loadPaidToken } from "../tokenSecrets";
 import { fetchGoogleCampaignCostMicros } from "./google-metrics";
 import { optimizerLog } from "./logger";
 import { fetchMetaCampaignSpendUsd } from "./meta-metrics";
+import { fetchTikTokCampaignSpendUsd } from "./tiktok-metrics";
 import { aggregateTrackingMetricsForCampaign, type TrackingCampaignMetrics } from "./tracking-metrics";
 
 export type CampaignMetricsBundle = {
   tracking: TrackingCampaignMetrics;
   googleCostMicros: number | null;
   metaSpendUsd: number | null;
+  tiktokSpendUsd: number | null;
   spendUsdPlatform: number | null;
 };
 
@@ -21,12 +24,16 @@ export function resolveSpendUsd(args: {
   platform: PaidAdsPlatform;
   googleCostMicros: number | null;
   metaSpendUsd: number | null;
+  tiktokSpendUsd: number | null;
 }): number | null {
   if (args.platform === "google_ads") {
     return args.googleCostMicros !== null ? args.googleCostMicros / 1_000_000 : null;
   }
   if (args.platform === "meta_ads") {
     return args.metaSpendUsd;
+  }
+  if (args.platform === "tiktok_ads") {
+    return args.tiktokSpendUsd;
   }
   return null;
 }
@@ -81,10 +88,13 @@ export async function collectCampaignMetricsBundle(args: {
   if (args.platform === "meta_ads" && args.externalCampaignId) {
     try {
       const conn = await prisma.paidAdsMetaConnection.findUnique({ where: { projectId: args.projectId } });
-      const tok = conn?.tokenRef;
-      if (conn?.status === "connected" && tok && !tok.startsWith("state:")) {
+      const plain =
+        conn?.tokenRef && !isOAuthPendingToken(conn.tokenRef)
+          ? loadPaidToken(conn.tokenRef)
+          : null;
+      if (conn?.status === "connected" && plain) {
         const m = await fetchMetaCampaignSpendUsd({
-          accessToken: tok,
+          accessToken: plain,
           externalCampaignId: args.externalCampaignId,
         });
         metaSpendUsd = m.ok ? m.spendUsd : null;
@@ -107,11 +117,40 @@ export async function collectCampaignMetricsBundle(args: {
     }
   }
 
+  let tiktokSpendUsd: number | null = null;
+  if (args.platform === "tiktok_ads" && args.externalCampaignId) {
+    try {
+      const t = await fetchTikTokCampaignSpendUsd({
+        projectId: args.projectId,
+        externalCampaignId: args.externalCampaignId,
+        from: args.since,
+        to: args.to,
+      });
+      tiktokSpendUsd = t.ok ? t.spendUsd : null;
+      if (!t.ok) {
+        optimizerLog("warn", "tiktok_spend_fetch_failed", {
+          ...trace,
+          projectId: args.projectId,
+          campaignId: args.campaignId,
+          detail: t.error,
+        });
+      }
+    } catch (e) {
+      optimizerLog("warn", "tiktok_spend_fetch_exception", {
+        ...trace,
+        projectId: args.projectId,
+        campaignId: args.campaignId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   const spendUsdPlatform = resolveSpendUsd({
     platform: args.platform,
     googleCostMicros,
     metaSpendUsd,
+    tiktokSpendUsd,
   });
 
-  return { tracking, googleCostMicros, metaSpendUsd, spendUsdPlatform };
+  return { tracking, googleCostMicros, metaSpendUsd, tiktokSpendUsd, spendUsdPlatform };
 }

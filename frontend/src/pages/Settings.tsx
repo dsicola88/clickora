@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { CustomDomainSettings } from "@/components/settings/CustomDomainSettings";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { plansService } from "@/services/plansService";
 import type { UserPlan } from "@/types/api";
 
 function planTypeLabel(t: UserPlan["plan_type"]): string {
@@ -46,14 +47,34 @@ function applyAppTheme(next: "light" | "dark") {
 }
 
 export default function Settings() {
-  const { userPlan } = useAuth();
+  const { userPlan, refreshUser } = useAuth();
   const [theme, setTheme] = useState<"light" | "dark">(() => readAppTheme());
+  const [cancelling, setCancelling] = useState(false);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     applyAppTheme(newTheme);
     toast.success(`Tema alterado para ${newTheme === "dark" ? "escuro" : "claro"}`);
+  };
+
+  const cancelSubscription = async () => {
+    const ok = window.confirm(
+      "Cancelar a assinatura? O acesso às áreas protegidas pode terminar de imediato. Compras Hotmart continuam a ser geridas no painel Hotmart.",
+    );
+    if (!ok) return;
+    setCancelling(true);
+    try {
+      const { error } = await plansService.cancel();
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      await refreshUser();
+      toast.success("Assinatura cancelada.");
+    } finally {
+      setCancelling(false);
+    }
   };
 
   return (
@@ -138,9 +159,22 @@ export default function Settings() {
           ) : (
             <p className="text-sm text-muted-foreground border-t border-border/50 pt-4">Sem plano associado neste momento.</p>
           )}
-          <Button className="w-full mt-auto gap-2 rounded-xl" variant="secondary" asChild>
-            <Link to="/planos">Ver e alterar planos</Link>
-          </Button>
+          <div className="mt-auto space-y-2 pt-2">
+            <Button className="w-full gap-2 rounded-xl" variant="secondary" asChild>
+              <Link to="/planos">Ver e alterar planos</Link>
+            </Button>
+            {userPlan ? (
+              <Button
+                type="button"
+                className="w-full gap-2 rounded-xl"
+                variant="outline"
+                disabled={cancelling}
+                onClick={() => void cancelSubscription()}
+              >
+                {cancelling ? "A cancelar…" : "Cancelar assinatura"}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 

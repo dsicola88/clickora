@@ -362,4 +362,11 @@ export const integrationsService = {
   async testWebPush() {
     return apiClient.post<{ ok: boolean }>("/integrations/push/test");
   },
+
+  async retryConversionSync(body?: { limit?: number; channel?: string }) {
+    return apiClient.post<{ ok: boolean; reset: number }>(
+      "/integrations/conversion-sync/retry",
+      body ?? { limit: 50 },
+    );
+  },
 };

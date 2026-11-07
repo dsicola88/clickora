@@ -73,18 +73,24 @@ function main() {
     "utf8",
   );
   record(
-    "Integrações go-live cobre ads_upload + cost_sync",
+    "Integrações go-live cobre ads_upload + cost_sync + Meta/TikTok",
     integrationsHub.includes('id: "ads_upload"') &&
       integrationsHub.includes('id: "cost_sync"') &&
-      integrationsHub.includes('id: "domain_https"'),
+      integrationsHub.includes('id: "domain_https"') &&
+      integrationsHub.includes('id: "meta_capi_configured"') &&
+      integrationsHub.includes('id: "tiktok_events_configured"') &&
+      integrationsHub.includes("conversion-sync/retry"),
     "ok",
   );
   record(
-    "account_health inclui domain_https + ads_upload + cost freshness",
+    "account_health inclui domain_https + ads_upload + Meta/TikTok + fila",
     health.includes('id: "domain_https"') &&
       health.includes("summarizeUserDomainGoLive") &&
       health.includes('id: "ads_upload"') &&
+      health.includes('id: "meta_capi_configured"') &&
+      health.includes('id: "tiktok_events_configured"') &&
       health.includes("loadSyncHealth") &&
+      health.includes("loadSyncQueueHealth") &&
       health.includes("formatSyncHealthDetail") &&
       health.includes("evaluateCostSyncFreshness") &&
       health.includes("COST_SYNC_STALE_MS") &&
@@ -104,10 +110,21 @@ function main() {
   );
 
   record(
-    "dashboard + funil usam loadSyncHealth",
+    "dashboard + funil usam loadSyncHealth + sync_queue",
     analytics.includes("loadSyncHealth") &&
+      analytics.includes("loadSyncQueueHealth") &&
       analytics.includes("sync_health") &&
+      analytics.includes("sync_queue") &&
       analytics.includes("...funnel, sync_health"),
+    "ok",
+  );
+  record(
+    "fila sync tem loadSyncQueueHealth + retry dead",
+    syncLib.includes("loadSyncQueueHealth") &&
+      syncLib.includes("emptySyncQueueHealth") &&
+      readFileSync(join(root, "lib/conversionSyncQueue.ts"), "utf8").includes(
+        "retryDeadConversionSyncJobs",
+      ),
     "ok",
   );
   record(

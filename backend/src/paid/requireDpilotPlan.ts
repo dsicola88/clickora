@@ -1,27 +1,29 @@
 import type { NextFunction, Request, Response } from "express";
 import { systemPrisma } from "../lib/prisma";
-import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
+import type { JwtPayload } from "../lib/jwt";
 
 /**
  * Plano com `dpilot_ads_enabled` ou `super_admin` (rotas `/api/paid/*`).
+ * Faturação = workspace activo do JWT (`tenantUserId`), alinhado a
+ * `requireActiveSubscription` e `/auth/me` — não o primeiro membership de login.
  */
 export async function requireDpilotPlan(req: Request, res: Response, next: NextFunction) {
-  const auth = req.user;
+  const auth = req.user as JwtPayload | undefined;
   if (!auth) {
     return res.status(401).json({ error: "Não autenticado." });
   }
 
   const user = await systemPrisma.user.findUnique({
     where: { id: auth.userId },
-    include: { roles: true, subscription: { include: { plan: true } } },
+    include: { roles: true },
   });
   if (!user) {
     return res.status(404).json({ error: "Utilizador não encontrado." });
   }
 
-  const sess = await resolveWorkspaceSessionForLogin(user.id);
+  const billId = auth.tenantUserId ?? auth.userId;
   const billing = await systemPrisma.user.findUnique({
-    where: { id: sess.tenantUserId },
+    where: { id: billId },
     include: { subscription: { include: { plan: true } } },
   });
   if (!billing) {

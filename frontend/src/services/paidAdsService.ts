@@ -207,6 +207,108 @@ export const paidAdsService = {
     }>(`/paid/projects/${projectId}/optimizer-decisions${q}`);
   },
 
+  /** Pré-visualiza próximo rascunho após flag CTR (loop Copilot) + ranking rede. */
+  previewCreativeSwap(projectId: string, campaignId: string) {
+    return apiClient.get<{
+      campaign_id: string;
+      platform: string;
+      has_flag: boolean;
+      flag_reason: string | null;
+      next_action:
+        | { type: "meta_publish_creative"; creative_id: string; label: string }
+        | { type: "publish_rsa"; paid_ads_rsa_id: string; label: string }
+        | null;
+      detail: string;
+      ranking: {
+        ranked: Array<{
+          id: string;
+          label: string;
+          impressions: number;
+          clicks: number;
+          conversions: number;
+          ctr: number | null;
+          rank: number;
+          score: number;
+        }>;
+        winner_id: string | null;
+        loser_id: string | null;
+        min_impressions: number;
+        note: string;
+      } | null;
+      ranking_source: "meta_insights" | "google_ads" | "unavailable" | null;
+      ranking_error: string | null;
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/creative-swap`);
+  },
+
+  applyCreativeSwap(projectId: string, campaignId: string) {
+    return apiClient.post<{
+      ok: true;
+      change_request_id: string;
+      change_request_status: string;
+      next_action: { type: string; label: string };
+      flag_cleared: boolean;
+      apply_error?: string;
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/creative-swap/apply`, {});
+  },
+
+  dismissCreativeSwap(projectId: string, campaignId: string) {
+    return apiClient.post<{ ok: true }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/creative-swap/dismiss`,
+      {},
+    );
+  },
+
+  /** Variantes de mensagem/oferta a partir do copy existente; persist grava rascunhos. */
+  recommendMessageOffer(projectId: string, campaignId: string, persist = true) {
+    return apiClient.post<{
+      ok: true;
+      platform: string;
+      variants: Array<{ headline: string; body: string; note: string; source: string }>;
+      model: string | null;
+      llm_error: string | null;
+      persisted_ids: string[];
+      persist_detail: string | null;
+      destination_url: string | null;
+      detail: string;
+      ai_run_id: string | null;
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/creative-swap/message-recs`, {
+      persist,
+    });
+  },
+
+  /** Saúde do projecto: spend × conversões × decisões (janela do optimizer). */
+  getProjectHealthSummary(projectId: string) {
+    return apiClient.get<{
+      project_id: string;
+      project_name: string;
+      paid_mode: string;
+      lookback_hours: number;
+      window: { from: string; to: string };
+      totals: {
+        campaigns: number;
+        clicks: number;
+        approved_conversions: number;
+        revenue_usd: number;
+        spend_usd: number;
+        spend_known_campaigns: number;
+        spend_unknown_campaigns: number;
+        roas: number | null;
+        decisions_total_7d: number;
+      };
+      decisions_7d: Record<string, number>;
+      campaigns: Array<{
+        campaign_id: string;
+        name: string;
+        platform: string;
+        status: string;
+        clicks: number;
+        approved_conversions: number;
+        revenue_usd: number;
+        spend_usd: number | null;
+      }>;
+    }>(`/paid/projects/${projectId}/health-summary`);
+  },
+
   listChangeRequests(projectId: string) {
     return apiClient.get<{ change_requests: ChangeRequestRow[] }>(`/paid/projects/${projectId}/change-requests`);
   },

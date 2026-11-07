@@ -129,7 +129,7 @@ export default function SetupAssistantPage() {
     [presells],
   );
   const hasPublished = published.length > 0;
-  const clicks = dashboard?.total_clicks ?? 0;
+  const clicks = dashboard?.entry_clicks ?? dashboard?.total_clicks ?? 0;
   const conversions = dashboard?.total_conversions ?? 0;
   const approvedSales = dashboard?.approved_sales_count ?? conversions;
   const pipeline = dashboard?.tracking_pipeline;

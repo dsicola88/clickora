@@ -51,7 +51,7 @@ export default function Plans() {
   const { t } = useAppLocale();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, userPlan, isSuperAdmin } = useAuth();
+  const { user, userPlan, isSuperAdmin, refreshUser } = useAuth();
   const builderDevice = useViewportBuilderDevice();
 
   const { data: landing } = useQuery({
@@ -115,6 +115,7 @@ export default function Plans() {
       toast.error(data.message);
       return;
     }
+    await refreshUser();
     toast.success("Plano atualizado com sucesso!");
   };
 

@@ -78,6 +78,14 @@ export async function authenticateJwtOrApiKey(req: Request, res: Response, next:
 
   try {
     const raw = verifyToken(token);
+    if (raw.purpose === "mfa" || raw.purpose === "password_reset") {
+      return res.status(401).json({
+        error:
+          raw.purpose === "mfa"
+            ? "Complete a verificação MFA"
+            : "Token de recuperação inválido para esta operação",
+      });
+    }
     const live = await resolveLiveWorkspaceClaims(raw);
     req.user = {
       ...raw,

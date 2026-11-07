@@ -22,11 +22,23 @@ export const authService = {
   persistTokenAndUser,
 
   async loginWithGoogle(idToken: string) {
-    const result = await apiClient.post<AuthResponse>("/auth/google", { id_token: idToken });
-    if (result.data?.token) {
+    const result = await apiClient.post<LoginResult>("/auth/google", { id_token: idToken });
+    if (result.data && "token" in result.data && result.data.token) {
       persistSession(result.data);
     }
     return result;
+  },
+
+  /** Após redirect OIDC (`#oidc_token=…`): grava JWT e carrega `/auth/me`. */
+  async completeOidcLogin(token: string) {
+    apiClient.setToken(token);
+    const me = await this.me();
+    if (me.data) {
+      localStorage.setItem("clickora_user", JSON.stringify(me.data));
+      return { data: me.data, error: null as string | null };
+    }
+    apiClient.clearToken();
+    return { data: null, error: me.error || "Sessão OIDC inválida" };
   },
 
   async login(payload: LoginPayload) {

@@ -35,8 +35,30 @@ import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
 import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
 import { loadConversionFunnel } from "../lib/conversionFunnel";
 import { allocatePeriodSpendByClicks } from "../lib/allocateSpendByClicks";
-import { loadSyncHealth } from "../lib/syncHealth";
+import { loadSyncHealth, loadSyncQueueHealth } from "../lib/syncHealth";
 import { listApprovedConversionsWithGclid } from "../lib/conversionLedger";
+import {
+  mergeDimensionClicksWithSales,
+  reconcileDimensionAgainstLedger,
+} from "../lib/ledgerDimensionTruth";
+
+/** Keyword do clique; macros literais → bucket «(sem keyword)» (igual aos relatórios). */
+function sqlClickKeywordBucket(alias: string): Prisma.Sql {
+  if (!/^[a-z]+$/.test(alias)) throw new Error("alias de SQL inválido");
+  const meta = Prisma.raw(`${alias}.metadata`);
+  return Prisma.sql`COALESCE(
+    NULLIF(
+      CASE
+        WHEN TRIM(COALESCE(${meta}->>'utm_term', '')) ~ '^\\{[a-zA-Z0-9_.]+\\}$' THEN NULL
+        WHEN TRIM(COALESCE(${meta}->>'utm_term', '')) ~ '^\\{\\{[a-zA-Z0-9_.]+\\}\\}$' THEN NULL
+        WHEN TRIM(COALESCE(${meta}->>'utm_term', '')) ~* '^%7B[a-zA-Z0-9_.]+%7D$' THEN NULL
+        ELSE TRIM(${meta}->>'utm_term')
+      END,
+      ''
+    ),
+    '(sem keyword)'
+  )`;
+}
 
 type AnalyticsSummaryItem = {
   presell_id: string;
@@ -1024,7 +1046,12 @@ export const analyticsController = {
           AND created_at <= ${rangeEnd}
           AND event_type::text IN ('click', 'impression')
           AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
-              AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+          AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+          /** chart "visitors" = cliques raiz (sem doble-count lander após rotador). */
+          AND (
+            event_type::text <> 'click'
+            OR metadata->>'parent_rotator_click_id' IS NULL
+          )
         GROUP BY 1, 2
         ORDER BY 1 ASC
       `),
@@ -1047,6 +1074,7 @@ export const analyticsController = {
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1
         ORDER BY revenue DESC, sales DESC, clicks DESC
         LIMIT 50
@@ -1070,6 +1098,7 @@ export const analyticsController = {
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1
         ORDER BY revenue DESC, sales DESC, clicks DESC
         LIMIT 20
@@ -1097,6 +1126,7 @@ export const analyticsController = {
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1
         ORDER BY revenue DESC, sales DESC, clicks DESC
         LIMIT 40
@@ -1131,13 +1161,14 @@ export const analyticsController = {
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1
         ORDER BY revenue DESC, sales DESC, clicks DESC
         LIMIT 40
       `),
     ]);
 
-    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows, conversionDayRows, unattributedSaleRow, rotatorArmPerfRows] = await Promise.all([
+    const [checkoutCountryRows, offerRows, checkoutOfferRows, checkoutDayRows, conversionDayRows, unattributedSaleRow, rotatorArmPerfRows, salesByCountryRows, salesByDeviceRows, salesBySourceRows, salesByKeywordRows, salesByOfferRows] = await Promise.all([
       systemPrisma.$queryRaw<Array<{ country: string; checkouts: bigint }>>(Prisma.sql`
         SELECT
           COALESCE(
@@ -1182,6 +1213,7 @@ export const analyticsController = {
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1, 2
         ORDER BY clicks DESC, sales DESC
         LIMIT 40
@@ -1310,6 +1342,89 @@ export const analyticsController = {
         sales: bigint;
         revenue: unknown;
       }>),
+      /** Vendas canónicas por dimensão (Conversion.createdAt) — fecha confiança vs totais. */
+      systemPrisma.$queryRaw<Array<{ country: string; sales: bigint; revenue: unknown }>>(Prisma.sql`
+        SELECT
+          COALESCE(${sqlVisitorCountry("te")}, '(sem país)') AS country,
+          COUNT(*)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM conversions c
+        LEFT JOIN tracking_events te
+          ON te.id = c.click_id
+         AND te.user_id = c.user_id
+        WHERE c.user_id = ${userId}
+          AND c.status = 'approved'
+          AND c.created_at >= ${rangeStart}
+          AND c.created_at <= ${rangeEnd}
+        GROUP BY 1
+      `),
+      systemPrisma.$queryRaw<Array<{ device: string; sales: bigint; revenue: unknown }>>(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(LOWER(TRIM(te.device)), ''), '(desconhecido)') AS device,
+          COUNT(*)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM conversions c
+        LEFT JOIN tracking_events te
+          ON te.id = c.click_id
+         AND te.user_id = c.user_id
+        WHERE c.user_id = ${userId}
+          AND c.status = 'approved'
+          AND c.created_at >= ${rangeStart}
+          AND c.created_at <= ${rangeEnd}
+        GROUP BY 1
+      `),
+      systemPrisma.$queryRaw<Array<{ source: string; sales: bigint; revenue: unknown }>>(Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(TRIM(te.metadata->>'utm_source'), ''),
+            NULLIF(TRIM(te.source), ''),
+            '(sem fonte)'
+          ) AS source,
+          COUNT(*)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM conversions c
+        LEFT JOIN tracking_events te
+          ON te.id = c.click_id
+         AND te.user_id = c.user_id
+        WHERE c.user_id = ${userId}
+          AND c.status = 'approved'
+          AND c.created_at >= ${rangeStart}
+          AND c.created_at <= ${rangeEnd}
+        GROUP BY 1
+      `),
+      systemPrisma.$queryRaw<Array<{ keyword: string; sales: bigint; revenue: unknown }>>(Prisma.sql`
+        SELECT
+          ${sqlClickKeywordBucket("te")} AS keyword,
+          COUNT(*)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM conversions c
+        LEFT JOIN tracking_events te
+          ON te.id = c.click_id
+         AND te.user_id = c.user_id
+        WHERE c.user_id = ${userId}
+          AND c.status = 'approved'
+          AND c.created_at >= ${rangeStart}
+          AND c.created_at <= ${rangeEnd}
+        GROUP BY 1
+      `),
+      systemPrisma.$queryRaw<
+        Array<{ presell_id: string; offer: string; sales: bigint; revenue: unknown }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(p.id::text, '') AS presell_id,
+          COALESCE(NULLIF(TRIM(p.title), ''), '(sem oferta)') AS offer,
+          COUNT(*)::bigint AS sales,
+          COALESCE(SUM(c.amount), 0) AS revenue
+        FROM conversions c
+        LEFT JOIN presell_pages p
+          ON p.id = c.presell_id
+         AND p.user_id = c.user_id
+        WHERE c.user_id = ${userId}
+          AND c.status = 'approved'
+          AND c.created_at >= ${rangeStart}
+          AND c.created_at <= ${rangeEnd}
+        GROUP BY 1, 2
+      `),
     ]);
 
     /** Colunas de integração em `users` podem faltar na BD (P2022) — não pode derrubar o dashboard inteiro. */
@@ -1365,9 +1480,6 @@ export const analyticsController = {
     const revenue = revenueLinked;
     const affiliatePlatformsCount = Number(platformDistRow[0]?.cnt ?? 0);
     const conversions = linkedConvCount;
-
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const conversion_rate = clicks > 0 ? (conversions / clicks) * 100 : 0;
 
     const chartMap: Record<string, { clicks: number; impressions: number; conversions: number }> = {};
     for (const row of chartRows) {
@@ -1438,21 +1550,29 @@ export const analyticsController = {
       }
     }
 
+    const unattributedSales = Number(unattributedSaleRow[0]?.sales ?? 0);
+    const unattributedRevenue = Number(unattributedSaleRow[0]?.revenue ?? 0);
+
     const checkoutByCountry = new Map(checkoutCountryRows.map((row) => [row.country, Number(row.checkouts)]));
-    const country_performance = countryPerfRows.map((row) => {
-      const clicksD = Number(row.clicks);
-      const salesD = Number(row.sales);
-      const revD = Number(row.revenue ?? 0);
-      const checkouts = checkoutByCountry.get(row.country) ?? 0;
-      checkoutByCountry.delete(row.country);
+    const countryMerged = mergeDimensionClicksWithSales(
+      countryPerfRows.map((row) => ({ key: row.country, clicks: Number(row.clicks) })),
+      salesByCountryRows.map((row) => ({
+        key: row.country,
+        sales: Number(row.sales),
+        revenue: Number(row.revenue ?? 0),
+      })),
+    );
+    const country_performance = countryMerged.map((row) => {
+      const checkouts = checkoutByCountry.get(row.key) ?? 0;
+      checkoutByCountry.delete(row.key);
       return {
-        country: row.country,
-        clicks: clicksD,
+        country: row.key,
+        clicks: row.clicks,
         checkouts,
-        sales: salesD,
-        revenue: Math.round(revD * 100) / 100,
-        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
-        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
+        sales: row.sales,
+        revenue: Math.round(row.revenue * 100) / 100,
+        epc: row.clicks > 0 ? Math.round((row.revenue / row.clicks) * 10000) / 10000 : null,
+        cvr: row.clicks > 0 ? Math.round((row.sales / row.clicks) * 10000) / 100 : null,
       };
     });
     for (const [country, checkouts] of checkoutByCountry) {
@@ -1467,21 +1587,42 @@ export const analyticsController = {
         cvr: null,
       });
     }
+    country_performance.sort((a, b) => b.revenue - a.revenue || b.sales - a.sales || b.clicks - a.clicks);
     const checkout_visitors = country_performance.reduce((n, row) => n + row.checkouts, 0);
 
     const checkoutByOffer = new Map(
       checkoutOfferRows.map((row) => [row.presell_id || row.offer, { offer: row.offer, checkouts: Number(row.checkouts) }]),
     );
-    const offer_performance = offerRows.map((row) => {
-      const clicksD = Number(row.clicks);
-      const salesD = Number(row.sales);
-      const revD = Number(row.revenue ?? 0);
+    const offerClickByKey = new Map<string, { offer: string; clicks: number }>();
+    for (const row of offerRows) {
       const key = row.presell_id || row.offer;
+      const prev = offerClickByKey.get(key);
+      offerClickByKey.set(key, {
+        offer: row.offer,
+        clicks: (prev?.clicks ?? 0) + Number(row.clicks),
+      });
+    }
+    const offerSaleByKey = new Map<string, { offer: string; sales: number; revenue: number }>();
+    for (const row of salesByOfferRows) {
+      const key = row.presell_id || row.offer;
+      const prev = offerSaleByKey.get(key);
+      offerSaleByKey.set(key, {
+        offer: row.offer,
+        sales: (prev?.sales ?? 0) + Number(row.sales),
+        revenue: Math.round(((prev?.revenue ?? 0) + Number(row.revenue ?? 0)) * 100) / 100,
+      });
+    }
+    const offerKeys = new Set([...offerClickByKey.keys(), ...offerSaleByKey.keys()]);
+    const offer_performance = [...offerKeys].map((key) => {
+      const clicksD = offerClickByKey.get(key)?.clicks ?? 0;
+      const salesD = offerSaleByKey.get(key)?.sales ?? 0;
+      const revD = offerSaleByKey.get(key)?.revenue ?? 0;
+      const offer = offerSaleByKey.get(key)?.offer ?? offerClickByKey.get(key)?.offer ?? "(sem oferta)";
       const checkouts = checkoutByOffer.get(key)?.checkouts ?? 0;
       checkoutByOffer.delete(key);
       return {
-        presell_id: row.presell_id || null,
-        offer: row.offer,
+        presell_id: key || null,
+        offer,
         clicks: clicksD,
         checkouts,
         sales: salesD,
@@ -1504,54 +1645,44 @@ export const analyticsController = {
       });
     }
     offer_performance.sort((a, b) => b.clicks - a.clicks || b.checkouts - a.checkouts || b.revenue - a.revenue);
-    const unattributedSales = Number(unattributedSaleRow[0]?.sales ?? 0);
-    const unattributedRevenue = Number(unattributedSaleRow[0]?.revenue ?? 0);
-    if (unattributedSales > 0) {
-      const loose = offer_performance.find((row) => row.offer === "(sem oferta)");
-      if (loose) {
-        loose.sales += unattributedSales;
-        loose.revenue = Math.round((loose.revenue + unattributedRevenue) * 100) / 100;
-      } else {
-        offer_performance.push({
-          presell_id: null,
-          offer: "(sem oferta)",
-          clicks: 0,
-          checkouts: 0,
-          sales: unattributedSales,
-          revenue: Math.round(unattributedRevenue * 100) / 100,
-          epc: null,
-          cvr: null,
-        });
-      }
-    }
 
-    const device_performance = devicePerfRows.map((row) => {
-      const clicksD = Number(row.clicks);
-      const salesD = Number(row.sales);
-      const revD = Number(row.revenue ?? 0);
-      return {
-        device: row.device,
-        clicks: clicksD,
-        sales: salesD,
-        revenue: Math.round(revD * 100) / 100,
-        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
-        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
-      };
-    });
+    const deviceMerged = mergeDimensionClicksWithSales(
+      devicePerfRows.map((row) => ({ key: row.device, clicks: Number(row.clicks) })),
+      salesByDeviceRows.map((row) => ({
+        key: row.device,
+        sales: Number(row.sales),
+        revenue: Number(row.revenue ?? 0),
+      })),
+    );
+    const device_performance = deviceMerged
+      .map((row) => ({
+        device: row.key,
+        clicks: row.clicks,
+        sales: row.sales,
+        revenue: Math.round(row.revenue * 100) / 100,
+        epc: row.clicks > 0 ? Math.round((row.revenue / row.clicks) * 10000) / 10000 : null,
+        cvr: row.clicks > 0 ? Math.round((row.sales / row.clicks) * 10000) / 100 : null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue || b.sales - a.sales || b.clicks - a.clicks);
 
-    const source_performance = sourcePerfRows.map((row) => {
-      const clicksD = Number(row.clicks);
-      const salesD = Number(row.sales);
-      const revD = Number(row.revenue ?? 0);
-      return {
-        source: row.source,
-        clicks: clicksD,
-        sales: salesD,
-        revenue: Math.round(revD * 100) / 100,
-        epc: clicksD > 0 ? Math.round((revD / clicksD) * 10000) / 10000 : null,
-        cvr: clicksD > 0 ? Math.round((salesD / clicksD) * 10000) / 100 : null,
-      };
-    });
+    const sourceMerged = mergeDimensionClicksWithSales(
+      sourcePerfRows.map((row) => ({ key: row.source, clicks: Number(row.clicks) })),
+      salesBySourceRows.map((row) => ({
+        key: row.source,
+        sales: Number(row.sales),
+        revenue: Number(row.revenue ?? 0),
+      })),
+    );
+    const source_performance = sourceMerged
+      .map((row) => ({
+        source: row.key,
+        clicks: row.clicks,
+        sales: row.sales,
+        revenue: Math.round(row.revenue * 100) / 100,
+        epc: row.clicks > 0 ? Math.round((row.revenue / row.clicks) * 10000) / 10000 : null,
+        cvr: row.clicks > 0 ? Math.round((row.sales / row.clicks) * 10000) / 100 : null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue || b.sales - a.sales || b.clicks - a.clicks);
 
     let rotator_arm_performance: Array<{
       arm_id: string;
@@ -1703,22 +1834,27 @@ export const analyticsController = {
       return { country_code, clicks: row.clicks };
     });
 
-    const keyword_performance = keywordPerfRows.map((row) => {
-      const clicksKw = Number(row.clicks);
-      const salesKw = Number(row.sales);
-      const revKw = Number(row.revenue ?? 0);
-      return {
-        keyword: row.keyword,
-        clicks: clicksKw,
-        sales: salesKw,
-        revenue: Math.round(revKw * 100) / 100,
+    const keywordMerged = mergeDimensionClicksWithSales(
+      keywordPerfRows.map((row) => ({ key: row.keyword, clicks: Number(row.clicks) })),
+      salesByKeywordRows.map((row) => ({
+        key: row.keyword,
+        sales: Number(row.sales),
+        revenue: Number(row.revenue ?? 0),
+      })),
+    );
+    const keyword_performance = keywordMerged
+      .map((row) => ({
+        keyword: row.key,
+        clicks: row.clicks,
+        sales: row.sales,
+        revenue: Math.round(row.revenue * 100) / 100,
         cost: null as number | null,
         profit: null as number | null,
         roas: null as number | null,
-        epc: clicksKw > 0 ? Math.round((revKw / clicksKw) * 10000) / 10000 : null,
-        cvr: clicksKw > 0 ? Math.round((salesKw / clicksKw) * 10000) / 100 : null,
-      };
-    });
+        epc: row.clicks > 0 ? Math.round((row.revenue / row.clicks) * 10000) / 10000 : null,
+        cvr: row.clicks > 0 ? Math.round((row.sales / row.clicks) * 10000) / 100 : null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue || b.sales - a.sales || b.clicks - a.clicks);
 
     /** Junta custo: preferir tabela diária persistida; fallback GAQL live. */
     try {
@@ -1873,11 +2009,18 @@ export const analyticsController = {
     const syncHealthStart = new Date();
     syncHealthStart.setUTCDate(syncHealthStart.getUTCDate() - 7);
     syncHealthStart.setUTCHours(0, 0, 0, 0);
-    const sync_health = await loadSyncHealth({
-      userId,
-      since: syncHealthStart,
-      periodDays: 7,
-    });
+    const [sync_health, sync_queue] = await Promise.all([
+      loadSyncHealth({
+        userId,
+        since: syncHealthStart,
+        periodDays: 7,
+      }),
+      loadSyncQueueHealth({
+        userId,
+        since: syncHealthStart,
+        periodDays: 7,
+      }),
+    ]);
 
     /** Media buyer: lucro = receita − gasto. Preferir custo Google do período; senão soma de gastos manuais. */
     let manualSpendTotal = 0;
@@ -1944,14 +2087,15 @@ export const analyticsController = {
       spend_currency = "USD";
     }
 
+    /** CVR/EPC do media buyer usam visitantes raiz (entry_clicks), não hops pós-rotador. */
     const mb = computePerf({
-      clicks,
+      clicks: entry_clicks,
       conversions,
       revenue,
       spend,
     });
     const mediaBuyerAlerts = buildMediaBuyerAlerts({
-      clicks,
+      clicks: entry_clicks,
       conversions,
       revenue,
       spend,
@@ -2057,7 +2201,7 @@ export const analyticsController = {
             period: { from: compareFromQ, to: compareToQ },
             ...snap,
             delta: {
-              clicks_pct: pct(clicks, snap.clicks),
+              clicks_pct: pct(entry_clicks, snap.clicks),
               conversions_pct: pct(conversions, snap.conversions),
               revenue_pct: pct(revenue, snap.revenue),
             },
@@ -2099,6 +2243,10 @@ export const analyticsController = {
       entry_clicks,
     );
 
+    /** Taxa de conversão / CTR canónicas = visitantes raiz (alinhadas a entry_clicks e media_buyer). */
+    const entryConversionRate = entry_clicks > 0 ? (conversions / entry_clicks) * 100 : 0;
+    const entryCtr = impressions > 0 ? (entry_clicks / impressions) * 100 : 0;
+
     res.json({
       total_clicks: clicks,
       /** Cliques raiz (sem parent_rotator_click_id) — evita doble-count lander após rotador. */
@@ -2107,8 +2255,8 @@ export const analyticsController = {
       total_impressions: impressions,
       /** Alias histórico: igual a vendas aprovadas (postback). */
       total_conversions: conversions,
-      ctr: Math.round(ctr * 100) / 100,
-      conversion_rate: Math.round(conversion_rate * 100) / 100,
+      ctr: Math.round(entryCtr * 100) / 100,
+      conversion_rate: Math.round(entryConversionRate * 100) / 100,
       revenue: Math.round(revenue * 100) / 100,
       /** Fonte canónica de receita: sempre tabela `conversions` (status approved). */
       revenue_source: "conversion" as const,
@@ -2164,7 +2312,39 @@ export const analyticsController = {
       ad_group_performance,
       click_quota,
       sync_health,
+      /** Fila conversion_sync_jobs (pending/dead) — go-live observável. */
+      sync_queue,
       media_buyer,
+      /**
+       * Confiança comercial: Σ vendas/receita por dimensão = total approved do período.
+       * Não inventa funil — só prova que keyword/país/dispositivo/fonte/oferta batem com o ledger.
+       */
+      ledger_truth: {
+        expected_sales: conversions,
+        expected_revenue: Math.round(revenue * 100) / 100,
+        unattributed_sales: unattributedSales,
+        unattributed_revenue: Math.round(unattributedRevenue * 100) / 100,
+        country: reconcileDimensionAgainstLedger(country_performance, {
+          sales: conversions,
+          revenue,
+        }),
+        keyword: reconcileDimensionAgainstLedger(keyword_performance, {
+          sales: conversions,
+          revenue,
+        }),
+        device: reconcileDimensionAgainstLedger(device_performance, {
+          sales: conversions,
+          revenue,
+        }),
+        source: reconcileDimensionAgainstLedger(source_performance, {
+          sales: conversions,
+          revenue,
+        }),
+        offer: reconcileDimensionAgainstLedger(offer_performance, {
+          sales: conversions,
+          revenue,
+        }),
+      },
     });
     } catch (e) {
       console.error("[analytics.getDashboard]", e);

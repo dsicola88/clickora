@@ -213,7 +213,7 @@ export default function Integrations() {
   const activateWebPush = useMutation({
     mutationFn: async () => {
       const r = await subscribeToWebPush();
-      if (!r.ok) throw new Error(r.error);
+      if (r.ok === false) throw new Error(r.error);
       return r;
     },
     onSuccess: async () => {
@@ -227,7 +227,7 @@ export default function Integrations() {
   const deactivateWebPush = useMutation({
     mutationFn: async () => {
       const r = await unsubscribeFromWebPush();
-      if (!r.ok) throw new Error(r.error);
+      if (r.ok === false) throw new Error(r.error);
       return r;
     },
     onSuccess: async () => {

@@ -114,7 +114,15 @@ const manualApiSchema = z.object({
     .max(5),
 });
 
-export type GoogleManualSearchPlanPayload = z.infer<typeof manualApiSchema>;
+/** Explicit shape (avoid Zod infer widening optionals with .trim() pipes). */
+export type GoogleManualSearchPlanPayload = {
+  campaign: { name: string; objective_summary: string };
+  ad_groups: Array<{
+    name: string;
+    keywords: Array<{ text: string; match_type: "exact" | "phrase" | "broad" }>;
+    rsa: { headlines: string[]; descriptions: string[] };
+  }>;
+};
 
 export function formStateToGoogleManualPlanPayload(form: GoogleManualPlanFormState):
   | { ok: true; plan: GoogleManualSearchPlanPayload }
@@ -151,5 +159,5 @@ export function formStateToGoogleManualPlanPayload(form: GoogleManualPlanFormSta
     return { ok: false, error: "Cada grupo deve ter pelo menos uma palavra-chave (uma por linha)." };
   }
 
-  return { ok: true, plan: parsed.data };
+  return { ok: true, plan: parsed.data as GoogleManualSearchPlanPayload };
 }

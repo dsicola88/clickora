@@ -15,7 +15,12 @@ import { ctrFromTracking, type TrackingCampaignMetrics } from "./tracking-metric
 
 export type OptimizerDecisionCandidate = {
   ruleCode: string;
-  decisionType: "pause_campaign" | "scale_budget" | "flag_creative_swap";
+  decisionType:
+    | "pause_campaign"
+    | "scale_budget"
+    | "flag_creative_swap"
+    | "block_scale"
+    | "reallocate_budget";
   reason: string;
   inputSnapshot: Record<string, unknown>;
 };
@@ -23,7 +28,7 @@ export type OptimizerDecisionCandidate = {
 export type RuleEvaluationInput = {
   platform: PaidAdsPlatform;
   tracking: TrackingCampaignMetrics;
-  /** USD — só preenchido quando a API da rede devolve gasto (Google/Meta). */
+  /** USD — preenchido quando a API da rede devolve gasto (Google/Meta/TikTok). */
   spendUsdPlatform: number | null;
   /**
    * Resolvidos no `optimizer.service` a partir de guardrails do projecto ou env.
@@ -31,6 +36,13 @@ export type RuleEvaluationInput = {
    */
   effectivePauseSpendUsd?: number;
   effectivePauseMinClicks?: number;
+  /**
+   * Cap mensal da conta/projecto (`maxMonthlySpendMicros` → USD).
+   * Quando o gasto conhecido do projecto na janela ≥ cap, bloqueia escala.
+   */
+  accountMonthlyCapUsd?: number | null;
+  /** Soma dos gastos conhecidos (todas as campanhas live do projecto) na janela. */
+  projectSpendUsdKnown?: number | null;
 };
 
 /** Prioridade: pausa antes de escalar; flags são não-destrutivos. */
@@ -107,10 +119,39 @@ export function evaluateOptimizerRules(input: RuleEvaluationInput): OptimizerDec
     }
   }
 
+  const cap = input.accountMonthlyCapUsd;
+  const projectSpend = input.projectSpendUsdKnown;
+  const capHit =
+    cap != null &&
+    Number.isFinite(cap) &&
+    cap > 0 &&
+    projectSpend != null &&
+    Number.isFinite(projectSpend) &&
+    projectSpend >= cap;
+
+  if (capHit) {
+    const hadScale = candidates.some((c) => c.decisionType === "scale_budget");
+    if (hadScale) {
+      candidates.push({
+        ruleCode: "account_monthly_cap_block_scale",
+        decisionType: "block_scale",
+        reason: `Cap mensal da conta ($${cap!.toFixed(2)}) atingido — gasto conhecido do projecto $${projectSpend!.toFixed(2)}; escala bloqueada.`,
+        inputSnapshot: {
+          accountMonthlyCapUsd: cap,
+          projectSpendUsdKnown: projectSpend,
+        },
+      });
+    }
+  }
+
   const deduped = dedupeByDecisionType(candidates);
   let out = deduped.some((c) => c.decisionType === "pause_campaign")
     ? deduped.filter((c) => c.decisionType !== "scale_budget")
     : deduped;
+
+  if (out.some((c) => c.decisionType === "block_scale")) {
+    out = out.filter((c) => c.decisionType !== "scale_budget");
+  }
 
   if (optimizerRulesPhase() === "pause_only") {
     out = out.filter((c) => c.decisionType === "pause_campaign");
@@ -122,7 +163,13 @@ export function evaluateOptimizerRules(input: RuleEvaluationInput): OptimizerDec
 function dedupeByDecisionType(candidates: OptimizerDecisionCandidate[]): OptimizerDecisionCandidate[] {
   const seen = new Set<string>();
   const out: OptimizerDecisionCandidate[] = [];
-  const order = ["pause_campaign", "scale_budget", "flag_creative_swap"] as const;
+  const order = [
+    "pause_campaign",
+    "block_scale",
+    "reallocate_budget",
+    "scale_budget",
+    "flag_creative_swap",
+  ] as const;
   const sorted = [...candidates].sort(
     (a, b) =>
       order.indexOf(a.decisionType as (typeof order)[number]) -

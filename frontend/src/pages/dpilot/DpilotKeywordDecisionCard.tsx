@@ -41,6 +41,11 @@ function monthIndex(y: number, m: number): number {
   return y * 100 + m;
 }
 
+/** Inclusive span in months between two calendar months (for range length checks). */
+function monthSpan(a: { y: number; m: number }, b: { y: number; m: number }): number {
+  return b.y * 12 + (b.m - 1) - (a.y * 12 + (a.m - 1));
+}
+
 function currentCalendarMonthMaxStr(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -222,7 +227,7 @@ export function DpilotKeywordDecisionCard({
         toast.error("Intervalo inválido", { description: "O início deve ser anterior ou igual ao fim." });
         return;
       }
-      if (monthIndexDiff(a, b) > 48) {
+      if (monthSpan(a, b) > 48) {
         toast.error("Intervalo demasiado largo", { description: "Máximo 48 meses (limite do servidor)." });
         return;
       }

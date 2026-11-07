@@ -156,7 +156,7 @@ export function plansHeroMinHeightStyle(v: PlansHeroVisual): CSSProperties {
   return {
     ["--plans-hero-min-sm"]: `${v.min_height_mobile_px}px`,
     ["--plans-hero-min-md"]: `${v.min_height_desktop_px}px`,
-  };
+  } as CSSProperties;
 }
 
 export function plansHeroContentEntranceClass(v: PlansHeroVisual): string {

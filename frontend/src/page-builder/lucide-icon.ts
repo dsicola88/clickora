@@ -7,12 +7,9 @@ import {
 } from "react";
 import dynamicIconImports from "lucide-react/dynamicIconImports";
 
-type LucideComp = ComponentType<{
-  size?: number;
-  color?: string;
-  style?: CSSProperties;
-  className?: string;
-}>;
+/** Accepts Lucide ForwardRef icons and our Suspense wrapper alike. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LucideComp = ComponentType<any>;
 
 type DynamicIconKey = keyof typeof dynamicIconImports;
 

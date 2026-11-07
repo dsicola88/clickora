@@ -9,7 +9,7 @@ export type CampaignStats = {
   cpa: number | null;
   roas: number | null;
   profit: number | null;
-  spend_note?: "manual_period_estimate";
+  spend_note?: "lifetime_memo" | "manual_period_estimate";
 };
 
 export type AffiliateCampaign = {

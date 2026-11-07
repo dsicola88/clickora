@@ -158,7 +158,7 @@ export default function AdminSalesPageBuilderPage() {
       useBuilder.getState().hydrateDocument(saved);
       /** Actualiza a cache do admin clássico já com builder_enabled + page_document. */
       if (data && typeof data === "object") {
-        const { ok: _ok, ...row } = data as Record<string, unknown> & { ok?: boolean };
+        const { ok: _ok, ...row } = data as unknown as Record<string, unknown> & { ok?: boolean };
         queryClient.setQueryData(ADMIN_KEY, row);
       }
       void queryClient.invalidateQueries({ queryKey: ADMIN_KEY });

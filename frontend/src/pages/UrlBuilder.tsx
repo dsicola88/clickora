@@ -98,7 +98,10 @@ function highlightGeneratedUrlPreview(url: string): ReactNode {
 }
 
 // Default param rows per platform
-const defaultParams: Record<string, { key: string; value: string; highlight?: boolean; valuePlaceholder?: string }[]> = {
+const defaultParams: Record<
+  string,
+  { key: string; value: string; highlight?: boolean; keyReadonly?: boolean; valuePlaceholder?: string }[]
+> = {
   "AdCombo": [
     { key: "subacc", value: "" },
     { key: "subacc2", value: "" },

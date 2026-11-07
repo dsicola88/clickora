@@ -111,7 +111,8 @@ export function PresellAdsCompliancePanel({
   const [disputeRuleId, setDisputeRuleId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState("");
 
-  const queryKey = tenantQueryKey(user, ["presell-compliance", presellId]);
+  const tenantKey = tenantQueryKey(user);
+  const queryKey = ["presell-compliance", tenantKey, presellId] as const;
 
   const { data, isLoading, error } = useQuery({
     queryKey,
@@ -131,7 +132,7 @@ export function PresellAdsCompliancePanel({
     },
     onSuccess: () => {
       toast.success("Auditoria concluída (verificações internas).");
-      void qc.invalidateQueries({ queryKey });
+      void qc.invalidateQueries({ queryKey: [...queryKey] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -153,7 +154,7 @@ export function PresellAdsCompliancePanel({
       toast.success("Decisão humana registada. Reauditoria aplicada.");
       setDisputeRuleId(null);
       setDisputeReason("");
-      void qc.invalidateQueries({ queryKey });
+      void qc.invalidateQueries({ queryKey: [...queryKey] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

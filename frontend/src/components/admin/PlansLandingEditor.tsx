@@ -1349,7 +1349,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       if (at) {
         void queryClient.cancelQueries({ queryKey: ADMIN_KEY });
         queryClient.setQueryData(ADMIN_KEY, (prev) =>
-          prev
+          prev && typeof prev === "object"
             ? { ...prev, has_hero_image: true, updated_at: at }
             : prev,
         );

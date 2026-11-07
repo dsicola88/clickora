@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { systemPrisma } from "../lib/prisma";
-import { signToken } from "../lib/jwt";
+import { signToken, verifyToken } from "../lib/jwt";
 import {
   resolveWorkspaceSessionForLogin,
   resolveWorkspaceSessionFromRequest,
@@ -13,6 +13,7 @@ import type { PlanType, WorkspaceRole } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 import { hashPassword, passwordBcryptRounds, verifyPassword } from "../lib/passwordCrypto";
+import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1).email(),
@@ -353,6 +354,23 @@ export const authController = {
     if (!access.allowed) {
       return res.status(403).json({
         error: "Assinatura inválida ou expirada. Atualize seu plano para continuar.",
+      });
+    }
+
+    if (user.mfaEnabled) {
+      const { signMfaPendingToken } = await import("../lib/mfa");
+      const mfa_token = signMfaPendingToken({
+        userId: user.id,
+        email: user.email,
+        tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+      });
+      return res.json({
+        mfa_required: true,
+        mfa_token,
+        email: user.email,
       });
     }
 
@@ -725,20 +743,99 @@ export const authController = {
   },
 
   async resetPassword(req: Request, res: Response) {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "E-mail é obrigatório" });
+    const parsed = z
+      .object({ email: z.string().trim().min(1).email() })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "E-mail é obrigatório" });
+    }
+
+    const email = parsed.data.email.toLowerCase().trim();
+    const generic = {
+      message: "Se o e-mail existir, enviaremos um link de recuperação.",
+    };
+
+    if (!isTransactionalEmailConfigured()) {
+      return res.status(503).json({
+        error:
+          "Recuperação de senha indisponível: o servidor não tem e-mail (SMTP/Resend) configurado.",
+      });
+    }
 
     const user = await systemPrisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.json({ message: "Se o e-mail existir, enviaremos um link de recuperação." });
+      return res.json(generic);
     }
 
-    res.json({ message: "Se o e-mail existir, enviaremos um link de recuperação." });
+    const resetToken = signToken(
+      {
+        userId: user.id,
+        email: user.email,
+        purpose: "password_reset",
+      },
+      "1h",
+    );
+
+    const frontendBase =
+      process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      process.env.FRONTEND_URL?.replace(/\/$/, "") ||
+      "http://localhost:8080";
+    const resetUrl = `${frontendBase}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+    const sent = await sendTransactionalEmail({
+      to: user.email,
+      subject: "Recuperação de senha — dclickora",
+      text: [
+        "Recebemos um pedido para redefinir a senha da sua conta dclickora.",
+        "",
+        `Abra este link (válido por 1 hora): ${resetUrl}`,
+        "",
+        "Se não pediu isto, ignore este e-mail. A senha actual mantém-se.",
+      ].join("\n"),
+      html: `<p>Recebemos um pedido para redefinir a senha da sua conta <strong>dclickora</strong>.</p>
+<p><a href="${resetUrl}">Redefinir senha</a> (válido por 1 hora)</p>
+<p style="color:#666;font-size:13px">Se não pediu isto, ignore este e-mail.</p>`,
+    });
+
+    if (!sent.sent) {
+      return res.status(503).json({
+        error: `Não foi possível enviar o e-mail de recuperação: ${sent.reason}`,
+      });
+    }
+
+    return res.json(generic);
   },
 
   async updatePassword(req: Request, res: Response) {
-    const { token, password } = req.body;
-    if (!token || !password) return res.status(400).json({ error: "Token e senha são obrigatórios" });
+    const parsed = z
+      .object({
+        token: z.string().min(10),
+        password: z.string().min(6),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Token e senha (mín. 6 caracteres) são obrigatórios" });
+    }
+
+    let payload;
+    try {
+      payload = verifyToken(parsed.data.token);
+    } catch {
+      return res.status(400).json({ error: "Link de recuperação inválido ou expirado." });
+    }
+    if (payload.purpose !== "password_reset" || !payload.userId) {
+      return res.status(400).json({ error: "Link de recuperação inválido ou expirado." });
+    }
+
+    const user = await systemPrisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user || user.email.toLowerCase() !== (payload.email || "").toLowerCase()) {
+      return res.status(400).json({ error: "Link de recuperação inválido ou expirado." });
+    }
+
+    await systemPrisma.user.update({
+      where: { id: user.id },
+      data: { password: await hashPassword(parsed.data.password, passwordBcryptRounds()) },
+    });
 
     res.json({ message: "Senha atualizada com sucesso" });
   },

@@ -12,10 +12,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { assertLocalDatabaseForMutations } from "./lib/loadTestSafety";
 import { systemPrisma } from "../src/lib/prisma";
-import {
+  import {
+  backfillOfflineCsvTeToConversions,
   listApprovedConversionsWithGclid,
   offlineCsvExternalOrderId,
   reconcileConversionLedger,
+  reconcilePresellPageConversionCounters,
   sumApprovedConversionTotals,
   upsertConversionFromOfflineCsv,
 } from "../src/lib/conversionLedger";
@@ -23,6 +25,10 @@ import {
   adsExternalOrderId,
   upsertConversionFromAdsPostback,
 } from "../src/lib/unifiedAdsConversion";
+import {
+  mergeDimensionClicksWithSales,
+  reconcileDimensionAgainstLedger,
+} from "../src/lib/ledgerDimensionTruth";
 
 assertLocalDatabaseForMutations();
 
@@ -459,7 +465,7 @@ async function main() {
   });
   record("12_safe_reprocess", reproc.duplicate === true, `duplicate=${reproc.duplicate}`);
 
-  // TE telemetria offline_csv não pode ultrapassar Conversion
+  // TE telemetria offline_csv alinhada (mesmo GCLID já tem Conversion)
   await systemPrisma.trackingEvent.create({
     data: {
       userId: a.user.id,
@@ -476,13 +482,155 @@ async function main() {
       },
     },
   });
-  const recon = await reconcileConversionLedger({
+
+  // Órfão histórico: TE offline_csv sem Conversion → backfill fecha o ledger
+  const orphanGclid = `gclid-orphan-${stamp}`;
+  await systemPrisma.trackingEvent.create({
+    data: {
+      userId: a.user.id,
+      presellPageId: a.page.id,
+      eventType: "click",
+      source: "google",
+      medium: "cpc",
+      campaign: "camp-orphan",
+      country: "US",
+      device: "desktop",
+      metadata: { gclid: orphanGclid, utm_term: "peso+perda", utm_source: "google" },
+    },
+  });
+  await systemPrisma.trackingEvent.create({
+    data: {
+      userId: a.user.id,
+      presellPageId: a.page.id,
+      eventType: "conversion",
+      source: "google_ads",
+      medium: "offline_csv",
+      metadata: {
+        gclid: orphanGclid,
+        value: 17.25,
+        currency: "USD",
+        postback_origin: "offline_csv",
+        transaction_id: `csv_gclid:${orphanGclid}`,
+        ledger: "telemetry_only",
+      },
+    },
+  });
+  const beforeBackfill = await reconcileConversionLedger({
     userId: a.user.id,
     since: rangeStart,
   });
   record(
+    "13_orphan_detected",
+    beforeBackfill.te_offline_csv_orphans >= 1 && beforeBackfill.ledger_aligned === false,
+    `orphans=${beforeBackfill.te_offline_csv_orphans} aligned=${beforeBackfill.ledger_aligned}`,
+  );
+  const dry = await backfillOfflineCsvTeToConversions({
+    userId: a.user.id,
+    since: rangeStart,
+    dryRun: true,
+  });
+  const applied = await backfillOfflineCsvTeToConversions({
+    userId: a.user.id,
+    since: rangeStart,
+    dryRun: false,
+  });
+  const afterBackfill = await reconcileConversionLedger({
+    userId: a.user.id,
+    since: rangeStart,
+  });
+  const orphanConv = await systemPrisma.conversion.findFirst({
+    where: {
+      userId: a.user.id,
+      externalOrderId: offlineCsvExternalOrderId(orphanGclid),
+      status: "approved",
+    },
+    select: { amount: true, clickId: true },
+  });
+  record(
+    "14_backfill_offline_csv",
+    dry.created >= 1 &&
+      applied.created >= 1 &&
+      afterBackfill.te_offline_csv_orphans === 0 &&
+      afterBackfill.ledger_aligned &&
+      orphanConv != null &&
+      Number(orphanConv.amount) === 17.25 &&
+      orphanConv.clickId != null,
+    `dry=${dry.created} apply=${applied.created} orphans=${afterBackfill.te_offline_csv_orphans} amount=${orphanConv?.amount}`,
+  );
+
+  // Contador denormalizado desalinhado → reconcile
+  await systemPrisma.presellPage.update({
+    where: { id: a.page.id },
+    data: { conversions: 0 },
+  });
+  const countersDry = await reconcilePresellPageConversionCounters({
+    userId: a.user.id,
+    dryRun: true,
+  });
+  const countersApply = await reconcilePresellPageConversionCounters({
+    userId: a.user.id,
+    dryRun: false,
+  });
+  const pageAfter = await systemPrisma.presellPage.findUnique({
+    where: { id: a.page.id },
+    select: { conversions: true },
+  });
+  const approvedOnPage = await systemPrisma.conversion.count({
+    where: { presellId: a.page.id, status: "approved" },
+  });
+  record(
+    "15_presell_counter_reconcile",
+    countersDry.pages_mismatched >= 1 &&
+      countersApply.pages_mismatched >= 1 &&
+      pageAfter?.conversions === approvedOnPage,
+    `stored=${pageAfter?.conversions} actual=${approvedOnPage}`,
+  );
+
+  // Dimensões: vendas conversion-centric somam o total (incl. unattributed)
+  const approvedAll = await systemPrisma.conversion.findMany({
+    where: {
+      userId: a.user.id,
+      status: "approved",
+      createdAt: { gte: rangeStart, lte: rangeEnd },
+    },
+    select: {
+      amount: true,
+      clickId: true,
+      click: { select: { country: true, device: true, metadata: true } },
+    },
+  });
+  const expectedSales = approvedAll.length;
+  const expectedRevenue = approvedAll.reduce(
+    (s, r) => s + (r.amount != null ? Number(r.amount) : 0),
+    0,
+  );
+  const byCountry = new Map<string, { sales: number; revenue: number }>();
+  for (const row of approvedAll) {
+    const key = row.click?.country?.trim() ? row.click.country.trim().toUpperCase() : "(sem país)";
+    const prev = byCountry.get(key) ?? { sales: 0, revenue: 0 };
+    prev.sales += 1;
+    prev.revenue += row.amount != null ? Number(row.amount) : 0;
+    byCountry.set(key, prev);
+  }
+  const dimCountry = reconcileDimensionAgainstLedger(
+    [...byCountry.values()],
+    { sales: expectedSales, revenue: expectedRevenue },
+  );
+  const mergedDemo = mergeDimensionClicksWithSales(
+    [{ key: "US", clicks: 1 }],
+    [...byCountry.entries()].map(([key, v]) => ({ key, sales: v.sales, revenue: v.revenue })),
+  );
+  const unattrN = approvedAll.filter((r) => !r.clickId).length;
+  record(
+    "16_dimension_sales_reconcile",
+    dimCountry.ok && mergedDemo.reduce((s, r) => s + r.sales, 0) === expectedSales,
+    `sales=${dimCountry.sales_sum}/${expectedSales} rev=${dimCountry.revenue_sum} unattr=${unattrN}`,
+  );
+
+  const recon = afterBackfill;
+  record(
     "reconcile_csv_aligned",
-    recon.ledger_aligned && recon.conversion_offline_csv >= recon.te_offline_csv,
+    recon.ledger_aligned && recon.te_offline_csv_orphans === 0,
     recon.note,
   );
 

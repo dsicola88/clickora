@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { Badge } from "@/components/ui/badge";
 import { analyticsService } from "@/services/analyticsService";
+import { integrationsService } from "@/services/integrationsService";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
 import {
   PRO_PAGE_SHELL,
@@ -58,6 +59,18 @@ const STEP_DEFS = [
     descKey: "pages.integrations.stepGoogleDesc" as MessageKey,
   },
   {
+    id: "meta_capi_configured",
+    href: "/integracoes/pixels",
+    titleKey: "pages.integrations.stepMetaCapi" as MessageKey,
+    descKey: "pages.integrations.stepMetaCapiDesc" as MessageKey,
+  },
+  {
+    id: "tiktok_events_configured",
+    href: "/integracoes/pixels",
+    titleKey: "pages.integrations.stepTiktokEvents" as MessageKey,
+    descKey: "pages.integrations.stepTiktokEventsDesc" as MessageKey,
+  },
+  {
     id: "cost_sync",
     href: "/integracoes/automizer",
     titleKey: "pages.integrations.stepCosts" as MessageKey,
@@ -85,6 +98,7 @@ export default function IntegrationsHubPage() {
   const { t } = useAppLocale();
   const dpilot = userCanAccessDpilotAds(user, isSuperAdmin);
   const [saleChimeOn, setSaleChimeOn] = useState(() => saleChimeEnabled());
+  const [retryingQueue, setRetryingQueue] = useState(false);
   const range = useMemo(() => rangeLast14Days(), []);
 
   const { data: dash, isError: dashError, refetch: refetchDash } = useQuery({
@@ -103,6 +117,7 @@ export default function IntegrationsHubPage() {
       : "";
 
   const health = dash?.account_health;
+  const deadJobs = dash?.sync_queue?.dead ?? 0;
 
   return (
     <div className={PRO_PAGE_SHELL}>
@@ -126,6 +141,35 @@ export default function IntegrationsHubPage() {
         <AttributionHealthBanner attribution={health.attribution} checks={health.checks} />
       ) : null}
       <SyncHealthBanner syncHealth={dash?.sync_health} />
+      {deadJobs > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3">
+          <p className="text-sm text-foreground">
+            {fill(t("pages.integrations.syncQueueDead"), { n: deadJobs })}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={retryingQueue}
+            onClick={() => {
+              setRetryingQueue(true);
+              void integrationsService
+                .retryConversionSync({ limit: 50 })
+                .then(({ data, error }) => {
+                  if (error) {
+                    toast.error(t("pages.integrations.syncQueueRetryFail"));
+                    return;
+                  }
+                  toast.success(fill(t("pages.integrations.syncQueueRetryOk"), { n: data?.reset ?? 0 }));
+                  void refetchDash();
+                })
+                .finally(() => setRetryingQueue(false));
+            }}
+          >
+            {t("pages.integrations.syncQueueRetry")}
+          </Button>
+        </div>
+      ) : null}
       <TrackPathStatus />
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -288,16 +332,16 @@ export default function IntegrationsHubPage() {
           </Link>
 
           <Link
-            to="/tracking/integrations-legacy"
+            to="/integracoes/avancado"
             className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
           >
             <div className="rounded-md bg-primary/10 p-2">
               <ShieldCheck className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{t("pages.integrations.legacyCard")}</p>
+              <p className="text-sm font-semibold text-foreground">{t("pages.integrations.advancedCard")}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                {t("pages.integrations.legacyCardDesc")}
+                {t("pages.integrations.advancedCardDesc")}
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />

@@ -8,10 +8,11 @@ Nada é inventado. Os números vêm de eventos reais ou de postbacks da rede.
 |---------|-------------|---------------------|
 | **Cliques** | Eventos `click` reais (sem bots) | Bots/crawlers etiquetados |
 | **Impressões / visitas** | Pixel da presell (1× por abertura da página) | Impressões do Google Ads |
-| **Vendas / receita** | Tabela **`conversions`** com `status=approved` (postbacks afiliado, ads, import Offline CSV) | Eventos `TrackingEvent` `conversion`/`sale` (só telemetria; `tracking_conversion_revenue` ≠ P&L) |
-| **País** | GeoIP do IP do visitante | Não inventa país; VPN = país da VPN |
+| **Vendas / receita** | Tabela **`conversions`** com `status=approved` (postbacks afiliado, ads, import Offline CSV + backfill TE órfãos) | Eventos `TrackingEvent` `conversion`/`sale` (só telemetria; `tracking_conversion_revenue` ≠ P&L) |
+| **País / keyword / dispositivo / fonte / oferta (vendas)** | Dimensão do clique ligado à `Conversion` no período (`created_at` da venda); sem clique → bucket «(sem …)» | Não inventa atribuição; Σ vendas por dimensão = total (`ledger_truth`) |
+| **País (cliques)** | GeoIP do IP do visitante | Não inventa país; VPN = país da VPN |
 | **Pago vs Orgânico** | Só com ID real (`gclid`, `fbclid`, `msclkid`…) | Macros `{gclid}` na URL |
-| **Keyword** | Só `utm_term` do clique | Nome da campanha do postback |
+| **Keyword (cliques)** | Só `utm_term` do clique | Nome da campanha do postback |
 | **ROAS / CPA / lucro** | Receita do período ÷ **gasto Google Ads do mesmo período** | Gasto manual acumulado nas campanhas |
 
 ## Porque BuyGoods e dclickora podem diferir

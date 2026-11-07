@@ -45,6 +45,8 @@ import { DpilotTransparencyMotorCard } from "./DpilotTransparencyMotorCard";
 import { DpilotWeeklyMotorDigestCard } from "./DpilotWeeklyMotorDigestCard";
 import { DpilotTransparencyPrinciplesCard } from "./DpilotTransparencyPrinciplesCard";
 import { DpilotAutopilotSimpleBanner } from "./DpilotAutopilotSimpleBanner";
+import { DpilotProjectHealthCard } from "./DpilotProjectHealthCard";
+import { DpilotCreativeSwapActions } from "./DpilotCreativeSwapActions";
 
 export function Gate({ children }: { children: React.ReactNode }) {
   const { t } = useAppLocale();
@@ -161,6 +163,7 @@ export function DpilotVisaoPage() {
       </Card>
 
       <div className="mt-4 space-y-4">
+        <DpilotProjectHealthCard projectId={p.projectId} />
         <DpilotTransparencyPrinciplesCard />
         <DpilotTransparencyMotorCard projectId={p.projectId} />
         <DpilotWeeklyMotorDigestCard projectId={p.projectId} />
@@ -521,18 +524,27 @@ function campaignsTable(
                   </TableCell>
                 </>
               ) : null}
-              <TableCell className="hidden max-w-[14rem] lg:table-cell">
+              <TableCell className="hidden max-w-[16rem] lg:table-cell">
                 {hint ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant="secondary" className="cursor-help font-normal">
-                        Optimização
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-left" side="bottom">
-                      {hint}
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="space-y-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="cursor-help font-normal">
+                          Optimização
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-left" side="bottom">
+                        {hint}
+                      </TooltipContent>
+                    </Tooltip>
+                    {controls ? (
+                      <DpilotCreativeSwapActions
+                        projectId={controls.projectId}
+                        campaign={c}
+                        reload={controls.reload}
+                      />
+                    ) : null}
+                  </div>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}

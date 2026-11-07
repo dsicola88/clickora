@@ -146,7 +146,7 @@ export default function Plataformas() {
   const activatePhone = useMutation({
     mutationFn: async () => {
       const r = await subscribeToWebPush();
-      if (!r.ok) throw new Error(r.error);
+      if (r.ok === false) throw new Error(r.error);
     },
     onSuccess: () => {
       setPhonePushOn(true);

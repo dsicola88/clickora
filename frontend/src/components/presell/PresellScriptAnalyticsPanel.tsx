@@ -43,7 +43,7 @@ export function PresellRastreamentoScriptCard({
   const { data: dashboard, isLoading, isError, error, refetch } = query;
 
   const imps = dashboard?.total_impressions ?? 0;
-  const clicks = dashboard?.total_clicks ?? 0;
+  const clicks = dashboard?.entry_clicks ?? dashboard?.total_clicks ?? 0;
   const convs = dashboard?.approved_sales_count ?? dashboard?.total_conversions ?? 0;
   const ctr = dashboard?.ctr ?? 0;
 
@@ -82,7 +82,7 @@ export function PresellRastreamentoScriptCard({
             Visitas e cliques nas tuas presells (sem bots).{" "}
             <strong className="font-medium text-foreground/90">Vendas</strong> = postbacks aprovados da rede — não o
             relatório do Google Ads. Detalhe por página:{" "}
-            <Link to="/tracking/analytics" className="text-primary font-medium underline underline-offset-2">
+            <Link to="/resultados/por-presell/presells" className="text-primary font-medium underline underline-offset-2">
               Analytics
             </Link>
             .
@@ -135,7 +135,7 @@ export function PresellRastreamentoScriptCard({
 
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="secondary" className="gap-1.5 rounded-lg" asChild>
-              <Link to="/tracking/analytics">
+              <Link to="/resultados/por-presell/presells">
                 Analytics por página
                 <BarChart3 className="h-3.5 w-3.5" />
               </Link>

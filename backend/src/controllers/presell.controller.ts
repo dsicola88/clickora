@@ -782,7 +782,14 @@ export const presellController = {
       pageForPublish = await ensurePresellOperatorIdentityOnPage(page);
       const gate = await assertPublishAllowed({ page: pageForPublish, runIfStale: true });
       if (!gate.ok) {
-        return res.status(gate.status).json(gate.body);
+        // Alinhado ao PUT: 200 + compliance_blocked (estado actual preservado).
+        return res.status(200).json({
+          ...mapPresell(pageForPublish),
+          compliance_blocked: true,
+          compliance: gate.body,
+          message:
+            "A página permanece no estado actual. Corrija a conformidade e publique novamente.",
+        });
       }
     }
 

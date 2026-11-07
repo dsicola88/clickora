@@ -40,6 +40,13 @@ export function explainOptimizerDecision(row: OptimizerDecisionRow): OptimizerEx
   const spend = spendPlat ?? spendSnap;
   if (spend != null) signals.push(`Gasto na rede (referência): ~${formatUsdCompact(spend)}`);
   if (lookback != null) signals.push(`Janela analisada: ${Math.round(lookback)} h`);
+  const transfer = num((snap as Record<string, unknown>).transferUsd);
+  if (transfer != null) signals.push(`Transferência diária: ~${formatUsdCompact(transfer)}`);
+  const donorRoas = num((snap as Record<string, unknown>).donorRoas);
+  const receiverRoas = num((snap as Record<string, unknown>).receiverRoas);
+  if (donorRoas != null && receiverRoas != null) {
+    signals.push(`ROAS dador ${donorRoas.toFixed(2)} → receptor ${receiverRoas.toFixed(2)}`);
+  }
 
   const decHuman = optimizerDecisionTypeLabel(row.decision_type);
 
@@ -105,6 +112,8 @@ export function suggestedNextAction(args: NextActionArgs): string | null {
           : 20;
       return `Próximo passo: observar ROAS nas próximas 48–72 h; se se mantiver forte, escalar orçamento gradualmente (~${pct}% por ciclo, dentro dos guardrails).`;
     }
+    case "reallocate_budget_winner_from_laggard":
+      return "Próximo passo: confirmar que a campanha fraca não precisa de criativo/oferta antes de novos cortes; o vencedor já recebeu orçamento sem aumentar o teto total.";
     default:
       break;
   }
@@ -119,6 +128,8 @@ export function suggestedNextAction(args: NextActionArgs): string | null {
       }
       return "Próximo passo: monitorizar gasto vs. receita diários; evitar picos bruscos enquanto o algoritmo adapta.";
     }
+    case "reallocate_budget":
+      return "Próximo passo: validar ROAS do receptor após a transferência; o dador ficou com orçamento reduzido (gasto total inalterado).";
     case "flag_creative_swap":
       return "Próximo passo: substituir ou A/B testar criativo e comparar CTR ao longo de uma semana.";
     default:
@@ -144,6 +155,15 @@ function fallbackOptimizerWhy(
       return roas != null
         ? `ROAS ${roas.toFixed(2)} acima do limiar — o motor propõe escalar orçamento com moderação.`
         : "Performance de receita vs. gasto acima do limiar — escala opcional de orçamento.";
+    case "reallocate_budget_winner_from_laggard": {
+      const transfer = num(snap.transferUsd);
+      const donorRoas = num(snap.donorRoas);
+      const receiverRoas = num(snap.receiverRoas);
+      if (transfer != null && donorRoas != null && receiverRoas != null) {
+        return `Redistribuição de $${transfer.toFixed(2)}/dia: dador ROAS ${donorRoas.toFixed(2)} → receptor ROAS ${receiverRoas.toFixed(2)} (gasto total inalterado).`;
+      }
+      return "Redistribuição de orçamento diário do laggard para o vencedor na mesma rede — sem aumentar o gasto total.";
+    }
     default:
       break;
   }
@@ -152,6 +172,8 @@ function fallbackOptimizerWhy(
       return "Regra de controlo de risco no motor automático.";
     case "scale_budget":
       return "Oportunidade de escala com base em retorno vs. gasto.";
+    case "reallocate_budget":
+      return "Transferência de orçamento entre campanhas da mesma rede com base em ROAS.";
     case "flag_creative_swap":
       return "Sinal fraco de CTR ou engagement — rever criativo pode ajudar.";
     default:

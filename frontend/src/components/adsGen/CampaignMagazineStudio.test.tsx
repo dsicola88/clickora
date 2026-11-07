@@ -10,7 +10,7 @@ describe("CampaignMagazineStudio", () => {
       {
         ...navigator,
         clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-      } as Navigator,
+      } as unknown as Navigator,
     );
   });
 

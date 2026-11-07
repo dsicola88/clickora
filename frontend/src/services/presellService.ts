@@ -136,7 +136,7 @@ export const presellService = {
   },
 
   async toggleStatus(id: string, status: Presell["status"]) {
-    return apiClient.patch(`/presells/${id}/status`, { status });
+    return apiClient.patch<Presell>(`/presells/${id}/status`, { status });
   },
 
   async getCompliance(id: string) {

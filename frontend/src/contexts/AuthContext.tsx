@@ -14,11 +14,10 @@ interface AuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   userPlan: UserPlan | null;
-  presellCount: number;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
   verifyMfa: (mfa_token: string, code: string) => Promise<{ error: string | null }>;
-  signInWithGoogle: (idToken: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: (idToken: string) => Promise<SignInResult>;
   signUp: (
     email: string,
     password: string,
@@ -28,6 +27,8 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   /** Após switch de workspace (novo JWT + user). */
   applySession: (token: string, nextUser: User) => void;
+  /** Após redirect OIDC com `#oidc_token`. */
+  completeOidcLogin: (token: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const isSuperAdmin = user?.role === "super_admin";
   const userPlan = user?.plan ?? null;
-  const presellCount = 0; // Will be fetched from API when needed
 
   const refreshUser = useCallback(async () => {
     if (!authService.isAuthenticated()) {
@@ -110,11 +110,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signInWithGoogle = useCallback(
-    async (idToken: string) => {
+    async (idToken: string): Promise<SignInResult> => {
       const { data, error } = await authService.loginWithGoogle(idToken);
-      if (data) {
+      if (error) return { error };
+      if (data && "mfa_required" in data && data.mfa_required) {
+        return {
+          error: null,
+          mfa: { mfa_token: data.mfa_token, email: data.email },
+        };
+      }
+      if (data && "token" in data && data.token) {
         queryClient.clear();
         setUser(data.user);
+      }
+      return { error: null };
+    },
+    [queryClient],
+  );
+
+  const completeOidcLogin = useCallback(
+    async (token: string) => {
+      const { data, error } = await authService.completeOidcLogin(token);
+      if (data) {
+        queryClient.clear();
+        setUser(data);
       }
       return { error };
     },
@@ -158,7 +177,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isSuperAdmin,
         userPlan,
-        presellCount,
         signOut,
         signIn,
         verifyMfa,
@@ -166,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         refreshUser,
         applySession,
+        completeOidcLogin,
       }}
     >
       {children}

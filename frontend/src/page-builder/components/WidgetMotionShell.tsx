@@ -178,9 +178,11 @@ export function useWidgetMotionRuntime(
         element.style.setProperty("--pb-ty", "0px");
       }
     };
+    const moveListener = onMove as unknown as EventListener;
+    const leaveListener = onLeave as unknown as EventListener;
     if (effects.mouseTilt || effects.mouseTrack) {
-      element.addEventListener("mousemove", onMove);
-      element.addEventListener("mouseleave", onLeave);
+      element.addEventListener("mousemove", moveListener);
+      element.addEventListener("mouseleave", leaveListener);
     }
 
     return () => {
@@ -188,8 +190,8 @@ export function useWidgetMotionRuntime(
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
-      element.removeEventListener("mousemove", onMove);
-      element.removeEventListener("mouseleave", onLeave);
+      element.removeEventListener("mousemove", moveListener);
+      element.removeEventListener("mouseleave", leaveListener);
     };
   }, [
     element,

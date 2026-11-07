@@ -31,9 +31,10 @@ type Props = {
 export function AttributionHealthBanner({ attribution, checks, className, compact }: Props) {
   const unattr = attribution?.unattributed_sales ?? 0;
   const postback = checks?.find((c) => c.id === "postback_configured");
+  // API already returns a percent (e.g. 80.5 = 80.5%) — do not rescale.
   const rate =
     attribution?.attribution_rate != null
-      ? Math.round(attribution.attribution_rate * 1000) / 10
+      ? Math.round(attribution.attribution_rate * 10) / 10
       : null;
 
   if (!attribution && !postback) return null;

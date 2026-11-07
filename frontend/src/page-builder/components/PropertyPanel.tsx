@@ -2933,9 +2933,9 @@ function NavMenuContentEditor({
 
   return (
     <>
-      <ListEditor
+      <ListEditor<NavItem & ListItem>
         title="Links do menu"
-        items={items}
+        items={items as Array<NavItem & ListItem>}
         onChange={(next) => setContent({ items: next })}
         itemLabel={(it) => it.label || "Link"}
         newItem={() => ({ id: `nav_${nanoid(6)}`, label: "Novo link", href: "#" })}

@@ -138,4 +138,32 @@ describe("evaluateOptimizerRules", () => {
     assert.ok(out.some((c) => c.decisionType === "pause_campaign"));
     assert.equal(out.some((c) => c.decisionType === "scale_budget"), false);
   });
+
+  it("cap mensal da conta bloqueia escala e regista block_scale", () => {
+    prev = stashEnv();
+    process.env.PAID_OPTIMIZER_RULES = "all";
+    process.env.PAID_OPTIMIZER_PAUSE_SPEND_USD = "99999";
+    process.env.PAID_OPTIMIZER_SCALE_ROAS_MIN = "2";
+
+    const out = evaluateOptimizerRules({
+      platform: "tiktok_ads",
+      spendUsdPlatform: 40,
+      tracking: {
+        clicks: 30,
+        impressions: 8000,
+        conversionEvents: 0,
+        approvedConversions: 0,
+        revenueUsd: 200,
+      },
+      accountMonthlyCapUsd: 100,
+      projectSpendUsdKnown: 150,
+    });
+
+    assert.ok(out.some((c) => c.decisionType === "block_scale"));
+    assert.equal(out.some((c) => c.decisionType === "scale_budget"), false);
+    assert.equal(
+      out.find((c) => c.decisionType === "block_scale")?.ruleCode,
+      "account_monthly_cap_block_scale",
+    );
+  });
 });

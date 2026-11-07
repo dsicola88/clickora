@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   emptySyncHealth,
+  emptySyncQueueHealth,
   formatSyncHealthDetail,
   syncHealthIssueTotal,
   type SyncHealth,
@@ -25,5 +26,12 @@ describe("syncHealth helpers", () => {
     assert.match(detail, /sem ID Meta/);
     assert.match(detail, /falha\(s\) TikTok/);
     assert.match(detail, /auto-tagging/);
+  });
+
+  it("emptySyncQueueHealth começa a zero", () => {
+    const q = emptySyncQueueHealth(7);
+    assert.equal(q.pending, 0);
+    assert.equal(q.dead, 0);
+    assert.equal(q.by_channel.meta_capi.dead, 0);
   });
 });

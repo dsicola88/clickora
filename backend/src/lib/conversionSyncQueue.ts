@@ -159,6 +159,41 @@ export async function processConversionSyncBatch(owner = `api-${process.pid}`): 
   return { claimed, sent, failed, dead };
 }
 
+/**
+ * Reprocessa jobs `dead` do utilizador (volta a `pending`).
+ * Não inventa credenciais — se a rede falhar outra vez, volta a dead.
+ */
+export async function retryDeadConversionSyncJobs(args: {
+  userId: string;
+  limit?: number;
+  channel?: ConversionSyncChannel;
+}): Promise<{ reset: number }> {
+  const limit = Math.min(Math.max(args.limit ?? 50, 1), 200);
+  const dead = await systemPrisma.conversionSyncJob.findMany({
+    where: {
+      userId: args.userId,
+      status: "dead",
+      ...(args.channel ? { channel: args.channel } : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    select: { id: true },
+  });
+  if (dead.length === 0) return { reset: 0 };
+  const upd = await systemPrisma.conversionSyncJob.updateMany({
+    where: { id: { in: dead.map((d) => d.id) }, status: "dead" },
+    data: {
+      status: "pending",
+      attempts: 0,
+      runAfter: new Date(),
+      lastError: null,
+      leaseOwner: null,
+      leaseUntil: null,
+    },
+  });
+  return { reset: upd.count };
+}
+
 export function registerConversionSyncScheduler(): void {
   const enabled = process.env.CONVERSION_SYNC_QUEUE !== "0";
   if (!enabled) {

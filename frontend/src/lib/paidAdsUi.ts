@@ -97,8 +97,10 @@ export function optimizerFlagsHint(flags: Record<string, unknown> | undefined): 
 
 const OPTIMIZER_RULE_LABELS: Record<string, string> = {
   pause_zero_conv_min_spend: "Sem conversões após gasto mínimo",
+  account_monthly_cap_block_scale: "Cap mensal da conta — escala bloqueada",
   ctr_below_threshold: "CTR abaixo do limiar",
   scale_budget_high_roas: "ROAS acima do limiar (escala)",
+  reallocate_budget_winner_from_laggard: "Redistribuir orçamento (vencedor ← fraca)",
 };
 
 /** Rótulos enterprise para `rule_code` do backend. */
@@ -113,6 +115,10 @@ export function optimizerDecisionTypeLabel(decisionType: string): string {
       return "Pausar campanha";
     case "scale_budget":
       return "Escalar orçamento";
+    case "block_scale":
+      return "Bloquear escala (cap conta)";
+    case "reallocate_budget":
+      return "Redistribuir orçamento";
     case "flag_creative_swap":
       return "Recomendação de criativo";
     default:

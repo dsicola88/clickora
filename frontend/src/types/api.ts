@@ -84,6 +84,8 @@ export interface User {
   sale_notify_email?: string;
   /** Som de venda com a app aberta: kaching | chaching | registradora | moedas | chuva | sino. */
   sale_chime?: string;
+  /** MFA TOTP activo na conta (vindo de `/auth/me`). */
+  mfa_enabled?: boolean;
 }
 
 export interface UserPlan {
@@ -129,6 +131,11 @@ export interface Presell {
   category: string;
   language: string;
   status: "draft" | "published" | "paused" | "archived";
+  /**
+   * Resposta de publish (PUT/PATCH): conteúdo guardado mas gate de conformidade impediu `published`.
+   * Ausente nas listagens e GETs normais.
+   */
+  compliance_blocked?: boolean;
   clicks: number;
   impressions: number;
   conversions: number;

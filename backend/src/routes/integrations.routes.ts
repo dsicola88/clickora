@@ -52,5 +52,11 @@ authed.patch(
   requireWorkspaceIntegrationsWrite,
   integrationsController.patchAffiliateAutomizer,
 );
+authed.get("/conversion-sync/queue", integrationsController.getConversionSyncQueue);
+authed.post(
+  "/conversion-sync/retry",
+  requireWorkspaceIntegrationsWrite,
+  integrationsController.retryConversionSyncDead,
+);
 
 integrationsRouter.use(authed);

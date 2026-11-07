@@ -275,7 +275,7 @@ function RecoveryFormComponent() {
     try {
       const { error } = await authService.resetPassword(values.email);
       if (error) throw new Error(error);
-      toast.success("E-mail de recuperação enviado!");
+      toast.success("Se existir conta com este e-mail, enviámos um link de recuperação.");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Erro ao enviar e-mail";
       toast.error(message);
@@ -310,12 +310,15 @@ function RecoveryFormComponent() {
 export default function Auth() {
   const { t } = useAppLocale();
   const navigate = useNavigate();
+  const { completeOidcLogin } = useAuth();
   const [searchParams] = useSearchParams();
   const trialIntent =
     searchParams.get("trial") === "1" ||
     searchParams.get("intent") === "trial";
 
   const [mode, setMode] = useState<AuthMode>(() => (trialIntent ? "register" : "login"));
+  const [externalMfa, setExternalMfa] = useState<{ mfa_token: string; email: string } | null>(null);
+  const [oidcBusy, setOidcBusy] = useState(false);
 
   useEffect(() => {
     if (trialIntent) setMode("register");
@@ -324,6 +327,48 @@ export default function Auth() {
   useEffect(() => {
     return applyMarketingAuthHead();
   }, []);
+
+  /** Consome `#oidc_token=…` ou `#mfa_required=1&mfa_token=…` do callback SSO. */
+  useEffect(() => {
+    const raw = window.location.hash.replace(/^#/, "");
+    if (!raw) return;
+    const hash = new URLSearchParams(raw);
+    const oidcToken = hash.get("oidc_token");
+    const mfaToken = hash.get("mfa_token");
+    const mfaRequired = hash.get("mfa_required") === "1";
+    const email = hash.get("email") || "";
+
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+
+    if (mfaRequired && mfaToken) {
+      setMode("login");
+      setExternalMfa({ mfa_token: mfaToken, email: email || "a sua conta" });
+      toast.message("Confirme o código MFA para continuar.");
+      return;
+    }
+
+    if (!oidcToken) return;
+
+    let cancelled = false;
+    setOidcBusy(true);
+    void (async () => {
+      const { error } = await completeOidcLogin(oidcToken);
+      if (cancelled) return;
+      setOidcBusy(false);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      toast.success("Sessão iniciada (SSO).");
+      navigate("/inicio", { replace: true });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [completeOidcLogin, navigate]);
+
+  const goInicio = () => navigate("/inicio");
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -341,16 +386,27 @@ export default function Auth() {
             {mode === "login" && "Acesse sua plataforma de tracking e presell"}
             {mode === "register" &&
               (trialIntent
-                ? "Crie a sua conta sem cartão. Depois, ative o plano Starter na página de planos."
+                ? "Crie a sua conta sem cartão — o plano Starter (teste) activa-se de imediato. Pode fazer upgrade depois em Planos."
                 : "Comece gratuitamente com o plano Starter")}
             {mode === "recovery" && "Enviaremos um link para redefinir sua senha"}
           </p>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-          {mode === "login" && (
+          {oidcBusy ? (
+            <p className="text-sm text-muted-foreground text-center py-6">A concluir o login SSO…</p>
+          ) : null}
+          {mode === "login" && !oidcBusy && externalMfa ? (
+            <MfaVerifyForm
+              email={externalMfa.email}
+              mfaToken={externalMfa.mfa_token}
+              onSuccess={goInicio}
+              onBack={() => setExternalMfa(null)}
+            />
+          ) : null}
+          {mode === "login" && !oidcBusy && !externalMfa && (
             <div className="space-y-6">
-              <GoogleSignInButton onSuccess={() => navigate("/inicio")} />
+              <GoogleSignInButton onSuccess={goInicio} onMfaRequired={setExternalMfa} />
               {import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ? (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -361,7 +417,7 @@ export default function Auth() {
                   </div>
                 </div>
               ) : null}
-              <LoginFormComponent onSuccess={() => navigate("/inicio")} />
+              <LoginFormComponent onSuccess={goInicio} />
               <Button type="button" variant="outline" className="w-full gap-2" asChild>
                 <a href={authService.getOidcLoginUrl()}>
                   <Building2 className="h-4 w-4" />
@@ -370,7 +426,7 @@ export default function Auth() {
               </Button>
             </div>
           )}
-          {mode === "register" && <RegisterFormComponent onSuccess={() => navigate("/inicio")} />}
+          {mode === "register" && <RegisterFormComponent onSuccess={goInicio} />}
           {mode === "recovery" && <RecoveryFormComponent />}
 
           <div className="text-center text-sm space-y-2 mt-4">

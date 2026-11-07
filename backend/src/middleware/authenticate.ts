@@ -20,8 +20,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const token = header.split(" ")[1];
     const raw = verifyToken(token);
-    if (raw.purpose === "mfa") {
-      return res.status(401).json({ error: "Complete a verificação MFA" });
+    if (raw.purpose === "mfa" || raw.purpose === "password_reset") {
+      return res.status(401).json({
+        error:
+          raw.purpose === "mfa"
+            ? "Complete a verificação MFA"
+            : "Token de recuperação inválido para esta operação",
+      });
     }
     const live = await resolveLiveWorkspaceClaims(raw);
     req.user = {

@@ -1,11 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { isGoogleAdsMetricsReadyForUser } from "../modules/googleAds/googleAds.service";
+import { isMetaCapiReadyForUser } from "../modules/metaCapi/metaCapi.service";
+import { isTikTokEventsReadyForUser } from "../modules/tiktokEvents/tiktokEvents.service";
 import { planAllowsAffiliateWebhook } from "./planAffiliateWebhook";
 import { summarizeUserDomainGoLive } from "./customDomainGoLiveSummary";
 import {
   formatSyncHealthDetail,
   loadSyncHealth,
+  loadSyncQueueHealth,
   syncHealthIssueTotal,
 } from "./syncHealth";
 
@@ -59,6 +62,12 @@ export async function buildAccountHealth(args: {
     googleAdsConversionActionId: string | null;
     googleAdsLoginCustomerId: string | null;
     googleAdsRefreshToken: string | null;
+    metaCapiEnabled?: boolean;
+    metaPixelId?: string | null;
+    metaAccessToken?: string | null;
+    tiktokEventsEnabled?: boolean;
+    tiktokPixelId?: string | null;
+    tiktokEventsAccessToken?: string | null;
   } | null;
   macroClicksInPeriod: number;
 }): Promise<AccountHealth> {
@@ -68,7 +77,7 @@ export async function buildAccountHealth(args: {
   syncHealthStart.setUTCDate(syncHealthStart.getUTCDate() - 7);
   syncHealthStart.setUTCHours(0, 0, 0, 0);
 
-  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits, domainGoLive, adsSync] =
+  const [attrRow, costSyncRow, pubPresell, campaignTracked, sub, anySale, postbackHits, domainGoLive, adsSync, syncQueue] =
     await Promise.all([
     systemPrisma.$queryRaw<Array<{ total: bigint; unattr: bigint }>>(Prisma.sql`
       SELECT
@@ -109,6 +118,7 @@ export async function buildAccountHealth(args: {
       ad_ready_hosting: 0,
     })),
     loadSyncHealth({ userId, since: syncHealthStart, periodDays: 7 }),
+    loadSyncQueueHealth({ userId, since: syncHealthStart, periodDays: 7 }),
   ]);
 
   const approved = Number(attrRow[0]?.total ?? 0);
@@ -118,6 +128,20 @@ export async function buildAccountHealth(args: {
 
   const webhookOk = planAllowsAffiliateWebhook(sub?.plan);
   const googleOk = pipelineUser ? isGoogleAdsMetricsReadyForUser(pipelineUser) : false;
+  const metaOk = pipelineUser
+    ? isMetaCapiReadyForUser({
+        metaCapiEnabled: pipelineUser.metaCapiEnabled,
+        metaPixelId: pipelineUser.metaPixelId ?? null,
+        metaAccessToken: pipelineUser.metaAccessToken ?? null,
+      })
+    : false;
+  const tiktokOk = pipelineUser
+    ? isTikTokEventsReadyForUser({
+        tiktokEventsEnabled: pipelineUser.tiktokEventsEnabled,
+        tiktokPixelId: pipelineUser.tiktokPixelId ?? null,
+        tiktokEventsAccessToken: pipelineUser.tiktokEventsAccessToken ?? null,
+      })
+    : false;
   const last_cost_sync_at = costSyncRow?.syncedAt?.toISOString() ?? null;
   const costFreshness = evaluateCostSyncFreshness({
     syncedAt: costSyncRow?.syncedAt,
@@ -229,10 +253,31 @@ export async function buildAccountHealth(args: {
       href: "/configuracoes",
     },
     {
+      id: "meta_capi_configured",
+      ok: metaOk,
+      title: "Meta CAPI configurada",
+      detail: metaOk
+        ? "Pixel e token Meta prontos para envio server-side."
+        : "Ligue pixel + token em Integrações → Pixels (Meta CAPI) para fechar o loop de conversões.",
+      href: "/integracoes/pixels",
+    },
+    {
+      id: "tiktok_events_configured",
+      ok: tiktokOk,
+      title: "TikTok Events configurado",
+      detail: tiktokOk
+        ? "Pixel e token TikTok prontos para Events API."
+        : "Ligue pixel + token em Integrações → Pixels (TikTok Events) para medir conversões.",
+      href: "/integracoes/pixels",
+    },
+    {
       id: "ads_upload",
-      ok: syncHealthIssueTotal(adsSync) === 0,
+      ok: syncHealthIssueTotal(adsSync) === 0 && syncQueue.dead === 0,
       title: "Envios para plataformas de anúncios",
-      detail: formatSyncHealthDetail(adsSync),
+      detail:
+        syncQueue.dead > 0
+          ? `${formatSyncHealthDetail(adsSync)} Fila: ${syncQueue.dead} job(s) morto(s) — reprocessar em Integrações.`
+          : formatSyncHealthDetail(adsSync),
       href: "/resultados/relatorios/conversoes",
     },
   ];
@@ -271,6 +316,7 @@ export async function loadPeriodSnapshot(args: {
         AND event_type::text = 'click'
         AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
         AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+        AND metadata->>'parent_rotator_click_id' IS NULL
     `),
     systemPrisma.$queryRaw<Array<{ ct: bigint; rev: unknown }>>(Prisma.sql`
       SELECT COUNT(*)::bigint AS ct, COALESCE(SUM(amount), 0) AS rev

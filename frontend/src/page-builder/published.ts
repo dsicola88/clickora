@@ -1,12 +1,13 @@
 import type { PageDocument } from "./types";
 
 /**
- * Páginas publicadas — persistidas no servidor Express via API REST.
- * Em caso de falha de rede, faz fallback para localStorage para não perder trabalho.
+ * Registo local do page-builder standalone (sales page / builde-dpa).
+ * A API Clickora não expõe `/api/pages` — a publicação real de landers
+ * passa por `/presells` (fluxo PresellBuilderEmbed). Este módulo só
+ * persiste no localStorage do browser.
  */
 
 const KEY = "builde-dpa:published:v1";
-const API_BASE = "/api/pages";
 
 export interface PublishedPage {
   slug: string;
@@ -17,7 +18,6 @@ export interface PublishedPage {
 
 type Registry = Record<string, PublishedPage>;
 
-// ---------- Fallback local (offline) ----------
 function loadLocal(): Registry {
   if (typeof window === "undefined") return {};
   try {
@@ -38,7 +38,6 @@ function saveLocal(reg: Registry) {
   }
 }
 
-// ---------- Slug ----------
 export function slugify(input: string): string {
   return (
     input
@@ -51,7 +50,6 @@ export function slugify(input: string): string {
   );
 }
 
-// ---------- API ----------
 export async function publishPage(slug: string, doc: PageDocument): Promise<PublishedPage> {
   const entry: PublishedPage = {
     slug,
@@ -59,60 +57,22 @@ export async function publishPage(slug: string, doc: PageDocument): Promise<Publ
     doc,
     publishedAt: Date.now(),
   };
-  // mirror local primeiro (instantâneo / offline-first)
   const reg = loadLocal();
   reg[slug] = entry;
   saveLocal(reg);
-  // tenta persistir no backend
-  try {
-    const res = await fetch(`${API_BASE}/${encodeURIComponent(slug)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(entry),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as PublishedPage;
-  } catch (err) {
-    console.warn("[publishPage] backend offline, salvo apenas localmente:", err);
-    return entry;
-  }
+  return entry;
 }
 
 export async function getPublishedPage(slug: string): Promise<PublishedPage | null> {
-  // tenta backend primeiro
-  try {
-    const res = await fetch(`${API_BASE}/${encodeURIComponent(slug)}`);
-    if (res.status === 404) {
-      // confere local antes de desistir
-      return loadLocal()[slug] ?? null;
-    }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as PublishedPage;
-  } catch (err) {
-    console.warn("[getPublishedPage] backend indisponível, usando localStorage:", err);
-    return loadLocal()[slug] ?? null;
-  }
+  return loadLocal()[slug] ?? null;
 }
 
 export async function listPublishedPages(): Promise<PublishedPage[]> {
-  try {
-    const res = await fetch(API_BASE);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as PublishedPage[];
-    return data.sort((a, b) => b.publishedAt - a.publishedAt);
-  } catch (err) {
-    console.warn("[listPublishedPages] backend indisponível, usando localStorage:", err);
-    return Object.values(loadLocal()).sort((a, b) => b.publishedAt - a.publishedAt);
-  }
+  return Object.values(loadLocal()).sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
 export async function unpublishPage(slug: string): Promise<void> {
   const reg = loadLocal();
   delete reg[slug];
   saveLocal(reg);
-  try {
-    await fetch(`${API_BASE}/${encodeURIComponent(slug)}`, { method: "DELETE" });
-  } catch {
-    /* ignore */
-  }
 }

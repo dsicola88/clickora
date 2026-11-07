@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { AppCommandPalette } from "@/components/AppCommandPalette";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { SaleChimeListener } from "@/components/SaleChimeListener";
+import { SubscriptionBlockedBanner } from "@/components/SubscriptionBlockedBanner";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { Separator } from "@/components/ui/separator";
 import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
@@ -25,6 +26,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <AppSidebar />
         <SidebarInset className="min-w-0 flex-1">
           <AppUpdateNotice />
+          <SubscriptionBlockedBanner />
           <header
             className={cn(
               "sticky top-0 z-30 relative flex h-12 shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",

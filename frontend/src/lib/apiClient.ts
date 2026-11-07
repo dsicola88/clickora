@@ -116,6 +116,16 @@ class ApiClient {
           localStorage.removeItem("clickora_token");
           localStorage.removeItem("clickora_user");
           window.dispatchEvent(new CustomEvent("auth:logout"));
+        } else if (
+          response.status === 403 &&
+          typeof errCode === "string" &&
+          errCode.startsWith("subscription_")
+        ) {
+          window.dispatchEvent(
+            new CustomEvent("auth:subscription-blocked", {
+              detail: { code: errCode, message },
+            }),
+          );
         }
 
         return { data: null, error: message, errorCode: errCode };
@@ -161,12 +171,27 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+        const errorData = (await response.json().catch(() => ({}))) as {
+          message?: string;
+          error?: string;
+          code?: string;
+        };
         const message = errorData.message || errorData.error || `Erro ${response.status}`;
+        const errCode = typeof errorData.code === "string" ? errorData.code : null;
         if (response.status === 401) {
           localStorage.removeItem("clickora_token");
           localStorage.removeItem("clickora_user");
           window.dispatchEvent(new CustomEvent("auth:logout"));
+        } else if (
+          response.status === 403 &&
+          typeof errCode === "string" &&
+          errCode.startsWith("subscription_")
+        ) {
+          window.dispatchEvent(
+            new CustomEvent("auth:subscription-blocked", {
+              detail: { code: errCode, message },
+            }),
+          );
         }
         return { data: null, filename: null, nextCursor: null, error: message };
       }

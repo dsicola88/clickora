@@ -45,5 +45,13 @@ export function requireSessionJwt(req: Request, res: Response, next: NextFunctio
       code: "session_required",
     });
   }
+  if (req.user?.purpose === "mfa" || req.user?.purpose === "password_reset") {
+    return res.status(401).json({
+      error:
+        req.user.purpose === "mfa"
+          ? "Complete a verificação MFA"
+          : "Token de recuperação inválido para esta operação",
+    });
+  }
   return next();
 }

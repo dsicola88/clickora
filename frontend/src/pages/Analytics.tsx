@@ -29,7 +29,8 @@ import {
 import { countryDisplayLabel, countryFlagEmoji } from "@/lib/countryDisplay";
 import { cn } from "@/lib/utils";
 
-const ANALYTICS_BASE = "/tracking/analytics";
+/** Montado em App sob `/resultados/por-presell/*`. */
+const ANALYTICS_BASE = "/resultados/por-presell";
 
 /** Valor sentinela no Radix Select (não usar `value=""`). */
 const GOOGLE_ADS_ALL_CAMPAIGNS = "__all_campaigns__";
@@ -207,7 +208,9 @@ function PresellsAnalyticsBody() {
     queryFn: async () => {
       const { data, error } = await analyticsService.getSummary();
       if (error) throw new Error(error);
-      return data ?? [];
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      return data.by_presell ?? [];
     },
   });
 
@@ -908,9 +911,9 @@ export default function Analytics() {
       <Routes>
         <Route index element={<Navigate to="presells" replace />} />
         <Route path="presells" element={<PresellsAnalyticsBody />} />
-        <Route path="google-ads" element={<Navigate to="/tracking/analytics/google-ads/keywords" replace />} />
+        <Route path="google-ads" element={<Navigate to={`${ANALYTICS_BASE}/google-ads/keywords`} replace />} />
         <Route path="google-ads/:insight" element={<GoogleAdsInsightsPanel />} />
-        <Route path="*" element={<Navigate to="/tracking/analytics/presells" replace />} />
+        <Route path="*" element={<Navigate to={`${ANALYTICS_BASE}/presells`} replace />} />
       </Routes>
     </div>
   );

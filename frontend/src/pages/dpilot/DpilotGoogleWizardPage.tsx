@@ -192,7 +192,7 @@ export function DpilotGoogleWizardPage() {
       if (data.offer_suggestion) setOffer(data.offer_suggestion);
       if (data.language) {
         const lang = data.language.toLowerCase();
-        const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.value === lang);
+        const known = GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.code === lang);
         if (known && !languageTargets.includes(lang)) {
           setLanguageTargets([lang, ...languageTargets].slice(0, 10));
         }
@@ -481,7 +481,7 @@ export function DpilotGoogleWizardPage() {
         | undefined;
       if (googleSearchPlanMode === "manual") {
         const mp = formStateToGoogleManualPlanPayload(manualPlanForm);
-        if (!mp.ok) {
+        if (mp.ok === false) {
           setError(mp.error);
           setSubmitting(false);
           return;

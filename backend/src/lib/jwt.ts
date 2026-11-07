@@ -27,8 +27,8 @@ export interface JwtPayload {
   workspaceRole?: WorkspaceRole;
   /** Permissões extra do membro (ex.: rotators:write). Tokens antigos podem omitir. */
   workspacePermissions?: string[];
-  /** `mfa` = token temporário até verificar TOTP. */
-  purpose?: "mfa" | "session";
+  /** `mfa` = token temporário até verificar TOTP; `password_reset` = link de recuperação. */
+  purpose?: "mfa" | "session" | "password_reset";
 }
 
 export function signToken(payload: JwtPayload, expiresIn?: SignOptions["expiresIn"]): string {

@@ -100,7 +100,8 @@ describe("export / CSS público", () => {
       id: "page_test",
       name: "Teste",
       sections: [section],
-      settings: { background: "#fff" },
+      settings: { background: "#fff", maxContentWidth: 1200 },
+      updatedAt: Date.now(),
     };
     const html = exportPageToHtml(doc);
     expect(html).toContain("data-pb-columns");

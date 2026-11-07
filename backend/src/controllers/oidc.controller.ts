@@ -4,8 +4,6 @@ import { systemPrisma } from "../lib/prisma";
 import { signToken } from "../lib/jwt";
 import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
-import { serializeUser } from "./auth.controller";
-
 type OidcConfig = {
   issuer: string;
   clientId: string;
@@ -170,6 +168,29 @@ export const oidcController = {
     const accessEval = evaluateSubscriptionAccess(subRow);
     if (!accessEval.allowed) return res.status(403).send("Assinatura inválida");
 
+    const frontend =
+      process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      process.env.FRONTEND_URL?.replace(/\/$/, "") ||
+      "https://www.dclickora.com";
+
+    if (user.mfaEnabled) {
+      const { signMfaPendingToken } = await import("../lib/mfa");
+      const mfa_token = signMfaPendingToken({
+        userId: user.id,
+        email: user.email,
+        tenantUserId: sess.tenantUserId,
+        workspaceId: sess.workspaceId,
+        workspaceRole: sess.workspaceRole,
+        workspacePermissions: sess.workspacePermissions,
+      });
+      const q = new URLSearchParams({
+        mfa_required: "1",
+        mfa_token,
+        email: user.email,
+      });
+      return res.redirect(`${frontend}/auth#${q.toString()}`);
+    }
+
     const token = signToken({
       userId: user.id,
       email: user.email,
@@ -180,10 +201,6 @@ export const oidcController = {
       purpose: "session",
     });
 
-    const frontend =
-      process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
-      process.env.FRONTEND_URL?.replace(/\/$/, "") ||
-      "https://www.dclickora.com";
     // Entrega token via hash (não fica em logs de servidor como query longa em alguns proxies)
     res.redirect(`${frontend}/auth#oidc_token=${encodeURIComponent(token)}`);
   },

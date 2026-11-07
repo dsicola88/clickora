@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/authenticate";
 import { tenantIsolation } from "../middleware/tenantIsolation";
+import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 import { customDomainController } from "../controllers/customDomain.controller";
 
 export const customDomainRouter = Router();
 
-customDomainRouter.use(authenticate, tenantIsolation);
+customDomainRouter.use(authenticate, tenantIsolation, requireActiveSubscription);
 
 customDomainRouter.get("/", customDomainController.list);
 customDomainRouter.get("/quota", customDomainController.quota);

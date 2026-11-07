@@ -25,7 +25,8 @@ export type SocialNetwork =
   | "email"
   | "link";
 
-const NETWORK_ICONS: Record<SocialNetwork, ComponentType<{ size?: number; strokeWidth?: number }>> = {
+// Lucide icons are ForwardRef components — cast keeps the map usable at call sites.
+const NETWORK_ICONS = {
   facebook: Facebook,
   instagram: Instagram,
   youtube: Youtube,
@@ -35,7 +36,7 @@ const NETWORK_ICONS: Record<SocialNetwork, ComponentType<{ size?: number; stroke
   whatsapp: MessageCircle,
   email: Mail,
   link: Globe,
-};
+} as Record<SocialNetwork, ComponentType<{ size?: number; strokeWidth?: number }>>;
 
 const LABELS: Record<SocialNetwork, string> = {
   facebook: "Facebook",

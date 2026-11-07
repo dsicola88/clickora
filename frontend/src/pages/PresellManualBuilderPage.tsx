@@ -166,8 +166,9 @@ export default function PresellManualBuilderPage() {
 
   useEffect(() => {
     setConfigSettings((prev) => {
-      const next = mergeClickoraTrackingIntoHeader(prev.headerCode, trackingEmbedScript);
-      if (next === prev.headerCode) return prev;
+      const header = String(prev.headerCode ?? "");
+      const next = mergeClickoraTrackingIntoHeader(header, trackingEmbedScript);
+      if (next === header) return prev;
       return { ...prev, headerCode: next };
     });
   }, [trackingEmbedScript]);
@@ -262,7 +263,10 @@ export default function PresellManualBuilderPage() {
   const buildSettingsPayload = useCallback((): PresellConfigSettings => {
     return {
       ...configSettings,
-      headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
+      headerCode: mergeClickoraTrackingIntoHeader(
+        String(configSettings.headerCode ?? ""),
+        trackingEmbedScript,
+      ),
     };
   }, [configSettings, trackingEmbedScript]);
 
@@ -352,6 +356,10 @@ export default function PresellManualBuilderPage() {
         if (updated?.status === "published") return updated;
         const { data: published, error: pubErr } = await presellService.toggleStatus(routeId, "published");
         if (pubErr) throw new Error(pubErr);
+        const patchBlocked = complianceBlockedMessage(
+          published as Parameters<typeof complianceBlockedMessage>[0],
+        );
+        if (patchBlocked) throw new Error(patchBlocked);
         return published || updated;
       }
       const { data: created, error } = await presellService.create({
@@ -365,6 +373,10 @@ export default function PresellManualBuilderPage() {
       if (created?.id && created.status !== "published") {
         const { data: published, error: pubErr } = await presellService.toggleStatus(created.id, "published");
         if (pubErr) throw new Error(pubErr);
+        const patchBlocked = complianceBlockedMessage(
+          published as Parameters<typeof complianceBlockedMessage>[0],
+        );
+        if (patchBlocked) throw new Error(patchBlocked);
         return published || created;
       }
       return created;

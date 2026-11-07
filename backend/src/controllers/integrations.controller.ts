@@ -38,6 +38,11 @@ import {
   retractConversionFromTikTokEvents,
   reportPartialRefundToTikTokEvents,
 } from "../modules/tiktokEvents/tiktokEvents.service";
+import {
+  retryDeadConversionSyncJobs,
+  type ConversionSyncChannel,
+} from "../lib/conversionSyncQueue";
+import { loadSyncQueueHealth } from "../lib/syncHealth";
 import { enqueueConversionSync } from "../lib/conversionSyncQueue";
 import { normalizeIpForMatch } from "../lib/normalizeIp";
 import { effectiveAutoBlacklistThreshold } from "../lib/trackingGuardPolicy";
@@ -2025,6 +2030,34 @@ export const integrationsController = {
     });
     if (result.count === 0) return res.status(404).json({ error: "Entrada não encontrada" });
     return res.json({ ok: true });
+  },
+
+  /** Estado da fila conversion_sync_jobs (7d). */
+  async getConversionSyncQueue(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - 7);
+    since.setUTCHours(0, 0, 0, 0);
+    const queue = await loadSyncQueueHealth({ userId, since, periodDays: 7 });
+    return res.json({ sync_queue: queue });
+  },
+
+  /** Reprocessa jobs dead → pending (sem inventar credenciais). */
+  async retryConversionSyncDead(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const body = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(200).optional(),
+        channel: z.enum(["google_ads", "meta_capi", "tiktok_events"]).optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) return res.status(400).json({ error: "Dados inválidos" });
+    const result = await retryDeadConversionSyncJobs({
+      userId,
+      limit: body.data.limit,
+      channel: body.data.channel as ConversionSyncChannel | undefined,
+    });
+    return res.json({ ok: true, ...result });
   },
 };
 

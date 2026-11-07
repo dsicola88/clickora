@@ -4,6 +4,7 @@ import type { AdBundle } from "@/services/keywordResearchService";
 
 const minimalBundle = (): AdBundle => ({
   source: "deterministic",
+  llmFailed: false,
   locale: "en-US",
   platform: "google",
   objective: "purchase",

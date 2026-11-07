@@ -17,11 +17,10 @@ import {
 import {
   MetaCapiIntegrationCard,
   TiktokEventsIntegrationCard,
-} from "@/pages/TrackingDashboard";
+} from "@/components/integrations/AdPixelIntegrationCards";
 
 /**
  * Meta CAPI + TikTok Events API — envio servidor→rede das conversões aprovadas.
- * (A UI vivia no TrackingDashboard legado, que ficou sem rota após o redesign.)
  */
 export default function AdPixelsConnectPage() {
   const { t } = useAppLocale();

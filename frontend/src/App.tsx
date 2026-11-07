@@ -93,6 +93,13 @@ function BrandingFaviconGate() {
   return <BrandingFavicon />;
 }
 
+/** Preserva o subpath ao migrar bookmarks de /tracking/analytics-legacy/* → /resultados/por-presell/*. */
+function LegacyAnalyticsRedirect() {
+  const loc = useLocation();
+  const rest = loc.pathname.replace(/^\/tracking\/analytics-legacy\/?/, "") || "presells";
+  return <Navigate to={`/resultados/por-presell/${rest}${loc.search}`} replace />;
+}
+
 /** Rotas novas + redirects das URLs antigas (bookmarks). */
 const appRoutes = [
   { path: "/inicio", element: <Home /> },
@@ -135,9 +142,15 @@ const appRoutes = [
   { path: "/presell/templates", element: <Navigate to="/presells/nova" replace /> },
   { path: "/presell/templates/:tab", element: <Navigate to="/presells/nova" replace /> },
 
-  // Redirects — Tracking legado (páginas ainda existem para avançado / deep links)
+  // Superfícies canónicas (ex-legado promovido — sem rotas *-legacy activas)
+  { path: "/resultados/por-presell/*", element: <Analytics /> },
+  { path: "/integracoes/avancado", element: <Integrations /> },
+  { path: "/configuracoes/dominio", element: <Settings /> },
+  { path: "/ajuda/assistente", element: <SetupAssistantPage /> },
+
+  // Redirects — bookmarks / URLs antigas
   { path: "/tracking/dashboard", element: <Navigate to="/resultados" replace /> },
-  { path: "/tracking/setup-assistant", element: <Navigate to="/presells/nova" replace /> },
+  { path: "/tracking/setup-assistant", element: <Navigate to="/ajuda/assistente" replace /> },
   { path: "/tracking/plataformas-legacy", element: <Navigate to="/integracoes/postback" replace /> },
   { path: "/tracking/plataformas", element: <Navigate to="/integracoes/postback" replace /> },
   { path: "/tracking/integrations", element: <Navigate to="/integracoes" replace /> },
@@ -154,13 +167,13 @@ const appRoutes = [
   { path: "/tracking/blacklist", element: <Blacklist /> },
   { path: "/tracking/url-builder", element: <UrlBuilder /> },
   { path: "/tracking/logs", element: <Logs /> },
-  { path: "/tracking/setup-assistant-legacy", element: <SetupAssistantPage /> },
-  { path: "/tracking/integrations-legacy", element: <Integrations /> },
-  { path: "/tracking/settings-legacy", element: <Settings /> },
+  { path: "/tracking/setup-assistant-legacy", element: <Navigate to="/ajuda/assistente" replace /> },
+  { path: "/tracking/integrations-legacy", element: <Navigate to="/integracoes/avancado" replace /> },
+  { path: "/tracking/settings-legacy", element: <Navigate to="/configuracoes/dominio" replace /> },
   { path: "/tracking/dashboard-legacy", element: <Navigate to="/integracoes/pixels" replace /> },
   { path: "/dpilot", element: <Navigate to="/tracking/dpilot" replace /> },
   { path: "/tracking/vendas-legacy", element: <Navigate to="/resultados/funil" replace /> },
-  { path: "/tracking/analytics-legacy/*", element: <Analytics /> },
+  { path: "/tracking/analytics-legacy/*", element: <LegacyAnalyticsRedirect /> },
   { path: "/tracking/links-legacy", element: <Navigate to="/tracking/url-builder" replace /> },
 ] as const;
 

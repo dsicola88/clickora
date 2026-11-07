@@ -88,6 +88,10 @@ Strings das **presells públicas** em `frontend/src/lib/presellUiStrings*.ts` (p
 4. **Multi-região activa-activa** — infra, não app.
 5. **Microcopy residual** em builder/Dpiloto densos — expandir o mesmo catálogo tipado (`en`/`pt`/`pt-BR`/`es`).
 
+**Confiança comercial (ledger):** fechada no código — backfill TE `offline_csv` → `Conversion`, dimensões = total (`ledger_truth`), contador `presell_pages.conversions` reconciliável. Em produção: `npm run backfill:commercial-trust -- --apply` (dry-run por defeito). Ver [FASE_LEDGER_CANONICO.md](./FASE_LEDGER_CANONICO.md) §9.
+
+**Go-live observável (código):** checks Meta CAPI / TikTok Events no `account_health` + hub Integrações; `sync_queue` (pending/dead) no dashboard; `POST /integrations/conversion-sync/retry` para reprocessar dead-letter. Envio real às redes continua a exigir tokens de produção.
+
 ---
 
 ## 7. Verificação rápida

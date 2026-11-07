@@ -82,7 +82,8 @@ export default function Home() {
   }
 
   const isNew = pages.length === 0;
-  const clicks = dash?.total_clicks ?? 0;
+  // Canonical visitor KPI = root clicks (entry_clicks); hops are total_clicks/total_hops.
+  const clicks = dash?.entry_clicks ?? dash?.total_clicks ?? 0;
   const conversions = dash?.approved_sales_count ?? dash?.total_conversions ?? 0;
   const revenue = dash?.revenue ?? 0;
   const rate = dash?.conversion_rate ?? (clicks > 0 ? (conversions / clicks) * 100 : 0);

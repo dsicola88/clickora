@@ -99,7 +99,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
     ],
     links: [
       {
-        to: "/tracking/plataformas-legacy",
+        to: "/integracoes/postback",
         label: "Postback por rede (copiar URL com macros)",
         hint: "BuyGoods {SUBID} · SmartAdv {sub3} · Digistore {cid}",
       },
@@ -126,7 +126,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
       { to: "/resultados/conversoes", label: "Conversões", hint: "" },
       { to: "/resultados/relatorios", label: "Relatórios", hint: "Acessos e cliques" },
       {
-        to: "/tracking/analytics/presells",
+        to: "/resultados/por-presell/presells",
         label: "Por presell",
         hint: "Curvas e totais por página",
       },
@@ -139,7 +139,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
     keywords: ["telegram", "google ads", "meta", "tiktok", "capi", "offline"],
     links: [
       {
-        to: "/tracking/integrations-legacy",
+        to: "/integracoes/avancado",
         label: "Ligar Google / Meta / TikTok",
         hint: "Requer GCLID/fbclid/ttclid no clique",
       },
@@ -179,7 +179,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
         hint: "Passos 1–6 com BuyGoods/SmartAdv",
       },
       {
-        to: "/tracking/plataformas-legacy",
+        to: "/integracoes/postback",
         label: "Rever URL do postback",
         hint: "Macros têm de coincidir com a doc da rede",
       },

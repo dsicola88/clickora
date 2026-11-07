@@ -61,6 +61,24 @@ describe("explainOptimizerDecision", () => {
     expect(next).toMatch(/ROAS/);
     expect(next).toMatch(/3\.20/);
   });
+
+  it("reallocate_budget explica transferência e ROAS dador/receptor", () => {
+    const ex = explainOptimizerDecision(
+      row({
+        rule_code: "reallocate_budget_winner_from_laggard",
+        decision_type: "reallocate_budget",
+        input_snapshot: {
+          transferUsd: 10,
+          donorRoas: 0.5,
+          receiverRoas: 3.1,
+        },
+      }),
+    );
+    expect(ex.why).toMatch(/10/);
+    expect(ex.why).toMatch(/0\.50|3\.10/);
+    expect(ex.title).toMatch(/Redistribuir/i);
+    expect(ex.nextSuggestedAction).toMatch(/receptor|orçamento/i);
+  });
 });
 
 describe("approvalQueueTransparencyBullets", () => {

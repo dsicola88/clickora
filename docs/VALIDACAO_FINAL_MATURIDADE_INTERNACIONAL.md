@@ -121,7 +121,7 @@ DClickora à frente no combo **presell + tracker** no mesmo login.
 
 ## 8. Cinco melhorias — estado
 
-1. Ledger absoluto — **FECHADO** (FASE 1: ver `FASE_LEDGER_CANONICO.md`; TE CSV legados sem backfill)  
+1. Ledger absoluto — **FECHADO** (FASE 1 + confiança comercial: backfill TE CSV, dimensões = total, contadores; ver `FASE_LEDGER_CANONICO.md`)  
 2. Sticky + A/B — **FECHADO**  
 3. Fila CAPI/TikTok/Google — **FECHADO** (código); envio real → credenciais  
 4. i18n EN + ES — **FECHADO** (catálogo + switcher)  

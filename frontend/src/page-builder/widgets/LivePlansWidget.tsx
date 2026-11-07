@@ -49,7 +49,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
   const ctaColor = c.ctaColor ?? "#ffffff";
 
   const navigate = useNavigate();
-  const { user, userPlan } = useAuth();
+  const { user, userPlan, refreshUser } = useAuth();
 
   const { data: plans = [], isLoading, isError } = useQuery({
     queryKey: ["plans"],
@@ -104,6 +104,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
       toast.error(data.message);
       return;
     }
+    await refreshUser();
     toast.success("Plano atualizado com sucesso!");
   };
 

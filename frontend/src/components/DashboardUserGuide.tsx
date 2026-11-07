@@ -137,7 +137,7 @@ const TRACKING_STEPS: GuideStep[] = [
     ),
     links: [
       { to: "/integracoes", label: "Integrações" },
-      { to: "/tracking/plataformas-legacy", label: "Postback por rede" },
+      { to: "/integracoes/postback", label: "Postback por rede" },
     ],
   },
   {
@@ -176,7 +176,7 @@ const TRACKING_STEPS: GuideStep[] = [
     ),
     links: [
       { to: "/integracoes", label: "Integrações" },
-      { to: "/tracking/integrations-legacy", label: "Contas de anúncios" },
+      { to: "/integracoes/avancado", label: "Contas de anúncios" },
     ],
   },
 ];

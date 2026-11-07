@@ -224,8 +224,9 @@ export default function PresellDashboard() {
   useEffect(() => {
     if (!showCreator || !trackingEmbedScript) return;
     setConfigSettings((prev) => {
-      const next = mergeClickoraTrackingIntoHeader(prev.headerCode, trackingEmbedScript);
-      if (next === prev.headerCode) return prev;
+      const header = String(prev.headerCode ?? "");
+      const next = mergeClickoraTrackingIntoHeader(header, trackingEmbedScript);
+      if (next === header) return prev;
       return { ...prev, headerCode: next };
     });
   }, [showCreator, trackingEmbedScript]);
@@ -253,6 +254,14 @@ export default function PresellDashboard() {
     mutationFn: async ({ id, status }: { id: string; status: Presell["status"] }) => {
       const { data, error } = await presellService.toggleStatus(id, status);
       if (error) throw new Error(error);
+      const blocked = data as { compliance_blocked?: boolean; message?: string; compliance?: { error?: string } } | null;
+      if (blocked?.compliance_blocked) {
+        throw new Error(
+          blocked.compliance?.error ||
+            blocked.message ||
+            "Publicação bloqueada pelas verificações internas.",
+        );
+      }
       return data;
     },
     onSuccess: () => {
@@ -470,6 +479,7 @@ export default function PresellDashboard() {
       pageName: "",
       pageSlug: "",
       presellType: "cookies",
+      generationNiche: "black",
       language: "pt-BR",
       productLink: "",
       affiliateLink: "",
@@ -629,7 +639,10 @@ export default function PresellDashboard() {
   const buildPresellSettingsPayload = (): PresellSettings => {
     const base: PresellSettings = {
       ...(configSettings as PresellSettings),
-      headerCode: mergeClickoraTrackingIntoHeader(configSettings.headerCode, trackingEmbedScript),
+      headerCode: mergeClickoraTrackingIntoHeader(
+        String(configSettings.headerCode ?? ""),
+        trackingEmbedScript,
+      ),
       cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
       minAge: typeOptions.minAge,
     };
@@ -1547,8 +1560,8 @@ export default function PresellDashboard() {
                 publicUrl: editingPage
                   ? getPublicPresellFullUrl(customDomains, editingPage.custom_domain_id, editingPage)
                   : presellUrlPreview.fullUrl || null,
-                businessName: configSettings.businessName,
-                contactEmail: configSettings.contactEmail,
+                businessName: String(configSettings.businessName ?? ""),
+                contactEmail: String(configSettings.contactEmail ?? ""),
                 brandKitName: kit.brandName,
                 hasAffiliateDisclosure: Boolean(configSettings.affiliateDisclosure),
                 productImagesCount: imgs,

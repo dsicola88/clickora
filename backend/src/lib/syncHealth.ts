@@ -80,6 +80,67 @@ export async function loadSyncHealth(args: {
   }
 }
 
+/** Observabilidade da fila `conversion_sync_jobs` (não inventa envios). */
+export type SyncQueueHealth = {
+  period_days: number;
+  pending: number;
+  processing: number;
+  dead: number;
+  sent: number;
+  by_channel: {
+    google_ads: { pending: number; dead: number };
+    meta_capi: { pending: number; dead: number };
+    tiktok_events: { pending: number; dead: number };
+  };
+};
+
+export function emptySyncQueueHealth(periodDays: number): SyncQueueHealth {
+  return {
+    period_days: periodDays,
+    pending: 0,
+    processing: 0,
+    dead: 0,
+    sent: 0,
+    by_channel: {
+      google_ads: { pending: 0, dead: 0 },
+      meta_capi: { pending: 0, dead: 0 },
+      tiktok_events: { pending: 0, dead: 0 },
+    },
+  };
+}
+
+export async function loadSyncQueueHealth(args: {
+  userId: string;
+  since: Date;
+  periodDays: number;
+}): Promise<SyncQueueHealth> {
+  const { userId, since, periodDays } = args;
+  try {
+    const rows = await systemPrisma.conversionSyncJob.groupBy({
+      by: ["channel", "status"],
+      where: { userId, createdAt: { gte: since } },
+      _count: { _all: true },
+    });
+    const out = emptySyncQueueHealth(periodDays);
+    for (const row of rows) {
+      const n = row._count._all;
+      const ch = row.channel as keyof SyncQueueHealth["by_channel"];
+      if (row.status === "pending") out.pending += n;
+      if (row.status === "processing") out.processing += n;
+      if (row.status === "dead") out.dead += n;
+      if (row.status === "sent") out.sent += n;
+      if (ch in out.by_channel) {
+        if (row.status === "pending") out.by_channel[ch].pending += n;
+        if (row.status === "dead") out.by_channel[ch].dead += n;
+      }
+    }
+    return out;
+  } catch (e) {
+    console.warn("[syncHealth] fila conversion_sync_jobs indisponível", e);
+    return emptySyncQueueHealth(periodDays);
+  }
+}
+
 /** Texto curto para account_health quando há issues. */
 export function formatSyncHealthDetail(sh: SyncHealth): string {
   const parts: string[] = [];

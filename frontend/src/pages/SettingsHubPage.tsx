@@ -41,7 +41,7 @@ export default function SettingsHubPage() {
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <div className="space-y-3">
           <Link
-            to="/tracking/settings-legacy"
+            to="/configuracoes/dominio"
             className="group flex h-full items-start gap-4 rounded-lg border border-border/70 bg-card p-5 transition-colors hover:border-primary/40"
           >
             <div className="rounded-md bg-primary/10 p-2.5">

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type SignInResult } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 declare global {
@@ -21,11 +21,13 @@ declare global {
 
 type Props = {
   onSuccess: () => void;
+  /** Quando a conta tem MFA — o ecrã de login deve mostrar o formulário TOTP. */
+  onMfaRequired?: (mfa: NonNullable<SignInResult["mfa"]>) => void;
 };
 
 const GSI_SCRIPT = "https://accounts.google.com/gsi/client";
 
-export function GoogleSignInButton({ onSuccess }: Props) {
+export function GoogleSignInButton({ onSuccess, onMfaRequired }: Props) {
   const { signInWithGoogle } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
@@ -50,9 +52,14 @@ export function GoogleSignInButton({ onSuccess }: Props) {
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: async (response: { credential: string }) => {
-          const { error } = await signInWithGoogle(response.credential);
-          if (error) {
-            toast.error(error);
+          const result = await signInWithGoogle(response.credential);
+          if (result.error) {
+            toast.error(result.error);
+            return;
+          }
+          if (result.mfa) {
+            toast.message("Confirme o código MFA para continuar.");
+            onMfaRequired?.(result.mfa);
             return;
           }
           toast.success("Login com Google realizado!");
@@ -85,7 +92,7 @@ export function GoogleSignInButton({ onSuccess }: Props) {
       window.google?.accounts.id.cancel();
       el.innerHTML = "";
     };
-  }, [clientId, onSuccess, signInWithGoogle]);
+  }, [clientId, onMfaRequired, onSuccess, signInWithGoogle]);
 
   if (!clientId) {
     return null;

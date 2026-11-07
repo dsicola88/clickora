@@ -19,7 +19,7 @@ Arquitectura técnica detalhada: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECT
 | **Ligação às contas** | OAuth por plataforma; sem ligação não há publicação. |
 | **Controlos de risco** | **Guardrails** (orçamentos, geo, palavras bloqueadas, etc.) definidos por projecto. |
 | **Modo de trabalho** | **Copilot** (aprovação humana antes ou conforme política) vs **Autopilot** (aplicação automática dentro dos limites). |
-| **Motor automático (Optimizer V0)** | Ciclo em background: métricas de **tracking** + gasto **Google/Meta** onde disponível; **pausa** campanha em condições definidas; **escala orçamento** por ROAS (com guardrails); **flag** para revisão de criativo (CTR baixo). |
+| **Motor automático (Optimizer V0)** | Ciclo em background: métricas de **tracking** + gasto **Google/Meta/TikTok** onde disponível; **pausa** campanha em condições definidas; **escala orçamento** por ROAS (com guardrails + **cap mensal de conta**); **redistribuição** entre campanhas da mesma rede (vencedor ← laggard, gasto total inalterado); **flag** para revisão de criativo (CTR baixo). |
 | **Auditoria** | Tabela `paid_ads_optimizer_decisions`, UI «Auditoria & motor», API paginada; logs estruturados `paid.optimizer`. |
 | **Alertas opcionais** | Webhook JSON ou formato Slack legacy (`PAID_OPTIMIZER_ALERT_*`). |
 
@@ -30,11 +30,11 @@ Arquitectura técnica detalhada: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECT
 | Promessa natural | Realidade técnica |
 |------------------|-------------------|
 | «Cria campanhas nas plataformas» | **Sim**, através dos assistentes + aplicação na rede quando OAuth e políticas permitem. |
-| «Decide alterações» | **Parcial.** Decisões **regra-based** no optimizer (pausa, escala, flag CTR). Não substitui julgamento estratégico (mudar oferta, canal ou positioning). |
+| «Decide alterações» | **Parcial.** Decisões **regra-based** no optimizer (pausa, escala, redistribuição, flag CTR) + sugestões de mensagem a partir do copy existente. Não substitui julgamento estratégico (nova oferta, canal ou positioning). |
 | «Aplica mudanças automaticamente» | **Sim** em Autopilot + optimizer **live** (`PAID_OPTIMIZER_DRY_RUN=false`, etc.). Em Copilot, **aprovações** podem ser obrigatórias. |
 | «Acompanha resultados» | **Sim** operacionalmente: tracking, decisões registadas, lista na auditoria. Não substitui um BI externo completo. |
 | **Pausar campanha inteira** | **Sim** (optimizer + APIs). |
-| **Aumentar orçamento** | **Sim ao nível da campanha** (escala ROAS), respeitando tetos. Orçamento «global» ao nível conta inteira como política única **não** está como feature isolada — roadmap. |
+| **Aumentar orçamento** | **Sim ao nível da campanha** (escala ROAS), respeitando tetos. **Redistribuição** entre campanhas live da mesma rede (corta no laggard, soma no vencedor). Cap mensal de conta bloqueia só escala líquida. |
 | **Criar novas campanhas** | **Sim** pelos fluxos existentes; não é o optimizer a criar campanhas sem input estruturado. |
 | **Mudar abordagem** | **Parcial.** Flag de criativo orienta revisão; **mudança de estratégia de marketing** não está automatizada como motor único. |
 
@@ -53,9 +53,9 @@ Arquitectura técnica detalhada: [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECT
 
 | Horizonte | Entrega incremental |
 |-----------|------------------------|
-| **Curto** | Dashboard único de «saúde» por projecto (spend vs conversões vs decisões); alertas por email em paralelo ao webhook. |
-| **Médio** | Políticas de **alocação** entre campanhas ou orçamento «cap» ao nível conta; TikTok gasto por API no optimizer se API estável. |
-| **Longo** | Experimentação **A/B** de criativos com ciclo fechado; recomendações de **mensagem/oferta** assistidas por modelo (sempre com revisão/humano onde exigido por política ou marca). |
+| **Curto** | ✅ Dashboard «saúde» por projecto (`GET /paid/projects/:id/health-summary` + card na Visão); ✅ alertas por email em paralelo ao webhook (`alerts.service` + `PAID_OPTIMIZER_ALERT_EMAIL` opcional). |
+| **Médio** | ✅ Cap mensal ao nível conta (`maxMonthlySpendMicros` → bloqueia escala + decisão `block_scale`); ✅ TikTok spend no optimizer (`report/integrated/get` + `resolveSpendUsd`); ✅ redistribuição activa entre campanhas (`reallocate_budget`, mesma rede, neutra em gasto). |
+| **Longo** | ✅ MVP A/B criativo **Copilot**; ✅ medição por anúncio na rede + ranking; ✅ recomendações mensagem/oferta (`message-recs`: determinístico + LLM opcional, grava rascunhos Meta/RSA sem inventar funil/claims). |
 
 ---
 
@@ -97,9 +97,14 @@ Esta matrix serve para mensagem interna («não prometer campanhas vídeo TikTok
 | Área | Local principal |
 |------|-----------------|
 | Motor optimizer | `backend/src/paid/optimizer/` |
+| Creative swap Copilot | `backend/src/paid/creativeSwap.service.ts` + rotas `…/creative-swap/*` |
+| Ranking criativo (rede) | `creativeRanking.ts` + `meta-metrics.fetchMetaAdInsights` + `google-metrics.fetchGoogleAdGroupAdMetrics` |
+| Redistribuição orçamento | `optimizer/reallocate.engine.ts` + decisão `reallocate_budget` no tick |
+| Mensagem/oferta Copilot | `messageOfferRecs.ts` + `…/creative-swap/message-recs` |
 | Rotas Paid API | `backend/src/routes/paid.routes.ts` |
 | UI dpilot | `frontend/src/pages/dpilot/` |
+| Gate staging Paid | `npm run test:staging-paid-autopilot-gate` (incl. creative-swap + reallocate contracts) |
 
 ---
 
-*Última actualização: secção §7 matrix Google/Meta/TikTok acrescentada; Optimizer V0 / auditoria conforme texto histórico das secções §2–§5.*
+*Última actualização: roadmap curto/médio/longo fechados no núcleo optimizer+Copilot (redistribuição, ranking, message-recs); §2–§5.*

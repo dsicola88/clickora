@@ -235,7 +235,7 @@ export function revenueFromLedgerRows(rows: LedgerRowSnapshot[]): number {
 
 /**
  * Reconciliação: conta TE(conversion) vs Conversion no período.
- * `ok` se não houver TE ads órfãos sem Conversion com mesmo external namespace.
+ * `ok` se não houver TE ads/csv órfãos sem Conversion com mesmo external namespace.
  */
 export async function reconcileConversionLedger(args: {
   userId: string;
@@ -247,6 +247,7 @@ export async function reconcileConversionLedger(args: {
   te_with_ads_origin: number;
   conversion_offline_csv: number;
   te_offline_csv: number;
+  te_offline_csv_orphans: number;
   ledger_aligned: boolean;
   note: string;
 }> {
@@ -257,6 +258,7 @@ export async function reconcileConversionLedger(args: {
     teAds,
     convCsv,
     teCsv,
+    orphanScan,
   ] = await Promise.all([
     systemPrisma.conversion.count({
       where: { userId: args.userId, status: "approved", createdAt: { gte: args.since } },
@@ -300,10 +302,16 @@ export async function reconcileConversionLedger(args: {
         metadata: { path: ["postback_origin"], equals: "offline_csv" },
       },
     }),
+    findOrphanOfflineCsvTrackingEvents({
+      userId: args.userId,
+      since: args.since,
+      limit: 10_000,
+    }),
   ]);
 
+  const te_offline_csv_orphans = orphanScan.length;
   const adsOk = teAds === 0 || convAds >= teAds;
-  const csvOk = teCsv === 0 || convCsv >= teCsv;
+  const csvOk = te_offline_csv_orphans === 0;
   const ledger_aligned = adsOk && csvOk;
   return {
     conversion_approved,
@@ -312,9 +320,234 @@ export async function reconcileConversionLedger(args: {
     te_with_ads_origin: teAds,
     conversion_offline_csv: convCsv,
     te_offline_csv: teCsv,
+    te_offline_csv_orphans,
     ledger_aligned,
     note: ledger_aligned
       ? "Receita canónica = Conversion; TE(conversion) é telemetria."
-      : "Há TE (ads/csv) sem Conversion correspondente — investigar imports/postbacks.",
+      : te_offline_csv_orphans > 0
+        ? `Há ${te_offline_csv_orphans} TE offline_csv sem Conversion — correr backfillOfflineCsvTeToConversions.`
+        : "Há TE ads sem Conversion correspondente — investigar postbacks.",
+  };
+}
+
+export type OrphanOfflineCsvTe = {
+  teId: string;
+  userId: string;
+  presellPageId: string | null;
+  gclid: string;
+  amount: number;
+  currency: string;
+  createdAt: Date;
+};
+
+/** TE offline_csv legados sem Conversion com a mesma chave GCLID. */
+export async function findOrphanOfflineCsvTrackingEvents(args: {
+  userId?: string;
+  since?: Date;
+  limit?: number;
+}): Promise<OrphanOfflineCsvTe[]> {
+  const limit = Math.min(Math.max(args.limit ?? 2000, 1), 20_000);
+  const rows = await systemPrisma.trackingEvent.findMany({
+    where: {
+      eventType: "conversion",
+      ...(args.userId ? { userId: args.userId } : {}),
+      ...(args.since ? { createdAt: { gte: args.since } } : {}),
+      metadata: { path: ["postback_origin"], equals: "offline_csv" },
+    },
+    select: {
+      id: true,
+      userId: true,
+      presellPageId: true,
+      createdAt: true,
+      metadata: true,
+    },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+
+  const candidates: OrphanOfflineCsvTe[] = [];
+  const externalByUser = new Map<string, Set<string>>();
+
+  for (const te of rows) {
+    const meta = (te.metadata || {}) as Record<string, unknown>;
+    const gclid = typeof meta.gclid === "string" ? meta.gclid.trim() : "";
+    if (!gclid) continue;
+    const rawVal = meta.value;
+    const amount =
+      typeof rawVal === "number"
+        ? rawVal
+        : typeof rawVal === "string"
+          ? Number.parseFloat(rawVal.replace(",", "."))
+          : 0;
+    const currency =
+      typeof meta.currency === "string" && meta.currency.trim()
+        ? meta.currency.trim().toUpperCase().slice(0, 8)
+        : "USD";
+    candidates.push({
+      teId: te.id,
+      userId: te.userId,
+      presellPageId: te.presellPageId,
+      gclid,
+      amount: Number.isFinite(amount) ? amount : 0,
+      currency,
+      createdAt: te.createdAt,
+    });
+    const ext = offlineCsvExternalOrderId(gclid);
+    if (!externalByUser.has(te.userId)) externalByUser.set(te.userId, new Set());
+    externalByUser.get(te.userId)!.add(ext);
+  }
+
+  if (candidates.length === 0) return [];
+
+  const existing = new Set<string>();
+  for (const [userId, extSet] of externalByUser) {
+    const found = await systemPrisma.conversion.findMany({
+      where: { userId, externalOrderId: { in: [...extSet] } },
+      select: { userId: true, externalOrderId: true },
+    });
+    for (const row of found) {
+      if (row.externalOrderId) existing.add(`${row.userId}\0${row.externalOrderId}`);
+    }
+  }
+
+  return candidates.filter(
+    (c) => !existing.has(`${c.userId}\0${offlineCsvExternalOrderId(c.gclid)}`),
+  );
+}
+
+/**
+ * Backfill one-shot: TE offline_csv órfãos → Conversion (mesma upsert canónica).
+ * Idempotente; dryRun não escreve. Não inventa funil — só fecha o ledger.
+ */
+export async function backfillOfflineCsvTeToConversions(args?: {
+  userId?: string;
+  since?: Date;
+  limit?: number;
+  dryRun?: boolean;
+}): Promise<{
+  scanned_orphans: number;
+  created: number;
+  skipped_no_presell: number;
+  skipped_duplicate: number;
+  dry_run: boolean;
+}> {
+  const dryRun = args?.dryRun !== false;
+  const orphans = await findOrphanOfflineCsvTrackingEvents({
+    userId: args?.userId,
+    since: args?.since,
+    limit: args?.limit,
+  });
+
+  let created = 0;
+  let skipped_no_presell = 0;
+  let skipped_duplicate = 0;
+
+  /** Um GCLID por user — evita duplicar se vários TE órfãos partilham o mesmo gclid. */
+  const seen = new Set<string>();
+
+  for (const orphan of orphans) {
+    const dedupeKey = `${orphan.userId}\0${orphan.gclid}`;
+    if (seen.has(dedupeKey)) {
+      skipped_duplicate++;
+      continue;
+    }
+    seen.add(dedupeKey);
+
+    if (!orphan.presellPageId) {
+      skipped_no_presell++;
+      continue;
+    }
+
+    if (dryRun) {
+      created++;
+      continue;
+    }
+
+    /** Clique mais recente com este GCLID (mesma regra do import CSV). */
+    const click = await systemPrisma.trackingEvent.findFirst({
+      where: {
+        userId: orphan.userId,
+        eventType: "click",
+        metadata: { path: ["gclid"], equals: orphan.gclid },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, campaign: true },
+    });
+
+    const upserted = await upsertConversionFromOfflineCsv({
+      userId: orphan.userId,
+      presellId: orphan.presellPageId,
+      clickId: click?.id ?? null,
+      amount: orphan.amount,
+      currency: orphan.currency,
+      campaign: click?.campaign ?? null,
+      gclid: orphan.gclid,
+    });
+    if (upserted.created) {
+      created++;
+      if (orphan.presellPageId) {
+        await systemPrisma.presellPage.update({
+          where: { id: orphan.presellPageId },
+          data: { conversions: { increment: 1 } },
+        });
+      }
+    } else {
+      skipped_duplicate++;
+    }
+  }
+
+  return {
+    scanned_orphans: orphans.length,
+    created,
+    skipped_no_presell,
+    skipped_duplicate,
+    dry_run: dryRun,
+  };
+}
+
+/**
+ * Alinha o contador denormalizado `presell_pages.conversions` a COUNT(approved).
+ * Refunds / CSV / ads podem ter deixado o contador desalinhado.
+ */
+export async function reconcilePresellPageConversionCounters(args?: {
+  userId?: string;
+  dryRun?: boolean;
+}): Promise<{
+  pages_checked: number;
+  pages_mismatched: number;
+  dry_run: boolean;
+  samples: Array<{ pageId: string; stored: number; actual: number }>;
+}> {
+  const dryRun = args?.dryRun !== false;
+  const pages = await systemPrisma.presellPage.findMany({
+    where: args?.userId ? { userId: args.userId } : {},
+    select: { id: true, conversions: true },
+  });
+
+  const samples: Array<{ pageId: string; stored: number; actual: number }> = [];
+  let pages_mismatched = 0;
+
+  for (const page of pages) {
+    const actual = await systemPrisma.conversion.count({
+      where: { presellId: page.id, status: "approved" },
+    });
+    if (actual === page.conversions) continue;
+    pages_mismatched++;
+    if (samples.length < 25) {
+      samples.push({ pageId: page.id, stored: page.conversions, actual });
+    }
+    if (!dryRun) {
+      await systemPrisma.presellPage.update({
+        where: { id: page.id },
+        data: { conversions: actual },
+      });
+    }
+  }
+
+  return {
+    pages_checked: pages.length,
+    pages_mismatched,
+    dry_run: dryRun,
+    samples,
   };
 }
