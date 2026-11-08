@@ -26,6 +26,7 @@ import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass
 import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { pickRotatorDestination, stickyRotatorCookieName } from "../lib/trafficRotator.service";
+import { rewriteLocalPresellDestination } from "../lib/rewriteLocalPresellDestination";
 import {
   findClickIdByAdClickParam,
   upsertConversionFromAdsPostback,
@@ -686,7 +687,19 @@ export const trackController = {
 
     const rot = await systemPrisma.trafficRotator.findFirst({
       where: { id: rotatorId, isActive: true },
-      include: { contextPresell: { select: { id: true, userId: true, title: true, status: true, settings: true } } },
+      include: {
+        contextPresell: {
+          select: {
+            id: true,
+            userId: true,
+            title: true,
+            status: true,
+            settings: true,
+            customDomainId: true,
+            customDomain: { select: { hostname: true, status: true } },
+          },
+        },
+      },
     });
     if (!rot || rot.contextPresell.status !== "published") {
       return res.status(404).json({ error: "Rotador não encontrado" });
@@ -748,7 +761,28 @@ export const trackController = {
         code: pick.reason,
       });
     }
-    const finalUrl = pick.destinationUrl;
+    const landerHost =
+      rot.contextPresell.customDomain?.status === "verified"
+        ? rot.contextPresell.customDomain.hostname
+        : "";
+    const rotHost =
+      (req.get("x-forwarded-host") || req.get("host") || "").split(",")[0]?.trim().split(":")[0] || "";
+    const rotPreferredOrigin = landerHost
+      ? `https://${landerHost}`
+      : rotHost && !/^(localhost|127\.0\.0\.1)$/i.test(rotHost)
+        ? `${(req.get("x-forwarded-proto") || "https").split(",")[0]?.trim() || "https"}://${rotHost}`
+        : null;
+    const finalUrl = rewriteLocalPresellDestination(pick.destinationUrl, rotPreferredOrigin);
+    // Persistir correcção: braços antigos com localhost deixam de partir anúncios.
+    if (
+      pick.armId &&
+      finalUrl !== pick.destinationUrl &&
+      !/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(finalUrl)
+    ) {
+      void systemPrisma.trafficRotatorArm
+        .update({ where: { id: pick.armId }, data: { destinationUrl: finalUrl } })
+        .catch((err) => console.warn("[track.rotator] persist localhost rewrite failed", err));
+    }
 
     const armIdForMeta = pick.usedBackup || pick.viaPolicyRedirect ? null : pick.armId;
 

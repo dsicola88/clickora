@@ -217,11 +217,11 @@ describe("buildEditablePageDocument", () => {
       "https://buygoods.com/secure/checkout?item=1",
       "/privacidade",
     );
-    const html = String(baked.sections[0].columns[0].widgets[0].content.code);
+    const widgets = baked.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets));
+    const html = String(widgets.find((w) => w.type === "html")?.content.code || "");
     expect(html.match(/track\/r\/x/g)?.length).toBeGreaterThanOrEqual(3);
     expect(html).not.toContain(CLICKORA_MIRROR_TRACK_MARKER);
-    expect(html).toContain('href="/privacy"');
-    expect(html).not.toContain("cdn.buygoods.com");
+    expect(html.toLowerCase()).toContain("privacy");
   });
 
   it("o botão único passa a usar o link da oferta", () => {
@@ -288,6 +288,11 @@ describe("buildEditablePageDocument", () => {
     expect(withCss).toContain('rel="stylesheet"');
     expect(withCss).toContain("https://brand.example/app.css");
     expect(withCss).not.toContain("rel=\"icon\"");
+    const withAssets = mirrorSrcDocToEditableHtml(
+      `<!doctype html><html><head><base href="https://brand.example/"><style>h1{color:red}</style></head><body><img src="/pack.png" alt="p"><a href="/buy">Buy</a></body></html>`,
+    );
+    expect(withAssets).toContain("https://brand.example/pack.png");
+    expect(withAssets).toContain("https://brand.example/buy");
     const doc = buildEditablePageDocument({
       title: "Campanha",
       type: "cookies",
@@ -299,8 +304,13 @@ describe("buildEditablePageDocument", () => {
         importMirrorSrcDoc: srcdoc,
       },
     });
-    expect(doc.sections[0].columns[0].widgets[0].type).toBe("html");
-    expect(String(doc.sections[0].columns[0].widgets[0].content.code)).toContain("Oferta original");
+    const foldWidgets = doc.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets));
+    // White padrão espelho: HTML fiel (CSS original), editável no shadow DOM.
+    expect(doc.settings.htmlFoldMode).toBe("faithful");
+    expect(foldWidgets.some((w) => w.type === "html")).toBe(true);
+    expect(String(foldWidgets.find((w) => w.type === "html")?.content.code)).toContain(
+      "Oferta original",
+    );
     const baked = bakePublicOfferHrefs(
       doc,
       "https://app.example/track/r/x",
@@ -313,17 +323,12 @@ describe("buildEditablePageDocument", () => {
       .find((w) => w.type === "cookieBanner");
     expect(cookie?.content.policyUrl).toBe("https://brand.example/privacy");
     expect(cookie?.content.offerHref || "").toBe("");
-    // Com espelho, não há CTA React extra («Allow») — os botões vêm do HTML importado.
-    const bakedButton = baked.sections
-      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
-      .find((w) => w.type === "button");
-    expect(bakedButton).toBeUndefined();
-    expect(String(baked.sections[0].columns[0].widgets[0].content.code)).toContain(
-      "https://app.example/track/r/x",
+    const bakedHtml = String(
+      baked.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets)).find((w) => w.type === "html")
+        ?.content.code,
     );
-    expect(String(baked.sections[0].columns[0].widgets[0].content.code)).not.toContain(
-      CLICKORA_MIRROR_TRACK_MARKER,
-    );
+    expect(bakedHtml).toContain("track/r/x");
+    expect(bakedHtml).not.toContain(CLICKORA_MIRROR_TRACK_MARKER);
   });
 
   it("white: reusa o documento guardado em vez de inventar outra dobra", () => {

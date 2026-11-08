@@ -9,10 +9,11 @@ describe("presellLiteHtml", () => {
     assert.equal(isPresellLiteHtmlEligible("idade"), false);
   });
 
-  it("permite review/tsl/fantasma", () => {
+  it("permite review/tsl; bloqueia vsl/fantasma (SPA)", () => {
     assert.equal(isPresellLiteHtmlEligible("review"), true);
     assert.equal(isPresellLiteHtmlEligible("tsl"), true);
-    assert.equal(isPresellLiteHtmlEligible("fantasma"), true);
+    assert.equal(isPresellLiteHtmlEligible("fantasma"), false);
+    assert.equal(isPresellLiteHtmlEligible("vsl"), false);
   });
 
   it("gera HTML com CTA track e preload de imagem", () => {
@@ -52,5 +53,56 @@ describe("presellLiteHtml", () => {
       trackApiBase: "https://api.example/api",
     });
     assert.equal(built.ok, false);
+  });
+
+  it("usa importMirrorSrcDoc no HTML lite (white espelho)", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Visivra",
+      type: "review",
+      language: "en",
+      content: {
+        generationNiche: "white",
+        affiliateLink: "https://offer.example/buy",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><body><h1>VISIVRA REVIEW PAGE</h1><a href="https://clickora.invalid/__TRACK_OFFER__">Get Started</a>${"x".repeat(250)}</body></html>`,
+        article: {
+          headline: "How to review the Tryvisivra offer with transparency",
+          intro: "fallback editorial",
+          cta_label: "Continue to the official offer page",
+        },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.match(built.html, /VISIVRA REVIEW PAGE/);
+    assert.match(built.html, /class="mirror"/);
+    assert.match(built.html, /go\.example\.com\/api\/track\/r\/11111111/);
+    assert.doesNotMatch(built.html, /How to review the Tryvisivra offer with transparency/);
+  });
+
+  it("black niche nunca embute espelho no lite", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Portal",
+      type: "review",
+      content: {
+        generationNiche: "black",
+        affiliateLink: "https://offer.example/buy",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><body><h1>CLONE SALES</h1>${"x".repeat(250)}</body></html>`,
+        article: {
+          headline: "How to review the Portal offer with transparency",
+          intro: "Independent informational content.",
+          cta_label: "Continue",
+        },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.doesNotMatch(built.html, /CLONE SALES/);
+    assert.match(built.html, /How to review the Portal offer with transparency/);
   });
 });

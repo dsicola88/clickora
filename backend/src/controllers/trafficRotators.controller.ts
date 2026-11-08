@@ -9,8 +9,51 @@ import { rotatorRulesPolicySchema } from "../lib/routingRules";
 import { appendWorkspaceAuditLog } from "../lib/workspaceAudit";
 import { denyIfCannotWriteRotators } from "./workspace.controller";
 import { resolveWorkspaceIdForRequest } from "../lib/workspaceRequest";
+import {
+  isLocalPresellDestination,
+  rewriteLocalPresellDestination,
+} from "../lib/rewriteLocalPresellDestination";
 
 const slugRegex = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
+async function preferredOriginForPresell(userId: string, presellId: string): Promise<string | null> {
+  const page = await systemPrisma.presellPage.findFirst({
+    where: { id: presellId, userId },
+    select: {
+      customDomain: { select: { hostname: true, status: true } },
+    },
+  });
+  if (page?.customDomain?.status === "verified" && page.customDomain.hostname) {
+    return `https://${page.customDomain.hostname}`;
+  }
+  const fallback = await systemPrisma.customDomain.findFirst({
+    where: { userId, status: "verified", NOT: { purpose: "tracking" } },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { hostname: true },
+  });
+  return fallback?.hostname ? `https://${fallback.hostname}` : null;
+}
+
+/** Nunca gravar localhost:/p|/l — reescreve para domínio da conta ou rejeita. */
+function sanitizeDestinationOrThrow(raw: string, preferredOrigin: string | null): string {
+  const trimmed = raw.trim();
+  const fixed = rewriteLocalPresellDestination(trimmed, preferredOrigin);
+  if (isLocalPresellDestination(fixed) || isLocalPresellDestination(trimmed) && fixed === trimmed) {
+    throw new Error(
+      "URL de destino inválida (localhost). Publique no domínio verificado ou use https://…/p/… ou /l/… públicos.",
+    );
+  }
+  try {
+    const u = new URL(fixed);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+      throw new Error("URL de destino não pode ser localhost em produção.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("localhost")) throw e;
+    throw new Error("URL de destino inválida.");
+  }
+  return fixed;
+}
 
 const armSchema = z.object({
   destination_url: z.string().url().max(8000),
@@ -195,6 +238,37 @@ export const trafficRotatorsController = {
     });
     if (dup) return res.status(409).json({ error: "Já existe um rotador com este slug." });
 
+    const preferredOrigin = await preferredOriginForPresell(userId, b.context_presell_id);
+    let sanitizedArms: Array<{
+      destinationUrl: string;
+      label: string | null;
+      orderIndex: number;
+      weight: number;
+      maxClicks: number | null;
+      countriesAllow: string[] | null;
+      countriesDeny: string[] | null;
+      deviceRule: ReturnType<typeof toDeviceRule>;
+    }>;
+    try {
+      sanitizedArms = b.arms.map((a) => {
+        const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
+        return {
+          destinationUrl: sanitizeDestinationOrThrow(a.destination_url, preferredOrigin),
+          label: a.label?.trim() || null,
+          orderIndex: a.order_index,
+          weight: typeof a.weight === "number" ? a.weight : 100,
+          maxClicks: a.max_clicks ?? null,
+          countriesAllow: j.countriesAllow,
+          countriesDeny: j.countriesDeny,
+          deviceRule: toDeviceRule(a.device_rule),
+        };
+      });
+    } catch (e) {
+      return res.status(400).json({
+        error: e instanceof Error ? e.message : "URL de destino inválida.",
+      });
+    }
+
     const rulesPolicy =
       b.rules_policy === undefined ? undefined : b.rules_policy === null ? Prisma.JsonNull : (b.rules_policy as Prisma.InputJsonValue);
 
@@ -211,19 +285,7 @@ export const trafficRotatorsController = {
         stickySession: b.sticky_session ?? false,
         ...(rulesPolicy !== undefined ? { rulesPolicy } : {}),
         arms: {
-          create: b.arms.map((a) => {
-            const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
-            return {
-              destinationUrl: a.destination_url.trim(),
-              label: a.label?.trim() || null,
-              orderIndex: a.order_index,
-              weight: typeof a.weight === "number" ? a.weight : 100,
-              maxClicks: a.max_clicks ?? null,
-              countriesAllow: j.countriesAllow,
-              countriesDeny: j.countriesDeny,
-              deviceRule: toDeviceRule(a.device_rule),
-            };
-          }),
+          create: sanitizedArms,
         },
       },
       include: { arms: { orderBy: { orderIndex: "asc" } } },
@@ -283,6 +345,44 @@ export const trafficRotatorsController = {
       accessCode = b.access_code === "" ? null : b.access_code.trim();
     }
 
+    const contextId = b.context_presell_id || existing.contextPresellId;
+    const preferredOrigin = await preferredOriginForPresell(userId, contextId);
+    let updateArmsCreate:
+      | Array<{
+          destinationUrl: string;
+          label: string | null;
+          orderIndex: number;
+          weight: number;
+          maxClicks: number | null;
+          clicksDelivered: number;
+          countriesAllow: string[] | null;
+          countriesDeny: string[] | null;
+          deviceRule: ReturnType<typeof toDeviceRule>;
+        }>
+      | undefined;
+    if (b.arms) {
+      try {
+        updateArmsCreate = b.arms.map((a) => {
+          const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
+          return {
+            destinationUrl: sanitizeDestinationOrThrow(a.destination_url, preferredOrigin),
+            label: a.label?.trim() || null,
+            orderIndex: a.order_index,
+            weight: typeof a.weight === "number" ? a.weight : 100,
+            maxClicks: a.max_clicks ?? null,
+            clicksDelivered: 0,
+            countriesAllow: j.countriesAllow,
+            countriesDeny: j.countriesDeny,
+            deviceRule: toDeviceRule(a.device_rule),
+          };
+        });
+      } catch (e) {
+        return res.status(400).json({
+          error: e instanceof Error ? e.message : "URL de destino inválida.",
+        });
+      }
+    }
+
     await systemPrisma.$transaction(async (tx) => {
       if (b.arms) {
         await tx.trafficRotatorArm.deleteMany({ where: { rotatorId: id } });
@@ -304,23 +404,10 @@ export const trafficRotatorsController = {
                   b.rules_policy === null ? Prisma.JsonNull : (b.rules_policy as Prisma.InputJsonValue),
               }
             : {}),
-          ...(b.arms
+          ...(updateArmsCreate
             ? {
                 arms: {
-                  create: b.arms.map((a) => {
-                    const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
-                    return {
-                      destinationUrl: a.destination_url.trim(),
-                      label: a.label?.trim() || null,
-                      orderIndex: a.order_index,
-                      weight: typeof a.weight === "number" ? a.weight : 100,
-                      maxClicks: a.max_clicks ?? null,
-                      clicksDelivered: 0,
-                      countriesAllow: j.countriesAllow,
-                      countriesDeny: j.countriesDeny,
-                      deviceRule: toDeviceRule(a.device_rule),
-                    };
-                  }),
+                  create: updateArmsCreate,
                 },
               }
             : {}),

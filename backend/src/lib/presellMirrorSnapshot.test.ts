@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CLICKORA_MIRROR_TRACK_MARKER,
+  buildMirrorPartsFromStaticHtml,
   finalizeMirrorSrcDocForImport,
   mirrorUrlShouldUseTrackMarker,
   sanitizeMirrorSrcDocFromEditor,
@@ -127,5 +128,30 @@ describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
     assert.ok(out);
     assert.match(out!, /src="https:\/\/cdn\.example\/pack_1400x\.jpg"/);
     assert.match(out!, /srcset=/);
+  });
+});
+
+describe("buildMirrorPartsFromStaticHtml", () => {
+  it("extrai head CSS e body para espelho sem Playwright", () => {
+    const pad = "x".repeat(700);
+    const html = `<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="/app.css">
+<style>.hero{color:red}</style>
+<script>alert(1)</script>
+</head><body>
+<h1>Visivra Offer</h1>
+<p>Long enough copy for the static mirror fallback path to accept this document. ${pad}</p>
+<a class="btn" href="/buy">Order Now</a>
+<script>evil()</script>
+</body></html>`;
+    const parts = buildMirrorPartsFromStaticHtml(html, "https://tryvisivra.com/pv-v2");
+    assert.ok(parts);
+    assert.match(parts!.baseHref, /tryvisivra\.com/);
+    assert.match(parts!.headSnip, /app\.css/);
+    assert.match(parts!.headSnip, /\.hero\{color:red\}/);
+    assert.doesNotMatch(parts!.headSnip, /<script/i);
+    assert.match(parts!.bodyInner, /Visivra Offer/);
+    assert.match(parts!.bodyInner, /Order Now/);
+    assert.doesNotMatch(parts!.bodyInner, /<script/i);
   });
 });

@@ -42,6 +42,7 @@ function applyCopyToContent(
       ctaLabel: string;
     };
   },
+  options: { isolateVariant?: boolean } = {},
 ): Record<string, unknown> {
   const next: Record<string, unknown> = {
     ...content,
@@ -58,6 +59,17 @@ function applyCopyToContent(
     next.articleProductNote = copy.article.productNote;
     next.ctaText = copy.article.ctaLabel;
     next.cta_text = copy.article.ctaLabel;
+    next.article = copy.article;
+  }
+  if (options.isolateVariant) {
+    // Variantes do pacote: texto distinto — sem espelho/pageDocument partilhado da base
+    // (senão landing/review/advertorial ficam iguais no /l/ e na SPA).
+    delete next.importMirrorSrcDoc;
+    delete next.import_mirror_src_doc;
+    delete next.pageDocument;
+    delete next.page_document;
+    delete next.workingDocument;
+    delete next.publishedDocument;
   }
   return next;
 }
@@ -345,30 +357,41 @@ export const presellAiController = {
       error: null,
     };
 
-    if (!parsed.data.deterministic_only) {
+    const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
+    const wantDeterministic = parsed.data.deterministic_only || !openaiConfigured;
+    if (!wantDeterministic) {
       const gate = await assertPresellAiQuotaAvailable(userId);
-      if (!gate.ok) return res.status(gate.status).json(gate.body);
-      pack = await generateTriplePackCopy(packInput);
-      if (pack.source === "llm") {
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { workspaceId: true },
-        });
-        if (user?.workspaceId) {
-          await appendWorkspaceAuditLog({
-            workspaceId: user.workspaceId,
-            actorUserId: actorUserId(req) || userId,
-            action: "presell_ai_review_copy",
-            resourceType: "presell_pack",
-            resourceId: base.id,
-            metadata: {
-              model: pack.model,
-              tokens_in: pack.tokensIn,
-              tokens_out: pack.tokensOut,
-              kind: "triple_pack",
-              month: gate.quota.monthKey,
-            },
+      if (!gate.ok) {
+        // Alinhado com o wizard: sem quota → texto editorial seguro (não 429).
+        pack = {
+          ...pack,
+          error: typeof gate.body === "object" && gate.body && "error" in gate.body
+            ? String((gate.body as { error?: string }).error || "quota")
+            : "quota",
+        };
+      } else {
+        pack = await generateTriplePackCopy(packInput);
+        if (pack.source === "llm") {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { workspaceId: true },
           });
+          if (user?.workspaceId) {
+            await appendWorkspaceAuditLog({
+              workspaceId: user.workspaceId,
+              actorUserId: actorUserId(req) || userId,
+              action: "presell_ai_review_copy",
+              resourceType: "presell_pack",
+              resourceId: base.id,
+              metadata: {
+                model: pack.model,
+                tokens_in: pack.tokensIn,
+                tokens_out: pack.tokensOut,
+                kind: "triple_pack",
+                month: gate.quota.monthKey,
+              },
+            });
+          }
         }
       }
     }
@@ -381,11 +404,13 @@ export const presellAiController = {
       parsed.data.create_rotator && base.status === "published";
 
     const ensureSibling = async (type: "tsl" | "review" | "advertorial", copy: typeof pack.landing) => {
+      // Sempre isolar: cada ângulo com texto próprio (sem espelho/pageDocument da base).
+      const isolated = applyCopyToContent(content, copy, { isolateVariant: true });
       if (base.type === type) {
         const updated = await systemPrisma.presellPage.update({
           where: { id: base.id },
           data: {
-            content: applyCopyToContent(content, copy) as Prisma.InputJsonValue,
+            content: isolated as Prisma.InputJsonValue,
             complianceGate: "unchecked",
             contentFingerprint: null,
           },
@@ -402,7 +427,7 @@ export const presellAiController = {
           category: base.category,
           status: publishSiblings ? "published" : "draft",
           videoUrl: base.videoUrl,
-          content: applyCopyToContent(content, copy) as Prisma.InputJsonValue,
+          content: isolated as Prisma.InputJsonValue,
           settings: settings as Prisma.InputJsonValue,
           tracking: tracking as Prisma.InputJsonValue,
           customDomainId: base.customDomainId,

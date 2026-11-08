@@ -23,10 +23,30 @@ export function normalizeTenantHex(raw: string | null | undefined): string | nul
   return t.toUpperCase();
 }
 
+/**
+ * Nome de conta / papel interno não deve aparecer no rodapé da lander pública
+ * (ex.: «Daniel Super Admin» no Brand Kit).
+ */
+export function isPublicSafeTenantBrandName(name: string | null | undefined): boolean {
+  const n = String(name ?? "").trim();
+  if (!n) return false;
+  if (n.length < 2) return false;
+  if (
+    /\b(super\s*admin|superadmin|administrador|admin(istrator)?|moderator|gerenciador|owner)\b/i.test(
+      n,
+    )
+  ) {
+    return false;
+  }
+  if (/^dclickora\b/i.test(n) || /^clickora\b/i.test(n)) return false;
+  return true;
+}
+
 export function readPublicTenantBranding(page: Pick<Presell, "tenant_branding">): PublicTenantBranding | null {
   const b = page.tenant_branding;
   if (!b || typeof b !== "object") return null;
-  const brand_name = typeof b.brand_name === "string" ? b.brand_name.trim() || null : null;
+  const rawName = typeof b.brand_name === "string" ? b.brand_name.trim() || null : null;
+  const brand_name = isPublicSafeTenantBrandName(rawName) ? rawName : null;
   const logo_url = typeof b.logo_url === "string" ? b.logo_url.trim() || null : null;
   const favicon_url = typeof b.favicon_url === "string" ? b.favicon_url.trim() || null : null;
   const primary_color = normalizeTenantHex(b.primary_color);

@@ -1088,6 +1088,8 @@ export default function PublicPresell() {
   const complianceLang = presellComplianceLanguage(page.language, uiLang);
   /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
   const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
+  /** White espelho: sem chrome WL no rodapé (ex. nome da conta «… Super Admin»). */
+  const showTenantBrandChrome = Boolean(tenantBranding) && !showImportedMirror;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameRaw = plainTextFromMaybeHtml(
@@ -1199,7 +1201,9 @@ export default function PublicPresell() {
             <PresellTrustFooter language={complianceLang} {...footerSettingsProps} />
           </div>
         ) : null}
-        {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
+        {showTenantBrandChrome && tenantBranding ? (
+          <PresellTenantBrandChrome branding={tenantBranding} />
+        ) : null}
         {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </div>
       </PresellPublicLocaleProvider>
@@ -1290,7 +1294,9 @@ export default function PublicPresell() {
             }
           />
         ) : null}
-        {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
+        {showTenantBrandChrome && tenantBranding ? (
+          <PresellTenantBrandChrome branding={tenantBranding} />
+        ) : null}
         {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </>
     );
@@ -2014,7 +2020,9 @@ export default function PublicPresell() {
           tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
         />
       ) : null}
-      {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
+      {showTenantBrandChrome && tenantBranding ? (
+          <PresellTenantBrandChrome branding={tenantBranding} />
+        ) : null}
       {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
     </>
   );

@@ -407,7 +407,7 @@ export default function PresellDashboard() {
   const [typeOptions, setTypeOptions] = useState({
     cookiePolicyUrl: "",
     /** Tipo cookies: modal → oferta rastreada (novo por defeito). */
-    cookieRedirectToOffer: true,
+    cookieRedirectToOffer: false,
     minAge: "18",
     /** Só VSL: se o import não achar vídeo, colar link do YouTube (watch ou youtu.be). */
     manualYoutubeUrl: "",
@@ -487,7 +487,7 @@ export default function PresellDashboard() {
     });
     setCreatorStep(1);
     setSlugTouchedByUser(false);
-    setTypeOptions({ cookiePolicyUrl: "", cookieRedirectToOffer: true, minAge: "18", manualYoutubeUrl: "" });
+    setTypeOptions({ cookiePolicyUrl: "", cookieRedirectToOffer: false, minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
     setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
     setMirrorHtmlDraft("");

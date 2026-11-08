@@ -36,6 +36,10 @@ import {
   pickPresellEditorDocument,
 } from "@/lib/presellBuilderContent";
 import { buildEditablePageDocument, pointOfferButtonsAt } from "@/lib/presellVisualEdit";
+import {
+  expandMonolithicHtmlDocument,
+  isMonolithicHtmlFold,
+} from "@/lib/mirrorHtmlToEditableWidgets";
 import type { PageDocument } from "@/page-builder/types";
 import {
   DEFAULT_PRESELL_CONFIG_SETTINGS,
@@ -225,6 +229,26 @@ export default function PresellManualBuilderPage() {
           language: data.language,
           content: c,
         });
+      }
+      // HTML monolítico → expandir em blocos editáveis (títulos, imagens, botões, texto).
+      if (doc && isMonolithicHtmlFold(doc) && doc.settings?.htmlFoldMode !== "faithful") {
+        const expanded = expandMonolithicHtmlDocument(doc);
+        if (expanded !== doc) {
+          doc = { ...expanded, settings: { ...expanded.settings, htmlFoldMode: "blocks" } };
+          toast.message("Página convertida em blocos editáveis. Clique em cada elemento para editar.");
+        } else if (typeof c.importMirrorSrcDoc === "string" && c.importMirrorSrcDoc.length > 800) {
+          const rebuilt = buildEditablePageDocument({
+            title: data.title,
+            type: data.type,
+            videoUrl: data.video_url,
+            language: data.language,
+            content: c,
+          });
+          if (rebuilt.settings?.htmlFoldMode === "blocks" || !isMonolithicHtmlFold(rebuilt)) {
+            doc = rebuilt;
+            toast.message("Página convertida em blocos editáveis. Clique em cada elemento para editar.");
+          }
+        }
       }
       setAwaitingVisualPublish(data.type !== "builder");
       if (!doc || !Array.isArray(doc.sections)) {

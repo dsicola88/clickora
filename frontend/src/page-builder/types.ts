@@ -447,6 +447,11 @@ export interface PageDocument {
     globalDesign?: PageGlobalDesign;
     /** Id do tema/preset da biblioteca (ex.: dclickora-market). */
     themePreset?: string;
+    /**
+     * Espelho white: `faithful` = widget HTML com CSS original;
+     * `blocks` = utilizador decompos em widgets nativos (não restaurar automaticamente).
+     */
+    htmlFoldMode?: "faithful" | "blocks";
   };
   /** Popups / modais da página. */
   popups?: PagePopup[];

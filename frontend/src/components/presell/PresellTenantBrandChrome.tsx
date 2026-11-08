@@ -1,9 +1,12 @@
-import type { PublicTenantBranding } from "@/lib/tenantBrandingPublic";
+import {
+  isPublicSafeTenantBrandName,
+  type PublicTenantBranding,
+} from "@/lib/tenantBrandingPublic";
 import { cn } from "@/lib/utils";
 
 /**
  * Chrome discreto white-label (logo + nome) no rodapé da lander — não no hero.
- * Só renderiza se houver logo ou nome de marca.
+ * Só renderiza se houver logo ou nome de marca público (nunca papéis tipo Super Admin).
  */
 export function PresellTenantBrandChrome({
   branding,
@@ -12,7 +15,8 @@ export function PresellTenantBrandChrome({
   branding: PublicTenantBranding;
   className?: string;
 }) {
-  const name = branding.brand_name?.trim();
+  const raw = branding.brand_name?.trim();
+  const name = isPublicSafeTenantBrandName(raw) ? raw : undefined;
   const logo = branding.logo_url?.trim();
   if (!name && !logo) return null;
   return (

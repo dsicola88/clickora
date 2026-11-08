@@ -53,8 +53,14 @@ export function BrandKitProCard() {
 
   const saveRemote = useMutation({
     mutationFn: async () => {
+      const name = kit.brandName.trim();
+      if (/\b(super\s*admin|superadmin|administrador|admin)\b/i.test(name)) {
+        throw new Error(
+          "Use o nome da marca/produto no Brand Kit — não o nome da conta ou «Super Admin».",
+        );
+      }
       const { data, error } = await enterpriseService.updateTenantBranding({
-        brand_name: kit.brandName.trim() || null,
+        brand_name: name || null,
         logo_url: kit.logoUrl.trim() || null,
         primary_color: kit.primaryColor.trim() || null,
       });

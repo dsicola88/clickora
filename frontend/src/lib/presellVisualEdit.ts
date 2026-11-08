@@ -8,7 +8,6 @@ import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { isPresellDecorImage, rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { resolvePresellPortalBrandName } from "@/lib/presellDisplayName";
-
 function asString(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -487,6 +486,23 @@ function withAbsoluteAttr(tag: string, attr: string, base: string): string {
   );
 }
 
+/** Absolutiza src/href relativos no markup (antes do bake público neutralizar &lt;base&gt;). */
+function absolutizeBodyAssets(html: string, base: string): string {
+  if (!base) return html;
+  return html.replace(
+    /<(img|source|a|video|audio|iframe)\b([^>]*)>/gi,
+    (_full, tag: string, attrs: string) => {
+      let next = `<${tag}${attrs}>`;
+      for (const attr of ["src", "href", "poster"]) {
+        if (new RegExp(`\\b${attr}\\s*=`, "i").test(attrs)) {
+          next = withAbsoluteAttr(next, attr, base);
+        }
+      }
+      return next;
+    },
+  );
+}
+
 /** CSS da origem (base + stylesheets + <style>) e o corpo — visual fiel no HTML widget. */
 export function mirrorSrcDocToEditableHtml(srcdoc: string): string {
   const raw = srcdoc.trim();
@@ -500,6 +516,7 @@ export function mirrorSrcDocToEditableHtml(srcdoc: string): string {
   const styleTags = [...raw.matchAll(/<style\b[^>]*>[\s\S]*?<\/style>/gi)].map((m) => m[0]).join("\n");
   let body = raw.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? raw;
   body = sanitizeImportedHtml(body);
+  if (baseHref) body = absolutizeBodyAssets(body, baseHref);
   const head = sanitizeImportedHtml(`${baseTag}${links.join("")}${styleTags}`, true);
   return `${head}${body}`.trim();
 }
@@ -597,19 +614,29 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       )
     : "";
 
+  let mirrorFoldMode: "faithful" | "blocks" | undefined;
   if (mirrorFold.length > 80) {
+    // White «padrão espelho»: sempre HTML fiel (CSS/layout original).
+    // Blocos nativos só via conversão explícita no editor — decompor aqui partia Visivra/mwebkivo.
     const htmlW = createWidget("html");
-    htmlW.content = { ...htmlW.content, code: mirrorFold };
+    htmlW.content = { ...htmlW.content, code: mirrorFold, fromMirror: true };
     const fold = createSection(1);
     fold.layout = "full";
     fold.contentWidth = 1200;
+    fold.columnGap = { desktop: 0, tablet: 0, mobile: 0 };
     fold.styles = {
       ...fold.styles,
       padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
       background: "#ffffff",
     };
+    const zeroPad = { top: 0, right: 0, bottom: 0, left: 0, unit: "px" as const };
+    fold.columns[0].styles = {
+      ...fold.columns[0].styles,
+      padding: { desktop: zeroPad, tablet: zeroPad, mobile: zeroPad },
+    };
     fold.columns[0].widgets = [htmlW];
     sections.push(fold);
+    mirrorFoldMode = "faithful";
     if (videoUrl) {
       const video = createWidget("video");
       video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
@@ -708,6 +735,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     settings: {
       background: mirrorFold.length > 80 || productFold || white ? "#ffffff" : "#f8fafc",
       maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : white ? 860 : 720,
+      ...(mirrorFoldMode ? { htmlFoldMode: mirrorFoldMode } : {}),
     },
     seo: {
       title: sourcePageTitle,
@@ -806,7 +834,10 @@ export function bakePublicOfferHrefs(
   if (cookieGate && !unlockCookieOnly && !cookieRedirectToOffer) {
     for (const section of clone.sections) {
       for (const column of section.columns) {
-        column.widgets = column.widgets.filter((widget) => widget.type !== "button");
+        // Manter CTAs vindos do espelho (fromMirror); remover só botões sintéticos do portal.
+        column.widgets = column.widgets.filter(
+          (widget) => widget.type !== "button" || Boolean(widget.content.fromMirror),
+        );
       }
     }
   }

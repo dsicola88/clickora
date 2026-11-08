@@ -63,4 +63,21 @@ describe("publicPresellOrigin hosting vs tracking", () => {
       "https://www.x.com/p/b",
     );
   });
+
+  it("com SSL pending não grava localhost se houver hostname verificado", () => {
+    const domains = [
+      domain({
+        id: "hv",
+        hostname: "honestverdictguide.online",
+        purpose: "hosting",
+        is_default: true,
+        vercel_domain_registered: true,
+        https_ready: false,
+        ssl_state: "provisioning",
+      }),
+    ];
+    const url = getPublicPresellFullUrl(domains, "hv", { id: "page-ab", type: "tsl" });
+    expect(url).toBe("https://honestverdictguide.online/l/page-ab");
+    expect(url).not.toContain("localhost");
+  });
 });

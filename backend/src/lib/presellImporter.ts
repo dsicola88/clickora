@@ -18,7 +18,11 @@ import { assertExternalProductUrl, IMPORT_MAX_HTML_BYTES, PresellImportBlockedEr
 import { safeImportFetch } from "./presellSafeFetch";
 
 export { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImportSsrf";
-import { buildMirrorSrcDocFromParts, finalizeMirrorSrcDocForImport } from "./presellMirrorSnapshot";
+import {
+  buildMirrorPartsFromStaticHtml,
+  buildMirrorSrcDocFromParts,
+  finalizeMirrorSrcDocForImport,
+} from "./presellMirrorSnapshot";
 import { rehostMirrorImagesToR2 } from "./presellMirrorRehost";
 import {
   normalizePresellGenerationNiche,
@@ -1629,6 +1633,22 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   if (wantMirror && mirrorParts) {
     import_mirror_src_doc = await finalizeMirrorFromParts(mirrorParts, finalUrl);
+  }
+
+  // Sem Playwright (ou captura vazia): montar espelho a partir do HTML estático do fetch.
+  if (wantMirror && (import_mirror_src_doc?.length ?? 0) < 800) {
+    const staticParts = buildMirrorPartsFromStaticHtml(html, finalUrl);
+    if (staticParts) {
+      const fromStatic = await finalizeMirrorFromParts(staticParts, finalUrl);
+      if (fromStatic && fromStatic.length >= 800) {
+        import_mirror_src_doc = fromStatic;
+        if (browserStatus === "unavailable" || browserStatus === "disabled" || browserStatus === "failed") {
+          browserDetail =
+            browserDetail ||
+            "Espelho montado a partir do HTML estático (browser de captura indisponível).";
+        }
+      }
+    }
   }
 
   /** White: se hop deixou landing fina sem espelho/fotos, tenta canónica / raiz do produto. */

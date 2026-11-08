@@ -109,8 +109,8 @@ export default function CreatePresellWizardPage() {
   const [enableTriplePack, setEnableTriplePack] = useState(false);
   const [abTypeB, setAbTypeB] = useState("desconto");
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
-  /** Tipo cookies: Aceitar → oferta (ligado por defeito em páginas novas). */
-  const [cookieRedirectToOffer, setCookieRedirectToOffer] = useState(true);
+  /** Tipo cookies: Aceitar → oferta (off = só desbloqueia a review; alinhado com defaults). */
+  const [cookieRedirectToOffer, setCookieRedirectToOffer] = useState(false);
   const [minAge, setMinAge] = useState("18");
   const [manualYoutubeUrl, setManualYoutubeUrl] = useState("");
   const [campaignId, setCampaignId] = useState<string | null>(null);
@@ -451,6 +451,7 @@ export default function CreatePresellWizardPage() {
         setGenPhase("ab");
         const { data: pack, error: packErr } = await presellService.spawnVariantPack(pageALive.id, {
           create_rotator: true,
+          deterministic_only: !(aiQuota?.openai_configured ?? false),
         });
         if (packErr || !pack) {
           toast.warning(packErr || "Pacote 3 variantes não criado — a página base ficou ok.");
@@ -458,12 +459,34 @@ export default function CreatePresellWizardPage() {
           triplePackNote = `Pacote ${pack.source}: ${pack.pages.landing.slug} · ${pack.pages.review.slug} · ${pack.pages.advertorial.slug}`;
           toast.success(triplePackNote, { duration: 9000 });
 
-          // Publicar irmãs se ainda em rascunho + rotador 33/33/34 (URL única para o anúncio).
+          // Bake + publicar irmãs (cada uma com o seu track id) + rotador 33/33/34.
           const packPages = [pack.pages.landing, pack.pages.review, pack.pages.advertorial];
-          for (const p of packPages) {
-            if (p.status !== "published") {
-              await presellService.update(p.id, { status: "published" } as never);
-            }
+          const loadedEarly = await Promise.all(
+            packPages.map(async (p) => {
+              const { data } = await presellService.getById(p.id);
+              return data;
+            }),
+          );
+          for (const full of loadedEarly) {
+            if (!full) continue;
+            const c = (full.content || {}) as Record<string, unknown>;
+            const pubUrl = getPublicPresellFullUrl(
+              customDomains,
+              full.custom_domain_id ?? pageALive.custom_domain_id ?? null,
+              full,
+            );
+            await bakeAndMaybePublishPresell({
+              page: full,
+              content: c,
+              affiliateLink: String(c.affiliateLink || offer),
+              wantPublished: pubA.published,
+              publicUrl: pubUrl,
+              trackApiBase: resolveTrackApiBaseForExport(customDomains, pubUrl),
+              customDomainHttpsPending: isCustomDomainHttpsPendingForPresell(
+                customDomains,
+                full.custom_domain_id ?? null,
+              ),
+            });
           }
           if (pubA.published) {
             setGenPhase("rotator");
@@ -563,6 +586,7 @@ export default function CreatePresellWizardPage() {
             mode: "weighted",
             context_presell_id: pageALive.id,
             is_active: true,
+            sticky_session: true,
             arms: [
               {
                 destination_url: urlA,

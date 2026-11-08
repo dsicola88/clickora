@@ -19,7 +19,34 @@ const LITE_BLOCKED_TYPES = new Set([
   "builder",
   "desconto",
   "modelos",
+  // Precisam da SPA (vídeo / redirect no 1.º gesto)
+  "vsl",
+  "vsl_tsl",
+  "fantasma",
 ]);
+
+const MIRROR_TRACK_MARKER = "https://clickora.invalid/__TRACK_OFFER__";
+
+function isWhiteNiche(content: Record<string, unknown>): boolean {
+  return content.generationNiche === "white" || content.generation_niche === "white";
+}
+
+/** Substitui marcador / track antigo pelo track desta página (evita IDs da irmã no pacote). */
+function rewriteMirrorTrackHrefs(html: string, trackHref: string): string {
+  let out = html.split(MIRROR_TRACK_MARKER).join(trackHref);
+  // Track de outra presell já bakeado → apontar a esta
+  out = out.replace(/\/track\/r\/[0-9a-f-]{36}/gi, () => {
+    try {
+      const u = new URL(trackHref);
+      return u.pathname;
+    } catch {
+      return trackHref;
+    }
+  });
+  // Absolute track URLs with old ids
+  out = out.replace(/https?:\/\/[^"'>\s]+\/track\/r\/[0-9a-f-]{36}/gi, trackHref);
+  return out;
+}
 
 export function isPresellLiteHtmlEligible(type: string | null | undefined): boolean {
   const t = (type || "").trim().toLowerCase();
@@ -57,6 +84,34 @@ function firstImage(content: Record<string, unknown>): string {
       if (item && typeof item === "object") {
         const u = str((item as Record<string, unknown>).url, 2000);
         if (u && /^https?:\/\//i.test(u)) return u;
+      }
+    }
+  }
+  return "";
+}
+
+const MIRROR_MAX = 450_000;
+
+/** Espelho white: importMirrorSrcDoc / widget html do pageDocument (não só mirror_html). */
+function extractMirrorHtml(content: Record<string, unknown>): string {
+  const direct =
+    str(content.mirror_html, MIRROR_MAX) ||
+    str(content.mirrorHtml, MIRROR_MAX) ||
+    str(content.import_mirror_src_doc, MIRROR_MAX) ||
+    str(content.importMirrorSrcDoc, MIRROR_MAX);
+  if (direct.length > 200) return direct;
+
+  const doc = asRecord(content.pageDocument ?? content.page_document);
+  const sections = Array.isArray(doc.sections) ? doc.sections : [];
+  for (const section of sections) {
+    const cols = Array.isArray(asRecord(section).columns) ? (asRecord(section).columns as unknown[]) : [];
+    for (const col of cols) {
+      const widgets = Array.isArray(asRecord(col).widgets) ? (asRecord(col).widgets as unknown[]) : [];
+      for (const widget of widgets) {
+        const w = asRecord(widget);
+        if (w.type !== "html") continue;
+        const code = str(asRecord(w.content).code, MIRROR_MAX);
+        if (code.length > 200) return code;
       }
     }
   }
@@ -128,9 +183,13 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
   const img = firstImage(content);
   const lang = (input.language || "pt").trim().slice(0, 8) || "pt";
   const spa = input.spaPath || `/p/${input.id}`;
-  const mirror = str(content.mirror_html ?? content.mirrorHtml, 0);
-  // mirror pode ser enorme — se existir e for curto o suficiente, embute; senão artigo
-  const useMirror = mirror.length > 200 && mirror.length < 450_000;
+  // Espelho só no nicho white — black fica no portal editorial (igual à SPA).
+  const mirrorRaw = isWhiteNiche(content) ? extractMirrorHtml(content) : "";
+  const mirror =
+    mirrorRaw.length > 200 && mirrorRaw.length < 450_000
+      ? rewriteMirrorTrackHrefs(mirrorRaw, trackHref)
+      : "";
+  const useMirror = mirror.length > 200;
 
   const hero = img
     ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(headline)}" width="1200" height="630" fetchpriority="high" decoding="async" style="width:100%;max-height:420px;object-fit:cover;border-radius:12px" />`

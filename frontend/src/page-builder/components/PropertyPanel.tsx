@@ -19,9 +19,12 @@ import type {
 import { SHAPE_DIVIDER_PRESETS } from "../section-chrome";
 import { WIDGET_REGISTRY } from "../widget-registry";
 import { locateWidget } from "../widget-tree";
-import { Settings2, Trash2, Plus, GripVertical } from "lucide-react";
+import { Settings2, Trash2, Plus, GripVertical, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { nanoid } from "nanoid";
+import { toast } from "sonner";
+import { decomposeMirrorHtmlToWidgets } from "@/lib/mirrorHtmlToEditableWidgets";
+import { useHtmlFoldEdit } from "../htmlFoldEdit";
 import type { FormField } from "../widgets/FormWidget";
 import type { SocialNetwork } from "../widgets/SocialIconsWidget";
 import type { TabItem } from "../widgets/TabsWidget";
@@ -321,7 +324,46 @@ function WidgetPanel({
     });
 
   const select = useBuilder((s) => s.select);
+  const removeWidget = useBuilder((s) => s.removeWidget);
+  const insertWidgetNode = useBuilder((s) => s.insertWidgetNode);
   const colIndex = Math.max(0, section.columns.findIndex((c) => c.id === column.id));
+  const foldSelection = useHtmlFoldEdit((s) => s.selection);
+  const foldApply = useHtmlFoldEdit((s) => s.applyPatch);
+  const foldActive = widget.type === "html" && foldSelection?.widgetId === widget.id;
+
+  const updateSettings = useBuilder((s) => s.updateSettings);
+  const convertHtmlToBlocks = () => {
+    if (widget.type !== "html") return;
+    const ok = window.confirm(
+      "Isto decompõe o HTML em blocos do builder e pode alterar o layout/CSS original. Continuar?",
+    );
+    if (!ok) return;
+    const code = String(widget.content.code ?? "");
+    const parts = decomposeMirrorHtmlToWidgets(code);
+    const natives = parts.filter((w) =>
+      ["heading", "text", "image", "button", "video", "divider"].includes(w.type),
+    );
+    if (natives.length < 1) {
+      toast.error("Não foi possível decompor este HTML em blocos editáveis.");
+      return;
+    }
+    const idx = column.widgets.findIndex((w) => w.id === widget.id);
+    removeWidget(section.id, column.id, widget.id);
+    parts.forEach((part, i) => {
+      insertWidgetNode(section.id, column.id, part, idx < 0 ? undefined : idx + i);
+    });
+    updateSettings({ htmlFoldMode: "blocks" });
+    const first = parts[0];
+    if (first) {
+      select({
+        kind: "widget",
+        id: first.id,
+        sectionId: section.id,
+        columnId: column.id,
+      });
+    }
+    toast.message("Convertido em blocos — o visual pode diferir do original.");
+  };
 
   return (
     <PanelShell
@@ -358,7 +400,14 @@ function WidgetPanel({
       onTab={setTab}
     >
       {tab === "content" && (
-        <WidgetContentTab widget={widget} section={section} setContent={setContent} />
+        <WidgetContentTab
+          widget={widget}
+          section={section}
+          setContent={setContent}
+          onConvertHtmlToBlocks={widget.type === "html" ? convertHtmlToBlocks : undefined}
+          foldSelection={foldActive ? foldSelection : null}
+          onFoldPatch={foldActive ? foldApply : null}
+        />
       )}
       {tab === "style" && (
         <WidgetStyleTab widget={widget} device={device} setStyles={setStyles} />
@@ -405,10 +454,16 @@ function WidgetContentTab({
   widget,
   section,
   setContent,
+  onConvertHtmlToBlocks,
+  foldSelection,
+  onFoldPatch,
 }: {
   widget: WidgetNode;
   section: SectionNode;
   setContent: (p: Record<string, unknown>) => void;
+  onConvertHtmlToBlocks?: () => void;
+  foldSelection?: ReturnType<typeof useHtmlFoldEdit.getState>["selection"];
+  onFoldPatch?: ((patch: { text?: string; href?: string; src?: string; alt?: string; color?: string; background?: string }) => void) | null;
 }) {
   const c = widget.content;
   switch (widget.type) {
@@ -626,17 +681,87 @@ function WidgetContentTab({
       );
     case "html":
       return (
-        <Section title="HTML">
-          <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-            Clique no canvas para editar o texto da oferta. Também pode colar ou ajustar o HTML aqui.
-          </p>
-          <TextareaField
-            label="Código HTML"
-            value={(c.code as string) ?? ""}
-            onChange={(v) => setContent({ code: v })}
-            rows={10}
-          />
-        </Section>
+        <>
+          <Section title="Edição fiel">
+            <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+              Visual e CSS originais preservados. Clique num texto, imagem, botão ou secção no canvas
+              — edite aqui sem partir o layout. Tracking e scripts ficam nas definições da página.
+            </p>
+            {!foldSelection ? (
+              <p className="rounded-md border border-dashed border-editor-border bg-editor-panel/50 px-2 py-2 text-[10px] text-editor-fg-muted">
+                Nenhum elemento seleccionado. Clique no canvas para começar.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-editor-fg-muted">
+                  {foldSelection.kind} · {foldSelection.tagName}
+                </p>
+                {(foldSelection.kind === "heading" ||
+                  foldSelection.kind === "text" ||
+                  foldSelection.kind === "button" ||
+                  foldSelection.kind === "link") && (
+                  <TextareaField
+                    label="Texto"
+                    value={foldSelection.text}
+                    onChange={(v) => onFoldPatch?.({ text: v })}
+                    rows={3}
+                  />
+                )}
+                {(foldSelection.kind === "button" || foldSelection.kind === "link") && (
+                  <TextField
+                    label="Link (href)"
+                    value={foldSelection.href}
+                    onChange={(v) => onFoldPatch?.({ href: v })}
+                    placeholder="https://…"
+                  />
+                )}
+                {foldSelection.kind === "image" && (
+                  <>
+                    <BuilderImageUrlField
+                      label="Imagem (substituir)"
+                      value={foldSelection.src}
+                      onChange={(v) => onFoldPatch?.({ src: v })}
+                      placeholder="https://… ou upload"
+                    />
+                    <TextField
+                      label="Texto alternativo"
+                      value={foldSelection.alt}
+                      onChange={(v) => onFoldPatch?.({ alt: v })}
+                    />
+                  </>
+                )}
+                <ColorField
+                  label="Cor do texto"
+                  value={foldSelection.color}
+                  onChange={(v) => onFoldPatch?.({ color: v })}
+                />
+                <ColorField
+                  label="Cor de fundo"
+                  value={foldSelection.background}
+                  onChange={(v) => onFoldPatch?.({ background: v })}
+                />
+              </div>
+            )}
+          </Section>
+          <Section title="HTML avançado">
+            {onConvertHtmlToBlocks ? (
+              <button
+                type="button"
+                onClick={onConvertHtmlToBlocks}
+                className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-editor-border bg-editor-panel px-3 py-2 text-[11px] font-medium text-editor-fg-muted hover:bg-editor-hover hover:text-editor-fg"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                Decompor em blocos (pode alterar o visual)
+              </button>
+            ) : null}
+            <TextareaField
+              label="Código HTML"
+              value={(c.code as string) ?? ""}
+              onChange={(v) => setContent({ code: v })}
+              rows={8}
+            />
+          </Section>
+        </>
       );
     case "form":
       return <FormContentEditor content={c} setContent={setContent} />;

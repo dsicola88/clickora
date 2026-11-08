@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Presell } from "@/types/api";
 import {
+  isPublicSafeTenantBrandName,
   normalizeTenantHex,
   readPublicTenantBranding,
   resolveTenantFaviconUrl,
@@ -52,6 +53,21 @@ describe("tenantBrandingPublic", () => {
     expect(b?.primary_color).toBe("#0F172A");
     expect(b?.accent_color).toBe("#AABBCC");
     expect(resolveTenantFaviconUrl(b)).toBe("https://cdn.example/f.ico");
+  });
+
+  it("oculta nomes de papel interno (Super Admin) na lander", () => {
+    expect(isPublicSafeTenantBrandName("Daniel Super Admin")).toBe(false);
+    expect(isPublicSafeTenantBrandName("Visivra")).toBe(true);
+    const b = readPublicTenantBranding(
+      page({
+        tenant_branding: {
+          brand_name: "Daniel Super Admin",
+          primary_color: "#0F766E",
+        },
+      }),
+    );
+    expect(b?.brand_name).toBeNull();
+    expect(b?.primary_color).toBe("#0F766E");
   });
 
   it("footer só com footer_branding === true", () => {

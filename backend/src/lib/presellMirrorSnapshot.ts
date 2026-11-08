@@ -296,6 +296,103 @@ export function buildMirrorSrcDocFromParts(baseHref: string, headSnip: string, b
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">${MIRROR_RESPONSIVE_STYLE_IN_HEAD}<base href="${b}">${headSnip}</head><body>${bodyInner}</body></html>`;
 }
 
+const MAX_STATIC_HEAD = 480_000;
+const MAX_STATIC_BODY = 950_000;
+
+/**
+ * Fallback quando Playwright não está disponível: extrai head (CSS/fonts) + body
+ * do HTML estático do fetch para montar o espelho white.
+ */
+export function buildMirrorPartsFromStaticHtml(
+  html: string,
+  pageUrl: string,
+): { baseHref: string; headSnip: string; bodyInner: string } | null {
+  const trimmed = html.trim();
+  if (trimmed.length < 800) return null;
+
+  let baseHref = pageUrl.split("#")[0] || pageUrl;
+  try {
+    baseHref = new URL(baseHref).href;
+  } catch {
+    return null;
+  }
+
+  let root: HTMLElement;
+  try {
+    root = parse(trimmed, { comment: true }) as HTMLElement;
+  } catch {
+    return null;
+  }
+
+  const headParts: string[] = [];
+  const head = root.querySelector("head");
+  if (head) {
+    head.querySelectorAll("meta[charset], meta[name='viewport'], meta[name='theme-color']").forEach((el) => {
+      headParts.push(el.toString());
+    });
+    head.querySelectorAll("base").forEach((el) => {
+      const href = el.getAttribute("href");
+      if (!href) return;
+      try {
+        baseHref = new URL(href, baseHref).href;
+      } catch {
+        /* keep */
+      }
+    });
+    head.querySelectorAll("link, style").forEach((el) => {
+      if (el.tagName.toLowerCase() === "link") {
+        const rel = (el.getAttribute("rel") || "").toLowerCase();
+        if (
+          rel === "alternate" ||
+          rel === "canonical" ||
+          rel === "modulepreload" ||
+          rel === "prefetch" ||
+          rel === "dns-prefetch"
+        ) {
+          return;
+        }
+        const asAttr = (el.getAttribute("as") || "").toLowerCase();
+        if (asAttr === "script") return;
+        if (rel.includes("stylesheet") || rel === "preconnect" || rel === "preload" || rel.includes("icon") || !rel) {
+          const href = el.getAttribute("href");
+          if (href) {
+            try {
+              el.setAttribute("href", new URL(href, baseHref).href);
+            } catch {
+              /* keep */
+            }
+          }
+          headParts.push(el.toString());
+        }
+        return;
+      }
+      headParts.push(el.toString());
+    });
+    while (headParts.join("\n").length > MAX_STATIC_HEAD && headParts.length > 0) {
+      headParts.pop();
+    }
+  }
+
+  const body = root.querySelector("body");
+  let bodyInner = body ? body.innerHTML : trimmed;
+  if (!body) {
+    const bodyMatch = trimmed.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (bodyMatch?.[1]) bodyInner = bodyMatch[1];
+  }
+  bodyInner = bodyInner
+    .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+    .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<object\b[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed\b[^>]*>/gi, "");
+  if (bodyInner.length > MAX_STATIC_BODY) {
+    bodyInner = bodyInner.slice(0, MAX_STATIC_BODY);
+  }
+  if (bodyInner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().length < 40) {
+    return null;
+  }
+  return { baseHref, headSnip: headParts.join("\n"), bodyInner };
+}
+
 /** Mantém iframes (vídeo, maps, widgets) com URL http(s) resolvida; remove pixels inválidos. */
 function sanitizeMirrorIframes(root: HTMLElement, base: URL): void {
   root.querySelectorAll("iframe").forEach((ifr) => {

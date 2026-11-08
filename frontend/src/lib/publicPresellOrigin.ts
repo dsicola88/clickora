@@ -81,9 +81,20 @@ export function resolveDefaultCustomDomainIdForAccount(
   return sorted[0]?.id ?? null;
 }
 
+function isLocalDevOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin.includes("://") ? origin : `https://${origin}`);
+    const h = u.hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h.endsWith(".local");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resolve o URL base para uma presell: override por domínio ad-ready, senão padrão, senão origem da app.
- * Domínios Vercel só com DNS (sem HTTPS pronto) são ignorados — evita Final URL partida.
+ * Domínios Vercel só com DNS (sem HTTPS pronto) são ignorados para ads — mas NUNCA gravamos
+ * localhost em rotadores/URL pública quando existe hostname verificado (mesmo SSL a provisionar).
  */
 export function getPublicPresellOriginForPresell(
   domains: CustomDomainDto[] | null | undefined,
@@ -102,7 +113,18 @@ export function getPublicPresellOriginForPresell(
     if (pick) return `https://${pick.hostname}`;
   }
   if (adReady[0]) return `https://${adReady[0].hostname}`;
-  return getPublicPresellOrigin(null);
+
+  const fallback = getPublicPresellOrigin(null);
+  if (!isLocalDevOrigin(fallback)) return fallback;
+
+  // Dev local + domínio verificado (SSL pending): preferir hostname público nos braços do rotador.
+  const verified = listVerifiedHostingDomains(list);
+  if (presellCustomDomainId) {
+    const pending = verified.find((d) => d.id === presellCustomDomainId);
+    if (pending) return `https://${pending.hostname}`;
+  }
+  if (verified[0]) return `https://${verified[0].hostname}`;
+  return fallback;
 }
 
 /** Parâmetro de rota `/p/:id` — UUID da presell ou slug (API suporta ambos no domínio verificado). */
@@ -128,6 +150,9 @@ const LITE_BLOCKED_TYPES = new Set([
   "builder",
   "desconto",
   "modelos",
+  "vsl",
+  "vsl_tsl",
+  "fantasma",
 ]);
 
 export function isPresellLitePathEligible(type: string | null | undefined): boolean {
