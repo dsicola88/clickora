@@ -34,11 +34,11 @@ async function preferredOriginForPresell(userId: string, presellId: string): Pro
   return fallback?.hostname ? `https://${fallback.hostname}` : null;
 }
 
-/** Nunca gravar localhost:/p|/l — reescreve para domínio da conta ou rejeita. */
+/** Nunca gravar localhost — reescreve landers /p|/l ou rejeita. */
 function sanitizeDestinationOrThrow(raw: string, preferredOrigin: string | null): string {
   const trimmed = raw.trim();
   const fixed = rewriteLocalPresellDestination(trimmed, preferredOrigin);
-  if (isLocalPresellDestination(fixed) || isLocalPresellDestination(trimmed) && fixed === trimmed) {
+  if (isLocalPresellDestination(fixed) || (isLocalPresellDestination(trimmed) && fixed === trimmed)) {
     throw new Error(
       "URL de destino inválida (localhost). Publique no domínio verificado ou use https://…/p/… ou /l/… públicos.",
     );
@@ -53,6 +53,17 @@ function sanitizeDestinationOrThrow(raw: string, preferredOrigin: string | null)
     throw new Error("URL de destino inválida.");
   }
   return fixed;
+}
+
+/** Backup URL: sem localhost (reescreve lander se possível). Vazio = null. */
+function sanitizeBackupUrlOrThrow(
+  raw: string | null | undefined,
+  preferredOrigin: string | null,
+): string | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return sanitizeDestinationOrThrow(trimmed, preferredOrigin);
 }
 
 const armSchema = z.object({
@@ -249,6 +260,7 @@ export const trafficRotatorsController = {
       countriesDeny: string[] | null;
       deviceRule: ReturnType<typeof toDeviceRule>;
     }>;
+    let sanitizedBackup: string | null;
     try {
       sanitizedArms = b.arms.map((a) => {
         const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
@@ -263,6 +275,7 @@ export const trafficRotatorsController = {
           deviceRule: toDeviceRule(a.device_rule),
         };
       });
+      sanitizedBackup = sanitizeBackupUrlOrThrow(b.backup_url, preferredOrigin);
     } catch (e) {
       return res.status(400).json({
         error: e instanceof Error ? e.message : "URL de destino inválida.",
@@ -278,7 +291,7 @@ export const trafficRotatorsController = {
         name: b.name.trim(),
         slug: b.slug.trim().toLowerCase(),
         mode: toMode(b.mode),
-        backupUrl: b.backup_url?.trim() || null,
+        backupUrl: sanitizedBackup,
         contextPresellId: b.context_presell_id,
         accessCode: b.access_code?.trim() || null,
         isActive: b.is_active ?? true,
@@ -360,8 +373,9 @@ export const trafficRotatorsController = {
           deviceRule: ReturnType<typeof toDeviceRule>;
         }>
       | undefined;
-    if (b.arms) {
-      try {
+    let updateBackup: string | null | undefined = undefined;
+    try {
+      if (b.arms) {
         updateArmsCreate = b.arms.map((a) => {
           const j = mapArmJson(a.countries_allow ?? null, a.countries_deny ?? null);
           return {
@@ -376,11 +390,14 @@ export const trafficRotatorsController = {
             deviceRule: toDeviceRule(a.device_rule),
           };
         });
-      } catch (e) {
-        return res.status(400).json({
-          error: e instanceof Error ? e.message : "URL de destino inválida.",
-        });
       }
+      if (b.backup_url !== undefined) {
+        updateBackup = sanitizeBackupUrlOrThrow(b.backup_url, preferredOrigin);
+      }
+    } catch (e) {
+      return res.status(400).json({
+        error: e instanceof Error ? e.message : "URL de destino inválida.",
+      });
     }
 
     await systemPrisma.$transaction(async (tx) => {
@@ -393,7 +410,7 @@ export const trafficRotatorsController = {
           ...(b.name != null ? { name: b.name.trim() } : {}),
           ...(b.slug != null ? { slug: b.slug.trim().toLowerCase() } : {}),
           ...(b.mode != null ? { mode: toMode(b.mode) } : {}),
-          ...(b.backup_url !== undefined ? { backupUrl: b.backup_url?.trim() || null } : {}),
+          ...(updateBackup !== undefined ? { backupUrl: updateBackup } : {}),
           ...(b.context_presell_id != null ? { contextPresellId: b.context_presell_id } : {}),
           ...(accessCode !== undefined ? { accessCode } : {}),
           ...(b.is_active != null ? { isActive: b.is_active } : {}),
