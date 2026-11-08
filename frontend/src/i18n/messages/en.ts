@@ -693,8 +693,8 @@ export const en = {
       subtitle: "Presells on dclickora and Google Ads reports (same period per screen).",
     },
     setup: {
-      title: "Setup assistant",
-      subtitle: "Guided path to go live with tracking.",
+      title: "Go live assistant",
+      subtitle: "Domain (CNAME) → Google OAuth → postback → Meta/TikTok CAPI. Trial host works; own domain for serious Ads.",
     },
     trackingTools: {
       title: "Tracking tools",

@@ -111,10 +111,18 @@ export default function IntegrationsHubPage() {
     staleTime: 60_000,
   });
 
-  const postbackUrl =
-    typeof dash?.tracking_install?.affiliate_webhook_path === "string"
-      ? dash.tracking_install.affiliate_webhook_path
-      : "";
+  const { data: webhookInfo } = useQuery({
+    queryKey: ["integrations-hub-webhook"],
+    queryFn: async () => {
+      const { data, error } = await integrationsService.getAffiliateWebhookInfo();
+      if (error || !data) return null;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  /** URL completo com token — não o path relativo do dashboard. */
+  const postbackUrl = webhookInfo?.hook_url?.trim() || "";
 
   const health = dash?.account_health;
   const deadJobs = dash?.sync_queue?.dead ?? 0;
@@ -171,6 +179,21 @@ export default function IntegrationsHubPage() {
         </div>
       ) : null}
       <TrackPathStatus />
+
+      <div className="rounded-lg border border-border/70 bg-card px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">Assistente Go live</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+            Domínio (CNAME) → OAuth Google → postback → Meta/TikTok CAPI. Estados reais sem colar tokens.
+          </p>
+        </div>
+        <Button variant="secondary" size="sm" className="gap-1.5 shrink-0" asChild>
+          <Link to="/ajuda/assistente">
+            Abrir assistente
+            <ArrowRight className="h-3.5 w-3.5 opacity-70" />
+          </Link>
+        </Button>
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <ProPanel title={t("pages.integrations.goLive")} description={t("pages.integrations.goLiveDesc")}>

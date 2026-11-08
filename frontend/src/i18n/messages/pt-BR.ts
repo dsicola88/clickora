@@ -664,8 +664,8 @@ export const ptBR = {
       "subtitle": "Presells no dclickora e relatórios Google Ads (mesmo período por ecrã)."
     },
     "setup": {
-      "title": "Assistente de configuração",
-      "subtitle": "Caminho guiado para activar o tracking."
+      "title": "Assistente Go live",
+      "subtitle": "Domínio (CNAME) → OAuth Google → postback → Meta/TikTok CAPI. Host da conta serve para trial; domínio próprio para Ads a sério."
     },
     "trackingTools": {
       "title": "Ferramentas de tracking",

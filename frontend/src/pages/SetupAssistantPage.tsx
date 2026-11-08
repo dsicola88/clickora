@@ -1,5 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,11 +17,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState } from "@/components/LoadingState";
+import { useAuth } from "@/contexts/AuthContext";
+import { tenantQueryKey } from "@/lib/tenantQueryKey";
+import { shouldPollCustomDomainSsl } from "@/lib/customDomainSslDisplay";
+import { isCustomDomainAdReady, isHostingCapableDomain } from "@/lib/publicPresellOrigin";
 import { presellService } from "@/services/presellService";
 import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
+import { customDomainService } from "@/services/customDomainService";
 import { cn } from "@/lib/utils";
-import type { Presell } from "@/types/api";
+import type { CustomDomainDto, Presell } from "@/types/api";
 
 type StepStatus = "done" | "pending" | "warn";
 
@@ -45,8 +50,8 @@ function StatusIcon({ status }: { status: StepStatus }) {
 }
 
 /**
- * Assistente guiado em linguagem simples: presell → links → teste → vendas na rede → opcionais Google/Meta/TikTok.
- * A lógica de estado continua baseada nos dados da conta (métricas e integrações).
+ * Assistente guiado: domínio → presell → links → teste → postback → OAuth Google → Meta/TikTok CAPI.
+ * Estados vindos dos mesmos endpoints que Settings / Integrações.
  */
 const SETUP_ASSISTANT_QUERY_PREFIXES = [
   "setup-assistant-presells",
@@ -55,10 +60,69 @@ const SETUP_ASSISTANT_QUERY_PREFIXES = [
   "setup-assistant-webhook",
   "setup-assistant-meta-capi",
   "setup-assistant-tiktok-events",
+  "custom-domain",
+  "setup-assistant-domain-live",
 ] as const;
+
+/** Mesmo critério que Final URL / ads (`isCustomDomainAdReady`) + probe go-live. */
+function domainGoLiveStatus(domains: CustomDomainDto[]): {
+  status: StepStatus;
+  hint: string;
+} {
+  if (!domains.length) {
+    return {
+      status: "pending",
+      hint:
+        "Sem domínio próprio: as páginas usam o host da conta (trial). Para anunciar a sério, liga o teu domínio (CNAME) — SSL fica a cargo da Clickora.",
+    };
+  }
+  const ready = domains.find(isCustomDomainAdReady);
+  if (ready) {
+    const https = ready.https_ready === true || ready.ssl_state === "https_ready";
+    return {
+      status: "done",
+      hint: `Pronto para Ads: ${ready.hostname}${https ? " (HTTPS)" : " (DNS OK)"}.`,
+    };
+  }
+  const hosting = domains.filter(isHostingCapableDomain);
+  const dnsPending = hosting.find((d) => d.status === "pending" || d.ssl_state === "pending_dns");
+  if (dnsPending) {
+    return {
+      status: "warn",
+      hint: `${dnsPending.hostname}: falta concluir DNS (CNAME/TXT) em Configurações → Domínios.`,
+    };
+  }
+  const sslWait = hosting.find(
+    (d) => shouldPollCustomDomainSsl(d) || d.ssl_state === "ssl_provisioning" || d.ssl_state === "misconfigured",
+  );
+  if (sslWait) {
+    return {
+      status: "warn",
+      hint:
+        sslWait.ssl_state === "misconfigured"
+          ? `${sslWait.hostname}: DNS mal configurado — corrige o CNAME.`
+          : `${sslWait.hostname}: DNS OK — a aguardar HTTPS (SSL).`,
+    };
+  }
+  return {
+    status: "warn",
+    hint: "Há domínio na conta — confirma verificação e HTTPS em Configurações → Domínios.",
+  };
+}
+
+function googleAdsStepStatus(opts: {
+  canUpload: boolean;
+  hasOAuth: boolean;
+}): StepStatus {
+  if (opts.canUpload) return "done";
+  if (opts.hasOAuth) return "warn";
+  return "pending";
+}
 
 export default function SetupAssistantPage() {
   const { t } = useAppLocale();
+  const { user } = useAuth();
+  const tenantKey = tenantQueryKey(user);
   const queryClient = useQueryClient();
   const refreshingChecks =
     useIsFetching({
@@ -95,14 +159,21 @@ export default function SetupAssistantPage() {
     },
   });
 
-  const { data: webhook, isLoading: loadingWh } = useQuery({
+  const {
+    data: webhookResult,
+    isLoading: loadingWh,
+  } = useQuery({
     queryKey: ["setup-assistant-webhook"],
     queryFn: async () => {
-      const { data, error } = await integrationsService.getAffiliateWebhookInfo();
-      if (error || !data) return null;
-      return data;
+      const { data, error, errorCode } = await integrationsService.getAffiliateWebhookInfo();
+      if (error || !data) {
+        return { info: null as null, errorCode: errorCode ?? null, error: error ?? "erro" };
+      }
+      return { info: data, errorCode: null as string | null, error: null as string | null };
     },
   });
+  const webhook = webhookResult?.info ?? null;
+  const webhookPlanBlocked = webhookResult?.errorCode === "AFFILIATE_WEBHOOK_PLAN";
 
   const { data: metaCapi, isLoading: loadingMeta } = useQuery({
     queryKey: ["setup-assistant-meta-capi"],
@@ -122,7 +193,67 @@ export default function SetupAssistantPage() {
     },
   });
 
-  const loading = loadingPresells || loadingDash || loadingGa || loadingWh || loadingMeta || loadingTiktok;
+  /** Mesma cache key que Settings — SSL badge partilha estado. */
+  const { data: listedDomains = [], isLoading: loadingDomains } = useQuery({
+    queryKey: ["custom-domain", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.list();
+      if (error || !data) return [] as CustomDomainDto[];
+      return data;
+    },
+  });
+
+  const domainsNeedingProbe = useMemo(
+    () => listedDomains.filter(shouldPollCustomDomainSsl).slice(0, 3),
+    [listedDomains],
+  );
+  const probeIdsKey = domainsNeedingProbe.map((d) => d.id).join(",");
+
+  const { data: liveDomainRows } = useQuery({
+    queryKey: ["setup-assistant-domain-live", tenantKey, probeIdsKey],
+    enabled: domainsNeedingProbe.length > 0,
+    queryFn: async () => {
+      const rows = await Promise.all(
+        domainsNeedingProbe.map(async (d) => {
+          const { data } = await customDomainService.goLive(d.id);
+          return data ?? null;
+        }),
+      );
+      return rows.filter((x): x is CustomDomainDto => Boolean(x));
+    },
+    refetchInterval: (q) => {
+      const live = q.state.data ?? [];
+      const still = domainsNeedingProbe.some((d) => {
+        const merged = live.find((x) => x.id === d.id) ?? d;
+        return shouldPollCustomDomainSsl(merged);
+      });
+      return still ? 12_000 : false;
+    },
+    staleTime: 8_000,
+  });
+
+  useEffect(() => {
+    if (!liveDomainRows?.length) return;
+    queryClient.setQueryData<CustomDomainDto[]>(["custom-domain", tenantKey], (old) =>
+      (old ?? listedDomains).map((x) => {
+        const live = liveDomainRows.find((r) => r.id === x.id);
+        return live ? { ...x, ...live } : x;
+      }),
+    );
+  }, [liveDomainRows, queryClient, tenantKey, listedDomains]);
+
+  const domains = useMemo(() => {
+    if (!liveDomainRows?.length) return listedDomains;
+    return listedDomains.map((x) => {
+      const live = liveDomainRows.find((r) => r.id === x.id);
+      return live ? { ...x, ...live } : x;
+    });
+  }, [listedDomains, liveDomainRows]);
+
+  const loading =
+    loadingPresells || loadingDash || loadingGa || loadingWh || loadingMeta || loadingTiktok || loadingDomains;
+
+  const domainLive = useMemo(() => domainGoLiveStatus(domains), [domains]);
 
   const published = useMemo(
     () => (presells ?? []).filter((p) => p.status === "published"),
@@ -152,12 +283,12 @@ export default function SetupAssistantPage() {
     const s: SetupStep[] = [
       {
         id: "domain",
-        title: "1. Domínio (opcional mas recomendado)",
+        title: "1. Domínio próprio (recomendado para Ads)",
         description:
-          "Liga o teu domínio em Domínio (DNS). Sem domínio próprio, as páginas usam o endereço da conta — os cliques funcionam na mesma.",
-        status: "pending",
-        actions: [{ to: "/tracking/settings", label: "Configurar domínio" }],
-        hint: "Podes avançar e voltar depois. SSL fica a cargo da Clickora após o DNS.",
+          "Liga o teu domínio com um CNAME. OAuth e postbacks funcionam sem isto; o host da conta serve para trial. Para campanhas sérias, usa domínio teu + HTTPS.",
+        status: domainLive.status,
+        actions: [{ to: "/configuracoes", label: "Configurar domínio" }],
+        hint: domainLive.hint,
       },
       {
         id: "presell",
@@ -196,16 +327,29 @@ export default function SetupAssistantPage() {
       },
       {
         id: "postback",
-        title: "5. Aviso de venda",
+        title: "5. Aviso de venda (postback)",
         description:
           "Em Integrações copia o URL de aviso e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
-        status: approvedSales > 0 ? "done" : hasPublished ? "warn" : "pending",
-        actions: [{ to: "/integracoes/postback", label: "Configurar aviso de venda" }],
-        hint: webhook?.hook_url
-          ? approvedSales > 0
-            ? "Há vendas aprovadas no período."
-            : "URL pronto — confirma na rede que está activo."
-          : "Abre Postback para obter o URL (ou verifica o plano).",
+        status: approvedSales > 0
+          ? "done"
+          : webhook?.hook_url
+            ? "warn"
+            : webhookPlanBlocked
+              ? "warn"
+              : hasPublished
+                ? "warn"
+                : "pending",
+        actions: [
+          { to: "/integracoes/postback", label: "Configurar aviso de venda" },
+          ...(webhookPlanBlocked ? [{ to: "/planos", label: "Ver planos" }] : []),
+        ],
+        hint: webhookPlanBlocked
+          ? "Postback não está activo neste plano — faz upgrade ou pede ao admin."
+          : webhook?.hook_url
+            ? approvedSales > 0
+              ? "Há vendas aprovadas no período."
+              : "URL pronto — confirma na rede que está activo (macros / subid)."
+            : "Abre Postback para obter o URL completo (com token).",
       },
       {
         id: "reports",
@@ -216,21 +360,26 @@ export default function SetupAssistantPage() {
       },
       {
         id: "google",
-        title: "7. Google Ads (opcional)",
+        title: "7. Google Ads — ligar conta (1 clique)",
         description:
-          "Se anuncias no Google: em Integrações → Google Ads liga a conta (1 clique) para custos e upload GCLID.",
-        status: gaCanUpload ? "done" : gaHasOAuth && gaCustomer && gaEnv ? "warn" : "pending",
-        actions: [{ to: "/integracoes/google-ads", label: "Google Ads" }],
+          "OAuth oficial: em Integrações → Google Ads liga a conta para custos e upload GCLID. Sem colar tokens à mão.",
+        status: googleAdsStepStatus({ canUpload: gaCanUpload, hasOAuth: gaHasOAuth }),
+        actions: [{ to: "/integracoes/google-ads", label: "Ligar Google Ads" }],
         hint: !gaEnv
           ? "API Google ainda não configurada neste ambiente (admin do servidor)."
           : gaCanUpload
             ? "Envio à Google pronto."
-            : "Liga a conta e confirma o ID da conversão.",
+            : gaHasOAuth
+              ? gaCustomer
+                ? "Conta ligada — confirma o ID da conversão / cliente."
+                : "OAuth feito — falta escolher o cliente Ads / conversão."
+              : "Clica em Ligar: autorizas a Google uma vez; o resto é automático.",
       },
       {
         id: "capi",
-        title: "8. Meta e TikTok (opcional)",
-        description: "Envio de compras às redes sociais — só se anunciares lá. Configura em Integrações.",
+        title: "8. Meta e TikTok CAPI (opcional)",
+        description:
+          "Pixel + token de Events API em Integrações (não é OAuth). Sem isto o painel continua a marcar vendas via postback.",
         status: !metaTikTokDataReady
           ? "pending"
           : metaTikTokOptionalOk && !metaTikTokWarn
@@ -242,19 +391,21 @@ export default function SetupAssistantPage() {
         hint: !metaTikTokDataReady
           ? "A obter estado…"
           : [
-              `Meta: ${!metaEnabled ? "ignorável." : metaReady ? "pronta." : "falta Pixel/token."}`,
-              `TikTok: ${!ttEnabled ? "ignorável." : ttReady ? "pronta." : "falta Pixel/token."}`,
+              `Meta: ${!metaEnabled ? "opcional." : metaReady ? "pronta." : "falta Pixel/token."}`,
+              `TikTok: ${!ttEnabled ? "opcional." : ttReady ? "pronta." : "falta Pixel/token."}`,
             ].join(" "),
       },
     ];
     return s;
   }, [
+    domainLive,
     hasPublished,
     published.length,
     clicks,
     conversions,
     approvedSales,
     webhook?.hook_url,
+    webhookPlanBlocked,
     gaEnv,
     gaCanUpload,
     gaHasOAuth,
@@ -273,7 +424,30 @@ export default function SetupAssistantPage() {
   const coreSteps = steps.filter((x) => x.id !== "google" && x.id !== "capi" && x.id !== "domain");
   const doneCount = coreSteps.filter((x) => x.status === "done").length;
   const warnCount = coreSteps.filter((x) => x.status === "warn").length;
-  const showMetaTiktokBadges = metaCapi != null && tiktokEvents != null;
+  const googleStatus = googleAdsStepStatus({ canUpload: gaCanUpload, hasOAuth: gaHasOAuth });
+  const postbackStatus: StepStatus = approvedSales > 0
+    ? "done"
+    : webhook?.hook_url
+      ? "warn"
+      : webhookPlanBlocked
+        ? "warn"
+        : "pending";
+
+  const goLivePillars: { id: string; label: string; status: StepStatus; to: string }[] = [
+    { id: "domain", label: "Domínio", status: domainLive.status, to: "/configuracoes" },
+    {
+      id: "google",
+      label: "Google Ads",
+      status: googleStatus,
+      to: "/integracoes/google-ads",
+    },
+    {
+      id: "postback",
+      label: "Postback",
+      status: postbackStatus,
+      to: "/integracoes/postback",
+    },
+  ];
 
   return (
     <div className={APP_PAGE_SHELL}>
@@ -322,6 +496,43 @@ export default function SetupAssistantPage() {
               ou actualize.
             </p>
           ) : null}
+
+          <div className="rounded-xl border border-border/70 bg-card px-4 py-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Go live (o caminho certo)</p>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                Domínio (CNAME) · OAuth Google · postback · Meta/TikTok CAPI (opcional). Sem colar tokens em ficheiros.
+                Host da conta serve para trial; para Ads a sério, completa o verde abaixo.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {goLivePillars.map((p) => (
+                <Link
+                  key={p.id}
+                  to={p.to}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-muted/40",
+                    p.status === "done" && "border-emerald-500/30 bg-emerald-500/[0.04]",
+                    p.status === "warn" && "border-amber-500/35 bg-amber-500/[0.05]",
+                    p.status === "pending" && "border-border/70",
+                  )}
+                >
+                  <StatusIcon status={p.status} />
+                  <span className="font-medium text-foreground">{p.label}</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "ml-auto text-[10px] font-normal",
+                      p.status === "done" && "text-emerald-700 dark:text-emerald-400",
+                      p.status === "warn" && "text-amber-800 dark:text-amber-300",
+                    )}
+                  >
+                    {p.status === "done" ? "OK" : p.status === "warn" ? "Quase" : "Falta"}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          </div>
 
           <div className="grid gap-2 sm:grid-cols-3 rounded-xl border border-border/70 bg-card px-3 py-3 text-sm">
             <div className="flex items-center gap-2 px-2 py-1">
@@ -372,19 +583,23 @@ export default function SetupAssistantPage() {
                 </>
               ) : null}
             </span>
-            {gaMetricsReady ? (
+            {gaCanUpload ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Google Ads ligado
+                Google Ads upload OK
+              </Badge>
+            ) : gaMetricsReady ? (
+              <Badge variant="secondary" className="text-xs font-normal">
+                Google métricas
               </Badge>
             ) : null}
-            {showMetaTiktokBadges && pipeline?.meta_capi_integration ? (
+            {metaEnabled && metaReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Meta OK
+                Meta CAPI
               </Badge>
             ) : null}
-            {showMetaTiktokBadges && pipeline?.tiktok_events_integration ? (
+            {ttEnabled && ttReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                TikTok OK
+                TikTok Events
               </Badge>
             ) : null}
           </div>
