@@ -7,6 +7,10 @@ import { publicAvatarController } from "../controllers/publicAvatar.controller";
 export const publicRouter = Router();
 
 publicRouter.get("/presells/id/:id", presellController.getPublicById);
+/** HTML estático LCP — rewrite Vercel `/l/:id` → este endpoint. */
+publicRouter.get("/presells/id/:id/html", (req, res, next) => {
+  Promise.resolve(presellController.getPublicHtml(req, res)).catch(next);
+});
 publicRouter.get("/presells/slug/:slug", presellController.getPublicBySlug);
 publicRouter.get("/custom-domain/root-presell", presellController.getRootPresellForHost);
 publicRouter.get("/branding", brandingController.getMeta);

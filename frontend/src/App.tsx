@@ -45,6 +45,7 @@ const IntentConversionPage = lazy(() => import("./pages/IntentConversionPage"));
 const AffiliateGuidePage = lazy(() => import("./pages/AffiliateGuidePage"));
 const InAppUserGuidePage = lazy(() => import("./pages/InAppUserGuidePage"));
 const SetupAssistantPage = lazy(() => import("./pages/SetupAssistantPage"));
+const LitePresellEntry = lazy(() => import("./pages/LitePresellEntry"));
 const DpilotPaidApp = lazy(() =>
   import("./pages/dpilot/DpilotPaidApp").then((m) => ({ default: m.DpilotPaidApp })),
 );
@@ -193,6 +194,7 @@ function PublicPresellShell() {
     <Suspense fallback={<PublicPresellFallback />}>
       <Routes>
         <Route path="/p/:id" element={<PublicPresell />} />
+        <Route path="/l/:id" element={<LitePresellEntry />} />
       </Routes>
     </Suspense>
   );
@@ -213,6 +215,7 @@ function AuthenticatedAppShell() {
             <Route path="/aviso-medico" element={<LegalMedicalDisclaimerPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/p/:id" element={<PublicPresell />} />
+            <Route path="/l/:id" element={<LitePresellEntry />} />
             <Route
               path="/presell/builder/:id?"
               element={

@@ -29,7 +29,11 @@ import {
 } from "../lib/presellEnterpriseCloak";
 import { resolvePublicFooterBranding } from "../lib/publicFooterBranding";
 import { enforceTrackingRules } from "../lib/trackGuard";
-import { preferredTrackApiBaseForUser } from "../lib/publicApiBase";
+import {
+  preferredTrackApiBaseForUser,
+  publicApiBaseFromRequest,
+  trackApiBaseForUser,
+} from "../lib/publicApiBase";
 import { extractClientIp } from "../lib/clientIp";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
@@ -50,6 +54,9 @@ import {
   timedCreateStage,
 } from "../lib/createStageMetrics";
 import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
+import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellLiteHtml";
+import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
+import { publicSpaPresellUrl } from "../lib/publicSpaOrigin";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -198,6 +205,76 @@ export const presellController = {
 
     const mapped = await mapPresellForPublic(page);
     return sendPublicPresell(req, res, page, mapped);
+  },
+
+  /**
+   * HTML estático cacheável para Ads LCP (`/l/:uuid` via rewrite Vercel).
+   * Tipos com gate → 302 para SPA `/p/:id`.
+   */
+  async getPublicHtml(req: Request, res: Response) {
+    const id = req.params.id;
+    const page = await systemPrisma.presellPage.findFirst({
+      where: { id },
+      include: { user: { include: { subscription: { include: { plan: true } } } } },
+    });
+    if (!page) return res.status(404).type("text/plain").send("Página não encontrada");
+    if (page.status !== "published") {
+      return res.status(404).type("text/plain").send("Página não publicada");
+    }
+    const access = evaluateSubscriptionAccess(page.user.subscription);
+    if (!access.allowed) {
+      return res.status(403).type("text/plain").send("Página indisponível");
+    }
+
+    const spaUrl = publicSpaPresellUrl(req, page.id);
+    if (!isPresellLiteHtmlEligible(page.type)) {
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Clickora-Lite", "redirect-spa");
+      return res.redirect(302, spaUrl);
+    }
+
+    const geo = shouldServeCloakSafePage(req, page.settings);
+    if (geo.cloak) {
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.redirect(302, spaUrl);
+    }
+    const ip = extractClientIp(req);
+    const guard = await enforceTrackingRules({
+      ownerUserId: page.userId,
+      presellPageId: page.id,
+      ip,
+      userAgent: req.headers["user-agent"] || "",
+      headers: req.headers as Record<string, string | string[] | undefined>,
+      channel: "public_page",
+      recordedEventType: "other",
+    });
+    if (!guard.ok) {
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.redirect(302, spaUrl);
+    }
+
+    const trackBase = await trackApiBaseForUser(req, page.userId);
+    const built = buildPresellLiteHtml({
+      id: page.id,
+      title: page.title,
+      type: page.type,
+      language: page.language,
+      content: page.content,
+      tracking: page.tracking,
+      trackApiBase: trackBase || publicApiBaseFromRequest(req),
+      spaPath: spaUrl,
+    });
+    if (!built.ok) {
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Clickora-Lite", built.reason);
+      return res.redirect(302, spaUrl);
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=600");
+    res.setHeader("X-Clickora-Lite", "1");
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    return res.status(200).send(built.html);
   },
 
   /**
@@ -712,6 +789,8 @@ export const presellController = {
       }
     }
 
+    void invalidateTrackEdgeDest(updated.id);
+
     const mapped = mapPresell(updated) as Record<string, unknown>;
     if (mirrorRehosted > 0) {
       mapped.mirror_images_rehosted = mirrorRehosted;
@@ -727,6 +806,7 @@ export const presellController = {
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
     await systemPrisma.presellPage.delete({ where: { id: page.id } });
+    void invalidateTrackEdgeDest(page.id);
     res.json({ message: "Página removida" });
   },
 
@@ -797,6 +877,8 @@ export const presellController = {
       where: { id: pageForPublish.id },
       data: { status },
     });
+
+    void invalidateTrackEdgeDest(updated.id);
 
     res.json(mapPresell(updated));
   },

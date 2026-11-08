@@ -55,6 +55,7 @@ import {
   affiliateLinkFromPresellPage,
   isRedirectToAllowedOffer,
 } from "../lib/trackOfferRedirectGuard";
+import { resolveTrackEdgeDest } from "../lib/trackEdgeDestCache";
 
 /** Rate limit por IP antes do lookup da página (protege DB sob flood). */
 async function earlyTrackRateLimit(req: Request, res: Response): Promise<boolean> {
@@ -1826,6 +1827,37 @@ export const trackController = {
         payload: l.payload ?? {},
       })),
     );
+  },
+
+  /**
+   * Destino cacheado para worker edge (Cloudflare).
+   * Não redirecciona — só JSON leve para aquecer o edge.
+   */
+  async getEdgeDest(req: Request, res: Response) {
+    if (await earlyTrackRateLimit(req, res)) return;
+    const presellId = req.params.presellId;
+    if (!presellId || !/^[0-9a-f-]{36}$/i.test(presellId)) {
+      return res.status(400).json({ error: "presellId inválido" });
+    }
+    const secret = process.env.TRACK_EDGE_SHARED_SECRET?.trim();
+    if (secret) {
+      const got = String(req.get("x-clickora-edge-secret") || "").trim();
+      if (got !== secret) {
+        return res.status(401).json({ error: "Não autorizado" });
+      }
+    }
+    const dest = await resolveTrackEdgeDest(presellId);
+    if (!dest || dest.status !== "published") {
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(404).json({ error: "Destino indisponível" });
+    }
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+    res.setHeader("X-Clickora-Edge-Dest", "1");
+    return res.json({
+      destination: dest.destination,
+      status: dest.status,
+      updated_at: dest.updatedAt,
+    });
   },
 };
 

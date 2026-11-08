@@ -18,8 +18,9 @@ describe("seoHostPolicy", () => {
     expect(isMainMarketingHostname("oferta.afiliado.net")).toBe(false);
   });
 
-  it("identifica landers /p/", () => {
+  it("identifica landers /p/ e /l/", () => {
     expect(isPublicPresellPath("/p/abc-uuid")).toBe(true);
+    expect(isPublicPresellPath("/l/abc-uuid")).toBe(true);
     expect(isPublicPresellPath("/planos")).toBe(false);
   });
 

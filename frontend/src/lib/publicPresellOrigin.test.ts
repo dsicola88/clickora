@@ -53,4 +53,14 @@ describe("publicPresellOrigin hosting vs tracking", () => {
     );
     expect(url).toBe("https://www.x.com/p/page-1");
   });
+
+  it("Ads URL usa /l/ para review (LCP) e /p/ para cookies", () => {
+    const domains = [domain({ id: "www", hostname: "www.x.com", purpose: "hosting", is_default: true })];
+    expect(getPublicPresellFullUrl(domains, "www", { id: "a", type: "review" })).toBe(
+      "https://www.x.com/l/a",
+    );
+    expect(getPublicPresellFullUrl(domains, "www", { id: "b", type: "cookies" })).toBe(
+      "https://www.x.com/p/b",
+    );
+  });
 });

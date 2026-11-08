@@ -1,6 +1,6 @@
 /**
  * Política de indexação por host: só o site de marketing (dclickora) deve rankear.
- * Domínios de assinantes, tracking e landers `/p/*` ficam fora dos buscadores por defeito.
+ * Domínios de assinantes, tracking e landers `/p/*` e `/l/*` ficam fora dos buscadores por defeito.
  */
 
 const MAIN_MARKETING_HOSTS = new Set(["dclickora.com", "www.dclickora.com"]);
@@ -34,13 +34,13 @@ export function isMarketingIndexablePath(pathname: string): boolean {
 }
 
 export function isPublicPresellPath(pathname: string): boolean {
-  return /^\/p\/[^/]+/i.test(pathname);
+  return /^\/(?:p|l)\/[^/]+/i.test(pathname);
 }
 
 /**
  * Deve este URL ficar fora dos buscadores?
  * — Qualquer host que não seja o site principal
- * — Qualquer lander `/p/...` (mesmo em www.dclickora.com)
+ * — Qualquer lander `/p/...` ou `/l/...` (mesmo em www.dclickora.com)
  */
 export function shouldNoindexCurrentLocation(
   hostname: string,

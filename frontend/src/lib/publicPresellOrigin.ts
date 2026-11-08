@@ -111,14 +111,41 @@ export function isPresellUuidParam(s: string): boolean {
 }
 
 /**
- * URL completo para anúncios e cópia: **domínio escolhido** + **`/p/<uuid>`**.
- * Usamos sempre o UUID no path (fiável com a API); o «endereço» (slug) no formulário é só nome interno/URL curto opcional.
+ * Tipos com gate / builder — ficam na SPA `/p/`.
+ * Restantes publicados podem usar HTML lite `/l/` (LCP).
+ */
+const LITE_BLOCKED_TYPES = new Set([
+  "cookies",
+  "idade",
+  "sexo",
+  "idade_sexo",
+  "idade_pais",
+  "sexo_pais",
+  "pais",
+  "captcha",
+  "grupo_homem",
+  "grupo_mulher",
+  "builder",
+  "desconto",
+  "modelos",
+]);
+
+export function isPresellLitePathEligible(type: string | null | undefined): boolean {
+  const t = (type || "").trim().toLowerCase();
+  if (!t) return false;
+  return !LITE_BLOCKED_TYPES.has(t);
+}
+
+/**
+ * URL completo para anúncios e cópia: domínio escolhido + `/l/<uuid>` (LCP)
+ * quando elegível; senão `/p/<uuid>` (SPA / gates).
  */
 export function getPublicPresellFullUrl(
   domains: CustomDomainDto[] | null | undefined,
   presellCustomDomainId: string | null | undefined,
-  page: { id: string },
+  page: { id: string; type?: string | null },
 ): string {
   const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
-  return `${origin}/p/${page.id}`;
+  const path = isPresellLitePathEligible(page.type) ? `/l/${page.id}` : `/p/${page.id}`;
+  return `${origin}${path}`;
 }

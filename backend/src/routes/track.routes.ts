@@ -11,6 +11,8 @@ trackRouter.get("/rot/:rotatorId", trackController.rotatorRedirect);
 trackRouter.get("/rot/:rotatorId/*", trackController.rotatorRedirect);
 trackRouter.get("/r/:presellId", trackController.redirect);
 trackRouter.get("/r/:presellId/*", trackController.redirect);
+/** Destino cacheado para Cloudflare Worker (edge path). */
+trackRouter.get("/edge/dest/:presellId", trackController.getEdgeDest);
 trackRouter.get("/pixel/:presellId.gif", trackController.pixel);
 trackRouter.get("/funnel/:step.gif", trackController.funnelStepPixel);
 trackRouter.get("/funnel/:step", trackController.funnelStepPixel);
