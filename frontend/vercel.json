@@ -27,6 +27,12 @@
       ]
     },
     {
+      "source": "/l/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
       "source": "/robots-tenant.txt",
       "headers": [
         { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
@@ -44,6 +50,10 @@
     {
       "source": "/api/(.*)",
       "destination": "https://clickora-production.up.railway.app/api/$1"
+    },
+    {
+      "source": "/l/:id",
+      "destination": "https://clickora-production.up.railway.app/api/public/presells/id/:id/html"
     },
     {
       "source": "/robots.txt",
