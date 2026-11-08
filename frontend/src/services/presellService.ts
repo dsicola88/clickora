@@ -29,6 +29,20 @@ export type PresellComplianceAuditDto = {
   created_at: string;
 };
 
+export type PresellComplianceSuggestionDto = {
+  ruleId: string;
+  title: string;
+  requiresUserInput: string[];
+  suggestedContentPatches: Array<{
+    path: string;
+    before: string | null;
+    after: string | null;
+    note: string;
+  }>;
+  warnings: string[];
+  applyAutomatically: false;
+};
+
 export type PresellComplianceStateDto = {
   disclaimer: string;
   compliance_gate: string;
@@ -37,6 +51,8 @@ export type PresellComplianceStateDto = {
   content_fingerprint: string | null;
   status: string;
   latest_audit: PresellComplianceAuditDto | null;
+  suggestions?: PresellComplianceSuggestionDto[];
+  ads_page_score?: number | null;
   decisions: Array<{
     id: string;
     audit_id: string;
@@ -175,6 +191,81 @@ export const presellService = {
       latest_audit: PresellComplianceAuditDto | null;
       disclaimer: string;
     }>(`/presells/${id}/compliance/decisions`, body);
+  },
+
+  async getAiQuota() {
+    return apiClient.get<{
+      plan_type: string | null;
+      limit: number | null;
+      used: number;
+      remaining: number | null;
+      privileged: boolean;
+      month: string;
+      openai_configured: boolean;
+    }>("/presells/ai/quota");
+  },
+
+  async generateReviewCopy(
+    id: string,
+    body?: {
+      force?: boolean;
+      preview?: boolean;
+      deterministic_only?: boolean;
+      angle?: "landing" | "review" | "advertorial";
+    },
+  ) {
+    return apiClient.post<{
+      preview: boolean;
+      applied: boolean;
+      page_id?: string;
+      copy: {
+        title: string;
+        subtitle: string;
+        sales_text: string;
+        source: "llm" | "deterministic";
+        model: string | null;
+      };
+      quota: {
+        plan_type: string | null;
+        limit: number | null;
+        used: number;
+        remaining: number | null;
+        month: string;
+      };
+      llm_error: string | null;
+      note?: string;
+      error?: string;
+      code?: string;
+    }>(`/presells/${id}/generate-review-copy`, body ?? {});
+  },
+
+  async analyzeDisapproval(id: string, text: string) {
+    return apiClient.post<{
+      page_id: string;
+      hints: Array<{ code: string; title: string; steps: string[] }>;
+      disclaimer: string;
+    }>(`/presells/${id}/analyze-disapproval`, { text });
+  },
+
+  async spawnVariantPack(id: string, body?: { create_rotator?: boolean; deterministic_only?: boolean }) {
+    return apiClient.post<{
+      source: "llm" | "deterministic";
+      model: string | null;
+      llm_error: string | null;
+      pages: {
+        landing: { id: string; type: string; slug: string; status: string };
+        review: { id: string; type: string; slug: string; status: string };
+        advertorial: { id: string; type: string; slug: string; status: string };
+      };
+      quota: {
+        plan_type: string | null;
+        limit: number | null;
+        used: number;
+        remaining: number | null;
+        month: string;
+      };
+      note?: string;
+    }>(`/presells/${id}/spawn-variant-pack`, body ?? { create_rotator: true });
   },
 
   async getCount() {

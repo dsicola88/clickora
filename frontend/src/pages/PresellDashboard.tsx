@@ -646,7 +646,10 @@ export default function PresellDashboard() {
       cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
       minAge: typeOptions.minAge,
     };
-    if (!String(base.affiliateDisclosure ?? "").trim()) {
+    if (
+      base.showAffiliateTrustFooter !== false &&
+      !String(base.affiliateDisclosure ?? "").trim()
+    ) {
       base.affiliateDisclosure = defaultAffiliateDisclosureSetting(formData.language);
     }
     if (formData.presellType === "cookies") {
@@ -1564,6 +1567,7 @@ export default function PresellDashboard() {
                 contactEmail: String(configSettings.contactEmail ?? ""),
                 brandKitName: kit.brandName,
                 hasAffiliateDisclosure: Boolean(configSettings.affiliateDisclosure),
+                showAffiliateTrustFooter: configSettings.showAffiliateTrustFooter !== false,
                 productImagesCount: imgs,
               });
               return (

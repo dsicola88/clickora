@@ -116,7 +116,16 @@ function pillarsFromContent(raw: unknown): HealthArticlePillar[] | null {
 }
 
 function looksInventedHealthCopy(...parts: string[]): boolean {
-  return parts.some((p) => INVENTED_HEALTH.test(p));
+  return parts.some((p) => {
+    // Negação explícita («não afirmamos cura») não é alegação inventada.
+    const cleaned = p
+      .replace(
+        /\b(não|nao|never|do not|don't|sem)\b[\s\S]{0,40}\b(cura|milagroso|garantido|miracle|cure)\b/gi,
+        " ",
+      )
+      .replace(/\b(cura|milagre|resultado)\s+garantid[oa]s?\b/gi, " ");
+    return INVENTED_HEALTH.test(cleaned);
+  });
 }
 
 /**
@@ -138,6 +147,7 @@ export function resolveHealthArticle(args: {
   const productNote = asString(c.articleProductNote || c.healthProductNote);
   const base = buildHealthPortalArticle(args.productName, args.language);
 
+  const kicker = asString(c.articleKicker || c.healthKicker) || base.kicker;
   const structuredOk =
     headline &&
     intro &&
@@ -153,7 +163,7 @@ export function resolveHealthArticle(args: {
 
   if (structuredOk && pillars) {
     return {
-      kicker: base.kicker,
+      kicker,
       headline,
       intro,
       pillarsTitle: pillarsTitle || base.pillarsTitle,
@@ -164,11 +174,8 @@ export function resolveHealthArticle(args: {
   }
 
   const sales = args.salesText || asString(c.salesText || c.sales_text);
-  if (
-    isThinBridgeSalesText(sales) ||
-    looksInventedHealthCopy(sales) ||
-    /^(pt|pt-br)/i.test(args.language || "pt")
-  ) {
+  // Template transparente só se bridge fina ou claims inventados — não descartar PT substantivo.
+  if (isThinBridgeSalesText(sales) || looksInventedHealthCopy(sales)) {
     return { ...base, ctaLabel: pickCta(args.ctaText, base.ctaLabel) };
   }
 

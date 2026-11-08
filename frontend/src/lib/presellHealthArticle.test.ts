@@ -68,4 +68,55 @@ describe("presellHealthArticle", () => {
       "Composição e avisos do produto",
     ]);
   });
+
+  it("não rejeita copy que só nega alegações (não afirmamos cura)", () => {
+    const a = resolveHealthArticle({
+      content: {
+        articleKicker: "Artigo de afiliado",
+        articleHeadline: "O que vale a pena saber sobre Neotonics",
+        articleIntro:
+          "Em mercados saturados de anúncios, Neotonics aparece com frequência. Este artigo resume critérios de um comprador prudente.",
+        articlePillarsTitle: "Critérios editoriais",
+        articlePillars: [
+          { title: "Clareza", body: "Anúncio e landing devem dizer o mesmo." },
+          {
+            title: "Absolutos",
+            body: "Não afirmamos cura, milagre nem resultado garantido. Confirme na origem.",
+          },
+        ],
+        articleProductNote: "Podemos receber comissão.",
+      },
+      productName: "Neotonics",
+      language: "pt-BR",
+    });
+    expect(a.kicker).toBe("Artigo de afiliado");
+    expect(a.headline).toMatch(/vale a pena saber/i);
+  });
+
+  it("usa artigo estruturado PT da IA em vez do template genérico", () => {
+    const a = resolveHealthArticle({
+      content: {
+        articleKicker: "Análise independente",
+        articleHeadline: "Como avaliar a oferta de Neotonics com transparência",
+        articleIntro:
+          "Esta página é conteúdo informativo independente sobre Neotonics. Não somos o fabricante nem processamos pagamentos. O objectivo é ajudar o visitante a decidir com calma.",
+        articlePillarsTitle: "O que deve confirmar",
+        articlePillars: [
+          { title: "Identidade", body: "Confirme o nome comercial e o contacto no destino." },
+          { title: "Checkout", body: "Preço e garantia só no site do comerciante." },
+          { title: "Avisos", body: "Leia composição e avisos na origem." },
+        ],
+        articleProductNote: "Podemos receber comissão por indicação.",
+      },
+      productName: "Neotonics",
+      language: "pt-BR",
+      salesText: "texto longo suficiente para não ser bridge ".repeat(20),
+      ctaText: "Continuar para a página oficial da oferta",
+    });
+    expect(a.kicker).toBe("Análise independente");
+    expect(a.headline).toMatch(/Neotonics/);
+    expect(a.intro).toMatch(/informativo independente/);
+    expect(a.pillars).toHaveLength(3);
+    expect(a.ctaLabel).toMatch(/Continuar/);
+  });
 });

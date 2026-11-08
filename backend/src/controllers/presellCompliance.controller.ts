@@ -9,7 +9,9 @@ import {
   recordComplianceDecision,
   runPresellComplianceAudit,
 } from "../compliance/service";
+import { suggestCorrections } from "../compliance/correctionAssistant";
 import { COMPLIANCE_DISCLAIMER } from "../compliance/types";
+import type { RuleResult } from "../compliance/types";
 import { listRuleDefinitions } from "../compliance/evaluate";
 import { RULES_VERSION } from "../compliance/policySources";
 
@@ -40,6 +42,8 @@ export const presellComplianceController = {
         lastComplianceAuditId: true,
         contentFingerprint: true,
         status: true,
+        content: true,
+        settings: true,
       },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
@@ -51,6 +55,36 @@ export const presellComplianceController = {
       take: 30,
     });
 
+    const content = (page.content && typeof page.content === "object"
+      ? page.content
+      : {}) as Record<string, unknown>;
+    const settings = (page.settings && typeof page.settings === "object"
+      ? page.settings
+      : {}) as Record<string, unknown>;
+    const results = (audit?.results as RuleResult[] | null) || [];
+    const suggestions = suggestCorrections({
+      results,
+      current: {
+        salesText: typeof content.sales_text === "string" ? content.sales_text : undefined,
+        affiliateDisclosure:
+          typeof content.affiliateDisclosure === "string"
+            ? content.affiliateDisclosure
+            : typeof content.affiliate_disclosure === "string"
+              ? content.affiliate_disclosure
+              : undefined,
+        businessName: typeof settings.businessName === "string" ? settings.businessName : null,
+        contactEmail: typeof settings.contactEmail === "string" ? settings.contactEmail : null,
+        privacyPolicyUrl:
+          typeof settings.privacyPolicyUrl === "string" ? settings.privacyPolicyUrl : null,
+      },
+    });
+
+    const pass = results.filter((r) => r.status === "PASS").length;
+    const fail = results.filter((r) => r.status === "FAIL").length;
+    const warn = results.filter((r) => r.status === "WARNING").length;
+    const scored = pass + fail + warn;
+    const ads_page_score = scored > 0 ? Math.round((pass / scored) * 100) : null;
+
     res.json({
       disclaimer: COMPLIANCE_DISCLAIMER,
       compliance_gate: page.complianceGate,
@@ -59,6 +93,8 @@ export const presellComplianceController = {
       content_fingerprint: page.contentFingerprint,
       status: page.status,
       latest_audit: audit ? mapAuditDto(audit) : null,
+      suggestions,
+      ads_page_score,
       decisions: decisions.map((d) => ({
         id: d.id,
         audit_id: d.auditId,

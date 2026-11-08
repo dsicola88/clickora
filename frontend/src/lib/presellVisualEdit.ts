@@ -229,26 +229,179 @@ function resolvePortalHeaderTagline(
   return L.portalHeaderTagline.replaceAll("{name}", brand);
 }
 
-/** Barra superior do portal black — nome do produto, contexto curto e CTA. */
-function portalHeaderWidget(brand: string, tagline: string, ctaLabel: string, offer: string): WidgetNode {
+/** Barra superior — black = portal navy; white sem espelho = chrome limpo de produto. */
+function portalHeaderWidget(
+  brand: string,
+  tagline: string,
+  ctaLabel: string,
+  offer: string,
+  mode: "black" | "white" = "black",
+): WidgetNode {
   const html = createWidget("html");
   const isScroll = offer.startsWith("#");
   const cta =
     offer && ctaLabel
-      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:9.5rem;padding:12px 22px;border-radius:999px;background:linear-gradient(180deg,#f97316,#ea580c);color:#fff;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap;box-shadow:0 8px 22px -6px rgba(234,88,12,.55),0 0 0 1px rgba(255,255,255,.15) inset;letter-spacing:.02em">${escapeHtml(ctaLabel)}</a>`
+      ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:9.5rem;padding:12px 22px;border-radius:10px;background:#0d9488;color:#fff;font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 10px 24px -12px rgba(13,148,136,.55);letter-spacing:.01em">${escapeHtml(ctaLabel)}</a>`
       : "";
+  const isWhite = mode === "white";
+  const kicker = isWhite ? "Página do produto" : "Portal editorial";
+  const headerBg = isWhite ? "#ffffff" : "#0f172a";
+  const brandColor = isWhite ? "#0f172a" : "#fff";
+  const tagColor = isWhite ? "#475569" : "rgba(255,255,255,.84)";
+  const kickerColor = isWhite ? "#0f766e" : "#5eead4";
+  const border = isWhite ? "border-bottom:1px solid #e2e8f0" : "border-bottom:1px solid rgba(255,255,255,.08)";
   html.content = {
     ...html.content,
     code:
-      `<header style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:16px clamp(16px,4vw,28px);background:#0f172a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid rgba(255,255,255,.08)">` +
-      `<div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1 1 14rem">` +
-      `<span style="font-size:clamp(1.125rem,2.9vw,1.45rem);font-weight:800;letter-spacing:-0.02em;line-height:1.15;color:#fff">${escapeHtml(brand)}</span>` +
-      `<span style="font-size:clamp(0.75rem,2.1vw,0.875rem);font-weight:500;color:rgba(255,255,255,.84);line-height:1.45;max-width:42rem">${escapeHtml(tagline)}</span>` +
+      `<header style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:18px clamp(16px,4vw,28px);background:${headerBg};color:${brandColor};font-family:Georgia,'Times New Roman',serif;${border}">` +
+      `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 14rem">` +
+      `<span style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${kickerColor}">${kicker}</span>` +
+      `<span style="font-size:clamp(1.2rem,3vw,1.55rem);font-weight:700;letter-spacing:-0.02em;line-height:1.2;color:${brandColor};font-family:Georgia,'Times New Roman',serif">${escapeHtml(brand)}</span>` +
+      `<span style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:clamp(0.75rem,2.1vw,0.875rem);font-weight:500;color:${tagColor};line-height:1.45;max-width:42rem">${escapeHtml(tagline)}</span>` +
       `</div>` +
       cta +
       `</header>`,
   };
   return html;
+}
+
+/** Artigo editorial partilhado (black portal / white sem espelho). */
+function pushEditorialArticleSections(args: {
+  sections: ReturnType<typeof createSection>[];
+  content: Record<string, unknown>;
+  title: string;
+  sourceTitle: string;
+  language: string | null | undefined;
+  cta: string;
+  offer: string;
+  offerForCtas: string;
+  cookieType: boolean;
+  hero: string | undefined;
+  restImages: string[];
+  videoUrl: string;
+  mode: "black" | "white";
+}) {
+  const {
+    sections,
+    content,
+    title,
+    sourceTitle,
+    language,
+    cta,
+    offer,
+    offerForCtas,
+    cookieType,
+    hero,
+    restImages,
+    videoUrl,
+    mode,
+  } = args;
+  const sourcePageTitle =
+    asString(content.sourcePageTitle) || asString(content.source_page_title);
+  const portalBrand = resolvePresellPortalBrandName({
+    productName: asString(content.productName) || asString(content.product_name),
+    contentTitle: asString(content.title),
+    sourcePageTitle,
+    pageTitle: sourceTitle || title,
+  });
+  const portalLang = language || asString(content.language) || "en";
+  const headerTagline = resolvePortalHeaderTagline(content, portalBrand, portalLang);
+  const article = resolveHealthArticle({
+    content,
+    productName: portalBrand,
+    language: portalLang || "pt-BR",
+    salesText: asString(content.salesText),
+    ctaText: cta,
+  });
+  const ctaLabel = article.ctaLabel || cta || "Continuar";
+  const offerLink = offerForCtas;
+  const headerCtaHref = offerForCtas || (cookieType ? "#presell-offer-cta" : "");
+  const headerCtaLabel =
+    cookieType && !offerForCtas
+      ? getPresellUiStrings(portalLang).portalHeaderOffer
+      : ctaLabel;
+
+  const headerSec = createSection(1);
+  headerSec.layout = "full";
+  headerSec.contentWidth = 960;
+  headerSec.styles = {
+    ...headerSec.styles,
+    padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+    background: mode === "white" ? "#ffffff" : "#0f172a",
+  };
+  headerSec.columns[0].widgets = [
+    portalHeaderWidget(portalBrand, headerTagline, headerCtaLabel, headerCtaHref, mode),
+  ];
+  sections.push(headerSec);
+
+  const articleSec = createSection(1);
+  articleSec.layout = "full";
+  articleSec.contentWidth = 720;
+  articleSec.styles = {
+    ...articleSec.styles,
+    padding: { desktop: { top: 28, right: 28, bottom: 8, left: 28, unit: "px" } },
+    margin: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+    background: "#ffffff",
+  };
+  const articleWidgets: WidgetNode[] = [
+    articleKicker(article.kicker),
+    articleTitle(article.headline),
+  ];
+  if (hero) articleWidgets.push(articleProductPhoto(hero, portalBrand, offerLink));
+  articleWidgets.push(articleCopy(articleBodyHtml(article)));
+  articleSec.columns[0].widgets = articleWidgets;
+  sections.push(articleSec);
+
+  if (videoUrl) {
+    const video = createWidget("video");
+    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
+    const vidSec = createSection(1);
+    vidSec.contentWidth = 720;
+    vidSec.styles = {
+      ...vidSec.styles,
+      padding: { desktop: { top: 0, right: 28, bottom: 16, left: 28, unit: "px" } },
+      background: "#ffffff",
+    };
+    vidSec.columns[0].widgets = [video];
+    sections.push(vidSec);
+  }
+
+  if (offer) {
+    const ctaSec = createSection(1);
+    ctaSec.layout = "boxed";
+    ctaSec.contentWidth = 680;
+    ctaSec.styles = {
+      ...ctaSec.styles,
+      padding: { desktop: { top: 22, right: 24, bottom: 24, left: 24, unit: "px" } },
+      margin: { desktop: { top: 4, right: 20, bottom: 36, left: 20, unit: "px" } },
+      background: "#f8fafc",
+      border: { width: 1, style: "solid", color: "#e2e8f0", radius: 14 },
+    };
+    ctaSec.columns[0].widgets = [
+      portalCtaAnchor(),
+      portalCtaNote(article.productNote),
+      portalOfferButton(ctaLabel, offer),
+    ];
+    sections.push(ctaSec);
+  }
+
+  if (restImages.length) {
+    const galleryWidgets = restImages
+      .filter((src) => !isPresellDecorImage(src))
+      .slice(0, 1)
+      .map((src) => articleProductPhoto(src, portalBrand, offerLink));
+    const gallery = createSection(1);
+    gallery.contentWidth = 720;
+    gallery.styles = {
+      ...gallery.styles,
+      padding: { desktop: { top: 0, right: 28, bottom: 36, left: 28, unit: "px" } },
+      background: "#f8fafc",
+    };
+    if (galleryWidgets.length) {
+      gallery.columns[0].widgets = galleryWidgets;
+      sections.push(gallery);
+    }
+  }
 }
 
 function portalCtaNote(note: string): WidgetNode {
@@ -274,13 +427,13 @@ function portalOfferButton(label: string, offer: string): WidgetNode {
   button.styles = {
     ...button.styles,
     color: "#ffffff",
-    background: "linear-gradient(180deg, #f97316 0%, #ea580c 100%)",
+    background: "#0d9488",
     align: { desktop: "center" },
     width: { desktop: "100%" },
-    padding: { desktop: { top: 18, right: 36, bottom: 18, left: 36, unit: "px" } },
-    border: { width: 0, style: "solid", color: "#000000", radius: 14 },
+    padding: { desktop: { top: 16, right: 32, bottom: 16, left: 32, unit: "px" } },
+    border: { width: 0, style: "solid", color: "#000000", radius: 10 },
     margin: { desktop: { top: 8, right: 0, bottom: 0, left: 0, unit: "px" } },
-    boxShadow: "0 14px 36px -10px rgba(234, 88, 12, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.14) inset",
+    boxShadow: "0 12px 28px -14px rgba(13, 148, 136, 0.55)",
   };
   const typo = button.styles.typography;
   if (typo?.desktop) {
@@ -488,125 +641,23 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       gallery.columns[0].widgets = extraPhotos;
       sections.push(gallery);
     }
-  } else if (!white) {
-    const sourcePageTitle =
-      asString(content.sourcePageTitle) || asString(content.source_page_title);
-    const portalBrand = resolvePresellPortalBrandName({
-      productName: asString(content.productName) || asString(content.product_name),
-      contentTitle: asString(content.title),
-      sourcePageTitle,
-      pageTitle: asString(source.title) || title,
-    });
-    const portalLang = source.language || asString(content.language) || "en";
-    const headerTagline = resolvePortalHeaderTagline(content, portalBrand, portalLang);
-    const article = resolveHealthArticle({
-      content,
-      productName: portalBrand,
-      language: portalLang || "pt-BR",
-      salesText: asString(content.salesText),
-      ctaText: cta,
-    });
-    const ctaLabel = article.ctaLabel || cta || "Continuar";
-    const offerLink = offerForCtas;
-    const headerCtaHref = offerForCtas || (cookieType ? "#presell-offer-cta" : "");
-    const headerCtaLabel =
-      cookieType && !offerForCtas
-        ? getPresellUiStrings(portalLang).portalHeaderOffer
-        : ctaLabel;
-
-    const headerSec = createSection(1);
-    headerSec.layout = "full";
-    headerSec.contentWidth = 960;
-    headerSec.styles = {
-      ...headerSec.styles,
-      padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
-      background: "#0f172a",
-    };
-    headerSec.columns[0].widgets = [
-      portalHeaderWidget(portalBrand, headerTagline, headerCtaLabel, headerCtaHref),
-    ];
-    sections.push(headerSec);
-
-    const articleSec = createSection(1);
-    articleSec.layout = "full";
-    articleSec.contentWidth = 720;
-    articleSec.styles = {
-      ...articleSec.styles,
-      padding: { desktop: { top: 28, right: 28, bottom: 8, left: 28, unit: "px" } },
-      margin: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
-      background: "#ffffff",
-    };
-    const articleWidgets: WidgetNode[] = [
-      articleKicker(article.kicker),
-      articleTitle(article.headline),
-    ];
-    if (hero) articleWidgets.push(articleProductPhoto(hero, portalBrand, offerLink));
-    articleWidgets.push(articleCopy(articleBodyHtml(article)));
-    articleSec.columns[0].widgets = articleWidgets;
-    sections.push(articleSec);
-
-    if (videoUrl) {
-      const video = createWidget("video");
-      video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
-      const vidSec = createSection(1);
-      vidSec.contentWidth = 720;
-      vidSec.styles = {
-        ...vidSec.styles,
-        padding: { desktop: { top: 0, right: 28, bottom: 16, left: 28, unit: "px" } },
-        background: "#ffffff",
-      };
-      vidSec.columns[0].widgets = [video];
-      sections.push(vidSec);
-    }
-
-    if (offer) {
-      const ctaSec = createSection(1);
-      ctaSec.layout = "boxed";
-      ctaSec.contentWidth = 680;
-      ctaSec.styles = {
-        ...ctaSec.styles,
-        padding: { desktop: { top: 22, right: 24, bottom: 24, left: 24, unit: "px" } },
-        margin: { desktop: { top: 4, right: 20, bottom: 36, left: 20, unit: "px" } },
-        background: "#f8fafc",
-        border: { width: 1, style: "solid", color: "#e2e8f0", radius: 14 },
-      };
-      ctaSec.columns[0].widgets = [
-        portalCtaAnchor(),
-        portalCtaNote(article.productNote),
-        portalOfferButton(ctaLabel, offer),
-      ];
-      sections.push(ctaSec);
-    }
-
-    if (restImages.length) {
-      const galleryWidgets = restImages
-        .filter((src) => !isPresellDecorImage(src))
-        .slice(0, 1)
-        .map((src) => articleProductPhoto(src, portalBrand, offerLink));
-      const gallery = createSection(1);
-      gallery.contentWidth = 720;
-      gallery.styles = {
-        ...gallery.styles,
-        padding: { desktop: { top: 0, right: 28, bottom: 36, left: 28, unit: "px" } },
-        background: "#f8fafc",
-      };
-      if (galleryWidgets.length) {
-        gallery.columns[0].widgets = galleryWidgets;
-        sections.push(gallery);
-      }
-    }
   } else {
-    const stacked: WidgetNode[] = [];
-    if (hero) stacked.push(heroImageWidget(hero, alt, offerForCtas));
-    stacked.push(...copyWidgets, ...extraPhotos);
-    const section = createSection(1);
-    section.styles = {
-      ...section.styles,
-      padding: { desktop: { top: 28, right: 20, bottom: 48, left: 20, unit: "px" } },
-      background: "#ffffff",
-    };
-    section.columns[0].widgets = stacked;
-    if (stacked.length) sections.push(section);
+    // Black portal OU white sem espelho/fotos: artigo editorial profissional (nunca stack genérico).
+    pushEditorialArticleSections({
+      sections,
+      content,
+      title,
+      sourceTitle: asString(source.title) || title,
+      language: source.language,
+      cta,
+      offer,
+      offerForCtas,
+      cookieType,
+      hero,
+      restImages,
+      videoUrl,
+      mode: white ? "white" : "black",
+    });
   }
 
   /**

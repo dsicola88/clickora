@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isAffiliateTrustFooterEnabled } from "../lib/presellAffiliateTrustFooter";
 import type { PresellComplianceSignals } from "./types";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -183,6 +184,7 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
     asString(settings.businessName || content.business_name || content.businessName).trim() || null;
   const contactEmail =
     asString(settings.contactEmail || content.contact_email || content.contactEmail).trim() || null;
+  const showAffiliateTrustFooter = isAffiliateTrustFooterEnabled(settings);
 
   const claimsText = [salesText, subtitle, productName, ctaText, asString(content.social_proof)].join("\n");
   const bodyFromMirror = mirrorHtml ? stripHtml(mirrorHtml) : "";
@@ -237,6 +239,7 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
     uniqueSentenceCount,
     hasAffiliateDisclosure: AFFILIATE_DISCLOSURE.test(disclosureText),
     hasBusinessIdentity: Boolean(businessName || contactEmail) || BUSINESS_IDENTITY.test(disclosureText),
+    showAffiliateTrustFooter,
     businessName,
     contactEmail,
     privacyPolicyUrl,

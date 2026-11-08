@@ -83,6 +83,7 @@ import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
+import { isAffiliateTrustFooterEnabled } from "@/lib/presellAffiliateTrustFooter";
 import { PresellPlatformCredit } from "@/components/presell/PresellPlatformCredit";
 import { PresellTenantBrandChrome } from "@/components/presell/PresellTenantBrandChrome";
 import { presellComplianceLanguage } from "@/lib/presellPublicComplianceCopy";
@@ -1026,9 +1027,15 @@ export default function PublicPresell() {
     settings: settings as Record<string, unknown>,
     contentPolicyUrls,
   };
+  const showTrustFooter = isAffiliateTrustFooterEnabled(settings as Record<string, unknown>);
   const tenantBranding = readPublicTenantBranding(page);
   const tenantCssVars = tenantBrandingCssVars(tenantBranding);
-  const showPlatformCredit = shouldShowPlatformFooterBranding(page);
+  /** Leveza: crédito da plataforma só se o rodapé de afiliado também estiver ligado (menos chrome). */
+  const showPlatformCredit =
+    shouldShowPlatformFooterBranding(page) && showTrustFooter;
+  /** Artigo editorial: adia pintura abaixo da dobra. */
+  const lightArticleLayout =
+    page.type === "review" || page.type === "advertorial" || page.type === "tsl";
 
   const primarySeoLabel = getPresellSeoPrimaryTitle(page);
 
@@ -1187,7 +1194,11 @@ export default function PublicPresell() {
             }
           />
         </Suspense>
-        <PresellTrustFooter language={complianceLang} {...footerSettingsProps} />
+        {showTrustFooter ? (
+          <div style={lightArticleLayout ? { contentVisibility: "auto", containIntrinsicSize: "120px" } : undefined}>
+            <PresellTrustFooter language={complianceLang} {...footerSettingsProps} />
+          </div>
+        ) : null}
         {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
         {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </div>
@@ -1257,26 +1268,28 @@ export default function PublicPresell() {
             interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
           />
         </Suspense>
-        <PresellTrustFooter
-          language={complianceLang}
-          {...footerSettingsProps}
-          portalMode={generationNiche === "black"}
-          businessName={typeof settings.businessName === "string" ? settings.businessName : undefined}
-          operatorDocument={
-            typeof settings.operatorDocument === "string"
-              ? settings.operatorDocument
-              : typeof settings.cnpj === "string"
-                ? settings.cnpj
-                : undefined
-          }
-          supportEmail={
-            typeof settings.supportEmail === "string"
-              ? settings.supportEmail
-              : typeof settings.contactEmail === "string"
-                ? settings.contactEmail
-                : undefined
-          }
-        />
+        {showTrustFooter ? (
+          <PresellTrustFooter
+            language={complianceLang}
+            {...footerSettingsProps}
+            portalMode={generationNiche === "black"}
+            businessName={typeof settings.businessName === "string" ? settings.businessName : undefined}
+            operatorDocument={
+              typeof settings.operatorDocument === "string"
+                ? settings.operatorDocument
+                : typeof settings.cnpj === "string"
+                  ? settings.cnpj
+                  : undefined
+            }
+            supportEmail={
+              typeof settings.supportEmail === "string"
+                ? settings.supportEmail
+                : typeof settings.contactEmail === "string"
+                  ? settings.contactEmail
+                  : undefined
+            }
+          />
+        ) : null}
         {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
         {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </>
@@ -1976,29 +1989,31 @@ export default function PublicPresell() {
           </div>
         </section>
       ) : null}
-      <PresellTrustFooter
-        language={complianceLang}
-        {...footerSettingsProps}
-        businessName={
-          typeof settings.businessName === "string" ? settings.businessName : undefined
-        }
-        portalMode={useHealthArticleBody}
-        operatorDocument={
-          typeof settings.operatorDocument === "string"
-            ? settings.operatorDocument
-            : typeof settings.cnpj === "string"
-              ? settings.cnpj
-              : undefined
-        }
-        supportEmail={
-          typeof settings.supportEmail === "string"
-            ? settings.supportEmail
-            : typeof settings.contactEmail === "string"
-              ? settings.contactEmail
-              : undefined
-        }
-        tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
-      />
+      {showTrustFooter ? (
+        <PresellTrustFooter
+          language={complianceLang}
+          {...footerSettingsProps}
+          businessName={
+            typeof settings.businessName === "string" ? settings.businessName : undefined
+          }
+          portalMode={useHealthArticleBody}
+          operatorDocument={
+            typeof settings.operatorDocument === "string"
+              ? settings.operatorDocument
+              : typeof settings.cnpj === "string"
+                ? settings.cnpj
+                : undefined
+          }
+          supportEmail={
+            typeof settings.supportEmail === "string"
+              ? settings.supportEmail
+              : typeof settings.contactEmail === "string"
+                ? settings.contactEmail
+                : undefined
+          }
+          tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
+        />
+      ) : null}
       {tenantBranding ? <PresellTenantBrandChrome branding={tenantBranding} /> : null}
       {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
     </>

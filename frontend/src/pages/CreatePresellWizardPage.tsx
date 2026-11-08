@@ -93,6 +93,8 @@ export default function CreatePresellWizardPage() {
   const [businessName, setBusinessName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [operatorDocument, setOperatorDocument] = useState("");
+  /** Rodapé POLICIES — desligado por defeito (página limpa, como SuperPresell). */
+  const [showAffiliateTrustFooter, setShowAffiliateTrustFooter] = useState(false);
   const [offerUrl, setOfferUrl] = useState("");
   /** Página de vendas a clonar (visual). Se vazio, usa o hoplink. */
   const [productPageUrl, setProductPageUrl] = useState("");
@@ -103,6 +105,8 @@ export default function CreatePresellWizardPage() {
   const [generationNiche, setGenerationNiche] = useState<PresellGenerationNiche>("black");
   const [presellType, setPresellType] = useState("cookies");
   const [enableAbTest, setEnableAbTest] = useState(false);
+  /** Pacote landing (tsl) + review + advertorial — estilo SuperPresell. */
+  const [enableTriplePack, setEnableTriplePack] = useState(false);
   const [abTypeB, setAbTypeB] = useState("desconto");
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
   /** Tipo cookies: Aceitar → oferta (ligado por defeito em páginas novas). */
@@ -147,6 +151,15 @@ export default function CreatePresellWizardPage() {
     },
   });
 
+  const { data: aiQuota } = useQuery({
+    queryKey: ["presell-ai-quota"],
+    queryFn: async () => {
+      const { data } = await presellService.getAiQuota();
+      return data ?? null;
+    },
+    staleTime: 30_000,
+  });
+
   const saveCampaign = useMutation({
     mutationFn: async () => {
       const { data, error } = await campaignsService.create({
@@ -189,6 +202,16 @@ export default function CreatePresellWizardPage() {
           imported.error ||
             "Não foi possível ler a página do produto. Cole o URL público da sales page (não o checkout).",
         );
+      }
+
+      /** Hop afiliado → sales page: preenche o 2.º campo para white/espelho nas próximas criações. */
+      const resolvedSource = String(imported.data.source_url || "").trim();
+      if (
+        !productPageUrl.trim() &&
+        resolvedSource &&
+        resolvedSource.replace(/\/$/, "") !== offer.replace(/\/$/, "")
+      ) {
+        setProductPageUrl(resolvedSource);
       }
 
       const buildContent = (typeForPage: string) => {
@@ -277,9 +300,13 @@ export default function CreatePresellWizardPage() {
         (typeof user?.sale_notify_email === "string" && user.sale_notify_email.trim()) ||
         (typeof user?.email === "string" ? user.email.trim() : "") ||
         "";
-      if (generationNiche === "black" && (!operatorName || !operatorEmail)) {
+      if (
+        showAffiliateTrustFooter &&
+        generationNiche === "black" &&
+        (!operatorName || !operatorEmail)
+      ) {
         throw new Error(
-          "No nicho black (Google/Bing Ads), indique o seu nome real de afiliado/operador e um e-mail de contacto válidos — sem inventar CNPJ, marca nem e-mail.",
+          "Com o rodapé de políticas ligado, indique o seu nome real de afiliado/operador e um e-mail de contacto válidos — sem inventar CNPJ, marca nem e-mail.",
         );
       }
       const policyFromImport = imported.data?.policy_urls;
@@ -301,33 +328,48 @@ export default function CreatePresellWizardPage() {
         brandKit.supportEmail.trim() ||
         identityFromSource.contactEmail ||
         operatorEmail;
-      if (generationNiche === "white" && (!whiteBusinessName || !whiteContactEmail)) {
+      if (
+        showAffiliateTrustFooter &&
+        generationNiche === "white" &&
+        (!whiteBusinessName || !whiteContactEmail)
+      ) {
         throw new Error(
-          "No nicho white, indique um e-mail de contacto público (ou configure «Notificar vendas» no perfil). O nome pode ser o do produto ou o seu como afiliado.",
+          "Com o rodapé de políticas ligado, indique um e-mail de contacto público (ou configure «Notificar vendas» no perfil). O nome pode ser o do produto ou o seu como afiliado.",
         );
       }
-      // Black: identidade do afiliado. White: produto + contacto real (Google CT-002).
+      // Black: identidade do afiliado. White: produto + contacto real (quando o rodapé está ligado).
       const settingsBase =
         generationNiche === "black"
           ? {
               cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               termsUrl: "/termos",
-              businessName: operatorName,
-              contactEmail: operatorEmail,
-              ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
+              ...(showAffiliateTrustFooter
+                ? {
+                    businessName: operatorName,
+                    contactEmail: operatorEmail,
+                    ...(operatorDocument.trim() ? { operatorDocument: operatorDocument.trim() } : {}),
+                  }
+                : {}),
             }
           : {
               cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
               termsUrl: "/termos",
-              businessName: whiteBusinessName,
-              contactEmail: whiteContactEmail,
+              ...(showAffiliateTrustFooter
+                ? {
+                    businessName: whiteBusinessName,
+                    contactEmail: whiteContactEmail,
+                  }
+                : {}),
             };
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
           ...settingsBase,
-          affiliateDisclosure: defaultAffiliateDisclosureSetting(language),
+          showAffiliateTrustFooter,
+          ...(showAffiliateTrustFooter
+            ? { affiliateDisclosure: defaultAffiliateDisclosureSetting(language) }
+            : {}),
           minAge: minAge.trim() || "18",
           ...(type === "cookies" ? { cookieRedirectToOffer } : {}),
         },
@@ -388,10 +430,88 @@ export default function CreatePresellWizardPage() {
         );
       }
 
+      // Velocidade: enriquecer texto (review/advertorial/tsl) sem forçar se já for longo.
+      if (["review", "advertorial", "tsl", "dtc"].includes(type)) {
+        try {
+          await presellService.generateReviewCopy(pageALive.id, {
+            force: false,
+            angle:
+              type === "advertorial" ? "advertorial" : type === "tsl" || type === "dtc" ? "landing" : "review",
+          });
+        } catch {
+          /* não bloqueia a criação */
+        }
+      }
+
       let pageB: typeof pageA | null = null;
       let rotatorUrl: string | null = null;
+      let triplePackNote: string | null = null;
 
-      if (enableAbTest && pubA.published) {
+      if (enableTriplePack) {
+        setGenPhase("ab");
+        const { data: pack, error: packErr } = await presellService.spawnVariantPack(pageALive.id, {
+          create_rotator: true,
+        });
+        if (packErr || !pack) {
+          toast.warning(packErr || "Pacote 3 variantes não criado — a página base ficou ok.");
+        } else {
+          triplePackNote = `Pacote ${pack.source}: ${pack.pages.landing.slug} · ${pack.pages.review.slug} · ${pack.pages.advertorial.slug}`;
+          toast.success(triplePackNote, { duration: 9000 });
+
+          // Publicar irmãs se ainda em rascunho + rotador 33/33/34 (URL única para o anúncio).
+          const packPages = [pack.pages.landing, pack.pages.review, pack.pages.advertorial];
+          for (const p of packPages) {
+            if (p.status !== "published") {
+              await presellService.update(p.id, { status: "published" } as never);
+            }
+          }
+          if (pubA.published) {
+            setGenPhase("rotator");
+            const loaded = await Promise.all(
+              packPages.map(async (p) => {
+                const { data } = await presellService.getById(p.id);
+                return data;
+              }),
+            );
+            const byId = new Map(loaded.filter(Boolean).map((p) => [p!.id, p!] as const));
+            const armFor = (
+              p: { id: string },
+              label: string,
+              order: number,
+              weight: number,
+            ) => {
+              const full = byId.get(p.id) || pageALive;
+              const url = getPublicPresellFullUrl(
+                customDomains,
+                full.custom_domain_id ?? pageALive.custom_domain_id ?? null,
+                full,
+              );
+              return { destination_url: url, label, order_index: order, weight };
+            };
+            const rotSlug = `pack-${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-5)}`;
+            const { data: rotator, error: rotErr } = await trafficRotatorsService.create({
+              name: `3 variantes · ${titleSeed}`.slice(0, 120),
+              slug: rotSlug,
+              mode: "weighted",
+              context_presell_id: pageALive.id,
+              is_active: true,
+              sticky_session: true,
+              arms: [
+                armFor(pack.pages.landing, "Landing · TSL", 0, 33),
+                armFor(pack.pages.review, "Review", 1, 33),
+                armFor(pack.pages.advertorial, "Advertorial", 2, 34),
+              ],
+            });
+            if (!rotErr && rotator?.public_click_url) {
+              rotatorUrl = rotator.public_click_url;
+            } else if (rotErr) {
+              toast.warning(`Variantes ok; rotador: ${rotErr}`);
+            }
+          }
+        }
+      }
+
+      if (enableAbTest && !enableTriplePack && pubA.published) {
         setGenPhase("ab");
         const typeB = abTypeB === type ? defaultAbPresellTypeB(type, generationNiche) : abTypeB;
         const b = buildContent(typeB);
@@ -520,13 +640,21 @@ export default function CreatePresellWizardPage() {
       void qc.invalidateQueries({ queryKey: ["campaigns"] });
       void qc.invalidateQueries({ queryKey: ["traffic-rotators"] });
       setStep(4);
-      const wantedAb = enableAbTest;
-      if (wantedAb && !rotatorUrl) {
+      const wantedAb = enableAbTest && !enableTriplePack;
+      const wantedPack = enableTriplePack;
+      if (wantedPack && !rotatorUrl && mirrorOk) {
+        toast.warning(
+          "Pacote 3 variantes criado, mas o rotador 33/33/34 falhou. Use as 3 páginas em Presells → Rotadores, ou volte a gerar o pacote.",
+          { duration: 10000 },
+        );
+      } else if (wantedPack && rotatorUrl) {
+        toast.success("Pacote 3 variantes + rotador 33/33/34 prontos — use o URL do rotador no anúncio.");
+      } else if (wantedAb && !rotatorUrl) {
         toast.error(
           "A/B pedido mas o rotador não foi criado (variante B ou publicação falhou). Use o URL único só depois de corrigir, ou desactive A/B.",
           { duration: 10000 },
         );
-      } else if (rotatorUrl) {
+      } else if (wantedAb && rotatorUrl) {
         toast.success("A/B criado: 2 landers + rotador 50/50");
       } else if (mirrorOk) {
         toast.success(
@@ -565,7 +693,13 @@ export default function CreatePresellWizardPage() {
     if (!tracked) return;
     await navigator.clipboard.writeText(tracked);
     setCopied(true);
-    toast.success(rotatorAdUrl ? "URL do rotador A/B copiada" : "URL do anúncio copiada");
+    toast.success(
+      rotatorAdUrl
+        ? enableTriplePack
+          ? "URL do rotador 33/33/34 copiada"
+          : "URL do rotador A/B copiada"
+        : "URL do anúncio copiada",
+    );
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -583,14 +717,20 @@ export default function CreatePresellWizardPage() {
       : genPhase === "publish"
         ? "A publicar…"
         : genPhase === "ab"
-          ? "A criar variante B…"
+          ? enableTriplePack
+            ? "A criar 3 variantes…"
+            : "A criar variante B…"
           : genPhase === "rotator"
-            ? "A criar rotador A/B…"
+            ? enableTriplePack
+              ? "A criar rotador 33/33/34…"
+              : "A criar rotador A/B…"
             : createPresell.isPending
               ? "A gerar…"
-              : enableAbTest
-                ? "Gerar A/B e publicar"
-                : "Gerar e publicar";
+              : enableTriplePack
+                ? "Gerar 3 variantes e publicar"
+                : enableAbTest
+                  ? "Gerar A/B e publicar"
+                  : "Gerar e publicar";
 
   return (
     <div className={cn(APP_PAGE_SHELL, "max-w-2xl")}>
@@ -819,6 +959,35 @@ export default function CreatePresellWizardPage() {
           <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div>
+                <p className="text-sm font-medium">Pacote 3 variantes (landing + review + advertorial)</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Cria 3 landers com textos distintos, publica e monta rotador 33/33/34 — uma URL para o
+                  anúncio. Consome 1 crédito IA neste mês se a OpenAI estiver activa (senão usa texto
+                  editorial seguro sem gastar quota).
+                </p>
+                {aiQuota ? (
+                  <p className="text-[11px] text-muted-foreground mt-1.5 tabular-nums">
+                    Quota IA: {aiQuota.used}
+                    {aiQuota.limit == null ? "" : ` / ${aiQuota.limit}`}
+                    {aiQuota.remaining != null ? ` · restam ${aiQuota.remaining}` : " · sem limite"}
+                    {aiQuota.openai_configured
+                      ? " · OpenAI activa"
+                      : " · OpenAI off (determinístico)"}
+                    {" · planos: 8 / 40 / 120 gerações/mês"}
+                  </p>
+                ) : null}
+              </div>
+              <Switch
+                checked={enableTriplePack}
+                onCheckedChange={(v) => {
+                  setEnableTriplePack(v);
+                  if (v) setEnableAbTest(false);
+                }}
+                aria-label="Pacote de 3 variantes"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-border/40 pt-3">
+              <div>
                 <p className="text-sm font-medium">Teste A/B (2 landers + rotador)</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Cria variante B com outro tipo, mesmo espelho/hoplink, e um rotador 50/50. Use o URL do
@@ -827,9 +996,13 @@ export default function CreatePresellWizardPage() {
               </div>
               <Switch
                 checked={enableAbTest}
+                disabled={enableTriplePack}
                 onCheckedChange={(v) => {
                   setEnableAbTest(v);
-                  if (v) setAbTypeB(defaultAbPresellTypeB(presellType, generationNiche));
+                  if (v) {
+                    setEnableTriplePack(false);
+                    setAbTypeB(defaultAbPresellTypeB(presellType, generationNiche));
+                  }
                 }}
               />
             </div>
@@ -845,72 +1018,88 @@ export default function CreatePresellWizardPage() {
             ) : null}
           </div>
 
-          {generationNiche === "black" ? (
-            <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
-              <p className="text-sm font-medium text-foreground">
-                Identidade do operador (obrigatório para Google Ads)
-              </p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Use apenas dados verdadeiros do afiliado intermediário — não se passe pelo fabricante. Não invente
-                CNPJ, marca nem e-mail: a analista do Google bloqueia informação fictícia no rodapé e nas políticas.
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="bizName">Nome do responsável / empresa</Label>
-                <Input
-                  id="bizName"
-                  placeholder={user?.name || "O seu nome ou razão social"}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                />
+          <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  Rodapé de políticas / identidade do afiliado
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Desligado: página limpa, sem o bloco POLICIES no fundo (como SuperPresell e apps semelhantes).
+                  Ligado: mostra divulgação, contacto e políticas no rodapé — útil se a revisão do Google pedir
+                  transparência.
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="bizEmail">E-mail de contacto público</Label>
-                <Input
-                  id="bizEmail"
-                  type="email"
-                  placeholder={user?.email || "voce@dominio.com"}
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bizDoc">CNPJ / CPF / NIF (opcional — só se for real)</Label>
-                <Input
-                  id="bizDoc"
-                  placeholder="Deixe vazio se ainda não tiver"
-                  value={operatorDocument}
-                  onChange={(e) => setOperatorDocument(e.target.value)}
-                />
-              </div>
+              <Switch
+                checked={showAffiliateTrustFooter}
+                onCheckedChange={setShowAffiliateTrustFooter}
+                aria-label="Mostrar rodapé de políticas e identidade"
+              />
             </div>
-          ) : (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
-              <p className="text-sm font-medium text-foreground">Contacto público (nicho white)</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                O espelho copia a oferta, mas o Google exige um responsável e e-mail real no rodapé. Usamos o nome
-                do produto e o seu e-mail da conta (pode alterar abaixo). Sem isto a página fica em rascunho.
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="whiteBizName">Nome no rodapé (produto ou operador)</Label>
-                <Input
-                  id="whiteBizName"
-                  placeholder={campaignName.trim() || "Nome do produto"}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="whiteBizEmail">E-mail de contacto público</Label>
-                <Input
-                  id="whiteBizEmail"
-                  type="email"
-                  placeholder={user?.email || "voce@dominio.com"}
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
+            {showAffiliateTrustFooter ? (
+              generationNiche === "black" ? (
+                <div className="space-y-3 border-t border-border/50 pt-3">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Use apenas dados verdadeiros do afiliado — não se passe pelo fabricante. Não invente CNPJ, marca
+                    nem e-mail.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="bizName">Nome do responsável / empresa</Label>
+                    <Input
+                      id="bizName"
+                      placeholder={user?.name || "O seu nome ou razão social"}
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bizEmail">E-mail de contacto público</Label>
+                    <Input
+                      id="bizEmail"
+                      type="email"
+                      placeholder={user?.email || "voce@dominio.com"}
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bizDoc">CNPJ / CPF / NIF (opcional — só se for real)</Label>
+                    <Input
+                      id="bizDoc"
+                      placeholder="Deixe vazio se ainda não tiver"
+                      value={operatorDocument}
+                      onChange={(e) => setOperatorDocument(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 border-t border-border/50 pt-3">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Nome e e-mail reais no rodapé. Sem inventar dados.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="whiteBizName">Nome no rodapé (produto ou operador)</Label>
+                    <Input
+                      id="whiteBizName"
+                      placeholder={campaignName.trim() || "Nome do produto"}
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="whiteBizEmail">E-mail de contacto público</Label>
+                    <Input
+                      id="whiteBizEmail"
+                      type="email"
+                      placeholder={user?.email || "voce@dominio.com"}
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )
+            ) : null}
+          </div>
 
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Opções do tipo</p>

@@ -28,6 +28,8 @@ export function buildEliteQualityBar(input: {
   productImagesCount?: number;
   hasAffiliateDisclosure?: boolean;
   brandKitName?: string | null;
+  /** false = página limpa sem rodapé POLICIES — identidade deixa de ser hard-fail. */
+  showAffiliateTrustFooter?: boolean;
 }): { items: EliteQualityItem[]; score: number; ready: boolean } {
   const publish = buildPublishReadinessFromPresell({
     status: input.status,
@@ -40,21 +42,32 @@ export function buildEliteQualityBar(input: {
   const name = (input.businessName || input.brandKitName || "").trim();
   const email = (input.contactEmail || "").trim();
   const imgs = input.productImagesCount ?? 0;
+  const trustFooterOn = input.showAffiliateTrustFooter !== false;
 
   const nicheItems: EliteQualityItem[] =
     input.niche === "black"
       ? [
           {
             id: "identity",
-            label: "Identidade do afiliado (nome + email)",
-            ok: name.length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-            hint: "Obrigatório em black / Google Ads — sem inventar marca.",
+            label: trustFooterOn
+              ? "Identidade do afiliado (nome + email)"
+              : "Identidade do afiliado (opcional — rodapé desligado)",
+            ok: trustFooterOn
+              ? name.length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+              : true,
+            hint: trustFooterOn
+              ? "Obrigatório com o rodapé ligado — sem inventar marca."
+              : "Rodapé de políticas desligado: página limpa.",
           },
           {
             id: "disclosure",
-            label: "Divulgação de afiliado",
-            ok: input.hasAffiliateDisclosure !== false,
-            hint: "Disclosure no topo / settings.",
+            label: trustFooterOn
+              ? "Divulgação de afiliado"
+              : "Divulgação de afiliado (opcional — rodapé desligado)",
+            ok: trustFooterOn ? input.hasAffiliateDisclosure !== false : true,
+            hint: trustFooterOn
+              ? "Disclosure no rodapé / settings."
+              : "Rodapé desligado: divulgação no bloco POLICIES não é exigida.",
           },
           {
             id: "assets",
@@ -66,9 +79,13 @@ export function buildEliteQualityBar(input: {
       : [
           {
             id: "contact",
-            label: "Contacto público (email)",
-            ok: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-            hint: "White: email real de suporte / operador.",
+            label: trustFooterOn
+              ? "Contacto público (email)"
+              : "Contacto público (opcional — rodapé desligado)",
+            ok: trustFooterOn ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) : true,
+            hint: trustFooterOn
+              ? "White: email real de suporte / operador."
+              : "Rodapé desligado: contacto no rodapé não é exigido.",
           },
           {
             id: "mirror_or_assets",
@@ -78,6 +95,14 @@ export function buildEliteQualityBar(input: {
           },
         ];
 
+  const mirrorLen = (input.mirrorHtml || "").length;
+  const structureOk =
+    input.niche === "black"
+      ? imgs >= 1 || mirrorLen > 400 || Boolean(name)
+      : mirrorLen > 400 || imgs >= 1 || Boolean((input.affiliateLink || "").trim());
+  /** Página leve Ads: rodapé off OU espelho controlado (&lt; 1.2MB) — alinhado a LCP. */
+  const perfLiteOk = !trustFooterOn || mirrorLen === 0 || mirrorLen < 1_200_000;
+
   const items: EliteQualityItem[] = [
     ...publish.map((p: PublishReadinessItem) => ({
       id: p.id,
@@ -86,6 +111,20 @@ export function buildEliteQualityBar(input: {
       hint: p.hint,
     })),
     ...nicheItems,
+    {
+      id: "structure",
+      label: "Estrutura profissional (hero/artigo ou espelho)",
+      ok: structureOk,
+      hint: "White: espelho ou assets; black: portal com marca/fotos.",
+    },
+    {
+      id: "perf_lite",
+      label: "Peso leve (LCP)",
+      ok: perfLiteOk,
+      hint: trustFooterOn
+        ? "Espelho muito grande atrasa LCP — exporte HTML ou desligue chrome extra."
+        : "Rodapé limpo: página mais leve para Ads.",
+    },
   ];
 
   const okCount = items.filter((i) => i.ok).length;

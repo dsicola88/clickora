@@ -266,6 +266,8 @@ export interface AdminPlanRow {
   max_presell_pages: number | null;
   max_clicks_per_month: number | null;
   max_custom_domains: number;
+  /** Gerações LLM de review/presell por mês (efectivo após fallback por tipo). */
+  max_presell_ai_generations?: number;
   has_branding: boolean;
   affiliate_webhook_enabled?: boolean;
   /** Anúncios pagos (campo API: nome histórico `dpilot_*`). */

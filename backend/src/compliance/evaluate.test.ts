@@ -107,6 +107,21 @@ describe("presell compliance engine", () => {
     assert.equal(result("OC-003", ev).status, "WARNING");
   });
 
+  it("4a. rodapé de afiliado desligado: CT-001/CT-002 passam e não bloqueiam publicação", () => {
+    const signals = baseSignals({
+      showAffiliateTrustFooter: false,
+      hasAffiliateDisclosure: false,
+      businessName: null,
+      contactEmail: null,
+      hasBusinessIdentity: false,
+      affiliateLink: "https://offer.example.com",
+    });
+    const ev = evaluateCompliance({ signals, destination: destOk() });
+    assert.equal(result("CT-001", ev).status, "PASS");
+    assert.equal(result("CT-002", ev).status, "PASS");
+    assert.equal(canPublishForAds(ev.gate), true, `gate=${ev.gate}`);
+  });
+
   it("4. missing affiliate disclosure FAILs CT-001 (bloqueia publicação)", () => {
     const signals = baseSignals({ hasAffiliateDisclosure: false, affiliateLink: "https://offer.example.com" });
     const ev = evaluateCompliance({ signals, destination: destOk() });

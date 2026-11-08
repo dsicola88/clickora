@@ -89,6 +89,8 @@ export const EXPORT_COMPLIANCE_STYLES = `
 .pe-trust-merchant-nav{display:flex;flex-wrap:wrap;gap:.5rem .85rem;font-size:.75rem;font-weight:600;}
 .pe-trust-merchant-nav a{color:#334155;text-decoration:underline;text-underline-offset:2px;}
 .pe-mirror-note{max-width:64rem;margin:0 auto;padding:.65rem 1rem;font-size:.72rem;line-height:1.45;color:#475569;background:#f1f5f9;border-bottom:1px solid #e2e8f0;text-align:center;}
+.pe-article-below,.pe-trust-footer{content-visibility:auto;contain-intrinsic-size:1px 420px;}
+.pe-hero img{content-visibility:auto;}
 `;
 
 export function buildMirrorReferenceNoticeExportHtml(language: string | undefined): string {

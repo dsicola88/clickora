@@ -63,6 +63,12 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
           "Análise independente. Todos os botões e CTAs levam o hoplink rastreado. Rodapé só no nível legal (políticas + aviso), sem chrome da rede.",
       },
       {
+        id: "advertorial",
+        name: "Advertorial",
+        description:
+          "Artigo estilo jornal/blog com CTA rastreado. Útil para testar ângulo editorial vs review clássica (pacote de 3 variantes).",
+      },
+      {
         id: "desconto",
         name: "Desconto + urgência",
         description:

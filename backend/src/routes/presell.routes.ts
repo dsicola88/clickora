@@ -7,7 +7,8 @@ import { enforceApiKeyHttpScope } from "../middleware/requireApiKeyScope";
 import { tenantIsolation } from "../middleware/tenantIsolation";
 import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 import { presellBuilderMediaUpload } from "../lib/presellBuilderMediaUpload";
-import { complianceAuditLimiter } from "../middleware/rateLimiters";
+import { complianceAuditLimiter, presellAiGenerateLimiter } from "../middleware/rateLimiters";
+import { presellAiController } from "../controllers/presellAi.controller";
 
 export const presellRouter = Router();
 
@@ -34,6 +35,7 @@ function handleBuilderMediaUpload(req: Request, res: Response, next: NextFunctio
 presellRouter.get("/", presellController.getAll);
 presellRouter.get("/count", presellController.getCount);
 presellRouter.get("/compliance/rules", presellComplianceController.getRules);
+presellRouter.get("/ai/quota", presellAiController.getQuota);
 presellRouter.post("/import-from-url", presellController.importFromUrl);
 presellRouter.post(
   "/builder-media",
@@ -47,6 +49,21 @@ presellRouter.post(
   presellComplianceController.runAudit,
 );
 presellRouter.post("/:id/compliance/decisions", presellComplianceController.decide);
+presellRouter.post(
+  "/:id/generate-review-copy",
+  presellAiGenerateLimiter,
+  presellAiController.generateReviewCopy,
+);
+presellRouter.post(
+  "/:id/analyze-disapproval",
+  complianceAuditLimiter,
+  presellAiController.analyzeDisapproval,
+);
+presellRouter.post(
+  "/:id/spawn-variant-pack",
+  presellAiGenerateLimiter,
+  presellAiController.spawnVariantPack,
+);
 presellRouter.get("/:id", presellController.getById);
 presellRouter.post("/", presellController.create);
 presellRouter.put("/:id", presellController.update);

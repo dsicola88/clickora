@@ -44,6 +44,41 @@ describe("buildEditablePageDocument", () => {
     expect(doc.seo?.ogImage).toBe("https://cdn.example/pack.jpg");
   });
 
+  it("white sem espelho nem fotos: artigo editorial (não stack genérico)", () => {
+    const doc = buildEditablePageDocument({
+      title: "Neotonics",
+      type: "review",
+      language: "pt-BR",
+      content: {
+        title: "Neotonics",
+        productName: "Neotonics",
+        salesText: "Texto de apoio.",
+        ctaText: "Continuar para a página oficial da oferta",
+        affiliateLink: "https://mwebkivo.com/1/",
+        generationNiche: "white",
+        articleKicker: "Página de decisão",
+        articleHeadline: "Neotonics: o que confirmar antes de comprar",
+        articleIntro: "Afiliado independente.",
+        articlePillarsTitle: "Checklist",
+        articlePillars: [
+          { title: "Identidade", body: "Confirme o vendedor." },
+          { title: "Preço", body: "Só no checkout." },
+          { title: "Pagamento", body: "HTTPS." },
+        ],
+        articleProductNote: "Podemos receber comissão.",
+        articleCtaLabel: "Continuar para a página oficial da oferta",
+      },
+    });
+    const header = String(doc.sections[0].columns[0].widgets[0].content.code);
+    expect(header).toContain("Página do produto");
+    expect(header).toContain("Neotonics");
+    expect(header).not.toContain("Portal editorial");
+    const articleTypes = doc.sections[1].columns[0].widgets.map((w) => w.type);
+    expect(articleTypes[0]).toBe("heading");
+    expect(articleTypes[1]).toBe("heading");
+    expect(String(doc.sections[1].columns[0].widgets[1].content.text)).toContain("Neotonics");
+  });
+
   it("black: header mostra marca SEO em vez de código PV", () => {
     const doc = buildEditablePageDocument({
       title: "Campanha PV",

@@ -25,6 +25,9 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
   const [maxPages, setMaxPages] = useState(plan.max_presell_pages != null ? String(plan.max_presell_pages) : "");
   const [maxClicks, setMaxClicks] = useState(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
   const [maxCustomDomains, setMaxCustomDomains] = useState(String(plan.max_custom_domains ?? 0));
+  const [maxPresellAi, setMaxPresellAi] = useState(
+    plan.max_presell_ai_generations != null ? String(plan.max_presell_ai_generations) : "",
+  );
   const [hasBranding, setHasBranding] = useState(plan.has_branding);
   const [affiliateWebhook, setAffiliateWebhook] = useState(plan.affiliate_webhook_enabled ?? false);
   const [dpilotAds, setDpilotAds] = useState(plan.dpilot_ads_enabled ?? false);
@@ -38,6 +41,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setMaxPages(plan.max_presell_pages != null ? String(plan.max_presell_pages) : "");
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
     setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
+    setMaxPresellAi(plan.max_presell_ai_generations != null ? String(plan.max_presell_ai_generations) : "");
     setHasBranding(plan.has_branding);
     setAffiliateWebhook(plan.affiliate_webhook_enabled ?? false);
     setDpilotAds(plan.dpilot_ads_enabled ?? false);
@@ -51,6 +55,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setMaxPages(plan.max_presell_pages != null ? String(plan.max_presell_pages) : "");
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
     setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
+    setMaxPresellAi(plan.max_presell_ai_generations != null ? String(plan.max_presell_ai_generations) : "");
     setHasBranding(plan.has_branding);
     setAffiliateWebhook(plan.affiliate_webhook_enabled ?? false);
     setDpilotAds(plan.dpilot_ads_enabled ?? false);
@@ -88,6 +93,15 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
       toast.error("Máx. domínios personalizados: número entre 0 e 50");
       return;
     }
+    let max_presell_ai_generations: number | null = null;
+    if (maxPresellAi.trim() !== "") {
+      const n = parseInt(maxPresellAi, 10);
+      if (Number.isNaN(n) || n < 0 || n > 10_000) {
+        toast.error("Máx. gerações IA: número entre 0 e 10000 (vazio = padrão do tipo)");
+        return;
+      }
+      max_presell_ai_generations = n;
+    }
 
     const features = featuresText
       .split("\n")
@@ -110,6 +124,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
         max_presell_pages,
         max_clicks_per_month,
         max_custom_domains: mcd,
+        max_presell_ai_generations,
         has_branding: hasBranding,
         affiliate_webhook_enabled: affiliateWebhook,
         dpilot_ads_enabled: dpilotAds,
@@ -179,7 +194,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               Mudar páginas, cliques, domínios ou interruptores aplica-se logo a quem já tem este plano. O que já foi criado não é apagado.
             </p>
           </div>
-          <div className="space-y-1.5 sm:col-span-2">
+          <div className="space-y-1.5">
             <Label htmlFor={`mcd-${plan.id}`}>Máx. domínios próprios</Label>
             <Input
               id={`mcd-${plan.id}`}
@@ -187,6 +202,23 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               value={maxCustomDomains}
               onChange={(e) => setMaxCustomDomains(e.target.value)}
             />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              0 = sem domínio próprio. Aplica-se de imediato ao adicionar domínios (não apaga os já criados).
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`mai-${plan.id}`}>Máx. gerações IA review / mês</Label>
+            <Input
+              id={`mai-${plan.id}`}
+              inputMode="numeric"
+              placeholder="Padrão do tipo (8 / 40 / 120)"
+              value={maxPresellAi}
+              onChange={(e) => setMaxPresellAi(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Só conta OpenAI aplicada (não preview nem texto determinístico). Vazio = padrão do tipo; 0 = só
+              determinístico. Pacote 3 variantes = 1 crédito.
+            </p>
           </div>
         </div>
         <div className="space-y-1.5">

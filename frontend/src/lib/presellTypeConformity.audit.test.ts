@@ -37,7 +37,16 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
     for (const id of WHITE_TYPES) {
       expect(isPresellTypeAllowedForNiche(id, "white")).toBe(true);
     }
-    expect(WHITE_TYPES).toEqual(["cookies", "tsl", "dtc", "review", "desconto", "vsl", "vsl_tsl"]);
+    expect(WHITE_TYPES).toEqual([
+      "cookies",
+      "tsl",
+      "dtc",
+      "review",
+      "advertorial",
+      "desconto",
+      "vsl",
+      "vsl_tsl",
+    ]);
   });
 
   for (const type of WHITE_TYPES) {

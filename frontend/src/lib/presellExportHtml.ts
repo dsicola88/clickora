@@ -37,6 +37,7 @@ import { presellImageDisplayCandidates } from "@/lib/presellImageDisplay";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
 import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
+import { isAffiliateTrustFooterEnabled } from "@/lib/presellAffiliateTrustFooter";
 import {
   buildTrustFooterExportHtml,
   EXPORT_COMPLIANCE_STYLES,
@@ -500,6 +501,9 @@ function injectPresellComplianceShell(html: string, page: Presell): string {
   if (isGhostPresellType(page.type)) {
     return html;
   }
+  if (!isAffiliateTrustFooterEnabled(settings)) {
+    return html;
+  }
   const trust = buildTrustFooterExportHtml(page.language, settings, content);
   return html.replace("</body>", `${trust}\n</body>`);
 }
@@ -779,9 +783,10 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
         }${tenantName ? `<span data-testid="tenant-brand-name">${escapeHtml(tenantName)}</span>` : ""}</div>`
       : "";
   const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}${tenantChrome}</div></section>`;
-  const trustFooter = isGhost
-    ? ""
-    : buildTrustFooterExportHtml(page.language, settings, content);
+  const trustFooter =
+    isGhost || !isAffiliateTrustFooterEnabled(settings)
+      ? ""
+      : buildTrustFooterExportHtml(page.language, settings, content);
   const tenantRootStyle = [
     tenantPrimary ? `--tenant-primary:${tenantPrimary};--tenant-primary-fg:#FFFFFF` : "",
     tenantAccent ? `--tenant-accent:${tenantAccent}` : "",

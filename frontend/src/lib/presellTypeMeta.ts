@@ -7,7 +7,7 @@
  * | desconto    | Faixa de urgência + modal. CTA, fechar e o fundo vão para a oferta rastreada. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
  * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |
- * | tsl, dtc, review | Sem espelho: layout React (hero/texto). Com espelho: iframe 1:1 + chrome fino do tipo (selo + CTA); overlays/gates mantêm-se. |
+ * | tsl, dtc, review, advertorial | Sem espelho: layout React (hero/texto). Com espelho: iframe 1:1 + chrome fino do tipo (selo + CTA); overlays/gates mantêm-se. |
  * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação antes do CTA; com espelho HTML o formulário fica fixo no topo e os cliques no clone ficam bloqueados até validar. |
  * | builder     | Editor visual; se existir espelho importado (`importMirrorSrcDoc`), usa-se o espelho com as regras abaixo. |
  */
@@ -18,6 +18,7 @@ export function isMirrorChromePresellType(presellType: string): boolean {
     presellType === "tsl" ||
     presellType === "dtc" ||
     presellType === "review" ||
+    presellType === "advertorial" ||
     presellType === "vsl" ||
     presellType === "vsl_tsl"
   );
@@ -82,8 +83,12 @@ export function isBuilderPresellType(presellType: string): boolean {
 
 /** Review / análise: CTAs levam sempre o hoplink rastreado; o rodapé fica no nível legal da origem. */
 export function isReviewPresellType(presellType: string): boolean {
-  return presellType === "review";
+  return presellType === "review" || presellType === "advertorial";
 }
+
+/** Pacote SuperPresell-like: landing (tsl) + review + advertorial. */
+export const PRESELL_TRIPLE_PACK_TYPES = ["tsl", "review", "advertorial"] as const;
+export type PresellTriplePackType = (typeof PRESELL_TRIPLE_PACK_TYPES)[number];
 
 /** Formulário simples ou combinado antes do CTA. */
 export type CoreInteractivePresellGateKind = Exclude<PresellGateKind, "none" | "cookies">;

@@ -33,4 +33,22 @@ describe("buildEliteQualityBar", () => {
     expect(r.items.find((i) => i.id === "identity")?.ok).toBe(true);
     expect(r.score).toBeGreaterThanOrEqual(85);
   });
+
+  it("black com rodapé desligado não hard-fail por identidade", () => {
+    const r = buildEliteQualityBar({
+      niche: "black",
+      affiliateLink: "https://mwebkivo.com/1/",
+      mirrorHtml: '<a href="/api/track/r/x">Buy</a>',
+      status: "published",
+      publicUrl: "https://x.com/p",
+      businessName: "",
+      contactEmail: "",
+      productImagesCount: 3,
+      hasAffiliateDisclosure: false,
+      showAffiliateTrustFooter: false,
+    });
+    expect(r.items.find((i) => i.id === "identity")?.ok).toBe(true);
+    expect(r.items.find((i) => i.id === "disclosure")?.ok).toBe(true);
+    expect(r.ready).toBe(true);
+  });
 });

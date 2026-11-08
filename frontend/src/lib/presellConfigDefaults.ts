@@ -54,6 +54,11 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
    * false / ausente = só desbloqueia a review (comportamento das páginas antigas).
    */
   cookieRedirectToOffer: false,
+  /**
+   * Rodapé POLICIES / identidade do afiliado na página pública.
+   * Novas páginas: false (página limpa). Páginas antigas sem chave: hydrate → true.
+   */
+  showAffiliateTrustFooter: false,
 };
 
 /**
@@ -95,6 +100,14 @@ export function hydratePresellConfigSettings(
     cookiePolicyUrl: String(s.cookiePolicyUrl ?? ""),
     affiliateDisclosure: String(s.affiliateDisclosure ?? ""),
     cookieRedirectToOffer: Boolean(s.cookieRedirectToOffer),
+    showAffiliateTrustFooter: Object.prototype.hasOwnProperty.call(s, "showAffiliateTrustFooter")
+      ? !(
+          s.showAffiliateTrustFooter === false ||
+          s.showAffiliateTrustFooter === 0 ||
+          s.showAffiliateTrustFooter === "false" ||
+          s.showAffiliateTrustFooter === "0"
+        )
+      : true,
     ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
       ? { operatorDocument: s.operatorDocument }
       : {}),

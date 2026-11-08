@@ -39,3 +39,17 @@ export const complianceAuditLimiter = rateLimit({
   validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
   message: { error: "Demasiadas auditorias. Tente novamente dentro de alguns minutos." },
 });
+
+/** Geração IA de review de presell — por conta (além da quota mensal). */
+export const presellAiGenerateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const u = req.user;
+    return u?.tenantUserId || u?.userId || req.ip || "anon";
+  },
+  validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+  message: { error: "Demasiadas gerações de review. Tente novamente dentro de alguns minutos." },
+});

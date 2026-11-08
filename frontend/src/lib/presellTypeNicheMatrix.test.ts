@@ -31,6 +31,7 @@ describe("matriz tipo × nicho", () => {
       "tsl",
       "dtc",
       "review",
+      "advertorial",
       "desconto",
       "vsl",
       "vsl_tsl",

@@ -105,6 +105,8 @@ export type PresellComplianceSignals = {
   uniqueSentenceCount: number;
   hasAffiliateDisclosure: boolean;
   hasBusinessIdentity: boolean;
+  /** false = afiliado desligou o rodapé POLICIES (página limpa, estilo SuperPresell). */
+  showAffiliateTrustFooter: boolean;
   businessName: string | null;
   contactEmail: string | null;
   privacyPolicyUrl: string | null;

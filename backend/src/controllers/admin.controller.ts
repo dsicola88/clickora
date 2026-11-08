@@ -4,6 +4,7 @@ import { Prisma, type AppRole, type PlanType, type SubscriptionStatus } from "@p
 import { z } from "zod";
 import { prismaAdmin } from "../lib/prisma";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import { effectiveMaxPresellAiGenerationsFromPlan } from "../lib/presellAiQuota";
 import {
   freeTextEmbedsNumericQuota,
   NUMERIC_QUOTA_IN_FREE_TEXT,
@@ -25,6 +26,8 @@ const updatePlanSchema = z.object({
   max_presell_pages: z.number().int().min(0).nullable().optional(),
   max_clicks_per_month: z.number().int().min(0).nullable().optional(),
   max_custom_domains: z.number().int().min(0).max(50).optional(),
+  /** Null = fallback por tipo de plano; 0 = sem gerações LLM. */
+  max_presell_ai_generations: z.number().int().min(0).max(10_000).nullable().optional(),
   has_branding: z.boolean().optional(),
   affiliate_webhook_enabled: z.boolean().optional(),
   dpilot_ads_enabled: z.boolean().optional(),
@@ -151,6 +154,14 @@ export const adminController = {
             "maxCustomDomains" in p &&
             typeof (p as { maxCustomDomains?: unknown }).maxCustomDomains === "number"
               ? (p as { maxCustomDomains: number }).maxCustomDomains
+              : null,
+        }),
+        max_presell_ai_generations: effectiveMaxPresellAiGenerationsFromPlan({
+          type: p.type,
+          maxPresellAiGenerations:
+            "maxPresellAiGenerations" in p &&
+            typeof (p as { maxPresellAiGenerations?: unknown }).maxPresellAiGenerations === "number"
+              ? (p as { maxPresellAiGenerations: number }).maxPresellAiGenerations
               : null,
         }),
         has_branding: p.hasBranding,
@@ -325,6 +336,7 @@ export const adminController = {
       p.max_presell_pages === undefined &&
       p.max_clicks_per_month === undefined &&
       p.max_custom_domains === undefined &&
+      p.max_presell_ai_generations === undefined &&
       p.has_branding === undefined &&
       p.affiliate_webhook_enabled === undefined &&
       p.dpilot_ads_enabled === undefined &&
@@ -342,6 +354,9 @@ export const adminController = {
         ...(p.max_presell_pages !== undefined ? { maxPresellPages: p.max_presell_pages } : {}),
         ...(p.max_clicks_per_month !== undefined ? { maxClicksPerMonth: p.max_clicks_per_month } : {}),
         ...(p.max_custom_domains !== undefined ? { maxCustomDomains: p.max_custom_domains } : {}),
+        ...(p.max_presell_ai_generations !== undefined
+          ? { maxPresellAiGenerations: p.max_presell_ai_generations }
+          : {}),
         ...(p.has_branding !== undefined ? { hasBranding: p.has_branding } : {}),
         ...(p.affiliate_webhook_enabled !== undefined
           ? { affiliateWebhookEnabled: p.affiliate_webhook_enabled }

@@ -1449,6 +1449,46 @@ function extractCommercialCtaLabel(html: string, language: string): string | nul
   return null;
 }
 
+/**
+ * Quando o hoplink cai em landing fina (text.php, query longa) ou o espelho falha,
+ * sugere URLs canónicas / raiz do produto para enriquecer fotos e mirror white.
+ */
+export function suggestProductEnrichmentUrls(finalUrl: string, html: string): string[] {
+  const out: string[] = [];
+  const push = (raw: string) => {
+    const t = raw.trim();
+    if (!t) return;
+    try {
+      const abs = new URL(t, finalUrl).href;
+      assertExternalProductUrl(abs);
+      if (abs.replace(/\/$/, "") === finalUrl.replace(/\/$/, "")) return;
+      if (!out.includes(abs)) out.push(abs);
+    } catch {
+      /* SSRF / inválido */
+    }
+  };
+
+  const ogUrl = extractMeta(html, "og:url");
+  if (ogUrl) push(ogUrl);
+
+  const canonTag = html.match(/<link[^>]+rel=["']canonical["'][^>]*>/i)?.[0] || "";
+  const canonHref = canonTag ? htmlTagAttr(canonTag, "href") : "";
+  if (canonHref) push(canonHref);
+
+  try {
+    const u = new URL(finalUrl);
+    const thinPath = /(?:^|\/)(?:text\.php|go|out|click|r|track)(?:\/|$|\.)/i.test(u.pathname);
+    const longQuery = u.search.length > 48;
+    if (thinPath || longQuery) {
+      push(`${u.origin}/`);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return out.slice(0, 2);
+}
+
 function htmlLooksLikeWrongProduct(html: string, pageUrl: string): boolean {
   let host: string;
   try {
@@ -1497,7 +1537,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     throw new Error(`Não foi possível ler a página do produto (${fetched.status}).`);
   }
 
-  const finalUrl = fetched.url;
+  let finalUrl = fetched.url;
   assertExternalProductUrl(finalUrl);
 
   let html = fetched.body.toString("utf8");
@@ -1556,36 +1596,90 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   const affForMirror = (input.affiliateLink || finalUrl).trim();
   let import_mirror_src_doc: string | undefined;
+  let mirrorBaseUrl = finalUrl;
+
+  async function finalizeMirrorFromParts(
+    parts: { baseHref: string; headSnip: string; bodyInner: string },
+    pageUrl: string,
+  ): Promise<string | undefined> {
+    const raw = buildMirrorSrcDocFromParts(parts.baseHref, parts.headSnip, parts.bodyInner);
+    const finalized = finalizeMirrorSrcDocForImport(raw, pageUrl, affForMirror);
+    if (!finalized) return undefined;
+    if (!input.userId) return finalized;
+    try {
+      let pageHint = "mirror";
+      try {
+        pageHint =
+          new URL(pageUrl).hostname.replace(/^www\./, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) ||
+          "mirror";
+      } catch {
+        /* keep mirror */
+      }
+      const rh = await rehostMirrorImagesToR2({
+        srcDoc: finalized,
+        userId: input.userId,
+        pageHint,
+      });
+      return rh.html;
+    } catch (err) {
+      console.warn("[presellImporter] rehost mirror images skipped", err);
+      return finalized;
+    }
+  }
+
   if (wantMirror && mirrorParts) {
-    const raw = buildMirrorSrcDocFromParts(
-      mirrorParts.baseHref,
-      mirrorParts.headSnip,
-      mirrorParts.bodyInner,
-    );
-    const finalized = finalizeMirrorSrcDocForImport(raw, finalUrl, affForMirror);
-    if (finalized) {
-      if (input.userId) {
-        try {
-          let pageHint = "mirror";
-          try {
-            pageHint = new URL(finalUrl).hostname.replace(/^www\./, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "mirror";
-          } catch {
-            /* keep mirror */
-          }
-          const rh = await rehostMirrorImagesToR2({
-            srcDoc: finalized,
-            userId: input.userId,
-            pageHint,
-          });
-          import_mirror_src_doc = rh.html;
-        } catch (err) {
-          console.warn("[presellImporter] rehost mirror images skipped", err);
-          import_mirror_src_doc = finalized;
+    import_mirror_src_doc = await finalizeMirrorFromParts(mirrorParts, finalUrl);
+  }
+
+  /** White: se hop deixou landing fina sem espelho/fotos, tenta canónica / raiz do produto. */
+  const needsEnrichment =
+    generationNiche === "white" &&
+    ((import_mirror_src_doc?.length ?? 0) < 800 ||
+      extractProductImages(html, finalUrl, htmlFirstFold(html)).length === 0);
+  if (needsEnrichment) {
+    for (const enrichUrl of suggestProductEnrichmentUrls(finalUrl, html)) {
+      try {
+        const enrichFetched = await safeImportFetch({
+          url: enrichUrl,
+          timeoutMs: Math.min(IMPORT_FETCH_MS, 10_000),
+          maxBytes: IMPORT_MAX_HTML_BYTES,
+          headers: {
+            "user-agent": DEFAULT_UA,
+            accept: "text/html,application/xhtml+xml",
+            "accept-language": acceptLang,
+          },
+        });
+        if (enrichFetched.status < 200 || enrichFetched.status >= 300) continue;
+        const enrichHtml = enrichFetched.body.toString("utf8");
+        if (enrichHtml.length < MIN_HTML_CHARS || htmlLooksLikeWrongProduct(enrichHtml, enrichFetched.url)) {
+          continue;
         }
-      } else {
-        import_mirror_src_doc = finalized;
+        if (wantMirror && (import_mirror_src_doc?.length ?? 0) < 800) {
+          const enrichBundle = await fetchRenderedPageBundle(enrichFetched.url, acceptLang);
+          if (enrichBundle.mirrorParts) {
+            const m = await finalizeMirrorFromParts(enrichBundle.mirrorParts, enrichFetched.url);
+            if (m && m.length >= 800) {
+              import_mirror_src_doc = m;
+              mirrorBaseUrl = enrichFetched.url;
+              browserStatus = enrichBundle.browser;
+              if (enrichBundle.browserDetail) browserDetail = enrichBundle.browserDetail;
+            }
+          }
+        }
+        const enrichFold = htmlFirstFold(enrichHtml);
+        const enrichImgs = extractProductImages(enrichHtml, enrichFetched.url, enrichFold);
+        if (enrichHtml.length > html.length * 1.15 || enrichImgs.length > 0) {
+          html = enrichHtml;
+          mirrorBaseUrl = enrichFetched.url;
+        }
+        if ((import_mirror_src_doc?.length ?? 0) >= 800) break;
+      } catch (err) {
+        console.warn("[presellImporter] enrichment hop skipped", enrichUrl, err);
       }
     }
+  }
+  if (mirrorBaseUrl !== finalUrl) {
+    finalUrl = mirrorBaseUrl;
   }
 
   const locale = localePack(language);

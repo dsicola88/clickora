@@ -52,6 +52,7 @@ export const adminService = {
       max_presell_pages?: number | null;
       max_clicks_per_month?: number | null;
       max_custom_domains?: number;
+      max_presell_ai_generations?: number | null;
       has_branding?: boolean;
       affiliate_webhook_enabled?: boolean;
       dpilot_ads_enabled?: boolean;

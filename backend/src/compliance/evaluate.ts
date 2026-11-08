@@ -185,6 +185,18 @@ const RULES = [
           remediation: "Se for afiliado, configure o link e a divulgação.",
         };
       }
+      if (!signals.showAffiliateTrustFooter) {
+        return {
+          status: "PASS",
+          confidence: 0.75,
+          evidence: {
+            summary:
+              "Rodapé de políticas/afiliado desligado pelo operador (página limpa). Divulgação no rodapé não é exigida nesta configuração.",
+          },
+          remediation:
+            "Se anunciar no Google Ads e houver reprovação por transparência, volte a ligar o rodapé com dados reais.",
+        };
+      }
       if (signals.hasAffiliateDisclosure) {
         return {
           status: "PASS",
@@ -212,6 +224,18 @@ const RULES = [
     sourceIds: ["gads-misrepresentation"],
     sourceReviewedAt: "2026-10-15",
     run: ({ signals }) => {
+      if (!signals.showAffiliateTrustFooter) {
+        return {
+          status: "PASS",
+          confidence: 0.75,
+          evidence: {
+            summary:
+              "Rodapé de identidade desligado (opcional). Página limpa sem bloco POLICIES do afiliado.",
+          },
+          remediation:
+            "Ligue o rodapé e preencha nome/e-mail reais se a revisão do Google pedir identidade do operador.",
+        };
+      }
       if (signals.generationNiche === "black" && (signals.sourceUrl || signals.productName)) {
         return {
           status: "PASS",

@@ -88,7 +88,8 @@ export function applyImportedSourceIdentity(
 export function defaultAbPresellTypeB(typeA: string, niche: PresellGenerationNiche): string {
   if (niche === "white") {
     if (typeA === "tsl") return "review";
-    if (typeA === "review") return "dtc";
+    if (typeA === "review") return "advertorial";
+    if (typeA === "advertorial") return "dtc";
     if (typeA === "dtc") return "tsl";
     if (typeA === "cookies") return "tsl";
     if (typeA === "vsl") return "vsl_tsl";
@@ -98,7 +99,8 @@ export function defaultAbPresellTypeB(typeA: string, niche: PresellGenerationNic
   if (typeA === "cookies") return "desconto";
   if (typeA === "desconto") return "cookies";
   if (typeA === "tsl") return "review";
-  if (typeA === "review") return "tsl";
+  if (typeA === "review") return "advertorial";
+  if (typeA === "advertorial") return "tsl";
   if (typeA === "dtc") return "tsl";
   if (typeA === "vsl") return "vsl_tsl";
   if (typeA === "vsl_tsl") return "vsl";
