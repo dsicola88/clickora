@@ -5,6 +5,7 @@ import prisma, { systemPrisma } from "../lib/prisma";
 import { billingUserId, actorUserId } from "../lib/requestContext";
 import { denyIfCannotWritePresells } from "./workspace.controller";
 import { assertPresellAiQuotaAvailable } from "../lib/presellAiQuota";
+import { assertCanCreatePresellPages } from "../lib/presellPageLimits";
 import {
   generatePresellReviewCopy,
   generateTriplePackCopy,
@@ -320,6 +321,13 @@ export const presellAiController = {
     const userId = billingUserId(req);
     const base = await prisma.presellPage.findFirst({ where: { id: req.params.id, userId } });
     if (!base) return res.status(404).json({ error: "Página não encontrada" });
+
+    // Pack cria até 2 irmãs (os ângulos ≠ tipo da base); a base só é actualizada.
+    const siblingCreates = (["tsl", "review", "advertorial"] as const).filter((t) => t !== base.type).length;
+    const pageLimit = await assertCanCreatePresellPages(userId, siblingCreates);
+    if (!pageLimit.ok) {
+      return res.status(pageLimit.status).json(pageLimit.body);
+    }
 
     const content = asContent(base.content);
     const settings = asContent(base.settings);

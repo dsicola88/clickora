@@ -3,12 +3,20 @@ import {
   APP_NAV_ITEMS,
   appNavMatchesQuery,
   appNavSearchValue,
+  commandNavItems,
   isAppNavActive,
   normalizeNavSearchText,
   sidebarNavItems,
 } from "./appNav";
 
 describe("appNav", () => {
+  it("commandNavItems esconde Dpilot sem plano", () => {
+    const without = commandNavItems(false, { dpilotAdsEnabled: false });
+    const withDpilot = commandNavItems(false, { dpilotAdsEnabled: true });
+    expect(without.some((i) => i.url === "/tracking/dpilot")).toBe(false);
+    expect(withDpilot.some((i) => i.url === "/tracking/dpilot")).toBe(true);
+  });
+
   it("normalizeNavSearchText remove acentos", () => {
     expect(normalizeNavSearchText("Integrações")).toBe("integracoes");
     expect(normalizeNavSearchText("Conversões")).toBe("conversoes");

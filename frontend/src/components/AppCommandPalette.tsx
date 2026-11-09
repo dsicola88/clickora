@@ -19,6 +19,7 @@ import {
   normalizeNavSearchText,
   type AppNavItem,
 } from "@/lib/appNav";
+import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { cn } from "@/lib/utils";
 
@@ -49,12 +50,16 @@ type Props = {
 export function AppCommandPalette({ className }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const { t } = useAppLocale();
   const staff = isAdmin || isSuperAdmin;
   const mac = useIsMacShortcut();
+  const dpilotAdsEnabled = userCanAccessDpilotAds(user, isSuperAdmin);
 
-  const items = useMemo(() => commandNavItems(staff), [staff]);
+  const items = useMemo(
+    () => commandNavItems(staff, { dpilotAdsEnabled }),
+    [staff, dpilotAdsEnabled],
+  );
 
   const grouped = useMemo(() => {
     const map = new Map<AppNavItem["group"], AppNavItem[]>();

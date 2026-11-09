@@ -22,6 +22,7 @@ import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
 import { mergeAccountPixelsIntoSettings } from "../lib/accountPixelsMerge";
 import { billingUserId } from "../lib/requestContext";
+import { assertCanCreatePresellPages } from "../lib/presellPageLimits";
 import { denyIfCannotWritePresells } from "./workspace.controller";
 import {
   buildCloakSafePublicPayload,
@@ -525,25 +526,21 @@ export const presellController = {
               if (auto) customDomainIdField = { customDomainId: auto };
             });
 
-      const [count, sub, operatorUser] = await timedCreateStage("03_parallel_domain_quota_identity", async () => {
-        const [c, s, op] = await Promise.all([
-          prisma.presellPage.count({ where: { userId } }),
-          prisma.subscription.findUnique({
-            where: { userId },
-            include: { plan: true },
-          }),
+      const [pageLimit, operatorUser] = await timedCreateStage("03_parallel_domain_quota_identity", async () => {
+        const [limit, op] = await Promise.all([
+          assertCanCreatePresellPages(userId, 1),
           loadUserOperatorIdentity(userId),
           domainPromise,
-        ]).then(([c, s, op]) => [c, s, op] as const);
-        return [c, s, op] as const;
+        ]).then(([limit, op]) => [limit, op] as const);
+        return [limit, op] as const;
       });
 
       if (domainError) {
         return res.status(400).json({ error: domainError });
       }
 
-      if (sub?.plan.maxPresellPages != null && count >= sub.plan.maxPresellPages) {
-        return res.status(403).json({ error: `Limite de ${sub.plan.maxPresellPages} páginas atingido. Faça upgrade do seu plano.` });
+      if (!pageLimit.ok) {
+        return res.status(pageLimit.status).json(pageLimit.body);
       }
 
       let page: PresellPage;
@@ -812,16 +809,22 @@ export const presellController = {
 
   async duplicate(req: Request, res: Response) {
     if (await denyIfCannotWritePresells(req, res)) return;
+    const userId = billingUserId(req);
     const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: billingUserId(req) },
+      where: { id: req.params.id, userId },
     });
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
+
+    const pageLimit = await assertCanCreatePresellPages(userId, 1);
+    if (!pageLimit.ok) {
+      return res.status(pageLimit.status).json(pageLimit.body);
+    }
 
     let copy: PresellPage;
     try {
       copy = await prisma.presellPage.create({
         data: {
-          userId: billingUserId(req),
+          userId,
           title: `${page.title} (cópia)`,
           slug: `${page.slug}_copy_${Date.now()}`,
           type: page.type,

@@ -6,10 +6,15 @@ import { prismaAdmin } from "../lib/prisma";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 import { effectiveMaxPresellAiGenerationsFromPlan } from "../lib/presellAiQuota";
 import {
+  effectiveMaxTrafficRotatorsFromPlan,
+  effectiveMaxWorkspaceMembersFromPlan,
+} from "../lib/planSeatRotatorLimits";
+import {
   freeTextEmbedsNumericQuota,
   NUMERIC_QUOTA_IN_FREE_TEXT,
   rewriteKnownStalePhrase,
 } from "../lib/planCommercialText";
+import { inspectHotmartPlanMapConfig } from "../lib/hotmartPlanMap";
 
 function parseDateInput(s: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
@@ -28,6 +33,10 @@ const updatePlanSchema = z.object({
   max_custom_domains: z.number().int().min(0).max(50).optional(),
   /** Null = fallback por tipo de plano; 0 = sem gerações LLM. */
   max_presell_ai_generations: z.number().int().min(0).max(10_000).nullable().optional(),
+  /** Null = fallback por tipo; 0 = sem convites novos. */
+  max_workspace_members: z.number().int().min(0).max(500).nullable().optional(),
+  /** Null = fallback por tipo; 0 = sem rotadores novos. */
+  max_traffic_rotators: z.number().int().min(0).max(10_000).nullable().optional(),
   has_branding: z.boolean().optional(),
   affiliate_webhook_enabled: z.boolean().optional(),
   dpilot_ads_enabled: z.boolean().optional(),
@@ -164,6 +173,22 @@ export const adminController = {
               ? (p as { maxPresellAiGenerations: number }).maxPresellAiGenerations
               : null,
         }),
+        max_workspace_members: effectiveMaxWorkspaceMembersFromPlan({
+          type: p.type,
+          maxWorkspaceMembers:
+            "maxWorkspaceMembers" in p &&
+            typeof (p as { maxWorkspaceMembers?: unknown }).maxWorkspaceMembers === "number"
+              ? (p as { maxWorkspaceMembers: number }).maxWorkspaceMembers
+              : null,
+        }),
+        max_traffic_rotators: effectiveMaxTrafficRotatorsFromPlan({
+          type: p.type,
+          maxTrafficRotators:
+            "maxTrafficRotators" in p &&
+            typeof (p as { maxTrafficRotators?: unknown }).maxTrafficRotators === "number"
+              ? (p as { maxTrafficRotators: number }).maxTrafficRotators
+              : null,
+        }),
         has_branding: p.hasBranding,
         affiliate_webhook_enabled:
           "affiliateWebhookEnabled" in p && typeof (p as { affiliateWebhookEnabled?: unknown }).affiliateWebhookEnabled === "boolean"
@@ -246,6 +271,7 @@ export const adminController = {
       trials_expiring_7d: trialsExpiring7d,
       signups_by_day: seriesLast30DaysFromAggregate(signupRows),
       conversions_by_day: seriesLast30DaysFromAggregate(conversionRows),
+      hotmart_plan_map: inspectHotmartPlanMapConfig(),
     });
   },
 
@@ -285,6 +311,12 @@ export const adminController = {
 
     res.json({ total_users: totalUsers, active_users: activeUsers, total_presells: totalPresells, total_events: totalEvents });
   },
+
+  /** Ops: estado do HOTMART_PLAN_MAP (sem secrets) — evita sub-entrega silenciosa anual→mensal. */
+  async getHotmartPlanMap(_req: Request, res: Response) {
+    res.json(inspectHotmartPlanMapConfig());
+  },
+
 
   async updateUserPlan(req: Request, res: Response) {
     const { userId } = req.params;
@@ -337,6 +369,8 @@ export const adminController = {
       p.max_clicks_per_month === undefined &&
       p.max_custom_domains === undefined &&
       p.max_presell_ai_generations === undefined &&
+      p.max_workspace_members === undefined &&
+      p.max_traffic_rotators === undefined &&
       p.has_branding === undefined &&
       p.affiliate_webhook_enabled === undefined &&
       p.dpilot_ads_enabled === undefined &&
@@ -356,6 +390,12 @@ export const adminController = {
         ...(p.max_custom_domains !== undefined ? { maxCustomDomains: p.max_custom_domains } : {}),
         ...(p.max_presell_ai_generations !== undefined
           ? { maxPresellAiGenerations: p.max_presell_ai_generations }
+          : {}),
+        ...(p.max_workspace_members !== undefined
+          ? { maxWorkspaceMembers: p.max_workspace_members }
+          : {}),
+        ...(p.max_traffic_rotators !== undefined
+          ? { maxTrafficRotators: p.max_traffic_rotators }
           : {}),
         ...(p.has_branding !== undefined ? { hasBranding: p.has_branding } : {}),
         ...(p.affiliate_webhook_enabled !== undefined

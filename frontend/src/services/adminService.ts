@@ -32,6 +32,10 @@ export const adminService = {
     return apiClient.get<AdminPlanRow[]>("/admin/plans");
   },
 
+  async getHotmartPlanMap() {
+    return apiClient.get<NonNullable<AdminOverview["hotmart_plan_map"]>>("/admin/billing/hotmart-plan-map");
+  },
+
   async updateUserPlan(userId: string, planType: string) {
     return apiClient.patch(`/admin/users/${userId}/plan`, { plan_type: planType });
   },
@@ -53,6 +57,8 @@ export const adminService = {
       max_clicks_per_month?: number | null;
       max_custom_domains?: number;
       max_presell_ai_generations?: number | null;
+      max_workspace_members?: number | null;
+      max_traffic_rotators?: number | null;
       has_branding?: boolean;
       affiliate_webhook_enabled?: boolean;
       dpilot_ads_enabled?: boolean;

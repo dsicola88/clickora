@@ -9,6 +9,7 @@ import { rotatorRulesPolicySchema } from "../lib/routingRules";
 import { appendWorkspaceAuditLog } from "../lib/workspaceAudit";
 import { denyIfCannotWriteRotators } from "./workspace.controller";
 import { resolveWorkspaceIdForRequest } from "../lib/workspaceRequest";
+import { assertCanCreateTrafficRotator } from "../lib/planSeatRotatorLimits";
 import {
   isLocalPresellDestination,
   rewriteLocalPresellDestination,
@@ -231,6 +232,10 @@ export const trafficRotatorsController = {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
+    }
+    const rotatorGate = await assertCanCreateTrafficRotator(userId);
+    if (!rotatorGate.ok) {
+      return res.status(rotatorGate.status).json(rotatorGate.body);
     }
     const b = parsed.data;
 

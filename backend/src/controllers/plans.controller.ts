@@ -2,6 +2,10 @@ import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma, { systemPrisma } from "../lib/prisma";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import {
+  effectiveMaxTrafficRotatorsFromPlan,
+  effectiveMaxWorkspaceMembersFromPlan,
+} from "../lib/planSeatRotatorLimits";
 import { rewriteKnownStalePhrase } from "../lib/planCommercialText";
 import { billingUserId } from "../lib/requestContext";
 
@@ -91,6 +95,22 @@ export const plansController = {
                 ? (p as { maxCustomDomains: number }).maxCustomDomains
                 : null,
           }),
+          max_workspace_members: effectiveMaxWorkspaceMembersFromPlan({
+            type: p.type,
+            maxWorkspaceMembers:
+              "maxWorkspaceMembers" in p &&
+              typeof (p as { maxWorkspaceMembers?: unknown }).maxWorkspaceMembers === "number"
+                ? (p as { maxWorkspaceMembers: number }).maxWorkspaceMembers
+                : null,
+          }),
+          max_traffic_rotators: effectiveMaxTrafficRotatorsFromPlan({
+            type: p.type,
+            maxTrafficRotators:
+              "maxTrafficRotators" in p &&
+              typeof (p as { maxTrafficRotators?: unknown }).maxTrafficRotators === "number"
+                ? (p as { maxTrafficRotators: number }).maxTrafficRotators
+                : null,
+          }),
           has_branding: p.hasBranding,
           affiliate_webhook_enabled:
             "affiliateWebhookEnabled" in p &&
@@ -122,10 +142,31 @@ export const plansController = {
 
     // Só o plano grátis a preço zero ativa aqui. Um plano pago a zero não abre sem a Hotmart.
     if (plan.type === "free_trial" && plan.priceCents === 0) {
+      const userId = billingUserId(req);
+      const current = await prisma.subscription.findUnique({
+        where: { userId },
+        include: { plan: { select: { type: true, priceCents: true, name: true } } },
+      });
+      // Conta com plano pago activo não desce sozinha para Starter (evita bypass comercial).
+      // Após cancelar / expirar, pode activar o grátis para continuar com limites Starter.
+      const paidActive =
+        current &&
+        current.status === "active" &&
+        current.plan.type !== "free_trial" &&
+        current.plan.priceCents > 0;
+      if (paidActive) {
+        return res.status(409).json({
+          error:
+            "Tem um plano pago activo. Cancele a assinatura na app (e na Hotmart, se aplicável) antes de passar ao plano Starter.",
+          code: "PAID_PLAN_ACTIVE",
+          current_plan: current.plan.name,
+        });
+      }
+
       await prisma.subscription.upsert({
-        where: { userId: billingUserId(req) },
+        where: { userId },
         create: {
-          userId: billingUserId(req),
+          userId,
           planId: plan_id,
           status: "active",
         },

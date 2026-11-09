@@ -131,7 +131,10 @@ async function main() {
   const plans = await Promise.all([
     prisma.plan.upsert({
       where: { id: "plan_free" },
-      update: {},
+      update: {
+        maxWorkspaceMembers: 1,
+        maxTrafficRotators: 3,
+      },
       create: {
         id: "plan_free",
         name: "Starter",
@@ -141,6 +144,8 @@ async function main() {
         maxClicksPerMonth: 100,
         maxCustomDomains: 0,
         maxPresellAiGenerations: 8,
+        maxWorkspaceMembers: 1,
+        maxTrafficRotators: 3,
         hasBranding: true,
         affiliateWebhookEnabled: false,
         dpilotAdsEnabled: false,
@@ -149,7 +154,10 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_monthly" },
-      update: {},
+      update: {
+        maxWorkspaceMembers: 5,
+        maxTrafficRotators: 25,
+      },
       create: {
         id: "plan_monthly",
         name: "Pro Mensal",
@@ -159,6 +167,8 @@ async function main() {
         maxClicksPerMonth: 150000,
         maxCustomDomains: 1,
         maxPresellAiGenerations: 40,
+        maxWorkspaceMembers: 5,
+        maxTrafficRotators: 25,
         hasBranding: false,
         affiliateWebhookEnabled: true,
         dpilotAdsEnabled: false,
@@ -167,7 +177,10 @@ async function main() {
     }),
     prisma.plan.upsert({
       where: { id: "plan_annual" },
-      update: {},
+      update: {
+        maxWorkspaceMembers: null,
+        maxTrafficRotators: null,
+      },
       create: {
         id: "plan_annual",
         name: "Pro Anual",
@@ -177,6 +190,8 @@ async function main() {
         maxClicksPerMonth: null,
         maxCustomDomains: 2,
         maxPresellAiGenerations: 120,
+        maxWorkspaceMembers: null,
+        maxTrafficRotators: null,
         hasBranding: false,
         affiliateWebhookEnabled: true,
         dpilotAdsEnabled: true,

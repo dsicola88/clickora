@@ -49,6 +49,8 @@ import {
   type KeywordItem,
   type KeywordResearch,
 } from "@/services/keywordResearchService";
+import { useAuth } from "@/contexts/AuthContext";
+import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildTrackedPresellUrl } from "@/services/campaignsService";
 import {
@@ -104,6 +106,8 @@ async function copyText(text: string, ok: string) {
 
 export default function KeywordsPage() {
   const { t } = useAppLocale();
+  const { user, isSuperAdmin } = useAuth();
+  const canAdvertiseDpilot = userCanAccessDpilotAds(user, isSuperAdmin);
   const qc = useQueryClient();
   const restoredOnce = useRef(false);
   const [product, setProduct] = useState("");
@@ -794,7 +798,7 @@ export default function KeywordsPage() {
                   >
                     Gravar agora
                   </Button>
-                  {isHttpUrl(finalUrl.trim()) ? (
+                  {isHttpUrl(finalUrl.trim()) && canAdvertiseDpilot ? (
                     <Button type="button" size="sm" variant="outline" asChild>
                       <Link
                         to={dpilotAdsHandoffHref(

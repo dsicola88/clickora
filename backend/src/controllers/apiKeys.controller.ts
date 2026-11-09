@@ -4,9 +4,11 @@ import { systemPrisma } from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import { generateApiKeyPlain, hashApiKey } from "../lib/apiKeys";
 import { normalizeApiKeyScopes } from "../lib/apiKeyScopes";
+import { denyIfCannotManageApiKeys } from "./workspace.controller";
 
 export const apiKeysController = {
   async list(req: Request, res: Response) {
+    if (await denyIfCannotManageApiKeys(req, res)) return;
     const userId = billingUserId(req);
     const rows = await systemPrisma.apiKey.findMany({
       where: { userId, revokedAt: null },
@@ -33,6 +35,7 @@ export const apiKeysController = {
   },
 
   async create(req: Request, res: Response) {
+    if (await denyIfCannotManageApiKeys(req, res)) return;
     const parsed = z
       .object({
         name: z.string().trim().min(1).max(80),
@@ -91,6 +94,7 @@ export const apiKeysController = {
   },
 
   async revoke(req: Request, res: Response) {
+    if (await denyIfCannotManageApiKeys(req, res)) return;
     const userId = billingUserId(req);
     const id = req.params.id?.trim();
     if (!id) return res.status(400).json({ error: "ID em falta" });

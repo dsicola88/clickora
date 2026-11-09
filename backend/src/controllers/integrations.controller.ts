@@ -66,6 +66,7 @@ import {
 } from "../lib/googleAdsOAuthFlow";
 import { actorUserId, billingUserId } from "../lib/requestContext";
 import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
+import { denyIfCannotReadIntegrationSecrets } from "./workspace.controller";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -82,6 +83,7 @@ async function subscriptionPlanForWebhookGate(userId: string) {
 export const integrationsController = {
   /** URL do webhook + estado (autenticado). */
   async getAffiliateWebhookInfo(req: Request, res: Response) {
+    if (await denyIfCannotReadIntegrationSecrets(req, res)) return;
     const userId = billingUserId(req);
     const sub = await subscriptionPlanForWebhookGate(userId);
     if (!planAllowsAffiliateWebhook(sub?.plan)) {

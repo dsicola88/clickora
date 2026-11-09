@@ -24,7 +24,7 @@ import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import type { MessageKey } from "@/i18n";
+import { ACCOUNT_HEALTH_HUB_STEPS } from "@/lib/accountHealthSteps";
 
 function fill(template: string, vars: Record<string, string | number>) {
   return Object.entries(vars).reduce(
@@ -33,62 +33,8 @@ function fill(template: string, vars: Record<string, string | number>) {
   );
 }
 
-const STEP_DEFS = [
-  {
-    id: "presell_published",
-    href: "/presells/nova",
-    titleKey: "pages.integrations.stepPresell" as MessageKey,
-    descKey: "pages.integrations.stepPresellDesc" as MessageKey,
-  },
-  {
-    id: "postback_configured",
-    href: "/integracoes/postback",
-    titleKey: "pages.integrations.stepPostback" as MessageKey,
-    descKey: "pages.integrations.stepPostbackDesc" as MessageKey,
-  },
-  {
-    id: "campaign_linked",
-    href: "/campanhas",
-    titleKey: "pages.integrations.stepCampaign" as MessageKey,
-    descKey: "pages.integrations.stepCampaignDesc" as MessageKey,
-  },
-  {
-    id: "google_ads",
-    href: "/integracoes/google-ads",
-    titleKey: "pages.integrations.stepGoogle" as MessageKey,
-    descKey: "pages.integrations.stepGoogleDesc" as MessageKey,
-  },
-  {
-    id: "meta_capi_configured",
-    href: "/integracoes/pixels",
-    titleKey: "pages.integrations.stepMetaCapi" as MessageKey,
-    descKey: "pages.integrations.stepMetaCapiDesc" as MessageKey,
-  },
-  {
-    id: "tiktok_events_configured",
-    href: "/integracoes/pixels",
-    titleKey: "pages.integrations.stepTiktokEvents" as MessageKey,
-    descKey: "pages.integrations.stepTiktokEventsDesc" as MessageKey,
-  },
-  {
-    id: "cost_sync",
-    href: "/integracoes/automizer",
-    titleKey: "pages.integrations.stepCosts" as MessageKey,
-    descKey: "pages.integrations.stepCostsDesc" as MessageKey,
-  },
-  {
-    id: "ads_upload",
-    href: "/resultados/relatorios/conversoes",
-    titleKey: "pages.integrations.stepAdsUpload" as MessageKey,
-    descKey: "pages.integrations.stepAdsUploadDesc" as MessageKey,
-  },
-  {
-    id: "domain_https",
-    href: "/configuracoes",
-    titleKey: "pages.integrations.stepDomain" as MessageKey,
-    descKey: "pages.integrations.stepDomainDesc" as MessageKey,
-  },
-] as const;
+/** IDs alinhados a `account_health.checks` (backend). */
+const STEP_DEFS = ACCOUNT_HEALTH_HUB_STEPS;
 
 /**
  * Hub Integrações — go-live operativo para media buyers.

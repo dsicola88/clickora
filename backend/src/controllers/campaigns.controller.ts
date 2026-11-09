@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import { loadCampaignPerf, type CampaignPerf } from "../lib/campaignPerf";
+import { denyIfCannotWriteCampaigns } from "./workspace.controller";
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
@@ -260,6 +261,7 @@ export const campaignsController = {
   },
 
   async create(req: Request, res: Response) {
+    if (await denyIfCannotWriteCampaigns(req, res)) return;
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
@@ -298,6 +300,7 @@ export const campaignsController = {
   },
 
   async update(req: Request, res: Response) {
+    if (await denyIfCannotWriteCampaigns(req, res)) return;
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
@@ -367,6 +370,7 @@ export const campaignsController = {
   },
 
   async remove(req: Request, res: Response) {
+    if (await denyIfCannotWriteCampaigns(req, res)) return;
     const userId = billingUserId(req);
     const existing = await findCampaignById(userId, req.params.id);
     if (!existing) return res.status(404).json({ error: "Campanha não encontrada" });

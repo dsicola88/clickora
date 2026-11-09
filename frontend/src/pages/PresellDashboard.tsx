@@ -82,6 +82,7 @@ import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } fr
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildTrackedPresellUrl } from "@/services/campaignsService";
 import {
@@ -139,7 +140,8 @@ function toastErrorFromCatch(err: unknown, fallback: string) {
 
 export default function PresellDashboard() {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
+  const canAdvertiseDpilot = userCanAccessDpilotAds(user, isSuperAdmin);
   const { t } = useAppLocale();
   const queryClient = useQueryClient();
   /** Isola cache React Query por conta (evita mostrar dados da sessão anterior). */
@@ -1873,7 +1875,7 @@ export default function PresellDashboard() {
                       >
                         <Eye className="h-4 w-4" />
                       </a>
-                      {page.status === "published" ? (
+                      {page.status === "published" && canAdvertiseDpilot ? (
                         <button
                           type="button"
                           onClick={() => navigate(dpilotAdsHandoffHref(adsFinalUrlForPage(page)))}

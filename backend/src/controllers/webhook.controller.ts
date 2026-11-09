@@ -4,7 +4,10 @@ import { hashPassword, passwordBcryptRounds } from "../lib/passwordCrypto";
 import { systemPrisma } from "../lib/prisma";
 import { normalizeSubscriptionStatus, periodEndByPlan } from "../lib/subscription";
 import { sendTransactionalEmail } from "../lib/mailer";
-import type { PlanType, User, UserRole } from "@prisma/client";
+import type { User, UserRole } from "@prisma/client";
+import { resolvePlanType } from "../lib/hotmartPlanMap";
+
+export { resolvePlanType } from "../lib/hotmartPlanMap";
 
 type HotmartEventData = {
   event: string;
@@ -142,24 +145,6 @@ function parseHotmartPayload(body: unknown): HotmartEventData | null {
   };
 }
 
-const VALID_PLAN_TYPES: PlanType[] = ["free_trial", "monthly", "quarterly", "annual"];
-
-function resolvePlanType(productCode: string | null, offerCode: string | null): PlanType {
-  const mapRaw = process.env.HOTMART_PLAN_MAP || "{}";
-  const fallbackRaw = (process.env.HOTMART_DEFAULT_PLAN_TYPE as PlanType | undefined) || "monthly";
-  const fallback = VALID_PLAN_TYPES.includes(fallbackRaw) ? fallbackRaw : "monthly";
-
-  try {
-    const map = JSON.parse(mapRaw) as Record<string, PlanType>;
-    const code = offerCode || productCode;
-    if (code && map[code] && VALID_PLAN_TYPES.includes(map[code])) return map[code];
-  } catch {
-    // ignore invalid JSON and use fallback
-  }
-
-  return fallback;
-}
-
 type UserWithRoles = User & { roles: UserRole[] };
 
 /**
@@ -270,7 +255,8 @@ export const webhookController = {
       ? { user: existingUser, created: false, provisionalPassword: null }
       : await findOrCreateUser(payload.email, payload.buyerName);
 
-    const planType = resolvePlanType(payload.productCode, payload.offerCode);
+    const planResolution = resolvePlanType(payload.productCode, payload.offerCode);
+    const planType = planResolution.planType;
     const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
     if (!plan) {
       console.warn(`[hotmart-webhook] sem plano na BD para type=${planType} — ignorado (evita 400 na Hotmart)`);
@@ -279,6 +265,8 @@ export const webhookController = {
         ignored: true,
         reason: "plan_not_configured",
         plan_type: planType,
+        plan_map_matched: planResolution.matched,
+        plan_map_source: planResolution.source,
       });
     }
 
@@ -317,6 +305,10 @@ export const webhookController = {
       ok: true,
       user_id: user.id,
       user_created: created,
+      plan_type: planType,
+      plan_map_matched: planResolution.matched,
+      plan_map_source: planResolution.source,
+      ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
       ...(welcomeEmailSent !== null && { welcome_email_sent: welcomeEmailSent }),
       ...(welcomeEmailNote && { welcome_email_note: welcomeEmailNote }),
     });

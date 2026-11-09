@@ -41,6 +41,7 @@ import {
   type PresellGenerationNiche,
 } from "@/lib/presellGenerationNiche";
 import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
+import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
@@ -87,7 +88,8 @@ export default function CreatePresellWizardPage() {
   const { t } = useAppLocale();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
+  const canAdvertiseDpilot = userCanAccessDpilotAds(user, isSuperAdmin);
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   /** Identidade real do operador — nunca inventar CNPJ/marca. */
   const [businessName, setBusinessName] = useState("");
@@ -1359,7 +1361,7 @@ export default function CreatePresellWizardPage() {
             <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
               Continuar / Rever
             </Button>
-            {mirrorFidelityOk && tracked ? (
+            {mirrorFidelityOk && tracked && canAdvertiseDpilot ? (
               <Button
                 variant="secondary"
                 className="w-full sm:w-auto"
@@ -1384,7 +1386,9 @@ export default function CreatePresellWizardPage() {
           onCopy={() => void copy()}
           onEdit={() => navigate(`/presell/builder/${reviewVariant === "b" && presellIdB ? presellIdB : presellId}`)}
           onAdvertise={
-            mirrorFidelityOk && tracked ? () => navigate(dpilotAdsHandoffHref(tracked)) : undefined
+            mirrorFidelityOk && tracked && canAdvertiseDpilot
+              ? () => navigate(dpilotAdsHandoffHref(tracked))
+              : undefined
           }
           onClose={() => navigate("/presells")}
         />

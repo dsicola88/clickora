@@ -95,6 +95,10 @@ export interface UserPlan {
   max_clicks: number | null;
   /** Limite de domínios personalizados do plano (0 = só HTML/dclickora). */
   max_custom_domains?: number;
+  /** Membros do workspace (inclui owner); null = sem máximo. */
+  max_workspace_members?: number | null;
+  /** Rotadores de tráfego; null = sem máximo. */
+  max_traffic_rotators?: number | null;
   has_branding: boolean;
   /** Postback HTTP em Plataformas; controlado por plano (admin). */
   affiliate_webhook_enabled?: boolean;
@@ -110,6 +114,8 @@ export interface Plan {
   max_presell_pages: number | null;
   max_clicks_per_month: number | null;
   max_custom_domains: number;
+  max_workspace_members?: number | null;
+  max_traffic_rotators?: number | null;
   has_branding: boolean;
   /** Webhook de afiliados incluído neste plano (admin). */
   affiliate_webhook_enabled?: boolean;
@@ -268,6 +274,10 @@ export interface AdminPlanRow {
   max_custom_domains: number;
   /** Gerações LLM de review/presell por mês (efectivo após fallback por tipo). */
   max_presell_ai_generations?: number;
+  /** Membros workspace (efectivo); null = ilimitado. */
+  max_workspace_members?: number | null;
+  /** Rotadores (efectivo); null = ilimitado. */
+  max_traffic_rotators?: number | null;
   has_branding: boolean;
   affiliate_webhook_enabled?: boolean;
   /** Anúncios pagos (campo API: nome histórico `dpilot_*`). */
@@ -289,6 +299,16 @@ export interface AdminOverview {
   trials_expiring_7d?: number;
   signups_by_day: { date: string; count: number }[];
   conversions_by_day: { date: string; count: number }[];
+  /** Estado do HOTMART_PLAN_MAP (sem secrets) — risco anual→mensal se vazio. */
+  hotmart_plan_map?: {
+    map_configured: boolean;
+    map_entry_count: number;
+    map_keys: string[];
+    default_plan_type: string;
+    default_from_env: boolean;
+    parse_error: string | null;
+    hint: string;
+  };
 }
 
 /** Configuração da landing pública na raiz / (hero, textos, imagem, tipografia dos planos). */

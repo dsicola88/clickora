@@ -79,6 +79,7 @@ adminRouter.get("/overview", adminController.getOverview);
 adminRouter.post("/users/:userId/suspend", adminController.suspendUser);
 adminRouter.post("/users/:userId/reactivate", adminController.reactivateUser);
 adminRouter.get("/metrics", adminController.getMetrics);
+adminRouter.get("/billing/hotmart-plan-map", adminController.getHotmartPlanMap);
 adminRouter.patch("/users/:userId/subscription", adminController.updateUserSubscription);
 adminRouter.post("/users/:userId/password", adminController.setUserPassword);
 adminRouter.patch("/users/:userId/plan", adminController.updateUserPlan);

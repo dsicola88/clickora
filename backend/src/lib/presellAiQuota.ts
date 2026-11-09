@@ -74,14 +74,16 @@ export async function resolvePresellAiQuota(userId: string): Promise<{
   const planType = plan?.type ?? null;
 
   const since = new Date(Date.UTC(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
-  const used = await prisma.workspaceAuditLog.count({
-    where: {
-      workspaceId: user.workspaceId,
-      actorUserId: userId,
-      action: "presell_ai_review_copy",
-      createdAt: { gte: since },
-    },
-  });
+  // Conta todo o workspace (qualquer actor) — a quota é do tenant de faturação, não do membro.
+  const used = user.workspaceId
+    ? await prisma.workspaceAuditLog.count({
+        where: {
+          workspaceId: user.workspaceId,
+          action: "presell_ai_review_copy",
+          createdAt: { gte: since },
+        },
+      })
+    : 0;
 
   if (privileged) {
     return { planType, limit: null, used, remaining: null, privileged: true, monthKey };

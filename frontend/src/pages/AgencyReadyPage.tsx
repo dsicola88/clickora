@@ -39,8 +39,11 @@ const ONBOARDING_LABEL_KEYS: Record<string, MessageKey> = {
   presell_published: "pages.onboardingSteps.presell_published",
   domain: "pages.onboardingSteps.domain",
   domain_https: "pages.onboardingSteps.domain_https",
-  webhook: "pages.onboardingSteps.webhook",
-  postback_macros: "pages.onboardingSteps.postback_macros",
+  postback_plan: "pages.onboardingSteps.postback_plan",
+  postback_configured: "pages.onboardingSteps.postback_configured",
+  /** @deprecated ids antigos — mantidos se API antiga ainda os devolver */
+  webhook: "pages.onboardingSteps.postback_plan",
+  postback_macros: "pages.onboardingSteps.postback_configured",
   first_click: "pages.onboardingSteps.first_click",
   first_sale: "pages.onboardingSteps.first_sale",
   agency_path: "pages.onboardingSteps.agency_path",

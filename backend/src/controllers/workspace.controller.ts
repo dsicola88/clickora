@@ -6,7 +6,10 @@ import { actorUserId, billingUserId } from "../lib/requestContext";
 import { appendWorkspaceAuditLog } from "../lib/workspaceAudit";
 import {
   parseExtraPermissions,
+  workspaceCanManageApiKeys,
   workspaceCanManageMembers,
+  workspaceCanReadIntegrationSecrets,
+  workspaceCanWriteCampaigns,
   workspaceCanWriteIntegrations,
   workspaceCanWritePresells,
   workspaceCanWriteRotators,
@@ -14,6 +17,7 @@ import {
 import { resolveWorkspaceIdForRequest, loadActorWorkspaceMember } from "../lib/workspaceRequest";
 import { resolveWorkspaceSessionForSwitch } from "../lib/workspaceSession";
 import { signToken } from "../lib/jwt";
+import { assertCanAddWorkspaceMember } from "../lib/planSeatRotatorLimits";
 import { serializeUser } from "./auth.controller";
 
 const addMemberSchema = z.object({
@@ -194,6 +198,11 @@ export const workspaceController = {
     });
     if (dup) return res.status(409).json({ error: "Este utilizador já pertence ao workspace." });
 
+    const seatGate = await assertCanAddWorkspaceMember(billingUserId(req));
+    if (!seatGate.ok) {
+      return res.status(seatGate.status).json(seatGate.body);
+    }
+
     await systemPrisma.workspaceMember.create({
       data: {
         workspaceId: wid,
@@ -326,6 +335,42 @@ export async function denyIfCannotWriteIntegrations(req: Request, res: Response)
   const { role, permissions } = await loadActorWorkspaceMember(req);
   if (!workspaceCanWriteIntegrations(role, permissions)) {
     res.status(403).json({ error: "Sem permissão para alterar integrações neste workspace." });
+    return true;
+  }
+  return false;
+}
+
+export async function denyIfCannotWriteCampaigns(req: Request, res: Response): Promise<boolean> {
+  const wid = await resolveWorkspaceIdForRequest(req);
+  if (!wid) return false;
+  const { role, permissions } = await loadActorWorkspaceMember(req);
+  if (!workspaceCanWriteCampaigns(role, permissions)) {
+    res.status(403).json({ error: "Sem permissão para alterar campanhas neste workspace." });
+    return true;
+  }
+  return false;
+}
+
+export async function denyIfCannotManageApiKeys(req: Request, res: Response): Promise<boolean> {
+  const wid = await resolveWorkspaceIdForRequest(req);
+  if (!wid) return false;
+  const { role } = await loadActorWorkspaceMember(req);
+  if (!workspaceCanManageApiKeys(role)) {
+    res.status(403).json({ error: "Só o dono ou admin do workspace pode gerir API keys." });
+    return true;
+  }
+  return false;
+}
+
+export async function denyIfCannotReadIntegrationSecrets(req: Request, res: Response): Promise<boolean> {
+  const wid = await resolveWorkspaceIdForRequest(req);
+  if (!wid) return false;
+  const { role } = await loadActorWorkspaceMember(req);
+  if (!workspaceCanReadIntegrationSecrets(role)) {
+    res.status(403).json({
+      error: "Sem permissão para ver URLs de postback com token neste workspace.",
+      code: "INTEGRATION_SECRETS_DENIED",
+    });
     return true;
   }
   return false;

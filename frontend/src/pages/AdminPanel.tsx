@@ -424,6 +424,26 @@ export default function AdminPanel() {
             <LoadingState message="A carregar métricas…" />
           ) : (
             <>
+              {overview.hotmart_plan_map && !overview.hotmart_plan_map.map_configured ? (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+                  <CalendarClock className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
+                  <p className="text-foreground/90">
+                    <strong>Hotmart plan map vazio.</strong> {overview.hotmart_plan_map.hint} Fallback:{" "}
+                    <code className="text-xs">{overview.hotmart_plan_map.default_plan_type}</code>.
+                  </p>
+                </div>
+              ) : overview.hotmart_plan_map?.map_configured ? (
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                  Hotmart: {overview.hotmart_plan_map.map_entry_count} código(s) mapeado(s)
+                  {overview.hotmart_plan_map.map_keys.length
+                    ? ` — ${overview.hotmart_plan_map.map_keys.slice(0, 8).join(", ")}${
+                        overview.hotmart_plan_map.map_keys.length > 8 ? "…" : ""
+                      }`
+                    : ""}
+                  .
+                </div>
+              ) : null}
+
               {overview.subscriptions_expiring_14d > 0 && (
                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
                   <CalendarClock className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />

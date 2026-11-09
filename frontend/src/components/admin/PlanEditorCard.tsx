@@ -28,6 +28,12 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
   const [maxPresellAi, setMaxPresellAi] = useState(
     plan.max_presell_ai_generations != null ? String(plan.max_presell_ai_generations) : "",
   );
+  const [maxWorkspaceMembers, setMaxWorkspaceMembers] = useState(
+    plan.max_workspace_members != null ? String(plan.max_workspace_members) : "",
+  );
+  const [maxTrafficRotators, setMaxTrafficRotators] = useState(
+    plan.max_traffic_rotators != null ? String(plan.max_traffic_rotators) : "",
+  );
   const [hasBranding, setHasBranding] = useState(plan.has_branding);
   const [affiliateWebhook, setAffiliateWebhook] = useState(plan.affiliate_webhook_enabled ?? false);
   const [dpilotAds, setDpilotAds] = useState(plan.dpilot_ads_enabled ?? false);
@@ -42,6 +48,8 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
     setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
     setMaxPresellAi(plan.max_presell_ai_generations != null ? String(plan.max_presell_ai_generations) : "");
+    setMaxWorkspaceMembers(plan.max_workspace_members != null ? String(plan.max_workspace_members) : "");
+    setMaxTrafficRotators(plan.max_traffic_rotators != null ? String(plan.max_traffic_rotators) : "");
     setHasBranding(plan.has_branding);
     setAffiliateWebhook(plan.affiliate_webhook_enabled ?? false);
     setDpilotAds(plan.dpilot_ads_enabled ?? false);
@@ -56,6 +64,8 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     setMaxClicks(plan.max_clicks_per_month != null ? String(plan.max_clicks_per_month) : "");
     setMaxCustomDomains(String(plan.max_custom_domains ?? 0));
     setMaxPresellAi(plan.max_presell_ai_generations != null ? String(plan.max_presell_ai_generations) : "");
+    setMaxWorkspaceMembers(plan.max_workspace_members != null ? String(plan.max_workspace_members) : "");
+    setMaxTrafficRotators(plan.max_traffic_rotators != null ? String(plan.max_traffic_rotators) : "");
     setHasBranding(plan.has_branding);
     setAffiliateWebhook(plan.affiliate_webhook_enabled ?? false);
     setDpilotAds(plan.dpilot_ads_enabled ?? false);
@@ -102,6 +112,24 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
       }
       max_presell_ai_generations = n;
     }
+    let max_workspace_members: number | null = null;
+    if (maxWorkspaceMembers.trim() !== "") {
+      const n = parseInt(maxWorkspaceMembers, 10);
+      if (Number.isNaN(n) || n < 0 || n > 500) {
+        toast.error("Máx. membros: número entre 0 e 500 (vazio = padrão do tipo / ilimitado no anual)");
+        return;
+      }
+      max_workspace_members = n;
+    }
+    let max_traffic_rotators: number | null = null;
+    if (maxTrafficRotators.trim() !== "") {
+      const n = parseInt(maxTrafficRotators, 10);
+      if (Number.isNaN(n) || n < 0 || n > 10_000) {
+        toast.error("Máx. rotadores: número entre 0 e 10000 (vazio = padrão do tipo / ilimitado no anual)");
+        return;
+      }
+      max_traffic_rotators = n;
+    }
 
     const features = featuresText
       .split("\n")
@@ -125,6 +153,8 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
         max_clicks_per_month,
         max_custom_domains: mcd,
         max_presell_ai_generations,
+        max_workspace_members,
+        max_traffic_rotators,
         has_branding: hasBranding,
         affiliate_webhook_enabled: affiliateWebhook,
         dpilot_ads_enabled: dpilotAds,
@@ -218,6 +248,33 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
             <p className="text-[11px] text-muted-foreground leading-snug">
               Só conta OpenAI aplicada (não preview nem texto determinístico). Vazio = padrão do tipo; 0 = só
               determinístico. Pacote 3 variantes = 1 crédito.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`mwm-${plan.id}`}>Máx. membros no workspace</Label>
+            <Input
+              id={`mwm-${plan.id}`}
+              inputMode="numeric"
+              placeholder="Padrão (1 / 5 / ∞)"
+              value={maxWorkspaceMembers}
+              onChange={(e) => setMaxWorkspaceMembers(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Inclui o dono. Vazio = padrão do tipo (Starter 1, Mensal 5, Anual sem máximo). Não remove quem já
+              está; só bloqueia novos convites.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`mtr-${plan.id}`}>Máx. rotadores de tráfego</Label>
+            <Input
+              id={`mtr-${plan.id}`}
+              inputMode="numeric"
+              placeholder="Padrão (3 / 25 / ∞)"
+              value={maxTrafficRotators}
+              onChange={(e) => setMaxTrafficRotators(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Vazio = padrão do tipo. Não apaga rotadores existentes; só impede criar novos acima do teto.
             </p>
           </div>
         </div>

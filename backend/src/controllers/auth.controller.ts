@@ -12,6 +12,10 @@ import { AVATAR_LOCAL_MARKER, persistUserAvatar, removeUserAvatarFiles } from ".
 import type { PlanType, WorkspaceRole } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
+import {
+  effectiveMaxTrafficRotatorsFromPlan,
+  effectiveMaxWorkspaceMembersFromPlan,
+} from "../lib/planSeatRotatorLimits";
 import { hashPassword, passwordBcryptRounds, verifyPassword } from "../lib/passwordCrypto";
 import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
 
@@ -116,6 +120,20 @@ export function serializeUser(
             type: plan.type as PlanType,
             maxCustomDomains:
               typeof plan.maxCustomDomains === "number" ? plan.maxCustomDomains : null,
+          }),
+          max_workspace_members: effectiveMaxWorkspaceMembersFromPlan({
+            type: plan.type as PlanType,
+            maxWorkspaceMembers:
+              typeof (plan as { maxWorkspaceMembers?: number | null }).maxWorkspaceMembers === "number"
+                ? (plan as { maxWorkspaceMembers: number }).maxWorkspaceMembers
+                : null,
+          }),
+          max_traffic_rotators: effectiveMaxTrafficRotatorsFromPlan({
+            type: plan.type as PlanType,
+            maxTrafficRotators:
+              typeof (plan as { maxTrafficRotators?: number | null }).maxTrafficRotators === "number"
+                ? (plan as { maxTrafficRotators: number }).maxTrafficRotators
+                : null,
           }),
           has_branding: plan.hasBranding,
           affiliate_webhook_enabled:

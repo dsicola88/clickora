@@ -54,3 +54,19 @@ export function workspaceCanWriteIntegrations(role: WorkspaceRole | undefined, m
 export function workspaceCanManageMembers(role: WorkspaceRole | undefined): boolean {
   return role === "owner" || role === "admin";
 }
+
+/** Campanhas afiliado: operadores (member+) — viewers só leem. */
+export function workspaceCanWriteCampaigns(role: WorkspaceRole | undefined, memberPermissions?: unknown): boolean {
+  if (workspaceHasExtraPermission(memberPermissions, EXTRA.presells_write)) return true;
+  return role === "owner" || role === "admin" || role === "member";
+}
+
+/** API keys do tenant: só owner/admin (equivalente a credenciais de conta). */
+export function workspaceCanManageApiKeys(role: WorkspaceRole | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/** Ver URLs de postback com token: não para viewers. */
+export function workspaceCanReadIntegrationSecrets(role: WorkspaceRole | undefined): boolean {
+  return role === "owner" || role === "admin" || role === "member";
+}

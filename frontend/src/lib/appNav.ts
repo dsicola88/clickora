@@ -328,6 +328,14 @@ export function sidebarNavItems(staff: boolean): AppNavItem[] {
   });
 }
 
-export function commandNavItems(staff: boolean): AppNavItem[] {
-  return APP_NAV_ITEMS.filter((item) => (item.staffOnly ? staff : true));
+export function commandNavItems(
+  staff: boolean,
+  opts?: { dpilotAdsEnabled?: boolean },
+): AppNavItem[] {
+  const dpilotOk = opts?.dpilotAdsEnabled === true;
+  return APP_NAV_ITEMS.filter((item) => {
+    if (item.staffOnly && !staff) return false;
+    if (item.url === "/tracking/dpilot" && !dpilotOk) return false;
+    return true;
+  });
 }

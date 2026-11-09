@@ -60,6 +60,7 @@ export const onboardingController = {
         href: "/presells/nova",
       },
       {
+        /** Alinhado a account_health.presell_published */
         id: "presell_published",
         label: "Publicar presell com CTAs rastreados",
         done: publishedPresells >= 1,
@@ -74,20 +75,26 @@ export const onboardingController = {
         optional: true,
       },
       {
+        /**
+         * Alinhado a account_health.domain_https:
+         * sem domínio próprio = OK para trial; com domínio, exige HTTPS/ad-ready.
+         */
         id: "domain_https",
         label: "Domínio com HTTPS pronto (Final URL)",
-        done: domainGoLive.ad_ready_hosting >= 1,
+        done: domainGoLive.verified_hosting === 0 || domainGoLive.ad_ready_hosting >= 1,
         href: "/configuracoes",
         optional: true,
       },
       {
-        id: "webhook",
+        /** Alinhado a account_health.postback_plan */
+        id: "postback_plan",
         label: "Postback / aviso de vendas (plano)",
         done: Boolean(plan?.affiliateWebhookEnabled),
         href: "/integracoes/postback",
       },
       {
-        id: "postback_macros",
+        /** Alinhado a account_health.postback_configured */
+        id: "postback_configured",
         label: "Configurar postback com macros (SUBID2 / sid1)",
         done: postbackHits > 0 || Boolean(recentConv),
         href: "/integracoes/postback",

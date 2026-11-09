@@ -58,6 +58,10 @@ async function register(email: string) {
   return { token, auth, userId };
 }
 
+/**
+ * `builder` = publicação imediata (compliance gate não deixa draft).
+ * Este audit mede limites de plano, não a revisão editorial.
+ */
 async function createPage(auth: Record<string, string>, slug: string) {
   return json("/api/presells", {
     method: "POST",
@@ -65,11 +69,21 @@ async function createPage(auth: Record<string, string>, slug: string) {
     body: JSON.stringify({
       title: slug,
       slug,
-      type: "tsl",
+      type: "builder",
       status: "published",
       content: { title: slug, affiliateLink: OFFER, salesText: "Oferta" },
     }),
   });
+}
+
+/** Intervalo do dashboard que inclui «agora» (evita falhar fora de Outubro fixo). */
+function dashFromTo(daysBack = 45): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(Date.now() - daysBack * 86400000);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
 }
 
 async function main() {
@@ -265,7 +279,11 @@ async function main() {
     `status=${extra.status} location=${extra.headers.get("location") ? "sim" : "não"}`,
   );
 
-  const dash = await json(`/api/analytics/dashboard?from=2026-09-01&to=2026-10-13`, { headers: starter.auth });
+  const rangeClicks = dashFromTo();
+  const dash = await json(
+    `/api/analytics/dashboard?from=${rangeClicks.from}&to=${rangeClicks.to}`,
+    { headers: starter.auth },
+  );
   const dashBody = dash.body as {
     click_quota?: { used?: number; max?: number | null; over_limit?: boolean; soft_cap?: boolean };
     media_buyer?: { spend?: number | null; spend_source?: string; profit?: number | null };
@@ -379,7 +397,11 @@ async function main() {
   }
 
   const pending = await postNet({ status: "pending", amount: "8", currency: "USD", order_id: `pend-${stamp}` });
-  const afterPending = await json("/api/analytics/dashboard?from=2026-10-01&to=2026-10-13", { headers: monthly.auth });
+  const rangeSales = dashFromTo();
+  const afterPending = await json(
+    `/api/analytics/dashboard?from=${rangeSales.from}&to=${rangeSales.to}`,
+    { headers: monthly.auth },
+  );
   const pendingBody = afterPending.body as { approved_sales_count?: number; revenue?: number };
   const pendingRows = await systemPrisma.conversion.count({
     where: { userId: monthly.userId, status: "pending" },
@@ -396,7 +418,10 @@ async function main() {
     currency: "USD",
     order_id: `ok-${stamp}`,
   });
-  const afterOk = await json("/api/analytics/dashboard?from=2026-10-01&to=2026-10-13", { headers: monthly.auth });
+  const afterOk = await json(
+    `/api/analytics/dashboard?from=${rangeSales.from}&to=${rangeSales.to}`,
+    { headers: monthly.auth },
+  );
   const okBody = afterOk.body as { approved_sales_count?: number; revenue?: number; total_conversions?: number };
   record(
     "só a venda confirmada pela rede entra no painel",
@@ -537,21 +562,42 @@ async function main() {
 
   const beforeFree = await systemPrisma.subscription.findUnique({
     where: { userId: monthly.userId },
+    select: { planId: true, status: true },
+  });
+  const joinFreeBlocked = await json("/api/plans/subscribe", {
+    method: "POST",
+    headers: monthly.auth,
+    body: JSON.stringify({ plan_id: "plan_audit_starter" }),
+  });
+  const afterBlocked = await systemPrisma.subscription.findUnique({
+    where: { userId: monthly.userId },
     select: { planId: true },
   });
-  const joinFree = await json("/api/plans/subscribe", {
+  record(
+    "plano pago activo não desce sozinho para Starter",
+    joinFreeBlocked.res.status === 409 && afterBlocked?.planId === beforeFree?.planId,
+    `antes=${beforeFree?.planId} status=${joinFreeBlocked.res.status} depois=${afterBlocked?.planId}`,
+  );
+
+  await systemPrisma.subscription.update({
+    where: { userId: monthly.userId },
+    data: { status: "canceled" },
+  });
+  const joinFreeAfterCancel = await json("/api/plans/subscribe", {
     method: "POST",
     headers: monthly.auth,
     body: JSON.stringify({ plan_id: "plan_audit_starter" }),
   });
   const afterFree = await systemPrisma.subscription.findUnique({
     where: { userId: monthly.userId },
-    select: { planId: true },
+    select: { planId: true, status: true },
   });
   record(
-    "o plano grátis a zero ainda pode ser ativado",
-    joinFree.res.status === 200 && afterFree?.planId === "plan_audit_starter",
-    `antes=${beforeFree?.planId} status=${joinFree.res.status} depois=${afterFree?.planId}`,
+    "após cancelar, o plano grátis a zero ainda pode ser ativado",
+    joinFreeAfterCancel.res.status === 200 &&
+      afterFree?.planId === "plan_audit_starter" &&
+      afterFree.status === "active",
+    `status=${joinFreeAfterCancel.res.status} depois=${afterFree?.planId}/${afterFree?.status}`,
   );
 
   await systemPrisma.plan.update({ where: { id: "plan_audit_monthly" }, data: { priceCents: 0 } });
@@ -587,7 +633,11 @@ async function main() {
     headers: { "user-agent": "Mozilla/5.0 Chrome/124", accept: "application/json" },
     redirect: "manual",
   });
-  const zeroDash = await json("/api/analytics/dashboard?from=2026-10-01&to=2026-10-13", { headers: starter.auth });
+  const rangeZero = dashFromTo();
+  const zeroDash = await json(
+    `/api/analytics/dashboard?from=${rangeZero.from}&to=${rangeZero.to}`,
+    { headers: starter.auth },
+  );
   const zeroQuota = (zeroDash.body as { click_quota?: { max?: number | null; over_limit?: boolean } }).click_quota;
   const publicAfterStale = await json("/api/plans");
   const staleShown = (Array.isArray(publicAfterStale.body) ? publicAfterStale.body : []).find(

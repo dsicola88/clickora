@@ -26,6 +26,10 @@ import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
 import { customDomainService } from "@/services/customDomainService";
 import { cn } from "@/lib/utils";
+import {
+  SETUP_ASSISTANT_HEALTH_MAP,
+  accountHealthCheckOk,
+} from "@/lib/accountHealthSteps";
 import type { CustomDomainDto, Presell } from "@/types/api";
 
 type StepStatus = "done" | "pending" | "warn";
@@ -254,6 +258,7 @@ export default function SetupAssistantPage() {
     loadingPresells || loadingDash || loadingGa || loadingWh || loadingMeta || loadingTiktok || loadingDomains;
 
   const domainLive = useMemo(() => domainGoLiveStatus(domains), [domains]);
+  const healthChecks = dashboard?.account_health?.checks;
 
   const published = useMemo(
     () => (presells ?? []).filter((p) => p.status === "published"),
@@ -279,27 +284,64 @@ export default function SetupAssistantPage() {
   const metaTikTokWarn = (metaEnabled && !metaReady) || (ttEnabled && !ttReady);
   const metaTikTokDataReady = metaCapi != null && tiktokEvents != null;
 
+  /** Preferir account_health (mesma fonte do hub) quando o check existe. */
+  const healthStepStatus = (setupId: keyof typeof SETUP_ASSISTANT_HEALTH_MAP, fallback: StepStatus): StepStatus => {
+    const hid = SETUP_ASSISTANT_HEALTH_MAP[setupId];
+    const h = accountHealthCheckOk(healthChecks, hid);
+    if (!h.found) return fallback;
+    return h.ok ? "done" : fallback === "done" ? "warn" : fallback;
+  };
+
   const steps: SetupStep[] = useMemo(() => {
+    const domainStatus = healthStepStatus("domain", domainLive.status);
+    const domainHint =
+      accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.domain).detail || domainLive.hint;
+    const presellHealth = accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.presell);
+    const presellStatus = healthStepStatus("presell", hasPublished ? "done" : "pending");
+    const postbackHealth = accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.postback);
+    const postbackPlan = accountHealthCheckOk(healthChecks, "postback_plan");
+    const googleHealthStatus = healthStepStatus(
+      "google",
+      googleAdsStepStatus({ canUpload: gaCanUpload, hasOAuth: gaHasOAuth }),
+    );
+    const metaH = accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.capi_meta);
+    const ttH = accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.capi_tiktok);
+    const capiFromHealth = metaH.found && ttH.found;
+    const capiStatus: StepStatus = !capiFromHealth
+      ? !metaTikTokDataReady
+        ? "pending"
+        : metaTikTokOptionalOk && !metaTikTokWarn
+          ? "done"
+          : metaTikTokWarn
+            ? "warn"
+            : "pending"
+      : metaH.ok && ttH.ok
+        ? "done"
+        : metaEnabled || ttEnabled
+          ? "warn"
+          : "pending";
+
     const s: SetupStep[] = [
       {
         id: "domain",
         title: "1. Domínio próprio (recomendado para Ads)",
         description:
           "Liga o teu domínio com um CNAME. OAuth e postbacks funcionam sem isto; o host da conta serve para trial. Para campanhas sérias, usa domínio teu + HTTPS.",
-        status: domainLive.status,
+        status: domainStatus,
         actions: [{ to: "/configuracoes", label: "Configurar domínio" }],
-        hint: domainLive.hint,
+        hint: domainHint,
       },
       {
         id: "presell",
         title: "2. Presell publicada",
         description:
           "Cria a página (visual do produto + link da oferta) e publica. O anúncio deve abrir só o teu link /p/… — nunca a página do produto em cru.",
-        status: hasPublished ? "done" : "pending",
+        status: presellStatus,
         actions: [{ to: "/presell/dashboard", label: "Minhas Presells" }],
-        hint: hasPublished
-          ? `${published.length} página(s) publicada(s).`
-          : "Ainda sem presell publicada.",
+        hint: presellHealth.detail
+          || (hasPublished
+            ? `${published.length} página(s) publicada(s).`
+            : "Ainda sem presell publicada."),
       },
       {
         id: "urls",
@@ -330,26 +372,33 @@ export default function SetupAssistantPage() {
         title: "5. Aviso de venda (postback)",
         description:
           "Em Integrações copia o URL de aviso e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
-        status: approvedSales > 0
-          ? "done"
-          : webhook?.hook_url
-            ? "warn"
-            : webhookPlanBlocked
+        status: healthStepStatus(
+          "postback",
+          approvedSales > 0
+            ? "done"
+            : webhook?.hook_url
               ? "warn"
-              : hasPublished
+              : webhookPlanBlocked || (postbackPlan.found && !postbackPlan.ok)
                 ? "warn"
-                : "pending",
+                : hasPublished
+                  ? "warn"
+                  : "pending",
+        ),
         actions: [
           { to: "/integracoes/postback", label: "Configurar aviso de venda" },
-          ...(webhookPlanBlocked ? [{ to: "/planos", label: "Ver planos" }] : []),
+          ...(webhookPlanBlocked || (postbackPlan.found && !postbackPlan.ok)
+            ? [{ to: "/planos", label: "Ver planos" }]
+            : []),
         ],
-        hint: webhookPlanBlocked
-          ? "Postback não está activo neste plano — faz upgrade ou pede ao admin."
-          : webhook?.hook_url
-            ? approvedSales > 0
-              ? "Há vendas aprovadas no período."
-              : "URL pronto — confirma na rede que está activo (macros / subid)."
-            : "Abre Postback para obter o URL completo (com token).",
+        hint:
+          postbackHealth.detail ||
+          (webhookPlanBlocked || (postbackPlan.found && !postbackPlan.ok)
+            ? "Postback não está activo neste plano — faz upgrade ou pede ao admin."
+            : webhook?.hook_url
+              ? approvedSales > 0
+                ? "Há vendas aprovadas no período."
+                : "URL pronto — confirma na rede que está activo (macros / subid)."
+              : "Abre Postback para obter o URL completo (com token)."),
       },
       {
         id: "reports",
@@ -363,42 +412,41 @@ export default function SetupAssistantPage() {
         title: "7. Google Ads — ligar conta (1 clique)",
         description:
           "OAuth oficial: em Integrações → Google Ads liga a conta para custos e upload GCLID. Sem colar tokens à mão.",
-        status: googleAdsStepStatus({ canUpload: gaCanUpload, hasOAuth: gaHasOAuth }),
+        status: googleHealthStatus,
         actions: [{ to: "/integracoes/google-ads", label: "Ligar Google Ads" }],
-        hint: !gaEnv
-          ? "API Google ainda não configurada neste ambiente (admin do servidor)."
-          : gaCanUpload
-            ? "Envio à Google pronto."
-            : gaHasOAuth
-              ? gaCustomer
-                ? "Conta ligada — confirma o ID da conversão / cliente."
-                : "OAuth feito — falta escolher o cliente Ads / conversão."
-              : "Clica em Ligar: autorizas a Google uma vez; o resto é automático.",
+        hint:
+          accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.google).detail ||
+          (!gaEnv
+            ? "API Google ainda não configurada neste ambiente (admin do servidor)."
+            : gaCanUpload
+              ? "Envio à Google pronto."
+              : gaHasOAuth
+                ? gaCustomer
+                  ? "Conta ligada — confirma o ID da conversão / cliente."
+                  : "OAuth feito — falta escolher o cliente Ads / conversão."
+                : "Clica em Ligar: autorizas a Google uma vez; o resto é automático."),
       },
       {
         id: "capi",
         title: "8. Meta e TikTok CAPI (opcional)",
         description:
           "Pixel + token de Events API em Integrações (não é OAuth). Sem isto o painel continua a marcar vendas via postback.",
-        status: !metaTikTokDataReady
-          ? "pending"
-          : metaTikTokOptionalOk && !metaTikTokWarn
-            ? "done"
-            : metaTikTokWarn
-              ? "warn"
-              : "pending",
+        status: capiStatus,
         actions: [{ to: "/integracoes", label: "Integrações" }],
-        hint: !metaTikTokDataReady
-          ? "A obter estado…"
-          : [
-              `Meta: ${!metaEnabled ? "opcional." : metaReady ? "pronta." : "falta Pixel/token."}`,
-              `TikTok: ${!ttEnabled ? "opcional." : ttReady ? "pronta." : "falta Pixel/token."}`,
-            ].join(" "),
+        hint: capiFromHealth
+          ? [metaH.detail, ttH.detail].filter(Boolean).join(" ")
+          : !metaTikTokDataReady
+            ? "A obter estado…"
+            : [
+                `Meta: ${!metaEnabled ? "opcional." : metaReady ? "pronta." : "falta Pixel/token."}`,
+                `TikTok: ${!ttEnabled ? "opcional." : ttReady ? "pronta." : "falta Pixel/token."}`,
+              ].join(" "),
       },
     ];
     return s;
   }, [
     domainLive,
+    healthChecks,
     hasPublished,
     published.length,
     clicks,
