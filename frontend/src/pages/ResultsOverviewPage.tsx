@@ -379,7 +379,9 @@ export default function ResultsOverviewPage() {
   const cmp = data.compare;
   const attr = health?.attribution;
   const alerts = mb?.alerts ?? [];
-  const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
+  // CTA hops ÷ page impressions — never use entry/root clicks here (can exceed 100%).
+  const rawCtr = impressions > 0 ? (hopClicks / impressions) * 100 : null;
+  const ctr = rawCtr != null && Number.isFinite(rawCtr) && rawCtr >= 0 && rawCtr <= 100 ? rawCtr : null;
   const accountRoi = roiOf(mb?.profit ?? null, mb?.spend ?? null);
 
   const dimTabs: Array<{ id: DimId; label: string; count: number }> = [

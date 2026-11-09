@@ -77,7 +77,7 @@ import {
   resolveDefaultCustomDomainIdForAccount,
 } from "@/lib/publicPresellOrigin";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
-import { customDomainService } from "@/services/customDomainService";
+import { useCustomDomains } from "@/hooks/useCustomDomains";
 import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
@@ -187,16 +187,7 @@ export default function PresellDashboard() {
     setSearchParams({ [PRESELL_DASH_ANALYTICS_TAB_PARAM]: v }, { replace: true });
   };
 
-  const { data: customDomains = [] } = useQuery({
-    queryKey: ["custom-domain", tenantKey],
-    queryFn: async () => {
-      const { data, error } = await customDomainService.list();
-      if (error) throw new Error(error);
-      return data ?? [];
-    },
-    enabled: !!tenantKey,
-    staleTime: 60_000,
-  });
+  const { data: customDomains = [] } = useCustomDomains({ enabled: !!tenantKey });
 
   const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
   const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;

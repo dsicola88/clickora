@@ -19,7 +19,7 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
 import { campaignsService, buildTrackedPresellUrl } from "@/services/campaignsService";
 import { presellService } from "@/services/presellService";
-import { customDomainService } from "@/services/customDomainService";
+import { useCustomDomains } from "@/hooks/useCustomDomains";
 import { trafficRotatorsService } from "@/services/trafficRotatorsService";
 import {
   getPublicPresellFullUrl,
@@ -145,13 +145,7 @@ export default function CreatePresellWizardPage() {
   const platform = useMemo(() => detectPlatform(offerUrl), [offerUrl]);
   const typeDetail = getPresellTypeOption(presellType);
 
-  const { data: customDomains = [] } = useQuery({
-    queryKey: ["custom-domain"],
-    queryFn: async () => {
-      const { data } = await customDomainService.list();
-      return data ?? [];
-    },
-  });
+  const { data: customDomains = [] } = useCustomDomains();
 
   const { data: aiQuota } = useQuery({
     queryKey: ["presell-ai-quota"],

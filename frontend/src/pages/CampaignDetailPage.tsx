@@ -13,8 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { buildTrackedPresellUrl, campaignsService } from "@/services/campaignsService";
-import { customDomainService } from "@/services/customDomainService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
+import { useCustomDomains } from "@/hooks/useCustomDomains";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
 import {
   PRO_PAGE_SHELL,
@@ -61,14 +61,7 @@ export default function CampaignDetailPage() {
     },
   });
 
-  const { data: customDomains = [] } = useQuery({
-    queryKey: ["custom-domain"],
-    queryFn: async () => {
-      const { data, error } = await customDomainService.list();
-      if (error) return [];
-      return data ?? [];
-    },
-  });
+  const { data: customDomains = [] } = useCustomDomains();
 
   const activate = useMutation({
     mutationFn: async () => {
