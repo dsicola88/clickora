@@ -53,7 +53,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
       { to: "/presells/nova", label: "Nova presell (assistente)", hint: "Importa a oferta e publica" },
       { to: "/presell/builder", label: "Editor manual", hint: "Layout livre; URL público continua /p/…" },
       { to: "/presell/paginas-criadas", label: "Páginas do editor manual", hint: "Abrir ou exportar" },
-      { to: "/configuracoes", label: "Domínio personalizado", hint: "DNS verificado → https://seu-dominio/p/…" },
+      { to: "/configuracoes/dominio", label: "Domínio personalizado", hint: "DNS verificado → https://seu-dominio/p/…" },
     ],
   },
   {

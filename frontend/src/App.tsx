@@ -163,6 +163,7 @@ const appRoutes = [
 
   { path: "/tracking/relatorios", element: <Navigate to="/resultados/relatorios/acessos" replace /> },
   { path: "/tracking/relatorios/:tab", element: <Relatorios /> },
+  { path: "/rotadores", element: <Navigate to="/tracking/rotadores" replace /> },
   { path: "/tracking/rotadores", element: <Rotadores /> },
   { path: "/tracking/tools/*", element: <TrackingTools /> },
   { path: "/tracking/blacklist", element: <Blacklist /> },
