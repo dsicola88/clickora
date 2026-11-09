@@ -19,9 +19,11 @@ describe("sync_health FE wiring", () => {
       expect(src, file).toContain("SyncHealthBanner");
     }
     const integrations = readFileSync(join(process.cwd(), "src/pages/IntegrationsHubPage.tsx"), "utf8");
-    expect(integrations).toContain("domain_https");
-    expect(integrations).toContain("ads_upload");
-    expect(integrations).toContain("cost_sync");
+    expect(integrations).toContain("ACCOUNT_HEALTH_HUB_STEPS");
+    const hubSteps = readFileSync(join(process.cwd(), "src/lib/accountHealthSteps.ts"), "utf8");
+    expect(hubSteps).toContain('id: "domain_https"');
+    expect(hubSteps).toContain('id: "ads_upload"');
+    expect(hubSteps).toContain('id: "cost_sync"');
     const relatorios = readFileSync(join(process.cwd(), "src/pages/Relatorios.tsx"), "utf8");
     expect(relatorios).toContain("google_ads_skipped_no_gclid");
   });

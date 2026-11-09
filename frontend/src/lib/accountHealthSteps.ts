@@ -73,7 +73,7 @@ export const ACCOUNT_HEALTH_HUB_STEPS = [
   },
   {
     id: "domain_https",
-    href: "/configuracoes",
+    href: "/configuracoes/dominio",
     titleKey: "pages.integrations.stepDomain" as MessageKey,
     descKey: "pages.integrations.stepDomainDesc" as MessageKey,
   },

@@ -328,7 +328,7 @@ export default function SetupAssistantPage() {
         description:
           "Liga o teu domínio com um CNAME. OAuth e postbacks funcionam sem isto; o host da conta serve para trial. Para campanhas sérias, usa domínio teu + HTTPS.",
         status: domainStatus,
-        actions: [{ to: "/configuracoes", label: "Configurar domínio" }],
+        actions: [{ to: "/configuracoes/dominio", label: "Configurar domínio" }],
         hint: domainHint,
       },
       {
@@ -482,7 +482,7 @@ export default function SetupAssistantPage() {
         : "pending";
 
   const goLivePillars: { id: string; label: string; status: StepStatus; to: string }[] = [
-    { id: "domain", label: "Domínio", status: domainLive.status, to: "/configuracoes" },
+    { id: "domain", label: "Domínio", status: domainLive.status, to: "/configuracoes/dominio" },
     {
       id: "google",
       label: "Google Ads",
