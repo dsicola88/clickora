@@ -64,12 +64,25 @@ function parseForwardedHeaderForHost(raw: string | undefined, out: string[]): vo
   }
 }
 
+/** Origin/Referer do browser — fallback quando rewrite Vercel→Railway só encaminha Host de infra. */
+function pushUrlHostname(raw: string | undefined, out: string[]): void {
+  if (!raw || typeof raw !== "string") return;
+  try {
+    const u = new URL(raw.trim());
+    const hostOnly = u.hostname.split(":")[0]?.trim().toLowerCase();
+    if (hostOnly) out.push(hostOnly);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Hostname público do visitante (minúsculas, sem porta), para corresponder a `CustomDomain.hostname`.
  *
  * Com Vercel → Railway, `Host` pode ser `*.railway.app`; por isso lemos vários forwarded headers
  * e preferimos o primeiro hostname que não seja infraestrutura.
  * `x-vercel-forwarded-host` costuma ser o domínio do visitante (antes de `x-forwarded-host`).
+ * Se o rewrite externo não preservar o host do visitante, usamos Origin/Referer (SPA no domínio custom).
  */
 export function getRequestHostname(req: Request): string | null {
   const chain: string[] = [];
@@ -79,6 +92,14 @@ export function getRequestHostname(req: Request): string | null {
   pushHostParts(firstHeader(req, "x-original-host"), chain);
   pushHostParts(firstHeader(req, "cf-connecting-host"), chain);
   parseForwardedHeaderForHost(firstHeader(req, "forwarded"), chain);
+  pushUrlHostname(firstHeader(req, "origin"), chain);
+  pushUrlHostname(firstHeader(req, "referer"), chain);
+  /**
+   * SPA no domínio custom: o rewrite Vercel→Railway por vezes só envia Host de infra.
+   * O cliente envia `?visitor_host=` (hostname da janela) para slug/raiz.
+   */
+  const q = (req as { query?: Record<string, unknown> }).query?.visitor_host;
+  if (typeof q === "string" && q.trim()) pushHostParts(q, chain);
 
   try {
     const h = req.hostname;

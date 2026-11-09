@@ -70,17 +70,25 @@ export const presellService = {
   },
 
   async getPublicBySlug(slug: string) {
-    return apiClient.get<Presell>(`/public/presells/slug/${encodeURIComponent(slug)}`);
+    const host =
+      typeof window !== "undefined" && window.location?.hostname
+        ? `?visitor_host=${encodeURIComponent(window.location.hostname)}`
+        : "";
+    return apiClient.get<Presell>(`/public/presells/slug/${encodeURIComponent(slug)}${host}`);
   },
 
   /** Raiz do domínio personalizado: id da presell publicada ligada a este domínio (Host). */
   async getRootPresellIdForHost() {
+    const host =
+      typeof window !== "undefined" && window.location?.hostname
+        ? `?visitor_host=${encodeURIComponent(window.location.hostname)}`
+        : "";
     return apiClient.get<{
       id: string | null;
       purpose?: string;
       code?: string;
       message?: string;
-    }>(`/public/custom-domain/root-presell`);
+    }>(`/public/custom-domain/root-presell${host}`);
   },
 
   async getAll() {

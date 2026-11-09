@@ -113,7 +113,12 @@ function buildPublicPresellFetchUrl(param: string): string {
   const path = isPresellUuidParam(param)
     ? `/public/presells/id/${encodeURIComponent(param)}`
     : `/public/presells/slug/${encodeURIComponent(param)}`;
-  return resolveApiUrl(base, path).toString();
+  const url = resolveApiUrl(base, path);
+  /** Rewrite Vercel→Railway pode perder o Host do visitante — o SPA envia o hostname da janela. */
+  if (!isPresellUuidParam(param) && typeof window !== "undefined" && window.location?.hostname) {
+    url.searchParams.set("visitor_host", window.location.hostname);
+  }
+  return url.toString();
 }
 
 async function fetchPublicPresellJson(param: string): Promise<Presell | null> {
