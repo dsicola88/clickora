@@ -19,10 +19,12 @@ export async function summarizeUserDomainGoLive(userId: string): Promise<DomainG
   const rows = await systemPrisma.customDomain.findMany({
     where: { userId, purpose: { not: "tracking" } },
     select: {
+      id: true,
       hostname: true,
       status: true,
       vercelDomainRegistered: true,
       purpose: true,
+      httpsReachableCached: true,
     },
     orderBy: { createdAt: "asc" },
   });
@@ -52,6 +54,17 @@ export async function summarizeUserDomainGoLive(userId: string): Promise<DomainG
         vercelMisconfigured: v.ok ? v.misconfigured : null,
         httpsReachable,
       });
+      try {
+        await systemPrisma.customDomain.update({
+          where: { id: r.id },
+          data: {
+            httpsReachableCached: httpsReachable,
+            httpsReadyCheckedAt: new Date(),
+          },
+        });
+      } catch {
+        /* cache best-effort */
+      }
     }),
   );
 
@@ -69,6 +82,7 @@ export async function summarizeUserDomainGoLive(userId: string): Promise<DomainG
             httpsReachable: live.httpsReachable,
           }
         : null,
+      cachedHttpsReachable: live ? undefined : r.httpsReachableCached,
     });
     if (ssl.ssl_state === "https_ready") https_ready_hosting += 1;
     if (ssl.ssl_state === "ssl_provisioning") ssl_provisioning += 1;

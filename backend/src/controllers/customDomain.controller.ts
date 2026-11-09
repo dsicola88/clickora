@@ -46,6 +46,8 @@ function mapRow(
     rootPresellId: string | null;
     vercelDomainRegistered: boolean;
     vercelVerificationJson: Prisma.JsonValue | null;
+    httpsReachableCached?: boolean | null;
+    httpsReadyCheckedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   },
@@ -55,6 +57,7 @@ function mapRow(
     status: d.status,
     vercelDomainRegistered: d.vercelDomainRegistered,
     live: live ?? null,
+    cachedHttpsReachable: live ? undefined : d.httpsReachableCached,
   });
   const base: Record<string, unknown> = {
     id: d.id,
@@ -109,6 +112,20 @@ async function liveSslForDomain(row: {
     vercelMisconfigured: v.misconfigured,
     httpsReachable,
   };
+}
+
+async function persistSslProbeCache(
+  domainId: string,
+  live: CustomDomainSslLive | null,
+): Promise<void> {
+  if (!live || typeof live.httpsReachable !== "boolean") return;
+  await systemPrisma.customDomain.update({
+    where: { id: domainId },
+    data: {
+      httpsReachableCached: live.httpsReachable,
+      httpsReadyCheckedAt: new Date(),
+    },
+  });
 }
 
 /** Garante no máximo um `is_default` lander (nunca purpose=tracking). */
@@ -183,7 +200,10 @@ export const customDomainController = {
     const row = await prisma.customDomain.findFirst({ where: { id, userId } });
     if (!row) return res.status(404).json({ error: "Domínio não encontrado" });
     const live = await liveSslForDomain(row);
-    return res.json(mapRow(row, live));
+    await persistSslProbeCache(row.id, live);
+    const persisted =
+      (await prisma.customDomain.findFirst({ where: { id: row.id, userId } })) ?? row;
+    return res.json(mapRow(persisted, live));
   },
 
   async quota(req: Request, res: Response) {
@@ -302,7 +322,10 @@ export const customDomainController = {
     if (row.status === "verified") {
       await refreshCustomDomainCache();
       const live = await liveSslForDomain(row);
-      return res.json({ verified: true, ...mapRow(row, live) });
+      await persistSslProbeCache(row.id, live);
+      const persisted =
+        (await prisma.customDomain.findFirst({ where: { id: row.id, userId } })) ?? row;
+      return res.json({ verified: true, ...mapRow(persisted, live) });
     }
 
     if (row.vercelDomainRegistered) {
@@ -325,7 +348,10 @@ export const customDomainController = {
 
         await refreshCustomDomainCache();
         const live = await liveSslForDomain(out);
-        return res.json({ verified: true, ...mapRow(out, live) });
+        await persistSslProbeCache(out.id, live);
+        const persisted =
+          (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
+        return res.json({ verified: true, ...mapRow(persisted, live) });
       }
 
       if (!vr.ok) {

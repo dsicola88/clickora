@@ -37,5 +37,13 @@ assert.deepEqual(
   resolveCustomDomainSslState({ status: "verified", vercelDomainRegistered: true }),
   { ssl_state: "ssl_provisioning", https_ready: false },
 );
+assert.deepEqual(
+  resolveCustomDomainSslState({
+    status: "verified",
+    vercelDomainRegistered: true,
+    cachedHttpsReachable: true,
+  }),
+  { ssl_state: "https_ready", https_ready: true },
+);
 
 console.log("customDomainSslState.test.ts: ok");

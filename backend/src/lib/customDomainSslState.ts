@@ -29,6 +29,8 @@ export function resolveCustomDomainSslState(args: {
   status: string;
   vercelDomainRegistered: boolean;
   live?: CustomDomainSslLive | null;
+  /** Cache persistido do último probe (lista rápida / health sem wait). */
+  cachedHttpsReachable?: boolean | null;
 }): { ssl_state: CustomDomainSslState; https_ready: boolean } {
   const status = String(args.status || "").toLowerCase();
   if (status === "pending") {
@@ -41,7 +43,13 @@ export function resolveCustomDomainSslState(args: {
     return { ssl_state: "dns_verified", https_ready: false };
   }
 
-  const live = args.live ?? null;
+  const live =
+    args.live ??
+    (args.cachedHttpsReachable === true
+      ? ({ httpsReachable: true } satisfies CustomDomainSslLive)
+      : args.cachedHttpsReachable === false
+        ? ({ httpsReachable: false } satisfies CustomDomainSslLive)
+        : null);
   if (live?.vercelMisconfigured === true) {
     return { ssl_state: "misconfigured", https_ready: false };
   }

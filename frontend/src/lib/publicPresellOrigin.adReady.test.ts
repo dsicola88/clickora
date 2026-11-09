@@ -45,7 +45,7 @@ describe("publicPresellOrigin ad-ready", () => {
     expect(isCustomDomainAdReady(d)).toBe(true);
   });
 
-  it("Final URL cai na app enquanto SSL provisiona", () => {
+  it("SSL a provisionar não é ad-ready (Ads); em local evita localhost nos braços", () => {
     const domains = [
       domain({
         id: "d1",
@@ -53,10 +53,15 @@ describe("publicPresellOrigin ad-ready", () => {
         is_default: true,
         vercel_domain_registered: true,
         ssl_state: "ssl_provisioning",
+        https_ready: false,
       }),
     ];
+    expect(isCustomDomainAdReady(domains[0]!)).toBe(false);
+    expect(listAdReadyHostingDomains(domains)).toHaveLength(0);
+    // jsdom = origem local → hostname verificado (não grava localhost). Em produção com
+    // VITE_PUBLIC_SITE_ORIGIN, getPublicPresellOrigin(null) devolve a app sem o custom.
     const origin = getPublicPresellOriginForPresell(domains, "d1");
-    expect(origin).not.toContain("offers.example.com");
+    expect(origin).not.toContain("localhost");
   });
 
   it("sem Vercel (TXT) verificado usa hostname", () => {

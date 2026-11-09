@@ -295,6 +295,9 @@ model CustomDomain {
   vercelDomainRegistered Boolean         @default(false) @map("vercel_domain_registered")
   /** Último desafio de verificação devolvido pela Vercel (TXT, etc.) para mostrar na UI. */
   vercelVerificationJson Json?          @map("vercel_verification_json")
+  /** Último resultado do probe HTTPS (go-live / listagem). Evita Ads URL em www enquanto SSL já responde. */
+  httpsReachableCached Boolean?         @map("https_reachable_cached")
+  httpsReadyCheckedAt  DateTime?        @map("https_ready_checked_at")
   /** Presell publicada que abre em `https://hostname/`; nulo = usar a mais recentemente atualizada. Vários domínios podem usar a mesma presell na raiz. */
   rootPresellId String? @map("root_presell_id")
   createdAt           DateTime           @default(now()) @map("created_at")
