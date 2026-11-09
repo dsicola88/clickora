@@ -128,9 +128,9 @@ export default function IntegrationsHubPage() {
 
       <div className="rounded-lg border border-border/70 bg-card px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">Assistente Go live</p>
+          <p className="text-sm font-semibold text-foreground">Assistente</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-            Domínio (CNAME) → OAuth Google → postback → Meta/TikTok CAPI. Estados reais sem colar tokens.
+            Domínio → Google Ads → aviso de venda → Meta/TikTok.
           </p>
         </div>
         <Button variant="secondary" size="sm" className="gap-1.5 shrink-0" asChild>

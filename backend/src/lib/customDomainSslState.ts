@@ -66,15 +66,15 @@ export function resolveCustomDomainSslState(args: {
 export function sslStateLabelPt(state: CustomDomainSslState): string {
   switch (state) {
     case "pending_dns":
-      return "DNS pendente";
+      return "À confirmar";
     case "dns_verified":
-      return "DNS verificado";
+      return "Domínio confirmado";
     case "ssl_provisioning":
-      return "SSL a provisionar";
+      return "A activar segurança";
     case "https_ready":
-      return "HTTPS pronto";
+      return "Pronto para anúncios";
     case "misconfigured":
-      return "DNS mal configurado";
+      return "Domínio mal apontado";
     default:
       return "Estado desconhecido";
   }

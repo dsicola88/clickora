@@ -54,12 +54,11 @@ export function MetaCapiIntegrationCard({
           <Share2 className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Meta — API de conversões (CAPI, servidor a servidor)</h3>
+          <h3 className="font-semibold text-card-foreground">Meta — enviar vendas</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            O envio duplicado do evento <span className="font-mono text-[11px]">Purchase</span> reforça o Pixel no browser, com o mesmo <span className="font-mono text-[11px]">event_id</span> da conversão, para
-            deduplicação. O <span className="font-mono text-[11px]">fbclid</span> no URL do clique é exigido para atribuição; o <span className="font-mono text-[11px]">_fbp</span> (cookie) é opcional e melhora o emparelhamento.{" "}
+            Envia vendas aprovadas para a Meta. Use o Pixel e a chave da sua conta.{" "}
             <a href={META_CAPI_DOC} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
-              API de conversões
+              Ajuda Meta
             </a>
             {" · "}
             <a href={META_PIXEL_SETTINGS} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
@@ -78,21 +77,13 @@ export function MetaCapiIntegrationCard({
         <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
           {autoMode ? (
             <p>
-              Cole o <strong className="text-foreground/90">Pixel ID</strong> e o <strong className="text-foreground/90">token CAPI</strong>. O
-              envio de vendas aprovadas e o PageView nas landers ligam-se sozinhos — sem configurar página a página.
+              Cole o <strong className="text-foreground/90">Pixel ID</strong> e a <strong className="text-foreground/90">chave</strong>.
+              As vendas aprovadas enviam-se sozinhas — sem configurar página a página.
             </p>
           ) : (
-            <>
-              <p>
-                Crie o token em <strong className="text-foreground/90">Definições empresariais</strong> →{" "}
-                <strong className="text-foreground/90">Permissões e identidade</strong> (ou a partir do Pixel) com âmbito adequado; restrinja
-                a equipas e rode o token se suspeitar de exposição.
-              </p>
-              <p>
-                O servidor envia <span className="font-mono text-[11px]">order_id</span> (postback) e, quando existir, a URL de origem do clique —
-                parâmetros recomendados pela Meta para o Event Match Quality.
-              </p>
-            </>
+            <p>
+              Crie a chave no Gestor de Negócios / Pixel da Meta. Guarde-a em local seguro e substitua se a partilhar por engano.
+            </p>
           )}
         </AlertDescription>
       </Alert>
@@ -225,16 +216,15 @@ export function TiktokEventsIntegrationCard({
           <Music2 className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-card-foreground">TikTok — Events API (pixel web, servidor a servidor)</h3>
+          <h3 className="font-semibold text-card-foreground">TikTok — enviar vendas</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Complementa o <strong className="text-foreground/90">TikTok Pixel</strong> no site: o mesmo <span className="font-mono text-[11px]">event_id</span> (UUID da conversão) permite deduplicação e métricas coerentes no Events Manager. O
-            <span className="font-mono text-[11px]"> ttclid</span> no URL do clique é o identificador principal de atribuição; campos de página e <span className="font-mono text-[11px]">order_id</span> são enviados quando disponíveis.{" "}
+            Envia vendas aprovadas para o TikTok. Use o Pixel e a chave da sua conta.{" "}
             <a href={TIKTOK_EVENTS_DOC} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
-              Pixel e eventos
+              Ajuda TikTok
             </a>
             {" · "}
             <a href={TIKTOK_EVENTS_API_PORTAL} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">
-              Events API
+              Events Manager
             </a>
             .
           </p>
@@ -249,14 +239,12 @@ export function TiktokEventsIntegrationCard({
         <AlertDescription className="text-xs text-muted-foreground leading-relaxed mt-1.5 space-y-2">
           {autoMode ? (
             <p>
-              Cole o código do pixel e o Access-Token. O PageView nas landers e o Purchase após postback activam-se
-              sozinhos.
+              Cole o Pixel e a chave. As vendas aprovadas enviam-se sozinhas.
             </p>
           ) : (
             <p>
-              O <strong className="text-foreground/90">código do pixel</strong> (event_source_id) e o{" "}
-              <strong className="text-foreground/90">token de acesso</strong> (Events / Measurement) vêm do Events Manager, não
-              do SDK no browser. Use o separador de testes de eventos para validar antes de produção.
+              O <strong className="text-foreground/90">Pixel</strong> e a{" "}
+              <strong className="text-foreground/90">chave</strong> vêm do Events Manager do TikTok.
             </p>
           )}
         </AlertDescription>
@@ -275,8 +263,8 @@ export function TiktokEventsIntegrationCard({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">ID do pixel (Event source)</Label>
-          <p className="text-[11px] text-muted-foreground leading-snug">Código alfanumérico do pixel em TikTok Events Manager (Web), correspondente a <span className="font-mono text-[11px]">event_source_id</span> na API.</p>
+          <Label className="text-xs">ID do pixel</Label>
+          <p className="text-[11px] text-muted-foreground leading-snug">Código do pixel no Events Manager do TikTok.</p>
           <Input
             value={ttPixelId}
             readOnly={integrationsLocked}

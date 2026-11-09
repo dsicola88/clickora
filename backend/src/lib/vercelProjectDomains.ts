@@ -343,20 +343,18 @@ export function vercelCnameHint(hostname: string): { host: string; target: strin
       return {
         host: "www",
         target: "cname.vercel-dns.com",
-        note:
-          "No painel DNS, crie um CNAME de «www» (ou o nome completo indicado pelo registrador) para cname.vercel-dns.com.",
+        note: "No painel do domínio, aponte «www» para cname.vercel-dns.com.",
       };
     }
     return {
       host: sub,
       target: "cname.vercel-dns.com",
-      note: `Crie um CNAME do nome «${sub}» para cname.vercel-dns.com (ajuste ao formato do seu DNS).`,
+      note: `No painel do domínio, aponte «${sub}» para cname.vercel-dns.com.`,
     };
   }
   return {
     host: "@",
     target: "76.76.21.21",
-    note:
-      "Para domínio raiz (apex), use registo A para 76.76.21.21 ou ALIAS/ANAME conforme o registrador; veja a documentação Vercel.",
+    note: "No domínio raiz, aponte para 76.76.21.21 (tipo A ou equivalente no seu painel).",
   };
 }

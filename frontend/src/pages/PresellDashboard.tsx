@@ -1004,20 +1004,19 @@ export default function PresellDashboard() {
               </>
             ) : (
               <>
-                <p className="font-medium text-card-foreground mb-2">Como funciona (sem WordPress)</p>
+                <p className="font-medium text-card-foreground mb-2">Como funciona</p>
                 <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground">
                   <li>
-                    Ligar o <span className="font-medium text-foreground/90">teu domínio</span> (DNS) — a Clickora
-                    publica a página e o SSL.
+                    Ligue o <span className="font-medium text-foreground/90">seu domínio</span> — a Clickora trata da
+                    publicação e da segurança.
                   </li>
                   <li>
-                    Criar a <span className="font-medium text-foreground/90">página</span> com o visual do produto + o{" "}
-                    <span className="font-medium text-foreground/90">link da oferta</span> da rede.
+                    Crie a <span className="font-medium text-foreground/90">página</span> com o visual do produto e o{" "}
+                    <span className="font-medium text-foreground/90">link da oferta</span>.
                   </li>
                   <li>
-                    No anúncio usa só o link público{" "}
-                    <span className="font-mono text-[11px]">…/p/&lt;id&gt;</span> — o botão conta o clique e envia à
-                    oferta.
+                    No anúncio use só o <span className="font-medium text-foreground/90">link da página</span> — o botão
+                    conta o clique e envia à oferta.
                   </li>
                 </ol>
               </>

@@ -129,8 +129,8 @@ export function buildPublishReadinessFromPresell(input: {
       label: "URL pública / domínio",
       ok: domainOk,
       hint: input.customDomainHttpsPending
-        ? "O domínio ainda está com SSL a provisionar — use o link da app ou aguarde «HTTPS pronto»."
-        : "Ligue um domínio com HTTPS pronto ou use o link público da app.",
+        ? "O domínio ainda não está pronto — use o link da app ou aguarde «Pronto para anúncios»."
+        : "Ligue o seu domínio ou use o link público da app.",
     },
   ];
 }

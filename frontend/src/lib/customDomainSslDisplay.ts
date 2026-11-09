@@ -10,16 +10,16 @@ export function resolveSslBadge(d: Pick<CustomDomainDto, "status" | "ssl_state" 
   const state = d.ssl_state;
   if (!state || state === "pending_dns") return null;
   if (state === "https_ready" || d.https_ready) {
-    return { label: d.ssl_label || "HTTPS pronto", tone: "emerald", poll: false };
+    return { label: d.ssl_label || "Pronto para anúncios", tone: "emerald", poll: false };
   }
   if (state === "misconfigured") {
-    return { label: d.ssl_label || "DNS mal configurado", tone: "rose", poll: true };
+    return { label: d.ssl_label || "Domínio mal apontado", tone: "rose", poll: true };
   }
   if (state === "ssl_provisioning") {
-    return { label: d.ssl_label || "SSL a provisionar", tone: "amber", poll: true };
+    return { label: d.ssl_label || "A activar segurança", tone: "amber", poll: true };
   }
   if (state === "dns_verified") {
-    return { label: d.ssl_label || "DNS verificado", tone: "emerald", poll: false };
+    return { label: d.ssl_label || "Domínio confirmado", tone: "emerald", poll: false };
   }
   return null;
 }

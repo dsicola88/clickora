@@ -77,15 +77,14 @@ function domainGoLiveStatus(domains: CustomDomainDto[]): {
     return {
       status: "pending",
       hint:
-        "Sem domínio próprio: as páginas usam o host da conta (trial). Para anunciar a sério, liga o teu domínio (CNAME) — SSL fica a cargo da Clickora.",
+        "Sem domínio próprio: as páginas usam o da conta. Para anunciar a sério, ligue o seu domínio — a Clickora trata da segurança.",
     };
   }
   const ready = domains.find(isCustomDomainAdReady);
   if (ready) {
-    const https = ready.https_ready === true || ready.ssl_state === "https_ready";
     return {
       status: "done",
-      hint: `Pronto para Ads: ${ready.hostname}${https ? " (HTTPS)" : " (DNS OK)"}.`,
+      hint: `Pronto para anúncios: ${ready.hostname}.`,
     };
   }
   const hosting = domains.filter(isHostingCapableDomain);
@@ -93,7 +92,7 @@ function domainGoLiveStatus(domains: CustomDomainDto[]): {
   if (dnsPending) {
     return {
       status: "warn",
-      hint: `${dnsPending.hostname}: falta concluir DNS (CNAME/TXT) em Configurações → Domínios.`,
+      hint: `${dnsPending.hostname}: falta confirmar em Configurações → Domínio.`,
     };
   }
   const sslWait = hosting.find(
@@ -104,13 +103,13 @@ function domainGoLiveStatus(domains: CustomDomainDto[]): {
       status: "warn",
       hint:
         sslWait.ssl_state === "misconfigured"
-          ? `${sslWait.hostname}: DNS mal configurado — corrige o CNAME.`
-          : `${sslWait.hostname}: DNS OK — a aguardar HTTPS (SSL).`,
+          ? `${sslWait.hostname}: domínio mal apontado — corrija os valores do cartão.`
+          : `${sslWait.hostname}: a activar segurança — aguarde «Pronto para anúncios».`,
     };
   }
   return {
     status: "warn",
-    hint: "Há domínio na conta — confirma verificação e HTTPS em Configurações → Domínios.",
+    hint: "Há domínio na conta — confirme em Configurações → Domínio.",
   };
 }
 
@@ -324,9 +323,9 @@ export default function SetupAssistantPage() {
     const s: SetupStep[] = [
       {
         id: "domain",
-        title: "1. Domínio próprio (recomendado para Ads)",
+        title: "1. Domínio próprio (recomendado)",
         description:
-          "Liga o teu domínio com um CNAME. OAuth e postbacks funcionam sem isto; o host da conta serve para trial. Para campanhas sérias, usa domínio teu + HTTPS.",
+          "Ligue o seu domínio. Pode testar com o da conta; para campanhas a sério, use o seu.",
         status: domainStatus,
         actions: [{ to: "/configuracoes/dominio", label: "Configurar domínio" }],
         hint: domainHint,
@@ -335,7 +334,7 @@ export default function SetupAssistantPage() {
         id: "presell",
         title: "2. Presell publicada",
         description:
-          "Cria a página (visual do produto + link da oferta) e publica. O anúncio deve abrir só o teu link /p/… — nunca a página do produto em cru.",
+          "Crie a página com o link da oferta e publique. O anúncio deve abrir o seu link — nunca a página do produto.",
         status: presellStatus,
         actions: [{ to: "/presell/dashboard", label: "Minhas Presells" }],
         hint: presellHealth.detail
@@ -354,9 +353,9 @@ export default function SetupAssistantPage() {
       },
       {
         id: "clicks",
-        title: "4. Rastreio — teste de clique",
+        title: "4. Teste de clique",
         description:
-          "Abre a presell pública, clica no botão da oferta (não no URL do formulário). Em Relatórios deve aparecer o clique.",
+          "Abra a página pública e clique no botão da oferta. O clique deve aparecer em Relatórios.",
         status: clicks > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
           { to: "/tracking/relatorios/cliques", label: "Ver cliques" },
@@ -365,13 +364,13 @@ export default function SetupAssistantPage() {
         hint:
           clicks > 0
             ? `${clicks} clique(s) no período do resumo.`
-            : "Sem cliques neste período — faz um teste na página /p/…",
+            : "Sem cliques neste período — faça um teste na página pública.",
       },
       {
         id: "postback",
-        title: "5. Aviso de venda (postback)",
+        title: "5. Aviso de venda",
         description:
-          "Em Integrações copia o URL de aviso e cola na tua rede (Hotmart, Digistore, etc.). Sem isto só vês cliques, não vendas.",
+          "Em Integrações, copie o URL de aviso e cole na sua rede (BuyGoods, Digistore, etc.). Sem isto só vê cliques.",
         status: healthStepStatus(
           "postback",
           approvedSales > 0
@@ -393,44 +392,44 @@ export default function SetupAssistantPage() {
         hint:
           postbackHealth.detail ||
           (webhookPlanBlocked || (postbackPlan.found && !postbackPlan.ok)
-            ? "Postback não está activo neste plano — faz upgrade ou pede ao admin."
+            ? "Aviso de venda não está activo neste plano — faça upgrade."
             : webhook?.hook_url
               ? approvedSales > 0
                 ? "Há vendas aprovadas no período."
-                : "URL pronto — confirma na rede que está activo (macros / subid)."
-              : "Abre Postback para obter o URL completo (com token)."),
+                : "URL pronto — confirme na rede que está activo."
+              : "Abra Aviso de venda para copiar o URL completo."),
       },
       {
         id: "reports",
         title: "6. Conversões e relatórios",
-        description: "Cliques, vendas e receita aparecem em Conversões e relatórios (dados reais da conta).",
+        description: "Cliques, vendas e receita aparecem em Resultados.",
         status: approvedSales > 0 || clicks > 0 ? "done" : "pending",
         actions: [{ to: "/resultados/relatorios", label: "Abrir relatórios" }],
       },
       {
         id: "google",
-        title: "7. Google Ads — ligar conta (1 clique)",
+        title: "7. Google Ads — ligar conta",
         description:
-          "OAuth oficial: em Integrações → Google Ads liga a conta para custos e upload GCLID. Sem colar tokens à mão.",
+          "Em Integrações → Google Ads, ligue a conta para custos e vendas. Sem colar chaves à mão.",
         status: googleHealthStatus,
         actions: [{ to: "/integracoes/google-ads", label: "Ligar Google Ads" }],
         hint:
           accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.google).detail ||
           (!gaEnv
-            ? "API Google ainda não configurada neste ambiente (admin do servidor)."
+            ? "Google Ads ainda não está disponível neste ambiente."
             : gaCanUpload
               ? "Envio à Google pronto."
               : gaHasOAuth
                 ? gaCustomer
-                  ? "Conta ligada — confirma o ID da conversão / cliente."
-                  : "OAuth feito — falta escolher o cliente Ads / conversão."
-                : "Clica em Ligar: autorizas a Google uma vez; o resto é automático."),
+                  ? "Conta ligada — confirme a conversão na Google."
+                  : "Conta autorizada — falta escolher a conta Ads."
+                : "Clique em Ligar: autoriza a Google uma vez; o resto é automático."),
       },
       {
         id: "capi",
-        title: "8. Meta e TikTok CAPI (opcional)",
+        title: "8. Meta e TikTok (opcional)",
         description:
-          "Pixel + token de Events API em Integrações (não é OAuth). Sem isto o painel continua a marcar vendas via postback.",
+          "Em Integrações, cole o Pixel e a chave. Sem isto, as vendas continuam a entrar pelo aviso da rede.",
         status: capiStatus,
         actions: [{ to: "/integracoes", label: "Integrações" }],
         hint: capiFromHealth
@@ -438,8 +437,8 @@ export default function SetupAssistantPage() {
           : !metaTikTokDataReady
             ? "A obter estado…"
             : [
-                `Meta: ${!metaEnabled ? "opcional." : metaReady ? "pronta." : "falta Pixel/token."}`,
-                `TikTok: ${!ttEnabled ? "opcional." : ttReady ? "pronta." : "falta Pixel/token."}`,
+                `Meta: ${!metaEnabled ? "opcional." : metaReady ? "pronta." : "falta Pixel ou chave."}`,
+                `TikTok: ${!ttEnabled ? "opcional." : ttReady ? "pronta." : "falta Pixel ou chave."}`,
               ].join(" "),
       },
     ];
@@ -491,7 +490,7 @@ export default function SetupAssistantPage() {
     },
     {
       id: "postback",
-      label: "Postback",
+      label: "Aviso de venda",
       status: postbackStatus,
       to: "/integracoes/postback",
     },
@@ -547,10 +546,9 @@ export default function SetupAssistantPage() {
 
           <div className="rounded-xl border border-border/70 bg-card px-4 py-4 space-y-3">
             <div>
-              <p className="text-sm font-semibold text-foreground">Go live (o caminho certo)</p>
+              <p className="text-sm font-semibold text-foreground">Pronto a anunciar</p>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                Domínio (CNAME) · OAuth Google · postback · Meta/TikTok CAPI (opcional). Sem colar tokens em ficheiros.
-                Host da conta serve para trial; para Ads a sério, completa o verde abaixo.
+                Domínio → Google Ads → aviso de venda → Meta/TikTok (opcional). Complete o verde abaixo.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -633,7 +631,7 @@ export default function SetupAssistantPage() {
             </span>
             {gaCanUpload ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Google Ads upload OK
+                Google Ads ligado
               </Badge>
             ) : gaMetricsReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
@@ -642,12 +640,12 @@ export default function SetupAssistantPage() {
             ) : null}
             {metaEnabled && metaReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Meta CAPI
+                Meta
               </Badge>
             ) : null}
             {ttEnabled && ttReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                TikTok Events
+                TikTok
               </Badge>
             ) : null}
           </div>

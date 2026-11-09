@@ -80,9 +80,9 @@ export function CustomDomainSettings() {
       const d = res.data;
       const mode = d?.pending_dns?.mode;
       if (mode === "vercel") {
-        toast.success("Domínio adicionado ao alojamento. Configure CNAME e TXT no DNS e use «Verificar».");
+        toast.success("Domínio adicionado. Cole os valores do cartão no painel do domínio e clique em Verificar.");
       } else {
-        toast.success("Domínio adicionado. Configure o TXT no DNS e verifique.");
+        toast.success("Domínio adicionado. Cole o valor do cartão no painel do domínio e verifique.");
       }
     },
     onError: () => toast.error("Não foi possível adicionar."),
@@ -197,33 +197,23 @@ export function CustomDomainSettings() {
           <Globe className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-semibold text-card-foreground">Domínios personalizados</h3>
+          <h3 className="text-lg font-semibold text-card-foreground">Os seus domínios</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Adicione vários domínios (um por campanha ou marca). Os <strong className="text-foreground font-medium">valores
-            para copiar no DNS</strong> (TXT e, com Vercel, CNAME/A) aparecem{" "}
-            <strong className="text-foreground font-medium">dentro do cartão</strong> de cada domínio enquanto o estado for{" "}
-            <strong className="text-foreground font-medium">Pendente</strong>. Depois de «DNS verificado», o cartão
-            mostra o estado SSL (a provisionar → HTTPS pronto), a referência de apontamento (se aplicável) e a
-            presell na raiz. Com integração Vercel no servidor, o hostname é registado no projeto do site. Sem
-            Vercel, a verificação é com{" "}
-            <strong className="text-foreground font-medium">um registo TXT</strong> (nome e valor no cartão pendente). O
-            domínio padrão aplica-se às presells que não escolhem outro.
+            Um domínio por campanha ou marca. Enquanto estiver <strong className="text-foreground font-medium">Pendente</strong>,
+            abra o cartão e cole Nome/Valor no site onde comprou o domínio. Quando ficar{" "}
+            <strong className="text-foreground font-medium">Pronto para anúncios</strong>, use esse link nos anúncios.
           </p>
         </div>
       </div>
 
       <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground border border-border/50 rounded-lg p-4 bg-muted/20">
         <li>
-          Com o domínio em estado <strong className="text-foreground font-medium">Pendente</strong>, abra o respetivo
-          cartão: lá estão as linhas <strong className="text-foreground font-medium">Nome</strong> e{" "}
-          <strong className="text-foreground font-medium">Valor</strong> para colar no DNS (Hostinger, Cloudflare, etc.).
-          Não inverta nome e valor nem adicione aspas a mais.
+          Com estado <strong className="text-foreground font-medium">Pendente</strong>, copie Nome e Valor do cartão
+          para o painel do domínio (Hostinger, Cloudflare, etc.).
         </li>
-        <li>
-          Se o cartão mostrar CNAME ou A (Vercel), crie também esse registo para o site carregar no seu domínio.
-        </li>
-        <li>Aguarde a propagação (minutos a horas) e clique em «Verificar agora» no mesmo cartão.</li>
-        <li>Nas presells, em editar, escolha o domínio dos links públicos.</li>
+        <li>Guarde as alterações e aguarde alguns minutos.</li>
+        <li>Clique em «Verificar agora» no mesmo cartão.</li>
+        <li>Nas presells, escolha este domínio nos links públicos.</li>
       </ol>
 
       {quota && !quota.can_add ? (
@@ -278,8 +268,7 @@ export function CustomDomainSettings() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Sem https://. Use <strong className="text-foreground">Só tracking</strong> em{" "}
-          <code className="text-[11px]">go.</code> para /api/track separado da lander.
+          Sem https://. Use <strong className="text-foreground">Só tracking</strong> se quiser um domínio só para os links de rastreamento.
         </p>
       </div>
 
@@ -310,7 +299,7 @@ export function CustomDomainSettings() {
                           : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                       }`}
                     >
-                      {normalizeDomainStatus(d.status) === "verified" ? "DNS verificado" : "Pendente"}
+                      {normalizeDomainStatus(d.status) === "verified" ? "Confirmado" : "Pendente"}
                     </span>
                     {normalizeDomainStatus(d.status) === "verified" ? (
                       <CustomDomainSslBadge domain={d} tenantKey={tenantKey} />
@@ -405,8 +394,8 @@ export function CustomDomainSettings() {
                         <p className="text-muted-foreground leading-relaxed">{dns.note}</p>
                         <CustomDomainDnsTable
                           idPrefix={`${d.id}-pend-v`}
-                          title="Registos DNS (Vercel)"
-                          sourceNote="Valores alinhados com o projeto do site na Vercel (API add domain / mesma lógica que o painel Vercel)."
+                          title="Valores para colar no domínio"
+                          sourceNote="Cole estes valores no painel onde comprou o domínio."
                           description={dns.cname.note}
                           rows={[
                             {
@@ -426,12 +415,10 @@ export function CustomDomainSettings() {
                         />
                         {dns.vercel_txt.length === 0 && (
                           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-muted-foreground leading-relaxed">
-                            <p className="font-medium text-card-foreground mb-1">Sem TXT extra da Vercel neste momento</p>
+                            <p className="font-medium text-card-foreground mb-1">Basta a linha da tabela</p>
                             <p>
-                              Em muitos casos basta o <strong className="text-foreground font-medium">CNAME</strong> (ou{" "}
-                              <strong className="text-foreground font-medium">A</strong> no domínio raiz) na tabela. Guarde o
-                              DNS, aguarde a propagação e use «Verificar agora». Se continuar pendente, atualize a página
-                              — a Vercel pode passar a pedir um TXT depois.
+                              Guarde no painel do domínio, aguarde alguns minutos e clique em «Verificar agora».
+                              Se continuar pendente, actualize a página — pode aparecer um valor extra.
                             </p>
                           </div>
                         )}
@@ -440,15 +427,12 @@ export function CustomDomainSettings() {
                       <>
                         <p className="text-muted-foreground leading-relaxed">{dns.note}</p>
                         <ul className="list-disc pl-4 text-muted-foreground space-y-1 text-[11px] leading-relaxed">
-                          <li>
-                            No painel DNS crie tipo <strong className="text-foreground font-medium">TXT</strong> (não use
-                            A/CNAME para esta linha).
-                          </li>
+                          <li>No painel do domínio, adicione a linha abaixo (Nome e Valor).</li>
                         </ul>
                         <CustomDomainDnsTable
                           idPrefix={`${d.id}-pend-d`}
-                          title="Registo TXT (verificação dclickora)"
-                          sourceNote="Prova de posse do domínio; independente da Vercel."
+                          title="Valor para confirmar o domínio"
+                          sourceNote="Prova que o domínio é seu."
                           rows={[
                             {
                               kind: "TXT",
@@ -466,8 +450,8 @@ export function CustomDomainSettings() {
                 {hostingHint && (
                   <CustomDomainDnsTable
                     idPrefix={`${d.id}-host`}
-                    title="Apontamento do site (referência Vercel)"
-                    sourceNote="Mesmos valores recomendados pela Vercel para o projeto do site; use na Hostinger se o domínio não abrir o site."
+                    title="Para o site abrir neste domínio"
+                    sourceNote="Se a página não abrir, cole também esta linha no painel do domínio."
                     description={hostingHint.note}
                     rows={[
                       {

@@ -30,8 +30,7 @@ export function buildPendingDnsPayload(
         reason: v.reason,
       })),
       vercel_verified_immediately: opts.vercelVerifiedImmediately,
-      note:
-        "O domínio foi registado automaticamente no projeto do site. Configure o CNAME (ou A no apex) e o(s) TXT abaixo; depois use «Verificar».",
+      note: "Cole os valores abaixo no painel do domínio e clique em Verificar.",
     };
   }
 
@@ -39,7 +38,6 @@ export function buildPendingDnsPayload(
     mode: "dclickora" as const,
     txt_name: verificationTxtRecordName(hostname),
     txt_value: verificationTxtValue(token),
-    note:
-      "Crie um único registo TXT: primeira linha = Nome/Host do registo; segunda linha = Valor/Conteúdo. Depois use «Verificar».",
+    note: "Cole Nome e Valor abaixo no painel do domínio. Depois clique em Verificar.",
   };
 }

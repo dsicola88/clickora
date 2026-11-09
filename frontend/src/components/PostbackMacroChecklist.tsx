@@ -60,18 +60,16 @@ export function PostbackMacroChecklist({ postbackUrl, platform, compact }: Props
   if (!url) {
     return (
       <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
-        <p className="text-xs font-medium text-foreground">Macros de atribuição</p>
+        <p className="text-xs font-medium text-foreground">Códigos da rede</p>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Cada rede tem macros próprias (ex. MaxWeb/BuyGoods <span className="font-mono">{`{SUBID2}`}</span>, Digistore{" "}
-          <span className="font-mono">{`{sid1}`}</span>, SmartAdv <span className="font-mono">{`{sub3}`}</span>). Copie o URL
-          gerado em Postback — não invente o path.
+          Cada rede usa códigos próprios no aviso de venda. Copie o URL gerado em Integrações — não invente o endereço.
         </p>
         {compact ? (
           <Link
             to="/integracoes/postback"
             className="inline-flex text-[11px] font-medium text-primary underline-offset-2 hover:underline"
           >
-            Abrir Postback e validar macros
+            Abrir aviso de venda
           </Link>
         ) : null}
       </div>
@@ -80,7 +78,7 @@ export function PostbackMacroChecklist({ postbackUrl, platform, compact }: Props
 
   return (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
-      <p className="text-xs font-medium text-foreground">Checklist de macros (atribuição)</p>
+      <p className="text-xs font-medium text-foreground">Confirmação do aviso de venda</p>
       <ul className="space-y-2">
         {rows.map((c) => {
           const preset = AFFILIATE_POSTBACK_PRESETS[c.platform];
