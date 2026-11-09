@@ -6,6 +6,10 @@ import { normalizeSubscriptionStatus, periodEndByPlan } from "../lib/subscriptio
 import { sendTransactionalEmail } from "../lib/mailer";
 import type { User, UserRole } from "@prisma/client";
 import { resolvePlanType } from "../lib/hotmartPlanMap";
+import {
+  claimHotmartEvent,
+  hotmartEventReceiptKey,
+} from "../lib/hotmartWebhookIdempotency";
 
 export { resolvePlanType } from "../lib/hotmartPlanMap";
 
@@ -17,6 +21,7 @@ type HotmartEventData = {
   buyerName: string | null;
   approvedDate: Date | null;
   endDate: Date | null;
+  transactionHint: string | null;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -142,6 +147,16 @@ function parseHotmartPayload(body: unknown): HotmartEventData | null {
     buyerName: pickString(buyer.name, data.name),
     approvedDate: parseDate(purchase.approved_date ?? data.approved_date ?? root.created_at),
     endDate: parseDate(subscription.end_date ?? purchase.subscription_end_date ?? data.end_date),
+    transactionHint: pickString(
+      purchase.transaction,
+      purchase.transaction_id,
+      data.transaction,
+      data.transaction_id,
+      root.transaction,
+      root.id,
+      purchase.order_id,
+      data.order_id,
+    ),
   };
 }
 
@@ -239,6 +254,22 @@ export const webhookController = {
       });
     }
 
+    const receiptKey = hotmartEventReceiptKey({
+      event: payload.event,
+      email: payload.email,
+      productCode: payload.productCode,
+      offerCode: payload.offerCode,
+      transactionHint: payload.transactionHint,
+    });
+    const claimed = await claimHotmartEvent(receiptKey);
+    if (!claimed) {
+      return res.status(200).json({
+        ok: true,
+        duplicate: true,
+        reason: "already_processed",
+      });
+    }
+
     const existingUser = await systemPrisma.user.findUnique({
       where: { email: payload.email },
       include: { roles: true },
@@ -259,7 +290,9 @@ export const webhookController = {
     const planType = planResolution.planType;
     const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
     if (!plan) {
-      console.warn(`[hotmart-webhook] sem plano na BD para type=${planType} — ignorado (evita 400 na Hotmart)`);
+      console.error(
+        `[hotmart-webhook] CRITICAL plan_not_configured type=${planType} email=${payload.email} — comprador sem entitlement`,
+      );
       return res.status(200).json({
         ok: true,
         ignored: true,
@@ -267,14 +300,23 @@ export const webhookController = {
         plan_type: planType,
         plan_map_matched: planResolution.matched,
         plan_map_source: planResolution.source,
+        alert: "configure_hotmart_plan_map",
       });
     }
 
     const startsAt = payload.approvedDate ?? new Date();
-    const endsAt =
-      status === "canceled" || status === "expired"
-        ? new Date()
-        : (payload.endDate ?? periodEndByPlan(plan.type, startsAt));
+    const now = new Date();
+    /** Cancel/refund: respeitar endDate futuro (paid-through); senão cortar agora. */
+    let endsAt: Date | null;
+    if (status === "canceled" || status === "expired") {
+      if (payload.endDate && payload.endDate.getTime() > now.getTime()) {
+        endsAt = payload.endDate;
+      } else {
+        endsAt = now;
+      }
+    } else {
+      endsAt = payload.endDate ?? periodEndByPlan(plan.type, startsAt);
+    }
 
     await systemPrisma.subscription.upsert({
       where: { userId: user.id },
@@ -288,7 +330,8 @@ export const webhookController = {
       update: {
         planId: plan.id,
         status,
-        startsAt,
+        /** Não rebobinar startsAt em eventos de cancel/refund. */
+        ...(status === "active" ? { startsAt } : {}),
         endsAt,
       },
     });

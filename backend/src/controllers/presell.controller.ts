@@ -58,6 +58,7 @@ import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
 import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellLiteHtml";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import { publicSpaPresellUrl } from "../lib/publicSpaOrigin";
+import { isPublicSafeTenantBrandName } from "../lib/tenantBrandingPublic";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -187,10 +188,13 @@ export const presellController = {
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
     /**
-     * Não aplicar `assertPresellAllowedOnRequestHost` aqui: o id (UUID) é único globalmente.
-     * Atrás de Vercel→Railway o `Host`/`X-Forwarded-*` por vezes não bate com o domínio do visitante,
-     * causando 404 falsos em domínios personalizados. O slug (`getPublicBySlug`) continua restrito ao host.
+     * Em domínio personalizado verificado, só landers do dono desse host.
+     * Em dclickora.com / preview / host sem domínio verificado, `assert` falha aberto
+     * (getRequestHostname já prefere forwarded do visitante vs *.railway.app).
      */
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
     if (page.status !== "published") {
       const hint =
         page.status === "draft"
@@ -199,6 +203,12 @@ export const presellController = {
             ? "Esta página está em pausa. No painel, reativa ou publica de novo."
             : "Esta página não está disponível publicamente.";
       return res.status(404).json({ error: hint, code: "PRESHELL_NOT_PUBLISHED" });
+    }
+    if (page.complianceGate === "blocked") {
+      return res.status(404).json({
+        error: "Página indisponível por conformidade.",
+        code: "PRESHELL_COMPLIANCE_BLOCKED",
+      });
     }
 
     const access = evaluateSubscriptionAccess(page.user.subscription);
@@ -219,8 +229,14 @@ export const presellController = {
       include: { user: { include: { subscription: { include: { plan: true } } } } },
     });
     if (!page) return res.status(404).type("text/plain").send("Página não encontrada");
+    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
+      return res.status(404).type("text/plain").send("Página não encontrada");
+    }
     if (page.status !== "published") {
       return res.status(404).type("text/plain").send("Página não publicada");
+    }
+    if (page.complianceGate === "blocked") {
+      return res.status(404).type("text/plain").send("Página indisponível por conformidade");
     }
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) {
@@ -438,9 +454,21 @@ export const presellController = {
   async getBuilderMediaFile(req: Request, res: Response) {
     const userId = typeof req.params.userId === "string" ? req.params.userId.trim() : "";
     const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
-    if (!userId || !filename || !isSafeBuilderMediaFilename(filename)) {
+    if (
+      !userId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId) ||
+      !filename ||
+      !isSafeBuilderMediaFilename(filename)
+    ) {
       return res.status(404).end();
     }
+    /** Só serve se a conta tiver pelo menos uma presell (reduz fishing de userIds vazios). */
+    const owns = await systemPrisma.presellPage.findFirst({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!owns) return res.status(404).end();
+
     const resolvedBase = path.resolve(path.join(getPresellBuilderMediaDir(), userId));
     const resolvedFile = path.resolve(path.join(resolvedBase, filename));
     if (!resolvedFile.startsWith(resolvedBase + path.sep)) {
@@ -452,6 +480,7 @@ export const presellController = {
         ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
       res.setHeader("Content-Type", mime);
       res.setHeader("Cache-Control", "public, max-age=604800");
+      res.setHeader("X-Content-Type-Options", "nosniff");
       return res.sendFile(resolvedFile);
     }
     if (isR2Configured()) {
@@ -1054,7 +1083,7 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
     track_api_base: trackApiBase,
     tenant_branding: branding
       ? {
-          brand_name: branding.brandName,
+          brand_name: isPublicSafeTenantBrandName(branding.brandName) ? branding.brandName : null,
           logo_url: branding.logoUrl,
           favicon_url: branding.faviconUrl,
           primary_color: branding.primaryColor,

@@ -223,4 +223,14 @@ CREATE TABLE IF NOT EXISTS "academy_lessons" (
   } catch (e) {
     console.warn("[schemaRepair] keyword_researches bundle (ignorado):", e);
   }
+  try {
+    await systemPrisma.$executeRawUnsafe(`
+CREATE TABLE IF NOT EXISTS "hotmart_webhook_receipts" (
+  "event_key" TEXT NOT NULL,
+  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "hotmart_webhook_receipts_pkey" PRIMARY KEY ("event_key")
+)`);
+  } catch (e) {
+    console.warn("[schemaRepair] hotmart_webhook_receipts (ignorado):", e);
+  }
 }

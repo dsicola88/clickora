@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 import { normalizeIpForMatch } from "./normalizeIp";
-import { assessClickQuality, detectBot, isGoogleAdsCrawlerUserAgent } from "./detectBot";
+import {
+  assessClickQuality,
+  detectBot,
+  isProtectedGoogleCrawlerUserAgent,
+} from "./detectBot";
 import { consumeTrackRateLimitAsync } from "./trackRateLimit";
 import { isPrivateOrLocalIp } from "./clientIp";
 import { effectiveAutoBlacklistThreshold } from "./trackingGuardPolicy";
@@ -173,7 +177,7 @@ export async function enforceTrackingRules(args: {
     if (b.isBot) {
       const adsReviewChannel =
         channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
-      const adsCrawler = adsReviewChannel && isGoogleAdsCrawlerUserAgent(userAgent);
+      const adsCrawler = adsReviewChannel && isProtectedGoogleCrawlerUserAgent(userAgent);
       if (!adsCrawler) {
         void logGuardBlock({
           ownerUserId,

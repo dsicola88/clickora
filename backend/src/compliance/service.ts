@@ -214,6 +214,13 @@ async function persistAudit(args: {
     },
   });
 
+  const pageBefore = await systemPrisma.presellPage.findUnique({
+    where: { id: args.pageId },
+    select: { status: true },
+  });
+  const shouldPause =
+    evaluation.gate === "blocked" && pageBefore?.status === "published";
+
   await systemPrisma.presellPage.update({
     where: { id: args.pageId },
     data: {
@@ -221,8 +228,21 @@ async function persistAudit(args: {
       lastComplianceAuditAt: new Date(evaluation.evaluatedAt),
       lastComplianceAuditId: audit.id,
       contentFingerprint: evaluation.contentFingerprint,
+      ...(shouldPause ? { status: "paused" as const } : {}),
     },
   });
+
+  if (shouldPause) {
+    console.warn(
+      `[compliance] página ${args.pageId} pausada automaticamente (gate=blocked)`,
+    );
+    try {
+      const { invalidateTrackEdgeDest } = await import("../lib/trackEdgeDestCache");
+      await invalidateTrackEdgeDest(args.pageId);
+    } catch {
+      /* ignore */
+    }
+  }
 
   return audit;
 }

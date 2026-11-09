@@ -18,7 +18,7 @@ import {
   resolveVisitorCountryFromRequest,
 } from "../lib/cdn77Visitor";
 import { isFastlyEdgeIp } from "../lib/fastlyEdges";
-import { assessClickQuality } from "../lib/detectBot";
+import { assessClickQuality, isProtectedGoogleCrawlerUserAgent } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { consumeTrackRateLimitAsync } from "../lib/trackRateLimit";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
@@ -60,6 +60,9 @@ import { resolveTrackEdgeDest } from "../lib/trackEdgeDestCache";
 
 /** Rate limit por IP antes do lookup da página (protege DB sob flood). */
 async function earlyTrackRateLimit(req: Request, res: Response): Promise<boolean> {
+  const ua = String(req.headers["user-agent"] || "");
+  /** Crawlers Google Ads/Search não devem levar 429 (aprovação / SEO). */
+  if (isProtectedGoogleCrawlerUserAgent(ua)) return false;
   const ip = extractClientIp(req);
   if (await consumeTrackRateLimitAsync(ip)) return false;
   res.setHeader("Retry-After", "60");
@@ -1873,7 +1876,12 @@ export const trackController = {
     if (!presellId || !/^[0-9a-f-]{36}$/i.test(presellId)) {
       return res.status(400).json({ error: "presellId inválido" });
     }
-    const secret = process.env.TRACK_EDGE_SHARED_SECRET?.trim();
+    /** Em produção o endpoint deixa de ser world-readable: TRACK_EDGE_SHARED_SECRET ou JWT_SECRET. */
+    const secret =
+      process.env.TRACK_EDGE_SHARED_SECRET?.trim() ||
+      (process.env.NODE_ENV === "production" || process.env.TRACK_EDGE_REQUIRE_SECRET === "1"
+        ? process.env.JWT_SECRET?.trim() || ""
+        : "");
     if (secret) {
       const got = String(req.get("x-clickora-edge-secret") || "").trim();
       if (got !== secret) {

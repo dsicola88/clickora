@@ -211,11 +211,29 @@ export const plansController = {
     });
     if (!sub) return res.status(404).json({ error: "Nenhuma assinatura encontrada" });
 
+    /** Mantém acesso até endsAt se ainda no futuro (período pago). */
+    const now = new Date();
+    const keepUntil =
+      sub.endsAt && sub.endsAt.getTime() > now.getTime() ? sub.endsAt : now;
+
     await prisma.subscription.update({
       where: { id: sub.id },
-      data: { status: "canceled" },
+      data: { status: "canceled", endsAt: keepUntil },
     });
 
-    res.json({ message: "Assinatura cancelada" });
+    const hotmartCancel =
+      process.env.HOTMART_CANCEL_URL?.trim() ||
+      process.env.HOTMART_PRODUCT_URL?.trim() ||
+      null;
+
+    res.json({
+      message:
+        "Cancelamento registado na Clickora. Se a cobrança é pela Hotmart, confirme também o cancelamento lá para parar renovações.",
+      status: "canceled",
+      access_until: keepUntil.toISOString(),
+      hotmart_cancel_url: hotmartCancel,
+      billing_note:
+        "O cancelamento in-app não cancela automaticamente a assinatura na Hotmart.",
+    });
   },
 };

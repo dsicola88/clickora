@@ -5,6 +5,7 @@
 import Redis from "ioredis";
 import { systemPrisma } from "./prisma";
 import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
+import { evaluateSubscriptionAccess } from "./subscription";
 
 const MEMORY_TTL_MS = 60_000;
 const REDIS_TTL_SEC = 120;
@@ -107,9 +108,21 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
 
   const page = await systemPrisma.presellPage.findUnique({
     where: { id: presellId },
-    select: { id: true, userId: true, status: true, content: true, tracking: true },
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      content: true,
+      tracking: true,
+      complianceGate: true,
+      user: { include: { subscription: { include: { plan: true } } } },
+    },
   });
   if (!page) return null;
+  if (page.status !== "published") return null;
+  if (page.complianceGate === "blocked") return null;
+  const access = evaluateSubscriptionAccess(page.user?.subscription ?? null);
+  if (!access.allowed) return null;
   const destination = affiliateLinkFromPresellPage(page.content, page.tracking);
   if (!destination) return null;
   const payload: DestPayload = {
@@ -118,8 +131,6 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
     userId: page.userId,
     updatedAt: Date.now(),
   };
-  if (page.status === "published") {
-    await putCache(presellId, payload);
-  }
+  await putCache(presellId, payload);
   return payload;
 }

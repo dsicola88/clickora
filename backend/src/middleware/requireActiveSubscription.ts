@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { systemPrisma } from "../lib/prisma";
-import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import type { JwtPayload } from "../lib/jwt";
 
@@ -44,21 +43,15 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
     return res.status(401).json({ error: "Conta não encontrada" });
   }
 
+  /**
+   * Sem linha de subscription: não inventar free_trial silencioso aqui.
+   * Signup/Hotmart devem criar a row; auto-criar mascarava webhooks falhados.
+   */
   if (!billingUser.subscription) {
-    const plan = await resolveDefaultPlanForSignup();
-    if (plan) {
-      await systemPrisma.subscription.create({
-        data: {
-          userId: billingUser.id,
-          planId: plan.id,
-          status: "active",
-        },
-      });
-      billingUser = await systemPrisma.user.findUniqueOrThrow({
-        where: { id: billId },
-        include: { subscription: true },
-      });
-    }
+    return res.status(403).json({
+      error: reasonToMessage.subscription_missing,
+      code: "subscription_missing",
+    });
   }
 
   const decision = evaluateSubscriptionAccess(billingUser.subscription);
