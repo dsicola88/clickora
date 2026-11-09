@@ -1,6 +1,8 @@
 name = "clickora-track-edge"
 main = "src/index.js"
 compatibility_date = "2024-11-01"
+account_id = "8ff7f23069e4b607cec56791bd44360b"
+workers_dev = true
 
 # Secrets / vars (wrangler secret put …):
 #   ORIGIN_API_BASE=https://clickora-production.up.railway.app/api

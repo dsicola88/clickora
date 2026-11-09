@@ -20,10 +20,18 @@ Redirect de oferta na edge: 302 imediato a partir do destino em cache; registo d
 
 ```bash
 cd edge/track-worker
-npx wrangler deploy
+npm install
+npx wrangler login          # uma vez (browser Cloudflare)
+# Mesmo valor que TRACK_EDGE_SHARED_SECRET no Railway:
+npx wrangler secret put TRACK_EDGE_SHARED_SECRET
+npx wrangler secret put ORIGIN_API_BASE
+# valor: https://clickora-production.up.railway.app/api
+npm run deploy
 ```
 
-Aponta o CNAME de **tracking** (purpose=tracking) para o worker. Landers continuam no domínio hosting / Vercel.
+No Railway (já aplicado em 2026-11-09): `TRACK_EDGE_SHARED_SECRET` definido — `GET /api/track/edge/dest/:id` responde 401 sem o header `x-clickora-edge-secret`.
+
+Aponta o CNAME de **tracking** (purpose=`tracking` ou subdomínio dedicado) para o worker. Landers (`purpose=both` / hosting) continuam no Vercel.
 
 ## Fallback
 
