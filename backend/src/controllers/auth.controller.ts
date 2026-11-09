@@ -70,6 +70,8 @@ type SerialUser = {
       maxPresellPages: number | null;
       maxClicksPerMonth: number | null;
       maxCustomDomains?: number | null;
+      maxWorkspaceMembers?: number | null;
+      maxTrafficRotators?: number | null;
       hasBranding: boolean;
       affiliateWebhookEnabled?: boolean;
       dpilotAdsEnabled?: boolean;
@@ -124,16 +126,12 @@ export function serializeUser(
           max_workspace_members: effectiveMaxWorkspaceMembersFromPlan({
             type: plan.type as PlanType,
             maxWorkspaceMembers:
-              typeof (plan as { maxWorkspaceMembers?: number | null }).maxWorkspaceMembers === "number"
-                ? (plan as { maxWorkspaceMembers: number }).maxWorkspaceMembers
-                : null,
+              typeof plan.maxWorkspaceMembers === "number" ? plan.maxWorkspaceMembers : null,
           }),
           max_traffic_rotators: effectiveMaxTrafficRotatorsFromPlan({
             type: plan.type as PlanType,
             maxTrafficRotators:
-              typeof (plan as { maxTrafficRotators?: number | null }).maxTrafficRotators === "number"
-                ? (plan as { maxTrafficRotators: number }).maxTrafficRotators
-                : null,
+              typeof plan.maxTrafficRotators === "number" ? plan.maxTrafficRotators : null,
           }),
           has_branding: plan.hasBranding,
           affiliate_webhook_enabled:

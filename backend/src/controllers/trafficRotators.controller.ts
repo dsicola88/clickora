@@ -255,16 +255,17 @@ export const trafficRotatorsController = {
     if (dup) return res.status(409).json({ error: "Já existe um rotador com este slug." });
 
     const preferredOrigin = await preferredOriginForPresell(userId, b.context_presell_id);
-    let sanitizedArms: Array<{
+    type ArmCreateRow = {
       destinationUrl: string;
       label: string | null;
       orderIndex: number;
       weight: number;
       maxClicks: number | null;
-      countriesAllow: string[] | null;
-      countriesDeny: string[] | null;
+      countriesAllow: Prisma.InputJsonValue | typeof Prisma.JsonNull;
+      countriesDeny: Prisma.InputJsonValue | typeof Prisma.JsonNull;
       deviceRule: ReturnType<typeof toDeviceRule>;
-    }>;
+    };
+    let sanitizedArms: ArmCreateRow[];
     let sanitizedBackup: string | null;
     try {
       sanitizedArms = b.arms.map((a) => {
@@ -365,19 +366,18 @@ export const trafficRotatorsController = {
 
     const contextId = b.context_presell_id || existing.contextPresellId;
     const preferredOrigin = await preferredOriginForPresell(userId, contextId);
-    let updateArmsCreate:
-      | Array<{
-          destinationUrl: string;
-          label: string | null;
-          orderIndex: number;
-          weight: number;
-          maxClicks: number | null;
-          clicksDelivered: number;
-          countriesAllow: string[] | null;
-          countriesDeny: string[] | null;
-          deviceRule: ReturnType<typeof toDeviceRule>;
-        }>
-      | undefined;
+    type ArmUpdateCreateRow = {
+      destinationUrl: string;
+      label: string | null;
+      orderIndex: number;
+      weight: number;
+      maxClicks: number | null;
+      clicksDelivered: number;
+      countriesAllow: Prisma.InputJsonValue | typeof Prisma.JsonNull;
+      countriesDeny: Prisma.InputJsonValue | typeof Prisma.JsonNull;
+      deviceRule: ReturnType<typeof toDeviceRule>;
+    };
+    let updateArmsCreate: ArmUpdateCreateRow[] | undefined;
     let updateBackup: string | null | undefined = undefined;
     try {
       if (b.arms) {
@@ -409,31 +409,34 @@ export const trafficRotatorsController = {
       if (b.arms) {
         await tx.trafficRotatorArm.deleteMany({ where: { rotatorId: id } });
       }
+      const updateData: Prisma.TrafficRotatorUpdateInput = {
+        ...(b.name != null ? { name: b.name.trim() } : {}),
+        ...(b.slug != null ? { slug: b.slug.trim().toLowerCase() } : {}),
+        ...(b.mode != null ? { mode: toMode(b.mode) } : {}),
+        ...(updateBackup !== undefined ? { backupUrl: updateBackup } : {}),
+        ...(b.context_presell_id != null
+          ? { contextPresell: { connect: { id: b.context_presell_id } } }
+          : {}),
+        ...(accessCode !== undefined ? { accessCode } : {}),
+        ...(b.is_active != null ? { isActive: b.is_active } : {}),
+        ...(b.sticky_session != null ? { stickySession: b.sticky_session } : {}),
+        ...(b.rules_policy !== undefined
+          ? {
+              rulesPolicy:
+                b.rules_policy === null ? Prisma.JsonNull : (b.rules_policy as Prisma.InputJsonValue),
+            }
+          : {}),
+        ...(updateArmsCreate
+          ? {
+              arms: {
+                create: updateArmsCreate,
+              },
+            }
+          : {}),
+      };
       await tx.trafficRotator.update({
         where: { id },
-        data: {
-          ...(b.name != null ? { name: b.name.trim() } : {}),
-          ...(b.slug != null ? { slug: b.slug.trim().toLowerCase() } : {}),
-          ...(b.mode != null ? { mode: toMode(b.mode) } : {}),
-          ...(updateBackup !== undefined ? { backupUrl: updateBackup } : {}),
-          ...(b.context_presell_id != null ? { contextPresellId: b.context_presell_id } : {}),
-          ...(accessCode !== undefined ? { accessCode } : {}),
-          ...(b.is_active != null ? { isActive: b.is_active } : {}),
-          ...(b.sticky_session != null ? { stickySession: b.sticky_session } : {}),
-          ...(b.rules_policy !== undefined
-            ? {
-                rulesPolicy:
-                  b.rules_policy === null ? Prisma.JsonNull : (b.rules_policy as Prisma.InputJsonValue),
-              }
-            : {}),
-          ...(updateArmsCreate
-            ? {
-                arms: {
-                  create: updateArmsCreate,
-                },
-              }
-            : {}),
-        },
+        data: updateData,
       });
     });
 
