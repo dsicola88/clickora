@@ -39,7 +39,7 @@ describe("buildPublishReadinessFromPresell", () => {
     expect(items.find((i) => i.id === "offer")?.ok).toBe(false);
   });
 
-  it("marca domínio pendente quando SSL Vercel ainda a provisionar", () => {
+  it("marca domínio pendente enquanto a segurança ainda não está pronta", () => {
     const items = buildPublishReadinessFromPresell({
       status: "published",
       affiliateLink: "https://mwebkivo.com/1/2/3/",
@@ -50,7 +50,7 @@ describe("buildPublishReadinessFromPresell", () => {
     });
     const domain = items.find((i) => i.id === "domain");
     expect(domain?.ok).toBe(false);
-    expect(domain?.hint).toMatch(/SSL/i);
+    expect(domain?.hint).toMatch(/ainda não está pronto|Pronto para anúncios/i);
     expect(publishBlockedByReadiness(items)).toBeNull();
   });
 });
