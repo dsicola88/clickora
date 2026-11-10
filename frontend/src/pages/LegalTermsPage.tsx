@@ -1,12 +1,7 @@
 import { Link } from "react-router-dom";
 import { LegalDocLayout } from "@/components/legal/LegalDocLayout";
-import {
-  SITE_LEGAL_NAME,
-  SITE_SUPPORT_EMAIL,
-  SITE_SUPPORT_MAILTO,
-  SITE_SUPPORT_PHONE_DISPLAY,
-  SITE_SUPPORT_TEL,
-} from "@/lib/siteLegal";
+import { LegalSupportContact } from "@/components/legal/LegalSupportContact";
+import { SITE_LEGAL_NAME } from "@/lib/siteLegal";
 
 export default function LegalTermsPage() {
   return (
@@ -27,14 +22,7 @@ export default function LegalTermsPage() {
       <p>
         É responsável pela exactidão dos dados de registo e pela confidencialidade da palavra-passe. Qualquer actividade
         realizada com as suas credenciais presume-se feita por si. Notifique-nos em{" "}
-        <a href={SITE_SUPPORT_MAILTO} className="text-primary underline underline-offset-2">
-          {SITE_SUPPORT_EMAIL}
-        </a>
-        {" ou "}
-        <a href={SITE_SUPPORT_TEL} className="text-primary underline underline-offset-2">
-          {SITE_SUPPORT_PHONE_DISPLAY}
-        </a>{" "}
-        em caso de uso não autorizado.
+        <LegalSupportContact /> em caso de uso não autorizado.
       </p>
 
       <h2>3. Planos, trial e pagamentos</h2>

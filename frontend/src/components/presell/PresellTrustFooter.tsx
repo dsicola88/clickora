@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { SITE_SUPPORT_EMAIL } from "@/lib/siteLegal";
 import { presellComplianceLanguage } from "@/lib/presellPublicComplianceCopy";
 import { getPresellUiStrings, isRtlLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
@@ -112,8 +111,8 @@ export function PresellTrustFooter({
   const { operator } = bundle;
   const medicalHref = operator.medical;
   const email = (supportEmail || "").trim();
-  const contactEmail = email || SITE_SUPPORT_EMAIL;
-  const mail = `mailto:${contactEmail}`;
+  const contactEmail = email;
+  const mail = contactEmail ? `mailto:${contactEmail}` : "";
   const doc = (operatorDocument || "").trim();
   const operatorName = (businessName || "").trim();
   const year = new Date().getFullYear();
@@ -145,21 +144,16 @@ export function PresellTrustFooter({
                   {portal.document} {doc}.{" "}
                 </span>
               ) : null}
-              {portal.contact}{" "}
-              <a href={mail} className="underline underline-offset-2 hover:text-white">
-                {contactEmail}
-              </a>
+              {email && mail ? (
+                <>
+                  {portal.contact}{" "}
+                  <a href={mail} className="underline underline-offset-2 hover:text-white">
+                    {contactEmail}
+                  </a>
+                </>
+              ) : null}
             </p>
           )}
-          {!operatorName && !doc && !email ? (
-            <p className="text-slate-300">
-              {portal.platformContact}{" "}
-              <a href={mail} className="underline underline-offset-2 hover:text-white">
-                {contactEmail}
-              </a>
-              .
-            </p>
-          ) : null}
           <nav
             className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-xs font-medium text-slate-300"
             aria-label={portal.policies}
@@ -237,17 +231,21 @@ export function PresellTrustFooter({
           <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
             {portal.medical}
           </a>
-          <a href={mail} className={link}>
-            {s.trustContact}
-          </a>
+          {email && mail ? (
+            <a href={mail} className={link}>
+              {s.trustContact}
+            </a>
+          ) : null}
         </nav>
         <MerchantPolicyNav bundle={bundle} locale={locale} linkClass={link} textClass={cn("border-border/50", text)} />
-        <p className={cn("text-[11px] leading-relaxed", text)}>
-          {s.trustContactLine}{" "}
-          <a href={mail} className={cn("font-medium", link)}>
-            {contactEmail}
-          </a>
-        </p>
+        {email && mail ? (
+          <p className={cn("text-[11px] leading-relaxed", text)}>
+            {s.trustContactLine}{" "}
+            <a href={mail} className={cn("font-medium", link)}>
+              {contactEmail}
+            </a>
+          </p>
+        ) : null}
       </div>
     </footer>
   );

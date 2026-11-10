@@ -183,6 +183,15 @@ export default function AdminPanel() {
     staleTime: 30_000,
   });
 
+  const [supportEmailDraft, setSupportEmailDraft] = useState("");
+  const [supportPhoneDraft, setSupportPhoneDraft] = useState("");
+
+  useEffect(() => {
+    if (!brandingMeta) return;
+    setSupportEmailDraft(brandingMeta.support_email ?? "");
+    setSupportPhoneDraft(brandingMeta.support_phone_display || brandingMeta.support_phone || "");
+  }, [brandingMeta?.support_email, brandingMeta?.support_phone, brandingMeta?.support_phone_display, brandingMeta?.updated_at]);
+
   const uploadFaviconMutation = useMutation({
     mutationFn: (file: File) => adminService.uploadFavicon(file),
     onSuccess: (result) => {
@@ -207,6 +216,23 @@ export default function AdminPanel() {
       queryClient.invalidateQueries({ queryKey: PUBLIC_BRANDING_KEY });
       window.dispatchEvent(new CustomEvent("clickora:branding"));
     },
+  });
+
+  const saveSupportContactsMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminService.patchSupportContacts({
+        support_email: supportEmailDraft.trim() || null,
+        support_phone: supportPhoneDraft.trim() || null,
+      });
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Contactos de suporte actualizados.");
+      queryClient.invalidateQueries({ queryKey: PUBLIC_BRANDING_KEY });
+      window.dispatchEvent(new CustomEvent("clickora:branding"));
+    },
+    onError: (e: Error) => toast.error(e.message || "Não foi possível guardar."),
   });
 
   const suspendMutation = useMutation({
@@ -1018,6 +1044,57 @@ export default function AdminPanel() {
 
         {activeTab === "brand" && isSuperAdmin ? (
           <div className="space-y-4 mt-6">
+            <Card className="border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Bell className="h-5 w-5 text-primary" />
+                  Contactos de suporte
+                </CardTitle>
+                <CardDescription>
+                  Email e WhatsApp oficiais (Ajuda, Conta, páginas legais). Sem valores inventados — o que guardar aqui é o que a app mostra.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-xl">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground" htmlFor="admin-support-email">
+                    Email
+                  </label>
+                  <Input
+                    id="admin-support-email"
+                    type="email"
+                    autoComplete="off"
+                    placeholder="ex.: dclickoraoficial@gmail.com"
+                    value={supportEmailDraft}
+                    onChange={(e) => setSupportEmailDraft(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground" htmlFor="admin-support-phone">
+                    Telefone / WhatsApp
+                  </label>
+                  <Input
+                    id="admin-support-phone"
+                    type="tel"
+                    autoComplete="off"
+                    placeholder="ex.: +244 926 510 294"
+                    value={supportPhoneDraft}
+                    onChange={(e) => setSupportPhoneDraft(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Use o formato internacional. O botão WhatsApp é gerado automaticamente.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={saveSupportContactsMutation.isPending}
+                  onClick={() => saveSupportContactsMutation.mutate()}
+                >
+                  {saveSupportContactsMutation.isPending ? "A guardar…" : "Guardar contactos"}
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card className="border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">

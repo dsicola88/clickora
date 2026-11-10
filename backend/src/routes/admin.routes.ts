@@ -29,6 +29,11 @@ adminRouter.post(
   brandingController.uploadFavicon,
 );
 adminRouter.delete("/branding/favicon", requireRole("super_admin"), brandingController.clearFavicon);
+adminRouter.patch(
+  "/branding/support-contacts",
+  requireRole("super_admin"),
+  brandingController.patchSupportContacts,
+);
 
 function handlePlansHeroUpload(req: Request, res: Response, next: NextFunction) {
   plansHeroUpload.single("hero_image")(req, res, (err: unknown) => {

@@ -1,12 +1,6 @@
 import { LegalDocLayout } from "@/components/legal/LegalDocLayout";
-import {
-  SITE_LEGAL_NAME,
-  SITE_SUPPORT_EMAIL,
-  SITE_SUPPORT_MAILTO,
-  SITE_SUPPORT_PHONE_DISPLAY,
-  SITE_SUPPORT_TEL,
-  SITE_SUPPORT_WHATSAPP,
-} from "@/lib/siteLegal";
+import { LegalSupportContact } from "@/components/legal/LegalSupportContact";
+import { SITE_LEGAL_NAME } from "@/lib/siteLegal";
 
 export default function LegalPrivacyPage() {
   return (
@@ -22,18 +16,7 @@ export default function LegalPrivacyPage() {
       <p>
         O responsável pelo tratamento dos dados associados à sua conta na plataforma é a entidade que opera este
         serviço (<strong>{SITE_LEGAL_NAME}</strong>). Para exercer os seus direitos ou questões de privacidade, contacte:{" "}
-        <a href={SITE_SUPPORT_MAILTO} className="text-primary underline underline-offset-2">
-          {SITE_SUPPORT_EMAIL}
-        </a>
-        {" · "}
-        <a href={SITE_SUPPORT_TEL} className="text-primary underline underline-offset-2">
-          {SITE_SUPPORT_PHONE_DISPLAY}
-        </a>
-        {" · "}
-        <a href={SITE_SUPPORT_WHATSAPP} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-          WhatsApp
-        </a>
-        .
+        <LegalSupportContact />.
       </p>
       <p className="text-sm text-muted-foreground">
         Se a sua organização tiver nome legal, sede e NIPC distintos, deve actualizar o texto no site e as variáveis

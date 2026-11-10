@@ -1,12 +1,6 @@
 import { LegalDocLayout } from "@/components/legal/LegalDocLayout";
-import {
-  SITE_LEGAL_NAME,
-  SITE_SUPPORT_EMAIL,
-  SITE_SUPPORT_MAILTO,
-  SITE_SUPPORT_PHONE_DISPLAY,
-  SITE_SUPPORT_TEL,
-  SITE_SUPPORT_WHATSAPP,
-} from "@/lib/siteLegal";
+import { LegalSupportContact } from "@/components/legal/LegalSupportContact";
+import { SITE_LEGAL_NAME } from "@/lib/siteLegal";
 
 /**
  * Isenção médica real e genérica (não inventa benefícios de produto).
@@ -46,20 +40,8 @@ export default function LegalMedicalDisclaimerPage() {
 
       <h2>4. Contacto</h2>
       <p>
-        Questões sobre este aviso ou sobre a plataforma:{" "}
-        <a href={SITE_SUPPORT_MAILTO} className="text-primary underline underline-offset-2">
-          {SITE_SUPPORT_EMAIL}
-        </a>
-        {" · "}
-        <a href={SITE_SUPPORT_TEL} className="text-primary underline underline-offset-2">
-          {SITE_SUPPORT_PHONE_DISPLAY}
-        </a>
-        {" · "}
-        <a href={SITE_SUPPORT_WHATSAPP} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-          WhatsApp
-        </a>
-        . Questões sobre um produto concreto devem ser dirigidas ao fabricante ou ao suporte do
-        site da oferta.
+        Questões sobre este aviso ou sobre a plataforma: <LegalSupportContact />. Questões sobre um produto
+        concreto devem ser dirigidas ao fabricante ou ao suporte do site da oferta.
       </p>
     </LegalDocLayout>
   );

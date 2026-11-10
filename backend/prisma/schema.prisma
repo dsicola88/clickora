@@ -842,12 +842,16 @@ model WhitelistedIp {
   @@map("whitelisted_ips")
 }
 
-/** Marca global da instalação (ex.: favicon). Uma linha id "default"; não é por assinante. */
+/** Marca global da instalação (ex.: favicon + contactos de suporte). Uma linha id "default"; não é por assinante. */
 model SiteBranding {
-  id          String   @id @default("default")
-  faviconExt  String?  @map("favicon_ext")
-  faviconMime String?  @map("favicon_mime")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default("default")
+  faviconExt    String?  @map("favicon_ext")
+  faviconMime   String?  @map("favicon_mime")
+  /** Contacto público (Ajuda, legais). Editável só por super_admin. */
+  supportEmail  String?  @map("support_email") @db.VarChar(255)
+  /** Telefone/WhatsApp internacional, ex. +244926510294. */
+  supportPhone  String?  @map("support_phone") @db.VarChar(32)
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("site_branding")
 }

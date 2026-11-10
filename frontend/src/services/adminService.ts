@@ -111,6 +111,18 @@ export const adminService = {
     }
   },
 
+  async patchSupportContacts(body: { support_email?: string | null; support_phone?: string | null }) {
+    return apiClient.patch<{
+      message?: string;
+      support_email?: string | null;
+      support_phone?: string | null;
+      support_phone_display?: string | null;
+      support_whatsapp_url?: string | null;
+      configured?: boolean;
+      error?: string;
+    }>("/admin/branding/support-contacts", body);
+  },
+
   async getPlansLanding() {
     return apiClient.get<PlansLandingPublic>("/admin/plans-landing");
   },
