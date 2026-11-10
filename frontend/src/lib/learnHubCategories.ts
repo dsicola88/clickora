@@ -170,18 +170,23 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
   {
     id: "problemas",
     title: "Algo correu menos bem",
-    description: "Sem vendas, sem GCLID, postback falhou.",
-    keywords: ["erro", "falha", "não aparece", "postback", "gclid", "buygoods", "smartadv"],
+    description: "Sem vendas, aviso de venda ou domínio a falhar.",
+    keywords: ["erro", "falha", "não aparece", "postback", "suporte", "whatsapp", "email", "contacto"],
     links: [
       {
+        to: "/ajuda#suporte",
+        label: "Contactar suporte",
+        hint: "Email e WhatsApp oficiais",
+      },
+      {
         to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`,
-        label: "Revê o guia operacional completo",
-        hint: "Passos 1–6 com BuyGoods/SmartAdv",
+        label: "Rever o guia completo",
+        hint: "Ordem correcta dos passos",
       },
       {
         to: "/integracoes/postback",
-        label: "Rever URL do postback",
-        hint: "Macros têm de coincidir com a doc da rede",
+        label: "Rever aviso de venda",
+        hint: "URL colado na rede",
       },
       {
         to: "/tracking/relatorios/sem-gclid",
@@ -190,12 +195,7 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
       },
       {
         to: "/tracking/tools/clique",
-        label: "Confirmar um clique concreto",
-        hint: "",
-      },
-      {
-        to: "/tracking/logs",
-        label: "Logs de postback",
+        label: "Confirmar um clique",
         hint: "",
       },
     ],
@@ -203,12 +203,13 @@ export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
   {
     id: "conta",
     title: "Conta e planos",
-    description: "Perfil, plano e webhook de afiliados.",
-    keywords: ["perfil", "plano", "billing", "webhook"],
+    description: "Perfil, plano e suporte.",
+    keywords: ["perfil", "plano", "billing", "suporte", "contacto"],
     links: [
       { to: "/conta", label: "Conta e segurança", hint: "" },
-      { to: "/configuracoes", label: "Configurações", hint: "Domínio, avançado" },
-      { to: "/planos", label: "Planos", hint: "Webhook de afiliados no plano" },
+      { to: "/configuracoes", label: "Configurações", hint: "Domínio" },
+      { to: "/planos", label: "Planos", hint: "" },
+      { to: "/ajuda#suporte", label: "Contactos de suporte", hint: "Email e WhatsApp" },
     ],
   },
 ];

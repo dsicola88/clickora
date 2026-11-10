@@ -17,6 +17,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { DashboardUserGuide } from "@/components/DashboardUserGuide";
+import { SupportContactsCard } from "@/components/SupportContactsCard";
 import { APP_PAGE_SHELL_LOOSE } from "@/lib/appPageLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,16 +87,18 @@ export default function InAppUserGuidePage() {
     <div className={cn(APP_PAGE_SHELL_LOOSE, "pb-12")}>
       <PageHeader
         centered
-        title="Aprender"
+        title="Ajuda e suporte"
         description={
           <>
-            Guia operacional completo: domínio sem WordPress → presell → campanha (GCLID) → postback BuyGoods/SmartAdv →
-            conversões. Use a pesquisa ou os{" "}
-            <span className="text-foreground/90">percursos guiados</span> em baixo — «Detalhes técnicos» só quando
-            precisar dos nomes exactos (subid, sub3, cid).
+            Guias rápidos para domínio, presell, anúncios e aviso de venda. Se precisar de ajuda directa, use os
+            contactos abaixo.
           </>
         }
       />
+
+      <div id="suporte" className="scroll-mt-24 max-w-3xl mx-auto w-full">
+        <SupportContactsCard title="Contactos de suporte" />
+      </div>
 
       <Card className="max-w-3xl mx-auto border-primary/25 bg-primary/[0.04]">
         <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -121,7 +124,7 @@ export default function InAppUserGuidePage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Procurar (presell, BuyGoods, SmartAdv, GCLID, postback…)…"
+            placeholder="Procurar (presell, domínio, aviso de venda, Google Ads…)"
             className="pl-9 h-11 bg-background"
             aria-label="Pesquisar no centro de ajuda"
           />

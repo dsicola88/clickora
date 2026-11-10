@@ -6,6 +6,7 @@ import { EnterpriseApiKeysPanel } from "@/components/settings/EnterpriseApiKeysP
 import { EnterpriseTenantBrandingPanel } from "@/components/settings/EnterpriseTenantBrandingPanel";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
 import { BrandKitProCard } from "@/components/BrandKitProCard";
+import { SupportContactsCard } from "@/components/SupportContactsCard";
 import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
@@ -91,6 +92,8 @@ export default function SettingsHubPage() {
           ))}
         </div>
       </ProPanel>
+
+      <SupportContactsCard compact title="Suporte" />
     </div>
   );
 }

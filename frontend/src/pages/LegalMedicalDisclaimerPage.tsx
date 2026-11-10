@@ -1,12 +1,18 @@
 import { LegalDocLayout } from "@/components/legal/LegalDocLayout";
-import { SITE_LEGAL_NAME, SITE_SUPPORT_EMAIL } from "@/lib/siteLegal";
+import {
+  SITE_LEGAL_NAME,
+  SITE_SUPPORT_EMAIL,
+  SITE_SUPPORT_MAILTO,
+  SITE_SUPPORT_PHONE_DISPLAY,
+  SITE_SUPPORT_TEL,
+  SITE_SUPPORT_WHATSAPP,
+} from "@/lib/siteLegal";
 
 /**
  * Isenção médica real e genérica (não inventa benefícios de produto).
  * Exigida em páginas de bem-estar / suplementos para transparência Ads.
  */
 export default function LegalMedicalDisclaimerPage() {
-  const mail = `mailto:${SITE_SUPPORT_EMAIL}`;
   return (
     <LegalDocLayout title="Aviso de isenção médica">
       <p className="lead text-muted-foreground text-base not-prose mb-8">
@@ -41,8 +47,16 @@ export default function LegalMedicalDisclaimerPage() {
       <h2>4. Contacto</h2>
       <p>
         Questões sobre este aviso ou sobre a plataforma:{" "}
-        <a href={mail} className="text-primary underline underline-offset-2">
+        <a href={SITE_SUPPORT_MAILTO} className="text-primary underline underline-offset-2">
           {SITE_SUPPORT_EMAIL}
+        </a>
+        {" · "}
+        <a href={SITE_SUPPORT_TEL} className="text-primary underline underline-offset-2">
+          {SITE_SUPPORT_PHONE_DISPLAY}
+        </a>
+        {" · "}
+        <a href={SITE_SUPPORT_WHATSAPP} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+          WhatsApp
         </a>
         . Questões sobre um produto concreto devem ser dirigidas ao fabricante ou ao suporte do
         site da oferta.

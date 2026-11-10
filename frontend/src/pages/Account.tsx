@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/PageHeader";
 import { DASHBOARD_USER_GUIDE_DISMISSED_KEY } from "@/components/DashboardUserGuide";
+import { SupportContactsCard } from "@/components/SupportContactsCard";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { toast } from "sonner";
 import { AccountMfaSection } from "@/components/account/AccountMfaSection";
@@ -493,9 +494,15 @@ export default function Account() {
             <Link to="/termos" className="text-primary underline underline-offset-2">
               Termos
             </Link>
+            {" · "}
+            <Link to="/ajuda#suporte" className="text-primary underline underline-offset-2">
+              Suporte
+            </Link>
           </>
         }
       />
+
+      <SupportContactsCard className="max-w-3xl" compact title="Precisa de ajuda?" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/80">

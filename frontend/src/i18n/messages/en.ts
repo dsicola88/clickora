@@ -692,8 +692,8 @@ export const en = {
       catAccess: "Access",
     },
     help: {
-      title: "Help",
-      subtitle: "In-app guide and FAQs.",
+      title: "Help & support",
+      subtitle: "Quick guides and official contacts.",
     },
 
     analytics: {

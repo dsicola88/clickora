@@ -1,8 +1,14 @@
 import { LegalDocLayout } from "@/components/legal/LegalDocLayout";
-import { SITE_LEGAL_NAME, SITE_SUPPORT_EMAIL } from "@/lib/siteLegal";
+import {
+  SITE_LEGAL_NAME,
+  SITE_SUPPORT_EMAIL,
+  SITE_SUPPORT_MAILTO,
+  SITE_SUPPORT_PHONE_DISPLAY,
+  SITE_SUPPORT_TEL,
+  SITE_SUPPORT_WHATSAPP,
+} from "@/lib/siteLegal";
 
 export default function LegalPrivacyPage() {
-  const mail = `mailto:${SITE_SUPPORT_EMAIL}`;
   return (
     <LegalDocLayout title="Política de privacidade">
       <p className="lead text-muted-foreground text-base not-prose mb-8">
@@ -16,8 +22,16 @@ export default function LegalPrivacyPage() {
       <p>
         O responsável pelo tratamento dos dados associados à sua conta na plataforma é a entidade que opera este
         serviço (<strong>{SITE_LEGAL_NAME}</strong>). Para exercer os seus direitos ou questões de privacidade, contacte:{" "}
-        <a href={mail} className="text-primary underline underline-offset-2">
+        <a href={SITE_SUPPORT_MAILTO} className="text-primary underline underline-offset-2">
           {SITE_SUPPORT_EMAIL}
+        </a>
+        {" · "}
+        <a href={SITE_SUPPORT_TEL} className="text-primary underline underline-offset-2">
+          {SITE_SUPPORT_PHONE_DISPLAY}
+        </a>
+        {" · "}
+        <a href={SITE_SUPPORT_WHATSAPP} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+          WhatsApp
         </a>
         .
       </p>

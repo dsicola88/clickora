@@ -664,8 +664,8 @@ export const pt = {
       "catAccess": "Access"
     },
     "help": {
-      "title": "Ajuda",
-      "subtitle": "Guia na app e perguntas frequentes."
+      "title": "Ajuda e suporte",
+      "subtitle": "Guias rápidos e contactos oficiais."
     },
     "analytics": {
       "title": "Análises",

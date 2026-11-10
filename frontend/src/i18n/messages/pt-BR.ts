@@ -664,8 +664,8 @@ export const ptBR = {
       "catAccess": "Access"
     },
     "help": {
-      "title": "Ajuda",
-      "subtitle": "Guia no app e perguntas frequentes."
+      "title": "Ajuda e suporte",
+      "subtitle": "Guias rápidos e contactos oficiais."
     },
     "analytics": {
       "title": "Análises",
